@@ -39,7 +39,7 @@ interface AppState {
   loading: boolean;
   loadingText: string;
   isUpdating: boolean;
-  currentTab: 'checkin' | 'schedule' | 'history' | 'admin';
+  currentTab: 'checkin' | 'schedule' | 'history' | 'swap' | 'admin';
   shiftName: string;
   currentTime: string;
 

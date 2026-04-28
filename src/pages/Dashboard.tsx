@@ -1,11 +1,12 @@
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import { computeWeekInfo } from '../utils/helpers';
-import { Sun, Moon, Power, Camera, Calendar, Clock3, ShieldAlert } from 'lucide-react';
+import { Sun, Moon, Power, Camera, Calendar, Clock3, ShieldAlert, ArrowLeftRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CheckIn from './CheckIn';
 import Schedule from './Schedule';
 import ActivityHistory from './ActivityHistory';
+import SwapShift from './SwapShift';
 import Admin from './Admin';
 
 export default function Dashboard() {
@@ -47,7 +48,8 @@ export default function Dashboard() {
 
   const tabs = [
     { id: 'checkin' as const, label: 'Chấm công', icon: Camera },
-    { id: 'schedule' as const, label: 'Đăng ký ca', icon: Calendar, showBadge: !isScheduleRegistered },
+    { id: 'schedule' as const, label: 'Đăng ký', icon: Calendar, showBadge: !isScheduleRegistered },
+    { id: 'swap' as const, label: 'Đổi ca', icon: ArrowLeftRight },
     { id: 'history' as const, label: 'Lịch sử', icon: Clock3 },
     { id: 'admin' as const, label: 'Admin', icon: ShieldAlert },
   ];
@@ -77,13 +79,13 @@ export default function Dashboard() {
 
       {/* Tab Menu */}
       <div className="px-3 pt-2 bg-white dark:bg-gray-900 sticky top-[76px] z-30">
-        <div className="grid grid-cols-4 gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl">
+        <div className="grid grid-cols-5 gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = currentTab === tab.id;
             return (
               <button key={tab.id} onClick={() => handleTabChange(tab.id)}
-                className={`py-2.5 rounded-lg text-xs font-bold transition-all text-center touch-manipulation flex flex-col items-center justify-center min-h-[50px] relative ${isActive ? 'bg-white dark:bg-gray-700 text-ocean-600 dark:text-white shadow-sm ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}>
+                className={`py-2.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all text-center touch-manipulation flex flex-col items-center justify-center min-h-[50px] relative ${isActive ? 'bg-white dark:bg-gray-700 text-ocean-600 dark:text-white shadow-sm ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}>
                 <Icon size={14} className="mb-1" />
                 {tab.label}
                 {tab.showBadge && <span className="absolute top-1 right-2 w-2 h-2 bg-red-500 rounded-full animate-ping" />}
@@ -106,6 +108,7 @@ export default function Dashboard() {
           >
             {currentTab === 'checkin' && <CheckIn />}
             {currentTab === 'schedule' && <Schedule />}
+            {currentTab === 'swap' && <SwapShift />}
             {currentTab === 'history' && <ActivityHistory />}
             {currentTab === 'admin' && <Admin />}
           </motion.div>
