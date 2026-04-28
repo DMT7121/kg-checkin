@@ -10,6 +10,17 @@ export interface User {
   role?: string;
 }
 
+export interface SwapRequest {
+  id: string;
+  username: string;
+  fullname: string;
+  dayName: string;
+  shift: string;
+  date: string;
+  reason: string;
+  createdAt: number;
+}
+
 export interface LogEntry {
   fullname: string;
   type: string;
@@ -83,6 +94,10 @@ interface AppState {
   // Anti-spam
   lastCheckInTime: number;
 
+  // Swap Shift
+  swapRequests: SwapRequest[];
+  hasNewSwaps: boolean;
+
   // Actions
   setCurrentUser: (user: User | null) => void;
   setRememberMe: (v: boolean) => void;
@@ -115,6 +130,10 @@ interface AppState {
   setPreviewOpen: (v: boolean) => void;
   setPreviewImageUrl: (v: string) => void;
   setLastCheckInTime: (v: number) => void;
+  setSwapRequests: (v: SwapRequest[]) => void;
+  addSwapRequest: (v: SwapRequest) => void;
+  setHasNewSwaps: (v: boolean) => void;
+  removeSwapRequest: (id: string) => void;
   logout: () => void;
 }
 
@@ -165,6 +184,21 @@ export const useAppStore = create<AppState>((set) => ({
   // Anti-spam
   lastCheckInTime: 0,
 
+  // Swap Shift
+  swapRequests: [
+    {
+      id: 'mock-1',
+      username: 'admin',
+      fullname: 'Admin King Grill',
+      dayName: 'Thứ 7',
+      shift: 'CA TỐI (17:00-22:30)',
+      date: 'N/A',
+      reason: 'Bận việc gia đình đột xuất',
+      createdAt: Date.now() - 3600000
+    }
+  ],
+  hasNewSwaps: true,
+
   // Actions
   setCurrentUser: (user) => set({ currentUser: user }),
   setRememberMe: (v) => set({ rememberMe: v }),
@@ -209,6 +243,10 @@ export const useAppStore = create<AppState>((set) => ({
   setPreviewOpen: (isPreviewOpen) => set({ isPreviewOpen }),
   setPreviewImageUrl: (previewImageUrl) => set({ previewImageUrl }),
   setLastCheckInTime: (lastCheckInTime) => set({ lastCheckInTime }),
+  setSwapRequests: (swapRequests) => set({ swapRequests }),
+  addSwapRequest: (req) => set((s) => ({ swapRequests: [req, ...s.swapRequests], hasNewSwaps: true })),
+  setHasNewSwaps: (hasNewSwaps) => set({ hasNewSwaps }),
+  removeSwapRequest: (id) => set((s) => ({ swapRequests: s.swapRequests.filter(r => r.id !== id) })),
 
   logout: () => {
     localStorage.removeItem('kg_user');

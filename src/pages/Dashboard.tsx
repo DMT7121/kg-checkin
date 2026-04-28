@@ -49,7 +49,7 @@ export default function Dashboard() {
   const tabs = [
     { id: 'checkin' as const, label: 'Chấm công', icon: Camera },
     { id: 'schedule' as const, label: 'Đăng ký', icon: Calendar, showBadge: !isScheduleRegistered },
-    { id: 'swap' as const, label: 'Đổi ca', icon: ArrowLeftRight },
+    { id: 'swap' as const, label: 'Đổi ca', icon: ArrowLeftRight, showBadge: store.hasNewSwaps },
     { id: 'history' as const, label: 'Lịch sử', icon: Clock3 },
     { id: 'admin' as const, label: 'Admin', icon: ShieldAlert },
   ];
