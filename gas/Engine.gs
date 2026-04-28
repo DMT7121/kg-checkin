@@ -860,7 +860,7 @@ function sheetsApiBatchWrite(spreadsheetId, dataArray) {
 // ==========================================
 
 function handleGetPosts() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = getSS();
   var sheet = ss.getSheetByName("Posts");
   if (!sheet) return { ok: true, data: [] }; 
 
@@ -884,7 +884,7 @@ function handleGetPosts() {
 }
 
 function handleAddPost(payload) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = getSS();
   var sheet = ss.getSheetByName("Posts");
   if (!sheet) {
     sheet = ss.insertSheet("Posts");
@@ -904,7 +904,7 @@ function handleAddPost(payload) {
 }
 
 function handleInteractPost(payload) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = getSS();
   var sheet = ss.getSheetByName("Posts");
   if (!sheet) return { ok: false, message: "Không tìm thấy CSDL Bảng tin" };
 
