@@ -862,10 +862,10 @@ function sheetsApiBatchWrite(spreadsheetId, dataArray) {
 function handleGetPosts() {
   var ss = getSS();
   var sheet = ss.getSheetByName("Posts");
-  if (!sheet) return { ok: true, data: [] }; 
+  if (!sheet) return jsonResponse(true, []); 
 
   var data = sheet.getDataRange().getValues();
-  if (data.length <= 1) return { ok: true, data: [] };
+  if (data.length <= 1) return jsonResponse(true, []);
 
   var posts = [];
   // Lấy từ dưới lên trên (bài mới nhất lên đầu)
@@ -880,7 +880,7 @@ function handleGetPosts() {
       time: "Gần đây"
     });
   }
-  return { ok: true, data: posts };
+  return jsonResponse(true, posts);
 }
 
 function handleAddPost(payload) {
@@ -900,13 +900,13 @@ function handleAddPost(payload) {
     "[]"  // Comments
   ]);
   
-  return { ok: true, message: "Đã đăng bài" };
+  return jsonResponse(true, "Đã đăng bài");
 }
 
 function handleInteractPost(payload) {
   var ss = getSS();
   var sheet = ss.getSheetByName("Posts");
-  if (!sheet) return { ok: false, message: "Không tìm thấy CSDL Bảng tin" };
+  if (!sheet) return jsonResponse(false, "Không tìm thấy CSDL Bảng tin");
 
   var data = sheet.getDataRange().getValues();
   var rowIndex = -1;
@@ -917,7 +917,7 @@ function handleInteractPost(payload) {
     }
   }
 
-  if (rowIndex === -1) return { ok: false, message: "Không tìm thấy bài viết" };
+  if (rowIndex === -1) return jsonResponse(false, "Không tìm thấy bài viết");
 
   // Xử lý LIKE
   if (payload.action === 'LIKE') {
@@ -943,5 +943,5 @@ function handleInteractPost(payload) {
     sheet.getRange(rowIndex, 5).setValue(JSON.stringify(comments));
   }
 
-  return { ok: true, message: "Đã tương tác" };
+  return jsonResponse(true, "Đã tương tác");
 }
