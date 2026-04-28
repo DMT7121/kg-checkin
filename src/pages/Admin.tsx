@@ -224,7 +224,49 @@ export default function Admin() {
 
   // === UNLOCKED STATE ===
   return (
-    <div className="p-4 space-y-4 animate-slide-up">
+    <div className="p-4 space-y-4 animate-slide-up pb-10">
+      {/* Admin Analytics Hub (Heatmap) */}
+      <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+        <h3 className="font-bold flex items-center text-gray-800 dark:text-white mb-4 border-b dark:border-gray-700 pb-2">
+          <Cpu size={18} className="mr-2 text-ocean-600" /> Admin Analytics Hub
+        </h3>
+        
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="bg-ocean-50 dark:bg-ocean-900/20 p-3 rounded-xl border border-ocean-100 dark:border-ocean-800 text-center">
+            <p className="text-xs text-ocean-600 dark:text-ocean-400 font-bold mb-1">Tỷ lệ đúng giờ tuần này</p>
+            <p className="text-2xl font-extrabold text-ocean-700 dark:text-ocean-300">92%</p>
+          </div>
+          <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-100 dark:border-red-800 text-center">
+            <p className="text-xs text-red-600 dark:text-red-400 font-bold mb-1">Vi phạm (Trễ/Nghỉ)</p>
+            <p className="text-2xl font-extrabold text-red-700 dark:text-red-300">4</p>
+          </div>
+        </div>
+
+        <div>
+          <p className="text-xs font-bold text-gray-500 mb-2">Bản đồ nhiệt độ chuyên cần (Tuần này)</p>
+          <div className="flex gap-2 overflow-x-auto pb-2 hide-scrollbar">
+            {users.map(u => (
+              <div key={u.username} className="flex flex-col gap-1 items-center">
+                <span className="text-[9px] font-bold text-gray-400 mb-1 w-10 truncate text-center">{u.fullname.split(' ').pop()}</span>
+                {Array.from({length: 7}).map((_, i) => {
+                  // Mock heatmap data pseudo-randomly based on name length to avoid flickering on re-renders
+                  const rand = (u.fullname.length * 13 + i * 7) % 10;
+                  const color = rand > 8 ? 'bg-red-500' : rand > 6 ? 'bg-yellow-400' : rand > 1 ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-700';
+                  return (
+                    <div key={i} className={`w-8 h-8 rounded-md ${color} opacity-80`} title={`Thứ ${i+2}`}></div>
+                  )
+                })}
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center justify-end mt-2 space-x-3 text-[10px] text-gray-500 font-medium">
+            <div className="flex items-center"><div className="w-2.5 h-2.5 bg-green-500 rounded-sm mr-1 opacity-80"></div> Đúng giờ</div>
+            <div className="flex items-center"><div className="w-2.5 h-2.5 bg-yellow-400 rounded-sm mr-1 opacity-80"></div> Trễ</div>
+            <div className="flex items-center"><div className="w-2.5 h-2.5 bg-red-500 rounded-sm mr-1 opacity-80"></div> Vắng/Nghỉ</div>
+          </div>
+        </div>
+      </div>
+
       {/* Schedule approval */}
       <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
         <div className="flex justify-between items-center mb-4 border-b dark:border-gray-700 pb-2">
