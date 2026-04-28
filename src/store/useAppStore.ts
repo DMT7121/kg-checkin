@@ -10,6 +10,25 @@ export interface User {
   role?: string;
 }
 
+export interface Comment {
+  id: number;
+  author: string;
+  content: string;
+  time: string;
+}
+
+export interface Post {
+  id: number;
+  author: string;
+  role: string;
+  time: string;
+  content: string;
+  image?: string;
+  likes: string[];
+  comments: Comment[];
+  hasRead?: boolean;
+}
+
 export interface SwapRequest {
   id: string;
   username: string;
@@ -102,6 +121,7 @@ interface AppState {
   setCurrentUser: (user: User | null) => void;
   setRememberMe: (v: boolean) => void;
   setDark: (v: boolean) => void;
+  setPosts: (posts: Post[]) => void;
   toggleDarkMode: () => void;
   setLoading: (v: boolean, text?: string) => void;
   setUpdating: (v: boolean) => void;
@@ -162,6 +182,7 @@ export const useAppStore = create<AppState>((set) => ({
   logs: [],
   stats: { totalCheckIn: 0, validCount: 0 },
   users: [],
+  posts: [],
 
   // Schedule
   isScheduleRegistered: false,
@@ -207,6 +228,7 @@ export const useAppStore = create<AppState>((set) => ({
     else document.documentElement.classList.remove('dark');
     set({ isDark });
   },
+  setPosts: (posts) => set({ posts }),
   toggleDarkMode: () =>
     set((s) => {
       const newDark = !s.isDark;
