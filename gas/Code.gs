@@ -72,6 +72,9 @@ function doPost(e) {
       case 'TEST_EMAIL': return handleTestEmail(payload);
       case 'SET_MASTER_PIN': return handleSetMasterPin(payload);
       case 'GET_SCHEDULE_HISTORY': return handleGetScheduleHistory(payload);
+      case 'GET_POSTS': return handleGetPosts();
+      case 'ADD_POST': return handleAddPost(payload);
+      case 'INTERACT_POST': return handleInteractPost(payload);
       default: throw new Error('Unknown Action');
     }
   } catch (error) {

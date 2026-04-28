@@ -854,3 +854,94 @@ function sheetsApiBatchWrite(spreadsheetId, dataArray) {
     return false;
   }
 }
+
+// ==========================================
+// TÍNH NĂNG BẢNG TIN (NEWS FEED)
+// ==========================================
+
+function handleGetPosts() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("Posts");
+  if (!sheet) return { ok: true, data: [] }; 
+
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return { ok: true, data: [] };
+
+  var posts = [];
+  // Lấy từ dưới lên trên (bài mới nhất lên đầu)
+  for (var i = data.length - 1; i > 0; i--) {
+    var row = data[i];
+    posts.push({
+      id: row[0],
+      author: row[1],
+      content: row[2],
+      likes: row[3] ? JSON.parse(row[3]) : [],
+      comments: row[4] ? JSON.parse(row[4]) : [],
+      time: "Gần đây"
+    });
+  }
+  return { ok: true, data: posts };
+}
+
+function handleAddPost(payload) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("Posts");
+  if (!sheet) {
+    sheet = ss.insertSheet("Posts");
+    sheet.appendRow(["ID", "Author", "Content", "Likes", "Comments"]);
+  }
+  
+  var newId = new Date().getTime();
+  sheet.appendRow([
+    newId,
+    payload.author,
+    payload.content,
+    "[]", // Likes
+    "[]"  // Comments
+  ]);
+  
+  return { ok: true, message: "Đã đăng bài" };
+}
+
+function handleInteractPost(payload) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("Posts");
+  if (!sheet) return { ok: false, message: "Không tìm thấy CSDL Bảng tin" };
+
+  var data = sheet.getDataRange().getValues();
+  var rowIndex = -1;
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0].toString() === payload.postId.toString()) {
+      rowIndex = i + 1;
+      break;
+    }
+  }
+
+  if (rowIndex === -1) return { ok: false, message: "Không tìm thấy bài viết" };
+
+  // Xử lý LIKE
+  if (payload.action === 'LIKE') {
+    var likes = data[rowIndex-1][3] ? JSON.parse(data[rowIndex-1][3]) : [];
+    var userIndex = likes.indexOf(payload.username);
+    if (userIndex > -1) {
+      likes.splice(userIndex, 1); // Unlike
+    } else {
+      likes.push(payload.username); // Like
+    }
+    sheet.getRange(rowIndex, 4).setValue(JSON.stringify(likes));
+  }
+  
+  // Xử lý COMMENT
+  if (payload.action === 'COMMENT') {
+    var comments = data[rowIndex-1][4] ? JSON.parse(data[rowIndex-1][4]) : [];
+    comments.push({
+      id: new Date().getTime(),
+      author: payload.author,
+      content: payload.content,
+      time: "Vừa xong"
+    });
+    sheet.getRange(rowIndex, 5).setValue(JSON.stringify(comments));
+  }
+
+  return { ok: true, message: "Đã tương tác" };
+}
