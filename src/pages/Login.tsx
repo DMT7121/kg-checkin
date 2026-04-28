@@ -3,7 +3,7 @@ import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import { speak, computeWeekInfo } from '../utils/helpers';
 import Swal from 'sweetalert2';
-import { User, Lock, Eye, EyeOff, ChevronLeft, ArrowRight } from 'lucide-react';
+import { User, Lock, Eye, EyeOff, ChevronLeft, ArrowRight, Fingerprint } from 'lucide-react';
 
 export default function Login() {
   const store = useAppStore();
@@ -12,11 +12,12 @@ export default function Login() {
   const [registerForm, setRegisterForm] = useState({ username: '', password: '', fullname: '', dob: '', email: '' });
   const [showPass, setShowPass] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleLogin = async (e?: React.FormEvent, bioCreds?: {username: string, password: string}) => {
+    if (e) e.preventDefault();
     store.setLoading(true, 'Đang kết nối Server...');
 
-    const res = await callApi('LOGIN', loginForm);
+    const payload = bioCreds || loginForm;
+    const res = await callApi('LOGIN', payload);
     store.setLoading(false);
 
     if (res?.ok) {
@@ -49,6 +50,43 @@ export default function Login() {
 
       speak('Đăng nhập thành công. Xin chào ' + res.data.fullname);
       Swal.fire({ icon: 'success', title: 'Xin chào ' + res.data.fullname, toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
+
+      // PROMPT BIOMETRICS
+      if (window.PublicKeyCredential && !localStorage.getItem('kg_bio_auth')) {
+        setTimeout(() => {
+          Swal.fire({
+            title: 'Bật Sinh Trắc Học?',
+            text: 'Dùng FaceID / Vân tay cho các lần đăng nhập sau?',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Bật ngay',
+            cancelButtonText: 'Không, cảm ơn',
+          }).then(async (result) => {
+            if (result.isConfirmed) {
+              try {
+                await navigator.credentials.create({
+                  publicKey: {
+                    challenge: window.crypto.getRandomValues(new Uint8Array(32)),
+                    rp: { name: "King's Grill", id: window.location.hostname },
+                    user: {
+                      id: window.crypto.getRandomValues(new Uint8Array(16)),
+                      name: payload.username,
+                      displayName: res.data.fullname,
+                    },
+                    pubKeyCredParams: [{ alg: -7, type: "public-key" }, { alg: -257, type: "public-key" }],
+                    authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required" },
+                    timeout: 60000,
+                  }
+                });
+                localStorage.setItem('kg_bio_auth', btoa(JSON.stringify({ u: payload.username, p: payload.password })));
+                Swal.fire('Thành công', 'Đã bật đăng nhập bằng sinh trắc học', 'success');
+              } catch (e) {
+                console.error(e);
+              }
+            }
+          });
+        }, 1500);
+      }
 
       // Fetch data in background (non-blocking for faster login)
       callApi('GET_DATA', {
@@ -83,6 +121,28 @@ export default function Login() {
     } else if (res) {
       speak('Đăng nhập thất bại');
       Swal.fire('Thất bại', res.message, 'error');
+    }
+  };
+
+  const handleBiometricLogin = async () => {
+    try {
+      const assertion = await navigator.credentials.get({
+        publicKey: {
+          challenge: window.crypto.getRandomValues(new Uint8Array(32)),
+          rpId: window.location.hostname,
+          userVerification: "required",
+        }
+      });
+      if (assertion) {
+        const saved = localStorage.getItem('kg_bio_auth');
+        if (saved) {
+          const auth = JSON.parse(atob(saved));
+          handleLogin(undefined, { username: auth.u, password: auth.p });
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      Swal.fire('Thất bại', 'Đăng nhập sinh trắc học bị hủy hoặc thất bại', 'error');
     }
   };
 
@@ -137,6 +197,11 @@ export default function Login() {
             <button type="submit" className="w-full bg-gradient-to-r from-ocean-600 to-ocean-500 text-white font-bold py-3.5 rounded-xl shadow-lg hover:shadow-ocean-500/50 transition-all transform hover:-translate-y-0.5 active:scale-95 min-h-[44px] touch-manipulation flex items-center justify-center">
               ĐĂNG NHẬP <ArrowRight size={14} className="ml-2 opacity-80" />
             </button>
+            {localStorage.getItem('kg_bio_auth') && (
+              <button type="button" onClick={handleBiometricLogin} className="w-full mt-4 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white font-bold py-3.5 rounded-xl shadow-sm hover:bg-gray-200 dark:hover:bg-gray-600 transition-all transform hover:-translate-y-0.5 active:scale-95 min-h-[44px] touch-manipulation flex items-center justify-center border border-gray-200 dark:border-gray-600">
+                <Fingerprint size={18} className="mr-2 text-ocean-600 dark:text-ocean-400" /> FaceID / Vân tay
+              </button>
+            )}
           </form>
           <div className="mt-8 text-center text-sm">
             <button onClick={() => setMode('register')} className="text-ocean-600 dark:text-ocean-400 font-bold hover:underline min-h-[44px]">Đăng ký nhân viên mới</button>
