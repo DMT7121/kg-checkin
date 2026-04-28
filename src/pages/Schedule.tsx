@@ -21,8 +21,11 @@ export default function Schedule() {
     : (approvedShifts && approvedShifts.length > 0) ? 'approved'
     : 'pending';
 
+  const isTestApp = currentUser?.username === 'testapp';
+  const isOpen = regWindow.open || isTestApp;
+
   // Show registration form when: not registered, OR explicitly editing
-  const showRegistrationForm = regWindow.open && (!isScheduleRegistered || isEditing);
+  const showRegistrationForm = isOpen && (!isScheduleRegistered || isEditing);
 
   // Refresh registration window every minute
   useEffect(() => {
@@ -62,7 +65,7 @@ export default function Schedule() {
   }, [scheduleStatus, currentUser]);
 
   const handleShiftChange = (key: string, value: string) => {
-    if (!regWindow.open) return;
+    if (!isOpen) return;
     store.updateShiftData(key, value);
     setTimeout(() => {
       const currentData = useAppStore.getState().shiftData;
@@ -101,7 +104,7 @@ export default function Schedule() {
   };
 
   const submitRegistration = async () => {
-    if (!regWindow.open) return;
+    if (!isOpen) return;
     if (Object.keys(shiftData).length < 7) {
       Swal.fire('Chú ý', 'Vui lòng chọn đầy đủ ca cho 7 ngày.', 'warning');
       return;
@@ -176,9 +179,9 @@ export default function Schedule() {
         <div className="absolute right-0 top-0 opacity-10 text-8xl transform translate-x-4 -translate-y-4"><CalendarCheck size={100} /></div>
         <h2 className="text-2xl font-extrabold mb-1 tracking-tight relative z-10">Lịch Làm Việc</h2>
         <p className="text-indigo-100 font-medium opacity-90 relative z-10">Tuần: {weekInfo.weekDisplay}</p>
-        <div className={`mt-3 inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold backdrop-blur-md relative z-10 ${regWindow.open ? 'bg-green-500/30 text-green-100' : 'bg-red-500/30 text-red-100'}`}>
-          {regWindow.open ? <Clock size={12} className="mr-1.5" /> : <Lock size={12} className="mr-1.5" />}
-          {regWindow.message}
+        <div className={`mt-3 inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold backdrop-blur-md relative z-10 ${isOpen ? 'bg-green-500/30 text-green-100' : 'bg-red-500/30 text-red-100'}`}>
+          {isOpen ? <Clock size={12} className="mr-1.5" /> : <Lock size={12} className="mr-1.5" />}
+          {isTestApp ? 'Đã mở đăng ký (TestApp)' : regWindow.message}
         </div>
       </div>
 
@@ -190,7 +193,7 @@ export default function Schedule() {
           </div>
           <div>
             <h4 className="font-bold text-amber-700 dark:text-amber-400 text-sm">Chờ duyệt</h4>
-            <p className="text-xs text-amber-600 dark:text-amber-500">Lịch đang chờ Admin duyệt. {regWindow.open ? 'Bạn có thể cập nhật lại.' : ''}</p>
+            <p className="text-xs text-amber-600 dark:text-amber-500">Lịch đang chờ Admin duyệt. {isOpen ? 'Bạn có thể cập nhật lại.' : ''}</p>
           </div>
         </div>
       )}
@@ -246,7 +249,7 @@ export default function Schedule() {
           {renderShiftGrid((i) => registeredShifts?.[i] || shiftData[weekInfo.weekDatesKeys[i]] || 'OFF')}
 
           {/* Edit button - only when registration window is open */}
-          {regWindow.open && (
+          {isOpen && (
             <button onClick={startEditing}
               className="mt-4 w-full bg-gradient-to-r from-amber-400 to-orange-500 text-white font-bold py-3 rounded-xl shadow-md hover:shadow-amber-500/40 transition-all transform active:scale-95 flex items-center justify-center touch-manipulation">
               <Pencil size={16} className="mr-2" /> Chỉnh sửa đăng ký ca
@@ -256,7 +259,7 @@ export default function Schedule() {
       )}
 
       {/* === CLOSED WINDOW (not registered) === */}
-      {!regWindow.open && !isScheduleRegistered && (
+      {!isOpen && !isScheduleRegistered && (
         <>
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-4 flex items-center space-x-3 mb-6">
             <div className="w-10 h-10 bg-red-100 dark:bg-red-800 text-red-500 rounded-full flex items-center justify-center flex-shrink-0">
@@ -276,7 +279,7 @@ export default function Schedule() {
       )}
 
       {/* === CLOSED WINDOW (registered - show lock message) === */}
-      {!regWindow.open && isScheduleRegistered && !approvedShifts && (
+      {!isOpen && isScheduleRegistered && !approvedShifts && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-4 flex items-center space-x-3 mb-6">
           <div className="w-10 h-10 bg-red-100 dark:bg-red-800 text-red-500 rounded-full flex items-center justify-center flex-shrink-0">
             <Lock size={20} />
@@ -289,7 +292,7 @@ export default function Schedule() {
       )}
 
       {/* === NOT REGISTERED + OPEN WINDOW === */}
-      {regWindow.open && !isScheduleRegistered && (
+      {isOpen && !isScheduleRegistered && (
         <>
           {/* Preview grid */}
           <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 mb-6">

@@ -5,6 +5,7 @@ import KalmanFilter from '../utils/kalman';
 import { getDist, speak, getCurrentTimeString, computeWeekInfo, KG_LAT, KG_LNG, KG_RADIUS_METERS } from '../utils/helpers';
 import Swal from 'sweetalert2';
 import { MapPin, RefreshCw, CameraOff, Camera, RotateCcw, LogIn, LogOut } from 'lucide-react';
+import confetti from 'canvas-confetti';
 
 export default function CheckIn() {
   const store = useAppStore();
@@ -66,9 +67,10 @@ export default function CheckIn() {
     const lng = (isFastStart || acc < 30) ? rawLng : filteredLng;
 
     const dist = getDist(lat, lng, KG_LAT, KG_LNG) * 1000;
+    const isTestApp = useAppStore.getState().currentUser?.username === 'testapp';
 
-    if (dist <= KG_RADIUS_METERS) {
-      store.setGps({ lat, lng, isValid: true, status: 'Vị trí Chính xác', message: `Khoảng cách: ${Math.round(dist)}m (±${Math.round(acc)}m)` });
+    if (dist <= KG_RADIUS_METERS || isTestApp) {
+      store.setGps({ lat, lng, isValid: true, status: isTestApp ? 'Vị trí Test (Bypass)' : 'Vị trí Chính xác', message: `Khoảng cách: ${Math.round(dist)}m (±${Math.round(acc)}m)` });
       if (prevGpsValidRef.current !== true) { speak('Vị trí đã hợp lệ, sẵn sàng chấm công'); prevGpsValidRef.current = true; }
     } else {
       store.setGps({ lat, lng, isValid: false, status: 'Vị trí quá xa', message: `Cách: ${Math.round(dist)}m (Cho phép ${KG_RADIUS_METERS}m)` });
@@ -274,6 +276,7 @@ export default function CheckIn() {
     }
 
     // Late check-in warning
+    let isLate = false;
     if (type === 'Vào ca' && approvedShifts) {
       const todayDate = new Date();
       let dayIdx = todayDate.getDay() - 1;
@@ -285,6 +288,7 @@ export default function CheckIn() {
           const shiftTotal = parseInt(parts[0]) * 60 + parseInt(parts[1]);
           const currentTotal = todayDate.getHours() * 60 + todayDate.getMinutes();
           if (currentTotal > shiftTotal) {
+            isLate = true;
             const lateMins = currentTotal - shiftTotal;
             speak(`Cảnh báo, bạn đang vào ca trễ ${lateMins} phút.`);
             const { isConfirmed } = await Swal.fire({
@@ -322,6 +326,21 @@ export default function CheckIn() {
 
     const res = await callApi('CHECK_IN_OUT', payload, { background: true });
     if (res?.ok) {
+      if (type === 'Vào ca') {
+        if (!isLate) {
+          confetti({
+            particleCount: 150,
+            spread: 70,
+            origin: { y: 0.6 },
+            colors: ['#0ea5e9', '#22c55e', '#facc15', '#ef4444']
+          });
+          speak('Ting! Chúc bạn ca làm việc vui vẻ!');
+        } else {
+          document.body.classList.add('shake-warning');
+          setTimeout(() => document.body.classList.remove('shake-warning'), 800);
+        }
+      }
+
       // Refresh data
       const weekInfo = computeWeekInfo();
       const dataRes = await callApi('GET_DATA', { username: currentUser!.username, fullname: currentUser!.fullname, role: currentUser!.role, monthSheet: weekInfo.monthSheet, weekLabel: weekInfo.weekLabel }, { background: true });

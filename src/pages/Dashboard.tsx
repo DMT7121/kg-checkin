@@ -2,6 +2,7 @@ import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import { computeWeekInfo } from '../utils/helpers';
 import { Sun, Moon, Power, Camera, Calendar, Clock3, ShieldAlert } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import CheckIn from './CheckIn';
 import Schedule from './Schedule';
 import ActivityHistory from './ActivityHistory';
@@ -93,11 +94,22 @@ export default function Dashboard() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 pb-20">
-        {currentTab === 'checkin' && <CheckIn />}
-        {currentTab === 'schedule' && <Schedule />}
-        {currentTab === 'history' && <ActivityHistory />}
-        {currentTab === 'admin' && <Admin />}
+      <div className="flex-1 pb-20 overflow-x-hidden">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentTab}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.2 }}
+            className="h-full"
+          >
+            {currentTab === 'checkin' && <CheckIn />}
+            {currentTab === 'schedule' && <Schedule />}
+            {currentTab === 'history' && <ActivityHistory />}
+            {currentTab === 'admin' && <Admin />}
+          </motion.div>
+        </AnimatePresence>
       </div>
     </div>
   );

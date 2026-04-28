@@ -35,3 +35,16 @@
   0% { transform: scale(0.8); opacity: 0.5; }
   100% { transform: scale(2); opacity: 0; }
 }
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-10px); }
+  20%, 40%, 60%, 80% { transform: translateX(10px); }
+}
+
+@layer utilities {
+  .shake-warning {
+    animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+    box-shadow: inset 0 0 0 5px rgba(239, 68, 68, 0.5); /* red ring inside */
+  }
+}
