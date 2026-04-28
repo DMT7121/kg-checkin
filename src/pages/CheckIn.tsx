@@ -4,8 +4,10 @@ import { callApi } from '../services/api';
 import KalmanFilter from '../utils/kalman';
 import { getDist, speak, getCurrentTimeString, computeWeekInfo, KG_LAT, KG_LNG, KG_RADIUS_METERS } from '../utils/helpers';
 import Swal from 'sweetalert2';
+import Swal from 'sweetalert2';
 import { MapPin, RefreshCw, CameraOff, Camera, RotateCcw, LogIn, LogOut } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import * as faceapi from 'face-api.js';
 
 export default function CheckIn() {
   const store = useAppStore();
@@ -13,6 +15,7 @@ export default function CheckIn() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
@@ -24,6 +27,8 @@ export default function CheckIn() {
 
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState(false);
+  const [isFaceModelLoaded, setIsFaceModelLoaded] = useState(false);
+  const [isFaceDetected, setIsFaceDetected] = useState(false);
 
   // Clock
   useEffect(() => {
@@ -362,6 +367,16 @@ export default function CheckIn() {
 
   // Init camera & GPS on mount
   useEffect(() => {
+    const loadModels = async () => {
+      try {
+        await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
+        setIsFaceModelLoaded(true);
+      } catch (e) {
+        console.error('Face API model load error:', e);
+      }
+    };
+    loadModels();
+
     // eslint-disable-next-line react-hooks/set-state-in-effect
     startCamera();
     startGpsWatch();
@@ -372,6 +387,58 @@ export default function CheckIn() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    let interval: any;
+    if (cameraActive && isFaceModelLoaded && videoRef.current && overlayCanvasRef.current) {
+      const video = videoRef.current;
+      const canvas = overlayCanvasRef.current;
+
+      interval = setInterval(async () => {
+        if (video.paused || video.ended || !cameraActive) return;
+        
+        try {
+          const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 160 }));
+          
+          const displaySize = { width: video.videoWidth, height: video.videoHeight };
+          if (displaySize.width > 0 && displaySize.height > 0) {
+            faceapi.matchDimensions(canvas, displaySize);
+            const resizedDetections = faceapi.resizeResults(detections, displaySize);
+            
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.clearRect(0, 0, canvas.width, canvas.height);
+              ctx.save();
+              ctx.translate(canvas.width, 0);
+              ctx.scale(-1, 1);
+              
+              if (resizedDetections.length === 1) {
+                setIsFaceDetected(true);
+                ctx.strokeStyle = '#22c55e'; // Green box
+                ctx.lineWidth = 4;
+                const box = resizedDetections[0].box;
+                ctx.strokeRect(box.x, box.y, box.width, box.height);
+              } else {
+                setIsFaceDetected(false);
+                if (resizedDetections.length > 1) {
+                  ctx.strokeStyle = '#ef4444'; // Red box
+                  ctx.lineWidth = 4;
+                  resizedDetections.forEach((det: any) => {
+                    const box = det.box;
+                    ctx.strokeRect(box.x, box.y, box.width, box.height);
+                  });
+                }
+              }
+              ctx.restore();
+            }
+          }
+        } catch (e) {
+          // ignore detection errors
+        }
+      }, 300);
+    }
+    return () => clearInterval(interval);
+  }, [cameraActive, isFaceModelLoaded]);
 
   const canSubmit = !!(capturedImage && gps.isValid && gps.lat);
 
@@ -403,6 +470,7 @@ export default function CheckIn() {
       {/* Camera Container */}
       <div className={`relative bg-gray-900 rounded-3xl overflow-hidden shadow-xl aspect-[3/4] group border-[6px] max-h-[60vh] ${gps.isValid ? 'border-green-500' : 'border-gray-200 dark:border-gray-700'}`}>
         <video ref={videoRef} autoPlay muted playsInline className={`w-full h-full object-cover mirror-cam ${(cameraError || capturedImage) ? 'hidden' : ''}`} />
+        <canvas ref={overlayCanvasRef} className={`absolute inset-0 w-full h-full object-cover pointer-events-none ${(cameraError || capturedImage) ? 'hidden' : ''}`} />
         <canvas ref={canvasRef} className="hidden" />
 
         {/* Camera Error Fallback */}
@@ -429,14 +497,30 @@ export default function CheckIn() {
           <div className="bg-red-500 w-3 h-3 rounded-full animate-pulse shadow-[0_0_10px_red]" />
         </div>
 
+        {/* Face Detection Hints */}
+        {!cameraError && !capturedImage && cameraActive && (
+          <>
+            {!isFaceModelLoaded && (
+              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black/60 text-white px-4 py-2 rounded-xl backdrop-blur-sm z-30 font-semibold text-sm flex items-center shadow-lg whitespace-nowrap">
+                <RefreshCw size={16} className="animate-spin mr-2"/> Đang tải mô hình AI...
+              </div>
+            )}
+            {isFaceModelLoaded && !isFaceDetected && (
+              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-red-500/80 text-white px-5 py-3 rounded-xl backdrop-blur-sm z-30 font-bold text-sm shadow-xl text-center whitespace-nowrap animate-pulse">
+                Vui lòng đưa 1 khuôn mặt<br/>vào giữa khung hình
+              </div>
+            )}
+          </>
+        )}
+
         {/* Shutter button */}
         {!capturedImage && !cameraError && (
           <div className="absolute bottom-6 left-0 right-0 flex justify-center items-center space-x-6 z-20">
             {cameraActive ? (
-              <button onClick={takePhoto} className="group relative touch-manipulation">
+              <button onClick={takePhoto} disabled={!isFaceDetected} className={`group relative touch-manipulation transition-all duration-300 ${!isFaceDetected ? 'opacity-30 scale-90 grayscale' : 'scale-100'}`}>
                 <div className="absolute inset-0 bg-white rounded-full opacity-30 group-hover:opacity-50 transition-opacity duration-300 scale-110" />
                 <div className="w-16 h-16 bg-transparent border-4 border-white rounded-full flex items-center justify-center shadow-lg">
-                  <div className="w-12 h-12 bg-white rounded-full" />
+                  <div className={`w-12 h-12 rounded-full transition-colors ${!isFaceDetected ? 'bg-gray-400' : 'bg-green-500'}`} />
                 </div>
               </button>
             ) : (
