@@ -91,6 +91,7 @@ interface AppState {
   logs: LogEntry[];
   stats: { totalCheckIn: number; validCount: number };
   users: User[];
+  posts: Post[];
 
   // Schedule registration
   isScheduleRegistered: boolean;
