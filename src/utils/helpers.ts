@@ -45,17 +45,24 @@ export function getCurrentTimeString(): string {
   return `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 }
 
-/** Compute week start (next Monday) and sheet name */
-export function computeWeekInfo() {
-  const today = new Date();
+/** Compute week start (next Monday) and sheet name. If 'date' is passed, it computes the week for that date (treating it as if it's the 'today' to calculate next week, or we can just calculate the week that contains the date). Wait, computeWeekInfo currently calculates the NEXT week. If we want the week containing a specific date, we should have a different logic. */
+export function computeWeekInfo(targetDate?: Date, getNextWeek: boolean = true) {
+  const today = targetDate || new Date();
   const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon...
   const daysUntilMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
 
   const weekStart = new Date(today);
-  if (dayOfWeek >= 1) {
-    weekStart.setDate(today.getDate() + daysUntilMonday);
+  
+  if (getNextWeek) {
+    if (dayOfWeek >= 1) {
+      weekStart.setDate(today.getDate() + daysUntilMonday);
+    } else {
+      weekStart.setDate(today.getDate() + 1);
+    }
   } else {
-    weekStart.setDate(today.getDate() + 1);
+    // Get the week CONTAINING the target date (Monday to Sunday)
+    const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    weekStart.setDate(today.getDate() - daysSinceMonday);
   }
   weekStart.setHours(0, 0, 0, 0);
 
@@ -184,7 +191,39 @@ export const SHIFT_LABELS: Record<string, string> = {
 
 export const DAY_NAMES = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật'] as const;
 
-// King's Grill coordinates
 export const KG_LAT = 10.9760826;
 export const KG_LNG = 106.6646541;
 export const KG_RADIUS_METERS = 25;
+
+export interface MonthDateInfo {
+  date: Date;
+  dateKey: string;
+  dayIndex: number; // 0=Mon, 1=Tue... 6=Sun
+  weekLabel: string;
+  isWeekend: boolean;
+}
+
+export function generateMonthDates(month: number, year: number): MonthDateInfo[] {
+  // month is 1-12
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const dates: MonthDateInfo[] = [];
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(year, month - 1, d);
+    const dayOfWeek = date.getDay();
+    const dayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    
+    const weekInfo = computeWeekInfo(date, false); // Get week containing this date
+    
+    dates.push({
+      date,
+      dateKey: formatDateKey(date),
+      dayIndex,
+      weekLabel: weekInfo.weekLabel,
+      isWeekend: dayIndex >= 5
+    });
+  }
+  
+  return dates;
+}
+

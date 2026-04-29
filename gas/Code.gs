@@ -68,7 +68,9 @@ function doPost(e) {
       case 'GEOCODE': return handleGeocode(payload);
       case 'REGISTER_SHIFT': return handleRegisterShift(payload);
       case 'GET_ALL_SCHEDULES': return handleGetAllSchedules(payload);
+      case 'GET_MONTH_SCHEDULES': return handleGetMonthSchedules(payload);
       case 'APPROVE_SCHEDULES': return handleApproveSchedules(payload);
+      case 'UPDATE_SINGLE_SHIFT': return handleUpdateSingleShift(payload);
       case 'TEST_EMAIL': return handleTestEmail(payload);
       case 'SET_MASTER_PIN': return handleSetMasterPin(payload);
       case 'GET_SCHEDULE_HISTORY': return handleGetScheduleHistory(payload);

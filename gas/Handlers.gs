@@ -64,6 +64,114 @@ function handleRegister(payload) {
   return jsonResponse(true, 'Đăng ký thành công');
 }
 
+function handleUpdateSingleShift(payload) {
+  var monthSheet = payload.monthSheet;
+  var weekLabel = payload.weekLabel; // E.g: "20/04 - 26/04"
+  var fullname = payload.fullname;
+  var dayIndex = payload.dayIndex; // 0 (T2) -> 6 (CN)
+  var shiftValue = payload.shiftValue || '';
+  
+  if (!monthSheet || !weekLabel || !fullname || dayIndex === undefined) {
+    return jsonResponse(false, 'Thiếu thông tin');
+  }
+  
+  var sheet = getMonthlyScheduleSheet(monthSheet);
+  var data = sheet.getDataRange().getValues();
+  
+  // Find week header
+  var headerRow = -1;
+  for (var i = 0; i < data.length; i++) {
+    if (data[i][0] && data[i][0].toString().indexOf('TUẦN ' + weekLabel) >= 0) {
+      headerRow = i + 1; // 1-indexed
+      break;
+    }
+  }
+  
+  if (headerRow === -1) {
+    return jsonResponse(false, 'Không tìm thấy tuần ' + weekLabel);
+  }
+  
+  var regRow = -1;
+  var approvalRow = -1;
+  
+  for (var r = headerRow; r < data.length; r++) {
+    var cellName = data[r][0] ? data[r][0].toString() : '';
+    if (cellName.indexOf('TUẦN ') >= 0 && r > headerRow) break;
+    
+    if (cellName === fullname) regRow = r + 1;
+    if (cellName.indexOf('┗') >= 0 && cellName.indexOf(fullname) >= 0) approvalRow = r + 1;
+  }
+  
+  var targetRow = -1;
+  
+  if (approvalRow > -1) {
+    targetRow = approvalRow;
+  } else if (regRow > -1) {
+    // Need to create approval row
+    var now = new Date();
+    var timestamp = Utilities.formatDate(now, Session.getScriptTimeZone(), 'dd/MM HH:mm');
+    sheet.insertRowAfter(regRow);
+    targetRow = regRow + 1;
+    
+    // Copy data from reg row
+    var originalData = sheet.getRange(regRow, 1, 1, 11).getValues()[0];
+    originalData[0] = '┗ ' + fullname;
+    originalData[8] = ''; // Ghi chú
+    originalData[9] = timestamp;
+    originalData[10] = 'Đã điều chỉnh';
+    sheet.getRange(targetRow, 1, 1, 11).setValues([originalData]).setNumberFormat('@');
+    sheet.getRange(targetRow, 2, 1, 7).setNumberFormat('@');
+    
+    // Format
+    sheet.getRange(targetRow, 1, 1, 11)
+      .setBackground('#e0e7ff')
+      .setFontWeight('bold');
+    sheet.getRange(targetRow, 1)
+      .setFontColor('#4338ca')
+      .setHorizontalAlignment('right');
+    sheet.getRange(targetRow, 11)
+      .setBackground('#c7d2fe')
+      .setFontColor('#3730a3');
+  } else {
+    // Employee hasn't registered at all. Need to create reg row and approval row.
+    var now = new Date();
+    var timestamp = Utilities.formatDate(now, Session.getScriptTimeZone(), 'dd/MM HH:mm');
+    
+    // Find where to insert (at the end of the week)
+    var endOfWeekRow = headerRow;
+    for (var r = headerRow; r < data.length; r++) {
+      if (data[r][0] && data[r][0].toString().indexOf('TUẦN ') >= 0 && r > headerRow) {
+        break;
+      }
+      endOfWeekRow = r + 1;
+    }
+    
+    sheet.insertRowsAfter(endOfWeekRow, 2);
+    regRow = endOfWeekRow + 1;
+    approvalRow = endOfWeekRow + 2;
+    
+    var emptyShifts = ['OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF'];
+    var regData = [fullname].concat(emptyShifts).concat(['', timestamp, 'Chờ duyệt']);
+    sheet.getRange(regRow, 1, 1, 11).setValues([regData]).setNumberFormat('@');
+    sheet.getRange(regRow, 1, 1, 11).setBackground('#fffbeb').setFontWeight('normal');
+    sheet.getRange(regRow, 1).setFontWeight('bold').setHorizontalAlignment('left');
+    
+    var appData = ['┗ ' + fullname].concat(emptyShifts).concat(['', timestamp, 'Đã điều chỉnh']);
+    sheet.getRange(approvalRow, 1, 1, 11).setValues([appData]).setNumberFormat('@');
+    sheet.getRange(approvalRow, 1, 1, 11).setBackground('#e0e7ff').setFontWeight('bold');
+    sheet.getRange(approvalRow, 1).setFontColor('#4338ca').setHorizontalAlignment('right');
+    
+    targetRow = approvalRow;
+  }
+  
+  // Update the specific cell
+  var colIndex = 2 + dayIndex; // 2=T2, 3=T3,...
+  var finalShiftValue = shiftValue === '' ? 'OFF' : shiftValue;
+  sheet.getRange(targetRow, colIndex).setValue(finalShiftValue).setNumberFormat('@');
+  
+  return jsonResponse(true, 'Cập nhật thành công');
+}
+
 // 1B. AUTHENTICATION: FORGOT PASSWORD & FORCE RESET
 function handleRequestOTP(payload) {
   if (!payload || !payload.email) return jsonResponse(false, 'Thiếu thông tin Email');
@@ -1404,6 +1512,108 @@ function handleGetAllSchedules(payload) {
   Logger.log('[GET_ALL_SCHEDULES] Returning ' + schedules.length + ' employees. Sample: ' + (schedules.length > 0 ? JSON.stringify(schedules[0]) : 'none'));
   
   return jsonResponse(true, schedules);
+}
+
+function handleGetMonthSchedules(payload) {
+  var monthSheet = payload.monthSheet;
+  if (!monthSheet) return jsonResponse(false, 'Thiếu thông tin sheet');
+  
+  var ss = getSS();
+  var sheet = ss.getSheetByName(monthSheet);
+  if (!sheet) return jsonResponse(true, { weeks: [] });
+  
+  var data = sheet.getDataRange().getValues();
+  var displayData = sheet.getDataRange().getDisplayValues();
+  
+  function formatDisplayShift(displayVal) {
+    if (!displayVal) return '';
+    var str = displayVal.toString().trim();
+    if (str === '' || str === '0:00' || str === '00:00' || str === 'null' || str === 'undefined' || str === 'OFF') return 'OFF';
+    if (/^\d{1,2}:\d$/.test(str)) {
+      var parts = str.split(':');
+      return (parts[0].length === 1 ? '0' + parts[0] : parts[0]) + ':' + parts[1].padStart(2, '0');
+    }
+    if (/^\d{1,2}:\d{2}$/.test(str)) {
+      var parts2 = str.split(':');
+      return (parts2[0].length === 1 ? '0' + parts2[0] : parts2[0]) + ':' + parts2[1];
+    }
+    return str;
+  }
+  
+  var weeks = [];
+  var currentWeekLabel = null;
+  var employeesMap = {};
+  
+  // Hàm gom nhân viên của tuần hiện tại vào mảng
+  function pushCurrentWeek() {
+    if (currentWeekLabel) {
+      var schedules = [];
+      for (var key in employeesMap) {
+        schedules.push(employeesMap[key]);
+      }
+      weeks.push({
+        weekLabel: currentWeekLabel,
+        schedules: schedules
+      });
+    }
+  }
+
+  for (var i = 1; i < data.length; i++) {
+    var cellStr = data[i][0] ? data[i][0].toString().trim() : '';
+    
+    // Nếu gặp header TUẦN
+    if (cellStr.indexOf('TUẦN ') >= 0) {
+      pushCurrentWeek();
+      currentWeekLabel = cellStr.replace('📅 TUẦN', '').replace('TUẦN', '').trim();
+      employeesMap = {};
+      continue;
+    }
+    
+    if (!currentWeekLabel || !cellStr) continue;
+    
+    var isAdjustment = (cellStr.indexOf('┗') >= 0);
+    var cleanName = isAdjustment ? cellStr.replace('┗ ', '').replace('┗', '').trim() : cellStr;
+
+    if (!employeesMap[cleanName]) {
+      employeesMap[cleanName] = {
+        fullname: cleanName,
+        shifts: ['', '', '', '', '', '', ''],
+        originalShifts: ['', '', '', '', '', '', ''],
+        reason: '',
+        status: '',
+        hasApproved: false
+      };
+    }
+
+    var emp = employeesMap[cleanName];
+    var rowShifts = [
+      formatDisplayShift(displayData[i][1]),
+      formatDisplayShift(displayData[i][2]),
+      formatDisplayShift(displayData[i][3]),
+      formatDisplayShift(displayData[i][4]),
+      formatDisplayShift(displayData[i][5]),
+      formatDisplayShift(displayData[i][6]),
+      formatDisplayShift(displayData[i][7])
+    ];
+
+    if (isAdjustment) {
+      emp.shifts = rowShifts;
+      emp.status = displayData[i][10] ? displayData[i][10].toString().trim() : '';
+      emp.hasApproved = (emp.status === 'Đã duyệt ✓');
+    } else {
+      emp.originalShifts = JSON.parse(JSON.stringify(rowShifts));
+      var hasShift = emp.shifts.some(function(s) { return s !== ''; });
+      if (!hasShift) {
+        emp.shifts = JSON.parse(JSON.stringify(rowShifts));
+      }
+      emp.reason = displayData[i][8] ? displayData[i][8].toString().trim() : '';
+      if (!emp.status) emp.status = displayData[i][10] ? displayData[i][10].toString().trim() : '';
+    }
+  }
+  
+  pushCurrentWeek(); // Đẩy tuần cuối cùng
+  
+  return jsonResponse(true, { weeks: weeks });
 }
 
 

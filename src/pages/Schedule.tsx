@@ -1,14 +1,89 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
-import { speak, computeWeekInfo, getActiveShiftClass, getPreviewShiftClass, SHIFT_OPTIONS, DAY_NAMES, isRegistrationOpen, getAdminShiftClass, ADMIN_SHIFT_OPTIONS } from '../utils/helpers';
+import { speak, computeWeekInfo, getActiveShiftClass, getPreviewShiftClass, SHIFT_OPTIONS, DAY_NAMES, isRegistrationOpen, getAdminShiftClass, ADMIN_SHIFT_OPTIONS, generateMonthDates, MonthDateInfo } from '../utils/helpers';
 import Swal from 'sweetalert2';
-import { CalendarCheck, Eye, AlertTriangle, Send, Lock, ExternalLink, Clock, RefreshCw, Pencil, CheckCheck, Inbox } from 'lucide-react';
+import { CalendarCheck, Eye, AlertTriangle, Send, Lock, ExternalLink, Clock, RefreshCw, Pencil, CheckCheck, Inbox, LayoutGrid, CalendarRange, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function Schedule() {
   const store = useAppStore();
   const { currentUser, isScheduleRegistered, shiftData, offReason, approvedShifts, registeredShifts, adminSchedules, originalAdminSchedules } = store;
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'tester';
+
+  const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
+  const [currentDate, setCurrentDate] = useState(() => new Date());
+  
+  // Calculate week info and month info based on currentDate for Admin navigation
+  const selectedMonth = currentDate.getMonth() + 1;
+  const selectedYear = currentDate.getFullYear();
+  const monthDates = useMemo(() => generateMonthDates(selectedMonth, selectedYear), [selectedMonth, selectedYear]);
+  
+  const [monthData, setMonthData] = useState<any[]>([]);
+
+  const changeWeek = (offset: number) => {
+    const d = new Date(currentDate);
+    d.setDate(d.getDate() + offset * 7);
+    setCurrentDate(d);
+  };
+
+  const changeMonth = (offset: number) => {
+    const d = new Date(currentDate);
+    d.setMonth(d.getMonth() + offset);
+    setCurrentDate(d);
+  };
+
+  const loadMonthSchedules = async () => {
+    store.setLoading(true, `Đang tải lịch Tháng ${selectedMonth}...`);
+    const monthSheet = `Tháng ${String(selectedMonth).padStart(2, '0')}/${selectedYear}`;
+    const res = await callApi('GET_MONTH_SCHEDULES', { monthSheet });
+    store.setLoading(false);
+    if (res?.ok && res.data?.weeks) {
+      setMonthData(res.data.weeks);
+    } else {
+      Swal.fire('Lỗi', 'Không thể tải lịch làm việc', 'error');
+    }
+  };
+
+  useEffect(() => {
+    if (isAdmin && viewMode === 'month') {
+      loadMonthSchedules();
+    }
+  }, [isAdmin, viewMode, selectedMonth, selectedYear]);
+
+  const updateSingleMonthShift = async (empFullname: string, mDate: MonthDateInfo, value: string) => {
+    // Optimistic Update
+    const newData = [...monthData];
+    const weekIdx = newData.findIndex(w => w.weekLabel === mDate.weekLabel);
+    if (weekIdx !== -1) {
+      const w = newData[weekIdx];
+      const empIdx = w.schedules.findIndex((s: any) => s.fullname === empFullname);
+      if (empIdx !== -1) {
+         w.schedules[empIdx].shifts[mDate.dayIndex] = value;
+      } else {
+         const newEmp = { fullname: empFullname, shifts: ['', '', '', '', '', '', ''] };
+         newEmp.shifts[mDate.dayIndex] = value;
+         w.schedules.push(newEmp);
+      }
+      setMonthData(newData);
+    }
+    
+    // API
+    const res = await callApi('UPDATE_SINGLE_SHIFT', {
+       monthSheet: `Tháng ${String(selectedMonth).padStart(2, '0')}/${selectedYear}`,
+       weekLabel: mDate.weekLabel,
+       fullname: empFullname,
+       dayIndex: mDate.dayIndex,
+       shiftValue: value
+    }, { background: true });
+    
+    if (!res?.ok) {
+       Swal.fire('Lỗi', 'Cập nhật thất bại. Vui lòng tải lại trang.', 'error');
+    }
+  };
+
+  // Add users mapping logic for Month View
+  const users = store.users && store.users.length > 0 ? store.users : [];
+
 
   const [weekInfo] = useState(() => computeWeekInfo());
   const [hasWeekendOff, setHasWeekendOff] = useState(false);
@@ -279,11 +354,41 @@ export default function Schedule() {
       <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl p-6 text-white shadow-lg mb-6 relative overflow-hidden">
         <div className="absolute right-0 top-0 opacity-10 text-8xl transform translate-x-4 -translate-y-4"><CalendarCheck size={100} /></div>
         <h2 className="text-2xl font-extrabold mb-1 tracking-tight relative z-10">{isAdmin ? 'Sắp Xếp Ca Làm Việc' : 'Đăng Ký Ca Làm Việc'}</h2>
-        <p className="text-indigo-100 font-medium opacity-90 relative z-10">Tuần: {weekInfo.weekDisplay}</p>
-        <div className={`mt-3 inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold backdrop-blur-md relative z-10 ${isOpen ? 'bg-green-500/30 text-green-100' : 'bg-red-500/30 text-red-100'}`}>
-          {isOpen ? <Clock size={12} className="mr-1.5" /> : <Lock size={12} className="mr-1.5" />}
-          {isTestApp ? 'Đã mở đăng ký (TestApp)' : regWindow.message}
-        </div>
+        {!isAdmin && <p className="text-indigo-100 font-medium opacity-90 relative z-10">Tuần: {weekInfo.weekDisplay}</p>}
+        {!isAdmin && (
+          <div className={`mt-3 inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold backdrop-blur-md relative z-10 ${isOpen ? 'bg-green-500/30 text-green-100' : 'bg-red-500/30 text-red-100'}`}>
+            {isOpen ? <Clock size={12} className="mr-1.5" /> : <Lock size={12} className="mr-1.5" />}
+            {isTestApp ? 'Đã mở đăng ký (TestApp)' : regWindow.message}
+          </div>
+        )}
+
+        {/* Toggle Mode & Time Navigation for Admin */}
+        {isAdmin && (
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-4 relative z-10 gap-3">
+            <div className="flex items-center space-x-3 bg-white/10 backdrop-blur-md p-1.5 rounded-xl border border-white/20">
+              <button 
+                onClick={() => setViewMode('week')} 
+                className={`flex items-center px-3 py-1.5 rounded-lg text-sm font-bold transition-colors ${viewMode === 'week' ? 'bg-white text-indigo-600 shadow-sm' : 'text-white hover:bg-white/10'}`}
+              >
+                <CalendarRange size={16} className="mr-1.5" /> Tuần
+              </button>
+              <button 
+                onClick={() => setViewMode('month')} 
+                className={`flex items-center px-3 py-1.5 rounded-lg text-sm font-bold transition-colors ${viewMode === 'month' ? 'bg-white text-indigo-600 shadow-sm' : 'text-white hover:bg-white/10'}`}
+              >
+                <LayoutGrid size={16} className="mr-1.5" /> Tháng
+              </button>
+            </div>
+            
+            <div className="flex items-center space-x-2 bg-indigo-900/30 backdrop-blur-md rounded-xl p-1.5 border border-indigo-500/30">
+              <button onClick={() => viewMode === 'week' ? changeWeek(-1) : changeMonth(-1)} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"><ChevronLeft size={18} /></button>
+              <div className="text-sm font-bold px-2 min-w-[120px] text-center">
+                {viewMode === 'week' ? weekInfo.weekDisplay : `Tháng ${selectedMonth}/${selectedYear}`}
+              </div>
+              <button onClick={() => viewMode === 'week' ? changeWeek(1) : changeMonth(1)} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"><ChevronRight size={18} /></button>
+            </div>
+          </div>
+        )}
       </div>
 
       {isAdmin ? (
@@ -293,14 +398,17 @@ export default function Schedule() {
             <h3 className="font-bold flex items-center text-gray-800 dark:text-white">
               <CalendarCheck size={18} className="mr-2 text-indigo-600" /> Quản Lý Lịch Làm Việc Tuần Tới
             </h3>
-            <button onClick={loadAdminSchedules} className="text-sm bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300 px-3 py-1.5 rounded-lg hover:bg-indigo-200 transition flex items-center">
+            <button onClick={() => viewMode === 'week' ? loadAdminSchedules() : loadMonthSchedules()} className="text-sm bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300 px-3 py-1.5 rounded-lg hover:bg-indigo-200 transition flex items-center">
               <RefreshCw size={14} className="mr-1" /> Tải lịch
             </button>
           </div>
 
           {adminSchedules.length > 0 ? (
             <>
-              <div className="overflow-x-auto bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 mb-4 pb-20 custom-scrollbar">
+              
+          {viewMode === 'week' && (
+            <>
+<div className="overflow-x-auto bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 mb-4 pb-20 custom-scrollbar">
                 <table className="w-full text-sm text-left whitespace-nowrap">
                   <thead className="text-xs text-gray-700 dark:text-gray-300 uppercase bg-gray-200 dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700">
                     <tr>
@@ -375,6 +483,69 @@ export default function Schedule() {
               <button onClick={approveAllSchedules} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 rounded-xl shadow-lg transition transform active:scale-95 flex items-center justify-center touch-manipulation">
                 <CheckCheck size={18} className="mr-2" /> XÁC NHẬN SẮP XẾP CA (GHI ĐÈ LÊN SERVER)
               </button>
+            </>
+          )}
+
+          {viewMode === 'month' && (
+            <div className="overflow-x-auto bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 mb-4 pb-20 custom-scrollbar">
+              {(() => {
+                const empMonthMap: Record<string, Record<string, string>> = {};
+                monthData.forEach(week => {
+                  week.schedules.forEach((emp: any) => {
+                    if (!empMonthMap[emp.fullname]) empMonthMap[emp.fullname] = {};
+                    emp.shifts.forEach((s: string, i: number) => {
+                      empMonthMap[emp.fullname][`${week.weekLabel}_${i}`] = s;
+                    });
+                  });
+                });
+
+                return (
+                  <table className="w-full text-sm text-left whitespace-nowrap">
+                    <thead className="text-[10px] text-gray-500 dark:text-gray-400 uppercase bg-gray-200 dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700">
+                      <tr>
+                        <th className="px-3 py-3 sticky left-0 bg-gray-200 dark:bg-gray-800 z-20 font-bold border-r dark:border-gray-700">Nhân Viên</th>
+                        {monthDates.map((mDate) => (
+                          <th key={mDate.dateKey} className={`px-1 py-2 text-center border-r dark:border-gray-700 min-w-[70px] ${mDate.isWeekend ? 'bg-gray-300/50 dark:bg-gray-700/50' : ''}`}>
+                            <div className="font-bold text-gray-700 dark:text-gray-300">{mDate.date.getDate()}</div>
+                            <div className="text-[8px] font-normal opacity-70">{DAY_NAMES[mDate.dayIndex].replace('Thứ ', 'T').replace('Chủ Nhật', 'CN')}</div>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {users.map((emp, empIdx) => (
+                        <tr key={empIdx} className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                          <td className="px-3 py-3 sticky left-0 bg-white dark:bg-gray-800 z-10 font-bold text-gray-800 dark:text-gray-200 shadow-[1px_0_0_0_rgba(0,0,0,0.05)] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.05)] border-r dark:border-gray-700 text-xs">
+                            {emp.fullname}
+                          </td>
+                          {monthDates.map((mDate, dayIdx) => {
+                            const shift = empMonthMap[emp.fullname]?.[`${mDate.weekLabel}_${mDate.dayIndex}`] || '';
+                            const isOff = shift === 'OFF' || !shift;
+                            return (
+                              <td key={dayIdx} className={`px-1 py-1 relative border-r dark:border-gray-700 ${mDate.isWeekend ? 'bg-gray-50 dark:bg-gray-800/80' : ''}`}>
+                                <div className="relative">
+                                  <select value={shift} onChange={(e) => updateSingleMonthShift(emp.fullname, mDate, e.target.value)}
+                                    className={`text-[10px] font-bold rounded-lg border focus:outline-none p-1 w-full cursor-pointer appearance-none text-center transition-all ${
+                                      'border-gray-200 dark:border-gray-600 focus:ring-1 focus:ring-indigo-500 ' + getAdminShiftClass(shift)
+                                    }`}>
+                                    <option value="">OFF</option>
+                                    {ADMIN_SHIFT_OPTIONS.map((opt) => (
+                                      <option key={opt} value={opt} className="bg-white text-gray-800">{opt}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                );
+              })()}
+            </div>
+          )}
+
             </>
           ) : (
             <div className="text-center py-6 text-gray-400 bg-gray-50 dark:bg-gray-900 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">

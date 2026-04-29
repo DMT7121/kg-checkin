@@ -240,8 +240,11 @@ interface AppState {
   setAdminUnlocked: (v: boolean) => void;
   setGroqKeysInput: (v: string) => void;
   setGroqKeys: (v: string[]) => void;
-  setAdminSchedules: (v: AdminScheduleEntry[]) => void;
-  setOriginalAdminSchedules: (v: AdminScheduleEntry[]) => void;
+  setAdminSchedules: (schedules: any[]) => void;
+  setOriginalAdminSchedules: (schedules: any[]) => void;
+  setMonthSchedules: (schedules: any) => void;
+  setSelectedMonth: (month: number) => void;
+  setSelectedYear: (year: number) => void;
   setPreviewOpen: (v: boolean) => void;
   setPreviewImageUrl: (v: string) => void;
   setLastCheckInTime: (v: number) => void;
@@ -253,8 +256,6 @@ interface AppState {
   setPayroll: (payroll: PayrollRecord[]) => void;
   setTimesheetData: (data: TimesheetData | null) => void;
   setCheckInOutCompleted: (completed: boolean) => void;
-  setSwapRequests: (reqs: SwapRequest[]) => void;
-  setChecklists: (items: ChecklistItem[]) => void;
   removeSwapRequest: (id: string) => void;
   logout: () => void;
 }
@@ -310,6 +311,9 @@ export const useAppStore = create<AppState>((set) => ({
   groqKeys: [],
   adminSchedules: [],
   originalAdminSchedules: [],
+  monthSchedules: null,
+  selectedMonth: new Date().getMonth() + 1,
+  selectedYear: new Date().getFullYear(),
 
   // Preview
   isPreviewOpen: false,
@@ -372,6 +376,9 @@ export const useAppStore = create<AppState>((set) => ({
   setGroqKeys: (groqKeys) => set({ groqKeys }),
   setAdminSchedules: (adminSchedules) => set({ adminSchedules }),
   setOriginalAdminSchedules: (originalAdminSchedules) => set({ originalAdminSchedules }),
+  setMonthSchedules: (monthSchedules) => set({ monthSchedules }),
+  setSelectedMonth: (selectedMonth) => set({ selectedMonth }),
+  setSelectedYear: (selectedYear) => set({ selectedYear }),
   setPreviewOpen: (isPreviewOpen) => set({ isPreviewOpen }),
   setPreviewImageUrl: (previewImageUrl) => set({ previewImageUrl }),
   setLastCheckInTime: (lastCheckInTime) => set({ lastCheckInTime }),
