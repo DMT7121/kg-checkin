@@ -69,7 +69,7 @@ interface AppState {
   loading: boolean;
   loadingText: string;
   isUpdating: boolean;
-  currentTab: 'checkin' | 'schedule' | 'swap' | 'history' | 'news' | 'training' | 'admin';
+  currentTab: 'dashboard' | 'news' | 'soldout' | 'feedback' | 'training' | 'checkin' | 'checklist' | 'handover' | 'schedule' | 'swap' | 'roster' | 'history' | 'timesheet' | 'advance' | 'payroll' | 'discipline' | 'admin';
   shiftName: string;
   currentTime: string;
 
@@ -168,7 +168,7 @@ export const useAppStore = create<AppState>((set) => ({
   loading: false,
   loadingText: 'Đang tải...',
   isUpdating: false,
-  currentTab: 'checkin',
+  currentTab: 'dashboard',
   shiftName: '',
   currentTime: '',
 
