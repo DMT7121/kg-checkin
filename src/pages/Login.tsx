@@ -185,6 +185,20 @@ export default function Login() {
     }, 1500);
   };
 
+  const handleDobChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
+    if (value.length > 8) value = value.slice(0, 8);
+
+    let formattedValue = value;
+    if (value.length >= 5) {
+      formattedValue = `${value.slice(0, 2)}/${value.slice(2, 4)}/${value.slice(4)}`;
+    } else if (value.length >= 3) {
+      formattedValue = `${value.slice(0, 2)}/${value.slice(2)}`;
+    }
+    
+    setRegisterForm({ ...registerForm, dob: formattedValue });
+  };
+
   return (
     <div className="flex-1 flex flex-col justify-center p-6 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 min-h-screen">
       {/* Logo */}
@@ -192,7 +206,7 @@ export default function Login() {
         <div className="inline-block mb-2 transform hover:scale-105 transition-transform duration-300">
           <img src="/LOGO.png?v=3" alt="King's Grill Logo" className="w-[160px] h-auto object-contain mx-auto drop-shadow-[0_0_12px_rgba(14,165,233,0.3)] dark:drop-shadow-[0_0_20px_rgba(14,165,233,0.5)]" />
         </div>
-        <p className="text-ocean-600 dark:text-ocean-400 font-semibold text-sm tracking-wide">Hệ thống Chấm công v4.7</p>
+        <p className="text-ocean-600 dark:text-ocean-400 font-semibold text-sm tracking-wide">KING's GRILL APP v1.0</p>
       </div>
 
       {/* LOGIN FORM */}
@@ -236,70 +250,75 @@ export default function Login() {
 
       {/* REGISTER FORM */}
       {mode === 'register' && (
-        <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-700 animate-slide-up w-full max-w-md mx-auto">
+        <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-700 animate-slide-up w-full max-w-lg mx-auto">
           <div className="text-center mb-6">
-            <div className="w-12 h-12 bg-gradient-to-br from-green-400 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg">
-              <BadgeCheck size={24} className="text-white" />
-            </div>
-            <h3 className="text-2xl font-bold text-gray-800 dark:text-white">Tạo tài khoản</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Đăng ký nhanh để gia nhập hệ thống</p>
+            <h3 className="text-2xl font-bold text-gray-800 dark:text-white">Tạo tài khoản mới</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Gia nhập hệ thống King's Grill</p>
           </div>
 
-          <form onSubmit={handleRegister}>
-            <div className="space-y-4">
-              {/* Row 1: Fullname */}
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-green-500 transition-colors">
-                  <User size={16} />
-                </div>
-                <input type="text" required value={registerForm.fullname} onChange={(e) => setRegisterForm({ ...registerForm, fullname: e.target.value })} placeholder="Họ và Tên (VD: Nguyễn Văn A)" className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-11 pr-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-green-500/50 min-h-[44px] text-gray-800 dark:text-white" />
-              </div>
-
-              {/* Row 2: Username & Password in Grid */}
-              <div className="grid grid-cols-2 gap-4">
+          <form onSubmit={handleRegister} className="space-y-6">
+            {/* Section 1: Tài khoản bảo mật */}
+            <div className="p-5 rounded-2xl border-2 border-green-100 dark:border-green-900/30 bg-green-50/50 dark:bg-green-900/10 relative">
+              <h4 className="text-[13px] font-bold text-green-700 dark:text-green-400 mb-4 flex items-center uppercase tracking-wide">
+                <Lock size={14} className="mr-1.5" /> 1. Tài khoản bảo mật
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-green-500 transition-colors">
                     <User size={16} />
                   </div>
-                  <input type="text" required value={registerForm.username} onChange={(e) => setRegisterForm({ ...registerForm, username: e.target.value })} placeholder="Tài khoản" className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-3 py-3 focus:outline-none focus:ring-2 focus:ring-green-500/50 min-h-[44px] text-sm text-gray-800 dark:text-white" />
+                  <input type="text" required value={registerForm.username} onChange={(e) => setRegisterForm({ ...registerForm, username: e.target.value })} placeholder="Tên đăng nhập" className="w-full bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-3 py-3 focus:outline-none focus:ring-2 focus:ring-green-500/50 text-sm text-gray-800 dark:text-white shadow-sm transition-all" />
                 </div>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-green-500 transition-colors">
                     <Lock size={16} />
                   </div>
-                  <input type="password" required value={registerForm.password} onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })} placeholder="Mật khẩu" className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-3 py-3 focus:outline-none focus:ring-2 focus:ring-green-500/50 min-h-[44px] text-sm text-gray-800 dark:text-white" />
+                  <input type="password" required value={registerForm.password} onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })} placeholder="Mật khẩu" className="w-full bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-3 py-3 focus:outline-none focus:ring-2 focus:ring-green-500/50 text-sm text-gray-800 dark:text-white shadow-sm transition-all" />
                 </div>
-              </div>
-
-              {/* Row 3: Email & Phone */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-green-500 transition-colors">
-                    <Mail size={16} />
-                  </div>
-                  <input type="email" value={registerForm.email} onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })} placeholder="Email" className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-3 py-3 focus:outline-none focus:ring-2 focus:ring-green-500/50 min-h-[44px] text-sm text-gray-800 dark:text-white" />
-                </div>
-                <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-green-500 transition-colors">
-                    <Phone size={16} />
-                  </div>
-                  <input type="tel" value={registerForm.phone} onChange={(e) => setRegisterForm({ ...registerForm, phone: e.target.value })} placeholder="SĐT / Zalo" className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-3 py-3 focus:outline-none focus:ring-2 focus:ring-green-500/50 min-h-[44px] text-sm text-gray-800 dark:text-white" />
-                </div>
-              </div>
-
-              {/* Row 4: DOB */}
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-green-500 transition-colors">
-                  <Calendar size={16} />
-                </div>
-                <input type="date" value={registerForm.dob} onChange={(e) => setRegisterForm({ ...registerForm, dob: e.target.value })} className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-11 pr-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-green-500/50 text-gray-800 dark:text-white min-h-[44px]" />
               </div>
             </div>
 
-            <button type="submit" className="w-full mt-8 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold py-3.5 rounded-xl shadow-lg hover:shadow-green-500/40 transition transform active:scale-95 min-h-[44px] flex items-center justify-center">
+            {/* Section 2: Hồ sơ cá nhân */}
+            <div className="p-5 rounded-2xl border-2 border-blue-100 dark:border-blue-900/30 bg-blue-50/50 dark:bg-blue-900/10 relative">
+              <h4 className="text-[13px] font-bold text-blue-700 dark:text-blue-400 mb-4 flex items-center uppercase tracking-wide">
+                <User size={14} className="mr-1.5" /> 2. Hồ sơ cá nhân
+              </h4>
+              <div className="space-y-4">
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-500 transition-colors">
+                    <BadgeCheck size={16} />
+                  </div>
+                  <input type="text" required value={registerForm.fullname} onChange={(e) => setRegisterForm({ ...registerForm, fullname: e.target.value })} placeholder="Họ và Tên (VD: Nguyễn Văn A)" className="w-full bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-11 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm text-gray-800 dark:text-white shadow-sm transition-all" />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-500 transition-colors">
+                      <Mail size={16} />
+                    </div>
+                    <input type="email" value={registerForm.email} onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })} placeholder="Email cá nhân" className="w-full bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-3 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm text-gray-800 dark:text-white shadow-sm transition-all" />
+                  </div>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-500 transition-colors">
+                      <Phone size={16} />
+                    </div>
+                    <input type="tel" value={registerForm.phone} onChange={(e) => setRegisterForm({ ...registerForm, phone: e.target.value })} placeholder="SĐT / Zalo" className="w-full bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-3 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm text-gray-800 dark:text-white shadow-sm transition-all" />
+                  </div>
+                </div>
+
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-500 transition-colors">
+                    <Calendar size={16} />
+                  </div>
+                  <input type="text" inputMode="numeric" value={registerForm.dob} onChange={handleDobChange} placeholder="Ngày sinh (Gõ số liền nhau, VD: 15082000)" className="w-full bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-11 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm text-gray-800 dark:text-white shadow-sm tracking-widest font-medium transition-all" />
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" className="w-full mt-2 bg-gradient-to-r from-ocean-600 to-ocean-500 text-white font-bold py-3.5 rounded-xl shadow-lg hover:shadow-ocean-500/40 transition transform active:scale-95 min-h-[44px] flex items-center justify-center">
               HOÀN TẤT ĐĂNG KÝ
             </button>
-            <button type="button" onClick={() => setMode('login')} className="w-full mt-4 text-gray-500 text-[1rem] hover:text-gray-800 dark:hover:text-white font-medium min-h-[44px] flex items-center justify-center transition-colors">
+            <button type="button" onClick={() => setMode('login')} className="w-full mt-4 text-gray-500 text-sm hover:text-gray-800 dark:hover:text-white font-medium flex items-center justify-center transition-colors">
               <ChevronLeft size={16} className="mr-1" /> Quay lại đăng nhập
             </button>
           </form>
