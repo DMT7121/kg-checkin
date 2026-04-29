@@ -20,6 +20,7 @@ import Training from './Training';
 import SoldOut from './SoldOut';
 import Checklist from './Checklist';
 import Handover from './Handover';
+import Feedback from './Feedback';
 import Admin from './Admin';
 
 // ============================================
@@ -63,7 +64,7 @@ export default function Dashboard() {
         { id: 'dashboard', label: 'Tổng quan', icon: LayoutDashboard },
         { id: 'news', label: 'Bảng tin', icon: Newspaper },
         { id: 'soldout', label: 'Món hết', icon: UtensilsCrossed },
-        { id: 'feedback', label: 'Góp ý', icon: MessageSquareWarning, comingSoon: true },
+        { id: 'feedback', label: 'Góp ý', icon: MessageSquareWarning },
         { id: 'training', label: 'Đào tạo', icon: GraduationCap },
       ],
     },
@@ -475,13 +476,14 @@ export default function Dashboard() {
             {currentTab === 'swap' && <SwapShift />}
             {currentTab === 'checklist' && <Checklist />}
             {currentTab === 'handover' && <Handover />}
+            {currentTab === 'feedback' && <Feedback />}
             {currentTab === 'news' && <NewsFeed />}
             {currentTab === 'soldout' && <SoldOut />}
             {currentTab === 'training' && <Training />}
             {currentTab === 'history' && <ActivityHistory />}
             {currentTab === 'admin' && <Admin />}
             {/* Coming Soon Pages */}
-            {['feedback', 'roster', 'timesheet', 'advance', 'payroll', 'discipline'].includes(currentTab) && (
+            {['roster', 'timesheet', 'advance', 'payroll', 'discipline'].includes(currentTab) && (
               <div className="flex flex-col items-center justify-center h-full p-6 text-center">
                 <ComingSoonPage title={getPageTitle(currentTab)} />
               </div>

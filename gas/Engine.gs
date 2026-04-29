@@ -1119,3 +1119,88 @@ function handleSubmitIncident(payload) {
   
   return jsonResponse(true, "Đã gửi báo cáo sự cố");
 }
+
+// ==========================================
+// TÍNH NĂNG GÓP Ý & KHIẾU NẠI (FEEDBACK)
+// ==========================================
+
+function handleGetFeedbacks(payload) {
+  var ss = getSS();
+  var sheet = ss.getSheetByName("Feedbacks");
+  if (!sheet) return jsonResponse(true, []); 
+
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return jsonResponse(true, []);
+
+  var isAdmin = payload.role === 'admin';
+  var username = payload.username || '';
+  
+  var items = [];
+  // Loop from bottom to top to get latest first
+  for (var i = data.length - 1; i >= 1; i--) {
+    var row = data[i];
+    var isAnon = row[5] === true || row[5] === 'TRUE' || row[5] === 'true';
+    var ownerUsername = row[2];
+    
+    // Filter logic:
+    // Admin sees all. User sees only their own (even if they sent it as anonymous).
+    if (isAdmin || ownerUsername === username) {
+      items.push({
+        id: row[0],
+        date: row[1],
+        username: isAnon ? 'Anonymous' : ownerUsername, // Hide real username if anon
+        fullname: isAnon ? 'Người dùng ẩn danh' : (row[8] || ownerUsername), // If we stored fullname, we could use it. For now fallback. Wait, we should store fullname.
+        category: row[3],
+        content: row[4],
+        isAnonymous: isAnon,
+        status: row[6],
+        adminReply: row[7]
+      });
+    }
+  }
+  return jsonResponse(true, items);
+}
+
+function handleSubmitFeedback(payload) {
+  var ss = getSS();
+  var sheet = ss.getSheetByName("Feedbacks");
+  if (!sheet) {
+    sheet = ss.insertSheet("Feedbacks");
+    sheet.appendRow(["FeedbackID", "Date", "Username", "Category", "Content", "IsAnonymous", "Status", "AdminReply", "Fullname"]);
+  }
+  
+  var newId = "FB_" + new Date().getTime().toString();
+  var now = new Date();
+  var dateStr = now.getDate().toString().padStart(2, '0') + '/' + (now.getMonth() + 1).toString().padStart(2, '0') + '/' + now.getFullYear() + ' ' + now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+  
+  sheet.appendRow([
+    newId,
+    dateStr,
+    payload.username || '',
+    payload.category || '',
+    payload.content || '',
+    payload.isAnonymous ? true : false,
+    "Pending",
+    "",
+    payload.fullname || '' // Store fullname at col 8
+  ]);
+  
+  return jsonResponse(true, "Đã gửi góp ý");
+}
+
+function handleReplyFeedback(payload) {
+  var ss = getSS();
+  var sheet = ss.getSheetByName("Feedbacks");
+  if (!sheet) return jsonResponse(false, "Chưa có CSDL Feedbacks");
+
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0].toString() === payload.feedbackId) {
+      // AdminReply is at col 8 (index 7), Status is at col 7 (index 6)
+      sheet.getRange(i + 1, 8).setValue(payload.reply);
+      sheet.getRange(i + 1, 7).setValue("Reviewed");
+      return jsonResponse(true, "Đã phản hồi");
+    }
+  }
+  return jsonResponse(false, "Không tìm thấy phản hồi này");
+}

@@ -34,7 +34,7 @@ Kiến trúc mới được chia thành **5 Nhóm Tính Năng (Modules)** chính
 - **Admin & User:** Đều có quyền báo cáo các món hết nguyên liệu trong ngày.
 - **Hiển thị:** Nhập tên món -> Hệ thống ghi nhận hiển thị realtime cho toàn bộ nhân viên. Thông tin bao gồm: Tên món, Tên người báo, Thời gian báo.
 
-**4. Hòm thư Góp ý / Khiếu nại:**
+**4. Hòm thư Góp ý / Khiếu nại ✅:**
 - **Admin:** Tiếp nhận và phản hồi các ý kiến đóng góp, khiếu nại về lương/ca làm.
 - **User:** Gửi phản hồi (có thể chọn ẩn danh) về các vấn đề trong ca làm, thái độ đồng nghiệp, hoặc khiếu nại sai sót chấm công.
 

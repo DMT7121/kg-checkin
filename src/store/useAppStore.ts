@@ -67,6 +67,18 @@ export interface ChecklistLog {
   timestamp: string;
 }
 
+export interface Feedback {
+  id: string;
+  date: string;
+  username: string;
+  fullname: string;
+  category: string;
+  content: string;
+  isAnonymous: boolean;
+  status: string;
+  adminReply: string;
+}
+
 export interface LogEntry {
   fullname: string;
   type: string;
@@ -125,6 +137,7 @@ interface AppState {
   swapRequests: SwapRequest[];
   checklists: ChecklistItem[];
   checklistLogs: ChecklistLog[];
+  feedbacks: Feedback[];
 
   // Schedule registration
   isScheduleRegistered: boolean;
@@ -157,6 +170,7 @@ interface AppState {
   setSwapRequests: (reqs: SwapRequest[]) => void;
   setChecklists: (items: ChecklistItem[]) => void;
   setChecklistLogs: (logs: ChecklistLog[]) => void;
+  setFeedbacks: (items: Feedback[]) => void;
   toggleDarkMode: () => void;
   setLoading: (v: boolean, text?: string) => void;
   setUpdating: (v: boolean) => void;
@@ -223,6 +237,7 @@ export const useAppStore = create<AppState>((set) => ({
   swapRequests: [],
   checklists: [],
   checklistLogs: [],
+  feedbacks: [],
 
   // Schedule
   isScheduleRegistered: false,
@@ -259,6 +274,7 @@ export const useAppStore = create<AppState>((set) => ({
   setSwapRequests: (reqs) => set({ swapRequests: reqs }),
   setChecklists: (items) => set({ checklists: items }),
   setChecklistLogs: (logs) => set({ checklistLogs: logs }),
+  setFeedbacks: (items) => set({ feedbacks: items }),
   toggleDarkMode: () =>
     set((s) => {
       const newDark = !s.isDark;

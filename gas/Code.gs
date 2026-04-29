@@ -94,6 +94,14 @@ function doPost(e) {
       case 'SUBMIT_INCIDENT':
         return handleSubmitIncident(payload);
 
+      // --- FEEDBACK ---
+      case 'GET_FEEDBACKS':
+        return handleGetFeedbacks(payload);
+      case 'SUBMIT_FEEDBACK':
+        return handleSubmitFeedback(payload);
+      case 'REPLY_FEEDBACK':
+        return handleReplyFeedback(payload);
+
       default:
         return jsonResponse(false, 'Unknown action');
     }
