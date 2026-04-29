@@ -3,13 +3,14 @@ import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import { speak, computeWeekInfo } from '../utils/helpers';
 import Swal from 'sweetalert2';
-import { User, Lock, Eye, EyeOff, ChevronLeft, ArrowRight, Fingerprint } from 'lucide-react';
+import { User, Lock, Eye, EyeOff, ChevronLeft, ArrowRight, Fingerprint, Mail, Phone, Calendar, BadgeCheck, KeyRound } from 'lucide-react';
 
 export default function Login() {
   const store = useAppStore();
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
-  const [registerForm, setRegisterForm] = useState({ username: '', password: '', fullname: '', dob: '', email: '' });
+  const [registerForm, setRegisterForm] = useState({ username: '', password: '', fullname: '', dob: '', email: '', phone: '' });
+  const [forgotForm, setForgotForm] = useState({ email: '' });
   const [showPass, setShowPass] = useState(false);
 
   const handleLogin = async (e?: React.FormEvent, bioCreds?: {username: string, password: string}) => {
@@ -155,10 +156,33 @@ export default function Login() {
     if (res?.ok) {
       Swal.fire('Thành công', res.message, 'success');
       setMode('login');
-      setRegisterForm({ username: '', password: '', fullname: '', dob: '', email: '' });
+      setRegisterForm({ username: '', password: '', fullname: '', dob: '', email: '', phone: '' });
+      // Tự động điền username vào form đăng nhập
+      setLoginForm({ ...loginForm, username: registerForm.username });
     } else if (res) {
       Swal.fire('Lỗi', res.message, 'error');
     }
+  };
+
+  const handleForgot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotForm.email) {
+      Swal.fire('Lỗi', 'Vui lòng nhập Email hoặc Số điện thoại', 'warning');
+      return;
+    }
+    store.setLoading(true, 'Đang gửi yêu cầu...');
+    // Gọi API FORGOT_PASSWORD (Backend sẽ phát triển ở phase sau)
+    setTimeout(() => {
+      store.setLoading(false);
+      Swal.fire({
+        icon: 'success',
+        title: 'Đã gửi yêu cầu',
+        text: 'Mã xác nhận (OTP) đã được gửi đến Email của bạn. Tính năng đang trong giai đoạn thử nghiệm.',
+        confirmButtonText: 'Đóng'
+      });
+      setMode('login');
+      setForgotForm({ email: '' });
+    }, 1500);
   };
 
   return (
@@ -203,26 +227,109 @@ export default function Login() {
               </button>
             )}
           </form>
-          <div className="mt-8 text-center text-sm">
-            <button onClick={() => setMode('register')} className="text-ocean-600 dark:text-ocean-400 font-bold hover:underline min-h-[44px]">Đăng ký nhân viên mới</button>
-          </div>
+            <div className="flex justify-between items-center mt-6 text-sm">
+              <button type="button" onClick={() => setMode('forgot')} className="text-gray-500 hover:text-ocean-600 dark:hover:text-ocean-400 font-medium transition-colors">Quên mật khẩu?</button>
+              <button type="button" onClick={() => setMode('register')} className="text-ocean-600 dark:text-ocean-400 font-bold hover:underline">Đăng ký mới</button>
+            </div>
+          </form>
         </div>
       )}
 
       {/* REGISTER FORM */}
       {mode === 'register' && (
-        <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-700 animate-slide-up">
-          <h3 className="text-2xl font-bold mb-6 text-center text-gray-800 dark:text-white">Đăng Ký</h3>
+        <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-700 animate-slide-up w-full max-w-md mx-auto">
+          <div className="text-center mb-6">
+            <div className="w-12 h-12 bg-gradient-to-br from-green-400 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg">
+              <BadgeCheck size={24} className="text-white" />
+            </div>
+            <h3 className="text-2xl font-bold text-gray-800 dark:text-white">Tạo tài khoản</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Đăng ký nhanh để gia nhập hệ thống</p>
+          </div>
+
           <form onSubmit={handleRegister}>
             <div className="space-y-4">
-              <input type="text" value={registerForm.username} onChange={(e) => setRegisterForm({ ...registerForm, username: e.target.value })} placeholder="Tài khoản" className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 min-h-[44px] text-gray-800 dark:text-white" />
-              <input type="password" value={registerForm.password} onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })} placeholder="Mật khẩu" className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 min-h-[44px] text-gray-800 dark:text-white" />
-              <input type="text" value={registerForm.fullname} onChange={(e) => setRegisterForm({ ...registerForm, fullname: e.target.value })} placeholder="Họ tên" className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 min-h-[44px] text-gray-800 dark:text-white" />
-              <input type="email" value={registerForm.email} onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })} placeholder="Email" className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 min-h-[44px] text-gray-800 dark:text-white" />
-              <input type="date" value={registerForm.dob} onChange={(e) => setRegisterForm({ ...registerForm, dob: e.target.value })} className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 dark:text-white min-h-[44px]" />
+              {/* Row 1: Fullname */}
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-green-500 transition-colors">
+                  <User size={16} />
+                </div>
+                <input type="text" required value={registerForm.fullname} onChange={(e) => setRegisterForm({ ...registerForm, fullname: e.target.value })} placeholder="Họ và Tên (VD: Nguyễn Văn A)" className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-11 pr-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-green-500/50 min-h-[44px] text-gray-800 dark:text-white" />
+              </div>
+
+              {/* Row 2: Username & Password in Grid */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-green-500 transition-colors">
+                    <User size={16} />
+                  </div>
+                  <input type="text" required value={registerForm.username} onChange={(e) => setRegisterForm({ ...registerForm, username: e.target.value })} placeholder="Tài khoản" className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-3 py-3 focus:outline-none focus:ring-2 focus:ring-green-500/50 min-h-[44px] text-sm text-gray-800 dark:text-white" />
+                </div>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-green-500 transition-colors">
+                    <Lock size={16} />
+                  </div>
+                  <input type="password" required value={registerForm.password} onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })} placeholder="Mật khẩu" className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-3 py-3 focus:outline-none focus:ring-2 focus:ring-green-500/50 min-h-[44px] text-sm text-gray-800 dark:text-white" />
+                </div>
+              </div>
+
+              {/* Row 3: Email & Phone */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-green-500 transition-colors">
+                    <Mail size={16} />
+                  </div>
+                  <input type="email" value={registerForm.email} onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })} placeholder="Email" className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-3 py-3 focus:outline-none focus:ring-2 focus:ring-green-500/50 min-h-[44px] text-sm text-gray-800 dark:text-white" />
+                </div>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-green-500 transition-colors">
+                    <Phone size={16} />
+                  </div>
+                  <input type="tel" value={registerForm.phone} onChange={(e) => setRegisterForm({ ...registerForm, phone: e.target.value })} placeholder="SĐT / Zalo" className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-3 py-3 focus:outline-none focus:ring-2 focus:ring-green-500/50 min-h-[44px] text-sm text-gray-800 dark:text-white" />
+                </div>
+              </div>
+
+              {/* Row 4: DOB */}
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-green-500 transition-colors">
+                  <Calendar size={16} />
+                </div>
+                <input type="date" value={registerForm.dob} onChange={(e) => setRegisterForm({ ...registerForm, dob: e.target.value })} className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-11 pr-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-green-500/50 text-gray-800 dark:text-white min-h-[44px]" />
+              </div>
             </div>
-            <button type="submit" className="w-full mt-8 bg-green-500 text-white font-bold py-3.5 rounded-xl shadow-lg hover:bg-green-600 transition transform active:scale-95 min-h-[44px] touch-manipulation">HOÀN TẤT ĐĂNG KÝ</button>
-            <button type="button" onClick={() => setMode('login')} className="w-full mt-4 text-gray-500 text-[1rem] hover:text-gray-700 dark:hover:text-gray-300 font-medium min-h-[44px] touch-manipulation flex items-center justify-center">
+
+            <button type="submit" className="w-full mt-8 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold py-3.5 rounded-xl shadow-lg hover:shadow-green-500/40 transition transform active:scale-95 min-h-[44px] flex items-center justify-center">
+              HOÀN TẤT ĐĂNG KÝ
+            </button>
+            <button type="button" onClick={() => setMode('login')} className="w-full mt-4 text-gray-500 text-[1rem] hover:text-gray-800 dark:hover:text-white font-medium min-h-[44px] flex items-center justify-center transition-colors">
+              <ChevronLeft size={16} className="mr-1" /> Quay lại đăng nhập
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* FORGOT PASSWORD FORM */}
+      {mode === 'forgot' && (
+        <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-700 animate-slide-up w-full max-w-md mx-auto">
+          <div className="text-center mb-6">
+            <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg">
+              <KeyRound size={24} className="text-white" />
+            </div>
+            <h3 className="text-2xl font-bold text-gray-800 dark:text-white">Khôi phục mật khẩu</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Nhập Email hoặc SĐT đã đăng ký để nhận mã OTP khôi phục</p>
+          </div>
+
+          <form onSubmit={handleForgot}>
+            <div className="relative group mb-6">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-orange-500 transition-colors">
+                <Mail size={16} />
+              </div>
+              <input type="text" required value={forgotForm.email} onChange={(e) => setForgotForm({ email: e.target.value })} placeholder="Email hoặc SĐT..." className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-11 pr-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-orange-500/50 min-h-[44px] text-gray-800 dark:text-white" />
+            </div>
+
+            <button type="submit" className="w-full bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold py-3.5 rounded-xl shadow-lg hover:shadow-orange-500/40 transition transform active:scale-95 min-h-[44px] flex items-center justify-center">
+              GỬI MÃ OTP
+            </button>
+            <button type="button" onClick={() => setMode('login')} className="w-full mt-4 text-gray-500 text-[1rem] hover:text-gray-800 dark:hover:text-white font-medium min-h-[44px] flex items-center justify-center transition-colors">
               <ChevronLeft size={16} className="mr-1" /> Quay lại
             </button>
           </form>

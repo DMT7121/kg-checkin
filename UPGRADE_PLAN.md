@@ -8,9 +8,9 @@ Kiến trúc mới được chia thành **5 Nhóm Tính Năng (Modules)** chính
 *Quản lý truy cập, bảo mật tài khoản và cấp phép nhân sự.*
 
 **1. Đăng ký tài khoản (Sign Up):**
-- **Quy trình "Chờ duyệt" (Pending Approval):** Nhân viên mới đăng ký tài khoản thành công sẽ không thể đăng nhập và xem dữ liệu nội bộ ngay. Trạng thái tài khoản là "Chờ duyệt".
-- **Admin duyệt:** Quản lý sẽ nhận được thông báo (trên Webapp hoặc Zalo/Email) có người đăng ký mới. Quản lý kiểm tra thông tin và bấm "Duyệt" (Active) tài khoản trong màn hình Quản trị.
-- **Bảo mật & Thông tin:** Mở rộng form đăng ký yêu cầu điền: Số điện thoại (Zalo), Email (bắt buộc để lấy lại pass), và tùy chọn tải lên ảnh Căn cước công dân (CCCD).
+- **Sử dụng ngay:** Nhân viên mới đăng ký tài khoản thành công sẽ có thể đăng nhập và sử dụng ứng dụng ngay lập tức mà không cần chờ Admin duyệt.
+- **Bảo mật & Thông tin:** Form đăng ký chuyên nghiệp yêu cầu điền: Họ tên, Tài khoản, Mật khẩu, Số điện thoại (Zalo), Email (bắt buộc để lấy lại pass), và Ngày sinh.
+- **Admin theo dõi:** Quản lý sẽ nhận được thông báo khi có người đăng ký mới để kiểm soát danh sách nhân sự.
 
 **2. Quên mật khẩu (Forgot Password):**
 - **Giao diện người dùng:** Thêm nút "Quên mật khẩu?" ở màn hình Login. User nhập Email hoặc Số điện thoại đã đăng ký.
