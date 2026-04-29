@@ -88,6 +88,12 @@ function doPost(e) {
       case 'SUBMIT_CHECKLIST':
         return handleSubmitChecklist(payload);
 
+      // --- HANDOVER & INCIDENT ---
+      case 'SUBMIT_HANDOVER':
+        return handleSubmitHandover(payload);
+      case 'SUBMIT_INCIDENT':
+        return handleSubmitIncident(payload);
+
       default:
         return jsonResponse(false, 'Unknown action');
     }

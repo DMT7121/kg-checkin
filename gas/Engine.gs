@@ -1065,3 +1065,57 @@ function handleSubmitChecklist(payload) {
   
   return jsonResponse(true, "Đã nộp checklist thành công");
 }
+
+// ==========================================
+// TÍNH NĂNG BÀN GIAO CA VÀ SỰ CỐ
+// ==========================================
+
+function handleSubmitHandover(payload) {
+  var ss = getSS();
+  var sheet = ss.getSheetByName("Handovers");
+  if (!sheet) {
+    sheet = ss.insertSheet("Handovers");
+    sheet.appendRow(["LogID", "Date", "Shift", "Username", "CashAmount", "Note", "Timestamp"]);
+  }
+  
+  var newId = "HO_" + new Date().getTime().toString();
+  var now = new Date();
+  var dateStr = now.getDate().toString().padStart(2, '0') + '/' + (now.getMonth() + 1).toString().padStart(2, '0') + '/' + now.getFullYear();
+  
+  sheet.appendRow([
+    newId,
+    dateStr,
+    payload.shift || '',
+    payload.username || '',
+    payload.cashAmount || '',
+    payload.note || '',
+    now.toString()
+  ]);
+  
+  return jsonResponse(true, "Đã ghi nhận bàn giao ca");
+}
+
+function handleSubmitIncident(payload) {
+  var ss = getSS();
+  var sheet = ss.getSheetByName("Incidents");
+  if (!sheet) {
+    sheet = ss.insertSheet("Incidents");
+    sheet.appendRow(["IncidentID", "Date", "Username", "Category", "Description", "Status", "Timestamp"]);
+  }
+  
+  var newId = "INC_" + new Date().getTime().toString();
+  var now = new Date();
+  var dateStr = now.getDate().toString().padStart(2, '0') + '/' + (now.getMonth() + 1).toString().padStart(2, '0') + '/' + now.getFullYear();
+  
+  sheet.appendRow([
+    newId,
+    dateStr,
+    payload.username || '',
+    payload.category || '',
+    payload.description || '',
+    "Pending",
+    now.toString()
+  ]);
+  
+  return jsonResponse(true, "Đã gửi báo cáo sự cố");
+}

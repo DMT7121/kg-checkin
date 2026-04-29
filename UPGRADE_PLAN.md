@@ -52,7 +52,7 @@ Kiến trúc mới được chia thành **5 Nhóm Tính Năng (Modules)** chính
 **2. Checklist hằng ngày (Mở/Đóng quán) ✅:**
 - Hệ thống tự động đẩy các công việc cần làm dựa trên ca làm việc (Ví dụ: Ca sáng có checklist mở quán, Ca tối có checklist đóng quán). Cấu hình checklist do Admin thiết lập.
 
-**3. Bàn giao ca & Báo cáo Sự cố (Incident Report):**
+**3. Bàn giao ca & Báo cáo Sự cố (Incident Report) ✅:**
 - **Admin & User:** Ghi nhận tiền mặt đầu/cuối ca (Tiền lẻ thối). Nút bấm "Báo cáo sự cố" nhanh (Ví dụ: Hư quạt, Mất điện, Khách phàn nàn) để Quản lý nhận thông báo đẩy ngay lập tức.
 
 ---
