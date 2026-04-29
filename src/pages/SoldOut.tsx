@@ -37,7 +37,7 @@ export default function SoldOut() {
     if (!newItemName.trim()) return;
 
     store.setUpdating(true);
-    store.setLoadingText('Đang ghi nhận...');
+    store.setLoading(true, 'Đang ghi nhận...');
     try {
       const res = await callApi('ADD_SOLDOUT', {
         itemName: newItemName.trim(),
@@ -54,6 +54,7 @@ export default function SoldOut() {
       alert('Không thể kết nối máy chủ');
     } finally {
       store.setUpdating(false);
+      store.setLoading(false);
     }
   };
 
@@ -61,7 +62,7 @@ export default function SoldOut() {
     if (!confirm(`Xác nhận món "${itemName}" ĐÃ CÓ LẠI?`)) return;
     
     store.setUpdating(true);
-    store.setLoadingText('Đang cập nhật...');
+    store.setLoading(true, 'Đang cập nhật...');
     try {
       const res = await callApi('REMOVE_SOLDOUT', { id });
       if (res?.ok) {
@@ -73,6 +74,7 @@ export default function SoldOut() {
       alert('Không thể kết nối máy chủ');
     } finally {
       store.setUpdating(false);
+      store.setLoading(false);
     }
   };
 
