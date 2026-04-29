@@ -12,10 +12,10 @@ Kiến trúc mới được chia thành **5 Nhóm Tính Năng (Modules)** chính
 - **Bảo mật & Thông tin:** Form đăng ký chuyên nghiệp yêu cầu điền: Họ tên, Tài khoản, Mật khẩu, Số điện thoại (Zalo), Email (bắt buộc để lấy lại pass), và Ngày sinh.
 - **Admin theo dõi:** Quản lý sẽ nhận được thông báo khi có người đăng ký mới để kiểm soát danh sách nhân sự.
 
-**2. Quên mật khẩu (Forgot Password) ⏳ (Xong UI - Chờ Code Backend):**
+**2. Quên mật khẩu (Forgot Password) ✅:**
 - **Giao diện người dùng:** Thêm nút "Quên mật khẩu?" ở màn hình Login. User nhập Email hoặc Số điện thoại đã đăng ký.
 - **Cơ chế OTP (Email/Zalo):** Hệ thống tạo mã OTP 6 số ngẫu nhiên có hiệu lực trong 5 phút và gửi về Email. User nhập đúng OTP sẽ được đổi mật khẩu mới.
-- **Admin can thiệp (Force Reset):** Nếu nhân viên không rành công nghệ, Admin có thể vào trang Quản trị, chọn tài khoản đó và bấm "Reset Password". Mật khẩu sẽ tự động trở về mặc định (VD: 123456) để nhân viên đăng nhập lại.
+- **Admin can thiệp (Force Reset):** Nếu nhân viên không rành công nghệ, Admin có thể vào trang Quản trị, chọn tài khoản đó và bấm biểu tượng "Chìa khóa". Mật khẩu sẽ tự động trở về mặc định (`Kg123456`) để nhân viên đăng nhập lại.
 
 ---
 

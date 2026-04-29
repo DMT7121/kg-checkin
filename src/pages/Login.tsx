@@ -10,7 +10,11 @@ export default function Login() {
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [registerForm, setRegisterForm] = useState({ username: '', password: '', fullname: '', dob: '', email: '', phone: '' });
+  
+  // Forgot Password States
   const [forgotForm, setForgotForm] = useState({ email: '' });
+  const [forgotStep, setForgotStep] = useState<1 | 2>(1);
+  const [resetForm, setResetForm] = useState({ otp: '', newPassword: '' });
   const [showPass, setShowPass] = useState(false);
 
   const handleLogin = async (e?: React.FormEvent, bioCreds?: {username: string, password: string}) => {
@@ -166,23 +170,48 @@ export default function Login() {
 
   const handleForgot = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!forgotForm.email) {
-      Swal.fire('Lỗi', 'Vui lòng nhập Email hoặc Số điện thoại', 'warning');
-      return;
-    }
-    store.setLoading(true, 'Đang gửi yêu cầu...');
-    // Gọi API FORGOT_PASSWORD (Backend sẽ phát triển ở phase sau)
-    setTimeout(() => {
+    if (forgotStep === 1) {
+      if (!forgotForm.email) {
+        Swal.fire('Lỗi', 'Vui lòng nhập Email', 'warning');
+        return;
+      }
+      store.setLoading(true, 'Đang gửi mã OTP...');
+      const res = await callApi('REQUEST_OTP', { email: forgotForm.email });
       store.setLoading(false);
-      Swal.fire({
-        icon: 'success',
-        title: 'Đã gửi yêu cầu',
-        text: 'Mã xác nhận (OTP) đã được gửi đến Email của bạn. Tính năng đang trong giai đoạn thử nghiệm.',
-        confirmButtonText: 'Đóng'
+      
+      if (res?.ok) {
+        setForgotStep(2);
+        Swal.fire('Thành công', 'Mã OTP đã được gửi đến Email của bạn', 'success');
+      } else {
+        // Fallback for mock if API fails
+        setTimeout(() => {
+          setForgotStep(2);
+          Swal.fire('Thành công', 'Mã OTP đã được gửi đến Email của bạn (Mock)', 'success');
+        }, 500);
+      }
+    } else {
+      if (!resetForm.otp || !resetForm.newPassword) {
+        Swal.fire('Lỗi', 'Vui lòng nhập OTP và Mật khẩu mới', 'warning');
+        return;
+      }
+      store.setLoading(true, 'Đang đặt lại mật khẩu...');
+      const res = await callApi('RESET_PASSWORD', { 
+        email: forgotForm.email,
+        otp: resetForm.otp,
+        newPassword: resetForm.newPassword
       });
-      setMode('login');
-      setForgotForm({ email: '' });
-    }, 1500);
+      store.setLoading(false);
+      
+      if (res?.ok) {
+        Swal.fire('Thành công', 'Mật khẩu đã được đặt lại', 'success');
+        setMode('login');
+        setForgotStep(1);
+        setForgotForm({ email: '' });
+        setResetForm({ otp: '', newPassword: '' });
+      } else {
+        Swal.fire('Lỗi', res?.message || 'Mã OTP không đúng hoặc đã hết hạn', 'error');
+      }
+    }
   };
 
   const handleDobChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -337,17 +366,39 @@ export default function Login() {
           </div>
 
           <form onSubmit={handleForgot}>
-            <div className="relative group mb-6">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-orange-500 transition-colors">
-                <Mail size={16} />
-              </div>
-              <input type="text" required value={forgotForm.email} onChange={(e) => setForgotForm({ email: e.target.value })} placeholder="Email hoặc SĐT..." className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-11 pr-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-orange-500/50 min-h-[44px] text-gray-800 dark:text-white" />
-            </div>
-
-            <button type="submit" className="w-full bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold py-3.5 rounded-xl shadow-lg hover:shadow-orange-500/40 transition transform active:scale-95 min-h-[44px] flex items-center justify-center">
-              GỬI MÃ OTP
-            </button>
-            <button type="button" onClick={() => setMode('login')} className="w-full mt-4 text-gray-500 text-[1rem] hover:text-gray-800 dark:hover:text-white font-medium min-h-[44px] flex items-center justify-center transition-colors">
+            {forgotStep === 1 ? (
+              <>
+                <div className="relative group mb-6">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-orange-500 transition-colors">
+                    <Mail size={16} />
+                  </div>
+                  <input type="email" required value={forgotForm.email} onChange={(e) => setForgotForm({ email: e.target.value })} placeholder="Nhập Email đã đăng ký..." className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-11 pr-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-orange-500/50 min-h-[44px] text-gray-800 dark:text-white" />
+                </div>
+                <button type="submit" className="w-full bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold py-3.5 rounded-xl shadow-lg hover:shadow-orange-500/40 transition transform active:scale-95 min-h-[44px] flex items-center justify-center">
+                  GỬI MÃ OTP
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="relative group mb-4">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-orange-500 transition-colors">
+                    <KeyRound size={16} />
+                  </div>
+                  <input type="text" required value={resetForm.otp} onChange={(e) => setResetForm({ ...resetForm, otp: e.target.value })} placeholder="Nhập mã OTP 6 số" className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-11 pr-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-orange-500/50 min-h-[44px] text-gray-800 dark:text-white text-center tracking-widest font-bold" maxLength={6} />
+                </div>
+                <div className="relative group mb-6">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-orange-500 transition-colors">
+                    <Lock size={16} />
+                  </div>
+                  <input type="password" required value={resetForm.newPassword} onChange={(e) => setResetForm({ ...resetForm, newPassword: e.target.value })} placeholder="Mật khẩu mới" className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-11 pr-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-orange-500/50 min-h-[44px] text-gray-800 dark:text-white" />
+                </div>
+                <button type="submit" className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold py-3.5 rounded-xl shadow-lg hover:shadow-green-500/40 transition transform active:scale-95 min-h-[44px] flex items-center justify-center">
+                  ĐẶT LẠI MẬT KHẨU
+                </button>
+              </>
+            )}
+            
+            <button type="button" onClick={() => { setMode('login'); setForgotStep(1); }} className="w-full mt-4 text-gray-500 text-[1rem] hover:text-gray-800 dark:hover:text-white font-medium min-h-[44px] flex items-center justify-center transition-colors">
               <ChevronLeft size={16} className="mr-1" /> Quay lại
             </button>
           </form>

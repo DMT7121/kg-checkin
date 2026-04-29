@@ -3,7 +3,7 @@ import { callApi } from '../services/api';
 import { speak, fetchWithRetry, computeWeekInfo, DAY_NAMES, ADMIN_SHIFT_OPTIONS, getAdminShiftClass } from '../utils/helpers';
 import { sha256, ADMIN_PIN_HASH, MASTER_PIN_HASH, escapeHtml, checkRateLimit, recordFailedAttempt, resetFailedAttempts } from '../utils/security';
 import Swal from 'sweetalert2';
-import { Lock, Key, CalendarCheck, RefreshCw, Inbox, CheckCheck, Wand2, Cpu, CloudUpload, Eye, Loader2, Users } from 'lucide-react';
+import { Lock, Key, CalendarCheck, RefreshCw, Inbox, CheckCheck, Wand2, Cpu, CloudUpload, Eye, Loader2, Users, KeyRound } from 'lucide-react';
 
 export default function Admin() {
   const store = useAppStore();
@@ -204,6 +204,32 @@ export default function Admin() {
     }
   };
 
+  // === FORCE RESET PASSWORD ===
+  const handleForceReset = async (username: string, fullname: string) => {
+    const result = await Swal.fire({
+      title: 'Xác nhận Đổi mật khẩu',
+      html: `Bạn có chắc chắn muốn ép đổi mật khẩu của <b>${fullname}</b> về mặc định <b>Kg123456</b> không?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Đổi mật khẩu',
+      cancelButtonText: 'Hủy'
+    });
+
+    if (result.isConfirmed) {
+      store.setLoading(true, 'Đang đặt lại mật khẩu...');
+      const res = await callApi('FORCE_RESET_PASSWORD', { targetUsername: username });
+      store.setLoading(false);
+      
+      if (res?.ok) {
+        Swal.fire('Thành công', `Đã đặt lại mật khẩu cho ${fullname} thành Kg123456`, 'success');
+      } else {
+        Swal.fire('Lỗi', res?.message || 'Không thể đổi mật khẩu', 'error');
+      }
+    }
+  };
+
   // === LOCKED STATE ===
   if (!isAdminUnlocked) {
     return (
@@ -372,10 +398,10 @@ export default function Admin() {
         </div>
       </div>
 
-      {/* Real-time users */}
+      {/* User Management */}
       <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
         <h3 className="font-bold mb-4 border-b dark:border-gray-700 pb-2 flex items-center text-gray-800 dark:text-white">
-          <Users size={18} className="mr-2 text-ocean-600" /> Hôm nay (Real-time)
+          <Users size={18} className="mr-2 text-ocean-600" /> Danh sách Nhân sự
           {isUpdating && <Loader2 size={14} className="ml-2 text-ocean-500 animate-spin" />}
         </h3>
         <div className="space-y-3">
@@ -385,9 +411,18 @@ export default function Admin() {
                 <div className="w-8 h-8 rounded-full bg-ocean-100 dark:bg-ocean-900 text-ocean-600 flex items-center justify-center font-bold text-xs mr-3">
                   {user.fullname.charAt(0)}
                 </div>
-                <span className="font-medium text-gray-800 dark:text-gray-200">{user.fullname}</span>
+                <div>
+                  <span className="font-medium text-gray-800 dark:text-gray-200 block">{user.fullname}</span>
+                  <span className="text-[10px] text-gray-500 block">@{user.username}</span>
+                </div>
               </div>
-              <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-gray-200 text-gray-500 dark:bg-gray-600 dark:text-gray-300">Chờ cập nhật</span>
+              <button 
+                onClick={() => handleForceReset(user.username, user.fullname)}
+                className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                title="Khôi phục mật khẩu"
+              >
+                <KeyRound size={16} />
+              </button>
             </div>
           ))}
         </div>

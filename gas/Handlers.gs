@@ -64,6 +64,127 @@ function handleRegister(payload) {
   return jsonResponse(true, 'Đăng ký thành công');
 }
 
+// 1B. AUTHENTICATION: FORGOT PASSWORD & FORCE RESET
+function handleRequestOTP(payload) {
+  if (!payload || !payload.email) return jsonResponse(false, 'Thiếu thông tin Email');
+  
+  var ss = getSS();
+  var usersSheet = ss.getSheetByName(CONFIG.SHEET_USERS);
+  if (!usersSheet) return jsonResponse(false, 'Không tìm thấy DB Users');
+  
+  var data = usersSheet.getDataRange().getValues();
+  var foundEmail = false;
+  
+  // Find if email exists in Col 4
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][4] && data[i][4].toString().toLowerCase() === payload.email.toLowerCase()) {
+      foundEmail = true;
+      break;
+    }
+  }
+  
+  if (!foundEmail) {
+    return jsonResponse(false, 'Không tìm thấy tài khoản với Email này');
+  }
+  
+  // Generate 6-digit OTP
+  var otp = Math.floor(100000 + Math.random() * 900000).toString();
+  
+  // Save to OTPs sheet
+  var otpSheet = ss.getSheetByName("OTPs");
+  if (!otpSheet) {
+    otpSheet = ss.insertSheet("OTPs");
+    otpSheet.appendRow(["Email", "OTP", "Timestamp"]);
+  }
+  otpSheet.appendRow([payload.email.toLowerCase(), otp, new Date().getTime()]);
+  
+  // Send Email using MailApp
+  try {
+    MailApp.sendEmail({
+      to: payload.email,
+      subject: "Mã xác nhận (OTP) Khôi phục mật khẩu - King's Grill",
+      htmlBody: "<h2>Xin chào,</h2><p>Mã xác nhận OTP để khôi phục mật khẩu của bạn là: <b><span style='font-size:24px;color:blue;'>" + otp + "</span></b></p><p>Mã này có hiệu lực trong vòng 5 phút.</p><br><p>Cảm ơn bạn đã sử dụng hệ thống King's Grill.</p>"
+    });
+    return jsonResponse(true, 'Đã gửi mã OTP qua Email');
+  } catch (e) {
+    return jsonResponse(false, 'Lỗi gửi Email: ' + e.toString());
+  }
+}
+
+function handleResetPassword(payload) {
+  if (!payload || !payload.email || !payload.otp || !payload.newPassword) {
+    return jsonResponse(false, 'Thiếu thông tin');
+  }
+  
+  var ss = getSS();
+  var otpSheet = ss.getSheetByName("OTPs");
+  if (!otpSheet) return jsonResponse(false, 'Chưa có dữ liệu OTP');
+  
+  var otpData = otpSheet.getDataRange().getValues();
+  var validOTP = false;
+  var now = new Date().getTime();
+  
+  // Find OTP backwards (latest first)
+  for (var i = otpData.length - 1; i >= 1; i--) {
+    if (otpData[i][0].toString().toLowerCase() === payload.email.toLowerCase() && otpData[i][1].toString() === payload.otp) {
+      // Check expiration (5 minutes = 300,000 ms)
+      var timestamp = Number(otpData[i][2]);
+      if (now - timestamp <= 300000) {
+        validOTP = true;
+      }
+      break; // Only check the latest OTP sent for this email
+    }
+  }
+  
+  if (!validOTP) {
+    return jsonResponse(false, 'Mã OTP không hợp lệ hoặc đã hết hạn (quá 5 phút)');
+  }
+  
+  // Update Password in Users sheet
+  var usersSheet = ss.getSheetByName(CONFIG.SHEET_USERS);
+  var usersData = usersSheet.getDataRange().getValues();
+  var updated = false;
+  for (var j = 1; j < usersData.length; j++) {
+    if (usersData[j][4] && usersData[j][4].toString().toLowerCase() === payload.email.toLowerCase()) {
+      usersSheet.getRange(j + 1, 2).setValue(payload.newPassword); // Col B is password (index 1 + 1)
+      updated = true;
+      break;
+    }
+  }
+  
+  if (updated) {
+    return jsonResponse(true, 'Đặt lại mật khẩu thành công');
+  } else {
+    return jsonResponse(false, 'Lỗi không xác định khi cập nhật mật khẩu');
+  }
+}
+
+function handleForceResetPassword(payload) {
+  if (!payload || !payload.targetUsername) return jsonResponse(false, 'Thiếu targetUsername');
+  
+  var ss = getSS();
+  var usersSheet = ss.getSheetByName(CONFIG.SHEET_USERS);
+  if (!usersSheet) return jsonResponse(false, 'Không tìm thấy DB Users');
+  
+  var usersData = usersSheet.getDataRange().getValues();
+  var updated = false;
+  var defaultPass = "Kg123456";
+  
+  for (var j = 1; j < usersData.length; j++) {
+    if (usersData[j][0].toString().toLowerCase() === payload.targetUsername.toLowerCase()) {
+      usersSheet.getRange(j + 1, 2).setValue(defaultPass); // Reset col 2
+      updated = true;
+      break;
+    }
+  }
+  
+  if (updated) {
+    return jsonResponse(true, 'Đã đặt lại mật khẩu thành công');
+  } else {
+    return jsonResponse(false, 'Không tìm thấy User này');
+  }
+}
+
 // 2A. REVERSE GEOCODING via Google Maps (built-in GAS Maps service)
 function handleGeocode(payload) {
   try {

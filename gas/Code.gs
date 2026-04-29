@@ -102,6 +102,14 @@ function doPost(e) {
       case 'REPLY_FEEDBACK':
         return handleReplyFeedback(payload);
 
+      // --- AUTH: QUÊN MẬT KHẨU & ĐỔI MẬT KHẨU ---
+      case 'REQUEST_OTP':
+        return handleRequestOTP(payload);
+      case 'RESET_PASSWORD':
+        return handleResetPassword(payload);
+      case 'FORCE_RESET_PASSWORD':
+        return handleForceResetPassword(payload);
+
       default:
         return jsonResponse(false, 'Unknown action');
     }
