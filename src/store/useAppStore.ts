@@ -29,6 +29,13 @@ export interface Post {
   hasRead?: boolean;
 }
 
+export interface SoldOutItem {
+  id: string;
+  itemName: string;
+  reportedBy: string;
+  reportedAt: string;
+}
+
 export interface SwapRequest {
   id: string;
   username: string;
@@ -118,11 +125,15 @@ interface AppState {
   swapRequests: SwapRequest[];
   hasNewSwaps: boolean;
 
+  // Sold Out
+  soldOutItems: SoldOutItem[];
+
   // Actions
   setCurrentUser: (user: User | null) => void;
   setRememberMe: (v: boolean) => void;
   setDark: (v: boolean) => void;
   setPosts: (posts: Post[]) => void;
+  setSoldOutItems: (items: SoldOutItem[]) => void;
   toggleDarkMode: () => void;
   setLoading: (v: boolean, text?: string) => void;
   setUpdating: (v: boolean) => void;
@@ -221,6 +232,9 @@ export const useAppStore = create<AppState>((set) => ({
   ],
   hasNewSwaps: true,
 
+  // Sold Out
+  soldOutItems: [],
+
   // Actions
   setCurrentUser: (user) => set({ currentUser: user }),
   setRememberMe: (v) => set({ rememberMe: v }),
@@ -230,6 +244,7 @@ export const useAppStore = create<AppState>((set) => ({
     set({ isDark });
   },
   setPosts: (posts) => set({ posts }),
+  setSoldOutItems: (items) => set({ soldOutItems: items }),
   toggleDarkMode: () =>
     set((s) => {
       const newDark = !s.isDark;

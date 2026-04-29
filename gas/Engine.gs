@@ -945,3 +945,70 @@ function handleInteractPost(payload) {
 
   return jsonResponse(true, "Đã tương tác");
 }
+
+// ==========================================
+// TÍNH NĂNG MÓN HẾT (SOLD OUT / 86)
+// ==========================================
+
+function handleGetSoldOut() {
+  var ss = getSS();
+  var sheet = ss.getSheetByName("SoldOut");
+  if (!sheet) return jsonResponse(true, []); 
+
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return jsonResponse(true, []);
+
+  var items = [];
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    items.push({
+      id: row[0],
+      itemName: row[1],
+      reportedBy: row[2],
+      reportedAt: row[3]
+    });
+  }
+  return jsonResponse(true, items);
+}
+
+function handleAddSoldOut(payload) {
+  var ss = getSS();
+  var sheet = ss.getSheetByName("SoldOut");
+  if (!sheet) {
+    sheet = ss.insertSheet("SoldOut");
+    sheet.appendRow(["ID", "ItemName", "ReportedBy", "ReportedAt"]);
+  }
+  
+  var newId = new Date().getTime().toString();
+  var now = new Date();
+  var timeString = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0') + ' ' + now.getDate().toString().padStart(2, '0') + '/' + (now.getMonth() + 1).toString().padStart(2, '0');
+
+  sheet.appendRow([
+    newId,
+    payload.itemName,
+    payload.reportedBy,
+    timeString
+  ]);
+  
+  return jsonResponse(true, "Đã báo hết món");
+}
+
+function handleRemoveSoldOut(payload) {
+  var ss = getSS();
+  var sheet = ss.getSheetByName("SoldOut");
+  if (!sheet) return jsonResponse(false, "Không tìm thấy CSDL Món hết");
+
+  var data = sheet.getDataRange().getValues();
+  var rowIndex = -1;
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0].toString() === payload.id.toString()) {
+      rowIndex = i + 1;
+      break;
+    }
+  }
+
+  if (rowIndex === -1) return jsonResponse(false, "Không tìm thấy món này");
+
+  sheet.deleteRow(rowIndex);
+  return jsonResponse(true, "Đã xóa khỏi danh sách hết món");
+}

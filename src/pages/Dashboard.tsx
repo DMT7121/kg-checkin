@@ -17,6 +17,7 @@ import ActivityHistory from './ActivityHistory';
 import SwapShift from './SwapShift';
 import NewsFeed from './NewsFeed';
 import Training from './Training';
+import SoldOut from './SoldOut';
 import Admin from './Admin';
 
 // ============================================
@@ -59,7 +60,7 @@ export default function Dashboard() {
       items: [
         { id: 'dashboard', label: 'Tổng quan', icon: LayoutDashboard },
         { id: 'news', label: 'Bảng tin', icon: Newspaper },
-        { id: 'soldout', label: 'Món hết', icon: UtensilsCrossed, comingSoon: true },
+        { id: 'soldout', label: 'Món hết', icon: UtensilsCrossed },
         { id: 'feedback', label: 'Góp ý', icon: MessageSquareWarning, comingSoon: true },
         { id: 'training', label: 'Đào tạo', icon: GraduationCap },
       ],
@@ -233,7 +234,7 @@ export default function Dashboard() {
               { icon: Camera, label: 'Chấm công', tab: 'checkin' as TabId, color: 'from-green-500 to-emerald-600' },
               { icon: Calendar, label: 'Đăng ký', tab: 'schedule' as TabId, color: 'from-blue-500 to-indigo-600' },
               { icon: Newspaper, label: 'Bảng tin', tab: 'news' as TabId, color: 'from-purple-500 to-pink-600' },
-              { icon: History, label: 'Lịch sử', tab: 'history' as TabId, color: 'from-amber-500 to-orange-600' },
+              { icon: UtensilsCrossed, label: 'Món hết', tab: 'soldout' as TabId, color: 'from-amber-500 to-orange-600' },
             ].map((action) => (
               <button key={action.tab} onClick={() => handleTabChange(action.tab)}
                 className="flex flex-col items-center space-y-1.5 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all active:scale-95">
@@ -471,11 +472,12 @@ export default function Dashboard() {
             {currentTab === 'schedule' && <Schedule />}
             {currentTab === 'swap' && <SwapShift />}
             {currentTab === 'news' && <NewsFeed />}
+            {currentTab === 'soldout' && <SoldOut />}
             {currentTab === 'training' && <Training />}
             {currentTab === 'history' && <ActivityHistory />}
             {currentTab === 'admin' && <Admin />}
             {/* Coming Soon Pages */}
-            {['soldout', 'feedback', 'checklist', 'handover', 'roster', 'timesheet', 'advance', 'payroll', 'discipline'].includes(currentTab) && (
+            {['feedback', 'checklist', 'handover', 'roster', 'timesheet', 'advance', 'payroll', 'discipline'].includes(currentTab) && (
               <ComingSoonPage title={getPageTitle(currentTab)} />
             )}
           </motion.div>

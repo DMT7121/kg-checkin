@@ -75,6 +75,9 @@ function doPost(e) {
       case 'GET_POSTS': return handleGetPosts();
       case 'ADD_POST': return handleAddPost(payload);
       case 'INTERACT_POST': return handleInteractPost(payload);
+      case 'GET_SOLDOUT': return handleGetSoldOut();
+      case 'ADD_SOLDOUT': return handleAddSoldOut(payload);
+      case 'REMOVE_SOLDOUT': return handleRemoveSoldOut(payload);
       default: throw new Error('Unknown Action');
     }
   } catch (error) {
