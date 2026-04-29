@@ -1204,3 +1204,187 @@ function handleReplyFeedback(payload) {
   }
   return jsonResponse(false, "Không tìm thấy phản hồi này");
 }
+
+// ==========================================
+// TÍNH NĂNG CHỢ ĐỔI CA (SWAP SHIFTS)
+// ==========================================
+
+function _getSwapSheet() {
+  var ss = getSS();
+  var sheet = ss.getSheetByName("SwapRequests");
+  if (!sheet) {
+    sheet = ss.insertSheet("SwapRequests");
+    sheet.appendRow(["ID", "CreatedAt", "Username", "Fullname", "DayName", "Date", "Shift", "Reason", "TargetUsername", "TargetFullname", "Status", "MonthSheet"]);
+  }
+  return sheet;
+}
+
+function handleGetSwapRequests(payload) {
+  var sheet = _getSwapSheet();
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return jsonResponse(true, []);
+
+  var isAdmin = payload.role === 'admin';
+  var username = payload.username || '';
+  
+  var items = [];
+  // Loop from bottom to top to get latest first
+  for (var i = data.length - 1; i >= 1; i--) {
+    var row = data[i];
+    var status = row[10];
+    
+    // Admin sees all Pending_Admin (to approve) and Pending_User. 
+    // User sees Pending_User (to accept) and their own requests (to track).
+    // Let's just return all non-Approved/non-Rejected for users, and maybe recently approved for tracking.
+    // For simplicity, return all Pending_User and Pending_Admin for current week? The frontend can filter.
+    // Actually, to keep it clean, return all Pending_User, and all Pending_Admin.
+    // And if it's Approved/Rejected, maybe filter out unless it belongs to the user.
+    if (status === 'Pending_User' || status === 'Pending_Admin' || row[2] === username || row[8] === username || isAdmin) {
+      items.push({
+        id: row[0],
+        createdAt: row[1],
+        username: row[2],
+        fullname: row[3],
+        dayName: row[4],
+        date: row[5],
+        shift: row[6],
+        reason: row[7],
+        targetUsername: row[8],
+        targetFullname: row[9],
+        status: status,
+        monthSheet: row[11]
+      });
+    }
+  }
+  return jsonResponse(true, items);
+}
+
+function handleSubmitSwap(payload) {
+  var sheet = _getSwapSheet();
+  var newId = "SWAP_" + new Date().getTime().toString();
+  var isDirect = payload.targetUsername && payload.targetUsername !== 'ALL';
+  var status = isDirect ? 'Pending_User' : 'Pending_User'; // If direct, target user still needs to accept.
+  
+  sheet.appendRow([
+    newId,
+    new Date().getTime(),
+    payload.username,
+    payload.fullname,
+    payload.dayName,
+    payload.date,
+    payload.shift,
+    payload.reason,
+    isDirect ? payload.targetUsername : '',
+    isDirect ? payload.targetFullname : '',
+    status,
+    payload.monthSheet || '' // e.g. "Tháng 04/2026"
+  ]);
+  
+  return jsonResponse(true, "Đã gửi yêu cầu đổi ca");
+}
+
+function handleAcceptSwap(payload) {
+  var sheet = _getSwapSheet();
+  var data = sheet.getDataRange().getValues();
+  
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0].toString() === payload.swapId) {
+      // Check if it's still Pending_User
+      if (data[i][10] !== 'Pending_User') {
+        return jsonResponse(false, "Yêu cầu này đã được người khác nhận hoặc đã xử lý.");
+      }
+      
+      // Update TargetUsername, TargetFullname, and Status
+      sheet.getRange(i + 1, 9).setValue(payload.targetUsername);
+      sheet.getRange(i + 1, 10).setValue(payload.targetFullname);
+      sheet.getRange(i + 1, 11).setValue("Pending_Admin"); // Now waiting for Admin
+      
+      return jsonResponse(true, "Đã nhận làm thay. Chờ Admin duyệt.");
+    }
+  }
+  return jsonResponse(false, "Không tìm thấy yêu cầu này");
+}
+
+function handleDeleteSwap(payload) {
+  var sheet = _getSwapSheet();
+  var data = sheet.getDataRange().getValues();
+  
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0].toString() === payload.swapId) {
+      if (data[i][2] !== payload.username && payload.role !== 'admin') {
+        return jsonResponse(false, "Bạn không có quyền xóa yêu cầu này");
+      }
+      sheet.deleteRow(i + 1);
+      return jsonResponse(true, "Đã xóa yêu cầu");
+    }
+  }
+  return jsonResponse(false, "Không tìm thấy yêu cầu này");
+}
+
+function handleApproveSwap(payload) {
+  var sheet = _getSwapSheet();
+  var data = sheet.getDataRange().getValues();
+  
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0].toString() === payload.swapId) {
+      var status = payload.action === 'APPROVE' ? 'Approved' : 'Rejected';
+      sheet.getRange(i + 1, 11).setValue(status);
+      
+      if (payload.action === 'APPROVE') {
+        // Also update the actual schedule in monthSheet
+        var rowData = data[i];
+        var monthSheetName = rowData[11];
+        var requester = rowData[2]; // User who wants to be OFF
+        var accepter = rowData[8];  // User who takes the shift
+        var dayName = rowData[4];   // e.g. "Thứ Hai"
+        var shift = rowData[6];     // e.g. "15:00"
+        
+        if (monthSheetName) {
+          var ss = getSS();
+          var mSheet = ss.getSheetByName(monthSheetName);
+          if (mSheet) {
+            var mData = mSheet.getDataRange().getValues();
+            // Find columns for the day. This is tricky because we need the week.
+            // A simpler way: we know the exact date from rowData[5] e.g. "20/04". 
+            // In month sheet, row 2 usually has the dates (like "15/04", "16/04").
+            // Wait, let's find the correct day index by matching the Date string.
+            // Let's implement a robust date finder.
+            var headerRowIndex = -1;
+            var colIndex = -1;
+            for(var r = 0; r < mData.length; r++) {
+              if (mData[r][0] && mData[r][0].toString().indexOf("TUẦN ") >= 0) {
+                // Next row is the dates
+                var dateRow = mData[r+1];
+                for (var c = 1; c <= 7; c++) {
+                  if (dateRow[c] && dateRow[c].toString().indexOf(rowData[5]) >= 0) {
+                    headerRowIndex = r;
+                    colIndex = c;
+                    break;
+                  }
+                }
+              }
+              if (colIndex !== -1) break;
+            }
+            
+            if (colIndex !== -1 && headerRowIndex !== -1) {
+              // Find the users in this week block
+              for (var k = headerRowIndex + 2; k < mData.length; k++) {
+                if (mData[k][0] && mData[k][0].toString().indexOf("TUẦN ") >= 0) break; // Reached next week
+                var uName = mData[k][10]; // col K is username
+                if (uName === requester) {
+                  mSheet.getRange(k + 1, colIndex + 1).setValue("OFF");
+                }
+                if (uName === accepter) {
+                  mSheet.getRange(k + 1, colIndex + 1).setValue(shift);
+                }
+              }
+            }
+          }
+        }
+      }
+      
+      return jsonResponse(true, "Đã " + (status === 'Approved' ? "duyệt" : "từ chối") + " yêu cầu đổi ca");
+    }
+  }
+  return jsonResponse(false, "Không tìm thấy yêu cầu này");
+}

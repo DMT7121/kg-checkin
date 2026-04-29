@@ -45,6 +45,9 @@ export interface SwapRequest {
   date: string;
   reason: string;
   createdAt: number;
+  targetUsername?: string;
+  targetFullname?: string;
+  status?: string; // 'Pending_User', 'Pending_Admin', 'Approved', 'Rejected'
 }
 
 export interface ChecklistItem {

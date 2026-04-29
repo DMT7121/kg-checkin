@@ -1,14 +1,26 @@
+import { useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import { speak, fetchWithRetry, computeWeekInfo, DAY_NAMES, ADMIN_SHIFT_OPTIONS, getAdminShiftClass } from '../utils/helpers';
 import { sha256, ADMIN_PIN_HASH, MASTER_PIN_HASH, escapeHtml, checkRateLimit, recordFailedAttempt, resetFailedAttempts } from '../utils/security';
 import Swal from 'sweetalert2';
-import { Lock, Key, CalendarCheck, RefreshCw, Inbox, CheckCheck, Wand2, Cpu, CloudUpload, Eye, Loader2, Users, KeyRound } from 'lucide-react';
+import { Lock, Key, CalendarCheck, RefreshCw, Inbox, CheckCheck, Wand2, Cpu, CloudUpload, Eye, Loader2, Users, KeyRound, ArrowLeftRight } from 'lucide-react';
 
 export default function Admin() {
   const store = useAppStore();
-  const { isAdminUnlocked, adminSchedules, originalAdminSchedules, groqKeysInput, groqKeys, logs, users, isUpdating } = store;
+  const { isAdminUnlocked, adminSchedules, originalAdminSchedules, groqKeysInput, groqKeys, logs, users, isUpdating, swapRequests } = store;
   const weekInfo = computeWeekInfo();
+
+  useEffect(() => {
+    if (isAdminUnlocked) {
+      loadAdminSwapRequests();
+    }
+  }, [isAdminUnlocked]);
+
+  const loadAdminSwapRequests = async () => {
+    const res = await callApi('GET_SWAP_REQUESTS', { role: 'admin' });
+    if (res?.ok) store.setSwapRequests(res.data);
+  };
 
   // === UNLOCK (with rate limiting + hash comparison) ===
   const unlockAdmin = async () => {
@@ -291,6 +303,72 @@ export default function Admin() {
             <div className="flex items-center"><div className="w-2.5 h-2.5 bg-red-500 rounded-sm mr-1 opacity-80"></div> Vắng/Nghỉ</div>
           </div>
         </div>
+      </div>
+
+      {/* Swap Requests Approval */}
+      <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+        <div className="flex justify-between items-center mb-4 border-b dark:border-gray-700 pb-2">
+          <h3 className="font-bold flex items-center text-gray-800 dark:text-white">
+            <ArrowLeftRight size={18} className="mr-2 text-ocean-600" /> Yêu Cầu Đổi Ca (Chờ Duyệt)
+          </h3>
+          <button onClick={loadAdminSwapRequests} className="text-sm bg-ocean-100 text-ocean-700 dark:bg-ocean-900/50 dark:text-ocean-300 px-3 py-1.5 rounded-lg hover:bg-ocean-200 transition flex items-center">
+            <RefreshCw size={14} className="mr-1" /> Làm mới
+          </button>
+        </div>
+
+        {swapRequests.filter(req => req.status === 'Pending_Admin').length === 0 ? (
+          <div className="text-center py-6 text-gray-400 bg-gray-50 dark:bg-gray-900 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
+            <Inbox size={32} className="mx-auto mb-2 opacity-30" />
+            <p className="text-sm">Không có yêu cầu đổi ca nào đang chờ duyệt</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {swapRequests.filter(req => req.status === 'Pending_Admin').map((req) => (
+              <div key={req.id} className="bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-800 rounded-xl p-4">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <span className="font-bold text-gray-800 dark:text-gray-200">{req.fullname}</span>
+                    <span className="text-gray-500 text-sm mx-2">muốn đổi ca</span>
+                    <span className="font-bold text-ocean-600 dark:text-ocean-400">{req.shift}</span>
+                    <span className="text-gray-500 text-sm mx-2">vào</span>
+                    <span className="font-bold text-gray-700 dark:text-gray-300">{req.dayName} ({req.date})</span>
+                  </div>
+                </div>
+                <div className="bg-white dark:bg-gray-800 p-3 rounded-lg mb-3 text-sm border border-orange-100 dark:border-orange-800">
+                  <p className="mb-1"><span className="text-gray-500">Lý do:</span> {req.reason}</p>
+                  <p><span className="text-gray-500">Người nhận thay:</span> <span className="font-bold text-teal-600 dark:text-teal-400">{req.targetFullname}</span></p>
+                </div>
+                <div className="flex space-x-3">
+                  <button onClick={() => {
+                    store.setLoading(true);
+                    callApi('APPROVE_SWAP', { swapId: req.id, action: 'APPROVE' }).then(res => {
+                      store.setLoading(false);
+                      if (res?.ok) {
+                        Swal.fire('Đã duyệt', 'Ca làm đã được chuyển cho người nhận thay.', 'success');
+                        loadAdminSwapRequests();
+                        loadAdminSchedules(); // Reload schedules
+                      }
+                    });
+                  }} className="flex-1 bg-teal-500 hover:bg-teal-600 text-white font-bold py-2 rounded-lg text-sm transition">
+                    Chấp thuận
+                  </button>
+                  <button onClick={() => {
+                    store.setLoading(true);
+                    callApi('APPROVE_SWAP', { swapId: req.id, action: 'REJECT' }).then(res => {
+                      store.setLoading(false);
+                      if (res?.ok) {
+                        Swal.fire('Đã từ chối', 'Yêu cầu đổi ca bị hủy.', 'info');
+                        loadAdminSwapRequests();
+                      }
+                    });
+                  }} className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-2 rounded-lg text-sm transition">
+                    Từ chối
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Schedule approval */}

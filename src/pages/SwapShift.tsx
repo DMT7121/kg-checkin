@@ -17,6 +17,7 @@ export default function SwapShift() {
   useEffect(() => {
     if (viewTab === 'board') {
       store.setHasNewSwaps(false);
+      loadSwapRequests();
     }
   }, [viewTab]);
 
@@ -24,7 +25,18 @@ export default function SwapShift() {
     if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
       Notification.requestPermission();
     }
+    loadSwapRequests();
   }, []);
+
+  const loadSwapRequests = async () => {
+    const res = await callApi('GET_SWAP_REQUESTS', {
+      username: currentUser?.username,
+      role: currentUser?.role
+    });
+    if (res?.ok) {
+      store.setSwapRequests(res.data);
+    }
+  };
 
   const handleSwapRequest = () => {
     if (selectedDayIndex === null) {
@@ -53,38 +65,31 @@ export default function SwapShift() {
       cancelButtonText: 'Hủy'
     }).then((res) => {
       if (res.isConfirmed) {
-        store.setLoading(true, 'Đang xử lý...');
-        setTimeout(() => {
+        store.setLoading(true, 'Đang gửi yêu cầu...');
+        callApi('SUBMIT_SWAP', {
+          username: currentUser!.username,
+          fullname: currentUser!.fullname,
+          dayName: dayName,
+          shift: myShift,
+          date: weekInfo.weekDates[selectedDayIndex],
+          reason: reason || 'Cần hỗ trợ đổi ca đột xuất',
+          targetUsername: isPublic ? 'ALL' : targetUser?.username,
+          targetFullname: isPublic ? 'ALL' : targetUser?.fullname,
+          monthSheet: weekInfo.monthSheet
+        }).then((apiRes) => {
           store.setLoading(false);
-          
-          if (isPublic) {
-            store.addSwapRequest({
-              id: 'req-' + Date.now(),
-              username: currentUser!.username,
-              fullname: currentUser!.fullname,
-              dayName: dayName,
-              shift: myShift,
-              date: weekInfo.weekDates[selectedDayIndex],
-              reason: reason || 'Cần hỗ trợ đổi ca đột xuất',
-              createdAt: Date.now()
-            });
-            Swal.fire('Thành công!', 'Yêu cầu của bạn đã được đăng lên Bảng tin.', 'success');
-            setViewTab('board');
+          if (apiRes?.ok) {
+            Swal.fire('Thành công!', isPublic ? 'Yêu cầu của bạn đã được đăng lên Bảng tin.' : `Yêu cầu đổi ca đã gửi đến ${targetUser?.fullname}. Hãy nhắn Zalo cho họ nhé!`, 'success');
+            if (isPublic) setViewTab('board');
+            loadSwapRequests();
           } else {
-            Swal.fire('Thành công!', `Yêu cầu đổi ca đã gửi đến ${targetUser?.fullname}. Hãy nhắn Zalo cho họ nhé!`, 'success');
+            Swal.fire('Lỗi', apiRes?.message || 'Có lỗi xảy ra', 'error');
           }
-          
-          if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification("King's Grill Chợ Đổi Ca", {
-              body: isPublic ? `Bạn vừa đăng một yêu cầu đổi ca lên Bảng tin.` : `Yêu cầu đổi ca đã gửi cho ${targetUser?.fullname}!`,
-              icon: '/android-chrome-192x192.png'
-            });
-          }
+        });
 
-          setSelectedDayIndex(null);
-          setTargetUsername('ALL');
-          setReason('');
-        }, 1000);
+        setSelectedDayIndex(null);
+        setTargetUsername('ALL');
+        setReason('');
       }
     });
   };
@@ -117,20 +122,28 @@ export default function SwapShift() {
     }).then((res) => {
       if (res.isConfirmed) {
         store.setLoading(true, 'Đang ghi nhận...');
-        setTimeout(() => {
+        callApi('ACCEPT_SWAP', {
+          swapId: req.id,
+          targetUsername: currentUser?.username,
+          targetFullname: currentUser?.fullname
+        }).then((apiRes) => {
           store.setLoading(false);
-          store.removeSwapRequest(req.id);
-          Swal.fire({
-            title: 'Ghi nhận thành công',
-            text: 'Hãy nhắn Zalo cho người đó để xác nhận nhé!',
-            icon: 'success',
-            showCancelButton: true,
-            confirmButtonText: 'Copy mẫu tin nhắn Zalo',
-            cancelButtonText: 'Đóng'
-          }).then((r) => {
-            if (r.isConfirmed) copyToClipboard(getPublicZaloMessage(req));
-          });
-        }, 1000);
+          if (apiRes?.ok) {
+            Swal.fire({
+              title: 'Ghi nhận thành công',
+              text: 'Hãy nhắn Zalo cho người đó để xác nhận nhé! Hệ thống đang chờ Admin duyệt.',
+              icon: 'success',
+              showCancelButton: true,
+              confirmButtonText: 'Copy mẫu tin nhắn Zalo',
+              cancelButtonText: 'Đóng'
+            }).then((r) => {
+              if (r.isConfirmed) copyToClipboard(getPublicZaloMessage(req));
+            });
+            loadSwapRequests();
+          } else {
+            Swal.fire('Lỗi', apiRes?.message || 'Có lỗi xảy ra', 'error');
+          }
+        });
       }
     });
   };
@@ -194,15 +207,25 @@ export default function SwapShift() {
                   </p>
                 </div>
 
-                {req.username !== currentUser?.username ? (
+                {req.username !== currentUser?.username && req.status === 'Pending_User' ? (
                   <button onClick={() => handleAcceptSwap(req)} className="w-full bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 font-bold py-3 rounded-xl border border-teal-200 dark:border-teal-800 hover:bg-teal-100 dark:hover:bg-teal-800/50 transition-all flex items-center justify-center text-sm">
                     <HandshakeIcon size={16} className="mr-2" /> Nhận làm thay ca này
                   </button>
-                ) : (
-                  <button onClick={() => store.removeSwapRequest(req.id)} className="w-full bg-red-50 dark:bg-red-900/20 text-red-500 font-bold py-2.5 rounded-xl border border-red-200 dark:border-red-800 hover:bg-red-100 transition-all text-xs">
+                ) : req.status === 'Pending_Admin' ? (
+                  <div className="w-full bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 font-bold py-2.5 rounded-xl border border-orange-200 dark:border-orange-800 text-center text-xs">
+                    ⏳ Đang chờ Admin duyệt (Người nhận: {req.targetFullname})
+                  </div>
+                ) : req.username === currentUser?.username ? (
+                  <button onClick={() => {
+                    store.setLoading(true);
+                    callApi('DELETE_SWAP', { swapId: req.id, username: currentUser?.username }).then(() => {
+                      store.setLoading(false);
+                      loadSwapRequests();
+                    });
+                  }} className="w-full bg-red-50 dark:bg-red-900/20 text-red-500 font-bold py-2.5 rounded-xl border border-red-200 dark:border-red-800 hover:bg-red-100 transition-all text-xs">
                     Xóa bài đăng
                   </button>
-                )}
+                ) : null}
               </div>
             ))
           )}

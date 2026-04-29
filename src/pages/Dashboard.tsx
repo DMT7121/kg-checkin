@@ -18,6 +18,7 @@ import SwapShift from './SwapShift';
 import NewsFeed from './NewsFeed';
 import Training from './Training';
 import SoldOut from './SoldOut';
+import Roster from './Roster';
 import Checklist from './Checklist';
 import Handover from './Handover';
 import Feedback from './Feedback';
@@ -83,9 +84,9 @@ export default function Dashboard() {
       label: 'Lịch làm',
       icon: Calendar,
       items: [
-        { id: 'schedule', label: 'Đăng ký ca', icon: Calendar, showBadge: !isScheduleRegistered },
-        { id: 'swap', label: 'Đổi ca / Nghỉ phép', icon: ArrowLeftRight, showBadge: store.hasNewSwaps },
-        { id: 'roster', label: 'Lịch làm chính thức', icon: CalendarDays, comingSoon: true },
+        { id: 'schedule', label: 'Xếp ca', icon: Calendar },
+        { id: 'swap', label: 'Chợ đổi ca', icon: ArrowLeftRight },
+        { id: 'roster', label: 'Lịch tổng', icon: CalendarDays },
       ],
     },
     {
@@ -474,6 +475,8 @@ export default function Dashboard() {
             {currentTab === 'checkin' && <CheckIn />}
             {currentTab === 'schedule' && <Schedule />}
             {currentTab === 'swap' && <SwapShift />}
+            {currentTab === 'roster' && <Roster />}
+            {currentTab === 'profile' && <Profile />}
             {currentTab === 'checklist' && <Checklist />}
             {currentTab === 'handover' && <Handover />}
             {currentTab === 'feedback' && <Feedback />}

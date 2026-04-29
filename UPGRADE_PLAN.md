@@ -60,15 +60,15 @@ Kiến trúc mới được chia thành **5 Nhóm Tính Năng (Modules)** chính
 ## 📅 Nhóm 3: LỊCH LÀM (Schedules)
 *Quản lý và sắp xếp thời gian làm việc.*
 
-**1. Đăng ký ca & Lịch rảnh (Availability):**
+**1. Đăng ký ca & Lịch rảnh (Availability) ✅:**
 - **Admin:** Xem toàn bộ bảng đăng ký của nhân viên để điều chỉnh & duyệt. Người nào chưa đăng ký sẽ bị bỏ trống để Admin dễ dàng nhận diện và nhắc nhở. Admin cũng có thể tự đăng ký ca cho mình.
 - **User:** Thao tác đăng ký ca cho tuần tiếp theo. **Đặc biệt:** Sinh viên Part-time có thể điền trước "Lịch rảnh" (Những khung giờ chắc chắn đi làm được) để Admin dễ dàng xếp ca mà không bị kẹt lịch học.
 
-**2. Chợ Đổi ca / Nghỉ phép:**
+**2. Chợ Đổi ca / Nghỉ phép ✅:**
 - **Admin:** Duyệt/Từ chối các yêu cầu đổi ca và xin nghỉ phép. Khi duyệt nghỉ phép, hệ thống tự động cập nhật chữ "OFF" vào lịch làm chính thức kèm Tooltip ghi chú (Thời gian duyệt, Người duyệt).
 - **User:** Tạo yêu cầu đổi ca (chờ nhân viên khác nhận -> chờ Admin duyệt). Tạo yêu cầu nghỉ phép (báo số ngày, thời gian) -> chờ Admin duyệt.
 
-**3. Lịch làm chính thức:**
+**3. Lịch làm chính thức ✅:**
 - *Tính năng chung:* Đánh dấu highlight các ngày lễ (có hệ số nhân lương) hoặc các ngày lễ F&B đông khách để nhân viên lưu ý.
 - **Admin:** Có 2 chế độ xem:
   - *Chế độ xem Tháng:* Bảng ma trận (Cột dọc: Tên nhân viên, Cột ngang: Ngày trong tháng). Admin có thể sửa trực tiếp trên bảng này nếu thực tế có phát sinh (ốm, bỏ ca...).

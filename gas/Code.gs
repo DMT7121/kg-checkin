@@ -110,6 +110,18 @@ function doPost(e) {
       case 'FORCE_RESET_PASSWORD':
         return handleForceResetPassword(payload);
 
+      // --- SWAP SHIFTS (CHỢ ĐỔI CA) ---
+      case 'GET_SWAP_REQUESTS':
+        return handleGetSwapRequests(payload);
+      case 'SUBMIT_SWAP':
+        return handleSubmitSwap(payload);
+      case 'ACCEPT_SWAP':
+        return handleAcceptSwap(payload);
+      case 'DELETE_SWAP':
+        return handleDeleteSwap(payload);
+      case 'APPROVE_SWAP':
+        return handleApproveSwap(payload);
+
       default:
         return jsonResponse(false, 'Unknown action');
     }

@@ -122,46 +122,29 @@ export function isInAppBrowser(): boolean {
 }
 
 /** Shift color classes - active state */
-export function getActiveShiftClass(shift: string): string {
-  switch (shift) {
-    case '15:00': return 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-transparent shadow-md ring-2 ring-blue-300';
-    case '16:00': return 'bg-gradient-to-r from-green-400 to-emerald-500 text-white border-transparent shadow-md ring-2 ring-green-300';
-    case '17:00': return 'bg-gradient-to-r from-yellow-400 to-amber-500 text-white border-transparent shadow-md ring-2 ring-yellow-300';
-    case '18:00': return 'bg-gradient-to-r from-orange-400 to-red-500 text-white border-transparent shadow-md ring-2 ring-red-300';
-    case '19:00': return 'bg-gradient-to-r from-purple-500 to-pink-500 text-white border-transparent shadow-md ring-2 ring-purple-300';
-    case 'OFF': return 'bg-gradient-to-r from-gray-500 to-slate-600 text-white border-transparent shadow-md ring-2 ring-gray-400';
-    case 'OFF#': return 'bg-gradient-to-r from-orange-500 to-orange-600 text-white border-transparent shadow-md ring-2 ring-orange-400';
-    default: return 'bg-ocean-500 text-white';
-  }
-}
+export const getActiveShiftClass = (shift: string) => {
+  if (shift === 'OFF') return 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-600 line-through';
+  if (shift === 'RẢNH') return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800';
+  if (shift.startsWith('OFF')) return 'bg-red-50 text-red-500 dark:bg-red-900/30 dark:text-red-400';
+  return 'bg-gradient-to-r from-ocean-500 to-sky-500 text-white shadow-md shadow-ocean-500/30 transform scale-105 border-transparent';
+};
 
 /** Shift color classes - preview (small labels) */
-export function getPreviewShiftClass(shift: string): string {
-  switch (shift) {
-    case '15:00': return 'bg-blue-500';
-    case '16:00': return 'bg-emerald-500';
-    case '17:00': return 'bg-amber-500';
-    case '18:00': return 'bg-red-500';
-    case '19:00': return 'bg-purple-500';
-    case 'OFF': return 'bg-gray-500';
-    case 'OFF#': return 'bg-orange-500';
-    default: return 'bg-gray-200 text-gray-800';
-  }
-}
+export const getPreviewShiftClass = (shift: string) => {
+  if (!shift || shift === 'OFF') return 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400';
+  if (shift === 'RẢNH') return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400';
+  if (shift.startsWith('OFF')) return 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400';
+  return 'bg-ocean-100 text-ocean-700 dark:bg-ocean-900/50 dark:text-ocean-300 font-bold border border-ocean-200 dark:border-ocean-800';
+};
 
 /** Shift color classes - admin table */
-export function getAdminShiftClass(shift: string): string {
-  switch (shift) {
-    case '15:00': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300';
-    case '16:00': return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300';
-    case '17:00': return 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300';
-    case '18:00': return 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300';
-    case '19:00': return 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300';
-    case 'OFF': return 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
-    case 'OFF#': return 'bg-orange-500 text-white border-orange-600';
-    default: return 'bg-gray-50 text-gray-800';
-  }
-}
+export const getAdminShiftClass = (shift: string) => {
+  if (shift === 'OFF') return 'bg-gray-50 text-gray-500 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700';
+  if (shift === 'RẢNH') return 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800';
+  if (shift === 'OFF#') return 'bg-orange-50 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200 dark:border-orange-800';
+  if (shift === 'OFF!') return 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400 border border-red-200 dark:border-red-800';
+  return 'bg-ocean-50 text-ocean-700 dark:bg-ocean-900/30 dark:text-ocean-400 border border-ocean-200 dark:border-ocean-800 font-bold';
+};
 
 /** Fetch with retry and exponential backoff */
 export async function fetchWithRetry(url: string, options: RequestInit, retries = 5, delay = 1000): Promise<any> {
@@ -178,10 +161,20 @@ export async function fetchWithRetry(url: string, options: RequestInit, retries 
   }
 }
 
-// Constants
-export const SHIFT_OPTIONS = ['15:00', '16:00', '17:00', '18:00', '19:00', 'OFF'] as const;
+// Shift Options & Labels
+export const SHIFT_OPTIONS = ['OFF', '15:00', '17:00', 'RẢNH'];
+export const ADMIN_SHIFT_OPTIONS = ['OFF', '15:00', '17:00', 'RẢNH', 'OFF#', 'OFF!'];
+
+export const SHIFT_LABELS: Record<string, string> = {
+  'OFF': 'Nghỉ',
+  '15:00': 'Ca 1',
+  '17:00': 'Ca 2',
+  'RẢNH': 'Rảnh',
+  'OFF#': 'Nghỉ Phép',
+  'OFF!': 'Nghỉ Không Phép'
+};
+
 export const DAY_NAMES = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật'] as const;
-export const ADMIN_SHIFT_OPTIONS = ['15:00', '16:00', '17:00', '18:00', '19:00', 'OFF', 'OFF#'] as const;
 
 // King's Grill coordinates
 export const KG_LAT = 10.9760826;
