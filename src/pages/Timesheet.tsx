@@ -149,6 +149,9 @@ export default function Timesheet() {
                 <th className="px-4 py-3 font-bold sticky left-0 bg-gray-50 dark:bg-gray-900 z-10 border-b border-r dark:border-gray-700 min-w-[150px]">
                   Nhân viên
                 </th>
+                <th className="px-4 py-3 font-extrabold sticky left-[150px] bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 z-10 border-b border-r dark:border-gray-700 min-w-[100px] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                  Tổng giờ
+                </th>
                 {days.map(d => {
                   const dateStr = `${d.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
                   const isWeekend = new Date(year, month - 1, d).getDay() === 0 || new Date(year, month - 1, d).getDay() === 6;
@@ -166,10 +169,19 @@ export default function Timesheet() {
               {displayNames.map(name => {
                 const userDates = timesheetData.timesheet[name] || {};
                 
+                const totalMonthHours = days.reduce((sum, d) => {
+                  const dateStr = `${d.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
+                  const records = userDates[dateStr] || [];
+                  return sum + calculateCell(records).hours;
+                }, 0);
+                
                 return (
                   <tr key={name} className="border-b dark:border-gray-700 hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 transition-colors">
-                    <td className="px-4 py-3 font-bold text-gray-800 dark:text-gray-200 sticky left-0 bg-white dark:bg-gray-800 border-r dark:border-gray-700 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                    <td className="px-4 py-3 font-bold text-gray-800 dark:text-gray-200 sticky left-0 bg-white dark:bg-gray-800 border-r dark:border-gray-700 z-10">
                       {name}
+                    </td>
+                    <td className="px-4 py-3 font-black text-center text-indigo-600 dark:text-indigo-400 sticky left-[150px] bg-indigo-50/50 dark:bg-indigo-900/20 border-r dark:border-gray-700 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                      {totalMonthHours.toFixed(2)}
                     </td>
                     {days.map(d => {
                       const dateStr = `${d.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
@@ -194,7 +206,7 @@ export default function Timesheet() {
               
               {displayNames.length === 0 && (
                 <tr>
-                  <td colSpan={days.length + 1} className="text-center py-8 text-gray-400">
+                  <td colSpan={days.length + 2} className="text-center py-8 text-gray-400">
                     Không có dữ liệu
                   </td>
                 </tr>
