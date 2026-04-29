@@ -49,7 +49,7 @@ Kiến trúc mới được chia thành **5 Nhóm Tính Năng (Modules)** chính
 **1. Chấm công ✅:**
 - Giao diện thao tác Check-in / Check-out lấy tọa độ GPS và chụp ảnh xác thực (Tính năng cốt lõi hiện tại).
 
-**2. Checklist hằng ngày (Mở/Đóng quán):**
+**2. Checklist hằng ngày (Mở/Đóng quán) ✅:**
 - Hệ thống tự động đẩy các công việc cần làm dựa trên ca làm việc (Ví dụ: Ca sáng có checklist mở quán, Ca tối có checklist đóng quán). Cấu hình checklist do Admin thiết lập.
 
 **3. Bàn giao ca & Báo cáo Sự cố (Incident Report):**
