@@ -68,6 +68,14 @@ export interface PayrollRecord {
   netPay: number;
 }
 
+export interface TimesheetData {
+  timesheet: Record<string, Record<string, { status: string, time: string, originalTimeMs: number }[]>>;
+  dominantMonth: string;
+  year: number;
+  month: number;
+  daysInMonth: number;
+}
+
 export interface SwapRequest {
   id: string;
   username: string;
@@ -174,6 +182,7 @@ interface AppState {
   advances: AdvanceRequest[];
   bonusPenalties: BonusPenaltyRecord[];
   payroll: PayrollRecord[];
+  timesheetData: TimesheetData | null;
   isCheckInOutCompleted: boolean;
   checklists: ChecklistItem[];
   checklistLogs: ChecklistLog[];
@@ -242,6 +251,7 @@ interface AppState {
   addAdvance: (advance: AdvanceRequest) => void;
   setBonusPenalties: (records: BonusPenaltyRecord[]) => void;
   setPayroll: (payroll: PayrollRecord[]) => void;
+  setTimesheetData: (data: TimesheetData | null) => void;
   setCheckInOutCompleted: (completed: boolean) => void;
   setSwapRequests: (reqs: SwapRequest[]) => void;
   setChecklists: (items: ChecklistItem[]) => void;
@@ -283,6 +293,7 @@ export const useAppStore = create<AppState>((set) => ({
   advances: [],
   bonusPenalties: [],
   payroll: [],
+  timesheetData: null,
   isCheckInOutCompleted: false,
   checklists: [],
   checklistLogs: [],
@@ -324,6 +335,7 @@ export const useAppStore = create<AppState>((set) => ({
   addAdvance: (advance) => set((state) => ({ advances: [advance, ...state.advances] })),
   setBonusPenalties: (records) => set({ bonusPenalties: records }),
   setPayroll: (payroll) => set({ payroll }),
+  setTimesheetData: (data) => set({ timesheetData: data }),
   setCheckInOutCompleted: (completed) => set({ isCheckInOutCompleted: completed }),
   setChecklistLogs: (logs) => set({ checklistLogs: logs }),
   setFeedbacks: (items) => set({ feedbacks: items }),

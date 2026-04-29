@@ -26,6 +26,7 @@ import Admin from './Admin';
 import Advance from './Advance';
 import Discipline from './Discipline';
 import Payroll from './Payroll';
+import Timesheet from './Timesheet';
 
 // ============================================
 // Định nghĩa cấu trúc Sidebar theo 5 Nhóm
@@ -98,7 +99,7 @@ export default function Dashboard() {
       icon: Banknote,
       items: [
         { id: 'history', label: 'Lịch sử chấm công', icon: History },
-        { id: 'timesheet', label: 'Tổng hợp công', icon: CalendarClock, comingSoon: true },
+        { id: 'timesheet', label: 'Tổng hợp công', icon: CalendarClock },
         { id: 'advance', label: 'Ứng lương', icon: BadgeDollarSign },
         { id: 'payroll', label: 'Bảng lương', icon: Banknote },
         { id: 'discipline', label: 'Kỷ luật - Khen thưởng', icon: Award },
@@ -489,10 +490,11 @@ export default function Dashboard() {
             {currentTab === 'advance' && <Advance />}
             {currentTab === 'discipline' && <Discipline />}
             {currentTab === 'payroll' && <Payroll />}
+            {currentTab === 'timesheet' && <Timesheet />}
             {currentTab === 'history' && <ActivityHistory />}
             {currentTab === 'admin' && <Admin />}
             {/* Coming Soon Pages */}
-            {['timesheet'].includes(currentTab) && (
+            {false && (
               <div className="flex flex-col items-center justify-center h-full p-6 text-center">
                 <ComingSoonPage title={getPageTitle(currentTab)} />
               </div>

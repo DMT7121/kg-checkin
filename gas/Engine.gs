@@ -1664,3 +1664,55 @@ function handleGetPayroll(payload) {
   
   return jsonResponse(true, { payroll: payroll });
 }
+
+// ----------------------------------------------------
+// TỔNG HỢP CÔNG (TIMESHEET)
+// ----------------------------------------------------
+
+function handleGetTimesheet(payload) {
+  var ss = getSS();
+  var sheet = ss.getSheetByName(CONFIG.SHEET_LOGS);
+  if (!sheet) return jsonResponse(false, "Không tìm thấy dữ liệu chấm công");
+  
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return jsonResponse(true, { timesheet: {}, dominantMonth: '', year: 0, month: 0, daysInMonth: 0 });
+  
+  try {
+    var processedData = processTimesheetDataWithDominantMonth(data);
+    var timesheetMap = processedData.timesheet; // Map(name -> Map(dateStr -> []))
+    
+    // Convert Map to plain Object for JSON
+    var timesheetObj = {};
+    for (var entry of timesheetMap.entries()) {
+      var name = entry[0];
+      var datesMap = entry[1];
+      
+      var datesObj = {};
+      for (var dEntry of datesMap.entries()) {
+        var date = dEntry[0];
+        var records = dEntry[1];
+        
+        // Convert to plain records
+        var plainRecords = records.map(function(r) {
+          return {
+            status: r.status,
+            time: r.time,
+            originalTimeMs: r.originalTime.getTime()
+          };
+        });
+        datesObj[date] = plainRecords;
+      }
+      timesheetObj[name] = datesObj;
+    }
+    
+    return jsonResponse(true, {
+      timesheet: timesheetObj,
+      dominantMonth: processedData.dominantMonth,
+      year: processedData.year,
+      month: processedData.month,
+      daysInMonth: processedData.daysInMonth
+    });
+  } catch (err) {
+    return jsonResponse(false, "Lỗi phân tích công: " + err.message);
+  }
+}

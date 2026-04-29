@@ -137,6 +137,8 @@ function doPost(e) {
         return handleDeleteBonusPenalty(payload);
       case 'GET_PAYROLL':
         return handleGetPayroll(payload);
+      case 'GET_TIMESHEET':
+        return handleGetTimesheet(payload);
 
       default:
         return jsonResponse(false, 'Unknown action');
