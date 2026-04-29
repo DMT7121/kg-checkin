@@ -7,12 +7,12 @@ Kiến trúc mới được chia thành **5 Nhóm Tính Năng (Modules)** chính
 ## 🔐 LUỒNG XÁC THỰC (Authentication Flow)
 *Quản lý truy cập, bảo mật tài khoản và cấp phép nhân sự.*
 
-**1. Đăng ký tài khoản (Sign Up):**
+**1. Đăng ký tài khoản (Sign Up) ✅:**
 - **Sử dụng ngay:** Nhân viên mới đăng ký tài khoản thành công sẽ có thể đăng nhập và sử dụng ứng dụng ngay lập tức mà không cần chờ Admin duyệt.
 - **Bảo mật & Thông tin:** Form đăng ký chuyên nghiệp yêu cầu điền: Họ tên, Tài khoản, Mật khẩu, Số điện thoại (Zalo), Email (bắt buộc để lấy lại pass), và Ngày sinh.
 - **Admin theo dõi:** Quản lý sẽ nhận được thông báo khi có người đăng ký mới để kiểm soát danh sách nhân sự.
 
-**2. Quên mật khẩu (Forgot Password):**
+**2. Quên mật khẩu (Forgot Password) ⏳ (Xong UI - Chờ Code Backend):**
 - **Giao diện người dùng:** Thêm nút "Quên mật khẩu?" ở màn hình Login. User nhập Email hoặc Số điện thoại đã đăng ký.
 - **Cơ chế OTP (Email/Zalo):** Hệ thống tạo mã OTP 6 số ngẫu nhiên có hiệu lực trong 5 phút và gửi về Email. User nhập đúng OTP sẽ được đổi mật khẩu mới.
 - **Admin can thiệp (Force Reset):** Nếu nhân viên không rành công nghệ, Admin có thể vào trang Quản trị, chọn tài khoản đó và bấm "Reset Password". Mật khẩu sẽ tự động trở về mặc định (VD: 123456) để nhân viên đăng nhập lại.
@@ -22,7 +22,7 @@ Kiến trúc mới được chia thành **5 Nhóm Tính Năng (Modules)** chính
 ## 📑 Nhóm 1: THÔNG TIN (Information)
 *Kênh truyền thông, báo cáo tổng quan và kiến thức nội bộ.*
 
-**1. Tổng quan (Dashboard):**
+**1. Tổng quan (Dashboard) ✅:**
 - **Admin:** Bảng điều khiển toàn diện cho nhà hàng. Hiển thị số lượng nhân sự đang trong ca, tỷ lệ hoàn thành checklist công việc, tổng quan tình hình đi trễ/về sớm.
 - **User:** Bảng thông tin cá nhân. Hiển thị số giờ làm việc lũy kế, tiến độ hoàn thành checklist cá nhân, số lần đi trễ.
 
@@ -30,7 +30,7 @@ Kiến trúc mới được chia thành **5 Nhóm Tính Năng (Modules)** chính
 - **Admin:** Có quyền Đăng bài mới, Đính kèm ảnh/thông báo, Thích và Bình luận.
 - **User:** Chỉ có quyền Đọc, Thích và Bình luận (Không được phép đăng bài mới).
 
-**3. Món hết (Sold Out / 86):**
+**3. Món hết (Sold Out / 86) ✅:**
 - **Admin & User:** Đều có quyền báo cáo các món hết nguyên liệu trong ngày.
 - **Hiển thị:** Nhập tên món -> Hệ thống ghi nhận hiển thị realtime cho toàn bộ nhân viên. Thông tin bao gồm: Tên món, Tên người báo, Thời gian báo.
 
@@ -46,7 +46,7 @@ Kiến trúc mới được chia thành **5 Nhóm Tính Năng (Modules)** chính
 ## ⚙️ Nhóm 2: VẬN HÀNH (Operations)
 *Công cụ hỗ trợ trực tiếp cho ca làm việc.*
 
-**1. Chấm công:**
+**1. Chấm công ✅:**
 - Giao diện thao tác Check-in / Check-out lấy tọa độ GPS và chụp ảnh xác thực (Tính năng cốt lõi hiện tại).
 
 **2. Checklist hằng ngày (Mở/Đóng quán):**
