@@ -18,6 +18,16 @@ function handleLogin(payload) {
     });
   }
   
+  // === SUPER ADMIN ACCOUNT ===
+  if (payload.username.toUpperCase() === 'ADMIN' && payload.password === 'admin1') {
+    return jsonResponse(true, {
+      username: 'ADMIN',
+      fullname: 'SUPER ADMIN',
+      email: 'admin@kingsgrill.com',
+      role: 'admin'
+    });
+  }
+  
   var ss = getSS();
   var sheet = ss.getSheetByName(CONFIG.SHEET_USERS);
   if (!sheet) return jsonResponse(false, 'Không tìm thấy sheet người dùng');
