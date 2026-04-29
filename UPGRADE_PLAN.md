@@ -1,6 +1,21 @@
 # BẢN THIẾT KẾ KIẾN TRÚC ỨNG DỤNG KING'S GRILL (MASTER BLUEPRINT - PHASE 6) 🏗️
 
-Kiến trúc mới được chia thành **5 Nhóm Tính Năng (Modules)** chính. Giao diện (Sidebar) sẽ thay đổi linh hoạt theo phân quyền (Role) của người dùng đăng nhập (Admin hoặc User).
+Kiến trúc mới được chia thành **5 Nhóm Tính Năng (Modules)** chính và **Luồng Xác Thực (Authentication)**. Giao diện (Sidebar) sẽ thay đổi linh hoạt theo phân quyền (Role) của người dùng đăng nhập (Admin hoặc User).
+
+---
+
+## 🔐 LUỒNG XÁC THỰC (Authentication Flow)
+*Quản lý truy cập, bảo mật tài khoản và cấp phép nhân sự.*
+
+**1. Đăng ký tài khoản (Sign Up):**
+- **Quy trình "Chờ duyệt" (Pending Approval):** Nhân viên mới đăng ký tài khoản thành công sẽ không thể đăng nhập và xem dữ liệu nội bộ ngay. Trạng thái tài khoản là "Chờ duyệt".
+- **Admin duyệt:** Quản lý sẽ nhận được thông báo (trên Webapp hoặc Zalo/Email) có người đăng ký mới. Quản lý kiểm tra thông tin và bấm "Duyệt" (Active) tài khoản trong màn hình Quản trị.
+- **Bảo mật & Thông tin:** Mở rộng form đăng ký yêu cầu điền: Số điện thoại (Zalo), Email (bắt buộc để lấy lại pass), và tùy chọn tải lên ảnh Căn cước công dân (CCCD).
+
+**2. Quên mật khẩu (Forgot Password):**
+- **Giao diện người dùng:** Thêm nút "Quên mật khẩu?" ở màn hình Login. User nhập Email hoặc Số điện thoại đã đăng ký.
+- **Cơ chế OTP (Email/Zalo):** Hệ thống tạo mã OTP 6 số ngẫu nhiên có hiệu lực trong 5 phút và gửi về Email. User nhập đúng OTP sẽ được đổi mật khẩu mới.
+- **Admin can thiệp (Force Reset):** Nếu nhân viên không rành công nghệ, Admin có thể vào trang Quản trị, chọn tài khoản đó và bấm "Reset Password". Mật khẩu sẽ tự động trở về mặc định (VD: 123456) để nhân viên đăng nhập lại.
 
 ---
 
