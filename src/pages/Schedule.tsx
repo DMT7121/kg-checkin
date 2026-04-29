@@ -285,6 +285,22 @@ export default function Schedule() {
         return { ...emp, shifts, shiftNotes, isRegistered };
       });
       
+      // Bổ sung những nhân viên chưa có trong danh sách (do chưa đăng ký và chưa được thêm trên Sheet)
+      const users = store.users && store.users.length > 0 ? store.users : [];
+      users.forEach(u => {
+        if (!cleanSchedules.find(s => s.fullname === u.fullname)) {
+          cleanSchedules.push({
+            fullname: u.fullname,
+            username: u.username,
+            shifts: ['', '', '', '', '', '', ''],
+            shiftNotes: ['', '', '', '', '', '', ''],
+            isRegistered: false,
+            hasApproved: false,
+            reason: ''
+          });
+        }
+      });
+      
       // Sắp xếp: Ai đã đăng ký thì lên đầu
       cleanSchedules.sort((a: any, b: any) => (b.isRegistered ? 1 : 0) - (a.isRegistered ? 1 : 0));
       
