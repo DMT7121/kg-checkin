@@ -122,6 +122,22 @@ function doPost(e) {
       case 'APPROVE_SWAP':
         return handleApproveSwap(payload);
 
+      // --- CÔNG LƯƠNG (PAYROLL) ---
+      case 'GET_ADVANCES':
+        return handleGetAdvances(payload);
+      case 'SUBMIT_ADVANCE':
+        return handleSubmitAdvance(payload);
+      case 'APPROVE_ADVANCE':
+        return handleApproveAdvance(payload);
+      case 'GET_BONUS_PENALTY':
+        return handleGetBonusPenalty(payload);
+      case 'ADD_BONUS_PENALTY':
+        return handleAddBonusPenalty(payload);
+      case 'DELETE_BONUS_PENALTY':
+        return handleDeleteBonusPenalty(payload);
+      case 'GET_PAYROLL':
+        return handleGetPayroll(payload);
+
       default:
         return jsonResponse(false, 'Unknown action');
     }

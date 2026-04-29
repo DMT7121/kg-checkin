@@ -23,6 +23,9 @@ import Checklist from './Checklist';
 import Handover from './Handover';
 import Feedback from './Feedback';
 import Admin from './Admin';
+import Advance from './Advance';
+import Discipline from './Discipline';
+import Payroll from './Payroll';
 
 // ============================================
 // Định nghĩa cấu trúc Sidebar theo 5 Nhóm
@@ -96,9 +99,9 @@ export default function Dashboard() {
       items: [
         { id: 'history', label: 'Lịch sử chấm công', icon: History },
         { id: 'timesheet', label: 'Tổng hợp công', icon: CalendarClock, comingSoon: true },
-        { id: 'advance', label: 'Ứng lương', icon: BadgeDollarSign, comingSoon: true },
-        { id: 'payroll', label: 'Bảng lương', icon: Banknote, comingSoon: true },
-        { id: 'discipline', label: 'Kỷ luật - Khen thưởng', icon: Award, comingSoon: true },
+        { id: 'advance', label: 'Ứng lương', icon: BadgeDollarSign },
+        { id: 'payroll', label: 'Bảng lương', icon: Banknote },
+        { id: 'discipline', label: 'Kỷ luật - Khen thưởng', icon: Award },
       ],
     },
     {
@@ -483,10 +486,13 @@ export default function Dashboard() {
             {currentTab === 'news' && <NewsFeed />}
             {currentTab === 'soldout' && <SoldOut />}
             {currentTab === 'training' && <Training />}
+            {currentTab === 'advance' && <Advance />}
+            {currentTab === 'discipline' && <Discipline />}
+            {currentTab === 'payroll' && <Payroll />}
             {currentTab === 'history' && <ActivityHistory />}
             {currentTab === 'admin' && <Admin />}
             {/* Coming Soon Pages */}
-            {['roster', 'timesheet', 'advance', 'payroll', 'discipline'].includes(currentTab) && (
+            {['timesheet'].includes(currentTab) && (
               <div className="flex flex-col items-center justify-center h-full p-6 text-center">
                 <ComingSoonPage title={getPageTitle(currentTab)} />
               </div>

@@ -875,8 +875,10 @@ function handleGetData(payload) {
     for (var i = 1; i < data.length; i++) {
       var row = data[i];
       if (!row[0]) continue;
+      var isCurrentUser = row[0].toString().toLowerCase() === payload.fullname.toLowerCase();
+      var isAdmin = payload.role === 'admin' || payload.role === 'tester';
       
-      if (row[0].toString().toLowerCase() === payload.fullname.toLowerCase()) {
+      if (isCurrentUser || isAdmin) {
         // Handle time: could be Date object (auto-detected by Sheets) or string
         var timeVal = row[2];
         if (timeVal instanceof Date) {

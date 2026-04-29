@@ -1388,3 +1388,279 @@ function handleApproveSwap(payload) {
   }
   return jsonResponse(false, "Không tìm thấy yêu cầu này");
 }
+
+// ==========================================
+// TÍNH NĂNG CÔNG LƯƠNG (PAYROLL)
+// ==========================================
+
+function _getAdvancesSheet() {
+  var ss = getSS();
+  var sheet = ss.getSheetByName("Advances");
+  if (!sheet) {
+    sheet = ss.insertSheet("Advances");
+    sheet.appendRow(["ID", "CreatedAt", "Username", "Fullname", "Amount", "Reason", "Status"]);
+  }
+  return sheet;
+}
+
+function handleGetAdvances(payload) {
+  var sheet = _getAdvancesSheet();
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return jsonResponse(true, []);
+
+  var isAdmin = payload.role === 'admin' || payload.role === 'tester';
+  var username = payload.username || '';
+  
+  var items = [];
+  // Lặp từ dưới lên trên để lấy mới nhất
+  for (var i = data.length - 1; i >= 1; i--) {
+    var row = data[i];
+    var status = row[6] ? row[6].toString() : 'Pending';
+    
+    // Admin thấy tất cả. User chỉ thấy của mình.
+    if (isAdmin || row[2] === username) {
+      items.push({
+        id: row[0],
+        createdAt: row[1],
+        username: row[2],
+        fullname: row[3],
+        amount: Number(row[4]),
+        reason: row[5],
+        status: status
+      });
+    }
+  }
+  return jsonResponse(true, items);
+}
+
+function handleSubmitAdvance(payload) {
+  var sheet = _getAdvancesSheet();
+  var newId = "ADV_" + new Date().getTime().toString();
+  
+  sheet.appendRow([
+    newId,
+    new Date().getTime(),
+    payload.username,
+    payload.fullname,
+    payload.amount,
+    payload.reason,
+    'Pending'
+  ]);
+  
+  return jsonResponse(true, "Đã gửi yêu cầu ứng lương");
+}
+
+function handleApproveAdvance(payload) {
+  var sheet = _getAdvancesSheet();
+  var data = sheet.getDataRange().getValues();
+  
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0].toString() === payload.advanceId) {
+      var status = payload.action === 'APPROVE' ? 'Approved' : 'Rejected';
+      sheet.getRange(i + 1, 7).setValue(status);
+      return jsonResponse(true, "Đã " + (status === 'Approved' ? "duyệt" : "từ chối") + " yêu cầu ứng lương");
+    }
+  }
+  return jsonResponse(false, "Không tìm thấy yêu cầu này");
+}
+
+function _getBonusPenaltySheet() {
+  var ss = getSS();
+  var sheet = ss.getSheetByName("BonusPenalty");
+  if (!sheet) {
+    sheet = ss.insertSheet("BonusPenalty");
+    sheet.appendRow(["ID", "CreatedAt", "TargetUsername", "TargetFullname", "Type", "Amount", "Reason"]);
+  }
+  return sheet;
+}
+
+function handleGetBonusPenalty(payload) {
+  var sheet = _getBonusPenaltySheet();
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return jsonResponse(true, []);
+
+  var isAdmin = payload.role === 'admin' || payload.role === 'tester';
+  var username = payload.username || '';
+  
+  var items = [];
+  for (var i = data.length - 1; i >= 1; i--) {
+    var row = data[i];
+    if (isAdmin || row[2] === username) {
+      items.push({
+        id: row[0],
+        createdAt: row[1],
+        targetUsername: row[2],
+        targetFullname: row[3],
+        type: row[4], // 'BONUS' or 'PENALTY'
+        amount: Number(row[5]),
+        reason: row[6]
+      });
+    }
+  }
+  return jsonResponse(true, items);
+}
+
+function handleAddBonusPenalty(payload) {
+  var sheet = _getBonusPenaltySheet();
+  var newId = "BP_" + new Date().getTime().toString();
+  
+  sheet.appendRow([
+    newId,
+    new Date().getTime(),
+    payload.targetUsername,
+    payload.targetFullname,
+    payload.type,
+    payload.amount,
+    payload.reason
+  ]);
+  
+  return jsonResponse(true, "Đã ghi nhận " + (payload.type === 'BONUS' ? 'thưởng' : 'phạt') + " thành công");
+}
+
+function handleDeleteBonusPenalty(payload) {
+  var sheet = _getBonusPenaltySheet();
+  var data = sheet.getDataRange().getValues();
+  
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0].toString() === payload.recordId) {
+      sheet.deleteRow(i + 1);
+      return jsonResponse(true, "Đã xóa bản ghi");
+    }
+  }
+  return jsonResponse(false, "Không tìm thấy bản ghi");
+}
+
+// ----------------------------------------------------
+// BẢNG LƯƠNG (PAYROLL)
+// ----------------------------------------------------
+
+function _getSalaryConfigSheet() {
+  var ss = getSS();
+  var sheet = ss.getSheetByName("SalaryConfig");
+  if (!sheet) {
+    sheet = ss.insertSheet("SalaryConfig");
+    sheet.appendRow(["Username", "Fullname", "BaseSalaryPerHour"]);
+  }
+  return sheet;
+}
+
+function handleGetPayroll(payload) {
+  var ss = getSS();
+  var isAdmin = payload.role === 'admin' || payload.role === 'tester';
+  
+  // 1. Get Base Salaries
+  var configSheet = _getSalaryConfigSheet();
+  var configData = configSheet.getDataRange().getValues();
+  var baseSalaries = {};
+  for (var i = 1; i < configData.length; i++) {
+    baseSalaries[configData[i][0]] = Number(configData[i][2]) || 20000; // Default 20k/hr
+  }
+  
+  // 2. Get Advances (Approved only)
+  var advanceSheet = _getAdvancesSheet();
+  var advanceData = advanceSheet.getDataRange().getValues();
+  var advances = {};
+  for (var i = 1; i < advanceData.length; i++) {
+    if (advanceData[i][6] === 'Approved') {
+      var u = advanceData[i][2];
+      advances[u] = (advances[u] || 0) + Number(advanceData[i][4]);
+    }
+  }
+  
+  // 3. Get Bonus & Penalties
+  var bpSheet = _getBonusPenaltySheet();
+  var bpData = bpSheet.getDataRange().getValues();
+  var bonuses = {};
+  var penalties = {};
+  for (var i = 1; i < bpData.length; i++) {
+    var u = bpData[i][2];
+    var type = bpData[i][4];
+    var amount = Number(bpData[i][5]);
+    if (type === 'BONUS') {
+      bonuses[u] = (bonuses[u] || 0) + amount;
+    } else if (type === 'PENALTY') {
+      penalties[u] = (penalties[u] || 0) + amount;
+    }
+  }
+  
+  // 4. Calculate Hours Worked
+  var logsSheet = ss.getSheetByName(CONFIG.SHEET_LOGS);
+  var logsData = logsSheet.getDataRange().getValues();
+  var userLogs = {};
+  
+  for (var i = 1; i < logsData.length; i++) {
+    var fullname = logsData[i][0];
+    var type = logsData[i][1] ? logsData[i][1].toString().toUpperCase() : '';
+    var timeStr = logsData[i][2];
+    var status = logsData[i][4] ? logsData[i][4].toString().toUpperCase() : '';
+    
+    // Only count Valid logs
+    if (status.indexOf('HỢP LỆ') === -1 || status.indexOf('KHÔNG') >= 0) continue;
+    
+    var time = (timeStr instanceof Date) ? timeStr.getTime() : new Date(timeStr).getTime();
+    if (!time || isNaN(time)) continue;
+    
+    if (!userLogs[fullname]) userLogs[fullname] = [];
+    userLogs[fullname].push({ type: type, time: time });
+  }
+  
+  // Parse logs into hours
+  var hoursWorked = {};
+  var timesheetDetails = {}; // store detailed records
+  
+  for (var fullname in userLogs) {
+    var logs = userLogs[fullname].sort(function(a, b) { return a.time - b.time; });
+    var totalMs = 0;
+    var lastIn = 0;
+    
+    for (var j = 0; j < logs.length; j++) {
+      if (logs[j].type.indexOf('VÀO') >= 0 || logs[j].type === 'IN') {
+        lastIn = logs[j].time;
+      } else if ((logs[j].type.indexOf('RA') >= 0 || logs[j].type === 'OUT') && lastIn > 0) {
+        var diff = logs[j].time - lastIn;
+        // Giới hạn 1 ca tối đa 14 tiếng để tránh lỗi check-in qua ngày
+        if (diff > 0 && diff < 14 * 60 * 60 * 1000) {
+          totalMs += diff;
+        }
+        lastIn = 0;
+      }
+    }
+    hoursWorked[fullname] = totalMs / (1000 * 60 * 60);
+  }
+  
+  // 5. Combine everything
+  var usersSheet = ss.getSheetByName(CONFIG.SHEET_USERS);
+  var usersData = usersSheet.getDataRange().getValues();
+  var payroll = [];
+  
+  for (var i = 1; i < usersData.length; i++) {
+    if (!usersData[i][0]) continue;
+    var uName = usersData[i][0].toString();
+    var fName = usersData[i][1].toString();
+    
+    if (!isAdmin && uName !== payload.username) continue;
+    
+    var hours = hoursWorked[fName] || 0;
+    var base = baseSalaries[uName] || 20000;
+    var totalBase = hours * base;
+    var adv = advances[uName] || 0;
+    var bon = bonuses[uName] || 0;
+    var pen = penalties[uName] || 0;
+    
+    var netPay = totalBase + bon - pen - adv;
+    
+    payroll.push({
+      username: uName,
+      fullname: fName,
+      baseSalaryPerHour: base,
+      totalHours: hours,
+      totalBaseSalary: totalBase,
+      advances: adv,
+      bonus: bon,
+      penalty: pen,
+      netPay: netPay
+    });
+  }
+  
+  return jsonResponse(true, { payroll: payroll });
+}

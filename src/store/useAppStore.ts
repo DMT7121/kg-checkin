@@ -36,6 +36,38 @@ export interface SoldOutItem {
   reportedAt: string;
 }
 
+export interface AdvanceRequest {
+  id: string;
+  username: string;
+  fullname: string;
+  amount: number;
+  reason: string;
+  createdAt: number;
+  status: string; // 'Pending', 'Approved', 'Rejected'
+}
+
+export interface BonusPenaltyRecord {
+  id: string;
+  createdAt: number;
+  targetUsername: string;
+  targetFullname: string;
+  type: 'BONUS' | 'PENALTY';
+  amount: number;
+  reason: string;
+}
+
+export interface PayrollRecord {
+  username: string;
+  fullname: string;
+  baseSalaryPerHour: number;
+  totalHours: number;
+  totalBaseSalary: number;
+  advances: number;
+  bonus: number;
+  penalty: number;
+  netPay: number;
+}
+
 export interface SwapRequest {
   id: string;
   username: string;
@@ -138,6 +170,11 @@ interface AppState {
   registeredShifts: string[];
   soldOutItems: SoldOutItem[];
   swapRequests: SwapRequest[];
+  hasNewSwaps: boolean;
+  advances: AdvanceRequest[];
+  bonusPenalties: BonusPenaltyRecord[];
+  payroll: PayrollRecord[];
+  isCheckInOutCompleted: boolean;
   checklists: ChecklistItem[];
   checklistLogs: ChecklistLog[];
   feedbacks: Feedback[];
@@ -160,9 +197,6 @@ interface AppState {
 
   // Anti-spam
   lastCheckInTime: number;
-
-  // Swap Shift
-  hasNewSwaps: boolean;
 
   // Actions
   setCurrentUser: (user: User | null) => void;
@@ -203,7 +237,14 @@ interface AppState {
   setPreviewImageUrl: (v: string) => void;
   setLastCheckInTime: (v: number) => void;
   addSwapRequest: (v: SwapRequest) => void;
-  setHasNewSwaps: (v: boolean) => void;
+  setHasNewSwaps: (has: boolean) => void;
+  setAdvances: (advances: AdvanceRequest[]) => void;
+  addAdvance: (advance: AdvanceRequest) => void;
+  setBonusPenalties: (records: BonusPenaltyRecord[]) => void;
+  setPayroll: (payroll: PayrollRecord[]) => void;
+  setCheckInOutCompleted: (completed: boolean) => void;
+  setSwapRequests: (reqs: SwapRequest[]) => void;
+  setChecklists: (items: ChecklistItem[]) => void;
   removeSwapRequest: (id: string) => void;
   logout: () => void;
 }
@@ -238,6 +279,11 @@ export const useAppStore = create<AppState>((set) => ({
   registeredShifts: [],
   soldOutItems: [],
   swapRequests: [],
+  hasNewSwaps: false,
+  advances: [],
+  bonusPenalties: [],
+  payroll: [],
+  isCheckInOutCompleted: false,
   checklists: [],
   checklistLogs: [],
   feedbacks: [],
@@ -261,9 +307,6 @@ export const useAppStore = create<AppState>((set) => ({
   // Anti-spam
   lastCheckInTime: 0,
 
-  // Swap Shift
-  hasNewSwaps: true,
-
   // Actions
   setCurrentUser: (user) => set({ currentUser: user }),
   setRememberMe: (v) => set({ rememberMe: v }),
@@ -274,8 +317,14 @@ export const useAppStore = create<AppState>((set) => ({
   },
   setNews: (news) => set({ news }),
   setSoldOutItems: (items) => set({ soldOutItems: items }),
+  setHasNewSwaps: (has) => set({ hasNewSwaps: has }),
   setSwapRequests: (reqs) => set({ swapRequests: reqs }),
   setChecklists: (items) => set({ checklists: items }),
+  setAdvances: (advances) => set({ advances }),
+  addAdvance: (advance) => set((state) => ({ advances: [advance, ...state.advances] })),
+  setBonusPenalties: (records) => set({ bonusPenalties: records }),
+  setPayroll: (payroll) => set({ payroll }),
+  setCheckInOutCompleted: (completed) => set({ isCheckInOutCompleted: completed }),
   setChecklistLogs: (logs) => set({ checklistLogs: logs }),
   setFeedbacks: (items) => set({ feedbacks: items }),
   toggleDarkMode: () =>
@@ -314,7 +363,15 @@ export const useAppStore = create<AppState>((set) => ({
   setPreviewOpen: (isPreviewOpen) => set({ isPreviewOpen }),
   setPreviewImageUrl: (previewImageUrl) => set({ previewImageUrl }),
   setLastCheckInTime: (lastCheckInTime) => set({ lastCheckInTime }),
-  addSwapRequest: (req) => set((s) => ({ swapRequests: [req, ...s.swapRequests], hasNewSwaps: true })),
+  addSwapRequest: (req) =>
+    set((state) => {
+      const exists = state.swapRequests.find((r) => r.id === req.id);
+      if (exists) return state;
+      return {
+        swapRequests: [req, ...state.swapRequests],
+        hasNewSwaps: true,
+      };
+    }),
   setHasNewSwaps: (hasNewSwaps) => set({ hasNewSwaps }),
   removeSwapRequest: (id) => set((s) => ({ swapRequests: s.swapRequests.filter(r => r.id !== id) })),
 

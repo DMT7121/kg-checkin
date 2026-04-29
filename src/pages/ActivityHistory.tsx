@@ -1,12 +1,15 @@
+import { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { openPreview } from '../components/ImagePreview';
 import { speak, fetchWithRetry } from '../utils/helpers';
 import { escapeHtml } from '../utils/security';
 import Swal from 'sweetalert2';
-import { CalendarCheck, ShieldCheck, FileSpreadsheet, Bot, PackageOpen, Image as ImageIcon, CircleCheck, CircleAlert, Loader2 } from 'lucide-react';
+import { CalendarCheck, ShieldCheck, FileSpreadsheet, Bot, PackageOpen, Image as ImageIcon, CircleCheck, CircleAlert, Loader2, Users } from 'lucide-react';
 
 export default function ActivityHistory() {
-  const { logs, stats, currentUser, isUpdating, groqKeys } = useAppStore();
+  const { logs, stats, currentUser, isUpdating, groqKeys, users } = useAppStore();
+  const [selectedUser, setSelectedUser] = useState<string>('ALL');
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'tester';
 
   const openTimesheet = () => {
     Swal.fire({
@@ -83,21 +86,46 @@ export default function ActivityHistory() {
 
       {/* Logs */}
       <div className="space-y-3">
-        <div className="flex justify-between items-end">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-2">
           <h3 className="font-bold text-lg text-gray-800 dark:text-white flex items-center">
             Nhật ký hoạt động
             {isUpdating && <Loader2 className="ml-2 text-ocean-500 animate-spin" size={16} />}
           </h3>
-          <span className="text-xs text-gray-400 italic">Đã đồng bộ</span>
+          
+          {isAdmin && (
+            <div className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700">
+              <Users size={14} className="text-gray-500" />
+              <select 
+                value={selectedUser} 
+                onChange={(e) => setSelectedUser(e.target.value)}
+                className="bg-transparent text-sm font-medium focus:outline-none text-gray-700 dark:text-gray-300 w-full sm:w-auto"
+              >
+                <option value="ALL">Tất cả nhân sự</option>
+                {users.map(u => (
+                  <option key={u.username} value={u.fullname}>{u.fullname}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
-        {logs.length === 0 ? (
-          <div className="text-center py-12 text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700">
-            <PackageOpen size={48} className="mx-auto mb-3 opacity-50" />
-            <p className="font-medium">Chưa có dữ liệu nào</p>
-          </div>
-        ) : (
-          logs.map((log, idx) => {
+        {(() => {
+          const displayLogs = isAdmin && selectedUser !== 'ALL' 
+            ? logs.filter(l => l.fullname === selectedUser)
+            : !isAdmin 
+              ? logs.filter(l => l.fullname === currentUser?.fullname)
+              : logs;
+
+          if (displayLogs.length === 0) {
+            return (
+              <div className="text-center py-12 text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700">
+                <PackageOpen size={48} className="mx-auto mb-3 opacity-50" />
+                <p className="font-medium">Chưa có dữ liệu nào</p>
+              </div>
+            );
+          }
+
+          return displayLogs.map((log, idx) => {
             const isIn = log.type === 'Vào ca' || log.type === 'IN';
             const isValid = log.status?.includes('Hợp lệ') || log.status?.includes('HỢP LỆ') || log.status === 'Đồng bộ...';
             return (
@@ -130,8 +158,8 @@ export default function ActivityHistory() {
                 </div>
               </div>
             );
-          })
-        )}
+          });
+        })()}
       </div>
     </div>
   );
