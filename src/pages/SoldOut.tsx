@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAppStore, SoldOutItem } from '../store/useAppStore';
+import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import { UtensilsCrossed, Plus, Search, Trash2, Clock, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
