@@ -88,7 +88,7 @@ export default function Dashboard() {
       label: 'Lịch làm',
       icon: Calendar,
       items: [
-        { id: 'schedule', label: 'Xếp ca', icon: Calendar },
+        { id: 'schedule', label: isAdmin ? 'Sắp xếp ca' : 'Đăng ký ca', icon: Calendar },
         { id: 'swap', label: 'Chợ đổi ca', icon: ArrowLeftRight },
         { id: 'roster', label: 'Lịch tổng', icon: CalendarDays },
       ],

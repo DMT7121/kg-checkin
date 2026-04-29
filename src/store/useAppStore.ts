@@ -384,7 +384,6 @@ export const useAppStore = create<AppState>((set) => ({
         hasNewSwaps: true,
       };
     }),
-  setHasNewSwaps: (hasNewSwaps) => set({ hasNewSwaps }),
   removeSwapRequest: (id) => set((s) => ({ swapRequests: s.swapRequests.filter(r => r.id !== id) })),
 
   logout: () => {

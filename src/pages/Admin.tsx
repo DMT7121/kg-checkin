@@ -88,65 +88,6 @@ export default function Admin() {
     }
   };
 
-  // === TRACK CHANGES ===
-  const trackScheduleChange = (empIndex: number, currentSchedules: any[]) => {
-    const currentEmp = currentSchedules[empIndex];
-    const origEmp = originalAdminSchedules[empIndex];
-    const changes: string[] = [];
-    for (let i = 0; i < 7; i++) {
-      if (currentEmp.shifts[i] !== origEmp.shifts[i]) {
-        changes.push(`Ngày ${weekInfo.weekDates[i]} (${origEmp.shifts[i] || 'Chưa ĐK'} ⮕ ${currentEmp.shifts[i]})`);
-      }
-    }
-    const updated = [...currentSchedules];
-    updated[empIndex] = { ...currentEmp, note: changes.length > 0 ? 'Điều chỉnh: ' + changes.join('; ') : '' };
-    store.setAdminSchedules(updated);
-  };
-
-  const updateShift = (empIndex: number, dayIndex: number, value: string) => {
-    const updated = [...adminSchedules];
-    const emp = { ...updated[empIndex], shifts: [...updated[empIndex].shifts] };
-    emp.shifts[dayIndex] = value;
-    updated[empIndex] = emp;
-    trackScheduleChange(empIndex, updated);
-  };
-
-  // === APPROVE ALL ===
-  const approveAllSchedules = async () => {
-    if (adminSchedules.length === 0) return;
-    const { isConfirmed } = await Swal.fire({
-      title: 'Duyệt toàn bộ lịch?', text: 'Dữ liệu sẽ được chèn/ghi đè trực tiếp lên Google Sheets.',
-      icon: 'warning', showCancelButton: true, confirmButtonColor: '#16a34a', cancelButtonColor: '#6b7280', confirmButtonText: 'Đồng ý duyệt',
-    });
-    if (!isConfirmed) return;
-
-    store.setLoading(true, 'Đang duyệt lịch...');
-    
-    // Format the payload so Google Sheet cells actually contain just the shift, and notes separately
-    const finalSchedules = adminSchedules.map((emp, empIdx) => {
-      const origEmp = originalAdminSchedules[empIdx];
-      const newShifts = [...emp.shifts];
-      const newNotes = [...(emp.shiftNotes || [])];
-      for (let i = 0; i < 7; i++) {
-        if (newShifts[i] && origEmp.shifts[i] !== newShifts[i]) {
-          newNotes[i] = `Sửa từ ${origEmp.shifts[i] || 'Chưa ĐK'}`;
-        }
-      }
-      return { ...emp, shifts: newShifts, shiftNotes: newNotes };
-    });
-
-    const res = await callApi('APPROVE_SCHEDULES', { monthSheet: weekInfo.monthSheet, weekLabel: weekInfo.weekLabel, schedules: finalSchedules, isFinal: true });
-    store.setLoading(false);
-    if (res?.ok) {
-      Swal.fire('Thành công', res.message, 'success');
-      // Reset original reference to current edited state so the UI considers them saved
-      store.setOriginalAdminSchedules(JSON.parse(JSON.stringify(adminSchedules)));
-      loadAdminSchedules(); // Fetch fresh to ensure sync
-    } else {
-      Swal.fire('Lỗi', 'Không thể duyệt lịch lúc này', 'error');
-    }
-  };
-
   // === GROQ AI ===
   const analyzeWithGroq = async () => {
     const apiKey = groqKeys.length > 0 ? groqKeys[Math.floor(Math.random() * groqKeys.length)] : null;
@@ -371,81 +312,7 @@ export default function Admin() {
         )}
       </div>
 
-      {/* Schedule approval */}
-      <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-        <div className="flex justify-between items-center mb-4 border-b dark:border-gray-700 pb-2">
-          <h3 className="font-bold flex items-center text-gray-800 dark:text-white">
-            <CalendarCheck size={18} className="mr-2 text-ocean-600" /> Duyệt Lịch Làm Việc
-          </h3>
-          <button onClick={loadAdminSchedules} className="text-sm bg-ocean-100 text-ocean-700 dark:bg-ocean-900/50 dark:text-ocean-300 px-3 py-1.5 rounded-lg hover:bg-ocean-200 transition flex items-center">
-            <RefreshCw size={14} className="mr-1" /> Tải lịch
-          </button>
-        </div>
 
-        {adminSchedules.length > 0 ? (
-          <>
-            <div className="overflow-x-auto bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 mb-4">
-              <table className="w-full text-sm text-left whitespace-nowrap">
-                <thead className="text-xs text-gray-700 dark:text-gray-300 uppercase bg-gray-200 dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700">
-                  <tr>
-                    <th className="px-4 py-3 sticky left-0 bg-gray-200 dark:bg-gray-800 z-10 font-bold">Nhân Viên</th>
-                    {DAY_NAMES.map((d) => (
-                      <th key={d} className="px-2 py-3 text-center">{d.replace('Thứ ', 'T').replace('Chủ Nhật', 'CN')}</th>
-                    ))}
-                    <th className="px-4 py-3">Lý do / Ghi chú</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {adminSchedules.map((emp, empIdx) => (
-                    <tr key={empIdx} className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                      <td className="px-4 py-3 sticky left-0 bg-white dark:bg-gray-800 z-10 font-medium text-gray-900 dark:text-white shadow-[1px_0_0_0_rgba(0,0,0,0.05)] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.05)]">
-                        {emp.fullname}
-                      </td>
-                      {emp.shifts.map((shift, dayIdx) => {
-                        const isChanged = originalAdminSchedules[empIdx]?.shifts[dayIdx] !== shift;
-                        const hasNote = emp.shiftNotes && emp.shiftNotes[dayIdx];
-                        const tooltipText = isChanged 
-                          ? `Sửa từ ${originalAdminSchedules[empIdx]?.shifts[dayIdx] || 'Chưa ĐK'}` 
-                          : (hasNote ? emp.shiftNotes[dayIdx] : '');
-                          
-                        return (
-                          <td key={dayIdx} className="px-1 py-2 relative">
-                            {isChanged && <div className="absolute top-0 right-0 w-2 h-2 bg-orange-500 rounded-full animate-pulse" title="Đã thay đổi"></div>}
-                            {!isChanged && hasNote && <div className="absolute top-0 right-0 w-2 h-2 bg-ocean-500 rounded-full" title={tooltipText}></div>}
-                            <div className="relative group" title={tooltipText}>
-                              <select value={shift || 'OFF'} onChange={(e) => updateShift(empIdx, dayIdx, e.target.value)}
-                                className={`text-xs font-bold rounded-lg border focus:outline-none p-1.5 w-full cursor-pointer appearance-none text-center transition-all ${
-                                  isChanged 
-                                    ? 'border-orange-500 ring-2 ring-orange-200 dark:ring-orange-900/50 shadow-md ' + getAdminShiftClass(shift)
-                                    : 'border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-ocean-500 ' + getAdminShiftClass(shift)
-                                }`}>
-                                {ADMIN_SHIFT_OPTIONS.map((opt) => (
-                                  <option key={opt} value={opt} className="bg-white text-gray-800">{opt}</option>
-                                ))}
-                              </select>
-                            </div>
-                          </td>
-                        );
-                      })}
-                      <td className="px-4 py-3 text-xs text-red-500 max-w-[200px] truncate" title={emp.reason || emp.note || ''}>
-                        {!emp.hasApproved ? emp.reason : <span className="text-gray-500 font-medium italic">{emp.note}</span>}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <button onClick={approveAllSchedules} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 rounded-xl shadow-lg transition transform active:scale-95 flex items-center justify-center touch-manipulation">
-              <CheckCheck size={18} className="mr-2" /> DUYỆT TOÀN BỘ LỊCH
-            </button>
-          </>
-        ) : (
-          <div className="text-center py-6 text-gray-400 bg-gray-50 dark:bg-gray-900 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
-            <Inbox size={32} className="mx-auto mb-2 opacity-50" />
-            <p className="text-sm">Bấm "Tải lịch" để xem danh sách tuần tới</p>
-          </div>
-        )}
-      </div>
 
       {/* AI Analysis */}
       <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">

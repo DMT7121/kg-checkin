@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
-import { speak, computeWeekInfo, getActiveShiftClass, getPreviewShiftClass, SHIFT_OPTIONS, DAY_NAMES, isRegistrationOpen } from '../utils/helpers';
+import { speak, computeWeekInfo, getActiveShiftClass, getPreviewShiftClass, SHIFT_OPTIONS, DAY_NAMES, isRegistrationOpen, getAdminShiftClass, ADMIN_SHIFT_OPTIONS } from '../utils/helpers';
 import Swal from 'sweetalert2';
-import { CalendarCheck, Eye, AlertTriangle, Send, Lock, ExternalLink, Clock, RefreshCw, Pencil } from 'lucide-react';
+import { CalendarCheck, Eye, AlertTriangle, Send, Lock, ExternalLink, Clock, RefreshCw, Pencil, CheckCheck, Inbox } from 'lucide-react';
 
 export default function Schedule() {
   const store = useAppStore();
-  const { currentUser, isScheduleRegistered, shiftData, offReason, approvedShifts, registeredShifts } = store;
+  const { currentUser, isScheduleRegistered, shiftData, offReason, approvedShifts, registeredShifts, adminSchedules, originalAdminSchedules } = store;
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'tester';
 
   const [weekInfo] = useState(() => computeWeekInfo());
   const [hasWeekendOff, setHasWeekendOff] = useState(false);
@@ -40,11 +41,14 @@ export default function Schedule() {
       weekInfo.weekDatesKeys.forEach((k) => (initShifts[k] = 'OFF'));
       store.setShiftData(initShifts);
     }
-  }, []);
+    if (isAdmin && adminSchedules.length === 0) {
+      loadAdminSchedules();
+    }
+  }, [isAdmin]);
 
   // Auto-check approval when pending (every 2 minutes)
   useEffect(() => {
-    if (scheduleStatus !== 'pending' || !currentUser) return;
+    if (scheduleStatus !== 'pending' || !currentUser || isAdmin) return;
     const timer = setInterval(() => {
       callApi('GET_DATA', {
         username: currentUser.username,
@@ -62,7 +66,7 @@ export default function Schedule() {
       });
     }, 120000);
     return () => clearInterval(timer);
-  }, [scheduleStatus, currentUser]);
+  }, [scheduleStatus, currentUser, isAdmin]);
 
   const handleShiftChange = (key: string, value: string) => {
     if (!isOpen) return;
@@ -172,12 +176,93 @@ export default function Schedule() {
     </div>
   );
 
+  // === ADMIN FUNCTIONS ===
+  const loadAdminSchedules = async () => {
+    store.setLoading(true, 'Đang kết nối Server...');
+    const res = await callApi('GET_ALL_SCHEDULES', { monthSheet: weekInfo.monthSheet, weekLabel: weekInfo.weekLabel });
+    store.setLoading(false);
+    if (res?.ok) {
+      const parsedSchedules = Array.isArray(res.data) ? res.data : (res.data.schedules || []);
+      const cleanSchedules = parsedSchedules.map((emp: any) => {
+        const shifts: string[] = [];
+        const shiftNotes: string[] = emp.shiftNotes || Array(7).fill('');
+        (emp.shifts || []).forEach((s: string, idx: number) => {
+          if (s && s.includes('\n')) {
+            const parts = s.split('\n');
+            shifts[idx] = parts[0].trim();
+            if (!shiftNotes[idx]) shiftNotes[idx] = parts.slice(1).join('\n').trim();
+          } else {
+            shifts[idx] = s;
+          }
+        });
+        return { ...emp, shifts, shiftNotes };
+      });
+      store.setAdminSchedules(cleanSchedules);
+      store.setOriginalAdminSchedules(JSON.parse(JSON.stringify(cleanSchedules)));
+    } else if (res) {
+      Swal.fire('Thông báo', res.message, 'info');
+    }
+  };
+
+  const trackScheduleChange = (empIndex: number, currentSchedules: any[]) => {
+    const currentEmp = currentSchedules[empIndex];
+    const origEmp = originalAdminSchedules[empIndex];
+    const changes: string[] = [];
+    for (let i = 0; i < 7; i++) {
+      if (currentEmp.shifts[i] !== origEmp.shifts[i]) {
+        changes.push(`Ngày ${weekInfo.weekDates[i]} (${origEmp.shifts[i] || 'Chưa ĐK'} ⮕ ${currentEmp.shifts[i]})`);
+      }
+    }
+    const updated = [...currentSchedules];
+    updated[empIndex] = { ...currentEmp, note: changes.length > 0 ? 'Điều chỉnh: ' + changes.join('; ') : '' };
+    store.setAdminSchedules(updated);
+  };
+
+  const updateAdminShift = (empIndex: number, dayIndex: number, value: string) => {
+    const updated = [...adminSchedules];
+    const emp = { ...updated[empIndex], shifts: [...updated[empIndex].shifts] };
+    emp.shifts[dayIndex] = value;
+    updated[empIndex] = emp;
+    trackScheduleChange(empIndex, updated);
+  };
+
+  const approveAllSchedules = async () => {
+    if (adminSchedules.length === 0) return;
+    const { isConfirmed } = await Swal.fire({
+      title: 'Duyệt toàn bộ lịch?', text: 'Dữ liệu sẽ được chèn/ghi đè trực tiếp lên Google Sheets.',
+      icon: 'warning', showCancelButton: true, confirmButtonColor: '#16a34a', cancelButtonColor: '#6b7280', confirmButtonText: 'Đồng ý duyệt',
+    });
+    if (!isConfirmed) return;
+
+    store.setLoading(true, 'Đang duyệt lịch...');
+    const finalSchedules = adminSchedules.map((emp, empIdx) => {
+      const origEmp = originalAdminSchedules[empIdx];
+      const newShifts = [...emp.shifts];
+      const newNotes = [...(emp.shiftNotes || [])];
+      for (let i = 0; i < 7; i++) {
+        if (newShifts[i] && origEmp.shifts[i] !== newShifts[i]) {
+          newNotes[i] = `Sửa từ ${origEmp.shifts[i] || 'Chưa ĐK'}`;
+        }
+      }
+      return { ...emp, shifts: newShifts, shiftNotes: newNotes };
+    });
+
+    const res = await callApi('APPROVE_SCHEDULES', { monthSheet: weekInfo.monthSheet, weekLabel: weekInfo.weekLabel, schedules: finalSchedules, isFinal: true });
+    store.setLoading(false);
+    if (res?.ok) {
+      Swal.fire('Thành công', 'Lịch đã được duyệt và lưu vào Google Sheets.', 'success');
+      loadAdminSchedules();
+    } else {
+      Swal.fire('Lỗi', res?.message || 'Không thể lưu lịch làm.', 'error');
+    }
+  };
+
   return (
     <div className="p-4 animate-slide-up">
       {/* Header */}
       <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl p-6 text-white shadow-lg mb-6 relative overflow-hidden">
         <div className="absolute right-0 top-0 opacity-10 text-8xl transform translate-x-4 -translate-y-4"><CalendarCheck size={100} /></div>
-        <h2 className="text-2xl font-extrabold mb-1 tracking-tight relative z-10">Lịch Làm Việc</h2>
+        <h2 className="text-2xl font-extrabold mb-1 tracking-tight relative z-10">{isAdmin ? 'Sắp Xếp Ca Làm Việc' : 'Đăng Ký Ca Làm Việc'}</h2>
         <p className="text-indigo-100 font-medium opacity-90 relative z-10">Tuần: {weekInfo.weekDisplay}</p>
         <div className={`mt-3 inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold backdrop-blur-md relative z-10 ${isOpen ? 'bg-green-500/30 text-green-100' : 'bg-red-500/30 text-red-100'}`}>
           {isOpen ? <Clock size={12} className="mr-1.5" /> : <Lock size={12} className="mr-1.5" />}
@@ -185,7 +270,106 @@ export default function Schedule() {
         </div>
       </div>
 
-      {/* Status Badge - Pending */}
+      {isAdmin ? (
+        // ================= ADMIN VIEW =================
+        <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 animate-fade-in">
+          <div className="flex justify-between items-center mb-4 border-b dark:border-gray-700 pb-2">
+            <h3 className="font-bold flex items-center text-gray-800 dark:text-white">
+              <CalendarCheck size={18} className="mr-2 text-indigo-600" /> Quản Lý Lịch Làm Việc Tuần Tới
+            </h3>
+            <button onClick={loadAdminSchedules} className="text-sm bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300 px-3 py-1.5 rounded-lg hover:bg-indigo-200 transition flex items-center">
+              <RefreshCw size={14} className="mr-1" /> Tải lịch
+            </button>
+          </div>
+
+          {adminSchedules.length > 0 ? (
+            <>
+              <div className="overflow-x-auto bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 mb-4 pb-20 custom-scrollbar">
+                <table className="w-full text-sm text-left whitespace-nowrap">
+                  <thead className="text-xs text-gray-700 dark:text-gray-300 uppercase bg-gray-200 dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700">
+                    <tr>
+                      <th className="px-4 py-3 sticky left-0 bg-gray-200 dark:bg-gray-800 z-20 font-bold border-r dark:border-gray-700">Nhân Viên</th>
+                      {DAY_NAMES.map((d) => (
+                        <th key={d} className="px-2 py-3 text-center border-r dark:border-gray-700">{d.replace('Thứ ', 'T').replace('Chủ Nhật', 'CN')}</th>
+                      ))}
+                      <th className="px-4 py-3">Ghi chú</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adminSchedules.map((emp, empIdx) => {
+                      const origShifts = originalAdminSchedules[empIdx]?.shifts || [];
+                      const hasRegistered = origShifts.some((s: string) => s && s !== 'OFF');
+                      
+                      return (
+                      <tr key={empIdx} className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                        <td className="px-4 py-3 sticky left-0 bg-white dark:bg-gray-800 z-10 font-medium text-gray-900 dark:text-white shadow-[1px_0_0_0_rgba(0,0,0,0.05)] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.05)] border-r dark:border-gray-700 group cursor-help">
+                          <div className="flex items-center">
+                            <span>{emp.fullname}</span>
+                            {hasRegistered && (
+                              <div className="ml-2 w-2 h-2 rounded-full bg-green-500" title="Đã đăng ký ca"></div>
+                            )}
+                          </div>
+                          {/* Tooltip */}
+                          {hasRegistered && (
+                            <div className="absolute hidden group-hover:block bg-gray-900 text-white p-3 rounded-xl text-xs -top-12 left-28 z-50 shadow-xl border border-gray-700 w-[250px] whitespace-normal">
+                              <div className="font-bold mb-1 text-indigo-300">Lịch đã đăng ký:</div>
+                              <div className="grid grid-cols-2 gap-1">
+                                {origShifts.map((s: string, i: number) => (
+                                  <div key={i}><span className="text-gray-400">T{i+2}:</span> <span className="font-bold">{s}</span></div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </td>
+                        {emp.shifts.map((shift: string, dayIdx: number) => {
+                          const isChanged = originalAdminSchedules[empIdx]?.shifts[dayIdx] !== shift;
+                          const hasNote = emp.shiftNotes && emp.shiftNotes[dayIdx];
+                          const tooltipText = isChanged 
+                            ? `Sửa từ ${originalAdminSchedules[empIdx]?.shifts[dayIdx] || 'Chưa ĐK'}` 
+                            : (hasNote ? emp.shiftNotes[dayIdx] : '');
+                            
+                          return (
+                            <td key={dayIdx} className="px-1 py-2 relative border-r dark:border-gray-700">
+                              {isChanged && <div className="absolute top-0 right-0 w-2 h-2 bg-orange-500 rounded-full animate-pulse" title="Đã thay đổi"></div>}
+                              {!isChanged && hasNote && <div className="absolute top-0 right-0 w-2 h-2 bg-indigo-500 rounded-full" title={tooltipText}></div>}
+                              <div className="relative" title={tooltipText}>
+                                <select value={shift || 'OFF'} onChange={(e) => updateAdminShift(empIdx, dayIdx, e.target.value)}
+                                  className={`text-xs font-bold rounded-lg border focus:outline-none p-1.5 w-full cursor-pointer appearance-none text-center transition-all ${
+                                    isChanged 
+                                      ? 'border-orange-500 ring-2 ring-orange-200 dark:ring-orange-900/50 shadow-md ' + getAdminShiftClass(shift)
+                                      : 'border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-indigo-500 ' + getAdminShiftClass(shift)
+                                  }`}>
+                                  {ADMIN_SHIFT_OPTIONS.map((opt) => (
+                                    <option key={opt} value={opt} className="bg-white text-gray-800">{opt}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </td>
+                          );
+                        })}
+                        <td className="px-4 py-3 text-xs text-red-500 max-w-[200px] truncate" title={emp.reason || emp.note || ''}>
+                          {!emp.hasApproved ? emp.reason : <span className="text-gray-500 font-medium italic">{emp.note}</span>}
+                        </td>
+                      </tr>
+                    )})}
+                  </tbody>
+                </table>
+              </div>
+              <button onClick={approveAllSchedules} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 rounded-xl shadow-lg transition transform active:scale-95 flex items-center justify-center touch-manipulation">
+                <CheckCheck size={18} className="mr-2" /> XÁC NHẬN SẮP XẾP CA (GHI ĐÈ LÊN SERVER)
+              </button>
+            </>
+          ) : (
+            <div className="text-center py-6 text-gray-400 bg-gray-50 dark:bg-gray-900 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
+              <Inbox size={32} className="mx-auto mb-2 opacity-50" />
+              <p className="text-sm">Bấm "Tải lịch" để xem danh sách tuần tới</p>
+            </div>
+          )}
+        </div>
+      ) : (
+        // ================= USER VIEW =================
+        <>
+          {/* Status Badge - Pending */}
       {scheduleStatus === 'pending' && (
         <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 flex items-center space-x-3 mb-6 animate-fade-in">
           <div className="w-10 h-10 bg-amber-100 dark:bg-amber-800 text-amber-500 rounded-full flex items-center justify-center flex-shrink-0">
@@ -390,12 +574,15 @@ export default function Schedule() {
               <><Send size={20} className="mr-2" /> GỬI LỊCH ĐĂNG KÝ</>
             )}
           </button>
+          
           <p className="text-center text-[10px] text-gray-400 mt-3">
             {isScheduleRegistered
               ? 'Bạn có thể cập nhật lịch không giới hạn trong thời gian mở đăng ký.'
               : 'Hạn đăng ký: 17:00 Thứ Bảy hàng tuần.'}
           </p>
         </>
+      )}
+      </>
       )}
     </div>
   );
