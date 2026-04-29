@@ -8,7 +8,7 @@ import {
   LayoutDashboard, UtensilsCrossed, MessageSquareWarning,
   ClipboardCheck, Repeat, CalendarDays, History,
   CalendarClock, Banknote, BadgeDollarSign, Award, ChevronDown,
-  Settings, Briefcase
+  Settings, Briefcase, CheckSquare
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CheckIn from './CheckIn';
@@ -18,6 +18,7 @@ import SwapShift from './SwapShift';
 import NewsFeed from './NewsFeed';
 import Training from './Training';
 import SoldOut from './SoldOut';
+import Checklist from './Checklist';
 import Admin from './Admin';
 
 // ============================================
@@ -71,7 +72,7 @@ export default function Dashboard() {
       icon: Camera,
       items: [
         { id: 'checkin', label: 'Chấm công', icon: Camera },
-        { id: 'checklist', label: 'Checklist', icon: ClipboardCheck, comingSoon: true },
+        { id: 'checklist', label: 'Checklist', icon: ClipboardCheck },
         { id: 'handover', label: 'Bàn giao ca', icon: Repeat, comingSoon: true },
       ],
     },
@@ -232,7 +233,7 @@ export default function Dashboard() {
           <div className="grid grid-cols-4 gap-2">
             {[
               { icon: Camera, label: 'Chấm công', tab: 'checkin' as TabId, color: 'from-green-500 to-emerald-600' },
-              { icon: Calendar, label: 'Đăng ký', tab: 'schedule' as TabId, color: 'from-blue-500 to-indigo-600' },
+              { icon: CheckSquare, label: 'Checklist', tab: 'checklist' as TabId, color: 'from-blue-500 to-indigo-600' },
               { icon: Newspaper, label: 'Bảng tin', tab: 'news' as TabId, color: 'from-purple-500 to-pink-600' },
               { icon: UtensilsCrossed, label: 'Món hết', tab: 'soldout' as TabId, color: 'from-amber-500 to-orange-600' },
             ].map((action) => (
@@ -471,14 +472,17 @@ export default function Dashboard() {
             {currentTab === 'checkin' && <CheckIn />}
             {currentTab === 'schedule' && <Schedule />}
             {currentTab === 'swap' && <SwapShift />}
+            {currentTab === 'checklist' && <Checklist />}
             {currentTab === 'news' && <NewsFeed />}
             {currentTab === 'soldout' && <SoldOut />}
             {currentTab === 'training' && <Training />}
             {currentTab === 'history' && <ActivityHistory />}
             {currentTab === 'admin' && <Admin />}
             {/* Coming Soon Pages */}
-            {['feedback', 'checklist', 'handover', 'roster', 'timesheet', 'advance', 'payroll', 'discipline'].includes(currentTab) && (
-              <ComingSoonPage title={getPageTitle(currentTab)} />
+            {['feedback', 'handover', 'roster', 'timesheet', 'advance', 'payroll', 'discipline'].includes(currentTab) && (
+              <div className="flex flex-col items-center justify-center h-full p-6 text-center">
+                <ComingSoonPage title={getPageTitle(currentTab)} />
+              </div>
             )}
           </motion.div>
         </AnimatePresence>

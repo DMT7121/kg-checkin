@@ -1012,3 +1012,56 @@ function handleRemoveSoldOut(payload) {
   sheet.deleteRow(rowIndex);
   return jsonResponse(true, "Đã xóa khỏi danh sách hết món");
 }
+
+// ==========================================
+// TÍNH NĂNG CHECKLIST HẰNG NGÀY
+// ==========================================
+
+function handleGetChecklists() {
+  var ss = getSS();
+  var sheet = ss.getSheetByName("Checklists");
+  if (!sheet) return jsonResponse(true, []); 
+
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return jsonResponse(true, []);
+
+  var items = [];
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    items.push({
+      id: row[0],
+      shift: row[1],
+      department: row[2],
+      position: row[3],
+      taskName: row[4],
+      points: row[5],
+      isActive: row[6]
+    });
+  }
+  return jsonResponse(true, items);
+}
+
+function handleSubmitChecklist(payload) {
+  var ss = getSS();
+  var sheet = ss.getSheetByName("ChecklistLogs");
+  if (!sheet) {
+    sheet = ss.insertSheet("ChecklistLogs");
+    sheet.appendRow(["LogID", "Date", "Shift", "Username", "Fullname", "CheckedTasks", "Timestamp"]);
+  }
+  
+  var newId = "LOG_" + new Date().getTime().toString();
+  var now = new Date();
+  var dateStr = now.getDate().toString().padStart(2, '0') + '/' + (now.getMonth() + 1).toString().padStart(2, '0') + '/' + now.getFullYear();
+  
+  sheet.appendRow([
+    newId,
+    dateStr,
+    payload.shift || '',
+    payload.username || '',
+    payload.fullname || '',
+    JSON.stringify(payload.checkedTasks || []),
+    now.toString()
+  ]);
+  
+  return jsonResponse(true, "Đã nộp checklist thành công");
+}

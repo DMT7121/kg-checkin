@@ -75,10 +75,21 @@ function doPost(e) {
       case 'GET_POSTS': return handleGetPosts();
       case 'ADD_POST': return handleAddPost(payload);
       case 'INTERACT_POST': return handleInteractPost(payload);
-      case 'GET_SOLDOUT': return handleGetSoldOut();
-      case 'ADD_SOLDOUT': return handleAddSoldOut(payload);
-      case 'REMOVE_SOLDOUT': return handleRemoveSoldOut(payload);
-      default: throw new Error('Unknown Action');
+      case 'GET_SOLDOUT':
+        return handleGetSoldOut(payload);
+      case 'ADD_SOLDOUT':
+        return handleAddSoldOut(payload);
+      case 'REMOVE_SOLDOUT':
+        return handleRemoveSoldOut(payload);
+
+      // --- CHECKLIST ---
+      case 'GET_CHECKLISTS':
+        return handleGetChecklists(payload);
+      case 'SUBMIT_CHECKLIST':
+        return handleSubmitChecklist(payload);
+
+      default:
+        return jsonResponse(false, 'Unknown action');
     }
   } catch (error) {
     return jsonResponse(false, error.toString());

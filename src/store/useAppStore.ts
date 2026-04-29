@@ -47,6 +47,26 @@ export interface SwapRequest {
   createdAt: number;
 }
 
+export interface ChecklistItem {
+  id: string;
+  shift: string;
+  department: string;
+  position: string;
+  taskName: string;
+  points: number;
+  isActive: boolean;
+}
+
+export interface ChecklistLog {
+  id: string;
+  date: string;
+  shift: string;
+  username: string;
+  fullname: string;
+  checkedTasks: string[]; // JSON array of task IDs
+  timestamp: string;
+}
+
 export interface LogEntry {
   fullname: string;
   type: string;
@@ -98,13 +118,17 @@ interface AppState {
   logs: LogEntry[];
   stats: { totalCheckIn: number; validCount: number };
   users: User[];
-  posts: Post[];
+  news: Post[];
+  shiftData: Record<string, string>;
+  registeredShifts: string[];
+  soldOutItems: SoldOutItem[];
+  swapRequests: SwapRequest[];
+  checklists: ChecklistItem[];
+  checklistLogs: ChecklistLog[];
 
   // Schedule registration
   isScheduleRegistered: boolean;
   approvedShifts: string[] | null;
-  registeredShifts: string[] | null;
-  shiftData: Record<string, string>;
   offReason: string;
 
   // Admin
@@ -122,18 +146,17 @@ interface AppState {
   lastCheckInTime: number;
 
   // Swap Shift
-  swapRequests: SwapRequest[];
   hasNewSwaps: boolean;
-
-  // Sold Out
-  soldOutItems: SoldOutItem[];
 
   // Actions
   setCurrentUser: (user: User | null) => void;
   setRememberMe: (v: boolean) => void;
   setDark: (v: boolean) => void;
-  setPosts: (posts: Post[]) => void;
+  setNews: (news: Post[]) => void;
   setSoldOutItems: (items: SoldOutItem[]) => void;
+  setSwapRequests: (reqs: SwapRequest[]) => void;
+  setChecklists: (items: ChecklistItem[]) => void;
+  setChecklistLogs: (logs: ChecklistLog[]) => void;
   toggleDarkMode: () => void;
   setLoading: (v: boolean, text?: string) => void;
   setUpdating: (v: boolean) => void;
@@ -150,7 +173,7 @@ interface AppState {
   setUsers: (users: User[]) => void;
   setScheduleRegistered: (v: boolean) => void;
   setApprovedShifts: (v: string[] | null) => void;
-  setRegisteredShifts: (v: string[] | null) => void;
+  setRegisteredShifts: (v: string[]) => void;
   setShiftData: (data: Record<string, string>) => void;
   updateShiftData: (key: string, value: string) => void;
   setOffReason: (v: string) => void;
@@ -162,7 +185,6 @@ interface AppState {
   setPreviewOpen: (v: boolean) => void;
   setPreviewImageUrl: (v: string) => void;
   setLastCheckInTime: (v: number) => void;
-  setSwapRequests: (v: SwapRequest[]) => void;
   addSwapRequest: (v: SwapRequest) => void;
   setHasNewSwaps: (v: boolean) => void;
   removeSwapRequest: (id: string) => void;
@@ -194,13 +216,17 @@ export const useAppStore = create<AppState>((set) => ({
   logs: [],
   stats: { totalCheckIn: 0, validCount: 0 },
   users: [],
-  posts: [],
+  news: [],
+  shiftData: {},
+  registeredShifts: [],
+  soldOutItems: [],
+  swapRequests: [],
+  checklists: [],
+  checklistLogs: [],
 
   // Schedule
   isScheduleRegistered: false,
   approvedShifts: null,
-  registeredShifts: null,
-  shiftData: {},
   offReason: '',
 
   // Admin
@@ -218,22 +244,7 @@ export const useAppStore = create<AppState>((set) => ({
   lastCheckInTime: 0,
 
   // Swap Shift
-  swapRequests: [
-    {
-      id: 'mock-1',
-      username: 'admin',
-      fullname: 'Admin King Grill',
-      dayName: 'Thứ 7',
-      shift: 'CA TỐI (17:00-22:30)',
-      date: 'N/A',
-      reason: 'Bận việc gia đình đột xuất',
-      createdAt: Date.now() - 3600000
-    }
-  ],
   hasNewSwaps: true,
-
-  // Sold Out
-  soldOutItems: [],
 
   // Actions
   setCurrentUser: (user) => set({ currentUser: user }),
@@ -243,8 +254,11 @@ export const useAppStore = create<AppState>((set) => ({
     else document.documentElement.classList.remove('dark');
     set({ isDark });
   },
-  setPosts: (posts) => set({ posts }),
+  setNews: (news) => set({ news }),
   setSoldOutItems: (items) => set({ soldOutItems: items }),
+  setSwapRequests: (reqs) => set({ swapRequests: reqs }),
+  setChecklists: (items) => set({ checklists: items }),
+  setChecklistLogs: (logs) => set({ checklistLogs: logs }),
   toggleDarkMode: () =>
     set((s) => {
       const newDark = !s.isDark;
@@ -281,7 +295,6 @@ export const useAppStore = create<AppState>((set) => ({
   setPreviewOpen: (isPreviewOpen) => set({ isPreviewOpen }),
   setPreviewImageUrl: (previewImageUrl) => set({ previewImageUrl }),
   setLastCheckInTime: (lastCheckInTime) => set({ lastCheckInTime }),
-  setSwapRequests: (swapRequests) => set({ swapRequests }),
   addSwapRequest: (req) => set((s) => ({ swapRequests: [req, ...s.swapRequests], hasNewSwaps: true })),
   setHasNewSwaps: (hasNewSwaps) => set({ hasNewSwaps }),
   removeSwapRequest: (id) => set((s) => ({ swapRequests: s.swapRequests.filter(r => r.id !== id) })),
