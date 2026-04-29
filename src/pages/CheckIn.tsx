@@ -344,6 +344,62 @@ export default function CheckIn() {
           document.body.classList.add('shake-warning');
           setTimeout(() => document.body.classList.remove('shake-warning'), 800);
         }
+
+        // --- BẮT ĐẦU: KHẢO SÁT NỘI BỘ (PULSE SURVEY) ---
+        // Xác suất xuất hiện 40% mỗi khi check-in vào ca
+        if (Math.random() < 0.4) {
+          setTimeout(async () => {
+            const { value: emotion } = await Swal.fire({
+              title: 'Khảo sát nhanh!',
+              text: 'Hôm nay bạn cảm thấy thế nào trước khi vào ca?',
+              icon: 'question',
+              input: 'radio',
+              inputOptions: {
+                '5': '😍 Tuyệt vời, đầy năng lượng!',
+                '4': '🙂 Vui vẻ, sẵn sàng làm việc',
+                '3': '😐 Bình thường',
+                '2': '🙁 Hơi mệt mỏi/Buồn',
+                '1': '😠 Căng thẳng/Bực bội'
+              },
+              inputValidator: (value) => {
+                if (!value) return 'Vui lòng chọn cảm xúc của bạn!';
+              },
+              confirmButtonText: 'Tiếp tục',
+              confirmButtonColor: '#0ea5e9',
+              allowOutsideClick: false,
+              backdrop: `rgba(0,0,0,0.8)`
+            });
+
+            if (emotion) {
+              const { value: note } = await Swal.fire({
+                title: 'Chia sẻ thêm (không bắt buộc)',
+                input: 'textarea',
+                inputLabel: 'Có điều gì bạn cần Quản lý hỗ trợ trong ca hôm nay không?',
+                inputPlaceholder: 'Nhập ý kiến của bạn...',
+                showCancelButton: true,
+                confirmButtonText: 'Gửi',
+                cancelButtonText: 'Bỏ qua',
+                confirmButtonColor: '#0ea5e9'
+              });
+              
+              callApi('SUBMIT_SURVEY', { 
+                username: currentUser!.username,
+                fullname: currentUser!.fullname,
+                emotion: parseInt(emotion), 
+                note: note || '' 
+              }, { background: true });
+
+              Swal.fire({
+                title: 'Cảm ơn bạn!',
+                text: "King's Grill luôn trân trọng mọi đóng góp của bạn ❤️",
+                icon: 'success',
+                timer: 2000,
+                showConfirmButton: false
+              });
+            }
+          }, 1000); // Đợi các hiệu ứng confetti hoặc toast hoàn tất
+        }
+        // --- KẾT THÚC: KHẢO SÁT NỘI BỘ ---
       }
 
       // Refresh data

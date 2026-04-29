@@ -38,8 +38,14 @@ Kiến trúc mới được chia thành **5 Nhóm Tính Năng (Modules)** chính
 - **Admin:** Tiếp nhận và phản hồi các ý kiến đóng góp, khiếu nại về lương/ca làm.
 - **User:** Gửi phản hồi (có thể chọn ẩn danh) về các vấn đề trong ca làm, thái độ đồng nghiệp, hoặc khiếu nại sai sót chấm công.
 
-**5. Đào tạo / Nội quy / Quy trình:**
-- Sẽ phát triển ở các Phase tiếp theo. Nơi lưu trữ tài liệu nghiệp vụ, mô tả công việc, video hướng dẫn pha chế.
+**5. Đào tạo & Hội nhập (Training & Onboarding Workflow) 🆕:**
+- **Onboarding Checklist:** Danh sách việc cần làm cho nhân sự mới (Tải CCCD, ký số nội quy, nhận đồng phục).
+- **E-learning & Test:** Nhân sự mới bắt buộc xem video (ATVSTP, Văn hóa King's Grill) và làm trắc nghiệm trước khi nhận ca đầu tiên.
+- Nơi lưu trữ tài liệu nghiệp vụ, mô tả công việc, video hướng dẫn pha chế.
+
+**6. Khảo sát nội bộ (Pulse Surveys) 🆕:**
+- Hiển thị pop-up ngẫu nhiên khi nhân viên Check-in ("Hôm nay bạn cảm thấy thế nào?", "Có khó khăn gì không?").
+- Giúp Quản lý đo lường sức khỏe tinh thần và mức độ hài lòng của nhân sự (Employee Experience).
 
 ---
 
@@ -97,12 +103,14 @@ Kiến trúc mới được chia thành **5 Nhóm Tính Năng (Modules)** chính
 - **Admin:** Bảng lương tổng quát của tất cả nhân sự. Hệ thống tự động tính toán dựa trên cấu hình (Mức lương, Giờ làm, Thưởng, Phạt, Ứng lương).
 - **User:** Chỉ xem được phiếu lương (Payslip) chi tiết của chính mình.
 
-**5. Kỷ luật - Khen thưởng:**
-- Ghi nhận các khoản cộng/trừ tiền. Tự động nội suy vào Bảng lương và hiển thị rõ ràng ở cột Ghi chú (Ví dụ: +200k Thưởng chuyên cần, -50k Đi trễ).
+**5. Kỷ luật & Đãi ngộ (Discipline, Rewards & Gamification) 🆕:**
+- **Kỷ luật:** Ghi nhận lỗi, tự động trừ tiền vào Bảng lương.
+- **Khen thưởng (Recognition):** Cấp sao/huy hiệu, Bảng vàng "Nhân viên xuất sắc tháng" trên Dashboard/NewsFeed.
+- **Gamification (Tích điểm):** Nhân viên đi làm đúng giờ, làm tốt checklist được cộng điểm (Coin/Point) để đổi phúc lợi (Voucher, ngày phép).
 
-**6. Đánh giá Năng lực (KPI Review):**
-- **Admin:** Bảng chấm điểm định kỳ (thái độ, chuyên môn, doanh số) để làm cơ sở Xét duyệt tăng bậc lương.
-- **User:** Nhận feedback đánh giá để cải thiện kỹ năng.
+**6. Đánh giá Năng lực & Lộ trình thăng tiến (Performance Review & Career Path) 🆕:**
+- **Admin:** Đánh giá định kỳ hàng tháng/quý (Thái độ, Tốc độ, Sạch sẽ).
+- **User:** Xem điểm đánh giá và lộ trình thăng tiến (VD: Phục vụ -> Tổ trưởng). Dữ liệu này làm cơ sở tăng lương/thăng cấp.
 
 ---
 
@@ -113,8 +121,8 @@ Kiến trúc mới được chia thành **5 Nhóm Tính Năng (Modules)** chính
 - **Doanh nghiệp:** Thông tin cơ bản (Tên, Địa chỉ, MST, STK, Logo).
 - **Cơ cấu tổ chức:** Sơ đồ phòng ban.
 - **Loại nhân viên:** Cấu hình hệ số lương (Thử việc: 0.8, Chính thức: 1.0).
-- **Quy trình Onboarding/Offboarding:** Checklist khi có nhân viên mới (Cấp tài khoản, Đào tạo nội quy) và khi nghỉ việc (Thu hồi tài khoản, Chốt lương cuối).
-- **Quản lý Tài sản & Đồng phục:** Ghi nhận cấp phát đồng phục, thẻ tên, chìa khóa tủ. Tự động liên kết với Bảng lương để trừ tiền nếu nhân viên làm mất hoặc nghỉ việc không trả lại.
+- **Quy trình Onboarding/Offboarding:** Cấu hình các bước tự động khi có nhân sự mới hoặc nhân sự nghỉ việc.
+- **Quản lý Tài sản & Đồng phục (Asset & Uniform Tracking) 🆕:** Theo dõi cấp phát thẻ tên, đồng phục trong Hồ sơ nhân viên. Tự động trừ tiền (Deduction) vào Payroll nếu nhân viên nghỉ việc không trả lại tài sản.
 
 **2. Ca làm & Chấm công:**
 - **Chấm công:** Đặt tọa độ GPS trung tâm, Bán kính hợp lệ (Đồng bộ với code hiện tại và cho phép UI chỉnh sửa).

@@ -96,13 +96,15 @@ function doPost(e) {
       case 'SUBMIT_INCIDENT':
         return handleSubmitIncident(payload);
 
-      // --- FEEDBACK ---
+      // --- FEEDBACK & SURVEY ---
       case 'GET_FEEDBACKS':
         return handleGetFeedbacks(payload);
       case 'SUBMIT_FEEDBACK':
         return handleSubmitFeedback(payload);
       case 'REPLY_FEEDBACK':
         return handleReplyFeedback(payload);
+      case 'SUBMIT_SURVEY':
+        return handleSubmitSurvey(payload);
 
       // --- AUTH: QUÊN MẬT KHẨU & ĐỔI MẬT KHẨU ---
       case 'REQUEST_OTP':
@@ -149,6 +151,34 @@ function doPost(e) {
     return jsonResponse(false, error.toString());
   } finally {
     lock.releaseLock();
+  }
+}
+
+// =====================================================================================
+// 1C. SURVEY HANDLER
+// =====================================================================================
+function handleSubmitSurvey(payload) {
+  try {
+    var ss = getSS();
+    var sheet = ss.getSheetByName("SURVEYS");
+    if (!sheet) {
+      sheet = ss.insertSheet("SURVEYS");
+      sheet.appendRow(["Timestamp", "Username", "Fullname", "Emotion", "Note"]);
+      sheet.getRange("A1:E1").setFontWeight("bold").setBackground("#d9ead3");
+    }
+    
+    var timeStr = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, "dd/MM/yyyy HH:mm:ss");
+    sheet.appendRow([
+      timeStr,
+      payload.username || "Unknown",
+      payload.fullname || "Unknown",
+      payload.emotion || 0,
+      payload.note || ""
+    ]);
+    
+    return jsonResponse(true, "Ghi nhận thành công");
+  } catch (e) {
+    return jsonResponse(false, e.toString());
   }
 }
 
