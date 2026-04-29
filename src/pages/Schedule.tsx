@@ -195,8 +195,24 @@ export default function Schedule() {
             shifts[idx] = s;
           }
         });
-        return { ...emp, shifts, shiftNotes };
+        
+        // Kiểm tra xem nhân viên đã đăng ký hay chưa
+        // Cứ có ca nào khác OFF và khác rỗng thì coi như Đã đăng ký
+        const isRegistered = emp.hasApproved || shifts.some((s: string) => s && s !== 'OFF' && s !== '');
+        
+        // Nếu chưa đăng ký, để trống tất cả lịch (thay vì mặc định OFF)
+        if (!isRegistered) {
+          for (let i = 0; i < 7; i++) {
+            if (!shifts[i] || shifts[i] === 'OFF') shifts[i] = '';
+          }
+        }
+        
+        return { ...emp, shifts, shiftNotes, isRegistered };
       });
+      
+      // Sắp xếp: Ai đã đăng ký thì lên đầu
+      cleanSchedules.sort((a: any, b: any) => (b.isRegistered ? 1 : 0) - (a.isRegistered ? 1 : 0));
+      
       store.setAdminSchedules(cleanSchedules);
       store.setOriginalAdminSchedules(JSON.parse(JSON.stringify(cleanSchedules)));
     } else if (res) {
@@ -298,7 +314,7 @@ export default function Schedule() {
                   <tbody>
                     {adminSchedules.map((emp, empIdx) => {
                       const origShifts = originalAdminSchedules[empIdx]?.shifts || [];
-                      const hasRegistered = origShifts.some((s: string) => s && s !== 'OFF');
+                      const hasRegistered = emp.isRegistered;
                       
                       return (
                       <tr key={empIdx} className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
@@ -312,10 +328,10 @@ export default function Schedule() {
                           {/* Tooltip */}
                           {hasRegistered && (
                             <div className="absolute hidden group-hover:block bg-gray-900 text-white p-3 rounded-xl text-xs -top-12 left-28 z-50 shadow-xl border border-gray-700 w-[250px] whitespace-normal">
-                              <div className="font-bold mb-1 text-indigo-300">Lịch đã đăng ký:</div>
+                              <div className="font-bold mb-1 text-green-400">Đã ĐK:</div>
                               <div className="grid grid-cols-2 gap-1">
                                 {origShifts.map((s: string, i: number) => (
-                                  <div key={i}><span className="text-gray-400">T{i+2}:</span> <span className="font-bold">{s}</span></div>
+                                  <div key={i}><span className="text-gray-400">T{i+2}:</span> <span className="font-bold">{s || '(Trống)'}</span></div>
                                 ))}
                               </div>
                             </div>
@@ -333,12 +349,13 @@ export default function Schedule() {
                               {isChanged && <div className="absolute top-0 right-0 w-2 h-2 bg-orange-500 rounded-full animate-pulse" title="Đã thay đổi"></div>}
                               {!isChanged && hasNote && <div className="absolute top-0 right-0 w-2 h-2 bg-indigo-500 rounded-full" title={tooltipText}></div>}
                               <div className="relative" title={tooltipText}>
-                                <select value={shift || 'OFF'} onChange={(e) => updateAdminShift(empIdx, dayIdx, e.target.value)}
+                                <select value={shift || ''} onChange={(e) => updateAdminShift(empIdx, dayIdx, e.target.value)}
                                   className={`text-xs font-bold rounded-lg border focus:outline-none p-1.5 w-full cursor-pointer appearance-none text-center transition-all ${
                                     isChanged 
                                       ? 'border-orange-500 ring-2 ring-orange-200 dark:ring-orange-900/50 shadow-md ' + getAdminShiftClass(shift)
                                       : 'border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-indigo-500 ' + getAdminShiftClass(shift)
                                   }`}>
+                                  <option value="">(Trống)</option>
                                   {ADMIN_SHIFT_OPTIONS.map((opt) => (
                                     <option key={opt} value={opt} className="bg-white text-gray-800">{opt}</option>
                                   ))}
