@@ -64,31 +64,37 @@ export default function Timesheet() {
     const sorted = [...records].sort((a, b) => a.originalTimeMs - b.originalTimeMs);
     let totalMs = 0;
     let lastIn = 0;
-    let timeText = '';
+    let lastInTimeStr = '';
+    let timeTextLines: string[] = [];
     
     for (const r of sorted) {
-      const isHopLe = r.status.toUpperCase().includes('HỢP LỆ') && !r.status.toUpperCase().includes('KHÔNG');
+      const validStr = r.validStatus || '';
+      const isHopLe = validStr.includes('HỢP LỆ') && !validStr.includes('KHÔNG');
       if (!isHopLe) continue;
 
-      if (r.status.includes('VÀO CA') || r.status.includes('IN')) {
+      const type = r.status.toUpperCase();
+      if (type.includes('VÀO CA') || type === 'IN') {
         lastIn = r.originalTimeMs;
-        timeText += `${r.time} - `;
-      } else if ((r.status.includes('RA CA') || r.status.includes('OUT')) && lastIn > 0) {
+        lastInTimeStr = r.time;
+      } else if ((type.includes('RA CA') || type === 'OUT') && lastIn > 0) {
         const diff = r.originalTimeMs - lastIn;
         if (diff > 0 && diff < 14 * 60 * 60 * 1000) {
           totalMs += diff;
         }
-        timeText += `${r.time}\n`;
+        timeTextLines.push(`${lastInTimeStr} - ${r.time}`);
         lastIn = 0;
+        lastInTimeStr = '';
       }
     }
     
     // Nêu thiếu giờ ra ca
-    if (timeText.endsWith(' - ')) timeText += '?';
+    if (lastIn > 0) {
+      timeTextLines.push(`${lastInTimeStr} - ?`);
+    }
 
     return {
       hours: totalMs / (1000 * 60 * 60),
-      text: timeText.trim()
+      text: timeTextLines.join('\n')
     };
   };
 

@@ -87,6 +87,7 @@ function processTimesheetDataWithDominantMonth(data) {
     var name = data[i][0];
     var status = data[i][1];
     var timeStr = data[i][2];
+    var validStatus = data[i][4] ? data[i][4].toString().toUpperCase() : '';
     if (!name || !status || !timeStr) continue;
 
     // Hỗ trợ cả Date object lẫn string DD/MM/YYYY HH:MM:SS hoặc DD/MM/YYYY HH:MM
@@ -119,7 +120,7 @@ function processTimesheetDataWithDominantMonth(data) {
 
     var datesMap = timesheet.get(name);
     if (!datesMap.has(date)) datesMap.set(date, []);
-    datesMap.get(date).push({ status: status, time: timeFormatted, originalTime: time });
+    datesMap.get(date).push({ status: status, validStatus: validStatus, time: timeFormatted, originalTime: time });
   }
 
   // Xác định tháng chủ đạo
@@ -1696,6 +1697,7 @@ function handleGetTimesheet(payload) {
         var plainRecords = records.map(function(r) {
           return {
             status: r.status,
+            validStatus: r.validStatus,
             time: r.time,
             originalTimeMs: r.originalTime.getTime()
           };

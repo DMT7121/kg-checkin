@@ -69,7 +69,7 @@ export interface PayrollRecord {
 }
 
 export interface TimesheetData {
-  timesheet: Record<string, Record<string, { status: string, time: string, originalTimeMs: number }[]>>;
+  timesheet: Record<string, Record<string, { status: string, validStatus?: string, time: string, originalTimeMs: number }[]>>;
   dominantMonth: string;
   year: number;
   month: number;
