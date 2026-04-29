@@ -227,11 +227,10 @@ export default function Login() {
               </button>
             )}
           </form>
-            <div className="flex justify-between items-center mt-6 text-sm">
-              <button type="button" onClick={() => setMode('forgot')} className="text-gray-500 hover:text-ocean-600 dark:hover:text-ocean-400 font-medium transition-colors">Quên mật khẩu?</button>
-              <button type="button" onClick={() => setMode('register')} className="text-ocean-600 dark:text-ocean-400 font-bold hover:underline">Đăng ký mới</button>
-            </div>
-          </form>
+          <div className="flex justify-between items-center mt-6 text-sm">
+            <button type="button" onClick={() => setMode('forgot')} className="text-gray-500 hover:text-ocean-600 dark:hover:text-ocean-400 font-medium transition-colors">Quên mật khẩu?</button>
+            <button type="button" onClick={() => setMode('register')} className="text-ocean-600 dark:text-ocean-400 font-bold hover:underline">Đăng ký mới</button>
+          </div>
         </div>
       )}
 
