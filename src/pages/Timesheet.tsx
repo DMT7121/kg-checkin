@@ -69,7 +69,8 @@ export default function Timesheet() {
     
     for (const r of sorted) {
       const validStr = r.validStatus || '';
-      const isHopLe = validStr.includes('HỢP LỆ') && !validStr.includes('KHÔNG');
+      // Nếu validStr rỗng (do nhập tay hoặc backend chưa cập nhật), mặc định cho phép
+      const isHopLe = validStr === '' || (validStr.includes('HỢP LỆ') && !validStr.includes('KHÔNG'));
       if (!isHopLe) continue;
 
       const type = r.status.toUpperCase();
@@ -177,9 +178,9 @@ export default function Timesheet() {
                       
                       return (
                         <td key={d} className="px-2 py-2 border-r dark:border-gray-700 text-center relative group">
-                          {hours > 0 ? (
+                          {(hours > 0 || text !== '') ? (
                             <div className="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 py-1 px-1.5 rounded-lg text-xs font-bold mx-auto w-fit whitespace-pre-line">
-                              {viewMode === 'HOURS' ? hours.toFixed(2) : text}
+                              {viewMode === 'HOURS' ? (hours > 0 ? hours.toFixed(2) : '?') : text}
                             </div>
                           ) : (
                             <div className="text-gray-300 dark:text-gray-600 text-xs">-</div>
