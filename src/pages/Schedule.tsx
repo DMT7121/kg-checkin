@@ -419,6 +419,13 @@ export default function Schedule() {
             </button>
           </div>
 
+          <div className="md:hidden mb-3 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-800 flex items-start space-x-3 text-amber-700 dark:text-amber-400">
+            <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" />
+            <div className="text-sm font-medium">
+              📱 Bạn đang dùng điện thoại, hãy <strong>xoay ngang màn hình</strong> để xem bảng phân ca dễ dàng và rõ ràng hơn nhé!
+            </div>
+          </div>
+
           {adminSchedules.length > 0 ? (
             <>
               

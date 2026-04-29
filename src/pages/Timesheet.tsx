@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
+import { generateMonthDates } from '../utils/helpers';
+import CalendarGrid from '../components/CalendarGrid';
 import { callApi } from '../services/api';
 import { CalendarClock, Clock, ListOrdered, Calendar } from 'lucide-react';
 import Swal from 'sweetalert2';
@@ -49,6 +51,7 @@ export default function Timesheet() {
   // Lấy danh sách các ngày trong tháng
   const days = Array.from({ length: timesheetData.daysInMonth }, (_, i) => i + 1);
   const { year, month } = timesheetData;
+  const monthDates = generateMonthDates(month, year);
 
   // Lọc user hiển thị
   const displayNames = Object.keys(timesheetData.timesheet).filter(name => {
@@ -142,78 +145,119 @@ export default function Timesheet() {
           )}
         </div>
 
-        <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 custom-scrollbar">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-gray-50 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 uppercase text-xs">
-              <tr>
-                <th className="px-4 py-3 font-bold sticky left-0 bg-gray-50 dark:bg-gray-900 z-10 border-b border-r dark:border-gray-700 min-w-[150px]">
-                  Nhân viên
-                </th>
-                <th className="px-4 py-3 font-extrabold sticky left-[150px] bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 z-10 border-b border-r dark:border-gray-700 min-w-[100px] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
-                  Tổng giờ
-                </th>
-                {days.map(d => {
-                  const dateStr = `${d.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
-                  const isWeekend = new Date(year, month - 1, d).getDay() === 0 || new Date(year, month - 1, d).getDay() === 6;
+        
+        {/* Nếu xem TẤT CẢ (Admin) -> Hiển thị Bảng Ma Trận */}
+        {selectedUser === 'ALL' && isAdmin ? (
+          <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 custom-scrollbar">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-gray-50 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 uppercase text-xs">
+                <tr>
+                  <th className="px-4 py-3 font-bold sticky left-0 bg-gray-50 dark:bg-gray-900 z-10 border-b border-r dark:border-gray-700 min-w-[150px]">
+                    Nhân viên
+                  </th>
+                  <th className="px-4 py-3 font-extrabold sticky left-[150px] bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 z-10 border-b border-r dark:border-gray-700 min-w-[100px] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                    Tổng giờ
+                  </th>
+                  {days.map(d => {
+                    const isWeekend = new Date(year, month - 1, d).getDay() === 0 || new Date(year, month - 1, d).getDay() === 6;
+                    return (
+                      <th key={d} className={`px-2 py-3 font-bold text-center border-b border-r dark:border-gray-700 min-w-[70px] ${isWeekend ? 'bg-orange-50/50 dark:bg-orange-900/10 text-orange-600' : ''}`}>
+                        <div className="flex flex-col items-center">
+                          <span>{d}</span>
+                        </div>
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {displayNames.map(name => {
+                  const userDates = timesheetData.timesheet[name] || {};
+                  const totalMonthHours = days.reduce((sum, d) => {
+                    const dateStr = `${d.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
+                    const records = userDates[dateStr] || [];
+                    return sum + calculateCell(records).hours;
+                  }, 0);
+                  
                   return (
-                    <th key={d} className={`px-2 py-3 font-bold text-center border-b border-r dark:border-gray-700 min-w-[70px] ${isWeekend ? 'bg-orange-50/50 dark:bg-orange-900/10 text-orange-600' : ''}`}>
-                      <div className="flex flex-col items-center">
-                        <span>{d}</span>
-                      </div>
-                    </th>
+                    <tr key={name} className="border-b dark:border-gray-700 hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 transition-colors">
+                      <td className="px-4 py-3 font-bold text-gray-800 dark:text-gray-200 sticky left-0 bg-white dark:bg-gray-800 border-r dark:border-gray-700 z-10">
+                        {name}
+                      </td>
+                      <td className="px-4 py-3 font-black text-center text-indigo-600 dark:text-indigo-400 sticky left-[150px] bg-indigo-50/50 dark:bg-indigo-900/20 border-r dark:border-gray-700 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                        {totalMonthHours.toFixed(2)}
+                      </td>
+                      {days.map(d => {
+                        const dateStr = `${d.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
+                        const records = userDates[dateStr] || [];
+                        const { hours, text } = calculateCell(records);
+                        return (
+                          <td key={d} className="px-2 py-2 border-r dark:border-gray-700 text-center relative group">
+                            {(hours > 0 || text !== '') ? (
+                              <div className="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 py-1 px-1.5 rounded-lg text-xs font-bold mx-auto w-fit whitespace-pre-line">
+                                {viewMode === 'HOURS' ? (hours > 0 ? hours.toFixed(2) : '?') : text}
+                              </div>
+                            ) : (
+                              <div className="text-gray-300 dark:text-gray-600 text-xs">-</div>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
                   );
                 })}
-              </tr>
-            </thead>
-            <tbody>
-              {displayNames.map(name => {
-                const userDates = timesheetData.timesheet[name] || {};
-                
-                const totalMonthHours = days.reduce((sum, d) => {
-                  const dateStr = `${d.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
-                  const records = userDates[dateStr] || [];
-                  return sum + calculateCell(records).hours;
-                }, 0);
-                
-                return (
-                  <tr key={name} className="border-b dark:border-gray-700 hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 transition-colors">
-                    <td className="px-4 py-3 font-bold text-gray-800 dark:text-gray-200 sticky left-0 bg-white dark:bg-gray-800 border-r dark:border-gray-700 z-10">
-                      {name}
-                    </td>
-                    <td className="px-4 py-3 font-black text-center text-indigo-600 dark:text-indigo-400 sticky left-[150px] bg-indigo-50/50 dark:bg-indigo-900/20 border-r dark:border-gray-700 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
-                      {totalMonthHours.toFixed(2)}
-                    </td>
-                    {days.map(d => {
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          /* Nếu xem 1 người cụ thể (Nhân viên hoặc Admin đã chọn User) -> Hiển thị CalendarGrid */
+          <div className="mt-4 animate-fade-in">
+            {(() => {
+              const targetUser = isAdmin && selectedUser !== 'ALL' ? selectedUser : (currentUser?.fullname || '');
+              const userDates = timesheetData.timesheet[targetUser] || {};
+              const totalMonthHours = days.reduce((sum, d) => {
+                const dateStr = `${d.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
+                const records = userDates[dateStr] || [];
+                return sum + calculateCell(records).hours;
+              }, 0);
+
+              return (
+                <div>
+                  <div className="mb-4 bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-800 flex justify-between items-center">
+                    <div>
+                      <div className="text-sm text-indigo-600 dark:text-indigo-400 font-medium">Tổng giờ làm tháng {month}</div>
+                      <div className="text-2xl font-black text-indigo-700 dark:text-indigo-300">{totalMonthHours.toFixed(2)} <span className="text-lg">giờ</span></div>
+                    </div>
+                  </div>
+
+                  <CalendarGrid 
+                    monthDates={monthDates}
+                    renderCell={(mDate) => {
+                      const d = mDate.date.getDate();
                       const dateStr = `${d.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
                       const records = userDates[dateStr] || [];
                       const { hours, text } = calculateCell(records);
                       
+                      const hasData = hours > 0 || text !== '';
+                      
                       return (
-                        <td key={d} className="px-2 py-2 border-r dark:border-gray-700 text-center relative group">
-                          {(hours > 0 || text !== '') ? (
-                            <div className="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 py-1 px-1.5 rounded-lg text-xs font-bold mx-auto w-fit whitespace-pre-line">
-                              {viewMode === 'HOURS' ? (hours > 0 ? hours.toFixed(2) : '?') : text}
+                        <div className="w-full h-full flex flex-col justify-center items-center rounded-lg p-1">
+                          {hasData ? (
+                            <div className="bg-indigo-500 text-white py-1 px-2 rounded-md text-[10px] sm:text-xs font-bold whitespace-pre-line text-center w-full shadow-sm">
+                              {viewMode === 'HOURS' ? (hours > 0 ? `${hours.toFixed(2)}h` : '?') : text}
                             </div>
                           ) : (
-                            <div className="text-gray-300 dark:text-gray-600 text-xs">-</div>
+                            <div className="text-gray-300 dark:text-gray-600 text-xs opacity-50">-</div>
                           )}
-                        </td>
+                        </div>
                       );
-                    })}
-                  </tr>
-                );
-              })}
-              
-              {displayNames.length === 0 && (
-                <tr>
-                  <td colSpan={days.length + 2} className="text-center py-8 text-gray-400">
-                    Không có dữ liệu
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                    }}
+                  />
+                </div>
+              );
+            })()}
+          </div>
+        )}
       </div>
     </div>
   );

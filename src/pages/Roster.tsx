@@ -3,6 +3,7 @@ import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import { computeWeekInfo, DAY_NAMES, getAdminShiftClass, generateMonthDates, MonthDateInfo } from '../utils/helpers';
 import { CalendarDays, RefreshCw, Info, Calendar, ChevronLeft, ChevronRight, LayoutGrid, CalendarRange } from 'lucide-react';
+import CalendarGrid from '../components/CalendarGrid';
 import Swal from 'sweetalert2';
 
 export default function Roster() {
@@ -68,7 +69,82 @@ export default function Roster() {
       };
     });
 
+  
+  const showDayDetails = (mDate: MonthDateInfo, empMonthMap: Record<string, Record<string, string>>) => {
+    const dayShifts = users.map(u => ({
+      name: u.fullname,
+      shift: empMonthMap[u.fullname]?.[`${mDate.weekLabel}_${mDate.dayIndex}`] || ''
+    })).filter(u => u.shift && u.shift !== 'OFF');
+
+    let html = '<div class="text-left mt-2 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">';
+    if (dayShifts.length === 0) {
+      html += '<p class="text-gray-500 italic text-center py-4">Không có ai làm việc hôm nay.</p>';
+    } else {
+      const grouped: Record<string, string[]> = {};
+      dayShifts.forEach(item => {
+        if (!grouped[item.shift]) grouped[item.shift] = [];
+        grouped[item.shift].push(item.name);
+      });
+      Object.entries(grouped).forEach(([shift, names]) => {
+        html += `<div class="mb-4 bg-gray-50 dark:bg-gray-800 p-3 rounded-xl border border-gray-100 dark:border-gray-700">
+          <div class="font-bold text-indigo-600 dark:text-indigo-400 border-b border-indigo-100 dark:border-indigo-900/50 mb-2 pb-1 text-sm flex items-center">
+            <span class="w-2 h-2 rounded-full bg-indigo-500 mr-2"></span>${shift}
+          </div>
+          <div class="text-sm text-gray-700 dark:text-gray-300 pl-1 grid grid-cols-2 gap-1">
+            ${names.map(n => `<div class="flex items-center"><span class="text-gray-400 mr-1.5">•</span>${n}</div>`).join('')}
+          </div>
+        </div>`;
+      });
+    }
+    html += '</div>';
+
+    Swal.fire({
+      title: `<div class="text-lg font-bold">Lịch Ngày ${mDate.date.getDate()}/${mDate.date.getMonth() + 1}</div>`,
+      html,
+      confirmButtonText: 'Đóng',
+      confirmButtonColor: '#4f46e5',
+      customClass: { popup: 'rounded-2xl' }
+    });
+  };
+
+  const renderUserMonthView = () => {
+    const empMonthMap: Record<string, Record<string, string>> = {};
+    monthData.forEach(week => {
+      week.schedules.forEach((emp: any) => {
+        if (!empMonthMap[emp.fullname]) empMonthMap[emp.fullname] = {};
+        emp.shifts.forEach((s: string, i: number) => {
+          empMonthMap[emp.fullname][`${week.weekLabel}_${i}`] = s;
+        });
+      });
+    });
+
     return (
+      <div className="mt-4 animate-fade-in">
+        <CalendarGrid 
+          monthDates={monthDates}
+          renderCell={(mDate) => {
+            const myShift = empMonthMap[store.currentUser?.fullname || '']?.[`${mDate.weekLabel}_${mDate.dayIndex}`] || '';
+            const isOff = myShift === 'OFF' || !myShift;
+            return (
+              <div 
+                className={`w-full h-full flex flex-col justify-center items-center cursor-pointer hover:scale-95 transition-transform rounded-xl p-1 shadow-sm border border-transparent hover:border-indigo-200 ${getAdminShiftClass(myShift)}`}
+                onClick={() => showDayDetails(mDate, empMonthMap)}
+                title="Nhấn để xem chi tiết toàn quán"
+              >
+                {!isOff && <span className="text-[10px] sm:text-xs font-bold leading-tight text-center">{myShift}</span>}
+                {isOff && <span className="text-[9px] opacity-60">OFF</span>}
+              </div>
+            );
+          }}
+        />
+        <div className="mt-5 text-xs text-center text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 py-2 rounded-lg border border-dashed border-gray-200 dark:border-gray-700">
+          💡 Nhấn vào một ngày bất kỳ để xem lịch làm của toàn quán
+        </div>
+      </div>
+    );
+  };
+
+  return (
       <div className="overflow-x-auto bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 pb-10">
         <table className="w-full text-sm text-left whitespace-nowrap">
           <thead className="text-[10px] text-gray-500 dark:text-gray-400 uppercase bg-gray-100 dark:bg-gray-800/80 border-b border-gray-200 dark:border-gray-700">
@@ -111,7 +187,7 @@ export default function Roster() {
     );
   };
 
-  const renderMonthView = () => {
+  const renderAdminMonthView = () => {
     // Flatten monthData to map [fullname] -> { [dateKey]: shift }
     const empMonthMap: Record<string, Record<string, string>> = {};
     monthData.forEach(week => {
