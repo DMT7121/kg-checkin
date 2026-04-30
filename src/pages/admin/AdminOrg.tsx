@@ -113,14 +113,25 @@ export default function AdminOrg() {
 
   return (
     <div className="p-4 space-y-4 animate-slide-up pb-10">
-      <div className="flex items-center space-x-3 mb-6">
-        <div className="w-10 h-10 rounded-full bg-ocean-100 text-ocean-600 flex items-center justify-center">
-          <Building2 size={20} />
+      {/* Header Banner */}
+      <div className="bg-gradient-to-r from-teal-600 via-emerald-600 to-green-700 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex items-center justify-between mb-6">
+        <div className="relative z-10">
+          <div className="flex items-center space-x-3 mb-2">
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner">
+              <Building2 size={20} className="text-white" />
+            </div>
+            <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Tổ chức & Quyền</h2>
+          </div>
+          <p className="text-teal-100 font-medium opacity-90 text-sm md:text-base max-w-md">
+            Thiết lập doanh nghiệp, phòng ban và phân quyền.
+          </p>
         </div>
-        <div>
-          <h2 className="text-lg font-bold text-gray-800 dark:text-white">Tổ chức & Quyền</h2>
-          <p className="text-xs text-gray-500">Thiết lập doanh nghiệp, phòng ban và phân quyền</p>
+        <div className="hidden md:block relative z-10 opacity-80">
+          <Network size={80} strokeWidth={1} />
         </div>
+        {/* Background Decorations */}
+        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
+        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-teal-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
       </div>
 
       {/* Company Info */}
