@@ -17,14 +17,14 @@ export default function NewsFeed() {
   const [newPostImagePreview, setNewPostImagePreview] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
 
-  // Lấy dữ liệu bài đăng thực tế khi mở tab
+  // Lấy dữ liệu bài đăng thực tế khi mở tab và auto-refresh
   useEffect(() => {
-    const fetchPosts = async () => {
-      setLoading(true);
-      const res = await callApi('GET_POSTS', {});
+    const fetchPosts = async (isBackground = false) => {
+      if (!isBackground) setLoading(true);
+      const res = await callApi('GET_POSTS', {}, { background: isBackground });
       if (res?.ok && res.data) {
         setPosts(res.data);
-      } else {
+      } else if (!isBackground) {
         // Fallback mock nếu chưa setup Backend (Trải nghiệm mượt mà)
         if (posts.length === 0) {
           setPosts([
@@ -36,9 +36,17 @@ export default function NewsFeed() {
           ]);
         }
       }
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     };
-    fetchPosts();
+    
+    fetchPosts(false); // Initial load
+
+    // Polling every 15 seconds for real-time feel
+    const interval = setInterval(() => {
+      fetchPosts(true);
+    }, 15000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const toggleLike = async (id: number) => {

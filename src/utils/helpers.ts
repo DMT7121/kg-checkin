@@ -255,12 +255,47 @@ export async function uploadImageToDrive(base64Image: string, filename?: string)
   }
 }
 
-/** Convert a File object to base64 DataURL (for image uploads) */
+/** 
+ * Convert a File object to base64 DataURL with client-side compression 
+ * Keeps image sharp but reduces size (Max dimension 1280px, JPEG 0.8)
+ */
 export function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result as string);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        
+        // Max dimension 1280px to keep it sharp but lightweight
+        const MAX_DIMENSION = 1280;
+        if (width > height && width > MAX_DIMENSION) {
+          height = Math.round((height * MAX_DIMENSION) / width);
+          width = MAX_DIMENSION;
+        } else if (height > MAX_DIMENSION) {
+          width = Math.round((width * MAX_DIMENSION) / height);
+          height = MAX_DIMENSION;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(event.target?.result as string); // fallback
+          return;
+        }
+        
+        ctx.drawImage(img, 0, 0, width, height);
+        // Force JPEG 80% quality for optimal balance of size & sharpness
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+        resolve(compressedBase64);
+      };
+      img.onerror = (error) => reject(error);
+      img.src = event.target?.result as string;
+    };
     reader.onerror = (error) => reject(error);
   });
 }
