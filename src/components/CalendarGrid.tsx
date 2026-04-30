@@ -1,5 +1,5 @@
 import React from 'react';
-import { MonthDateInfo, DAY_NAMES } from '../utils/helpers';
+import { MonthDateInfo, SHORT_DAY_NAMES } from '../utils/helpers';
 
 interface CalendarGridProps {
   monthDates: MonthDateInfo[];
@@ -22,10 +22,9 @@ export default function CalendarGrid({ monthDates, renderCell }: CalendarGridPro
     <div className="w-full">
       {/* Header Mon-Sun */}
       <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-2">
-        {DAY_NAMES.map((day, idx) => (
-          <div key={day} className={`text-center py-2 text-[10px] sm:text-xs font-bold uppercase tracking-wider rounded-lg ${idx >= 5 ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}>
-            <span className="hidden sm:inline">{day}</span>
-            <span className="sm:hidden">{day.replace('Thứ ', 'T').replace('Chủ Nhật', 'CN')}</span>
+        {SHORT_DAY_NAMES.map((shortDay, idx) => (
+          <div key={shortDay} className={`text-center py-2 text-[11px] sm:text-xs font-bold uppercase tracking-wider rounded-lg ${idx >= 5 ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}>
+            <span>{shortDay}</span>
           </div>
         ))}
       </div>

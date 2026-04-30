@@ -190,6 +190,7 @@ export const SHIFT_LABELS: Record<string, string> = {
 };
 
 export const DAY_NAMES = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật'] as const;
+export const SHORT_DAY_NAMES = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'] as const;
 
 export const KG_LAT = 10.9760826;
 export const KG_LNG = 106.6646541;

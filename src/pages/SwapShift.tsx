@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import { DAY_NAMES, computeWeekInfo } from '../utils/helpers';
+import { DAY_NAMES, SHORT_DAY_NAMES, computeWeekInfo } from '../utils/helpers';
 import Swal from 'sweetalert2';
 import { ArrowLeftRight, Send, BellRing, Copy, User, Megaphone, Inbox, Clock, HandshakeIcon } from 'lucide-react';
 
@@ -292,14 +292,15 @@ export default function SwapShift() {
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 mb-6">
             <h3 className="font-bold text-gray-800 dark:text-white mb-4">1. Chọn ca của bạn muốn đổi</h3>
             <div className="flex overflow-x-auto space-x-2 pb-2 snap-x">
-              {DAY_NAMES.map((day, i) => {
+              {SHORT_DAY_NAMES.map((shortDay, i) => {
                 const shift = approvedShifts?.[i] || 'OFF';
                 const isSelected = selectedDayIndex === i;
                 const isOff = shift === 'OFF';
                 return (
                   <button key={i} disabled={isOff} onClick={() => setSelectedDayIndex(i)}
                     className={`flex-shrink-0 w-20 snap-center rounded-xl p-2 border-2 transition-all ${isOff ? 'opacity-50 grayscale cursor-not-allowed border-gray-100 dark:border-gray-700' : isSelected ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20' : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800'}`}>
-                    <div className={`text-[10px] font-medium mb-1 ${isSelected ? 'text-teal-600' : 'text-gray-500'}`}>{day.replace('Thứ ', 'T').replace('Chủ Nhật', 'CN')}</div>
+                    <div className={`text-[12px] font-bold mb-0.5 ${isSelected ? 'text-teal-600' : 'text-gray-800 dark:text-gray-200'}`}>{weekInfo.weekDates[i]}</div>
+                    <div className={`text-[10px] font-medium mb-1 ${isSelected ? 'text-teal-500' : 'text-gray-500'}`}>{shortDay}</div>
                     <div className={`text-xs font-bold py-1 rounded ${isSelected ? 'bg-teal-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}>{shift}</div>
                   </button>
                 );

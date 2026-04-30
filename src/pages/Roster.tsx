@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
-import { computeWeekInfo, DAY_NAMES, getAdminShiftClass, generateMonthDates, MonthDateInfo } from '../utils/helpers';
+import { computeWeekInfo, DAY_NAMES, SHORT_DAY_NAMES, getAdminShiftClass, generateMonthDates, MonthDateInfo, formatDateShort } from '../utils/helpers';
 import { CalendarDays, RefreshCw, Info, Calendar, ChevronLeft, ChevronRight, LayoutGrid, CalendarRange } from 'lucide-react';
 import CalendarGrid from '../components/CalendarGrid';
 import Swal from 'sweetalert2';
@@ -150,10 +150,10 @@ export default function Roster() {
           <thead className="text-[10px] text-gray-500 dark:text-gray-400 uppercase bg-gray-100 dark:bg-gray-800/80 border-b border-gray-200 dark:border-gray-700">
             <tr>
               <th className="px-3 py-3 sticky left-0 bg-gray-100 dark:bg-gray-800 z-20 font-bold border-r border-gray-200 dark:border-gray-700 shadow-[1px_0_0_0_rgba(0,0,0,0.05)]">Nhân Viên</th>
-              {DAY_NAMES.map((d, idx) => (
+              {SHORT_DAY_NAMES.map((d, idx) => (
                 <th key={d} className="px-1 py-3 text-center border-r border-gray-200 dark:border-gray-700 last:border-r-0">
-                  <div className="font-bold">{d.replace('Thứ ', 'T').replace('Chủ Nhật', 'CN')}</div>
-                  <div className="text-[9px] font-normal opacity-70 mt-0.5">{weekInfo.weekDates[idx]}</div>
+                  <div className="font-bold text-[13px]">{weekInfo.weekDates[idx]}</div>
+                  <div className="text-[10px] font-normal opacity-70 mt-0.5">{d}</div>
                 </th>
               ))}
             </tr>
@@ -221,8 +221,8 @@ export default function Roster() {
               <th className="px-3 py-3 sticky left-0 bg-gray-100 dark:bg-gray-800 z-20 font-bold border-r border-gray-200 dark:border-gray-700 shadow-[1px_0_0_0_rgba(0,0,0,0.05)]">Nhân Viên</th>
               {monthDates.map((mDate) => (
                 <th key={mDate.dateKey} className={`px-1 py-2 text-center border-r border-gray-200 dark:border-gray-700 min-w-[50px] ${mDate.isWeekend ? 'bg-gray-200 dark:bg-gray-700/50' : ''}`}>
-                  <div className="font-bold text-gray-700 dark:text-gray-300">{mDate.date.getDate()}</div>
-                  <div className="text-[8px] font-normal opacity-70">{DAY_NAMES[mDate.dayIndex].replace('Thứ ', 'T').replace('Chủ Nhật', 'CN')}</div>
+                  <div className="font-bold text-gray-700 dark:text-gray-300 text-[13px]">{formatDateShort(mDate.date)}</div>
+                  <div className="text-[10px] font-normal opacity-70 mt-0.5">{SHORT_DAY_NAMES[mDate.dayIndex]}</div>
                 </th>
               ))}
             </tr>

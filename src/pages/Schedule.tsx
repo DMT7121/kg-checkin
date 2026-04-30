@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
-import { speak, computeWeekInfo, getActiveShiftClass, getPreviewShiftClass, SHIFT_OPTIONS, DAY_NAMES, isRegistrationOpen, getAdminShiftClass, ADMIN_SHIFT_OPTIONS, generateMonthDates, MonthDateInfo } from '../utils/helpers';
+import { speak, computeWeekInfo, getActiveShiftClass, getPreviewShiftClass, SHIFT_OPTIONS, DAY_NAMES, SHORT_DAY_NAMES, isRegistrationOpen, getAdminShiftClass, ADMIN_SHIFT_OPTIONS, generateMonthDates, MonthDateInfo, formatDateShort } from '../utils/helpers';
 import Swal from 'sweetalert2';
 import { CalendarCheck, Eye, AlertTriangle, Send, Lock, ExternalLink, Clock, RefreshCw, Pencil, CheckCheck, Inbox, LayoutGrid, CalendarRange, ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -238,10 +238,13 @@ export default function Schedule() {
   // Shared preview grid renderer
   const renderShiftGrid = (getShift: (i: number) => string) => (
     <div className="grid grid-cols-7 gap-1">
-      {DAY_NAMES.map((dayName, i) => (
+      {SHORT_DAY_NAMES.map((shortDayName, i) => (
         <div key={i} className="flex flex-col items-center">
-          <span className="text-[10px] text-gray-400 font-medium mb-1">
-            {dayName.replace('Thứ ', 'T').replace('Chủ Nhật', 'CN')}
+          <span className="text-[11px] font-bold text-gray-800 dark:text-gray-200">
+            {weekInfo.weekDates[i]}
+          </span>
+          <span className="text-[9px] text-gray-500 font-medium mb-1 uppercase">
+            {shortDayName}
           </span>
           <div className={`w-full text-center py-1.5 rounded text-xs font-bold text-white shadow-sm ${getPreviewShiftClass(getShift(i))}`}>
             {getShift(i)}
@@ -436,8 +439,11 @@ export default function Schedule() {
                   <thead className="text-xs text-gray-700 dark:text-gray-300 uppercase bg-gray-200 dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700">
                     <tr>
                       <th className="px-4 py-3 sticky left-0 bg-gray-200 dark:bg-gray-800 z-20 font-bold border-r dark:border-gray-700">Nhân Viên</th>
-                      {DAY_NAMES.map((d) => (
-                        <th key={d} className="px-2 py-3 text-center border-r dark:border-gray-700">{d.replace('Thứ ', 'T').replace('Chủ Nhật', 'CN')}</th>
+                      {SHORT_DAY_NAMES.map((d, idx) => (
+                        <th key={d} className="px-2 py-3 text-center border-r dark:border-gray-700">
+                          <div className="font-bold text-[13px]">{weekInfo.weekDates[idx]}</div>
+                          <div className="text-[10px] font-normal opacity-70 mt-0.5">{d}</div>
+                        </th>
                       ))}
                       <th className="px-4 py-3">Ghi chú</th>
                     </tr>
@@ -529,8 +535,8 @@ export default function Schedule() {
                         <th className="px-3 py-3 sticky left-0 bg-gray-200 dark:bg-gray-800 z-20 font-bold border-r dark:border-gray-700">Nhân Viên</th>
                         {monthDates.map((mDate) => (
                           <th key={mDate.dateKey} className={`px-1 py-2 text-center border-r dark:border-gray-700 min-w-[70px] ${mDate.isWeekend ? 'bg-gray-300/50 dark:bg-gray-700/50' : ''}`}>
-                            <div className="font-bold text-gray-700 dark:text-gray-300">{mDate.date.getDate()}</div>
-                            <div className="text-[8px] font-normal opacity-70">{DAY_NAMES[mDate.dayIndex].replace('Thứ ', 'T').replace('Chủ Nhật', 'CN')}</div>
+                            <div className="font-bold text-gray-700 dark:text-gray-300 text-[13px]">{formatDateShort(mDate.date)}</div>
+                            <div className="text-[10px] font-normal opacity-70 mt-0.5">{SHORT_DAY_NAMES[mDate.dayIndex]}</div>
                           </th>
                         ))}
                       </tr>
@@ -613,14 +619,17 @@ export default function Schedule() {
             <CalendarCheck size={16} className="mr-2" /> Lịch đã duyệt
           </h3>
           <div className="grid grid-cols-7 gap-1">
-            {DAY_NAMES.map((dayName, i) => {
+            {SHORT_DAY_NAMES.map((shortDayName, i) => {
               const approved = approvedShifts[i] || 'OFF';
               const registered = registeredShifts?.[i];
               const isChanged = registered && approved !== registered;
               return (
                 <div key={i} className="flex flex-col items-center">
-                  <span className="text-[10px] text-gray-400 font-medium mb-1">
-                    {dayName.replace('Thứ ', 'T').replace('Chủ Nhật', 'CN')}
+                  <span className="text-[11px] font-bold text-gray-800 dark:text-gray-200">
+                    {weekInfo.weekDates[i]}
+                  </span>
+                  <span className="text-[9px] text-gray-500 font-medium mb-1 uppercase">
+                    {shortDayName}
                   </span>
                   <div className={`w-full text-center py-1.5 rounded text-xs font-bold text-white shadow-sm ${getPreviewShiftClass(approved)} ${isChanged ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}>
                     {approved}
@@ -728,17 +737,16 @@ export default function Schedule() {
 
           {/* Day-by-day shift selection */}
           <div className="space-y-4 mb-6">
-            {DAY_NAMES.map((dayName, index) => {
+            {SHORT_DAY_NAMES.map((shortDayName, index) => {
               const key = weekInfo.weekDatesKeys[index];
               const currentShift = shiftData[key] || 'OFF';
               return (
                 <div key={index} className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 transition hover:shadow-md">
                   <div className="flex justify-between items-center mb-3">
                     <span className={`font-bold ${index >= 4 && currentShift === 'OFF' ? 'text-red-500' : 'text-gray-800 dark:text-white'}`}>
-                      {dayName}
-                      {index >= 4 && <span className="ml-1 text-xs px-1.5 py-0.5 bg-red-100 text-red-600 rounded">Cuối tuần</span>}
+                      {weekInfo.weekDates[index]} <span className="text-sm text-gray-500 dark:text-gray-400 font-medium ml-1">({shortDayName})</span>
+                      {index >= 4 && <span className="ml-2 text-xs px-1.5 py-0.5 bg-red-100 text-red-600 rounded">Cuối tuần</span>}
                     </span>
-                    <span className="text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded font-mono">{weekInfo.weekDates[index]}</span>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {SHIFT_OPTIONS.map((shift) => (

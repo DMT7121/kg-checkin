@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import { generateMonthDates } from '../utils/helpers';
+import { generateMonthDates, SHORT_DAY_NAMES } from '../utils/helpers';
 import CalendarGrid from '../components/CalendarGrid';
 import { callApi } from '../services/api';
 import { CalendarClock, Clock, ListOrdered, Calendar } from 'lucide-react';
@@ -159,11 +159,15 @@ export default function Timesheet() {
                     Tổng giờ
                   </th>
                   {days.map(d => {
-                    const isWeekend = new Date(year, month - 1, d).getDay() === 0 || new Date(year, month - 1, d).getDay() === 6;
+                    const dateObj = new Date(year, month - 1, d);
+                    const dayOfWeek = dateObj.getDay();
+                    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                    const dayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
                     return (
-                      <th key={d} className={`px-2 py-3 font-bold text-center border-b border-r dark:border-gray-700 min-w-[70px] ${isWeekend ? 'bg-orange-50/50 dark:bg-orange-900/10 text-orange-600' : ''}`}>
+                      <th key={d} className={`px-2 py-2 font-bold text-center border-b border-r dark:border-gray-700 min-w-[70px] ${isWeekend ? 'bg-orange-50/50 dark:bg-orange-900/10 text-orange-600' : ''}`}>
                         <div className="flex flex-col items-center">
-                          <span>{d}</span>
+                          <span className="text-[13px]">{`${d.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}`}</span>
+                          <span className="text-[10px] font-normal opacity-70 mt-0.5 uppercase">{SHORT_DAY_NAMES[dayIndex]}</span>
                         </div>
                       </th>
                     );
