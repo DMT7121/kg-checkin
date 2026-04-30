@@ -1608,6 +1608,32 @@ function handleGetPayroll(payload) {
   var summaryData = batchData[targetSummaryName] || [];
   var logsData = batchData[CONFIG.SHEET_LOGS] || [];
 
+  // FALLBACKS NẾU BATCH GET LỖI HOẶC CHƯA KỊP TRẢ VỀ DỮ LIỆU
+  if (configData.length === 0) {
+    var configSheet = ss.getSheetByName("SalaryConfig");
+    if (configSheet) configData = configSheet.getDataRange().getValues();
+  }
+  if (advanceData.length === 0) {
+    var advanceSheet = ss.getSheetByName("Advances");
+    if (advanceSheet) advanceData = advanceSheet.getDataRange().getValues();
+  }
+  if (bpData.length === 0) {
+    var bpSheet = ss.getSheetByName("BonusPenalty");
+    if (bpSheet) bpData = bpSheet.getDataRange().getValues();
+  }
+  if (usersData.length === 0) {
+    var usersSheet = ss.getSheetByName(CONFIG.SHEET_USERS);
+    if (usersSheet) usersData = usersSheet.getDataRange().getValues();
+  }
+  if (hasSummary && summaryData.length === 0) {
+    var summarySheet = ss.getSheetByName(targetSummaryName);
+    if (summarySheet) summaryData = summarySheet.getDataRange().getValues();
+  }
+  if (!hasSummary && logsData.length === 0) {
+    var logsSheet = ss.getSheetByName(CONFIG.SHEET_LOGS);
+    if (logsSheet) logsData = logsSheet.getDataRange().getValues();
+  }
+
   // 1. Get Base Salaries
   var baseSalaries = {};
   for (var i = 1; i < configData.length; i++) {
