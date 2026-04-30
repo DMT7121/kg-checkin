@@ -4,7 +4,7 @@
 import Swal from 'sweetalert2';
 
 const GAS_URL = import.meta.env.VITE_GAS_URL ||
-  'https://script.google.com/macros/s/AKfycby4WVGgnNshtQeiWQIlJCLzIcrQhuYHiHnQeT8bgEFOngu6qlbOm7uOu2OclSP4Omw8/exec';
+  'https://script.google.com/macros/s/AKfycbzLsmPb89mVPxcAeQwEsHIojCcy20eYL7SmIinwLiU_IYPhHER7HdgRGTxoTqUInAEN/exec';
 
 /**
  * Call Google Apps Script API
