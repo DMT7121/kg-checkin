@@ -513,10 +513,10 @@ export default function Schedule() {
             <div className="overflow-x-auto bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 mb-4 pb-20 custom-scrollbar">
               {(() => {
                 const empMonthMap: Record<string, Record<string, string>> = {};
-                monthData.forEach(week => {
-                  week.schedules.forEach((emp: any) => {
+                monthData?.forEach(week => {
+                  week?.schedules?.forEach((emp: any) => {
                     if (!empMonthMap[emp.fullname]) empMonthMap[emp.fullname] = {};
-                    emp.shifts.forEach((s: string, i: number) => {
+                    emp?.shifts?.forEach((s: string, i: number) => {
                       empMonthMap[emp.fullname][`${week.weekLabel}_${i}`] = s;
                     });
                   });
