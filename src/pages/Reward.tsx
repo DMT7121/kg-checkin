@@ -190,7 +190,7 @@ export default function Reward() {
                 { name: 'Voucher Trà Sữa Phúc Long', cost: 150, image: '🥤', color: 'from-green-100 to-green-50' },
                 { name: '1 Ngày Nghỉ Phép', cost: 500, image: '🏖️', color: 'from-blue-100 to-blue-50' },
                 { name: 'Voucher 100k Tiền mặt', cost: 1000, image: '💵', color: 'from-yellow-100 to-yellow-50' },
-                { name: 'Balo King\\'s Grill', cost: 800, image: '🎒', color: 'from-purple-100 to-purple-50' },
+                { name: "Balo King's Grill", cost: 800, image: '🎒', color: 'from-purple-100 to-purple-50' },
               ].map((item, idx) => (
                 <div key={idx} className={`bg-gradient-to-b ${item.color} dark:from-gray-800 dark:to-gray-800 rounded-2xl p-4 border border-gray-100 dark:border-gray-700 flex flex-col shadow-sm`}>
                   <div className="text-4xl text-center mb-3 mt-2 filter drop-shadow-md">{item.image}</div>
