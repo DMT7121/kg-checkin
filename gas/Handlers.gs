@@ -478,9 +478,6 @@ function handleCheckInOut(payload) {
   // === AUTO-FORMAT THE NEW ROW ===
   formatCheckInRow(sheet, 2, isValid, imageUrl);
   
-  // === AUTO-FORMAT HEADER (ensure always styled) ===
-  formatCheckInHeader(sheet);
-  
   // Trigger email thông báo chấm công
   try {
     sendCheckInEmail(payload, time, viTri, imageUrl, distMeters, isValid);
@@ -550,78 +547,44 @@ function formatCheckInHeader(sheet) {
 }
 
 /**
- * Auto-format a single data row for professional appearance (Dùng cho Check-in mới)
+ * Auto-format a single data row for professional appearance (Dùng cho Check-in mới) - Optimized for Speed
  */
 function formatCheckInRow(sheet, row, isValid, imgUrl) {
   try {
     var rowRange = sheet.getRange(row, 1, 1, 8);
+    var isVaoCa = sheet.getRange(row, 2).getValue() === 'Vào ca';
     
-    // Base styling for entire row
+    // Batch base styling
     rowRange
       .setFontFamily('Questrial')
       .setFontSize(10)
       .setVerticalAlignment('middle')
       .setHorizontalAlignment('center')
       .setFontColor('#334155');
-    
-    // Set consistent row height
     sheet.setRowHeight(row, 36);
+
+    // Prepare arrays for batch formatting
+    var bgColors = [['#ffffff', isVaoCa ? '#f0fdf4' : '#fef2f2', '#ffffff', '#ffffff', '#ffffff', '#ffffff', '#ffffff', '#ffffff']];
+    var fontColors = [['#0f172a', isVaoCa ? '#15803d' : '#dc2626', '#334155', '#475569', '#334155', '#334155', '#2563eb', '#94a3b8']];
+    var fontWeights = [['bold', 'bold', 'normal', 'normal', 'normal', 'normal', 'bold', 'normal']];
+    var aligns = [['left', 'center', 'center', 'left', 'center', 'center', 'center', 'left']];
     
-    // Col A: Name - left aligned, bold
-    var nameCell = sheet.getRange(row, 1);
-    nameCell.setHorizontalAlignment('left').setFontWeight('bold').setFontColor('#0f172a');
+    rowRange.setBackgrounds(bgColors);
+    rowRange.setFontColors(fontColors);
+    rowRange.setFontWeights(fontWeights);
+    rowRange.setHorizontalAlignments(aligns);
     
-    // Col B: Type - color coded
-    var typeCell = sheet.getRange(row, 2);
-    var typeVal = typeCell.getValue();
-    if (typeVal === 'Vào ca') {
-      typeCell.setBackground('#f0fdf4').setFontColor('#15803d').setFontWeight('bold');
-    } else if (typeVal === 'Ra ca') {
-      typeCell.setBackground('#fef2f2').setFontColor('#dc2626').setFontWeight('bold');
-    }
-    
-    // Col C: Time - monospace-style
+    // Specific cell adjustments
     sheet.getRange(row, 3).setFontFamily('Roboto Mono');
+    sheet.getRange(row, 4).setWrap(true).setFontSize(9);
+    sheet.getRange(row, 6).setFontSize(9);
     
-    // Col D: Location - word wrap, smaller font, left aligned
-    var locCell = sheet.getRange(row, 4);
-    locCell
-      .setWrap(true)
-      .setFontSize(9)
-      .setHorizontalAlignment('left')
-      .setFontColor('#475569');
-    
-    // Col E: Verification - Chữ thường, không tô màu khác biệt
-    var xacMinhCell = sheet.getRange(row, 5);
-    xacMinhCell.setFontColor('#334155').setFontWeight('normal');
-    
-    // Col F: Distance - Center aligned (Requested)
-    sheet.getRange(row, 6).setHorizontalAlignment('center').setFontSize(9);
-    
-    // Col G: Image link - convert to HYPERLINK with semicolon
     if (imgUrl && imgUrl !== 'Lỗi ảnh' && imgUrl.indexOf('drive.google.com') >= 0) {
-      var linkCell = sheet.getRange(row, 7);
-      linkCell.setFormulaLocal('=HYPERLINK("' + imgUrl + '"; "📷 Xem ảnh")');
-      linkCell
-        .setFontSize(9)
-        .setFontColor('#2563eb')
-        .setFontWeight('bold');
+      sheet.getRange(row, 7).setFormulaLocal('=HYPERLINK("' + imgUrl + '"; "📷 Xem ảnh")').setFontSize(9);
     }
     
-    // Col H: JSON - small font
-    sheet.getRange(row, 8).setFontSize(7).setFontColor('#94a3b8').setHorizontalAlignment('left');
-    
-    // Zebra striping for readability
-    var isEven = (row % 2 === 0);
-    var bgColor = isEven ? '#f8fafc' : '#ffffff';
-    // Apply to cells that don't have special bg (like B)
-    [1, 3, 4, 5, 6, 7, 8].forEach(function(col) {
-      sheet.getRange(row, col).setBackground(bgColor);
-    });
-    
-    // Add full specific borders for the row
+    sheet.getRange(row, 8).setFontSize(7);
     rowRange.setBorder(true, true, true, true, true, true, '#cbd5e1', SpreadsheetApp.BorderStyle.SOLID);
-    
   } catch(e) {
     Logger.log('formatCheckInRow error: ' + e.message);
   }

@@ -182,7 +182,7 @@ export default function CheckIn() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const targetWidth = 900, targetHeight = 1200;
+    const targetWidth = 600, targetHeight = 800;
     canvas.width = targetWidth; canvas.height = targetHeight;
     const vw = video.videoWidth, vh = video.videoHeight;
     const canvasRatio = targetWidth / targetHeight, videoRatio = vw / vh;
@@ -218,7 +218,7 @@ export default function CheckIn() {
     ctx.fillText(displayAddr, 30, targetHeight - 25);
     
     ctx.shadowBlur = 0;
-    store.setCapturedImage(canvas.toDataURL('image/webp', 0.85));
+    store.setCapturedImage(canvas.toDataURL('image/webp', 0.7));
     store.setCapturedTime(exactTime);
   };
 
@@ -233,7 +233,7 @@ export default function CheckIn() {
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
-        const targetWidth = 900, targetHeight = 1200;
+        const targetWidth = 600, targetHeight = 800;
         canvas.width = targetWidth; canvas.height = targetHeight;
         const vw = img.width, vh = img.height;
         const canvasRatio = targetWidth / targetHeight, imgRatio = vw / vh;
@@ -264,7 +264,7 @@ export default function CheckIn() {
         ctx.fillText(displayAddr, 30, targetHeight - 25);
         
         ctx.shadowBlur = 0;
-        store.setCapturedImage(canvas.toDataURL('image/webp', 0.85));
+        store.setCapturedImage(canvas.toDataURL('image/webp', 0.7));
         store.setCapturedTime(exactTime);
       };
       img.src = event.target?.result as string;
@@ -314,14 +314,26 @@ export default function CheckIn() {
       }
     }
 
-    speak(type + ' thành công, hệ thống đang đồng bộ');
-
     // Optimistic update
     const actualTime = store.capturedTime || currentTime;
-    const tempLog = { fullname: currentUser!.fullname, type, time: actualTime, status: 'Đồng bộ...', image: capturedImage };
+    const tempLog = { fullname: currentUser!.fullname, type, time: actualTime, status: 'Đang đồng bộ...', image: capturedImage };
     store.prependLog(tempLog);
     if (type === 'Vào ca') store.setStats({ ...store.stats, totalCheckIn: store.stats.totalCheckIn + 1 });
-    Swal.fire({ title: 'Đã ghi nhận!', text: 'Hệ thống đang đồng bộ...', icon: 'success', timer: 1500, showConfirmButton: false });
+    
+    // ĐÓNG MODAL/THÔNG BÁO VÀ CHẠY HIỆU ỨNG NGAY LẬP TỨC
+    Swal.fire({ title: 'Đã ghi nhận!', text: 'Dữ liệu đang được đồng bộ ngầm...', icon: 'success', timer: 1500, showConfirmButton: false });
+    
+    if (type === 'Vào ca') {
+      if (!isLate) {
+        confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#0ea5e9', '#22c55e', '#facc15', '#ef4444'] });
+        speak('Ting! Chúc bạn ca làm việc vui vẻ!');
+      } else {
+        document.body.classList.add('shake-warning');
+        setTimeout(() => document.body.classList.remove('shake-warning'), 800);
+      }
+    } else {
+      speak(type + ' thành công!');
+    }
 
     const payloadImage = capturedImage;
     const payloadTime = store.capturedTime || currentTime;
@@ -335,96 +347,50 @@ export default function CheckIn() {
       location: gps.address || gps.status
     };
 
-    const res = await callApi('CHECK_IN_OUT', payload, { background: true });
-    if (res?.ok) {
-      if (type === 'Vào ca') {
-        if (!isLate) {
-          confetti({
-            particleCount: 150,
-            spread: 70,
-            origin: { y: 0.6 },
-            colors: ['#0ea5e9', '#22c55e', '#facc15', '#ef4444']
-          });
-          speak('Ting! Chúc bạn ca làm việc vui vẻ!');
-        } else {
-          document.body.classList.add('shake-warning');
-          setTimeout(() => document.body.classList.remove('shake-warning'), 800);
-        }
-
+    // Đẩy lên Server (Background)
+    callApi('CHECK_IN_OUT', payload, { background: true }).then(async (res) => {
+      if (res?.ok) {
         // --- BẮT ĐẦU: KHẢO SÁT NỘI BỘ (PULSE SURVEY) ---
-        // Xác suất xuất hiện 40% mỗi khi check-in vào ca
-        if (Math.random() < 0.4) {
+        if (type === 'Vào ca' && Math.random() < 0.4) {
           setTimeout(async () => {
             const { value: emotion } = await Swal.fire({
-              title: 'Khảo sát nhanh!',
-              text: 'Hôm nay bạn cảm thấy thế nào trước khi vào ca?',
-              icon: 'question',
-              input: 'radio',
-              inputOptions: {
-                '5': '😍 Tuyệt vời, đầy năng lượng!',
-                '4': '🙂 Vui vẻ, sẵn sàng làm việc',
-                '3': '😐 Bình thường',
-                '2': '🙁 Hơi mệt mỏi/Buồn',
-                '1': '😠 Căng thẳng/Bực bội'
-              },
-              inputValidator: (value) => {
-                if (!value) return 'Vui lòng chọn cảm xúc của bạn!';
-              },
-              confirmButtonText: 'Tiếp tục',
-              confirmButtonColor: '#0ea5e9',
-              allowOutsideClick: false,
-              backdrop: `rgba(0,0,0,0.8)`
+              title: 'Khảo sát nhanh!', text: 'Hôm nay bạn cảm thấy thế nào trước khi vào ca?', icon: 'question',
+              input: 'radio', inputOptions: { '5': '😍 Tuyệt vời, đầy năng lượng!', '4': '🙂 Vui vẻ, sẵn sàng làm việc', '3': '😐 Bình thường', '2': '🙁 Hơi mệt mỏi/Buồn', '1': '😠 Căng thẳng/Bực bội' },
+              inputValidator: (value) => { if (!value) return 'Vui lòng chọn cảm xúc của bạn!'; },
+              confirmButtonText: 'Tiếp tục', confirmButtonColor: '#0ea5e9', allowOutsideClick: false, backdrop: `rgba(0,0,0,0.8)`
             });
 
             if (emotion) {
               const { value: note } = await Swal.fire({
-                title: 'Chia sẻ thêm (không bắt buộc)',
-                input: 'textarea',
-                inputLabel: 'Có điều gì bạn cần Quản lý hỗ trợ trong ca hôm nay không?',
-                inputPlaceholder: 'Nhập ý kiến của bạn...',
-                showCancelButton: true,
-                confirmButtonText: 'Gửi',
-                cancelButtonText: 'Bỏ qua',
-                confirmButtonColor: '#0ea5e9'
+                title: 'Chia sẻ thêm (không bắt buộc)', input: 'textarea', inputLabel: 'Có điều gì bạn cần Quản lý hỗ trợ trong ca hôm nay không?', inputPlaceholder: 'Nhập ý kiến của bạn...',
+                showCancelButton: true, confirmButtonText: 'Gửi', cancelButtonText: 'Bỏ qua', confirmButtonColor: '#0ea5e9'
               });
               
-              callApi('SUBMIT_SURVEY', { 
-                username: currentUser!.username,
-                fullname: currentUser!.fullname,
-                emotion: parseInt(emotion), 
-                note: note || '' 
-              }, { background: true });
-
-              Swal.fire({
-                title: 'Cảm ơn bạn!',
-                text: "King's Grill luôn trân trọng mọi đóng góp của bạn ❤️",
-                icon: 'success',
-                timer: 2000,
-                showConfirmButton: false
-              });
+              callApi('SUBMIT_SURVEY', { username: currentUser!.username, fullname: currentUser!.fullname, emotion: parseInt(emotion), note: note || '' }, { background: true });
+              Swal.fire({ title: 'Cảm ơn bạn!', text: "King's Grill luôn trân trọng mọi đóng góp của bạn ❤️", icon: 'success', timer: 2000, showConfirmButton: false });
             }
-          }, 1000); // Đợi các hiệu ứng confetti hoặc toast hoàn tất
+          }, 1000);
         }
-        // --- KẾT THÚC: KHẢO SÁT NỘI BỘ ---
-      }
 
-      // Refresh data
-      const weekInfo = computeWeekInfo();
-      const dataRes = await callApi('GET_DATA', { username: currentUser!.username, fullname: currentUser!.fullname, role: currentUser!.role, monthSheet: weekInfo.monthSheet, weekLabel: weekInfo.weekLabel }, { background: true });
-      if (dataRes?.ok) {
-        store.setLogs(dataRes.data.logs || []);
-        store.setStats(dataRes.data.stats || store.stats);
-        localStorage.setItem('kg_logs', JSON.stringify(dataRes.data.logs || []));
-        localStorage.setItem('kg_stats', JSON.stringify(dataRes.data.stats));
+        // Refresh data ngầm
+        const weekInfo = computeWeekInfo();
+        const dataRes = await callApi('GET_DATA', { username: currentUser!.username, fullname: currentUser!.fullname, role: currentUser!.role, monthSheet: weekInfo.monthSheet, weekLabel: weekInfo.weekLabel }, { background: true });
+        if (dataRes?.ok) {
+          store.setLogs(dataRes.data.logs || []);
+          store.setStats(dataRes.data.stats || store.stats);
+          localStorage.setItem('kg_logs', JSON.stringify(dataRes.data.logs || []));
+          localStorage.setItem('kg_stats', JSON.stringify(dataRes.data.stats));
+        }
+        store.setLastCheckInTime(Date.now());
+        localStorage.setItem('kg_last_checkin', Date.now().toString());
+      } else {
+        // Rollback nếu thất bại
+        store.removeFirstLog();
+        if (type === 'Vào ca') store.setStats({ ...store.stats, totalCheckIn: store.stats.totalCheckIn - 1 });
+        speak('Lỗi đồng bộ dữ liệu, vui lòng kiểm tra mạng');
+        Swal.fire('Lỗi đồng bộ', 'Không thể kết nối máy chủ hoặc mạng quá yếu. Vui lòng thử lại!', 'error');
       }
-      store.setLastCheckInTime(Date.now());
-      localStorage.setItem('kg_last_checkin', Date.now().toString());
-    } else {
-      store.removeFirstLog();
-      if (type === 'Vào ca') store.setStats({ ...store.stats, totalCheckIn: store.stats.totalCheckIn - 1 });
-      speak('Lỗi đồng bộ dữ liệu, vui lòng thử lại');
-      Swal.fire('Lỗi đồng bộ', 'Vui lòng thực hiện lại', 'error');
-    }
+    });
   };
 
   // Init camera & GPS on mount
