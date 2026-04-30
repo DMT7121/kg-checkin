@@ -23,6 +23,7 @@ import Checklist from './Checklist';
 import Handover from './Handover';
 import Feedback from './Feedback';
 import Admin from './Admin';
+import AdminShift from './admin/AdminShift';
 import Advance from './Advance';
 import Discipline from './Discipline';
 import Payroll from './Payroll';
@@ -124,7 +125,7 @@ export default function Dashboard() {
       items: [
         { id: 'admin', label: 'Quản trị chung', icon: ShieldAlert, adminOnly: true },
         { id: 'admin_org', label: 'Tổ chức & Quyền', icon: KeyRound, adminOnly: true, comingSoon: true },
-        { id: 'admin_shift', label: 'Ca làm & Chấm công', icon: Clock3, adminOnly: true, comingSoon: true },
+        { id: 'admin_shift', label: 'Ca làm & Chấm công', icon: Clock3, adminOnly: true },
         { id: 'admin_payroll', label: 'Lương & Phúc lợi', icon: Banknote, adminOnly: true, comingSoon: true },
       ],
     },
@@ -508,8 +509,9 @@ export default function Dashboard() {
             {currentTab === 'timesheet' && <Timesheet />}
             {currentTab === 'history' && <ActivityHistory />}
             {currentTab === 'admin' && <Admin />}
+            {currentTab === 'admin_shift' && <AdminShift />}
             {/* Coming Soon Pages */}
-            {['hr_list', 'admin_org', 'admin_shift', 'admin_payroll'].includes(currentTab) && (
+            {['hr_list', 'admin_org', 'admin_payroll'].includes(currentTab) && (
               <div className="flex flex-col items-center justify-center h-full p-6 text-center mt-10">
                 <ComingSoonPage title={getPageTitle(currentTab)} />
               </div>
