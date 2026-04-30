@@ -1601,63 +1601,99 @@ function handleGetPayroll(payload) {
     }
   }
   
-  // 4. Calculate Hours Worked
-  var logsData = sheetsApiFastRead(CONFIG.SPREADSHEET_ID, CONFIG.SHEET_LOGS + "!A:E") || [];
-  if (logsData.length === 0) {
-    var logsSheet = ss.getSheetByName(CONFIG.SHEET_LOGS);
-    if (logsSheet) logsData = logsSheet.getDataRange().getValues();
-  }
-
-  var userLogs = {};
-  
-  for (var i = 1; i < logsData.length; i++) {
-    if (!logsData[i] || !logsData[i][0]) continue;
-    
-    var fullname = logsData[i][0];
-    var type = logsData[i][1] ? logsData[i][1].toString().toUpperCase() : '';
-    var timeStr = logsData[i][2];
-    var status = logsData[i][4] ? logsData[i][4].toString().toUpperCase() : '';
-    
-    // Only count Valid logs
-    if (status.indexOf('HỢP LỆ') === -1 || status.indexOf('KHÔNG') >= 0) continue;
-    
-    // SỬA LỖI: Parse ngày DD/MM/YYYY chính xác
-    var time = 0;
-    if (timeStr instanceof Date) {
-      time = timeStr.getTime();
-    } else if (timeStr) {
-      var parsed = parseDDMMYYYY(timeStr.toString());
-      time = parsed ? parsed.getTime() : new Date(timeStr.toString()).getTime();
-    }
-    
-    if (!time || isNaN(time)) continue;
-    
-    if (!userLogs[fullname]) userLogs[fullname] = [];
-    userLogs[fullname].push({ type: type, time: time });
-  }
-  
-  // Parse logs into hours
+  // 4. LẤY TỔNG GIỜ LÀM TỪ SHEET TỔNG HỢP CÔNG (Chính xác theo hệ số & ca đêm)
   var hoursWorked = {};
-  var timesheetDetails = {}; // store detailed records
   
-  for (var fullname in userLogs) {
-    var logs = userLogs[fullname].sort(function(a, b) { return a.time - b.time; });
-    var totalMs = 0;
-    var lastIn = 0;
-    
-    for (var j = 0; j < logs.length; j++) {
-      if (logs[j].type.indexOf('VÀO') >= 0 || logs[j].type === 'IN') {
-        lastIn = logs[j].time;
-      } else if ((logs[j].type.indexOf('RA') >= 0 || logs[j].type === 'OUT') && lastIn > 0) {
-        var diff = logs[j].time - lastIn;
-        // Giới hạn 1 ca tối đa 14 tiếng để tránh lỗi check-in qua ngày
-        if (diff > 0 && diff < 14 * 60 * 60 * 1000) {
-          totalMs += diff;
-        }
-        lastIn = 0;
+  var now = new Date();
+  var mm = String(now.getMonth() + 1).padStart(2, '0');
+  var yyyy = now.getFullYear();
+  var targetSummaryName = '📊 TỔNG HỢP ' + mm + '/' + yyyy;
+  
+  var summarySheet = ss.getSheetByName(targetSummaryName);
+  if (!summarySheet) {
+    // Nếu chưa có của tháng hiện tại, lấy sheet TỔNG HỢP gần nhất
+    var allSheets = ss.getSheets();
+    for (var k = 0; k < allSheets.length; k++) {
+      if (allSheets[k].getName().indexOf("TỔNG HỢP") >= 0) {
+        summarySheet = allSheets[k];
+        break;
       }
     }
-    hoursWorked[fullname] = totalMs / (1000 * 60 * 60);
+  }
+
+  if (summarySheet) {
+    var summaryData = sheetsApiFastRead(CONFIG.SPREADSHEET_ID, summarySheet.getName() + "!A:J") || [];
+    if (summaryData.length === 0) {
+      summaryData = summarySheet.getDataRange().getValues();
+    }
+    
+    for (var r = 0; r < summaryData.length; r++) {
+      var row = summaryData[r];
+      if (!row || row.length < 10) continue;
+      
+      var empName = row[0] ? row[0].toString().trim() : "";
+      
+      // Bỏ qua header, title...
+      if (!empName || empName.indexOf("TỔNG HỢP") >= 0 || empName.indexOf("NHÂN VIÊN") >= 0 || empName === "Họ và Tên") continue;
+      
+      var gioTangCa = parseFloat(row[8]) || 0;
+      var gioTheoCa = parseFloat(row[9]) || 0;
+      
+      if (gioTangCa > 0 || gioTheoCa > 0) {
+        hoursWorked[empName] = (hoursWorked[empName] || 0) + gioTangCa + gioTheoCa;
+      }
+    }
+  } else {
+    // FALLBACK: Tính theo log thô nếu hoàn toàn chưa có sheet TỔNG HỢP nào
+    var logsData = sheetsApiFastRead(CONFIG.SPREADSHEET_ID, CONFIG.SHEET_LOGS + "!A:E") || [];
+    if (logsData.length === 0) {
+      var logsSheet = ss.getSheetByName(CONFIG.SHEET_LOGS);
+      if (logsSheet) logsData = logsSheet.getDataRange().getValues();
+    }
+
+    var userLogs = {};
+    for (var i = 1; i < logsData.length; i++) {
+      if (!logsData[i] || !logsData[i][0]) continue;
+      
+      var fullname = logsData[i][0];
+      var type = logsData[i][1] ? logsData[i][1].toString().toUpperCase() : '';
+      var timeStr = logsData[i][2];
+      var status = logsData[i][4] ? logsData[i][4].toString().toUpperCase() : '';
+      
+      if (status.indexOf('HỢP LỆ') === -1 || status.indexOf('KHÔNG') >= 0) continue;
+      
+      var time = 0;
+      if (timeStr instanceof Date) {
+        time = timeStr.getTime();
+      } else if (timeStr) {
+        var parsed = parseDDMMYYYY(timeStr.toString());
+        time = parsed ? parsed.getTime() : new Date(timeStr.toString()).getTime();
+      }
+      
+      if (!time || isNaN(time)) continue;
+      
+      if (!userLogs[fullname]) userLogs[fullname] = [];
+      userLogs[fullname].push({ type: type, time: time });
+    }
+    
+    for (var fullname in userLogs) {
+      var logs = userLogs[fullname].sort(function(a, b) { return a.time - b.time; });
+      var totalMs = 0;
+      var lastIn = 0;
+      
+      for (var j = 0; j < logs.length; j++) {
+        if (logs[j].type.indexOf('VÀO') >= 0 || logs[j].type === 'IN') {
+          lastIn = logs[j].time;
+        } else if ((logs[j].type.indexOf('RA') >= 0 || logs[j].type === 'OUT') && lastIn > 0) {
+          var diff = logs[j].time - lastIn;
+          if (diff > 0 && diff < 14 * 60 * 60 * 1000) {
+            totalMs += diff;
+          }
+          lastIn = 0;
+        }
+      }
+      hoursWorked[fullname] = totalMs / (1000 * 60 * 60);
+    }
   }
   
   // 5. Combine everything
