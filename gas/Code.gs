@@ -119,6 +119,8 @@ function doPost(e) {
         return handleForceResetPassword(payload);
       case 'UPDATE_USER_ROLE':
         return handleUpdateUserRole(payload);
+      case 'UPDATE_USER_POSITION':
+        return handleUpdateUserPosition(payload);
 
       // --- SWAP SHIFTS (CHỢ ĐỔI CA) ---
       case 'GET_SWAP_REQUESTS':

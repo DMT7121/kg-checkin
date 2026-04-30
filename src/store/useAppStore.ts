@@ -8,6 +8,7 @@ export interface User {
   fullname: string;
   email: string;
   role?: string;
+  position?: string;
 }
 
 export interface Comment {

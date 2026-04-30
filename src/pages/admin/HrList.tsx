@@ -8,9 +8,12 @@ export default function HrList() {
   const store = useAppStore();
   const { users, isUpdating, currentUser } = store;
   
-  // Local state to track which user's role is being edited
   const [editingRole, setEditingRole] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<string>('');
+  
+  // Local state to track which user's position is being edited
+  const [editingPosition, setEditingPosition] = useState<string | null>(null);
+  const [selectedPosition, setSelectedPosition] = useState<string>('');
 
   // === FORCE RESET PASSWORD ===
   const handleForceReset = async (username: string, fullname: string) => {
@@ -69,7 +72,26 @@ export default function HrList() {
       Swal.fire('Lỗi', res?.message || 'Không thể cập nhật phân quyền', 'error');
     }
   };
+  // === UPDATE POSITION ===
+  const handleUpdatePosition = async (username: string, fullname: string) => {
+    if (!selectedPosition) return;
+    
+    store.setLoading(true, 'Đang cập nhật bộ phận...');
+    const res = await callApi('UPDATE_USER_POSITION', { targetUsername: username, newPosition: selectedPosition });
+    store.setLoading(false);
 
+    if (res?.ok) {
+      Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: `Đã đổi ${fullname} sang ${selectedPosition}`, showConfirmButton: false, timer: 2000 });
+      setEditingPosition(null);
+      
+      const updatedUsers = users.map(u => u.username === username ? { ...u, position: selectedPosition } : u);
+      store.setUsers(updatedUsers);
+    } else {
+      Swal.fire('Lỗi', res?.message || 'Không thể cập nhật bộ phận', 'error');
+    }
+  };
+
+  const POSITIONS = ['Phục vụ', 'Tổ trưởng', 'Quản lý', 'Thu ngân', 'Bếp', 'Pha chế', 'Tạp vụ', 'Bảo vệ'];
   const getRoleBadge = (role: string) => {
     switch(role) {
       case 'admin': return <span className="px-2 py-0.5 bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 rounded text-[10px] font-bold border border-red-200 dark:border-red-800 uppercase">Admin</span>;
@@ -109,7 +131,26 @@ export default function HrList() {
                     <span className="font-bold text-gray-800 dark:text-gray-200 block">{user.fullname}</span>
                     {editingRole !== user.username && getRoleBadge(user.role || 'user')}
                   </div>
-                  <span className="text-[10px] text-gray-500 block mt-0.5">Tài khoản: <span className="font-medium text-gray-700 dark:text-gray-400">{user.username}</span></span>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-[10px] text-gray-500">Tài khoản: <span className="font-medium text-gray-700 dark:text-gray-400">{user.username}</span></span>
+                    <span className="text-[10px] text-gray-300 dark:text-gray-600">•</span>
+                    {editingPosition === user.username ? (
+                      <div className="flex items-center space-x-1 animate-fade-in">
+                        <select 
+                          value={selectedPosition} 
+                          onChange={(e) => setSelectedPosition(e.target.value)}
+                          className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded px-1 py-0.5 text-[10px] focus:ring-1 focus:ring-indigo-500 outline-none"
+                        >
+                          {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
+                        </select>
+                        <button onClick={() => handleUpdatePosition(user.username, user.fullname)} className="text-green-600 hover:text-green-700"><Check size={12} /></button>
+                      </div>
+                    ) : (
+                      <button onClick={() => { setEditingPosition(user.username); setSelectedPosition(user.position || 'Phục vụ'); }} className="text-[10px] font-medium text-blue-600 dark:text-blue-400 hover:underline">
+                        Bộ phận: {user.position || 'Phục vụ'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 

@@ -41,7 +41,8 @@ function handleLogin(payload) {
         username: row[0],
         fullname: row[2],
         email: row[4] || '',
-        role: row[5] ? row[5].toString() : (row[0].toString().toLowerCase() === 'admin' ? 'admin' : 'user')
+        role: row[5] ? row[5].toString() : (row[0].toString().toLowerCase() === 'admin' ? 'admin' : 'user'),
+        position: row[6] ? row[6].toString() : 'Phục vụ'
       });
     }
   }
@@ -60,7 +61,7 @@ function handleRegister(payload) {
     }
   }
   
-  sheet.appendRow([payload.username, payload.password, payload.fullname, payload.dob || '', payload.email, 'user']);
+  sheet.appendRow([payload.username, payload.password, payload.fullname, payload.dob || '', payload.email, 'user', 'Phục vụ']);
   return jsonResponse(true, 'Đăng ký thành công');
 }
 
@@ -314,6 +315,32 @@ function handleUpdateUserRole(payload) {
   
   if (updated) {
     return jsonResponse(true, 'Cập nhật phân quyền thành công');
+  } else {
+    return jsonResponse(false, 'Không tìm thấy User này');
+  }
+}
+
+// 1C. CẬP NHẬT CHỨC VỤ/BỘ PHẬN (POSITION)
+function handleUpdateUserPosition(payload) {
+  if (!payload || !payload.targetUsername || !payload.newPosition) return jsonResponse(false, 'Thiếu thông tin');
+  
+  var ss = getSS();
+  var usersSheet = ss.getSheetByName(CONFIG.SHEET_USERS);
+  if (!usersSheet) return jsonResponse(false, 'Không tìm thấy DB Users');
+  
+  var usersData = usersSheet.getDataRange().getValues();
+  var updated = false;
+  
+  for (var j = 1; j < usersData.length; j++) {
+    if (usersData[j][0].toString().toLowerCase() === payload.targetUsername.toLowerCase()) {
+      usersSheet.getRange(j + 1, 7).setValue(payload.newPosition); // Col G is index 6, so column 7
+      updated = true;
+      break;
+    }
+  }
+  
+  if (updated) {
+    return jsonResponse(true, 'Cập nhật bộ phận thành công');
   } else {
     return jsonResponse(false, 'Không tìm thấy User này');
   }
@@ -1173,7 +1200,8 @@ function handleGetData(payload) {
             username: usersData[j][0] ? usersData[j][0].toString() : '',
             fullname: usersData[j][2] ? usersData[j][2].toString() : '',
             email: usersData[j][4] ? usersData[j][4].toString() : '',
-            role: usersData[j][5] ? usersData[j][5].toString() : 'user'
+            role: usersData[j][5] ? usersData[j][5].toString() : 'user',
+            position: usersData[j][6] ? usersData[j][6].toString() : 'Phục vụ'
           });
         }
         result.users = users;
