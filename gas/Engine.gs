@@ -1549,47 +1549,70 @@ function handleGetPayroll(payload) {
   var ss = getSS();
   var isAdmin = payload.role === 'admin' || payload.role === 'tester';
   
+  // TỐI ƯU HÓA: Dùng API V4 để tải siêu tốc (Instant Load)
+  var configData = sheetsApiFastRead(CONFIG.SPREADSHEET_ID, "SalaryConfig!A:C") || [];
+  if (configData.length === 0) {
+    var configSheet = _getSalaryConfigSheet();
+    configData = configSheet.getDataRange().getValues();
+  }
+
+  var advanceData = sheetsApiFastRead(CONFIG.SPREADSHEET_ID, "Advances!A:G") || [];
+  if (advanceData.length === 0) {
+    var advanceSheet = _getAdvancesSheet();
+    advanceData = advanceSheet.getDataRange().getValues();
+  }
+
+  var bpData = sheetsApiFastRead(CONFIG.SPREADSHEET_ID, "BonusPenalty!A:F") || [];
+  if (bpData.length === 0) {
+    var bpSheet = _getBonusPenaltySheet();
+    bpData = bpSheet.getDataRange().getValues();
+  }
+
   // 1. Get Base Salaries
-  var configSheet = _getSalaryConfigSheet();
-  var configData = configSheet.getDataRange().getValues();
   var baseSalaries = {};
   for (var i = 1; i < configData.length; i++) {
-    baseSalaries[configData[i][0]] = Number(configData[i][2]) || 20000; // Default 20k/hr
+    if (configData[i] && configData[i][0]) {
+      baseSalaries[configData[i][0]] = Number(configData[i][2]) || 20000; // Default 20k/hr
+    }
   }
   
   // 2. Get Advances (Approved only)
-  var advanceSheet = _getAdvancesSheet();
-  var advanceData = advanceSheet.getDataRange().getValues();
   var advances = {};
   for (var i = 1; i < advanceData.length; i++) {
-    if (advanceData[i][6] === 'Approved') {
+    if (advanceData[i] && advanceData[i][6] === 'Approved') {
       var u = advanceData[i][2];
       advances[u] = (advances[u] || 0) + Number(advanceData[i][4]);
     }
   }
   
   // 3. Get Bonus & Penalties
-  var bpSheet = _getBonusPenaltySheet();
-  var bpData = bpSheet.getDataRange().getValues();
   var bonuses = {};
   var penalties = {};
   for (var i = 1; i < bpData.length; i++) {
-    var u = bpData[i][2];
-    var type = bpData[i][4];
-    var amount = Number(bpData[i][5]);
-    if (type === 'BONUS') {
-      bonuses[u] = (bonuses[u] || 0) + amount;
-    } else if (type === 'PENALTY') {
-      penalties[u] = (penalties[u] || 0) + amount;
+    if (bpData[i] && bpData[i][2]) {
+      var u = bpData[i][2];
+      var type = bpData[i][4];
+      var amount = Number(bpData[i][5]);
+      if (type === 'BONUS') {
+        bonuses[u] = (bonuses[u] || 0) + amount;
+      } else if (type === 'PENALTY') {
+        penalties[u] = (penalties[u] || 0) + amount;
+      }
     }
   }
   
   // 4. Calculate Hours Worked
-  var logsSheet = ss.getSheetByName(CONFIG.SHEET_LOGS);
-  var logsData = logsSheet.getDataRange().getValues();
+  var logsData = sheetsApiFastRead(CONFIG.SPREADSHEET_ID, CONFIG.SHEET_LOGS + "!A:E") || [];
+  if (logsData.length === 0) {
+    var logsSheet = ss.getSheetByName(CONFIG.SHEET_LOGS);
+    if (logsSheet) logsData = logsSheet.getDataRange().getValues();
+  }
+
   var userLogs = {};
   
   for (var i = 1; i < logsData.length; i++) {
+    if (!logsData[i] || !logsData[i][0]) continue;
+    
     var fullname = logsData[i][0];
     var type = logsData[i][1] ? logsData[i][1].toString().toUpperCase() : '';
     var timeStr = logsData[i][2];
@@ -1598,7 +1621,15 @@ function handleGetPayroll(payload) {
     // Only count Valid logs
     if (status.indexOf('HỢP LỆ') === -1 || status.indexOf('KHÔNG') >= 0) continue;
     
-    var time = (timeStr instanceof Date) ? timeStr.getTime() : new Date(timeStr).getTime();
+    // SỬA LỖI: Parse ngày DD/MM/YYYY chính xác
+    var time = 0;
+    if (timeStr instanceof Date) {
+      time = timeStr.getTime();
+    } else if (timeStr) {
+      var parsed = parseDDMMYYYY(timeStr.toString());
+      time = parsed ? parsed.getTime() : new Date(timeStr.toString()).getTime();
+    }
+    
     if (!time || isNaN(time)) continue;
     
     if (!userLogs[fullname]) userLogs[fullname] = [];
@@ -1630,8 +1661,11 @@ function handleGetPayroll(payload) {
   }
   
   // 5. Combine everything
-  var usersSheet = ss.getSheetByName(CONFIG.SHEET_USERS);
-  var usersData = usersSheet.getDataRange().getValues();
+  var usersData = sheetsApiFastRead(CONFIG.SPREADSHEET_ID, CONFIG.SHEET_USERS + "!A:F") || [];
+  if (usersData.length === 0) {
+    var usersSheet = ss.getSheetByName(CONFIG.SHEET_USERS);
+    if (usersSheet) usersData = usersSheet.getDataRange().getValues();
+  }
   var payroll = [];
   
   for (var i = 1; i < usersData.length; i++) {
