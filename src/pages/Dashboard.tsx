@@ -75,6 +75,15 @@ export default function Dashboard() {
       ],
     },
     {
+      id: 'hr',
+      label: 'Quản lý nhân sự',
+      icon: Users,
+      adminOnly: true,
+      items: [
+        { id: 'hr_list', label: 'Danh sách nhân sự', icon: Briefcase, adminOnly: true, comingSoon: true },
+      ],
+    },
+    {
       id: 'ops',
       label: 'Vận hành',
       icon: Camera,
@@ -113,7 +122,10 @@ export default function Dashboard() {
       icon: Settings,
       adminOnly: true,
       items: [
-        { id: 'admin', label: 'Quản trị', icon: ShieldAlert, adminOnly: true },
+        { id: 'admin', label: 'Quản trị chung', icon: ShieldAlert, adminOnly: true },
+        { id: 'admin_org', label: 'Tổ chức & Quyền', icon: KeyRound, adminOnly: true, comingSoon: true },
+        { id: 'admin_shift', label: 'Ca làm & Chấm công', icon: Clock3, adminOnly: true, comingSoon: true },
+        { id: 'admin_payroll', label: 'Lương & Phúc lợi', icon: Banknote, adminOnly: true, comingSoon: true },
       ],
     },
   ];
@@ -410,7 +422,7 @@ export default function Dashboard() {
                                 return (
                                   <button
                                     key={item.id}
-                                    onClick={() => !item.comingSoon && handleTabChange(item.id)}
+                                    onClick={() => handleTabChange(item.id)}
                                     className={`w-full flex items-center space-x-2.5 px-3 py-2.5 rounded-xl transition-all relative ${
                                       item.comingSoon
                                         ? 'text-gray-400 dark:text-gray-600 cursor-default'
@@ -497,8 +509,8 @@ export default function Dashboard() {
             {currentTab === 'history' && <ActivityHistory />}
             {currentTab === 'admin' && <Admin />}
             {/* Coming Soon Pages */}
-            {false && (
-              <div className="flex flex-col items-center justify-center h-full p-6 text-center">
+            {['hr_list', 'admin_org', 'admin_shift', 'admin_payroll'].includes(currentTab) && (
+              <div className="flex flex-col items-center justify-center h-full p-6 text-center mt-10">
                 <ComingSoonPage title={getPageTitle(currentTab)} />
               </div>
             )}

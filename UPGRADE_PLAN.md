@@ -1,6 +1,6 @@
 # BẢN THIẾT KẾ KIẾN TRÚC ỨNG DỤNG KING'S GRILL (MASTER BLUEPRINT - PHASE 6) 🏗️
 
-Kiến trúc mới được chia thành **5 Nhóm Tính Năng (Modules)** chính và **Luồng Xác Thực (Authentication)**. Giao diện (Sidebar) sẽ thay đổi linh hoạt theo phân quyền (Role) của người dùng đăng nhập (Admin hoặc User).
+Kiến trúc mới được chia thành **Các Nhóm Tính Năng (Modules)** chính và **Luồng Xác Thực (Authentication)**. Giao diện (Sidebar) sẽ thay đổi linh hoạt theo phân quyền (Role) của người dùng đăng nhập (Admin hoặc User).
 
 ---
 
@@ -23,7 +23,7 @@ Kiến trúc mới được chia thành **5 Nhóm Tính Năng (Modules)** chính
 *Kênh truyền thông, báo cáo tổng quan và kiến thức nội bộ.*
 
 **1. Tổng quan (Dashboard) ✅:**
-- **Admin:** Bảng điều khiển toàn diện cho nhà hàng. Hiển thị số lượng nhân sự đang trong ca, tỷ lệ hoàn thành checklist công việc, tổng quan tình hình đi trễ/về sớm.
+- **Admin:** Bảng điều khiển (Dashboard) cơ bản cho nhà hàng. Hiển thị số lượng nhân sự đang trong ca, tỷ lệ hoàn thành checklist công việc, tổng quan đi trễ/về sớm. *(Lưu ý: Không xây dựng Analytics Hub phức tạp ở giai đoạn này, nếu cần sẽ xây dựng trong tương lai).*
 - **User:** Bảng thông tin cá nhân. Hiển thị số giờ làm việc lũy kế, tiến độ hoàn thành checklist cá nhân, số lần đi trễ.
 
 **2. Bảng tin nội bộ (NewsFeed):**
@@ -39,108 +39,100 @@ Kiến trúc mới được chia thành **5 Nhóm Tính Năng (Modules)** chính
 - **User:** Gửi phản hồi (có thể chọn ẩn danh) về các vấn đề trong ca làm, thái độ đồng nghiệp, hoặc khiếu nại sai sót chấm công.
 
 **5. Đào tạo & Hội nhập (Training & Onboarding Workflow) 🆕:**
-- **Onboarding Checklist:** Danh sách việc cần làm cho nhân sự mới (Tải CCCD, ký số nội quy, nhận đồng phục).
-- **E-learning & Test:** Nhân sự mới bắt buộc xem video (ATVSTP, Văn hóa King's Grill) và làm trắc nghiệm trước khi nhận ca đầu tiên.
-- Nơi lưu trữ tài liệu nghiệp vụ, mô tả công việc, video hướng dẫn pha chế.
+- **Onboarding Checklist:** Danh sách việc cần làm cho nhân sự mới.
+- **E-learning & Test:** Xem video và làm trắc nghiệm trước khi nhận ca đầu tiên.
 
 **6. Khảo sát nội bộ (Pulse Surveys) 🆕:**
-- Hiển thị pop-up ngẫu nhiên khi nhân viên Check-in ("Hôm nay bạn cảm thấy thế nào?", "Có khó khăn gì không?").
-- Giúp Quản lý đo lường sức khỏe tinh thần và mức độ hài lòng của nhân sự (Employee Experience).
+- Hiển thị pop-up ngẫu nhiên khi nhân viên Check-in.
 
 ---
 
-## ⚙️ Nhóm 2: VẬN HÀNH (Operations)
+## 👥 Nhóm 2: QUẢN LÝ NHÂN SỰ (HR Management)
+*Quản lý danh sách và hồ sơ nhân sự.*
+
+**1. Danh sách nhân sự & Hồ sơ (Trang riêng) ✅:**
+- Một trang quản lý độc lập giúp Admin xem, lọc, tra cứu thông tin của toàn bộ nhân viên.
+- Quản lý hồ sơ, hợp đồng, giấy tờ tùy thân, liên hệ khẩn cấp.
+- Quản lý Tài sản & Đồng phục: Theo dõi cấp phát thẻ tên, đồng phục trong Hồ sơ nhân viên. Tự động trừ tiền (Deduction) vào Payroll nếu nhân viên nghỉ việc không trả lại tài sản.
+
+---
+
+## ⚙️ Nhóm 3: VẬN HÀNH (Operations)
 *Công cụ hỗ trợ trực tiếp cho ca làm việc.*
 
 **1. Chấm công ✅:**
-- Giao diện thao tác Check-in / Check-out lấy tọa độ GPS và chụp ảnh xác thực (Tính năng cốt lõi hiện tại).
+- Giao diện thao tác Check-in / Check-out lấy tọa độ GPS và chụp ảnh xác thực.
 
 **2. Checklist hằng ngày (Mở/Đóng quán) ✅:**
-- Hệ thống tự động đẩy các công việc cần làm dựa trên ca làm việc (Ví dụ: Ca sáng có checklist mở quán, Ca tối có checklist đóng quán). Cấu hình checklist do Admin thiết lập.
+- Hệ thống tự động đẩy các công việc cần làm dựa trên ca làm việc.
 
 **3. Bàn giao ca & Báo cáo Sự cố (Incident Report) ✅:**
-- **Admin & User:** Ghi nhận tiền mặt đầu/cuối ca (Tiền lẻ thối). Nút bấm "Báo cáo sự cố" nhanh (Ví dụ: Hư quạt, Mất điện, Khách phàn nàn) để Quản lý nhận thông báo đẩy ngay lập tức.
+- Ghi nhận tiền mặt đầu/cuối ca. Nút bấm "Báo cáo sự cố" nhanh.
 
 ---
 
-## 📅 Nhóm 3: LỊCH LÀM (Schedules)
+## 📅 Nhóm 4: LỊCH LÀM (Schedules)
 *Quản lý và sắp xếp thời gian làm việc.*
 
 **1. Đăng ký ca & Lịch rảnh (Availability) ✅:**
-- **Admin:** Xem toàn bộ bảng đăng ký của nhân viên để điều chỉnh & duyệt. Người nào chưa đăng ký sẽ bị bỏ trống để Admin dễ dàng nhận diện và nhắc nhở. Admin cũng có thể tự đăng ký ca cho mình.
-- **User:** Thao tác đăng ký ca cho tuần tiếp theo. **Đặc biệt:** Sinh viên Part-time có thể điền trước "Lịch rảnh" (Những khung giờ chắc chắn đi làm được) để Admin dễ dàng xếp ca mà không bị kẹt lịch học.
+- **Admin:** Xem toàn bộ bảng đăng ký của nhân viên để điều chỉnh & duyệt.
+- **User:** Thao tác đăng ký ca cho tuần tiếp theo. Sinh viên Part-time có thể điền trước "Lịch rảnh".
 
-**2. Chợ Đổi ca / Nghỉ phép ✅:**
-- **Admin:** Duyệt/Từ chối các yêu cầu đổi ca và xin nghỉ phép. Khi duyệt nghỉ phép, hệ thống tự động cập nhật chữ "OFF" vào lịch làm chính thức kèm Tooltip ghi chú (Thời gian duyệt, Người duyệt).
-- **User:** Tạo yêu cầu đổi ca (chờ nhân viên khác nhận -> chờ Admin duyệt). Tạo yêu cầu nghỉ phép (báo số ngày, thời gian) -> chờ Admin duyệt.
+**2. Chợ Đổi ca / Nghỉ phép (Tích hợp Duyệt yêu cầu) ✅:**
+- **Admin:** Duyệt/Từ chối các yêu cầu đổi ca và xin nghỉ phép **trực tiếp tại đây** (Chỉ admin mới có quyền duyệt đổi ca). Hệ thống tự động cập nhật chữ "OFF" vào lịch làm chính thức.
+- **User:** Tạo yêu cầu đổi ca / nghỉ phép -> chờ Admin duyệt.
 
 **3. Lịch làm chính thức ✅:**
-- *Tính năng chung:* Đánh dấu highlight các ngày lễ (có hệ số nhân lương) hoặc các ngày lễ F&B đông khách để nhân viên lưu ý.
-- **Admin:** Có 2 chế độ xem:
-  - *Chế độ xem Tháng:* Bảng ma trận (Cột dọc: Tên nhân viên, Cột ngang: Ngày trong tháng). Admin có thể sửa trực tiếp trên bảng này nếu thực tế có phát sinh (ốm, bỏ ca...).
-  - *Chế độ xem Tuần:* Thu gọn hiển thị từ T2 - CN.
-- **User:** Xem bảng lịch tháng cá nhân (hoặc toàn quán) thể hiện ca làm đã được duyệt.
+- **Admin:** Xem dạng Ma trận Tháng hoặc Tuần. Có thể sửa trực tiếp.
+- **User:** Xem bảng lịch cá nhân/quán.
 
 ---
 
-## 💰 Nhóm 4: CÔNG LƯƠNG (Payroll & Timekeeping)
+## 💰 Nhóm 5: CÔNG LƯƠNG (Payroll & Timekeeping)
 *Quản lý số liệu làm việc, lương thưởng và kỷ luật.*
 
-**1. Lịch sử chấm công:**
-- **Admin:** Hiển thị danh sách chấm công (Giờ vào/ra, vị trí, ảnh) của toàn bộ nhân viên.
-- **User:** Chỉ xem được lịch sử của chính mình.
+**1. Lịch sử chấm công & Tổng hợp công:**
+- Xem giờ vào/ra, tổng hợp công theo số giờ hoặc mốc thời gian.
 
-**2. Tổng hợp công:**
-- **Admin & User:** Hiển thị tương tự Lịch làm, nhưng thay vì mã ca, hệ thống hiển thị 2 chế độ xem:
-  - *Chế độ giờ làm:* Tính chính xác thời lượng (Giờ ra - Giờ vào). Ví dụ: 5.50 giờ.
-  - *Chế độ mốc thời gian:* Thể hiện thực tế (Ví dụ: 15:00 - 22:30).
+**2. Ứng lương:**
+- **Admin:** Duyệt yêu cầu ứng lương, tự động link sang Bảng lương.
+- **User:** Gửi form yêu cầu ứng lương.
 
-**3. Ứng lương:**
-- **Admin:** Nhận thông báo và bấm Duyệt yêu cầu ứng lương. Khoản tiền này sẽ tự động link sang Bảng lương cuối tháng (nằm ở cột Khấu trừ/Ghi chú).
-- **User:** Gửi form yêu cầu ứng lương. Theo dõi trạng thái (Chờ duyệt/Đã duyệt).
+**3. Bảng lương:**
+- Bảng lương tổng quát tự động tính toán, User xem Payslip chi tiết.
 
-**4. Bảng lương:**
-- **Admin:** Bảng lương tổng quát của tất cả nhân sự. Hệ thống tự động tính toán dựa trên cấu hình (Mức lương, Giờ làm, Thưởng, Phạt, Ứng lương).
-- **User:** Chỉ xem được phiếu lương (Payslip) chi tiết của chính mình.
+**4. Kỷ luật & Đãi ngộ (Discipline, Rewards & Gamification) 🆕:**
+- Ghi nhận lỗi, khen thưởng, tích điểm đổi phúc lợi.
 
-**5. Kỷ luật & Đãi ngộ (Discipline, Rewards & Gamification) 🆕:**
-- **Kỷ luật:** Ghi nhận lỗi, tự động trừ tiền vào Bảng lương.
-- **Khen thưởng (Recognition):** Cấp sao/huy hiệu, Bảng vàng "Nhân viên xuất sắc tháng" trên Dashboard/NewsFeed.
-- **Gamification (Tích điểm):** Nhân viên đi làm đúng giờ, làm tốt checklist được cộng điểm (Coin/Point) để đổi phúc lợi (Voucher, ngày phép).
-
-**6. Đánh giá Năng lực & Lộ trình thăng tiến (Performance Review & Career Path) 🆕:**
-- **Admin:** Đánh giá định kỳ hàng tháng/quý (Thái độ, Tốc độ, Sạch sẽ).
-- **User:** Xem điểm đánh giá và lộ trình thăng tiến (VD: Phục vụ -> Tổ trưởng). Dữ liệu này làm cơ sở tăng lương/thăng cấp.
+**5. Đánh giá Năng lực & Lộ trình thăng tiến 🆕:**
+- Đánh giá định kỳ làm cơ sở tăng lương/thăng cấp.
 
 ---
 
-## 🛠 Nhóm 5: CẤU HÌNH HỆ THỐNG (System Settings - Chỉ Admin)
-*Khu vực "Bộ não" của hệ thống, nơi Admin thiết lập các quy tắc tự động.*
+## 🛠 Nhóm 6: CẤU HÌNH HỆ THỐNG (System Settings - Chỉ Admin)
+*Khu vực "Bộ não" của hệ thống, nơi Admin thiết lập các quy tắc tự động. Việc tập trung các cấu hình tại đây giúp Admin dễ dàng quản lý toàn bộ logic của quán.*
 
-**1. Tổ chức & Nhân sự:**
+**1. Tổ chức & Quyền hạn:**
 - **Doanh nghiệp:** Thông tin cơ bản (Tên, Địa chỉ, MST, STK, Logo).
-- **Cơ cấu tổ chức:** Sơ đồ phòng ban.
-- **Loại nhân viên:** Cấu hình hệ số lương (Thử việc: 0.8, Chính thức: 1.0).
-- **Quy trình Onboarding/Offboarding:** Cấu hình các bước tự động khi có nhân sự mới hoặc nhân sự nghỉ việc.
-- **Quản lý Tài sản & Đồng phục (Asset & Uniform Tracking) 🆕:** Theo dõi cấp phát thẻ tên, đồng phục trong Hồ sơ nhân viên. Tự động trừ tiền (Deduction) vào Payroll nếu nhân viên nghỉ việc không trả lại tài sản.
+- **Phân quyền (Roles):** Cấp quyền truy cập cụ thể cho từng tài khoản.
+- **Cơ cấu tổ chức:** Sơ đồ phòng ban, loại nhân viên (Hệ số lương: Thử việc 0.8, Chính thức 1.0).
+- **Quy trình Onboarding/Offboarding:** Cấu hình các bước tự động.
 
-**2. Ca làm & Chấm công:**
-- **Chấm công:** Đặt tọa độ GPS trung tâm, Bán kính hợp lệ (Đồng bộ với code hiện tại và cho phép UI chỉnh sửa).
-- **Mã Ca Làm:** Định nghĩa các ca (15:00, 17:00, OFF). Quy định thời lượng tối đa (6-8 tiếng). Bổ sung mã `OFF#` (Admin chủ động xếp nghỉ) và `OFF!` (Nghỉ sai quy định/Không phép).
-- **Lịch làm & Ngày lễ:** Load danh sách ngày lễ, cấu hình hệ số nhân lương (x2, x3). Bật cảnh báo đăng ký ca cho những ngày này.
+**2. Cấu hình Ca làm & Chấm công:**
+- **Chấm công:** Đặt tọa độ GPS trung tâm, Bán kính hợp lệ.
+- **Mã Ca Làm:** Định nghĩa các ca (15:00, 17:00, OFF). Quy định thời lượng tối đa. Bổ sung mã `OFF#` (Admin chủ động xếp nghỉ) và `OFF!` (Nghỉ sai quy định/Không phép).
+- **Lịch làm & Ngày lễ:** Load danh sách ngày lễ, cấu hình hệ số nhân lương (x2, x3). Bật cảnh báo đăng ký ca.
 - **Đăng ký ca:** Thiết lập tự động thời gian mở/đóng cổng đăng ký ca hàng tuần.
 - **Quy tắc Tính công:** Cách thức làm tròn giờ làm (Giờ ra trừ Giờ vào).
 
-**3. Lương & Phúc lợi:**
-- **Ứng lương:** Đặt ngày chốt đăng ký, ngày giải ngân. Cấu hình tỷ lệ tối đa (Ví dụ: Chỉ được ứng 30% lương tạm tính). Hệ thống tự động tính lương tạm tính từ ngày 1 đến ngày 15 để làm cơ sở xét ứng lương.
+**3. Cấu hình Lương & Phúc lợi:**
+- **Ứng lương:** Đặt ngày chốt đăng ký, ngày giải ngân. Cấu hình tỷ lệ tối đa (VD: 30% lương tạm tính).
 - **Công thức lương (Dynamic Formula Builder):** 
-  - Thay vì công thức cứng, Admin có **Giao diện tự thiết lập công thức (Kéo thả / Click chọn)**.
-  - Các biến (Variables) được cung cấp sẵn: `LUONG_CO_BAN`, `THUONG`, `PHU_CAP`, `NGAY_CONG`, `GIO_OT`...
-  - Các phép toán: `+`, `-`, `*`, `/`, `(`, `)`.
-  - Admin bấm chọn để ghép thành chuỗi công thức (Ví dụ: `(LUONG_CO_BAN * NGAY_CONG) + THUONG + PHU_CAP`). Hệ thống lưu công thức dưới dạng JSON để tính toán tự động. Có nút "Mở khóa" bảo mật để tránh sửa nhầm.
-- **Quản lý Mức lương:** Bảng ma trận theo dõi mức lương nhân viên theo từng tháng. Nhân viên có thể có 2 dòng nếu vừa có lương giờ vừa có lương cứng.
+  - Giao diện tự thiết lập công thức bằng Kéo thả / Click chọn.
+  - Biến số: `LUONG_CO_BAN`, `THUONG`, `PHU_CAP`, `NGAY_CONG`, `GIO_OT`...
+  - Lưu công thức dưới dạng JSON để tính toán tự động. Có nút "Mở khóa" bảo mật để tránh sửa nhầm.
+- **Quản lý Mức lương:** Bảng ma trận theo dõi mức lương nhân viên theo từng tháng.
 - **Phụ cấp, Thưởng & Khấu trừ:** 
-  - **Khai báo Phụ cấp:** Tiền ăn, xăng xe. Thiết lập "Số ngày chuẩn" để hệ thống tự chia tỷ lệ nếu nhân viên không làm đủ tháng.
-  - **Tăng ca:** Cấu hình hệ số lương cho tăng ca (Ví dụ: x1.5 ngày thường, x2 ngày lễ).
-  - **Thưởng chuyên cần:** Đặt Tiêu chuẩn (Ví dụ: Làm đủ 26 ca/tháng, không đi trễ lần nào) và Mức tiền thưởng chuyên cần.
-  - **Khai báo Khấu trừ:** Các quy tắc phạt đi trễ, quên chấm công, đền bù tài sản, hoặc quỹ Công đoàn (BHXH nếu có).
+  - Khai báo Phụ cấp (Tiền ăn, xăng xe, quy tắc chia tỷ lệ).
+  - Khai báo Khấu trừ (Phạt đi trễ, quên chấm công, đền bù).
+  - Cấu hình hệ số tăng ca, Thưởng chuyên cần.
