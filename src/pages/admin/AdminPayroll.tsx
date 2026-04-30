@@ -1,10 +1,24 @@
-import React, { useState } from 'react';
-import { BadgeDollarSign, Calculator, Calculator as MathIcon, Lock, Unlock, Settings2, HandCoins, AlertOctagon, Plus, KeyRound } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { BadgeDollarSign, Calculator, Calculator as MathIcon, Lock, Unlock, Settings2, HandCoins, AlertOctagon, Plus, KeyRound, Save } from 'lucide-react';
 import Swal from 'sweetalert2';
+import { useAppStore } from '../../store/useAppStore';
+import { callApi } from '../../services/api';
 
 export default function AdminPayroll() {
+  const { serverPayrollConfig, currentUser, setServerPayrollConfig } = useAppStore();
   const [formulaLocked, setFormulaLocked] = useState(true);
-  const [advanceLimit, setAdvanceLimit] = useState('30');
+  const [advanceLimit, setAdvanceLimit] = useState('50');
+  const [baseFormula, setBaseFormula] = useState('(HOURS * RATE) + BONUS - PENALTY + ALLOWANCE');
+  const [mealAllowance, setMealAllowance] = useState('30000');
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (serverPayrollConfig) {
+      setBaseFormula(serverPayrollConfig.baseFormula);
+      setAdvanceLimit(serverPayrollConfig.maxAdvancePercent.toString());
+      setMealAllowance(serverPayrollConfig.mealAllowance.toString());
+    }
+  }, [serverPayrollConfig]);
   
   const handleUnlockFormula = () => {
     Swal.fire({
@@ -21,6 +35,46 @@ export default function AdminPayroll() {
         setFormulaLocked(false);
       }
     });
+  };
+
+  const handleSavePayrollConfig = async () => {
+    if (!currentUser) return;
+    setIsSaving(true);
+    
+    try {
+      const data = await callApi('UPDATE_PAYROLL_CONFIG', {
+        role: currentUser.role,
+        baseFormula,
+        maxAdvancePercent: advanceLimit,
+        mealAllowance
+      });
+      
+      if (data && data.ok) {
+        setServerPayrollConfig({ 
+          baseFormula, 
+          maxAdvancePercent: Number(advanceLimit), 
+          mealAllowance: Number(mealAllowance) 
+        });
+        
+        Swal.fire({
+          icon: 'success',
+          title: 'Đã lưu cấu hình Lương',
+          text: 'Cấu hình lương và phụ cấp đã được cập nhật thành công.',
+          confirmButtonColor: '#006994'
+        });
+      } else {
+        throw new Error(data.message || 'Lỗi không xác định');
+      }
+    } catch (error: any) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Lỗi lưu cấu hình',
+        text: error.message || 'Không thể kết nối đến máy chủ',
+        confirmButtonColor: '#dc2626'
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -53,14 +107,17 @@ export default function AdminPayroll() {
           <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-xl border border-dashed border-gray-300 dark:border-gray-700">
             <p className="text-xs text-gray-500 mb-2 font-bold uppercase">Công thức hiện tại:</p>
             <div className="flex flex-wrap gap-2 items-center">
-              <span className="px-2 py-1 bg-blue-100 text-blue-700 dark:bg-blue-900/40 font-mono text-sm rounded">LUONG_CO_BAN</span>
-              <span className="text-gray-400 font-bold">×</span>
-              <span className="px-2 py-1 bg-green-100 text-green-700 dark:bg-green-900/40 font-mono text-sm rounded">TONG_GIO_LAM</span>
-              <span className="text-gray-400 font-bold">+</span>
-              <span className="px-2 py-1 bg-purple-100 text-purple-700 dark:bg-purple-900/40 font-mono text-sm rounded">PHU_CAP</span>
-              <span className="text-gray-400 font-bold">-</span>
-              <span className="px-2 py-1 bg-red-100 text-red-700 dark:bg-red-900/40 font-mono text-sm rounded">KHAU_TRU</span>
+              <span className="font-mono text-sm font-bold text-gray-700 dark:text-gray-300 bg-transparent px-1">{baseFormula}</span>
             </div>
+            {!formulaLocked && (
+               <input 
+                 type="text" 
+                 value={baseFormula}
+                 onChange={(e) => setBaseFormula(e.target.value)}
+                 className="mt-3 w-full bg-white border border-gray-300 rounded px-2 py-1 text-sm font-mono dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+                 placeholder="(HOURS * RATE) + BONUS - PENALTY + ALLOWANCE"
+               />
+            )}
           </div>
           
           <div>
@@ -122,9 +179,13 @@ export default function AdminPayroll() {
               <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-900 p-2.5 rounded-lg border border-gray-100 dark:border-gray-800">
                 <div>
                   <p className="text-xs font-bold">Tiền ăn ca</p>
-                  <p className="text-[10px] text-gray-500">20,000đ / Ca làm {'>'} 4 tiếng</p>
+                  <p className="text-[10px] text-gray-500">{Number(mealAllowance).toLocaleString()}đ / Ca làm {'>'} 4 tiếng</p>
                 </div>
-                <button className="text-ocean-600 hover:text-ocean-700"><Settings2 size={14} /></button>
+                {!formulaLocked ? (
+                   <input type="number" value={mealAllowance} onChange={(e) => setMealAllowance(e.target.value)} className="w-20 text-xs px-2 py-1 border rounded dark:bg-gray-800 dark:text-white" />
+                ) : (
+                   <button className="text-ocean-600 hover:text-ocean-700"><Settings2 size={14} /></button>
+                )}
               </div>
               <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-900 p-2.5 rounded-lg border border-gray-100 dark:border-gray-800">
                 <div>
@@ -164,6 +225,15 @@ export default function AdminPayroll() {
           Mở Bảng Ma Trận Lương
         </button>
       </div>
+      
+      {/* Save Global Config */}
+      <button onClick={handleSavePayrollConfig} disabled={isSaving || formulaLocked} className={`w-full font-bold py-3.5 rounded-xl shadow-lg transition flex items-center justify-center mt-6 ${isSaving || formulaLocked ? 'bg-ocean-400 text-white cursor-not-allowed opacity-70' : 'bg-ocean-600 hover:bg-ocean-700 text-white'}`}>
+        {isSaving ? (
+          <><span className="animate-spin mr-2">⏳</span> Đang lưu...</>
+        ) : (
+          <><Save size={18} className="mr-2" /> Lưu Tất Cả Thay Đổi Lương</>
+        )}
+      </button>
     </div>
   );
 }

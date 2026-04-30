@@ -66,6 +66,9 @@ function doPost(e) {
       case 'SYNC_KEYS': return handleSyncKeys(payload);
       case 'GET_KEYS': return handleGetKeys(payload);
       case 'GEOCODE': return handleGeocode(payload);
+      case 'UPDATE_GPS_CONFIG': return handleUpdateGpsConfig(payload);
+      case 'UPDATE_ORG_CONFIG': return handleUpdateOrgConfig(payload);
+      case 'UPDATE_PAYROLL_CONFIG': return handleUpdatePayrollConfig(payload);
       case 'REGISTER_SHIFT': return handleRegisterShift(payload);
       case 'GET_ALL_SCHEDULES': return handleGetAllSchedules(payload);
       case 'GET_MONTH_SCHEDULES': return handleGetMonthSchedules(payload);

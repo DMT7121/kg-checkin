@@ -100,6 +100,9 @@ export default function App() {
               if (res.data.isScheduleRegistered !== undefined)
                 store.setScheduleRegistered(res.data.isScheduleRegistered);
               if (res.data.approvedShifts) store.setApprovedShifts(res.data.approvedShifts);
+              if (res.data.gpsConfig) store.setServerGpsConfig(res.data.gpsConfig);
+              if (res.data.orgConfig) store.setServerOrgConfig(res.data.orgConfig);
+              if (res.data.payrollConfig) store.setServerPayrollConfig(res.data.payrollConfig);
               localStorage.setItem('kg_logs', JSON.stringify(res.data.logs || []));
               localStorage.setItem('kg_stats', JSON.stringify(res.data.stats));
             }

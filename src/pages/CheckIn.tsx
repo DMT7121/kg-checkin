@@ -11,7 +11,7 @@ import * as faceapi from 'face-api.js';
 
 export default function CheckIn() {
   const store = useAppStore();
-  const { currentUser, gps, capturedImage, currentTime, approvedShifts } = store;
+  const { currentUser, gps, capturedImage, currentTime, approvedShifts, serverGpsConfig } = store;
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -71,14 +71,20 @@ export default function CheckIn() {
     const lat = (isFastStart || acc < 30) ? rawLat : filteredLat;
     const lng = (isFastStart || acc < 30) ? rawLng : filteredLng;
 
-    const dist = getDist(lat, lng, KG_LAT, KG_LNG) * 1000;
+    // Use server config if available, otherwise fallback to hardcoded
+    const targetLat = serverGpsConfig?.lat ?? KG_LAT;
+    const targetLng = serverGpsConfig?.lng ?? KG_LNG;
+    
+    const dist = getDist(lat, lng, targetLat, targetLng) * 1000;
     const isTestApp = useAppStore.getState().currentUser?.username === 'testapp';
 
-    if (dist <= KG_RADIUS_METERS || isTestApp) {
+    const targetRadius = serverGpsConfig?.radius ?? KG_RADIUS_METERS;
+    
+    if (dist <= targetRadius || isTestApp) {
       store.setGps({ lat, lng, isValid: true, status: isTestApp ? 'Vị trí Test (Bypass)' : 'Vị trí Chính xác', message: `Khoảng cách: ${Math.round(dist)}m (±${Math.round(acc)}m)` });
       if (prevGpsValidRef.current !== true) { speak('Vị trí đã hợp lệ, sẵn sàng chấm công'); prevGpsValidRef.current = true; }
     } else {
-      store.setGps({ lat, lng, isValid: false, status: 'Vị trí quá xa', message: `Cách: ${Math.round(dist)}m (Cho phép ${KG_RADIUS_METERS}m)` });
+      store.setGps({ lat, lng, isValid: false, status: 'Vị trí quá xa', message: `Cách: ${Math.round(dist)}m (Cho phép ${targetRadius}m)` });
       if (prevGpsValidRef.current !== false && prevGpsValidRef.current !== null) { speak('Vị trí không hợp lệ, vui lòng di chuyển lại gần'); prevGpsValidRef.current = false; }
       else if (prevGpsValidRef.current === null) { prevGpsValidRef.current = false; }
     }

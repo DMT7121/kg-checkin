@@ -1,18 +1,54 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Building2, Shield, Network, UserPlus, Save, CheckCircle2 } from 'lucide-react';
 import Swal from 'sweetalert2';
+import { useAppStore } from '../../store/useAppStore';
+import { callApi } from '../../services/api';
 
 export default function AdminOrg() {
+  const { serverOrgConfig, currentUser, setServerOrgConfig } = useAppStore();
   const [companyName, setCompanyName] = useState('King\'s Grill');
   const [companyAddress, setCompanyAddress] = useState('Dĩ An, Bình Dương');
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (serverOrgConfig) {
+      setCompanyName(serverOrgConfig.name);
+      setCompanyAddress(serverOrgConfig.address);
+    }
+  }, [serverOrgConfig]);
   
-  const handleSave = () => {
-    Swal.fire({
-      icon: 'success',
-      title: 'Đã lưu cấu hình Tổ chức',
-      text: 'Thông tin tổ chức đã được cập nhật thành công.',
-      confirmButtonColor: '#006994'
-    });
+  const handleSave = async () => {
+    if (!currentUser) return;
+    setIsSaving(true);
+    
+    try {
+      const data = await callApi('UPDATE_ORG_CONFIG', {
+        role: currentUser.role,
+        name: companyName,
+        address: companyAddress
+      });
+      
+      if (data && data.ok) {
+        setServerOrgConfig({ name: companyName, address: companyAddress });
+        Swal.fire({
+          icon: 'success',
+          title: 'Đã lưu cấu hình Tổ chức',
+          text: 'Thông tin tổ chức đã được cập nhật thành công.',
+          confirmButtonColor: '#006994'
+        });
+      } else {
+        throw new Error(data.message || 'Lỗi không xác định');
+      }
+    } catch (error: any) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Lỗi lưu cấu hình',
+        text: error.message || 'Không thể kết nối đến máy chủ',
+        confirmButtonColor: '#dc2626'
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -42,8 +78,12 @@ export default function AdminOrg() {
             <label className="block text-xs font-bold text-gray-500 mb-1">Địa chỉ</label>
             <input type="text" value={companyAddress} onChange={e => setCompanyAddress(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500 dark:bg-gray-900 dark:border-gray-700 dark:text-white" />
           </div>
-          <button onClick={handleSave} className="w-full bg-ocean-600 hover:bg-ocean-700 text-white font-bold py-2.5 rounded-lg text-sm transition flex items-center justify-center mt-2">
-            <Save size={16} className="mr-2" /> Lưu Thông Tin
+          <button onClick={handleSave} disabled={isSaving} className={`w-full font-bold py-2.5 rounded-lg text-sm transition flex items-center justify-center mt-2 ${isSaving ? 'bg-ocean-400 text-white cursor-not-allowed' : 'bg-ocean-600 hover:bg-ocean-700 text-white'}`}>
+            {isSaving ? (
+              <><span className="animate-spin mr-2">⏳</span> Đang lưu...</>
+            ) : (
+              <><Save size={16} className="mr-2" /> Lưu Thông Tin</>
+            )}
           </button>
         </div>
       </div>

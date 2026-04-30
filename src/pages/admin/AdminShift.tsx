@@ -1,19 +1,62 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MapPin, Clock, CalendarRange, Save, Crosshair, AlertCircle } from 'lucide-react';
 import Swal from 'sweetalert2';
+import { useAppStore } from '../../store/useAppStore';
+import { callApi } from '../../services/api';
 
 export default function AdminShift() {
+  const { serverGpsConfig, currentUser, setServerGpsConfig } = useAppStore();
   const [kgLat, setKgLat] = useState('10.9760826');
   const [kgLng, setKgLng] = useState('106.6646541');
   const [kgRadius, setKgRadius] = useState('25');
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSaveGPS = () => {
-    Swal.fire({
-      icon: 'success',
-      title: 'Đã lưu cấu hình GPS',
-      text: 'Vị trí này sẽ được sử dụng cho chấm công của nhân sự.',
-      confirmButtonColor: '#006994'
-    });
+  useEffect(() => {
+    if (serverGpsConfig) {
+      setKgLat(serverGpsConfig.lat.toString());
+      setKgLng(serverGpsConfig.lng.toString());
+      setKgRadius(serverGpsConfig.radius.toString());
+    }
+  }, [serverGpsConfig]);
+
+  const handleSaveGPS = async () => {
+    if (!currentUser) return;
+    setIsSaving(true);
+    
+    try {
+      const data = await callApi('UPDATE_GPS_CONFIG', {
+        role: currentUser.role,
+        lat: kgLat,
+        lng: kgLng,
+        radius: kgRadius
+      });
+      
+      if (data && data.ok) {
+        setServerGpsConfig({
+          lat: Number(kgLat),
+          lng: Number(kgLng),
+          radius: Number(kgRadius)
+        });
+        
+        Swal.fire({
+          icon: 'success',
+          title: 'Đã lưu cấu hình GPS',
+          text: 'Vị trí này sẽ được sử dụng cho chấm công của nhân sự.',
+          confirmButtonColor: '#006994'
+        });
+      } else {
+        throw new Error(data.message || 'Lỗi không xác định');
+      }
+    } catch (error: any) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Lỗi lưu cấu hình',
+        text: error.message || 'Không thể kết nối đến máy chủ',
+        confirmButtonColor: '#dc2626'
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -57,8 +100,12 @@ export default function AdminShift() {
             <p className="text-[10px] text-gray-400 mt-1">Gợi ý: Đứng tại quán và ấn biểu tượng ngắm để lấy tọa độ hiện tại.</p>
           </div>
 
-          <button onClick={handleSaveGPS} className="w-full bg-ocean-600 hover:bg-ocean-700 text-white font-bold py-2.5 rounded-lg text-sm transition flex items-center justify-center">
-            <Save size={16} className="mr-2" /> Lưu Cấu Hình GPS
+          <button onClick={handleSaveGPS} disabled={isSaving} className={`w-full font-bold py-2.5 rounded-lg text-sm transition flex items-center justify-center ${isSaving ? 'bg-ocean-400 text-white cursor-not-allowed' : 'bg-ocean-600 hover:bg-ocean-700 text-white'}`}>
+            {isSaving ? (
+              <><span className="animate-spin mr-2">⏳</span> Đang lưu...</>
+            ) : (
+              <><Save size={16} className="mr-2" /> Lưu Cấu Hình GPS</>
+            )}
           </button>
         </div>
       </div>

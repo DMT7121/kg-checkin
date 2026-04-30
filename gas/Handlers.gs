@@ -421,18 +421,20 @@ function handleCheckInOut(payload) {
     distMeters = Math.round(Number(payload.distance));
   } else if (payload.lat && payload.lng) {
     // Calculate distance server-side using Haversine
+    var gpsConfig = getGpsConfig();
     var R = 6371000; // Earth radius in meters
-    var dLat = (CONFIG.LOCATION.LAT - payload.lat) * Math.PI / 180;
-    var dLon = (CONFIG.LOCATION.LNG - payload.lng) * Math.PI / 180;
+    var dLat = (gpsConfig.LAT - payload.lat) * Math.PI / 180;
+    var dLon = (gpsConfig.LNG - payload.lng) * Math.PI / 180;
     var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(payload.lat * Math.PI / 180) * Math.cos(CONFIG.LOCATION.LAT * Math.PI / 180) *
+            Math.cos(payload.lat * Math.PI / 180) * Math.cos(gpsConfig.LAT * Math.PI / 180) *
             Math.sin(dLon / 2) * Math.sin(dLon / 2);
     var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     distMeters = Math.round(R * c);
   }
   
   // === COL E: XÁC MINH ===
-  var isValid = distMeters <= CONFIG.LOCATION.MAX_DISTANCE_METERS;
+  var gpsConfig = getGpsConfig();
+  var isValid = distMeters <= gpsConfig.MAX_DISTANCE_METERS;
   var xacMinh = isValid ? 'Hợp lệ' : 'Không hợp lệ';
   
   // === COL G: LINK HÌNH ẢNH ===
@@ -967,6 +969,93 @@ function sendCheckInEmail(payload, timeObj, loc, imgUrl, distMeters, isValid) {
 // 3. GET DATA - New 8-column format
 // Col A(0): HỌ VÀ TÊN | Col B(1): LOẠI | Col C(2): THỜI GIAN | Col D(3): VỊ TRÍ
 // Col E(4): XÁC MINH | Col F(5): KHOẢNG CÁCH | Col G(6): LINK ẢNH | Col H(7): DATA JSON
+function getGpsConfig() {
+  try {
+    var stored = PropertiesService.getDocumentProperties().getProperty("GPS_CONFIG");
+    if (stored) return JSON.parse(stored);
+  } catch (e) {}
+  return CONFIG.LOCATION;
+}
+
+function handleUpdateGpsConfig(payload) {
+  if (payload.role !== 'admin' && payload.role !== 'tester') {
+    return jsonResponse(false, 'Không có quyền thực hiện chức năng này');
+  }
+  if (!payload.lat || !payload.lng || !payload.radius) {
+    return jsonResponse(false, 'Thiếu thông tin cấu hình GPS');
+  }
+  try {
+    PropertiesService.getDocumentProperties().setProperty(
+      "GPS_CONFIG",
+      JSON.stringify({
+        LAT: Number(payload.lat),
+        LNG: Number(payload.lng),
+        MAX_DISTANCE_METERS: Number(payload.radius)
+      })
+    );
+    return jsonResponse(true, 'Cập nhật cấu hình GPS thành công');
+  } catch (e) {
+    return jsonResponse(false, 'Lỗi hệ thống: ' + e.message);
+  }
+}
+
+function getOrgConfig() {
+  try {
+    var stored = PropertiesService.getDocumentProperties().getProperty("ORG_CONFIG");
+    if (stored) return JSON.parse(stored);
+  } catch (e) {}
+  return { name: "King's Grill", address: "Dĩ An, Bình Dương" };
+}
+
+function handleUpdateOrgConfig(payload) {
+  if (payload.role !== 'admin' && payload.role !== 'tester') {
+    return jsonResponse(false, 'Không có quyền thực hiện chức năng này');
+  }
+  try {
+    PropertiesService.getDocumentProperties().setProperty(
+      "ORG_CONFIG",
+      JSON.stringify({
+        name: payload.name || "King's Grill",
+        address: payload.address || "Dĩ An, Bình Dương"
+      })
+    );
+    return jsonResponse(true, 'Cập nhật cấu hình Tổ chức thành công');
+  } catch (e) {
+    return jsonResponse(false, 'Lỗi hệ thống: ' + e.message);
+  }
+}
+
+function getPayrollConfig() {
+  try {
+    var stored = PropertiesService.getDocumentProperties().getProperty("PAYROLL_CONFIG");
+    if (stored) return JSON.parse(stored);
+  } catch (e) {}
+  return { 
+    baseFormula: '(HOURS * RATE) + BONUS - PENALTY + ALLOWANCE',
+    maxAdvancePercent: 50,
+    mealAllowance: 30000
+  };
+}
+
+function handleUpdatePayrollConfig(payload) {
+  if (payload.role !== 'admin' && payload.role !== 'tester') {
+    return jsonResponse(false, 'Không có quyền thực hiện chức năng này');
+  }
+  try {
+    PropertiesService.getDocumentProperties().setProperty(
+      "PAYROLL_CONFIG",
+      JSON.stringify({
+        baseFormula: payload.baseFormula,
+        maxAdvancePercent: Number(payload.maxAdvancePercent),
+        mealAllowance: Number(payload.mealAllowance)
+      })
+    );
+    return jsonResponse(true, 'Cập nhật cấu hình Lương thành công');
+  } catch (e) {
+    return jsonResponse(false, 'Lỗi hệ thống: ' + e.message);
+  }
+}
+
 function handleGetData(payload) {
   var ss = getSS();
   var result = { logs: [], stats: { totalCheckIn: 0, validCount: 0 } };
@@ -1119,6 +1208,10 @@ function handleGetData(payload) {
       }
     } catch(e) { Logger.log('Error loading schedule (legacy): ' + e.message); }
   }
+  
+  result.gpsConfig = getGpsConfig();
+  result.orgConfig = getOrgConfig();
+  result.payrollConfig = getPayrollConfig();
   
   return jsonResponse(true, result);
 }

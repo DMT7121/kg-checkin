@@ -168,6 +168,9 @@ interface AppState {
     message: string;
     address?: string;
   };
+  serverGpsConfig: { lat: number; lng: number; radius: number } | null;
+  serverOrgConfig: { name: string; address: string } | null;
+  serverPayrollConfig: { baseFormula: string; maxAdvancePercent: number; mealAllowance: number } | null;
 
   // Data
   logs: LogEntry[];
@@ -257,6 +260,9 @@ interface AppState {
   setTimesheetData: (data: TimesheetData | null) => void;
   setCheckInOutCompleted: (completed: boolean) => void;
   removeSwapRequest: (id: string) => void;
+  setServerGpsConfig: (config: { lat: number; lng: number; radius: number } | null) => void;
+  setServerOrgConfig: (config: { name: string; address: string } | null) => void;
+  setServerPayrollConfig: (config: { baseFormula: string; maxAdvancePercent: number; mealAllowance: number } | null) => void;
   logout: () => void;
 }
 
@@ -280,6 +286,9 @@ export const useAppStore = create<AppState>((set) => ({
 
   // GPS
   gps: { lat: null, lng: null, isValid: false, status: 'Chưa định vị', message: '' },
+  serverGpsConfig: null,
+  serverOrgConfig: null,
+  serverPayrollConfig: null,
 
   // Data
   logs: [],
@@ -341,6 +350,9 @@ export const useAppStore = create<AppState>((set) => ({
   setPayroll: (payroll) => set({ payroll }),
   setTimesheetData: (data) => set({ timesheetData: data }),
   setCheckInOutCompleted: (completed) => set({ isCheckInOutCompleted: completed }),
+  setServerGpsConfig: (config) => set({ serverGpsConfig: config }),
+  setServerOrgConfig: (config) => set({ serverOrgConfig: config }),
+  setServerPayrollConfig: (config) => set({ serverPayrollConfig: config }),
   setChecklistLogs: (logs) => set({ checklistLogs: logs }),
   setFeedbacks: (items) => set({ feedbacks: items }),
   toggleDarkMode: () =>

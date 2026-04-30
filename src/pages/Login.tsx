@@ -86,6 +86,9 @@ export default function Login() {
             store.setScheduleRegistered(dataRes.data.isScheduleRegistered);
           if (dataRes.data.approvedShifts) store.setApprovedShifts(dataRes.data.approvedShifts);
           if (dataRes.data.registeredShifts) store.setRegisteredShifts(dataRes.data.registeredShifts);
+          if (dataRes.data.gpsConfig) store.setServerGpsConfig(dataRes.data.gpsConfig);
+          if (dataRes.data.orgConfig) store.setServerOrgConfig(dataRes.data.orgConfig);
+          if (dataRes.data.payrollConfig) store.setServerPayrollConfig(dataRes.data.payrollConfig);
           localStorage.setItem('kg_logs', JSON.stringify(dataRes.data.logs || []));
           localStorage.setItem('kg_stats', JSON.stringify(dataRes.data.stats || { totalCheckIn: 0, validCount: 0 }));
 
