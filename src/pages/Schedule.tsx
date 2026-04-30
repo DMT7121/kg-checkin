@@ -369,21 +369,41 @@ export default function Schedule() {
 
   return (
     <div className="p-4 animate-slide-up">
-      {/* Header */}
-      <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl p-6 text-white shadow-lg mb-6 relative overflow-hidden">
-        <div className="absolute right-0 top-0 opacity-10 text-8xl transform translate-x-4 -translate-y-4"><CalendarCheck size={100} /></div>
-        <h2 className="text-2xl font-extrabold mb-1 tracking-tight relative z-10">{isAdmin ? 'Sắp Xếp Ca Làm Việc' : 'Đăng Ký Ca Làm Việc'}</h2>
-        {!isAdmin && <p className="text-indigo-100 font-medium opacity-90 relative z-10">Tuần: {weekInfo.weekDisplay}</p>}
-        {!isAdmin && (
-          <div className={`mt-3 inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold backdrop-blur-md relative z-10 ${isOpen ? 'bg-green-500/30 text-green-100' : 'bg-red-500/30 text-red-100'}`}>
-            {isOpen ? <Clock size={12} className="mr-1.5" /> : <Lock size={12} className="mr-1.5" />}
-            {isTestApp ? 'Đã mở đăng ký (TestApp)' : regWindow.message}
+      {/* Header Banner */}
+      <div className="bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex flex-col mb-6">
+        <div className="flex items-center justify-between relative z-10 w-full">
+          <div>
+            <div className="flex items-center space-x-3 mb-2">
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
+                <CalendarCheck size={20} className="text-white" />
+              </div>
+              <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">{isAdmin ? 'Sắp Xếp Ca Làm' : 'Đăng Ký Ca Làm'}</h2>
+            </div>
+            {!isAdmin && (
+              <p className="text-blue-100 font-medium opacity-90 text-sm md:text-base max-w-lg mb-3">
+                Tuần: {weekInfo.weekDisplay}
+              </p>
+            )}
+            {!isAdmin && (
+              <div className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold backdrop-blur-md border border-white/20 ${isOpen ? 'bg-green-500/30 text-green-100' : 'bg-red-500/30 text-red-100'}`}>
+                {isOpen ? <Clock size={12} className="mr-1.5" /> : <Lock size={12} className="mr-1.5" />}
+                {isTestApp ? 'Đã mở đăng ký (TestApp)' : regWindow.message}
+              </div>
+            )}
+            {isAdmin && (
+              <p className="text-blue-100 font-medium opacity-90 text-sm md:text-base max-w-lg">
+                Duyệt và sắp xếp ca làm việc.
+              </p>
+            )}
           </div>
-        )}
+          <div className="hidden md:block opacity-80 pl-4 relative z-10">
+            <CalendarCheck size={80} strokeWidth={1} />
+          </div>
+        </div>
 
         {/* Toggle Mode & Time Navigation for Admin */}
         {isAdmin && (
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-4 relative z-10 gap-3">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-6 relative z-10 gap-3 w-full">
             <div className="flex items-center space-x-3 bg-white/10 backdrop-blur-md p-1.5 rounded-xl border border-white/20">
               <button 
                 onClick={() => setViewMode('week')} 
@@ -399,7 +419,7 @@ export default function Schedule() {
               </button>
             </div>
             
-            <div className="flex items-center space-x-2 bg-indigo-900/30 backdrop-blur-md rounded-xl p-1.5 border border-indigo-500/30">
+            <div className="flex items-center space-x-2 bg-indigo-900/30 backdrop-blur-md rounded-xl p-1.5 border border-white/20">
               <button onClick={() => viewMode === 'week' ? changeWeek(-1) : changeMonth(-1)} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"><ChevronLeft size={18} /></button>
               <div className="text-sm font-bold px-2 min-w-[120px] text-center">
                 {viewMode === 'week' ? weekInfo.weekDisplay : `Tháng ${selectedMonth}/${selectedYear}`}
@@ -408,6 +428,10 @@ export default function Schedule() {
             </div>
           </div>
         )}
+        
+        {/* Background Decorations */}
+        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
+        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-blue-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
       </div>
 
       {isAdmin ? (

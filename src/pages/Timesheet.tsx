@@ -104,14 +104,25 @@ export default function Timesheet() {
 
   return (
     <div className="p-4 space-y-5 animate-slide-up pb-10">
-      <div className="bg-gradient-to-br from-indigo-500 to-blue-600 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
-        <div className="absolute right-0 top-0 opacity-10 text-8xl transform translate-x-4 -translate-y-4">
-          <CalendarClock size={100} />
+      {/* Header Banner */}
+      <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-700 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex items-center justify-between mb-6">
+        <div className="relative z-10">
+          <div className="flex items-center space-x-3 mb-2">
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
+              <CalendarClock size={20} className="text-white" />
+            </div>
+            <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Tổng Hợp Công</h2>
+          </div>
+          <p className="text-blue-100 font-medium opacity-90 text-sm md:text-base max-w-lg">
+            Tháng {month}/{year}
+          </p>
         </div>
-        <h2 className="text-2xl font-extrabold mb-1 tracking-tight relative z-10">Tổng Hợp Công</h2>
-        <p className="text-indigo-100 font-medium opacity-90 relative z-10 text-sm">
-          Tháng {month}/{year}
-        </p>
+        <div className="hidden md:block relative z-10 opacity-80">
+          <FileClock size={80} strokeWidth={1} />
+        </div>
+        {/* Background Decorations */}
+        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
+        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-blue-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
       </div>
 
       <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">

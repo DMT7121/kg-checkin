@@ -5,7 +5,7 @@ import KalmanFilter from '../utils/kalman';
 import { getDist, speak, getCurrentTimeString, computeWeekInfo, KG_LAT, KG_LNG, KG_RADIUS_METERS } from '../utils/helpers';
 import Swal from 'sweetalert2';
 import Swal from 'sweetalert2';
-import { MapPin, RefreshCw, CameraOff, Camera, RotateCcw, LogIn, LogOut } from 'lucide-react';
+import { MapPin, RefreshCw, CameraOff, Camera, RotateCcw, LogIn, LogOut, UserCheck } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import * as faceapi from 'face-api.js';
 
@@ -471,7 +471,28 @@ export default function CheckIn() {
   const canSubmit = !!(capturedImage && gps.isValid && gps.lat);
 
   return (
-    <div className="p-4 space-y-4 animate-fade-in">
+    <div className="p-4 space-y-4 animate-fade-in pb-10">
+      {/* Header Banner */}
+      <div className="bg-gradient-to-r from-emerald-500 via-green-600 to-teal-700 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex items-center justify-between mb-4">
+        <div className="relative z-10">
+          <div className="flex items-center space-x-3 mb-2">
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
+              <Camera size={20} className="text-white" />
+            </div>
+            <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Chấm công GPS</h2>
+          </div>
+          <p className="text-green-100 font-medium opacity-90 text-sm md:text-base max-w-lg">
+            Chụp ảnh minh chứng tại nhà hàng.
+          </p>
+        </div>
+        <div className="hidden md:block relative z-10 opacity-80">
+          <UserCheck size={80} strokeWidth={1} />
+        </div>
+        {/* Background Decorations */}
+        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
+        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-green-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
+      </div>
+
       {/* GPS Status Card */}
       <div className="bg-gradient-to-r from-ocean-600 to-ocean-500 rounded-3xl p-5 text-white shadow-lg shadow-ocean-500/20 relative overflow-hidden">
         <div className="absolute -right-4 -top-4 opacity-10 text-8xl transform rotate-12"><MapPin size={100} /></div>

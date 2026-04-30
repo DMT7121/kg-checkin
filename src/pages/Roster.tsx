@@ -256,12 +256,24 @@ export default function Roster() {
 
   return (
     <div className="p-4 animate-slide-up pb-10">
-      {/* Header */}
-      <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl p-6 text-white shadow-lg mb-6 relative overflow-hidden">
-        <div className="absolute right-0 top-0 opacity-10 text-8xl transform translate-x-4 -translate-y-4">
-          <CalendarDays size={100} />
+      {/* Header Banner */}
+      <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-600 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex flex-col mb-6">
+        <div className="flex items-center justify-between relative z-10 w-full">
+          <div>
+            <div className="flex items-center space-x-3 mb-2">
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
+                <CalendarRange size={20} className="text-white" />
+              </div>
+              <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Ma trận Xoay ca</h2>
+            </div>
+            <p className="text-purple-100 font-medium opacity-90 text-sm md:text-base max-w-lg">
+              Lịch làm việc toàn bộ nhân sự.
+            </p>
+          </div>
+          <div className="hidden md:block opacity-80 pl-4 relative z-10">
+            <CalendarDays size={80} strokeWidth={1} />
+          </div>
         </div>
-        <h2 className="text-2xl font-extrabold mb-1 tracking-tight relative z-10">Lịch Làm Chính Thức</h2>
         
         {/* Toggle Mode & Time Navigation */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-4 relative z-10 gap-3">
@@ -288,6 +300,10 @@ export default function Roster() {
             <button onClick={() => viewMode === 'week' ? changeWeek(1) : changeMonth(1)} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"><ChevronRight size={18} /></button>
           </div>
         </div>
+        
+        {/* Background Decorations */}
+        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
+        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-indigo-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
       </div>
 
       <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">

@@ -45,34 +45,45 @@ export default function Reward() {
   return (
     <div className="p-4 space-y-4 animate-fade-in pb-20">
       
-      {/* Header Profile */}
-      <div className="bg-gradient-to-br from-indigo-600 via-purple-600 to-fuchsia-600 rounded-3xl p-6 text-white shadow-lg shadow-purple-500/30 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl transform translate-x-10 -translate-y-10" />
-        <div className="relative z-10 flex items-center justify-between">
+      {/* Header Banner */}
+      <div className="bg-gradient-to-r from-yellow-400 via-amber-500 to-orange-500 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex flex-col mb-6">
+        <div className="flex items-center justify-between relative z-10 w-full">
           <div>
-            <p className="text-sm font-medium text-white/80 mb-1">Thành viên</p>
-            <h2 className="text-xl font-bold">{currentUser?.fullname || 'Nhân viên'}</h2>
+            <div className="flex items-center space-x-3 mb-2">
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
+                <Gift size={20} className="text-white" />
+              </div>
+              <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Khen thưởng</h2>
+            </div>
+            <p className="text-amber-100 font-medium opacity-90 text-sm md:text-base max-w-lg">
+              Tuyên dương nhân sự xuất sắc.
+            </p>
           </div>
-          <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 shadow-inner">
-            <Crown size={28} className="text-yellow-400" />
+          <div className="hidden md:block opacity-80 pl-4 relative z-10">
+            <Trophy size={80} strokeWidth={1} />
           </div>
         </div>
-        
-        <div className="mt-6 bg-black/20 backdrop-blur-md rounded-2xl p-4 border border-white/10 flex items-center justify-between">
+
+        {/* Points Card */}
+        <div className="mt-6 bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20 flex items-center justify-between relative z-10 w-full shadow-inner">
           <div>
-            <p className="text-xs text-white/70 font-medium mb-1 uppercase tracking-wider">King's Points</p>
+            <p className="text-xs text-white/90 font-medium mb-1 uppercase tracking-wider">King's Points</p>
             <div className="flex items-end gap-2">
               <span className="text-3xl font-black leading-none">{points}</span>
-              <span className="text-sm font-bold text-yellow-400 mb-1">🌟</span>
+              <span className="text-sm font-bold text-yellow-200 mb-1">🌟</span>
             </div>
           </div>
           <button 
             onClick={() => setActiveTab('shop')}
-            className="bg-white text-purple-700 font-bold px-4 py-2 rounded-xl text-sm shadow-md active:scale-95 transition-transform"
+            className="bg-white text-orange-600 hover:bg-orange-50 font-bold px-4 py-2 rounded-xl text-sm shadow-md active:scale-95 transition-all"
           >
             Đổi quà
           </button>
         </div>
+        
+        {/* Background Decorations */}
+        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
+        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-yellow-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
       </div>
 
       {/* Navigation Tabs */}

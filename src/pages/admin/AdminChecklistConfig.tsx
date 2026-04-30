@@ -109,6 +109,9 @@ export default function AdminChecklistConfig() {
         <div className="hidden md:block relative z-10 opacity-80">
           <ShieldCheck size={80} strokeWidth={1} />
         </div>
+        {/* Background Decorations */}
+        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
+        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-emerald-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">

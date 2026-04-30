@@ -36,13 +36,25 @@ export default function Training() {
 
   return (
     <div className="p-4 animate-slide-up pb-10">
-      {/* Header */}
-      <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-3xl p-6 text-white shadow-lg mb-6 relative overflow-hidden">
-        <div className="absolute right-0 top-0 opacity-10 text-8xl transform translate-x-4 -translate-y-4">
-          <GraduationCap size={100} />
+      {/* Header Banner */}
+      <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex items-center justify-between mb-6">
+        <div className="relative z-10">
+          <div className="flex items-center space-x-3 mb-2">
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
+              <GraduationCap size={20} className="text-white" />
+            </div>
+            <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Đào Tạo</h2>
+          </div>
+          <p className="text-amber-100 font-medium opacity-90 text-sm md:text-base max-w-lg">
+            Cập nhật kiến thức - Tích lũy King Coins.
+          </p>
         </div>
-        <h2 className="text-2xl font-extrabold mb-1 tracking-tight relative z-10">Đào Tạo</h2>
-        <p className="text-amber-100 font-medium opacity-90 relative z-10">Cập nhật kiến thức - Tích lũy King Coins</p>
+        <div className="hidden md:block relative z-10 opacity-80">
+          <BookOpen size={80} strokeWidth={1} />
+        </div>
+        {/* Background Decorations */}
+        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
+        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-amber-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
       </div>
 
       <h3 className="font-bold text-gray-800 dark:text-white mb-4 text-lg">📚 Tài liệu nội bộ</h3>

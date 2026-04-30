@@ -150,13 +150,25 @@ export default function SwapShift() {
 
   return (
     <div className="p-4 animate-slide-up">
-      {/* Header */}
-      <div className="bg-gradient-to-br from-teal-500 to-emerald-600 rounded-3xl p-6 text-white shadow-lg mb-6 relative overflow-hidden">
-        <div className="absolute right-0 top-0 opacity-10 text-8xl transform translate-x-4 -translate-y-4">
-          <ArrowLeftRight size={100} />
+      {/* Header Banner */}
+      <div className="bg-gradient-to-r from-teal-500 via-emerald-500 to-green-600 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex items-center justify-between mb-6">
+        <div className="relative z-10">
+          <div className="flex items-center space-x-3 mb-2">
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
+              <ArrowLeftRight size={20} className="text-white" />
+            </div>
+            <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Chợ Đổi Ca</h2>
+          </div>
+          <p className="text-teal-100 font-medium opacity-90 text-sm md:text-base max-w-lg">
+            Tìm người làm thay hoặc đổi ca nhanh chóng.
+          </p>
         </div>
-        <h2 className="text-2xl font-extrabold mb-1 tracking-tight relative z-10">Chợ Đổi Ca</h2>
-        <p className="text-teal-100 font-medium opacity-90 relative z-10">Tìm người làm thay hoặc đổi ca nhanh chóng</p>
+        <div className="hidden md:block relative z-10 opacity-80">
+          <ArrowLeftRight size={80} strokeWidth={1} />
+        </div>
+        {/* Background Decorations */}
+        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
+        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-teal-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
       </div>
 
       {/* Tabs Menu */}

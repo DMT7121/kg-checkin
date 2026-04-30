@@ -104,34 +104,44 @@ export default function Checklist() {
 
   return (
     <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900 animate-fade-in relative pb-24">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white shadow-md relative overflow-hidden shrink-0 rounded-b-3xl">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl transform translate-x-10 -translate-y-10"></div>
-        <div className="flex items-center space-x-3 relative z-10 mb-4">
-          <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
-            <ClipboardCheck size={24} className="text-white" />
-          </div>
+      {/* Header Banner */}
+      <div className="bg-gradient-to-r from-teal-500 via-emerald-600 to-green-700 rounded-b-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex flex-col shrink-0">
+        <div className="flex items-center justify-between relative z-10 w-full">
           <div>
-            <h2 className="text-xl font-bold">Checklist Hằng Ngày</h2>
-            <p className="text-xs text-blue-100 opacity-90">Nhiệm vụ theo ca làm việc</p>
+            <div className="flex items-center space-x-3 mb-2">
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
+                <CheckSquare size={20} className="text-white" />
+              </div>
+              <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Checklist Hằng Ngày</h2>
+            </div>
+            <p className="text-teal-100 font-medium opacity-90 text-sm md:text-base max-w-lg">
+              Nhiệm vụ phân công theo ca làm việc.
+            </p>
+          </div>
+          <div className="hidden md:block opacity-80 pl-4">
+            <ClipboardCheck size={80} strokeWidth={1} />
           </div>
         </div>
 
         {/* Progress */}
-        <div className="mt-4 bg-white/10 rounded-xl p-4 backdrop-blur-sm border border-white/10">
+        <div className="mt-6 bg-white/10 rounded-xl p-4 backdrop-blur-sm border border-white/20 relative z-10 w-full">
           <div className="flex justify-between items-center mb-2">
             <span className="text-sm font-semibold">Tiến độ ca làm</span>
-            <span className="text-sm font-bold bg-white text-blue-600 px-2 py-0.5 rounded-full">{progress}%</span>
+            <span className="text-sm font-bold bg-white text-teal-600 px-2 py-0.5 rounded-full">{progress}%</span>
           </div>
           <div className="h-2.5 bg-black/20 rounded-full overflow-hidden">
             <motion.div 
-              className="h-full bg-gradient-to-r from-green-400 to-emerald-400"
+              className="h-full bg-gradient-to-r from-green-300 to-emerald-300"
               initial={{ width: 0 }}
               animate={{ width: `${progress}%` }}
               transition={{ duration: 0.5 }}
             />
           </div>
         </div>
+        
+        {/* Background Decorations */}
+        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
+        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-teal-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
       </div>
 
       {/* Filters */}

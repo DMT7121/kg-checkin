@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import Swal from 'sweetalert2';
-import { MessageSquareWarning, Send, EyeOff, CheckCircle2, User, Clock, AlertCircle, CornerDownRight } from 'lucide-react';
+import { MessageSquareWarning, Send, EyeOff, CheckCircle2, User, Clock, AlertCircle, CornerDownRight, Mailbox } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Feedback() {
@@ -123,18 +123,25 @@ export default function Feedback() {
 
   return (
     <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900 animate-fade-in relative pb-6">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-6 pb-8 text-white shadow-md relative overflow-hidden shrink-0 rounded-b-3xl">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl transform translate-x-10 -translate-y-10"></div>
-        <div className="flex items-center space-x-3 relative z-10">
-          <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
-            <MessageSquareWarning size={24} className="text-white" />
+      {/* Header Banner */}
+      <div className="bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600 rounded-b-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex items-center justify-between shrink-0 mb-4">
+        <div className="relative z-10">
+          <div className="flex items-center space-x-3 mb-2">
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
+              <MessageSquareWarning size={20} className="text-white" />
+            </div>
+            <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Góp ý & Khiếu nại</h2>
           </div>
-          <div>
-            <h2 className="text-xl font-bold">Góp ý & Khiếu nại</h2>
-            <p className="text-xs text-purple-100 opacity-90">Kênh kết nối nhân viên và Quản lý</p>
-          </div>
+          <p className="text-blue-100 font-medium opacity-90 text-sm md:text-base max-w-lg">
+            Lắng nghe ý kiến từ nhân sự.
+          </p>
         </div>
+        <div className="hidden md:block relative z-10 opacity-80">
+          <Mailbox size={80} strokeWidth={1} />
+        </div>
+        {/* Background Decorations */}
+        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
+        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-blue-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
       </div>
 
       <div className="px-4 -mt-4 relative z-20 flex-1 flex flex-col overflow-hidden space-y-4">

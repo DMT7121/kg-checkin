@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
-import { Banknote, FileSpreadsheet, ChevronRight, Calculator, Download } from 'lucide-react';
+import { Banknote, FileSpreadsheet, ChevronRight, Calculator, Download, DollarSign, Receipt } from 'lucide-react';
 import Swal from 'sweetalert2';
 
 export default function Payroll() {
@@ -44,12 +44,25 @@ export default function Payroll() {
   if (isAdmin && !selectedUser) {
     return (
       <div className="p-4 space-y-5 animate-slide-up pb-10">
-        <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
-          <div className="absolute right-0 top-0 opacity-10 text-8xl transform translate-x-4 -translate-y-4">
-            <Banknote size={100} />
+        {/* Header Banner */}
+        <div className="bg-gradient-to-r from-green-500 via-emerald-600 to-teal-700 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex items-center justify-between mb-6">
+          <div className="relative z-10">
+            <div className="flex items-center space-x-3 mb-2">
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
+                <DollarSign size={20} className="text-white" />
+              </div>
+              <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Bảng Lương Toàn Quán</h2>
+            </div>
+            <p className="text-green-100 font-medium opacity-90 text-sm md:text-base max-w-lg">
+              Quản lý lương thưởng của toàn bộ nhân viên.
+            </p>
           </div>
-          <h2 className="text-2xl font-extrabold mb-1 tracking-tight relative z-10">Bảng Lương Toàn Quán</h2>
-          <p className="text-emerald-100 font-medium opacity-90 relative z-10 text-sm">Quản lý lương thưởng của toàn bộ nhân viên</p>
+          <div className="hidden md:block relative z-10 opacity-80">
+            <Receipt size={80} strokeWidth={1} />
+          </div>
+          {/* Background Decorations */}
+          <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
+          <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-green-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
         </div>
 
         <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
@@ -93,12 +106,25 @@ export default function Payroll() {
 
   return (
     <div className="p-4 space-y-5 animate-slide-up pb-10">
-      <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
-        <div className="absolute right-0 top-0 opacity-10 text-8xl transform translate-x-4 -translate-y-4">
-          <Banknote size={100} />
+      {/* Header Banner */}
+      <div className="bg-gradient-to-r from-green-500 via-emerald-600 to-teal-700 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex items-center justify-between mb-6">
+        <div className="relative z-10">
+          <div className="flex items-center space-x-3 mb-2">
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
+              <DollarSign size={20} className="text-white" />
+            </div>
+            <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Phiếu Lương</h2>
+          </div>
+          <p className="text-green-100 font-medium opacity-90 text-sm md:text-base max-w-lg">
+            Tháng này • {p.fullname}
+          </p>
         </div>
-        <h2 className="text-2xl font-extrabold mb-1 tracking-tight relative z-10">Phiếu Lương</h2>
-        <p className="text-emerald-100 font-medium opacity-90 relative z-10 text-sm">Tháng này • {p.fullname}</p>
+        <div className="hidden md:block relative z-10 opacity-80">
+          <Receipt size={80} strokeWidth={1} />
+        </div>
+        {/* Background Decorations */}
+        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
+        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-green-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
       </div>
 
       <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">

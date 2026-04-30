@@ -4,7 +4,7 @@ import { openPreview } from '../components/ImagePreview';
 import { speak, fetchWithRetry } from '../utils/helpers';
 import { escapeHtml } from '../utils/security';
 import Swal from 'sweetalert2';
-import { CalendarCheck, ShieldCheck, FileSpreadsheet, Bot, PackageOpen, Image as ImageIcon, CircleCheck, CircleAlert, Loader2, Users } from 'lucide-react';
+import { CalendarCheck, ShieldCheck, FileSpreadsheet, Bot, PackageOpen, Image as ImageIcon, CircleCheck, CircleAlert, Loader2, Users, History, ListTree } from 'lucide-react';
 
 export default function ActivityHistory() {
   const { logs, stats, currentUser, isUpdating, groqKeys, users } = useAppStore();
@@ -56,7 +56,28 @@ export default function ActivityHistory() {
   };
 
   return (
-    <div className="p-4 space-y-5 animate-slide-up">
+    <div className="p-4 space-y-5 animate-slide-up pb-10">
+      {/* Header Banner */}
+      <div className="bg-gradient-to-r from-slate-600 via-gray-600 to-zinc-700 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex items-center justify-between mb-6">
+        <div className="relative z-10">
+          <div className="flex items-center space-x-3 mb-2">
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
+              <History size={20} className="text-white" />
+            </div>
+            <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Lịch sử Hoạt động</h2>
+          </div>
+          <p className="text-gray-100 font-medium opacity-90 text-sm md:text-base max-w-lg">
+            Theo dõi chi tiết mọi thay đổi trên hệ thống.
+          </p>
+        </div>
+        <div className="hidden md:block relative z-10 opacity-80">
+          <ListTree size={80} strokeWidth={1} />
+        </div>
+        {/* Background Decorations */}
+        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
+        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-gray-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
+      </div>
+
       {/* Stats cards */}
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">

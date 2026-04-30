@@ -84,35 +84,48 @@ export default function SoldOut() {
 
   return (
     <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900 pb-20">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 shadow-sm p-4 sticky top-0 z-10">
-        <div className="flex justify-between items-center mb-4">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-              <UtensilsCrossed size={16} className="text-red-600 dark:text-red-400" />
+      {/* Header Banner */}
+      <div className="bg-gradient-to-r from-red-500 via-rose-500 to-red-700 rounded-b-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex flex-col mb-4 shrink-0">
+        <div className="flex items-center justify-between relative z-10 w-full mb-4">
+          <div>
+            <div className="flex items-center space-x-3 mb-2">
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
+                <UtensilsCrossed size={20} className="text-white" />
+              </div>
+              <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Món hết (86)</h2>
             </div>
-            <h2 className="text-lg font-bold text-gray-800 dark:text-white">Món hết (86)</h2>
+            <p className="text-red-100 font-medium opacity-90 text-sm md:text-base max-w-lg">
+              Cập nhật tình trạng nguyên liệu.
+            </p>
+          </div>
+          <div className="hidden md:block opacity-80 pl-4 relative z-10">
+            <UtensilsCrossed size={80} strokeWidth={1} />
+          </div>
+        </div>
+
+        <div className="flex justify-between items-center relative z-10 w-full gap-3">
+          <div className="relative flex-1">
+            <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/60" />
+            <input
+              type="text"
+              placeholder="Tìm món đang hết..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-black/20 border border-white/20 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white placeholder-white/60 focus:ring-2 focus:ring-white/50 transition outline-none backdrop-blur-md"
+            />
           </div>
           <button
             onClick={() => setIsAdding(!isAdding)}
-            className="flex items-center space-x-1 bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg font-medium text-sm transition shadow-sm"
+            className="flex items-center space-x-1 bg-white hover:bg-red-50 text-red-600 px-4 py-2.5 rounded-xl font-bold text-sm transition shadow-md whitespace-nowrap"
           >
-            <Plus size={16} />
+            <Plus size={18} className="mr-1" />
             <span>Báo hết</span>
           </button>
         </div>
 
-        {/* Search */}
-        <div className="relative">
-          <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Tìm món đang hết..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-gray-100 dark:bg-gray-700 border-none rounded-xl py-2.5 pl-10 pr-4 text-sm text-gray-800 dark:text-white focus:ring-2 focus:ring-red-500 transition outline-none"
-          />
-        </div>
+        {/* Background Decorations */}
+        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
+        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-red-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
       </div>
 
       {/* Add Form Dropdown */}

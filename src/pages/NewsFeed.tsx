@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Newspaper, Heart, MessageSquare, CheckCircle, Send, Edit3, Loader2 } from 'lucide-react';
+import { Newspaper, Heart, MessageSquare, CheckCircle, Send, Edit3, Loader2, Megaphone } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import Swal from 'sweetalert2';
@@ -114,13 +114,25 @@ export default function NewsFeed() {
 
   return (
     <div className="p-4 animate-slide-up pb-10">
-      {/* Header */}
-      <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl p-6 text-white shadow-lg mb-6 relative overflow-hidden">
-        <div className="absolute right-0 top-0 opacity-10 text-8xl transform translate-x-4 -translate-y-4">
-          <Newspaper size={100} />
+      {/* Header Banner */}
+      <div className="bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-600 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex items-center justify-between mb-6">
+        <div className="relative z-10">
+          <div className="flex items-center space-x-3 mb-2">
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
+              <Megaphone size={20} className="text-white" />
+            </div>
+            <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Bảng tin Nội bộ</h2>
+          </div>
+          <p className="text-violet-100 font-medium opacity-90 text-sm md:text-base max-w-lg">
+            Thông báo và tin tức quan trọng.
+          </p>
         </div>
-        <h2 className="text-2xl font-extrabold mb-1 tracking-tight relative z-10">Bảng Tin Thực Tế</h2>
-        <p className="text-indigo-100 font-medium opacity-90 relative z-10">Kết nối trực tiếp vào Database</p>
+        <div className="hidden md:block relative z-10 opacity-80">
+          <Newspaper size={80} strokeWidth={1} />
+        </div>
+        {/* Background Decorations */}
+        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
+        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-violet-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
       </div>
 
       {/* Admin Post Box */}
