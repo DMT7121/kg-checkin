@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Newspaper, Heart, MessageSquare, CheckCircle, Send, Edit3, Loader2, Megaphone } from 'lucide-react';
+import { Newspaper, Heart, MessageSquare, Send, Edit3, Loader2, Megaphone, Image as ImageIcon, X } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
+import { fileToBase64, uploadImageToDrive } from '../utils/helpers';
 import Swal from 'sweetalert2';
 
 export default function NewsFeed() {
@@ -11,6 +12,10 @@ export default function NewsFeed() {
   const [commentInput, setCommentInput] = useState('');
   const [newPostContent, setNewPostContent] = useState('');
   const [isPosting, setIsPosting] = useState(false);
+  
+  // Image Upload state
+  const [newPostImagePreview, setNewPostImagePreview] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   // Lấy dữ liệu bài đăng thực tế khi mở tab
   useEffect(() => {
@@ -87,8 +92,33 @@ export default function NewsFeed() {
     }, { background: true });
   };
 
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setUploadingImage(true);
+      const base64 = await fileToBase64(file);
+      setNewPostImagePreview(base64); // Show preview immediately
+
+      // Upload in background
+      const url = await uploadImageToDrive(base64, `newsfeed_${Date.now()}.webp`);
+      if (url) {
+        setNewPostImagePreview(url); // Replace preview with real URL
+      } else {
+        Swal.fire('Lỗi', 'Không thể tải ảnh lên. Vui lòng thử lại.', 'error');
+        setNewPostImagePreview(null);
+      }
+    } catch (err) {
+      console.error(err);
+      Swal.fire('Lỗi', 'Có lỗi xảy ra khi xử lý ảnh', 'error');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   const handleAddPost = async () => {
-    if (!newPostContent.trim()) return;
+    if (!newPostContent.trim() && !newPostImagePreview) return;
     setIsPosting(true);
     
     const content = newPostContent.trim();
@@ -96,11 +126,13 @@ export default function NewsFeed() {
     // Gọi API
     const res = await callApi('ADD_POST', {
       author: currentUser?.fullname || 'Admin',
-      content
+      content,
+      image: newPostImagePreview || ''
     });
 
     if (res?.ok) {
       setNewPostContent('');
+      setNewPostImagePreview(null);
       // Tải lại bài đăng để lấy ID chuẩn từ DB
       const reloadRes = await callApi('GET_POSTS', {});
       if (reloadRes?.ok) setPosts(reloadRes.data);
@@ -146,12 +178,35 @@ export default function NewsFeed() {
             onChange={(e) => setNewPostContent(e.target.value)}
             rows={3}
             placeholder="Bạn muốn thông báo điều gì cho toàn bộ quán?"
-            className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-800 dark:text-white resize-none"
+            className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-800 dark:text-white resize-none mb-3"
           />
-          <div className="flex justify-end mt-3">
+
+          {/* Image Preview */}
+          {newPostImagePreview && (
+            <div className="relative w-32 h-32 mb-3 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+              <img src={newPostImagePreview} alt="Preview" className="w-full h-full object-cover" />
+              <button 
+                onClick={() => setNewPostImagePreview(null)}
+                className="absolute top-1 right-1 bg-black/50 text-white rounded-full p-1 hover:bg-black/70 transition"
+              >
+                <X size={14} />
+              </button>
+              {uploadingImage && (
+                <div className="absolute inset-0 bg-white/50 dark:bg-black/50 flex items-center justify-center">
+                  <Loader2 size={20} className="animate-spin text-indigo-600" />
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex justify-between items-center mt-1">
+            <label className="cursor-pointer text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 p-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-full transition">
+              <input type="file" accept="image/*" className="hidden" onChange={handleImageSelect} disabled={uploadingImage} />
+              <ImageIcon size={20} />
+            </label>
             <button 
               onClick={handleAddPost}
-              disabled={isPosting || !newPostContent.trim()}
+              disabled={isPosting || uploadingImage || (!newPostContent.trim() && !newPostImagePreview)}
               className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-xl transition flex items-center disabled:opacity-50"
             >
               {isPosting ? <Loader2 size={16} className="animate-spin mr-2" /> : <Send size={16} className="mr-2" />}

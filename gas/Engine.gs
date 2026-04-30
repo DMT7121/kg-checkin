@@ -878,6 +878,7 @@ function handleGetPosts() {
       content: row[2],
       likes: row[3] ? JSON.parse(row[3]) : [],
       comments: row[4] ? JSON.parse(row[4]) : [],
+      image: row[5] || "",
       time: "Gần đây"
     });
   }
@@ -889,7 +890,7 @@ function handleAddPost(payload) {
   var sheet = ss.getSheetByName("Posts");
   if (!sheet) {
     sheet = ss.insertSheet("Posts");
-    sheet.appendRow(["ID", "Author", "Content", "Likes", "Comments"]);
+    sheet.appendRow(["ID", "Author", "Content", "Likes", "Comments", "Image"]);
   }
   
   var newId = new Date().getTime();
@@ -898,7 +899,8 @@ function handleAddPost(payload) {
     payload.author,
     payload.content,
     "[]", // Likes
-    "[]"  // Comments
+    "[]",  // Comments
+    payload.image || "" // Image URL
   ]);
   
   return jsonResponse(true, "Đã đăng bài");
