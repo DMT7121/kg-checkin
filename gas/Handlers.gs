@@ -423,10 +423,10 @@ function handleCheckInOut(payload) {
     // Calculate distance server-side using Haversine
     var gpsConfig = getGpsConfig();
     var R = 6371000; // Earth radius in meters
-    var dLat = (gpsConfig.LAT - payload.lat) * Math.PI / 180;
-    var dLon = (gpsConfig.LNG - payload.lng) * Math.PI / 180;
+    var dLat = (gpsConfig.lat - payload.lat) * Math.PI / 180;
+    var dLon = (gpsConfig.lng - payload.lng) * Math.PI / 180;
     var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(payload.lat * Math.PI / 180) * Math.cos(gpsConfig.LAT * Math.PI / 180) *
+            Math.cos(payload.lat * Math.PI / 180) * Math.cos(gpsConfig.lat * Math.PI / 180) *
             Math.sin(dLon / 2) * Math.sin(dLon / 2);
     var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     distMeters = Math.round(R * c);
@@ -434,7 +434,7 @@ function handleCheckInOut(payload) {
   
   // === COL E: XÁC MINH ===
   var gpsConfig = getGpsConfig();
-  var isValid = distMeters <= gpsConfig.MAX_DISTANCE_METERS;
+  var isValid = distMeters <= gpsConfig.radius;
   var xacMinh = isValid ? 'Hợp lệ' : 'Không hợp lệ';
   
   // === COL G: LINK HÌNH ẢNH ===
@@ -974,7 +974,17 @@ function getGpsConfig() {
     var stored = PropertiesService.getDocumentProperties().getProperty("GPS_CONFIG");
     if (stored) return JSON.parse(stored);
   } catch (e) {}
-  return CONFIG.LOCATION;
+  return { 
+    lat: CONFIG.LOCATION.LAT, 
+    lng: CONFIG.LOCATION.LNG, 
+    radius: CONFIG.LOCATION.MAX_DISTANCE_METERS,
+    shiftCodes: [
+      { id: 'standard', code: 'Ca tiêu chuẩn', description: '15:00, 17:00, 18:00, 19:00', type: 'standard' },
+      { id: 'off_admin', code: 'OFF#', description: 'Nghỉ phép (Được Admin duyệt)', type: 'admin' },
+      { id: 'off_penalty', code: 'OFF!', description: 'Nghỉ không phép (Bị phạt)', type: 'penalty' }
+    ],
+    registrationCloseTime: '17:00 Thứ Bảy'
+  };
 }
 
 function handleUpdateGpsConfig(payload) {
@@ -988,9 +998,11 @@ function handleUpdateGpsConfig(payload) {
     PropertiesService.getDocumentProperties().setProperty(
       "GPS_CONFIG",
       JSON.stringify({
-        LAT: Number(payload.lat),
-        LNG: Number(payload.lng),
-        MAX_DISTANCE_METERS: Number(payload.radius)
+        lat: Number(payload.lat),
+        lng: Number(payload.lng),
+        radius: Number(payload.radius),
+        shiftCodes: payload.shiftCodes || [],
+        registrationCloseTime: payload.registrationCloseTime || '17:00 Thứ Bảy'
       })
     );
     return jsonResponse(true, 'Cập nhật cấu hình GPS thành công');
@@ -1004,7 +1016,18 @@ function getOrgConfig() {
     var stored = PropertiesService.getDocumentProperties().getProperty("ORG_CONFIG");
     if (stored) return JSON.parse(stored);
   } catch (e) {}
-  return { name: "King's Grill", address: "Dĩ An, Bình Dương" };
+  return { 
+    name: "King's Grill", 
+    address: "Dĩ An, Bình Dương",
+    roles: [
+      { id: 'admin', name: 'Quản lý (Admin)', description: 'Toàn quyền truy cập Cấu hình', isDefault: true },
+      { id: 'staff', name: 'Nhân viên (Staff)', description: 'Chỉ xem và thao tác cá nhân', isDefault: false }
+    ],
+    orgStructure: [
+      { id: 'probation', name: 'Thử việc', salaryMultiplier: 0.8 },
+      { id: 'official', name: 'Chính thức', salaryMultiplier: 1.0 }
+    ]
+  };
 }
 
 function handleUpdateOrgConfig(payload) {
@@ -1016,7 +1039,9 @@ function handleUpdateOrgConfig(payload) {
       "ORG_CONFIG",
       JSON.stringify({
         name: payload.name || "King's Grill",
-        address: payload.address || "Dĩ An, Bình Dương"
+        address: payload.address || "Dĩ An, Bình Dương",
+        roles: payload.roles || [],
+        orgStructure: payload.orgStructure || []
       })
     );
     return jsonResponse(true, 'Cập nhật cấu hình Tổ chức thành công');
@@ -1033,7 +1058,14 @@ function getPayrollConfig() {
   return { 
     baseFormula: '(HOURS * RATE) + BONUS - PENALTY + ALLOWANCE',
     maxAdvancePercent: 50,
-    mealAllowance: 30000
+    mealAllowance: 30000,
+    allowances: [
+      { id: 'meal', name: 'Tiền ăn ca', description: 'Ca làm > 4 tiếng', amount: 20000 },
+      { id: 'parking', name: 'Gửi xe', description: 'Theo ngày làm việc', amount: 10000 }
+    ],
+    deductions: [
+      { id: 'late', name: 'Đi trễ', description: 'Trừ 10,000đ / 15 phút', amount: 10000 }
+    ]
   };
 }
 
@@ -1047,7 +1079,9 @@ function handleUpdatePayrollConfig(payload) {
       JSON.stringify({
         baseFormula: payload.baseFormula,
         maxAdvancePercent: Number(payload.maxAdvancePercent),
-        mealAllowance: Number(payload.mealAllowance)
+        mealAllowance: Number(payload.mealAllowance),
+        allowances: payload.allowances || [],
+        deductions: payload.deductions || []
       })
     );
     return jsonResponse(true, 'Cập nhật cấu hình Lương thành công');

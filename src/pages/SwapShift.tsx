@@ -173,6 +173,60 @@ export default function SwapShift() {
       {/* BOARD VIEW */}
       {viewTab === 'board' && (
         <div className="space-y-4">
+          
+          {/* Admin Approval Section */}
+          {currentUser?.role === 'admin' && swapRequests.filter(req => req.status === 'Pending_Admin').length > 0 && (
+            <div className="mb-8">
+              <h3 className="font-bold text-gray-800 dark:text-white mb-3 flex items-center">
+                <Inbox size={18} className="mr-2 text-ocean-600" /> Cần Admin Duyệt
+              </h3>
+              <div className="space-y-3">
+                {swapRequests.filter(req => req.status === 'Pending_Admin').map((req) => (
+                  <div key={req.id} className="bg-orange-50 dark:bg-orange-900/10 border border-orange-200 dark:border-orange-800 rounded-2xl p-4 shadow-sm animate-fade-in">
+                    <div className="mb-2">
+                      <span className="font-bold text-gray-800 dark:text-gray-200">{req.fullname}</span>
+                      <span className="text-gray-500 text-sm mx-1">muốn đổi ca</span>
+                      <span className="font-bold text-ocean-600 dark:text-ocean-400">{req.shift}</span>
+                      <span className="text-gray-500 text-sm mx-1">vào</span>
+                      <span className="font-bold text-gray-700 dark:text-gray-300">{req.dayName} ({req.date})</span>
+                    </div>
+                    <div className="bg-white dark:bg-gray-800 p-3 rounded-xl mb-3 text-sm border border-orange-100 dark:border-orange-800/50">
+                      <p className="mb-1"><span className="text-gray-500">Lý do:</span> {req.reason}</p>
+                      <p><span className="text-gray-500">Người nhận thay:</span> <span className="font-bold text-teal-600 dark:text-teal-400">{req.targetFullname}</span></p>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button onClick={() => {
+                        store.setLoading(true, 'Đang duyệt...');
+                        callApi('APPROVE_SWAP', { swapId: req.id, action: 'APPROVE' }).then(res => {
+                          store.setLoading(false);
+                          if (res?.ok) {
+                            Swal.fire('Đã duyệt', 'Ca làm đã được chuyển cho người nhận thay.', 'success');
+                            loadSwapRequests();
+                          }
+                        });
+                      }} className="flex-1 bg-teal-500 hover:bg-teal-600 text-white font-bold py-2.5 rounded-xl text-sm transition">
+                        Phê duyệt
+                      </button>
+                      <button onClick={() => {
+                        store.setLoading(true, 'Đang từ chối...');
+                        callApi('APPROVE_SWAP', { swapId: req.id, action: 'REJECT' }).then(res => {
+                          store.setLoading(false);
+                          if (res?.ok) {
+                            Swal.fire('Đã từ chối', 'Yêu cầu đổi ca bị hủy.', 'info');
+                            loadSwapRequests();
+                          }
+                        });
+                      }} className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-2.5 rounded-xl text-sm transition">
+                        Từ chối
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <h3 className="font-bold text-gray-800 dark:text-white mb-3">Tất cả bài đăng</h3>
           {swapRequests.length === 0 ? (
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 text-center border border-gray-100 dark:border-gray-700 shadow-sm">
               <Inbox size={48} className="mx-auto text-gray-300 dark:text-gray-600 mb-4" />

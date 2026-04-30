@@ -8,12 +8,22 @@ export default function AdminOrg() {
   const { serverOrgConfig, currentUser, setServerOrgConfig } = useAppStore();
   const [companyName, setCompanyName] = useState('King\'s Grill');
   const [companyAddress, setCompanyAddress] = useState('Dĩ An, Bình Dương');
+  const [roles, setRoles] = useState<any[]>([
+    { id: 'admin', name: 'Quản lý (Admin)', description: 'Toàn quyền truy cập Cấu hình', isDefault: true },
+    { id: 'staff', name: 'Nhân viên (Staff)', description: 'Chỉ xem và thao tác cá nhân', isDefault: false }
+  ]);
+  const [orgStructure, setOrgStructure] = useState<any[]>([
+    { id: 'probation', name: 'Thử việc', salaryMultiplier: 0.8 },
+    { id: 'official', name: 'Chính thức', salaryMultiplier: 1.0 }
+  ]);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (serverOrgConfig) {
-      setCompanyName(serverOrgConfig.name);
-      setCompanyAddress(serverOrgConfig.address);
+      setCompanyName(serverOrgConfig.name || 'King\'s Grill');
+      setCompanyAddress(serverOrgConfig.address || 'Dĩ An, Bình Dương');
+      if (serverOrgConfig.roles) setRoles(serverOrgConfig.roles);
+      if (serverOrgConfig.orgStructure) setOrgStructure(serverOrgConfig.orgStructure);
     }
   }, [serverOrgConfig]);
   
@@ -49,6 +59,56 @@ export default function AdminOrg() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleAddRole = async () => {
+    const { value: formValues } = await Swal.fire({
+      title: 'Thêm Role mới',
+      html: `
+        <input id="swal-input1" class="swal2-input" placeholder="Tên (VD: Trưởng ca)">
+        <input id="swal-input2" class="swal2-input" placeholder="Mô tả">
+      `,
+      focusConfirm: false,
+      showCancelButton: true,
+      preConfirm: () => {
+        return [
+          (document.getElementById('swal-input1') as HTMLInputElement).value,
+          (document.getElementById('swal-input2') as HTMLInputElement).value
+        ]
+      }
+    });
+    if (formValues && formValues[0]) {
+      setRoles([...roles, { id: 'role_' + Date.now(), name: formValues[0], description: formValues[1], isDefault: false }]);
+    }
+  };
+
+  const handleRemoveRole = (id: string) => {
+    setRoles(roles.filter(r => r.id !== id));
+  };
+
+  const handleAddOrg = async () => {
+    const { value: formValues } = await Swal.fire({
+      title: 'Thêm Loại nhân sự',
+      html: `
+        <input id="swal-input1" class="swal2-input" placeholder="Tên (VD: Part-time)">
+        <input id="swal-input2" class="swal2-input" type="number" step="0.1" placeholder="Hệ số lương (VD: 1.0)">
+      `,
+      focusConfirm: false,
+      showCancelButton: true,
+      preConfirm: () => {
+        return [
+          (document.getElementById('swal-input1') as HTMLInputElement).value,
+          (document.getElementById('swal-input2') as HTMLInputElement).value
+        ]
+      }
+    });
+    if (formValues && formValues[0]) {
+      setOrgStructure([...orgStructure, { id: 'org_' + Date.now(), name: formValues[0], salaryMultiplier: parseFloat(formValues[1]) || 1 }]);
+    }
+  };
+
+  const handleRemoveOrg = (id: string) => {
+    setOrgStructure(orgStructure.filter(o => o.id !== id));
   };
 
   return (
@@ -95,21 +155,20 @@ export default function AdminOrg() {
         </h3>
         
         <div className="space-y-3">
-          <div className="p-3 bg-ocean-50 dark:bg-ocean-900/10 rounded-xl border border-ocean-100 dark:border-ocean-800 flex justify-between items-center">
-            <div>
-              <p className="text-sm font-bold text-ocean-800 dark:text-ocean-400">Quản lý (Admin)</p>
-              <p className="text-[10px] text-ocean-600">Toàn quyền truy cập Cấu hình</p>
+          {roles.map((r, i) => (
+            <div key={r.id} className={`p-3 rounded-xl border flex justify-between items-center ${i === 0 ? 'bg-ocean-50 dark:bg-ocean-900/10 border-ocean-100 dark:border-ocean-800' : 'bg-gray-50 dark:bg-gray-900 border-gray-100 dark:border-gray-800'}`}>
+              <div>
+                <p className={`text-sm font-bold ${i === 0 ? 'text-ocean-800 dark:text-ocean-400' : 'text-gray-800 dark:text-gray-200'}`}>{r.name}</p>
+                <p className={`text-[10px] ${i === 0 ? 'text-ocean-600' : 'text-gray-500'}`}>{r.description}</p>
+              </div>
+              {r.isDefault ? (
+                <span className="text-[10px] bg-ocean-200 text-ocean-700 px-2 py-1 rounded font-bold">Mặc định</span>
+              ) : (
+                <button onClick={() => handleRemoveRole(r.id)} className="text-red-500 text-xs font-bold px-2 py-1 hover:underline">Xóa</button>
+              )}
             </div>
-            <span className="text-[10px] bg-ocean-200 text-ocean-700 px-2 py-1 rounded font-bold">Mặc định</span>
-          </div>
-          <div className="p-3 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 flex justify-between items-center">
-            <div>
-              <p className="text-sm font-bold text-gray-800 dark:text-gray-200">Nhân viên (Staff)</p>
-              <p className="text-[10px] text-gray-500">Chỉ xem và thao tác cá nhân</p>
-            </div>
-            <button className="text-ocean-600 text-xs font-bold px-2 py-1">Sửa</button>
-          </div>
-          <button className="w-full border-2 border-dashed border-gray-200 text-gray-500 font-bold py-2.5 rounded-lg text-sm transition hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800 flex items-center justify-center">
+          ))}
+          <button onClick={handleAddRole} className="w-full border-2 border-dashed border-gray-200 text-gray-500 font-bold py-2.5 rounded-lg text-sm transition hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800 flex items-center justify-center">
             + Thêm Role mới
           </button>
         </div>
@@ -122,20 +181,18 @@ export default function AdminOrg() {
         </h3>
         
         <div className="space-y-3">
-          <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800">
-            <div>
-              <p className="text-sm font-bold text-gray-800 dark:text-gray-200">Thử việc</p>
-              <p className="text-[10px] text-gray-500">Hệ số lương: 0.8</p>
+          {orgStructure.map((org, i) => (
+            <div key={org.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800">
+              <div>
+                <p className="text-sm font-bold text-gray-800 dark:text-gray-200">{org.name}</p>
+                <p className="text-[10px] text-gray-500">Hệ số lương: {org.salaryMultiplier}</p>
+              </div>
+              <button onClick={() => handleRemoveOrg(org.id)} className="text-red-500 text-xs font-bold px-2 py-1 hover:underline">Xóa</button>
             </div>
-            <button className="text-ocean-600 text-xs font-bold px-2 py-1">Sửa</button>
-          </div>
-          <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/10 rounded-xl border border-green-100 dark:border-green-800">
-            <div>
-              <p className="text-sm font-bold text-green-800 dark:text-green-400">Chính thức</p>
-              <p className="text-[10px] text-green-600">Hệ số lương: 1.0</p>
-            </div>
-            <button className="text-ocean-600 text-xs font-bold px-2 py-1">Sửa</button>
-          </div>
+          ))}
+          <button onClick={handleAddOrg} className="w-full border-2 border-dashed border-gray-200 text-gray-500 font-bold py-2.5 rounded-lg text-sm transition hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800 flex items-center justify-center mt-2">
+            + Thêm Loại nhân sự
+          </button>
         </div>
       </div>
 

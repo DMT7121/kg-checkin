@@ -10,13 +10,22 @@ export default function AdminPayroll() {
   const [advanceLimit, setAdvanceLimit] = useState('50');
   const [baseFormula, setBaseFormula] = useState('(HOURS * RATE) + BONUS - PENALTY + ALLOWANCE');
   const [mealAllowance, setMealAllowance] = useState('30000');
+  const [allowances, setAllowances] = useState<any[]>([
+    { id: 'meal', name: 'Tiền ăn ca', description: 'Ca làm > 4 tiếng', amount: 30000 },
+    { id: 'parking', name: 'Gửi xe', description: 'Theo ngày làm việc', amount: 10000 }
+  ]);
+  const [deductions, setDeductions] = useState<any[]>([
+    { id: 'late', name: 'Đi trễ', description: 'Trừ 10,000đ / 15 phút', amount: 10000 }
+  ]);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (serverPayrollConfig) {
-      setBaseFormula(serverPayrollConfig.baseFormula);
-      setAdvanceLimit(serverPayrollConfig.maxAdvancePercent.toString());
-      setMealAllowance(serverPayrollConfig.mealAllowance.toString());
+      setBaseFormula(serverPayrollConfig.baseFormula || '(HOURS * RATE) + BONUS - PENALTY + ALLOWANCE');
+      setAdvanceLimit(serverPayrollConfig.maxAdvancePercent?.toString() || '50');
+      setMealAllowance(serverPayrollConfig.mealAllowance?.toString() || '30000');
+      if (serverPayrollConfig.allowances) setAllowances(serverPayrollConfig.allowances);
+      if (serverPayrollConfig.deductions) setDeductions(serverPayrollConfig.deductions);
     }
   }, [serverPayrollConfig]);
   
@@ -46,15 +55,19 @@ export default function AdminPayroll() {
         role: currentUser.role,
         baseFormula,
         maxAdvancePercent: advanceLimit,
-        mealAllowance
+        mealAllowance,
+        allowances,
+        deductions
       });
       
       if (data && data.ok) {
         setServerPayrollConfig({ 
           baseFormula, 
           maxAdvancePercent: Number(advanceLimit), 
-          mealAllowance: Number(mealAllowance) 
-        });
+          mealAllowance: Number(mealAllowance),
+          allowances,
+          deductions
+        } as any);
         
         Swal.fire({
           icon: 'success',
@@ -76,6 +89,55 @@ export default function AdminPayroll() {
       setIsSaving(false);
     }
   };
+
+  const handleAddAllowance = async () => {
+    const { value: formValues } = await Swal.fire({
+      title: 'Thêm Phụ Cấp',
+      html: `
+        <input id="swal-input1" class="swal2-input" placeholder="Tên phụ cấp (VD: Xăng xe)">
+        <input id="swal-input2" class="swal2-input" placeholder="Mô tả">
+        <input id="swal-input3" class="swal2-input" type="number" placeholder="Số tiền (VNĐ)">
+      `,
+      focusConfirm: false,
+      showCancelButton: true,
+      preConfirm: () => {
+        return [
+          (document.getElementById('swal-input1') as HTMLInputElement).value,
+          (document.getElementById('swal-input2') as HTMLInputElement).value,
+          (document.getElementById('swal-input3') as HTMLInputElement).value
+        ]
+      }
+    });
+    if (formValues && formValues[0]) {
+      setAllowances([...allowances, { id: 'allowance_' + Date.now(), name: formValues[0], description: formValues[1], amount: Number(formValues[2]) || 0 }]);
+    }
+  };
+
+  const handleAddDeduction = async () => {
+    const { value: formValues } = await Swal.fire({
+      title: 'Thêm Khấu Trừ',
+      html: `
+        <input id="swal-input1" class="swal2-input" placeholder="Tên khấu trừ (VD: Quên Check-in)">
+        <input id="swal-input2" class="swal2-input" placeholder="Mô tả">
+        <input id="swal-input3" class="swal2-input" type="number" placeholder="Số tiền (VNĐ)">
+      `,
+      focusConfirm: false,
+      showCancelButton: true,
+      preConfirm: () => {
+        return [
+          (document.getElementById('swal-input1') as HTMLInputElement).value,
+          (document.getElementById('swal-input2') as HTMLInputElement).value,
+          (document.getElementById('swal-input3') as HTMLInputElement).value
+        ]
+      }
+    });
+    if (formValues && formValues[0]) {
+      setDeductions([...deductions, { id: 'deduction_' + Date.now(), name: formValues[0], description: formValues[1], amount: Number(formValues[2]) || 0 }]);
+    }
+  };
+
+  const handleRemoveAllowance = (id: string) => { setAllowances(allowances.filter(a => a.id !== id)); };
+  const handleRemoveDeduction = (id: string) => { setDeductions(deductions.filter(d => d.id !== id)); };
 
   return (
     <div className="p-4 space-y-4 animate-slide-up pb-10">
@@ -176,41 +238,49 @@ export default function AdminPayroll() {
           <div>
             <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Phụ cấp (Allowances)</h4>
             <div className="space-y-2">
-              <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-900 p-2.5 rounded-lg border border-gray-100 dark:border-gray-800">
-                <div>
-                  <p className="text-xs font-bold">Tiền ăn ca</p>
-                  <p className="text-[10px] text-gray-500">{Number(mealAllowance).toLocaleString()}đ / Ca làm {'>'} 4 tiếng</p>
+              {allowances.map(a => (
+                <div key={a.id} className="flex justify-between items-center bg-gray-50 dark:bg-gray-900 p-2.5 rounded-lg border border-gray-100 dark:border-gray-800">
+                  <div>
+                    <p className="text-xs font-bold">{a.name}</p>
+                    <p className="text-[10px] text-gray-500">{Number(a.amount).toLocaleString()}đ - {a.description}</p>
+                  </div>
+                  {!formulaLocked ? (
+                     <button onClick={() => handleRemoveAllowance(a.id)} className="text-red-500 hover:text-red-700 text-xs font-bold px-2 py-1">Xóa</button>
+                  ) : (
+                     <button className="text-ocean-600 hover:text-ocean-700"><Settings2 size={14} /></button>
+                  )}
                 </div>
-                {!formulaLocked ? (
-                   <input type="number" value={mealAllowance} onChange={(e) => setMealAllowance(e.target.value)} className="w-20 text-xs px-2 py-1 border rounded dark:bg-gray-800 dark:text-white" />
-                ) : (
-                   <button className="text-ocean-600 hover:text-ocean-700"><Settings2 size={14} /></button>
-                )}
-              </div>
-              <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-900 p-2.5 rounded-lg border border-gray-100 dark:border-gray-800">
-                <div>
-                  <p className="text-xs font-bold">Gửi xe</p>
-                  <p className="text-[10px] text-gray-500">10,000đ / Ngày</p>
-                </div>
-                <button className="text-ocean-600 hover:text-ocean-700"><Settings2 size={14} /></button>
-              </div>
+              ))}
             </div>
-            <button className="mt-2 text-xs text-ocean-600 font-bold flex items-center hover:underline">
-              <Plus size={12} className="mr-1" /> Thêm phụ cấp mới
-            </button>
+            {!formulaLocked && (
+              <button onClick={handleAddAllowance} className="mt-2 text-xs text-ocean-600 font-bold flex items-center hover:underline">
+                <Plus size={12} className="mr-1" /> Thêm phụ cấp mới
+              </button>
+            )}
           </div>
           
           <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
             <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Khấu trừ (Deductions)</h4>
             <div className="space-y-2">
-              <div className="flex justify-between items-center bg-red-50 dark:bg-red-900/10 p-2.5 rounded-lg border border-red-100 dark:border-red-900/30">
-                <div>
-                  <p className="text-xs font-bold text-red-700 dark:text-red-400">Đi trễ</p>
-                  <p className="text-[10px] text-red-600">Trừ 10,000đ / 15 phút</p>
+              {deductions.map(d => (
+                <div key={d.id} className="flex justify-between items-center bg-red-50 dark:bg-red-900/10 p-2.5 rounded-lg border border-red-100 dark:border-red-900/30">
+                  <div>
+                    <p className="text-xs font-bold text-red-700 dark:text-red-400">{d.name}</p>
+                    <p className="text-[10px] text-red-600">{Number(d.amount).toLocaleString()}đ - {d.description}</p>
+                  </div>
+                  {!formulaLocked ? (
+                     <button onClick={() => handleRemoveDeduction(d.id)} className="text-red-500 hover:text-red-700 text-xs font-bold px-2 py-1">Xóa</button>
+                  ) : (
+                     <button className="text-red-600 hover:text-red-700"><Settings2 size={14} /></button>
+                  )}
                 </div>
-                <button className="text-red-600 hover:text-red-700"><Settings2 size={14} /></button>
-              </div>
+              ))}
             </div>
+            {!formulaLocked && (
+              <button onClick={handleAddDeduction} className="mt-2 text-xs text-red-600 font-bold flex items-center hover:underline">
+                <Plus size={12} className="mr-1" /> Thêm khấu trừ mới
+              </button>
+            )}
           </div>
         </div>
       </div>

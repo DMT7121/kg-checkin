@@ -9,6 +9,12 @@ export default function AdminShift() {
   const [kgLat, setKgLat] = useState('10.9760826');
   const [kgLng, setKgLng] = useState('106.6646541');
   const [kgRadius, setKgRadius] = useState('25');
+  const [shiftCodes, setShiftCodes] = useState<any[]>([
+    { id: 'standard', code: 'Ca tiêu chuẩn', description: '15:00, 17:00, 18:00, 19:00', type: 'standard' },
+    { id: 'off_admin', code: 'OFF#', description: 'Nghỉ phép (Được Admin duyệt)', type: 'admin' },
+    { id: 'off_penalty', code: 'OFF!', description: 'Nghỉ không phép (Bị phạt)', type: 'penalty' }
+  ]);
+  const [registrationCloseTime, setRegistrationCloseTime] = useState('17:00 Thứ Bảy');
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -16,6 +22,8 @@ export default function AdminShift() {
       setKgLat(serverGpsConfig.lat.toString());
       setKgLng(serverGpsConfig.lng.toString());
       setKgRadius(serverGpsConfig.radius.toString());
+      if ((serverGpsConfig as any).shiftCodes) setShiftCodes((serverGpsConfig as any).shiftCodes);
+      if ((serverGpsConfig as any).registrationCloseTime) setRegistrationCloseTime((serverGpsConfig as any).registrationCloseTime);
     }
   }, [serverGpsConfig]);
 
@@ -28,15 +36,19 @@ export default function AdminShift() {
         role: currentUser.role,
         lat: kgLat,
         lng: kgLng,
-        radius: kgRadius
+        radius: kgRadius,
+        shiftCodes,
+        registrationCloseTime
       });
       
       if (data && data.ok) {
         setServerGpsConfig({
           lat: Number(kgLat),
           lng: Number(kgLng),
-          radius: Number(kgRadius)
-        });
+          radius: Number(kgRadius),
+          shiftCodes,
+          registrationCloseTime
+        } as any);
         
         Swal.fire({
           icon: 'success',
@@ -57,6 +69,37 @@ export default function AdminShift() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleAddShiftCode = async () => {
+    const { value: formValues } = await Swal.fire({
+      title: 'Thêm Mã Ca Làm',
+      html: `
+        <input id="swal-input1" class="swal2-input" placeholder="Mã Ca (VD: T7_SANG)">
+        <input id="swal-input2" class="swal2-input" placeholder="Mô tả">
+        <select id="swal-input3" class="swal2-select">
+          <option value="standard">Tiêu chuẩn</option>
+          <option value="admin">Admin cấp</option>
+          <option value="penalty">Phạt</option>
+        </select>
+      `,
+      focusConfirm: false,
+      showCancelButton: true,
+      preConfirm: () => {
+        return [
+          (document.getElementById('swal-input1') as HTMLInputElement).value,
+          (document.getElementById('swal-input2') as HTMLInputElement).value,
+          (document.getElementById('swal-input3') as HTMLSelectElement).value
+        ]
+      }
+    });
+    if (formValues && formValues[0]) {
+      setShiftCodes([...shiftCodes, { id: 'shift_' + Date.now(), code: formValues[0], description: formValues[1], type: formValues[2] }]);
+    }
+  };
+
+  const handleRemoveShiftCode = (id: string) => {
+    setShiftCodes(shiftCodes.filter(s => s.id !== id));
   };
 
   return (
@@ -117,35 +160,22 @@ export default function AdminShift() {
         </h3>
         
         <div className="space-y-3">
-          <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800">
-            <div>
-              <p className="text-sm font-bold text-gray-800 dark:text-gray-200">Ca tiêu chuẩn</p>
-              <p className="text-[10px] text-gray-500">15:00, 17:00, 18:00, 19:00</p>
-            </div>
-            <button className="text-ocean-600 text-xs font-bold bg-ocean-50 px-2 py-1 rounded">Sửa</button>
-          </div>
-          
-          <div className="flex items-center justify-between p-3 bg-orange-50 dark:bg-orange-900/10 rounded-xl border border-orange-100 dark:border-orange-800">
-            <div>
-              <div className="flex items-center space-x-2">
-                <p className="text-sm font-bold text-orange-800 dark:text-orange-400">OFF#</p>
-                <span className="text-[8px] bg-orange-200 text-orange-700 px-1.5 py-0.5 rounded font-bold">ADMIN ONLY</span>
+          {shiftCodes.map((s) => (
+            <div key={s.id} className={`flex items-center justify-between p-3 rounded-xl border ${s.type === 'standard' ? 'bg-gray-50 dark:bg-gray-900 border-gray-100 dark:border-gray-800' : s.type === 'admin' ? 'bg-orange-50 dark:bg-orange-900/10 border-orange-100 dark:border-orange-800' : 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-800'}`}>
+              <div>
+                <div className="flex items-center space-x-2">
+                  <p className={`text-sm font-bold ${s.type === 'standard' ? 'text-gray-800 dark:text-gray-200' : s.type === 'admin' ? 'text-orange-800 dark:text-orange-400' : 'text-red-800 dark:text-red-400'}`}>{s.code}</p>
+                  {s.type !== 'standard' && (
+                    <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold ${s.type === 'admin' ? 'bg-orange-200 text-orange-700' : 'bg-red-200 text-red-700'}`}>{s.type === 'admin' ? 'ADMIN ONLY' : 'PENALTY'}</span>
+                  )}
+                </div>
+                <p className={`text-[10px] ${s.type === 'standard' ? 'text-gray-500' : s.type === 'admin' ? 'text-orange-600' : 'text-red-600'}`}>{s.description}</p>
               </div>
-              <p className="text-[10px] text-orange-600">Nghỉ phép (Được Admin duyệt)</p>
+              <button onClick={() => handleRemoveShiftCode(s.id)} className="text-red-500 text-xs font-bold px-2 py-1 hover:underline">Xóa</button>
             </div>
-          </div>
+          ))}
 
-          <div className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-100 dark:border-red-800">
-            <div>
-              <div className="flex items-center space-x-2">
-                <p className="text-sm font-bold text-red-800 dark:text-red-400">OFF!</p>
-                <span className="text-[8px] bg-red-200 text-red-700 px-1.5 py-0.5 rounded font-bold">PENALTY</span>
-              </div>
-              <p className="text-[10px] text-red-600">Nghỉ không phép (Bị phạt)</p>
-            </div>
-          </div>
-
-          <button className="w-full border-2 border-dashed border-gray-200 text-gray-500 font-bold py-2.5 rounded-lg text-sm transition hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800 flex items-center justify-center mt-2">
+          <button onClick={handleAddShiftCode} className="w-full border-2 border-dashed border-gray-200 text-gray-500 font-bold py-2.5 rounded-lg text-sm transition hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800 flex items-center justify-center mt-2">
             + Thêm mã ca mới
           </button>
         </div>
@@ -161,11 +191,11 @@ export default function AdminShift() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-bold text-gray-800 dark:text-gray-200">Giờ đóng cổng tự động</p>
-              <p className="text-[10px] text-gray-500">17:00 Thứ Bảy hàng tuần</p>
+              <input type="text" value={registrationCloseTime} onChange={(e) => setRegistrationCloseTime(e.target.value)} className="w-full text-[10px] text-gray-500 bg-transparent border-b border-gray-300 dark:border-gray-600 focus:outline-none focus:border-ocean-500" />
             </div>
-            <div className="w-10 h-5 bg-ocean-500 rounded-full relative shadow-inner cursor-pointer">
-              <div className="w-4 h-4 bg-white rounded-full absolute right-0.5 top-0.5 shadow-sm"></div>
-            </div>
+            <button onClick={handleSaveGPS} disabled={isSaving} className="px-3 py-1 bg-ocean-100 text-ocean-600 font-bold text-xs rounded hover:bg-ocean-200 transition">
+              {isSaving ? 'Lưu...' : 'Lưu Tất cả'}
+            </button>
           </div>
         </div>
       </div>
