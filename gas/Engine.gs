@@ -1637,7 +1637,7 @@ function handleGetPayroll(payload) {
   for (var i = 1; i < usersData.length; i++) {
     if (!usersData[i][0]) continue;
     var uName = usersData[i][0].toString();
-    var fName = usersData[i][1].toString();
+    var fName = usersData[i][2].toString();
     
     if (!isAdmin && uName !== payload.username) continue;
     
