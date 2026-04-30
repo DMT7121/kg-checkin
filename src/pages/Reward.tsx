@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import { Award, Star, Gift, Trophy, Crown, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Award, Star, Gift, Trophy, Crown, CheckCircle2, AlertCircle, History } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { motion } from 'framer-motion';
 
