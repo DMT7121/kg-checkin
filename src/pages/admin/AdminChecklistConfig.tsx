@@ -112,21 +112,22 @@ export default function AdminChecklistConfig() {
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
-          <h3 className="font-bold text-gray-800 dark:text-gray-100 flex items-center">
+        <div className="flex flex-wrap items-center justify-between mb-6 gap-4">
+          <h3 className="font-bold text-gray-800 dark:text-gray-100 flex items-center min-w-0 pr-2 truncate">
             Danh sách Hạng mục ({items.length})
           </h3>
-          <div className="flex items-center gap-3 w-full sm:w-auto">
-            <button onClick={handleAdd} className="flex-1 sm:flex-none flex items-center justify-center bg-teal-50 text-teal-600 hover:bg-teal-100 px-4 py-2 rounded-xl font-bold text-sm transition-colors">
-              <Plus size={16} className="mr-1" /> Thêm Mới
+          <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+            <button onClick={handleAdd} className="flex-1 sm:flex-none flex items-center justify-center bg-teal-50 text-teal-600 hover:bg-teal-100 px-4 py-2 rounded-xl font-bold text-sm transition-colors whitespace-normal text-center min-w-[120px]">
+              <Plus size={16} className="mr-1 flex-shrink-0" /> 
+              <span>Thêm Mới</span>
             </button>
             <button 
               onClick={handleSaveAll} 
               disabled={isSaving}
-              className="flex-1 sm:flex-none flex items-center justify-center bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white px-4 py-2 rounded-xl font-bold text-sm transition-colors disabled:opacity-50"
+              className="flex-1 sm:flex-none flex items-center justify-center bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white px-4 py-2 rounded-xl font-bold text-sm transition-colors disabled:opacity-50 whitespace-normal text-center min-w-[140px]"
             >
-              {isSaving ? <Loader2 size={16} className="mr-1 animate-spin" /> : <Save size={16} className="mr-1" />} 
-              Lưu Cấu Hình
+              {isSaving ? <Loader2 size={16} className="mr-1 animate-spin flex-shrink-0" /> : <Save size={16} className="mr-1 flex-shrink-0" />} 
+              <span>Lưu Cấu Hình</span>
             </button>
           </div>
         </div>
