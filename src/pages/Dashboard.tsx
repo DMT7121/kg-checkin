@@ -23,6 +23,7 @@ import Checklist from './Checklist';
 import Handover from './Handover';
 import Feedback from './Feedback';
 import Admin from './Admin';
+import HrList from './admin/HrList';
 import AdminShift from './admin/AdminShift';
 import AdminOrg from './admin/AdminOrg';
 import AdminPayroll from './admin/AdminPayroll';
@@ -83,7 +84,7 @@ export default function Dashboard() {
       icon: Users,
       adminOnly: true,
       items: [
-        { id: 'hr_list', label: 'Danh sách nhân sự', icon: Briefcase, adminOnly: true, comingSoon: true },
+        { id: 'hr_list', label: 'Danh sách nhân sự', icon: Briefcase, adminOnly: true },
       ],
     },
     {
@@ -517,8 +518,9 @@ export default function Dashboard() {
             {currentTab === 'admin_shift' && <AdminShift />}
             {currentTab === 'admin_org' && <AdminOrg />}
             {currentTab === 'admin_payroll' && <AdminPayroll />}
+            {currentTab === 'hr_list' && <HrList />}
             {/* Coming Soon Pages */}
-            {['hr_list'].includes(currentTab) && (
+            {[]?.includes(currentTab) && (
               <div className="flex flex-col items-center justify-center h-full p-6 text-center mt-10">
                 <ComingSoonPage title={getPageTitle(currentTab)} />
               </div>

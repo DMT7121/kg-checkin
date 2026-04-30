@@ -41,7 +41,7 @@ function handleLogin(payload) {
         username: row[0],
         fullname: row[2],
         email: row[4] || '',
-        role: row[0].toString().toLowerCase() === 'admin' ? 'admin' : 'user'
+        role: row[5] ? row[5].toString() : (row[0].toString().toLowerCase() === 'admin' ? 'admin' : 'user')
       });
     }
   }
@@ -288,6 +288,32 @@ function handleForceResetPassword(payload) {
   
   if (updated) {
     return jsonResponse(true, 'Đã đặt lại mật khẩu thành công');
+  } else {
+    return jsonResponse(false, 'Không tìm thấy User này');
+  }
+}
+
+// 1B. CẬP NHẬT PHÂN QUYỀN (ROLE)
+function handleUpdateUserRole(payload) {
+  if (!payload || !payload.targetUsername || !payload.newRole) return jsonResponse(false, 'Thiếu thông tin');
+  
+  var ss = getSS();
+  var usersSheet = ss.getSheetByName(CONFIG.SHEET_USERS);
+  if (!usersSheet) return jsonResponse(false, 'Không tìm thấy DB Users');
+  
+  var usersData = usersSheet.getDataRange().getValues();
+  var updated = false;
+  
+  for (var j = 1; j < usersData.length; j++) {
+    if (usersData[j][0].toString().toLowerCase() === payload.targetUsername.toLowerCase()) {
+      usersSheet.getRange(j + 1, 6).setValue(payload.newRole); // Col 5 (F) is index 5, so column 6
+      updated = true;
+      break;
+    }
+  }
+  
+  if (updated) {
+    return jsonResponse(true, 'Cập nhật phân quyền thành công');
   } else {
     return jsonResponse(false, 'Không tìm thấy User này');
   }

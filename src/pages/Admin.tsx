@@ -157,31 +157,6 @@ export default function Admin() {
     }
   };
 
-  // === FORCE RESET PASSWORD ===
-  const handleForceReset = async (username: string, fullname: string) => {
-    const result = await Swal.fire({
-      title: 'Xác nhận Đổi mật khẩu',
-      html: `Bạn có chắc chắn muốn ép đổi mật khẩu của <b>${fullname}</b> về mặc định <b>Kg123456</b> không?`,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#dc2626',
-      cancelButtonColor: '#6b7280',
-      confirmButtonText: 'Đổi mật khẩu',
-      cancelButtonText: 'Hủy'
-    });
-
-    if (result.isConfirmed) {
-      store.setLoading(true, 'Đang đặt lại mật khẩu...');
-      const res = await callApi('FORCE_RESET_PASSWORD', { targetUsername: username });
-      store.setLoading(false);
-      
-      if (res?.ok) {
-        Swal.fire('Thành công', `Đã đặt lại mật khẩu cho ${fullname} thành Kg123456`, 'success');
-      } else {
-        Swal.fire('Lỗi', res?.message || 'Không thể đổi mật khẩu', 'error');
-      }
-    }
-  };
 
   // === LOCKED STATE ===
   if (!isAdminUnlocked) {
@@ -237,35 +212,7 @@ export default function Admin() {
         </div>
       </div>
 
-      {/* User Management */}
-      <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-        <h3 className="font-bold mb-4 border-b dark:border-gray-700 pb-2 flex items-center text-gray-800 dark:text-white">
-          <Users size={18} className="mr-2 text-ocean-600" /> Danh sách Nhân sự
-          {isUpdating && <Loader2 size={14} className="ml-2 text-ocean-500 animate-spin" />}
-        </h3>
-        <div className="space-y-3">
-          {users.map((user) => (
-            <div key={user.username} className="flex items-center justify-between text-sm py-2 px-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl min-h-[44px]">
-              <div className="flex items-center">
-                <div className="w-8 h-8 rounded-full bg-ocean-100 dark:bg-ocean-900 text-ocean-600 flex items-center justify-center font-bold text-xs mr-3">
-                  {user.fullname.charAt(0)}
-                </div>
-                <div>
-                  <span className="font-medium text-gray-800 dark:text-gray-200 block">{user.fullname}</span>
-                  <span className="text-[10px] text-gray-500 block">@{user.username}</span>
-                </div>
-              </div>
-              <button 
-                onClick={() => handleForceReset(user.username, user.fullname)}
-                className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-                title="Khôi phục mật khẩu"
-              >
-                <KeyRound size={16} />
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
+
     </div>
   );
 }
