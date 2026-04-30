@@ -110,7 +110,7 @@ export default function HrList() {
 
       {/* Main Content */}
       <div>
-        <div className="flex items-center justify-between mb-4 px-1">
+        <div className="flex flex-wrap items-center justify-between mb-4 px-1 gap-3">
           <h3 className="font-bold text-gray-800 dark:text-gray-100 text-lg flex items-center">
             <Briefcase size={20} className="mr-2 text-ocean-600" /> 
             Danh sách nhân viên ({users.length})

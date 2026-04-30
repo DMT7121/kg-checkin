@@ -164,13 +164,13 @@ export default function AdminPayroll() {
 
       {/* Dynamic Formula Builder */}
       <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-        <div className="flex justify-between items-center mb-4 border-b dark:border-gray-700 pb-2">
-          <h3 className="font-bold flex items-center text-gray-800 dark:text-white">
-            <MathIcon size={18} className="mr-2 text-ocean-600" /> Dynamic Formula Builder
+        <div className="flex flex-wrap justify-between items-center gap-3 mb-4 border-b dark:border-gray-700 pb-2">
+          <h3 className="font-bold flex items-center text-gray-800 dark:text-white min-w-0 pr-2">
+            <MathIcon size={18} className="mr-2 text-ocean-600 flex-shrink-0" /> <span className="truncate">Dynamic Formula Builder</span>
           </h3>
           <button 
             onClick={formulaLocked ? handleUnlockFormula : () => setFormulaLocked(true)} 
-            className={`p-2 rounded-lg transition-colors ${formulaLocked ? 'bg-gray-100 text-gray-500 hover:bg-gray-200' : 'bg-red-100 text-red-600 hover:bg-red-200'}`}
+            className={`p-2 rounded-lg transition-colors flex-shrink-0 ${formulaLocked ? 'bg-gray-100 text-gray-500 hover:bg-gray-200' : 'bg-red-100 text-red-600 hover:bg-red-200'}`}
           >
             {formulaLocked ? <Lock size={16} /> : <Unlock size={16} />}
           </button>
@@ -219,7 +219,7 @@ export default function AdminPayroll() {
         </h3>
         
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-gray-500 mb-1">Ngày chốt sổ (Hàng tháng)</label>
               <select className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500 dark:bg-gray-900 dark:border-gray-700 dark:text-white">
@@ -250,15 +250,15 @@ export default function AdminPayroll() {
             <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Phụ cấp (Allowances)</h4>
             <div className="space-y-2">
               {allowances.map(a => (
-                <div key={a.id} className="flex justify-between items-center bg-gray-50 dark:bg-gray-900 p-2.5 rounded-lg border border-gray-100 dark:border-gray-800">
-                  <div>
-                    <p className="text-xs font-bold">{a.name}</p>
-                    <p className="text-[10px] text-gray-500">{Number(a.amount).toLocaleString()}đ - {a.description}</p>
+                <div key={a.id} className="flex flex-wrap justify-between items-center gap-2 bg-gray-50 dark:bg-gray-900 p-2.5 rounded-lg border border-gray-100 dark:border-gray-800">
+                  <div className="min-w-0 pr-2">
+                    <p className="text-xs font-bold truncate">{a.name}</p>
+                    <p className="text-[10px] text-gray-500 truncate">{Number(a.amount).toLocaleString()}đ - {a.description}</p>
                   </div>
                   {!formulaLocked ? (
-                     <button onClick={() => handleRemoveAllowance(a.id)} className="text-red-500 hover:text-red-700 text-xs font-bold px-2 py-1">Xóa</button>
+                     <button onClick={() => handleRemoveAllowance(a.id)} className="text-red-500 hover:text-red-700 text-xs font-bold px-2 py-1 flex-shrink-0">Xóa</button>
                   ) : (
-                     <button className="text-ocean-600 hover:text-ocean-700"><Settings2 size={14} /></button>
+                     <button className="text-ocean-600 hover:text-ocean-700 flex-shrink-0"><Settings2 size={14} /></button>
                   )}
                 </div>
               ))}
@@ -274,15 +274,15 @@ export default function AdminPayroll() {
             <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Khấu trừ (Deductions)</h4>
             <div className="space-y-2">
               {deductions.map(d => (
-                <div key={d.id} className="flex justify-between items-center bg-red-50 dark:bg-red-900/10 p-2.5 rounded-lg border border-red-100 dark:border-red-900/30">
-                  <div>
-                    <p className="text-xs font-bold text-red-700 dark:text-red-400">{d.name}</p>
-                    <p className="text-[10px] text-red-600">{Number(d.amount).toLocaleString()}đ - {d.description}</p>
+                <div key={d.id} className="flex flex-wrap justify-between items-center gap-2 bg-red-50 dark:bg-red-900/10 p-2.5 rounded-lg border border-red-100 dark:border-red-900/30">
+                  <div className="min-w-0 pr-2">
+                    <p className="text-xs font-bold text-red-700 dark:text-red-400 truncate">{d.name}</p>
+                    <p className="text-[10px] text-red-600 truncate">{Number(d.amount).toLocaleString()}đ - {d.description}</p>
                   </div>
                   {!formulaLocked ? (
-                     <button onClick={() => handleRemoveDeduction(d.id)} className="text-red-500 hover:text-red-700 text-xs font-bold px-2 py-1">Xóa</button>
+                     <button onClick={() => handleRemoveDeduction(d.id)} className="text-red-500 hover:text-red-700 text-xs font-bold px-2 py-1 flex-shrink-0">Xóa</button>
                   ) : (
-                     <button className="text-red-600 hover:text-red-700"><Settings2 size={14} /></button>
+                     <button className="text-red-600 hover:text-red-700 flex-shrink-0"><Settings2 size={14} /></button>
                   )}
                 </div>
               ))}

@@ -132,7 +132,7 @@ export default function AdminShift() {
         </h3>
         
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-gray-500 mb-1">Vĩ độ (Latitude)</label>
               <input type="text" value={kgLat} onChange={e => setKgLat(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500 dark:bg-gray-900 dark:border-gray-700 dark:text-white" />
@@ -145,7 +145,7 @@ export default function AdminShift() {
 
           <div>
             <label className="block text-xs font-bold text-gray-500 mb-1">Bán kính hợp lệ (Meters)</label>
-            <div className="flex items-center space-x-2">
+            <div className="flex flex-wrap items-center gap-2">
               <input type="number" value={kgRadius} onChange={e => setKgRadius(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500 dark:bg-gray-900 dark:border-gray-700 dark:text-white" />
               <button className="bg-gray-100 text-gray-600 px-3 py-2 rounded-lg text-sm font-bold whitespace-nowrap hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300">
                 <Crosshair size={16} />
@@ -172,17 +172,17 @@ export default function AdminShift() {
         
         <div className="space-y-3">
           {shiftCodes.map((s) => (
-            <div key={s.id} className={`flex items-center justify-between p-3 rounded-xl border ${s.type === 'standard' ? 'bg-gray-50 dark:bg-gray-900 border-gray-100 dark:border-gray-800' : s.type === 'admin' ? 'bg-orange-50 dark:bg-orange-900/10 border-orange-100 dark:border-orange-800' : 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-800'}`}>
-              <div>
-                <div className="flex items-center space-x-2">
-                  <p className={`text-sm font-bold ${s.type === 'standard' ? 'text-gray-800 dark:text-gray-200' : s.type === 'admin' ? 'text-orange-800 dark:text-orange-400' : 'text-red-800 dark:text-red-400'}`}>{s.code}</p>
+            <div key={s.id} className={`flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl border ${s.type === 'standard' ? 'bg-gray-50 dark:bg-gray-900 border-gray-100 dark:border-gray-800' : s.type === 'admin' ? 'bg-orange-50 dark:bg-orange-900/10 border-orange-100 dark:border-orange-800' : 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-800'}`}>
+              <div className="min-w-0 pr-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className={`text-sm font-bold truncate ${s.type === 'standard' ? 'text-gray-800 dark:text-gray-200' : s.type === 'admin' ? 'text-orange-800 dark:text-orange-400' : 'text-red-800 dark:text-red-400'}`}>{s.code}</p>
                   {s.type !== 'standard' && (
-                    <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold ${s.type === 'admin' ? 'bg-orange-200 text-orange-700' : 'bg-red-200 text-red-700'}`}>{s.type === 'admin' ? 'ADMIN ONLY' : 'PENALTY'}</span>
+                    <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold flex-shrink-0 ${s.type === 'admin' ? 'bg-orange-200 text-orange-700' : 'bg-red-200 text-red-700'}`}>{s.type === 'admin' ? 'ADMIN ONLY' : 'PENALTY'}</span>
                   )}
                 </div>
-                <p className={`text-[10px] ${s.type === 'standard' ? 'text-gray-500' : s.type === 'admin' ? 'text-orange-600' : 'text-red-600'}`}>{s.description}</p>
+                <p className={`text-[10px] truncate ${s.type === 'standard' ? 'text-gray-500' : s.type === 'admin' ? 'text-orange-600' : 'text-red-600'}`}>{s.description}</p>
               </div>
-              <button onClick={() => handleRemoveShiftCode(s.id)} className="text-red-500 text-xs font-bold px-2 py-1 hover:underline">Xóa</button>
+              <button onClick={() => handleRemoveShiftCode(s.id)} className="text-red-500 text-xs font-bold px-2 py-1 hover:underline flex-shrink-0">Xóa</button>
             </div>
           ))}
 
@@ -199,12 +199,12 @@ export default function AdminShift() {
         </h3>
         
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-bold text-gray-800 dark:text-gray-200">Giờ đóng cổng tự động</p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0 pr-2">
+              <p className="text-sm font-bold text-gray-800 dark:text-gray-200 truncate">Giờ đóng cổng tự động</p>
               <input type="text" value={registrationCloseTime} onChange={(e) => setRegistrationCloseTime(e.target.value)} className="w-full text-[10px] text-gray-500 bg-transparent border-b border-gray-300 dark:border-gray-600 focus:outline-none focus:border-ocean-500" />
             </div>
-            <button onClick={handleSaveGPS} disabled={isSaving} className="px-3 py-1 bg-ocean-100 text-ocean-600 font-bold text-xs rounded hover:bg-ocean-200 transition">
+            <button onClick={handleSaveGPS} disabled={isSaving} className="px-3 py-1 bg-ocean-100 text-ocean-600 font-bold text-xs rounded hover:bg-ocean-200 transition flex-shrink-0">
               {isSaving ? 'Lưu...' : 'Lưu Tất cả'}
             </button>
           </div>

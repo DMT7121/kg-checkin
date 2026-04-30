@@ -146,9 +146,8 @@ export default function Timesheet() {
         </div>
 
         
-        {/* Nếu xem TẤT CẢ (Admin) -> Hiển thị Bảng Ma Trận */}
         {selectedUser === 'ALL' && isAdmin ? (
-          <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 custom-scrollbar">
+          <div className="overflow-x-auto w-full rounded-xl border border-gray-200 dark:border-gray-700 custom-scrollbar">
             <table className="w-full text-sm text-left">
               <thead className="bg-gray-50 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 uppercase text-xs">
                 <tr>

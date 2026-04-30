@@ -167,15 +167,15 @@ export default function AdminOrg() {
         
         <div className="space-y-3">
           {roles.map((r, i) => (
-            <div key={r.id} className={`p-3 rounded-xl border flex justify-between items-center ${i === 0 ? 'bg-ocean-50 dark:bg-ocean-900/10 border-ocean-100 dark:border-ocean-800' : 'bg-gray-50 dark:bg-gray-900 border-gray-100 dark:border-gray-800'}`}>
-              <div>
-                <p className={`text-sm font-bold ${i === 0 ? 'text-ocean-800 dark:text-ocean-400' : 'text-gray-800 dark:text-gray-200'}`}>{r.name}</p>
-                <p className={`text-[10px] ${i === 0 ? 'text-ocean-600' : 'text-gray-500'}`}>{r.description}</p>
+            <div key={r.id} className={`p-3 rounded-xl border flex flex-wrap justify-between items-center gap-2 ${i === 0 ? 'bg-ocean-50 dark:bg-ocean-900/10 border-ocean-100 dark:border-ocean-800' : 'bg-gray-50 dark:bg-gray-900 border-gray-100 dark:border-gray-800'}`}>
+              <div className="min-w-0 pr-2">
+                <p className={`text-sm font-bold truncate ${i === 0 ? 'text-ocean-800 dark:text-ocean-400' : 'text-gray-800 dark:text-gray-200'}`}>{r.name}</p>
+                <p className={`text-[10px] truncate ${i === 0 ? 'text-ocean-600' : 'text-gray-500'}`}>{r.description}</p>
               </div>
               {r.isDefault ? (
-                <span className="text-[10px] bg-ocean-200 text-ocean-700 px-2 py-1 rounded font-bold">Mặc định</span>
+                <span className="text-[10px] bg-ocean-200 text-ocean-700 px-2 py-1 rounded font-bold flex-shrink-0">Mặc định</span>
               ) : (
-                <button onClick={() => handleRemoveRole(r.id)} className="text-red-500 text-xs font-bold px-2 py-1 hover:underline">Xóa</button>
+                <button onClick={() => handleRemoveRole(r.id)} className="text-red-500 text-xs font-bold px-2 py-1 hover:underline flex-shrink-0">Xóa</button>
               )}
             </div>
           ))}
@@ -193,12 +193,12 @@ export default function AdminOrg() {
         
         <div className="space-y-3">
           {orgStructure.map((org, i) => (
-            <div key={org.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800">
-              <div>
-                <p className="text-sm font-bold text-gray-800 dark:text-gray-200">{org.name}</p>
-                <p className="text-[10px] text-gray-500">Hệ số lương: {org.salaryMultiplier}</p>
+            <div key={org.id} className="flex flex-wrap items-center justify-between gap-2 p-3 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800">
+              <div className="min-w-0 pr-2">
+                <p className="text-sm font-bold text-gray-800 dark:text-gray-200 truncate">{org.name}</p>
+                <p className="text-[10px] text-gray-500 truncate">Hệ số lương: {org.salaryMultiplier}</p>
               </div>
-              <button onClick={() => handleRemoveOrg(org.id)} className="text-red-500 text-xs font-bold px-2 py-1 hover:underline">Xóa</button>
+              <button onClick={() => handleRemoveOrg(org.id)} className="text-red-500 text-xs font-bold px-2 py-1 hover:underline flex-shrink-0">Xóa</button>
             </div>
           ))}
           <button onClick={handleAddOrg} className="w-full border-2 border-dashed border-gray-200 text-gray-500 font-bold py-2.5 rounded-lg text-sm transition hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800 flex items-center justify-center mt-2">

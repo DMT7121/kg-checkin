@@ -145,7 +145,7 @@ export default function Roster() {
   };
 
   return (
-      <div className="overflow-x-auto bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 pb-10">
+      <div className="overflow-x-auto w-full bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 pb-10">
         <table className="w-full text-sm text-left whitespace-nowrap">
           <thead className="text-[10px] text-gray-500 dark:text-gray-400 uppercase bg-gray-100 dark:bg-gray-800/80 border-b border-gray-200 dark:border-gray-700">
             <tr>
@@ -214,7 +214,7 @@ export default function Roster() {
     });
 
     return (
-      <div className="overflow-x-auto bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 pb-10 custom-scrollbar">
+      <div className="overflow-x-auto w-full bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 pb-10 custom-scrollbar">
         <table className="w-full text-sm text-left whitespace-nowrap">
           <thead className="text-[10px] text-gray-500 dark:text-gray-400 uppercase bg-gray-100 dark:bg-gray-800/80 border-b border-gray-200 dark:border-gray-700">
             <tr>

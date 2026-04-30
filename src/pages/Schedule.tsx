@@ -434,7 +434,7 @@ export default function Schedule() {
               
           {viewMode === 'week' && (
             <>
-<div className="overflow-x-auto bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 mb-4 pb-20 custom-scrollbar">
+              <div className="overflow-x-auto w-full bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 mb-4 pb-20 custom-scrollbar">
                 <table className="w-full text-sm text-left whitespace-nowrap">
                   <thead className="text-xs text-gray-700 dark:text-gray-300 uppercase bg-gray-200 dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700">
                     <tr>
@@ -516,7 +516,7 @@ export default function Schedule() {
           )}
 
           {viewMode === 'month' && (
-            <div className="overflow-x-auto bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 mb-4 pb-20 custom-scrollbar">
+            <div className="overflow-x-auto w-full bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 mb-4 pb-20 custom-scrollbar">
               {(() => {
                 const empMonthMap: Record<string, Record<string, string>> = {};
                 monthData?.forEach(week => {
