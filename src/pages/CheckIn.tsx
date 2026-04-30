@@ -182,7 +182,8 @@ export default function CheckIn() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const targetWidth = 600, targetHeight = 800;
+    // Tối ưu cho iOS: Độ phân giải 480x640, chuẩn JPEG (iOS cũ không hỗ trợ WebP)
+    const targetWidth = 480, targetHeight = 640;
     canvas.width = targetWidth; canvas.height = targetHeight;
     const vw = video.videoWidth, vh = video.videoHeight;
     const canvasRatio = targetWidth / targetHeight, videoRatio = vw / vh;
@@ -218,7 +219,8 @@ export default function CheckIn() {
     ctx.fillText(displayAddr, 30, targetHeight - 25);
     
     ctx.shadowBlur = 0;
-    store.setCapturedImage(canvas.toDataURL('image/webp', 0.7));
+    // Bắt buộc dùng image/jpeg để tương thích 100% iOS và giảm dung lượng payload
+    store.setCapturedImage(canvas.toDataURL('image/jpeg', 0.6));
     store.setCapturedTime(exactTime);
   };
 
@@ -233,7 +235,8 @@ export default function CheckIn() {
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
-        const targetWidth = 600, targetHeight = 800;
+        // Tối ưu cho iOS
+        const targetWidth = 480, targetHeight = 640;
         canvas.width = targetWidth; canvas.height = targetHeight;
         const vw = img.width, vh = img.height;
         const canvasRatio = targetWidth / targetHeight, imgRatio = vw / vh;
@@ -264,7 +267,7 @@ export default function CheckIn() {
         ctx.fillText(displayAddr, 30, targetHeight - 25);
         
         ctx.shadowBlur = 0;
-        store.setCapturedImage(canvas.toDataURL('image/webp', 0.7));
+        store.setCapturedImage(canvas.toDataURL('image/jpeg', 0.6));
         store.setCapturedTime(exactTime);
       };
       img.src = event.target?.result as string;
@@ -388,7 +391,7 @@ export default function CheckIn() {
         store.removeFirstLog();
         if (type === 'Vào ca') store.setStats({ ...store.stats, totalCheckIn: store.stats.totalCheckIn - 1 });
         speak('Lỗi đồng bộ dữ liệu, vui lòng kiểm tra mạng');
-        Swal.fire('Lỗi đồng bộ', 'Không thể kết nối máy chủ hoặc mạng quá yếu. Vui lòng thử lại!', 'error');
+        Swal.fire('Lỗi đồng bộ', res?.message || 'Không thể kết nối máy chủ.', 'error');
       }
     });
   };
