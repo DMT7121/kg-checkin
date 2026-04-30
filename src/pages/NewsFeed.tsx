@@ -5,7 +5,7 @@ import { callApi } from '../services/api';
 import Swal from 'sweetalert2';
 
 export default function NewsFeed() {
-  const { currentUser, posts, setPosts } = useAppStore();
+  const { currentUser, news: posts, setNews: setPosts } = useAppStore();
   const [loading, setLoading] = useState(false);
   const [activeCommentPostId, setActiveCommentPostId] = useState<number | null>(null);
   const [commentInput, setCommentInput] = useState('');
