@@ -88,7 +88,7 @@ export default function AdminChecklistConfig() {
   };
 
   const POSITIONS = ['Tất cả', 'Phục vụ', 'Tổ trưởng', 'Quản lý', 'Thu ngân', 'Bếp', 'Pha chế', 'Tạp vụ', 'Bảo vệ'];
-  const SHIFTS = ['Tất cả', 'Sáng', 'Chiều', 'Tối', 'Khuya'];
+  const SHIFTS = ['Tất cả', '15:00', '17:00', '18:00', '19:00', 'OFF'];
   const FREQUENCIES = ['Hàng ngày', 'Hàng tuần', 'Hàng tháng'];
 
   return (

@@ -7,12 +7,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Checklist() {
   const store = useAppStore();
-  const { currentUser, checklists } = store;
+  const { currentUser, checklistItems } = store;
   const [loading, setLoading] = useState(true);
   
   // Filters
   const [shiftFilter, setShiftFilter] = useState<string>('All');
-  const [departmentFilter, setDepartmentFilter] = useState<string>('All');
   const [positionFilter, setPositionFilter] = useState<string>('All');
 
   // Local state for checked tasks
@@ -21,18 +20,9 @@ export default function Checklist() {
   const fetchChecklists = async () => {
     setLoading(true);
     try {
-      const res = await callApi('GET_CHECKLISTS', {}, { background: true });
+      const res = await callApi('GET_CHECKLIST_CONFIG', {}, { background: true });
       if (res?.ok && res.data) {
-        store.setChecklists(res.data);
-      } else {
-        // Fallback / Mock data if API is not yet ready
-        store.setChecklists([
-          { id: 'C_01', shift: '15:00', department: 'Phục vụ', position: 'Nhân viên', taskName: 'Lau dọn bàn ghế khu vực ngoài trời', points: 1, isActive: true },
-          { id: 'C_02', shift: '15:00', department: 'Phục vụ', position: 'Nhân viên', taskName: 'Set up gia vị, khăn giấy', points: 1, isActive: true },
-          { id: 'C_03', shift: 'All', department: 'Pha chế', position: 'Nhân viên', taskName: 'Kiểm tra máy pha cafe, đá viên', points: 1, isActive: true },
-          { id: 'C_04', shift: '17:00', department: 'Phục vụ', position: 'Quản lý', taskName: 'Kiểm tra tiền lẻ thối (Quỹ đầu ca)', points: 2, isActive: true },
-          { id: 'C_05', shift: '17:00', department: 'All', position: 'All', taskName: 'Kiểm tra vệ sinh chung toàn quán', points: 1, isActive: true },
-        ]);
+        store.setChecklistItems(res.data);
       }
     } catch (err) {
       console.error(err);
@@ -42,10 +32,19 @@ export default function Checklist() {
   };
 
   useEffect(() => {
-    fetchChecklists();
-    // Try to auto-detect position based on role
-    if (currentUser?.role === 'admin') setPositionFilter('Quản lý');
-    else setPositionFilter('Nhân viên');
+    if (checklistItems.length === 0) {
+      fetchChecklists();
+    } else {
+      setLoading(false);
+    }
+    // Auto-detect position based on currentUser position
+    if (currentUser?.position) {
+      setPositionFilter(currentUser.position);
+    } else if (currentUser?.role === 'admin') {
+      setPositionFilter('Tất cả');
+    } else {
+      setPositionFilter('Phục vụ');
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -94,12 +93,11 @@ export default function Checklist() {
   };
 
   // Filter logic
-  const filteredLists = checklists.filter(item => {
+  const filteredLists = checklistItems.filter(item => {
     if (!item.isActive) return false;
-    const matchShift = item.shift === 'All' || shiftFilter === 'All' || item.shift === shiftFilter;
-    const matchDept = item.department === 'All' || departmentFilter === 'All' || item.department === departmentFilter;
-    const matchPos = item.position === 'All' || positionFilter === 'All' || item.position === positionFilter;
-    return matchShift && matchDept && matchPos;
+    const matchShift = item.targetShift === 'Tất cả' || shiftFilter === 'All' || item.targetShift === shiftFilter;
+    const matchPos = item.targetPosition === 'Tất cả' || positionFilter === 'Tất cả' || positionFilter === 'All' || item.targetPosition === positionFilter;
+    return matchShift && matchPos;
   });
 
   const progress = filteredLists.length > 0 ? Math.round((checkedIds.size / filteredLists.length) * 100) : 0;
@@ -146,21 +144,10 @@ export default function Checklist() {
             {/* Shift Filter */}
             <div className="flex items-center space-x-2 overflow-x-auto pb-1 no-scrollbar">
               <Clock size={16} className="text-gray-400 shrink-0" />
-              {['All', '15:00', '17:00'].map(s => (
+              {['All', '15:00', '17:00', '18:00', '19:00', 'OFF'].map(s => (
                 <button key={s} onClick={() => setShiftFilter(s)}
                   className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${shiftFilter === s ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 border border-blue-200 dark:border-blue-800' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 border border-transparent'}`}>
-                  {s === 'All' ? 'Tất cả ca' : `Ca ${s}`}
-                </button>
-              ))}
-            </div>
-
-            {/* Department Filter */}
-            <div className="flex items-center space-x-2 overflow-x-auto pb-1 no-scrollbar">
-              <BadgeCheck size={16} className="text-gray-400 shrink-0" />
-              {['All', 'Phục vụ', 'Pha chế', 'Bếp'].map(d => (
-                <button key={d} onClick={() => setDepartmentFilter(d)}
-                  className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${departmentFilter === d ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400 border border-orange-200 dark:border-orange-800' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 border border-transparent'}`}>
-                  {d === 'All' ? 'Mọi bộ phận' : d}
+                  {s === 'All' ? 'Tất cả ca' : (s === 'OFF' ? 'OFF' : `Ca ${s}`)}
                 </button>
               ))}
             </div>
@@ -168,7 +155,7 @@ export default function Checklist() {
             {/* Position Filter */}
             <div className="flex items-center space-x-2 overflow-x-auto pb-1 no-scrollbar">
               <User size={16} className="text-gray-400 shrink-0" />
-              {['All', 'Nhân viên', 'Quản lý'].map(p => (
+              {['All', 'Phục vụ', 'Tổ trưởng', 'Quản lý', 'Thu ngân', 'Bếp', 'Pha chế', 'Tạp vụ', 'Bảo vệ'].map(p => (
                 <button key={p} onClick={() => setPositionFilter(p)}
                   className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${positionFilter === p ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400 border border-purple-200 dark:border-purple-800' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 border border-transparent'}`}>
                   {p === 'All' ? 'Mọi chức vụ' : p}
@@ -216,8 +203,11 @@ export default function Checklist() {
                         {item.taskName}
                       </p>
                       <div className="flex flex-wrap gap-1 mt-2">
-                        {item.shift !== 'All' && <span className="text-[10px] font-medium bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-300 px-2 py-0.5 rounded-full">Ca {item.shift}</span>}
-                        {item.department !== 'All' && <span className="text-[10px] font-medium bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 px-2 py-0.5 rounded-full">{item.department}</span>}
+                        {item.targetShift !== 'Tất cả' && <span className="text-[10px] font-medium bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-300 px-2 py-0.5 rounded-full">Ca {item.targetShift}</span>}
+                        {item.targetPosition !== 'Tất cả' && <span className="text-[10px] font-medium bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 px-2 py-0.5 rounded-full">{item.targetPosition}</span>}
+                        {item.bonusPoints > 0 && <span className="text-[10px] font-bold bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded-full">+{item.bonusPoints}đ</span>}
+                        {item.penaltyPoints > 0 && <span className="text-[10px] font-bold bg-red-100 text-red-600 px-2 py-0.5 rounded-full">-{item.penaltyPoints}đ</span>}
+                        {item.isRequired && <span className="text-[10px] font-bold border border-red-300 text-red-500 px-2 py-0.5 rounded-full">Bắt buộc</span>}
                       </div>
                     </div>
                   </div>
