@@ -8,7 +8,7 @@ import {
   LayoutDashboard, UtensilsCrossed, MessageSquareWarning,
   ClipboardCheck, Repeat, CalendarDays, History,
   CalendarClock, Banknote, BadgeDollarSign, Award, ChevronDown,
-  Settings, Briefcase, CheckSquare, Users, KeyRound, CalendarRange, DollarSign
+  Settings, Briefcase, CheckSquare, Users, KeyRound, CalendarRange, DollarSign, Building2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CheckIn from './CheckIn';
