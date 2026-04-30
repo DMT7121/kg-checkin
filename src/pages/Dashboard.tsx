@@ -8,7 +8,7 @@ import {
   LayoutDashboard, UtensilsCrossed, MessageSquareWarning,
   ClipboardCheck, Repeat, CalendarDays, History,
   CalendarClock, Banknote, BadgeDollarSign, Award, ChevronDown,
-  Settings, Briefcase, CheckSquare, Users, KeyRound
+  Settings, Briefcase, CheckSquare, Users, KeyRound, CalendarRange, DollarSign
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CheckIn from './CheckIn';
@@ -27,6 +27,7 @@ import HrList from './admin/HrList';
 import AdminShift from './admin/AdminShift';
 import AdminOrg from './admin/AdminOrg';
 import AdminPayroll from './admin/AdminPayroll';
+import AdminChecklistConfig from './admin/AdminChecklistConfig';
 import Advance from './Advance';
 import Discipline from './Discipline';
 import Payroll from './Payroll';
@@ -128,8 +129,9 @@ export default function Dashboard() {
       items: [
         { id: 'admin', label: 'Quản trị chung', icon: ShieldAlert, adminOnly: true },
         { id: 'admin_org', label: 'Tổ chức & Quyền', icon: KeyRound, adminOnly: true },
-        { id: 'admin_shift', label: 'Ca làm & Chấm công', icon: Clock3, adminOnly: true },
-        { id: 'admin_payroll', label: 'Lương & Phúc lợi', icon: Banknote, adminOnly: true },
+        { id: 'admin_shift', label: 'Cấu hình phân ca', icon: CalendarRange, adminOnly: true },
+        { id: 'admin_payroll', label: 'Cấu hình lương thưởng', icon: DollarSign, adminOnly: true },
+        { id: 'admin_checklist', label: 'Cấu hình Checklist', icon: ClipboardCheck, adminOnly: true },
       ],
     },
   ];
@@ -518,6 +520,7 @@ export default function Dashboard() {
             {currentTab === 'admin_shift' && <AdminShift />}
             {currentTab === 'admin_org' && <AdminOrg />}
             {currentTab === 'admin_payroll' && <AdminPayroll />}
+            {currentTab === 'admin_checklist' && <AdminChecklistConfig />}
             {currentTab === 'hr_list' && <HrList />}
             {/* Coming Soon Pages */}
             {[]?.includes(currentTab) && (

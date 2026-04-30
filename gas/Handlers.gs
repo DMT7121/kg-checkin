@@ -1967,3 +1967,77 @@ function handleGetScheduleHistory(payload) {
   
   return jsonResponse(true, history);
 }
+
+// =======================================================
+// CHECKLIST MODULE CONFIG
+// =======================================================
+
+function handleGetChecklistConfig(payload) {
+  var ss = getSS();
+  var sheet = ss.getSheetByName(CONFIG.SHEET_CHECKLIST_CONFIG);
+  if (!sheet) return jsonResponse(true, []);
+  
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return jsonResponse(true, []);
+  
+  var items = [];
+  for (var i = 1; i < data.length; i++) {
+    items.push({
+      id: data[i][0] ? data[i][0].toString() : '',
+      taskName: data[i][1] ? data[i][1].toString() : '',
+      bonusPoints: Number(data[i][2]) || 0,
+      penaltyPoints: Number(data[i][3]) || 0,
+      targetPosition: data[i][4] ? data[i][4].toString() : '',
+      targetShift: data[i][5] ? data[i][5].toString() : '',
+      inspectorUsername: data[i][6] ? data[i][6].toString() : '',
+      inspectorFullname: data[i][7] ? data[i][7].toString() : '',
+      isActive: data[i][8] !== false && data[i][8] !== 'FALSE', // default true
+      isRequired: data[i][9] === true || data[i][9] === 'TRUE',
+      frequency: data[i][10] ? data[i][10].toString() : 'Daily'
+    });
+  }
+  return jsonResponse(true, items);
+}
+
+function handleSaveChecklistConfig(payload) {
+  if (!payload || !payload.items) return jsonResponse(false, 'Thiếu dữ liệu');
+  
+  var ss = getSS();
+  var sheet = ss.getSheetByName(CONFIG.SHEET_CHECKLIST_CONFIG);
+  if (!sheet) {
+    sheet = ss.insertSheet(CONFIG.SHEET_CHECKLIST_CONFIG);
+    var headers = ['ID', 'Hạng mục', 'Điểm thưởng', 'Điểm phạt', 'Chức vụ', 'Ca', 'Mã NKT', 'Tên NKT', 'Kích hoạt', 'Bắt buộc', 'Tần suất'];
+    sheet.appendRow(headers);
+    sheet.getRange(1, 1, 1, headers.length).setBackground('#3b82f6').setFontColor('white').setFontWeight('bold');
+    sheet.setFrozenRows(1);
+  } else {
+    var lastRow = sheet.getLastRow();
+    if (lastRow > 1) {
+      sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).clearContent();
+    }
+  }
+  
+  var items = payload.items;
+  if (items.length > 0) {
+    var writeData = [];
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i];
+      writeData.push([
+        it.id || Utilities.getUuid(),
+        it.taskName || '',
+        it.bonusPoints || 0,
+        it.penaltyPoints || 0,
+        it.targetPosition || 'Tất cả',
+        it.targetShift || 'Tất cả',
+        it.inspectorUsername || '',
+        it.inspectorFullname || '',
+        it.isActive !== false,
+        it.isRequired === true,
+        it.frequency || 'Daily'
+      ]);
+    }
+    sheet.getRange(2, 1, writeData.length, writeData[0].length).setValues(writeData);
+  }
+  
+  return jsonResponse(true, 'Đã lưu cấu hình Checklist');
+}

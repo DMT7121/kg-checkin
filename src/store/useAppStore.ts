@@ -93,12 +93,16 @@ export interface SwapRequest {
 
 export interface ChecklistItem {
   id: string;
-  shift: string;
-  department: string;
-  position: string;
-  taskName: string;
-  points: number;
+  taskName: string;         // Hạng mục công việc
+  bonusPoints: number;      // Điểm cộng (khi hoàn thành tốt)
+  penaltyPoints: number;    // Điểm trừ (khi vi phạm/không làm)
+  targetPosition: string;   // Chức vụ đảm nhận (VD: Phục vụ, Bếp...)
+  targetShift: string;      // Ca đảm nhận (VD: Ca Sáng, Ca Tối, Tất cả)
+  inspectorUsername: string;// Tài khoản người kiểm tra
+  inspectorFullname: string;// Tên người kiểm tra
   isActive: boolean;
+  isRequired: boolean;      // Bắt buộc hay Không bắt buộc
+  frequency?: string;       // Tần suất (Daily, Weekly...)
 }
 
 export interface ChecklistLog {
@@ -185,7 +189,8 @@ interface AppState {
   hasNewSwaps: boolean;
   advances: AdvanceRequest[];
   bonusPenalties: BonusPenaltyRecord[];
-  payroll: PayrollRecord[];
+  payrollData: PayrollRecord[];
+  checklistItems: ChecklistItem[];
   timesheetData: TimesheetData | null;
   isCheckInOutCompleted: boolean;
   checklists: ChecklistItem[];
@@ -257,7 +262,8 @@ interface AppState {
   setAdvances: (advances: AdvanceRequest[]) => void;
   addAdvance: (advance: AdvanceRequest) => void;
   setBonusPenalties: (records: BonusPenaltyRecord[]) => void;
-  setPayroll: (payroll: PayrollRecord[]) => void;
+  setPayrollData: (data: PayrollRecord[]) => void;
+  setChecklistItems: (items: ChecklistItem[]) => void;
   setTimesheetData: (data: TimesheetData | null) => void;
   setCheckInOutCompleted: (completed: boolean) => void;
   removeSwapRequest: (id: string) => void;
@@ -303,7 +309,8 @@ export const useAppStore = create<AppState>((set) => ({
   hasNewSwaps: false,
   advances: [],
   bonusPenalties: [],
-  payroll: [],
+  payrollData: [],
+  checklistItems: [],
   timesheetData: null,
   isCheckInOutCompleted: false,
   checklists: [],
@@ -348,7 +355,8 @@ export const useAppStore = create<AppState>((set) => ({
   setAdvances: (advances) => set({ advances }),
   addAdvance: (advance) => set((state) => ({ advances: [advance, ...state.advances] })),
   setBonusPenalties: (records) => set({ bonusPenalties: records }),
-  setPayroll: (payroll) => set({ payroll }),
+  setPayrollData: (data) => set({ payrollData: data }),
+  setChecklistItems: (items) => set({ checklistItems: items }),
   setTimesheetData: (data) => set({ timesheetData: data }),
   setCheckInOutCompleted: (completed) => set({ isCheckInOutCompleted: completed }),
   setServerGpsConfig: (config) => set({ serverGpsConfig: config }),
