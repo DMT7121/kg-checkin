@@ -224,15 +224,25 @@ export default function Dashboard() {
     const recentLogs = logs.slice(0, 3);
     return (
       <div className="p-4 space-y-4">
-        {/* Welcome banner */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-ocean-600 via-blue-600 to-purple-700 p-5 text-white shadow-xl">
-          <div className="absolute -right-6 -top-6 w-28 h-28 rounded-full bg-white/10 blur-sm" />
-          <div className="absolute -left-4 -bottom-4 w-20 h-20 rounded-full bg-white/5" />
+        {/* Header Banner */}
+        <div className="bg-gradient-to-r from-ocean-600 via-blue-600 to-indigo-700 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex items-center justify-between mb-2">
           <div className="relative z-10">
-            <p className="text-sm text-white/70 font-medium">Xin chào 👋</p>
-            <h2 className="text-xl font-bold mt-1 tracking-tight">{currentUser?.fullname || 'Nhân viên'}</h2>
-            <p className="text-xs text-white/60 mt-1">{store.shiftName} • {store.currentTime}</p>
+            <div className="flex items-center space-x-3 mb-2">
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
+                <span className="text-xl">👋</span>
+              </div>
+              <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Xin chào, {currentUser?.fullname || 'Nhân viên'}</h2>
+            </div>
+            <p className="text-ocean-100 font-medium opacity-90 text-sm md:text-base max-w-lg">
+              {store.shiftName} • {store.currentTime}
+            </p>
           </div>
+          <div className="hidden md:block relative z-10 opacity-80 pl-4">
+            <Building2 size={80} strokeWidth={1} />
+          </div>
+          {/* Background Decorations */}
+          <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
+          <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-ocean-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
         </div>
 
         {/* Quick stats */}
