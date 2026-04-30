@@ -26,6 +26,7 @@ import Admin from './Admin';
 import Advance from './Advance';
 import Discipline from './Discipline';
 import Payroll from './Payroll';
+import Reward from './Reward';
 import Timesheet from './Timesheet';
 
 // ============================================
@@ -102,7 +103,8 @@ export default function Dashboard() {
         { id: 'timesheet', label: 'Tổng hợp công', icon: CalendarClock },
         { id: 'advance', label: 'Ứng lương', icon: BadgeDollarSign },
         { id: 'payroll', label: 'Bảng lương', icon: Banknote },
-        { id: 'discipline', label: 'Kỷ luật - Khen thưởng', icon: Award },
+        { id: 'discipline', label: 'Kỷ luật - Nhắc nhở', icon: ShieldAlert },
+        { id: 'reward', label: 'Đãi ngộ & Vinh danh', icon: Award, showBadge: true },
       ],
     },
     {
@@ -490,6 +492,7 @@ export default function Dashboard() {
             {currentTab === 'advance' && <Advance />}
             {currentTab === 'discipline' && <Discipline />}
             {currentTab === 'payroll' && <Payroll />}
+            {currentTab === 'reward' && <Reward />}
             {currentTab === 'timesheet' && <Timesheet />}
             {currentTab === 'history' && <ActivityHistory />}
             {currentTab === 'admin' && <Admin />}
