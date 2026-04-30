@@ -441,15 +441,26 @@ function handleCheckInOut(payload) {
   var imageUrl = '';
   if (payload.image) {
     try {
-      var folder = DriveApp.getFolderById(CONFIG.FOLDER_ID);
+      // Decode base64
+      var base64Data = payload.image.split(',')[1];
       var blob = Utilities.newBlob(
-        Utilities.base64Decode(payload.image.split(',')[1]),
+        Utilities.base64Decode(base64Data),
         'image/webp',
         payload.fullname + '_' + time.getTime() + '.webp'
       );
+      
+      // Upload using DriveApp
+      var folder = DriveApp.getFolderById(CONFIG.FOLDER_ID);
       var file = folder.createFile(blob);
-      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
       imageUrl = file.getUrl();
+      
+      // Tách riêng setSharing vào try-catch để tránh lỗi nếu Google Workspace chặn chia sẻ ra bên ngoài (Lỗi phổ biến nhất gây 'Lỗi ảnh')
+      try {
+        file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      } catch (eShare) {
+        Logger.log('Cảnh báo phân quyền: ' + eShare.message);
+        // Vẫn giữ được imageUrl thay vì gán thành 'Lỗi ảnh'
+      }
     } catch (e) {
       Logger.log('Lỗi upload ảnh: ' + e.message);
       imageUrl = 'Lỗi ảnh';
@@ -932,12 +943,46 @@ function sendCheckInEmail(payload, timeObj, loc, imgUrl, distMeters, isValid) {
 // 3. GET DATA - New 8-column format
 // Col A(0): HỌ VÀ TÊN | Col B(1): LOẠI | Col C(2): THỜI GIAN | Col D(3): VỊ TRÍ
 // Col E(4): XÁC MINH | Col F(5): KHOẢNG CÁCH | Col G(6): LINK ẢNH | Col H(7): DATA JSON
-function getGpsConfig() {
+function getConfigFromSheet(key, defaultValue) {
   try {
-    var stored = PropertiesService.getDocumentProperties().getProperty("GPS_CONFIG");
-    if (stored) return JSON.parse(stored);
-  } catch (e) {}
-  return { 
+    var ss = getSS();
+    var sheet = ss.getSheetByName(CONFIG.SHEET_CONFIG);
+    if (!sheet) return defaultValue;
+    var data = sheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][0] === key) {
+        if (data[i][1]) return JSON.parse(data[i][1]);
+      }
+    }
+  } catch (e) {
+    Logger.log("Error getting config " + key + ": " + e.message);
+  }
+  return defaultValue;
+}
+
+function saveConfigToSheet(key, valueObj) {
+  var ss = getSS();
+  var sheet = ss.getSheetByName(CONFIG.SHEET_CONFIG);
+  if (!sheet) {
+    sheet = ss.insertSheet(CONFIG.SHEET_CONFIG);
+    sheet.appendRow(["Key", "Value (JSON)"]);
+    sheet.getRange(1, 1, 1, 2).setFontWeight("bold").setBackground("#f3f4f6");
+    sheet.setColumnWidth(1, 150);
+    sheet.setColumnWidth(2, 600);
+    sheet.setFrozenRows(1);
+  }
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0] === key) {
+      sheet.getRange(i + 1, 2).setValue(JSON.stringify(valueObj, null, 2));
+      return;
+    }
+  }
+  sheet.appendRow([key, JSON.stringify(valueObj, null, 2)]);
+}
+
+function getGpsConfig() {
+  return getConfigFromSheet("GPS_CONFIG", { 
     lat: CONFIG.LOCATION.LAT, 
     lng: CONFIG.LOCATION.LNG, 
     radius: CONFIG.LOCATION.MAX_DISTANCE_METERS,
@@ -947,7 +992,7 @@ function getGpsConfig() {
       { id: 'off_penalty', code: 'OFF!', description: 'Nghỉ không phép (Bị phạt)', type: 'penalty' }
     ],
     registrationCloseTime: '17:00 Thứ Bảy'
-  };
+  });
 }
 
 function handleUpdateGpsConfig(payload) {
@@ -958,16 +1003,13 @@ function handleUpdateGpsConfig(payload) {
     return jsonResponse(false, 'Thiếu thông tin cấu hình GPS');
   }
   try {
-    PropertiesService.getDocumentProperties().setProperty(
-      "GPS_CONFIG",
-      JSON.stringify({
-        lat: Number(payload.lat),
-        lng: Number(payload.lng),
-        radius: Number(payload.radius),
-        shiftCodes: payload.shiftCodes || [],
-        registrationCloseTime: payload.registrationCloseTime || '17:00 Thứ Bảy'
-      })
-    );
+    saveConfigToSheet("GPS_CONFIG", {
+      lat: Number(payload.lat),
+      lng: Number(payload.lng),
+      radius: Number(payload.radius),
+      shiftCodes: payload.shiftCodes || [],
+      registrationCloseTime: payload.registrationCloseTime || '17:00 Thứ Bảy'
+    });
     return jsonResponse(true, 'Cập nhật cấu hình GPS thành công');
   } catch (e) {
     return jsonResponse(false, 'Lỗi hệ thống: ' + e.message);
@@ -975,11 +1017,7 @@ function handleUpdateGpsConfig(payload) {
 }
 
 function getOrgConfig() {
-  try {
-    var stored = PropertiesService.getDocumentProperties().getProperty("ORG_CONFIG");
-    if (stored) return JSON.parse(stored);
-  } catch (e) {}
-  return { 
+  return getConfigFromSheet("ORG_CONFIG", { 
     name: "King's Grill", 
     address: "Dĩ An, Bình Dương",
     roles: [
@@ -990,7 +1028,7 @@ function getOrgConfig() {
       { id: 'probation', name: 'Thử việc', salaryMultiplier: 0.8 },
       { id: 'official', name: 'Chính thức', salaryMultiplier: 1.0 }
     ]
-  };
+  });
 }
 
 function handleUpdateOrgConfig(payload) {
@@ -998,15 +1036,12 @@ function handleUpdateOrgConfig(payload) {
     return jsonResponse(false, 'Không có quyền thực hiện chức năng này');
   }
   try {
-    PropertiesService.getDocumentProperties().setProperty(
-      "ORG_CONFIG",
-      JSON.stringify({
-        name: payload.name || "King's Grill",
-        address: payload.address || "Dĩ An, Bình Dương",
-        roles: payload.roles || [],
-        orgStructure: payload.orgStructure || []
-      })
-    );
+    saveConfigToSheet("ORG_CONFIG", {
+      name: payload.name || "King's Grill",
+      address: payload.address || "Dĩ An, Bình Dương",
+      roles: payload.roles || [],
+      orgStructure: payload.orgStructure || []
+    });
     return jsonResponse(true, 'Cập nhật cấu hình Tổ chức thành công');
   } catch (e) {
     return jsonResponse(false, 'Lỗi hệ thống: ' + e.message);
@@ -1014,11 +1049,7 @@ function handleUpdateOrgConfig(payload) {
 }
 
 function getPayrollConfig() {
-  try {
-    var stored = PropertiesService.getDocumentProperties().getProperty("PAYROLL_CONFIG");
-    if (stored) return JSON.parse(stored);
-  } catch (e) {}
-  return { 
+  return getConfigFromSheet("PAYROLL_CONFIG", { 
     baseFormula: '(HOURS * RATE) + BONUS - PENALTY + ALLOWANCE',
     maxAdvancePercent: 50,
     mealAllowance: 30000,
@@ -1029,7 +1060,7 @@ function getPayrollConfig() {
     deductions: [
       { id: 'late', name: 'Đi trễ', description: 'Trừ 10,000đ / 15 phút', amount: 10000 }
     ]
-  };
+  });
 }
 
 function handleUpdatePayrollConfig(payload) {
@@ -1037,16 +1068,13 @@ function handleUpdatePayrollConfig(payload) {
     return jsonResponse(false, 'Không có quyền thực hiện chức năng này');
   }
   try {
-    PropertiesService.getDocumentProperties().setProperty(
-      "PAYROLL_CONFIG",
-      JSON.stringify({
-        baseFormula: payload.baseFormula,
-        maxAdvancePercent: Number(payload.maxAdvancePercent),
-        mealAllowance: Number(payload.mealAllowance),
-        allowances: payload.allowances || [],
-        deductions: payload.deductions || []
-      })
-    );
+    saveConfigToSheet("PAYROLL_CONFIG", {
+      baseFormula: payload.baseFormula,
+      maxAdvancePercent: Number(payload.maxAdvancePercent),
+      mealAllowance: Number(payload.mealAllowance),
+      allowances: payload.allowances || [],
+      deductions: payload.deductions || []
+    });
     return jsonResponse(true, 'Cập nhật cấu hình Lương thành công');
   } catch (e) {
     return jsonResponse(false, 'Lỗi hệ thống: ' + e.message);

@@ -109,10 +109,10 @@ export default function Roster() {
 
   const renderUserMonthView = () => {
     const empMonthMap: Record<string, Record<string, string>> = {};
-    monthData.forEach(week => {
-      week.schedules.forEach((emp: any) => {
+    monthData?.forEach(week => {
+      week?.schedules?.forEach((emp: any) => {
         if (!empMonthMap[emp.fullname]) empMonthMap[emp.fullname] = {};
-        emp.shifts.forEach((s: string, i: number) => {
+        emp?.shifts?.forEach((s: string, i: number) => {
           empMonthMap[emp.fullname][`${week.weekLabel}_${i}`] = s;
         });
       });
@@ -190,13 +190,13 @@ export default function Roster() {
   const renderAdminMonthView = () => {
     // Flatten monthData to map [fullname] -> { [dateKey]: shift }
     const empMonthMap: Record<string, Record<string, string>> = {};
-    monthData.forEach(week => {
+    monthData?.forEach(week => {
       // Dựa vào weekLabel để map ra 7 date keys của tuần đó
       // Do we need to parse weekLabel? Or we can just use the dates generated for the month!
       // In generateMonthDates, we already computed which weekLabel each date belongs to!
-      week.schedules.forEach((emp: any) => {
+      week?.schedules?.forEach((emp: any) => {
         if (!empMonthMap[emp.fullname]) empMonthMap[emp.fullname] = {};
-        emp.shifts.forEach((s: string, i: number) => {
+        emp?.shifts?.forEach((s: string, i: number) => {
           empMonthMap[emp.fullname][`${week.weekLabel}_${i}`] = s;
         });
       });
@@ -306,7 +306,7 @@ export default function Roster() {
         </div>
 
         {users.length > 0 ? (
-          viewMode === 'week' ? renderWeekView() : renderMonthView()
+          viewMode === 'week' ? renderWeekView() : (store.currentUser?.role === 'admin' || store.currentUser?.role === 'tester' ? renderAdminMonthView() : renderUserMonthView())
         ) : (
           <div className="text-center py-10 text-gray-400">Không có dữ liệu nhân viên</div>
         )}
