@@ -1,6 +1,7 @@
 // ============================================
 // helpers.ts - Shared utility functions
 // ============================================
+import { callApi } from '../services/api';
 
 /** Haversine distance in km */
 export function getDist(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -228,3 +229,38 @@ export function generateMonthDates(month: number, year: number): MonthDateInfo[]
   return dates;
 }
 
+/**
+ * Upload an image (base64) to Google Drive via GAS endpoint
+ * Used for avatars, newsfeed, chat, reports, etc.
+ * @param base64Image The image as a base64 DataURL
+ * @param filename Optional filename (e.g. avatar_username.jpg)
+ * @returns The public URL of the uploaded image or null if failed
+ */
+export async function uploadImageToDrive(base64Image: string, filename?: string): Promise<string | null> {
+  try {
+    const payload: any = { image: base64Image };
+    if (filename) payload.filename = filename;
+    
+    // We run it as background so it doesn't block the UI with Swal loaders,
+    // The calling component can show its own loading state.
+    const res = await callApi('UPLOAD_IMAGE', payload, { background: true });
+    if (res?.ok && res.data?.url) {
+      return res.data.url;
+    }
+    console.error('Image upload failed:', res?.message);
+    return null;
+  } catch (error) {
+    console.error('Image upload failed:', error);
+    return null;
+  }
+}
+
+/** Convert a File object to base64 DataURL (for image uploads) */
+export function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (error) => reject(error);
+  });
+}

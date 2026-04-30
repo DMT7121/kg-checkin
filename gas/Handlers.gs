@@ -2041,3 +2041,49 @@ function handleSaveChecklistConfig(payload) {
   
   return jsonResponse(true, 'Đã lưu cấu hình Checklist');
 }
+
+// =====================================================================================
+// 14. UPLOAD IMAGE (GENERAL PURPOSE)
+// =====================================================================================
+function handleUploadImage(payload) {
+  if (!payload || !payload.image) return jsonResponse(false, 'Không có ảnh upload');
+  
+  try {
+    // Decode base64
+    var base64Data = payload.image;
+    if (base64Data.indexOf('base64,') >= 0) {
+      base64Data = base64Data.split('base64,')[1];
+    } else if (base64Data.indexOf(',') >= 0) {
+      base64Data = base64Data.split(',')[1];
+    }
+    
+    var time = new Date();
+    var filename = payload.filename || ('Upload_' + time.getTime() + '.webp');
+    
+    var mimeType = 'image/webp';
+    if (filename.toLowerCase().indexOf('.png') > 0) mimeType = 'image/png';
+    else if (filename.toLowerCase().indexOf('.jpg') > 0 || filename.toLowerCase().indexOf('.jpeg') > 0) mimeType = 'image/jpeg';
+    
+    var blob = Utilities.newBlob(
+      Utilities.base64Decode(base64Data),
+      mimeType,
+      filename
+    );
+    
+    // Use CONFIG.FOLDER_ID or let user pass folder ID if needed later
+    var folderId = payload.folderId || CONFIG.FOLDER_ID;
+    var folder = DriveApp.getFolderById(folderId);
+    var file = folder.createFile(blob);
+    var imageUrl = file.getUrl();
+    
+    try {
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (eShare) {
+      Logger.log('Cảnh báo phân quyền: ' + eShare.message);
+    }
+    
+    return jsonResponse(true, { url: imageUrl });
+  } catch (e) {
+    return jsonResponse(false, 'Lỗi upload ảnh: ' + e.message);
+  }
+}

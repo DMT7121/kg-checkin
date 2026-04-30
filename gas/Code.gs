@@ -152,6 +152,8 @@ function doPost(e) {
         return handleGetPayroll(payload);
       case 'GET_TIMESHEET':
         return handleGetTimesheet(payload);
+      case 'UPLOAD_IMAGE':
+        return handleUploadImage(payload);
 
       default:
         return jsonResponse(false, 'Unknown action');
