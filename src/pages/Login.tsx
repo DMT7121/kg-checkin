@@ -9,6 +9,7 @@ export default function Login() {
   const store = useAppStore();
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
+  const [rememberMe, setRememberMe] = useState(false);
   const [registerForm, setRegisterForm] = useState({ username: '', password: '', fullname: '', dob: '', email: '', phone: '' });
   
   // Forgot Password States
@@ -16,6 +17,13 @@ export default function Login() {
   const [forgotStep, setForgotStep] = useState<1 | 2>(1);
   const [resetForm, setResetForm] = useState({ otp: '', newPassword: '' });
   const [showPass, setShowPass] = useState(false);
+
+  // Khôi phục trạng thái Ghi nhớ từ localStorage khi mở app
+  useState(() => {
+    if (localStorage.getItem('kg_remember') === 'true') {
+      setRememberMe(true);
+    }
+  });
 
   const handleLogin = async (e?: React.FormEvent, bioCreds?: {username: string, password: string}) => {
     if (e) e.preventDefault();
@@ -27,9 +35,14 @@ export default function Login() {
 
     if (res?.ok) {
       store.setCurrentUser(res.data);
-      // Always persist session for 30 minutes
+      // Persist session
       localStorage.setItem('kg_user', JSON.stringify(res.data));
       localStorage.setItem('kg_session_time', Date.now().toString());
+      if (rememberMe) {
+        localStorage.setItem('kg_remember', 'true');
+      } else {
+        localStorage.removeItem('kg_remember');
+      }
 
       // Init week schedule data
       const weekInfo = computeWeekInfo();
@@ -247,20 +260,28 @@ export default function Login() {
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-ocean-500 transition-colors">
                 <User size={16} />
               </div>
-              <input type="text" value={loginForm.username} onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
+              <input type="text" id="username" name="username" autoComplete="username" value={loginForm.username} onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
                 className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-11 pr-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-ocean-500/50 min-h-[44px] text-gray-800 dark:text-white" placeholder="Tài khoản" />
             </div>
-            <div className="mb-6 relative group">
+            <div className="mb-4 relative group">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-ocean-500 transition-colors">
                 <Lock size={16} />
               </div>
-              <input type={showPass ? 'text' : 'password'} value={loginForm.password} onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+              <input type={showPass ? 'text' : 'password'} id="password" name="password" autoComplete="current-password" value={loginForm.password} onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
                 className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-11 pr-12 py-3.5 focus:outline-none focus:ring-2 focus:ring-ocean-500/50 min-h-[44px] text-gray-800 dark:text-white" placeholder="Mật khẩu" />
               <button type="button" onClick={() => setShowPass(!showPass)} className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none min-h-[44px] min-w-[44px]">
                 {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
-            <div className="mb-6" />
+            
+            <div className="mb-6 flex items-center">
+              <input id="remember-me" name="remember-me" type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)}
+                className="h-4 w-4 text-ocean-600 focus:ring-ocean-500 border-gray-300 rounded bg-gray-50 dark:bg-gray-900 dark:border-gray-600" />
+              <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                Ghi nhớ đăng nhập
+              </label>
+            </div>
+
             <button type="submit" className="w-full bg-gradient-to-r from-ocean-600 to-ocean-500 text-white font-bold py-3.5 rounded-xl shadow-lg hover:shadow-ocean-500/50 transition-all transform hover:-translate-y-0.5 active:scale-95 min-h-[44px] touch-manipulation flex items-center justify-center">
               ĐĂNG NHẬP <ArrowRight size={14} className="ml-2 opacity-80" />
             </button>
