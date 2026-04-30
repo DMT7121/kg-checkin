@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import LoadingScreen from './components/LoadingScreen';
 import ZaloWarning from './components/ZaloWarning';
 import ImagePreview from './components/ImagePreview';
+import AIAssistant from './components/AIAssistant';
 
 export default function App() {
   const store = useAppStore();
@@ -127,6 +128,9 @@ export default function App() {
 
       {/* Image Preview Modal */}
       <ImagePreview />
+
+      {/* AI Chatbot Assistant */}
+      <AIAssistant />
 
       {/* Main App */}
       {currentUser ? <Dashboard /> : <Login />}
