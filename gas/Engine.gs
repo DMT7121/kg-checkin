@@ -1549,30 +1549,70 @@ function handleGetPayroll(payload) {
   var ss = getSS();
   var isAdmin = payload.role === 'admin' || payload.role === 'tester';
   
-  // TỐI ƯU HÓA: Dùng API V4 để tải siêu tốc (Instant Load)
-  var configData = sheetsApiFastRead(CONFIG.SPREADSHEET_ID, "SalaryConfig!A:C") || [];
-  if (configData.length === 0) {
-    var configSheet = _getSalaryConfigSheet();
-    configData = configSheet.getDataRange().getValues();
+  // LẤY TÊN SHEET HIỆN CÓ
+  var allSheets = ss.getSheets();
+  var sheetNames = allSheets.map(function(s) { return s.getName(); });
+  
+  var rangesToFetch = [];
+  if (sheetNames.indexOf("SalaryConfig") >= 0) rangesToFetch.push("SalaryConfig!A:C");
+  if (sheetNames.indexOf("Advances") >= 0) rangesToFetch.push("Advances!A:G");
+  if (sheetNames.indexOf("BonusPenalty") >= 0) rangesToFetch.push("BonusPenalty!A:F");
+  if (sheetNames.indexOf(CONFIG.SHEET_USERS) >= 0) rangesToFetch.push(CONFIG.SHEET_USERS + "!A:F");
+  
+  var now = new Date();
+  var mm = String(now.getMonth() + 1).padStart(2, '0');
+  var yyyy = now.getFullYear();
+  var targetSummaryName = '📊 TỔNG HỢP ' + mm + '/' + yyyy;
+  var hasSummary = false;
+  
+  if (sheetNames.indexOf(targetSummaryName) >= 0) {
+    rangesToFetch.push("'" + targetSummaryName + "'!A:J");
+    hasSummary = true;
+  } else {
+    for (var k = 0; k < sheetNames.length; k++) {
+      if (sheetNames[k].indexOf("TỔNG HỢP") >= 0) {
+        targetSummaryName = sheetNames[k];
+        rangesToFetch.push("'" + targetSummaryName + "'!A:J");
+        hasSummary = true;
+        break;
+      }
+    }
+  }
+  
+  if (!hasSummary && sheetNames.indexOf(CONFIG.SHEET_LOGS) >= 0) {
+    rangesToFetch.push("'" + CONFIG.SHEET_LOGS + "'!A:E");
+  }
+  
+  // 🔥 BATCH GET SIÊU TỐC
+  var batchData = {};
+  if (rangesToFetch.length > 0) {
+    try {
+      var response = Sheets.Spreadsheets.Values.batchGet(CONFIG.SPREADSHEET_ID, { ranges: rangesToFetch });
+      if (response.valueRanges) {
+        for (var i = 0; i < response.valueRanges.length; i++) {
+          var vr = response.valueRanges[i];
+          var rangeStr = rangesToFetch[i];
+          var sheetKey = rangeStr.split('!')[0].replace(/'/g, ''); // Bỏ nháy đơn nếu có
+          batchData[sheetKey] = vr.values || [];
+        }
+      }
+    } catch (e) {
+      Logger.log("Batch Read error: " + e.message);
+    }
   }
 
-  var advanceData = sheetsApiFastRead(CONFIG.SPREADSHEET_ID, "Advances!A:G") || [];
-  if (advanceData.length === 0) {
-    var advanceSheet = _getAdvancesSheet();
-    advanceData = advanceSheet.getDataRange().getValues();
-  }
-
-  var bpData = sheetsApiFastRead(CONFIG.SPREADSHEET_ID, "BonusPenalty!A:F") || [];
-  if (bpData.length === 0) {
-    var bpSheet = _getBonusPenaltySheet();
-    bpData = bpSheet.getDataRange().getValues();
-  }
+  var configData = batchData["SalaryConfig"] || [];
+  var advanceData = batchData["Advances"] || [];
+  var bpData = batchData["BonusPenalty"] || [];
+  var usersData = batchData[CONFIG.SHEET_USERS] || [];
+  var summaryData = batchData[targetSummaryName] || [];
+  var logsData = batchData[CONFIG.SHEET_LOGS] || [];
 
   // 1. Get Base Salaries
   var baseSalaries = {};
   for (var i = 1; i < configData.length; i++) {
     if (configData[i] && configData[i][0]) {
-      baseSalaries[configData[i][0]] = Number(configData[i][2]) || 20000; // Default 20k/hr
+      baseSalaries[configData[i][0]] = Number(configData[i][2]) || 20000;
     }
   }
   
@@ -1601,60 +1641,25 @@ function handleGetPayroll(payload) {
     }
   }
   
-  // 4. LẤY TỔNG GIỜ LÀM TỪ SHEET TỔNG HỢP CÔNG (Chính xác theo hệ số & ca đêm)
+  // 4. LẤY TỔNG GIỜ LÀM
   var hoursWorked = {};
   
-  var now = new Date();
-  var mm = String(now.getMonth() + 1).padStart(2, '0');
-  var yyyy = now.getFullYear();
-  var targetSummaryName = '📊 TỔNG HỢP ' + mm + '/' + yyyy;
-  
-  var summarySheet = ss.getSheetByName(targetSummaryName);
-  if (!summarySheet) {
-    // Nếu chưa có của tháng hiện tại, lấy sheet TỔNG HỢP gần nhất
-    var allSheets = ss.getSheets();
-    for (var k = 0; k < allSheets.length; k++) {
-      if (allSheets[k].getName().indexOf("TỔNG HỢP") >= 0) {
-        summarySheet = allSheets[k];
-        break;
-      }
-    }
-  }
-
-  if (summarySheet) {
-    var summaryData = sheetsApiFastRead(CONFIG.SPREADSHEET_ID, summarySheet.getName() + "!A:J") || [];
-    if (summaryData.length === 0) {
-      summaryData = summarySheet.getDataRange().getValues();
-    }
-    
+  if (hasSummary && summaryData.length > 0) {
     for (var r = 0; r < summaryData.length; r++) {
       var row = summaryData[r];
       if (!row || row.length < 10) continue;
-      
       var empName = row[0] ? row[0].toString().trim() : "";
-      
-      // Bỏ qua header, title...
       if (!empName || empName.indexOf("TỔNG HỢP") >= 0 || empName.indexOf("NHÂN VIÊN") >= 0 || empName === "Họ và Tên") continue;
-      
       var gioTangCa = parseFloat(row[8]) || 0;
       var gioTheoCa = parseFloat(row[9]) || 0;
-      
       if (gioTangCa > 0 || gioTheoCa > 0) {
         hoursWorked[empName] = (hoursWorked[empName] || 0) + gioTangCa + gioTheoCa;
       }
     }
-  } else {
-    // FALLBACK: Tính theo log thô nếu hoàn toàn chưa có sheet TỔNG HỢP nào
-    var logsData = sheetsApiFastRead(CONFIG.SPREADSHEET_ID, CONFIG.SHEET_LOGS + "!A:E") || [];
-    if (logsData.length === 0) {
-      var logsSheet = ss.getSheetByName(CONFIG.SHEET_LOGS);
-      if (logsSheet) logsData = logsSheet.getDataRange().getValues();
-    }
-
+  } else if (logsData.length > 0) {
     var userLogs = {};
     for (var i = 1; i < logsData.length; i++) {
       if (!logsData[i] || !logsData[i][0]) continue;
-      
       var fullname = logsData[i][0];
       var type = logsData[i][1] ? logsData[i][1].toString().toUpperCase() : '';
       var timeStr = logsData[i][2];
@@ -1671,7 +1676,6 @@ function handleGetPayroll(payload) {
       }
       
       if (!time || isNaN(time)) continue;
-      
       if (!userLogs[fullname]) userLogs[fullname] = [];
       userLogs[fullname].push({ type: type, time: time });
     }
@@ -1694,13 +1698,6 @@ function handleGetPayroll(payload) {
       }
       hoursWorked[fullname] = totalMs / (1000 * 60 * 60);
     }
-  }
-  
-  // 5. Combine everything
-  var usersData = sheetsApiFastRead(CONFIG.SPREADSHEET_ID, CONFIG.SHEET_USERS + "!A:F") || [];
-  if (usersData.length === 0) {
-    var usersSheet = ss.getSheetByName(CONFIG.SHEET_USERS);
-    if (usersSheet) usersData = usersSheet.getDataRange().getValues();
   }
   var payroll = [];
   
