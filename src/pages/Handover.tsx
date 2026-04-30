@@ -109,29 +109,31 @@ export default function Handover() {
 
   return (
     <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900 animate-fade-in relative pb-6">
-      {/* Header Banner */}
-      <div className="bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-600 rounded-b-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex items-center justify-between shrink-0 mb-4 pb-12">
-        <div className="relative z-10">
-          <div className="flex items-center space-x-3 mb-2">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
-              <Repeat size={20} className="text-white" />
+      <div className="p-4 flex-none">
+        {/* Header Banner */}
+        <div className="bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-600 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex items-center justify-between shrink-0 mb-6">
+          <div className="relative z-10">
+            <div className="flex items-center space-x-3 mb-2">
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
+                <Repeat size={20} className="text-white" />
+              </div>
+              <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Bàn giao Ca</h2>
             </div>
-            <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Bàn giao Ca</h2>
+            <p className="text-cyan-100 font-medium opacity-90 text-sm md:text-base max-w-lg">
+              Chuyển giao thông tin quan trọng.
+            </p>
           </div>
-          <p className="text-cyan-100 font-medium opacity-90 text-sm md:text-base max-w-lg">
-            Chuyển giao thông tin quan trọng.
-          </p>
+          <div className="hidden md:block relative z-10 opacity-80">
+            <ArrowRightLeft size={80} strokeWidth={1} />
+          </div>
+          {/* Background Decorations */}
+          <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
+          <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-cyan-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
         </div>
-        <div className="hidden md:block relative z-10 opacity-80">
-          <ArrowRightLeft size={80} strokeWidth={1} />
-        </div>
-        {/* Background Decorations */}
-        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
-        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-cyan-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
       </div>
 
       {/* Content wrapper */}
-      <div className="px-4 -mt-6 relative z-20 flex-1 flex flex-col">
+      <div className="px-4 relative z-20 flex-1 flex flex-col">
         
         {/* Custom Tabs */}
         <div className="bg-white dark:bg-gray-800 p-1 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex mb-5">

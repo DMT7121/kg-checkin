@@ -274,37 +274,38 @@ export default function Roster() {
             <CalendarDays size={80} strokeWidth={1} />
           </div>
         </div>
+        {/* Background Decorations */}
+        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
+        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-indigo-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
+      </div>
         
-        {/* Toggle Mode & Time Navigation */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-4 relative z-10 gap-3">
-          <div className="flex items-center space-x-3 bg-white/10 backdrop-blur-md p-1.5 rounded-xl border border-white/20">
+      {/* Toggle Mode & Time Navigation */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 relative z-10 gap-3 w-full bg-white dark:bg-gray-800 p-2 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+          <div className="flex items-center space-x-1">
             <button 
               onClick={() => setViewMode('week')} 
-              className={`flex items-center px-3 py-1.5 rounded-lg text-sm font-bold transition-colors ${viewMode === 'week' ? 'bg-white text-indigo-600 shadow-sm' : 'text-white hover:bg-white/10'}`}
+              className={`flex items-center px-4 py-2 rounded-xl text-sm font-bold transition-colors ${viewMode === 'week' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}
             >
               <CalendarRange size={16} className="mr-1.5" /> Tuần
             </button>
             <button 
               onClick={() => setViewMode('month')} 
-              className={`flex items-center px-3 py-1.5 rounded-lg text-sm font-bold transition-colors ${viewMode === 'month' ? 'bg-white text-indigo-600 shadow-sm' : 'text-white hover:bg-white/10'}`}
+              className={`flex items-center px-4 py-2 rounded-xl text-sm font-bold transition-colors ${viewMode === 'month' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}
             >
               <LayoutGrid size={16} className="mr-1.5" /> Tháng
             </button>
           </div>
           
-          <div className="flex items-center space-x-2 bg-indigo-900/30 backdrop-blur-md rounded-xl p-1.5 border border-indigo-500/30">
-            <button onClick={() => viewMode === 'week' ? changeWeek(-1) : changeMonth(-1)} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"><ChevronLeft size={18} /></button>
-            <div className="text-sm font-bold px-2 min-w-[120px] text-center">
+          <div className="flex items-center space-x-2 bg-gray-50 dark:bg-gray-900/50 rounded-xl p-1.5 border border-gray-200 dark:border-gray-700 w-full sm:w-auto justify-center sm:justify-start">
+            <button onClick={() => viewMode === 'week' ? changeWeek(-1) : changeMonth(-1)} className="p-1.5 hover:bg-white dark:hover:bg-gray-800 hover:shadow-sm rounded-lg transition-all text-gray-600 dark:text-gray-400"><ChevronLeft size={18} /></button>
+            <div className="text-sm font-bold px-2 min-w-[140px] text-center text-gray-800 dark:text-gray-200">
               {viewMode === 'week' ? weekInfo.weekDisplay : `Tháng ${selectedMonth}/${selectedYear}`}
             </div>
-            <button onClick={() => viewMode === 'week' ? changeWeek(1) : changeMonth(1)} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"><ChevronRight size={18} /></button>
+            <button onClick={() => viewMode === 'week' ? changeWeek(1) : changeMonth(1)} className="p-1.5 hover:bg-white dark:hover:bg-gray-800 hover:shadow-sm rounded-lg transition-all text-gray-600 dark:text-gray-400"><ChevronRight size={18} /></button>
           </div>
         </div>
         
-        {/* Background Decorations */}
-        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
-        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-indigo-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
-      </div>
+
 
       <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
         <div className="flex justify-between items-center mb-4 border-b dark:border-gray-700 pb-2">

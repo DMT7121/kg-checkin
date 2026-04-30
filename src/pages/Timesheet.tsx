@@ -3,7 +3,7 @@ import { useAppStore } from '../store/useAppStore';
 import { generateMonthDates, SHORT_DAY_NAMES } from '../utils/helpers';
 import CalendarGrid from '../components/CalendarGrid';
 import { callApi } from '../services/api';
-import { CalendarClock, Clock, ListOrdered, Calendar } from 'lucide-react';
+import { CalendarClock, Clock, ListOrdered, Calendar, FileClock } from 'lucide-react';
 import Swal from 'sweetalert2';
 
 type ViewMode = 'HOURS' | 'TIMESTAMPS';

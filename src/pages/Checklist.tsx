@@ -104,10 +104,10 @@ export default function Checklist() {
 
   return (
     <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900 animate-fade-in relative pb-24">
-      {/* Header Banner */}
-      <div className="bg-gradient-to-r from-teal-500 via-emerald-600 to-green-700 rounded-b-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex flex-col shrink-0">
-        <div className="flex items-center justify-between relative z-10 w-full">
-          <div>
+      <div className="p-4 flex-none">
+        {/* Header Banner */}
+        <div className="bg-gradient-to-r from-teal-500 via-emerald-600 to-green-700 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex items-center justify-between mb-6 shrink-0">
+          <div className="relative z-10">
             <div className="flex items-center space-x-3 mb-2">
               <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
                 <CheckSquare size={20} className="text-white" />
@@ -118,30 +118,29 @@ export default function Checklist() {
               Nhiệm vụ phân công theo ca làm việc.
             </p>
           </div>
-          <div className="hidden md:block opacity-80 pl-4">
+          <div className="hidden md:block opacity-80 pl-4 relative z-10">
             <ClipboardCheck size={80} strokeWidth={1} />
           </div>
+          {/* Background Decorations */}
+          <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
+          <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-teal-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
         </div>
 
         {/* Progress */}
-        <div className="mt-6 bg-white/10 rounded-xl p-4 backdrop-blur-sm border border-white/20 relative z-10 w-full">
+        <div className="mb-6 bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 w-full">
           <div className="flex justify-between items-center mb-2">
-            <span className="text-sm font-semibold">Tiến độ ca làm</span>
-            <span className="text-sm font-bold bg-white text-teal-600 px-2 py-0.5 rounded-full">{progress}%</span>
+            <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Tiến độ ca làm</span>
+            <span className="text-sm font-bold bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 px-2 py-0.5 rounded-full">{progress}%</span>
           </div>
-          <div className="h-2.5 bg-black/20 rounded-full overflow-hidden">
+          <div className="h-2.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
             <motion.div 
-              className="h-full bg-gradient-to-r from-green-300 to-emerald-300"
+              className="h-full bg-gradient-to-r from-teal-400 to-emerald-500"
               initial={{ width: 0 }}
               animate={{ width: `${progress}%` }}
               transition={{ duration: 0.5 }}
             />
           </div>
         </div>
-        
-        {/* Background Decorations */}
-        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
-        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-teal-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
       </div>
 
       {/* Filters */}
