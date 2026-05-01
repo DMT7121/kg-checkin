@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import { computeWeekInfo } from '../utils/helpers';
@@ -220,8 +220,53 @@ export default function Dashboard() {
 
   // Trang Tổng Quan (Dashboard Overview)
   const DashboardOverview = () => {
-    const { stats, logs } = store;
+    const { stats, logs, approvedShifts } = store;
     const recentLogs = logs.slice(0, 3);
+
+    // Determine today's shift
+    const todayDay = new Date().getDay();
+    const dayIdx = todayDay === 0 ? 6 : todayDay - 1; // 0=Mon, 6=Sun
+    const todayShift = approvedShifts ? approvedShifts[dayIdx] : 'Chưa xếp ca';
+    const isOff = !todayShift || todayShift === 'OFF' || todayShift === 'Chưa xếp ca';
+
+    // Admin shift logic
+    useEffect(() => {
+      if (isAdmin && store.adminSchedules.length === 0) {
+        const weekInfo = computeWeekInfo();
+        callApi('GET_ALL_SCHEDULES', { monthSheet: weekInfo.monthSheet, weekLabel: weekInfo.weekLabel }, { background: true }).then((res) => {
+          if (res?.ok) {
+            const parsedSchedules = Array.isArray(res.data) ? res.data : (res.data.schedules || []);
+            const cleanSchedules = parsedSchedules.map((emp: any) => {
+              const shifts: string[] = [];
+              (emp.shifts || []).forEach((s: string, idx: number) => {
+                if (s && s.includes('\n')) shifts[idx] = s.split('\n')[0].trim();
+                else shifts[idx] = s;
+              });
+              return { ...emp, shifts };
+            });
+            store.setAdminSchedules(cleanSchedules);
+          }
+        });
+      }
+    }, []);
+
+    const shiftCounts: Record<string, number> = {};
+    let waitstaffCount = 0;
+    let otherCount = 0;
+
+    if (isAdmin && store.adminSchedules.length > 0) {
+      store.adminSchedules.forEach((emp) => {
+        const shift = emp.shifts ? emp.shifts[dayIdx] : 'OFF';
+        if (shift && shift !== 'OFF') {
+          shiftCounts[shift] = (shiftCounts[shift] || 0) + 1;
+          const userObj = store.users.find((u) => u.fullname === emp.fullname);
+          const position = userObj?.position?.toLowerCase() || 'phục vụ';
+          if (position.includes('phục vụ')) waitstaffCount++;
+          else otherCount++;
+        }
+      });
+    }
+
     return (
       <div className="p-4 space-y-4">
         {/* Header Banner */}
@@ -243,6 +288,57 @@ export default function Dashboard() {
           {/* Background Decorations */}
           <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
           <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-ocean-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
+        </div>
+
+        {/* Ca hôm nay */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 animate-slide-up">
+          <div className="flex items-center justify-between mb-3">
+             <div className="flex items-center space-x-2">
+               <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isOff ? 'bg-gray-100 text-gray-500 dark:bg-gray-700' : 'bg-ocean-100 text-ocean-600 dark:bg-ocean-900/30'}`}>
+                 <CalendarClock size={16} />
+               </div>
+               <h3 className="text-sm font-bold text-gray-700 dark:text-gray-200">Ca hôm nay</h3>
+             </div>
+             {!isAdmin && (
+               <span className={`px-3 py-1 rounded-full text-xs font-bold ${isOff ? 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400' : 'bg-ocean-50 text-ocean-700 border border-ocean-200 dark:bg-ocean-900/30 dark:border-ocean-800 dark:text-ocean-400'}`}>
+                 {todayShift}
+               </span>
+             )}
+          </div>
+          
+          {isAdmin ? (
+            <div className="mt-2 space-y-3">
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(shiftCounts).length > 0 ? (
+                  Object.entries(shiftCounts).map(([shift, count]) => (
+                    <div key={shift} className="bg-ocean-50 dark:bg-ocean-900/30 border border-ocean-100 dark:border-ocean-800 rounded-lg px-3 py-1.5 flex items-center space-x-2">
+                      <span className="text-xs font-bold text-ocean-700 dark:text-ocean-400">{shift}</span>
+                      <span className="w-1 h-1 bg-ocean-300 rounded-full"></span>
+                      <span className="text-xs font-bold text-gray-700 dark:text-gray-300">{count} nv</span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-gray-500 italic">Chưa có nhân viên nào xếp ca hôm nay.</p>
+                )}
+              </div>
+              {Object.entries(shiftCounts).length > 0 && (
+                <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
+                  <div className="flex items-center space-x-1.5">
+                    <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]"></div>
+                    <span className="text-xs text-gray-600 dark:text-gray-400">Phục vụ: <strong className="text-gray-800 dark:text-gray-200">{waitstaffCount}</strong></span>
+                  </div>
+                  <div className="flex items-center space-x-1.5">
+                    <div className="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.5)]"></div>
+                    <span className="text-xs text-gray-600 dark:text-gray-400">Chức vụ khác: <strong className="text-gray-800 dark:text-gray-200">{otherCount}</strong></span>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+             <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed mt-1">
+               {isOff ? 'Bạn không có ca làm việc nào được xếp trong hôm nay.' : 'Hãy đảm bảo bạn đến đúng giờ và chuẩn bị đầy đủ đồng phục, công cụ dụng cụ làm việc nhé!'}
+             </p>
+          )}
         </div>
 
         {/* Quick stats */}
