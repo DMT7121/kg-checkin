@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import { speak, fetchWithRetry, computeWeekInfo, DAY_NAMES, ADMIN_SHIFT_OPTIONS, getAdminShiftClass } from '../utils/helpers';
@@ -67,6 +67,8 @@ export default function Admin() {
       const updatedKeys = keyArray.map((k, i) => ({ key: k, tag: 'Key ' + (i + 1), status: 'Active' }));
       store.setGroqKeys(updatedKeys);
     } else { Swal.fire('Lỗi', 'Không thể đồng bộ Key lúc này', 'error'); }
+  };
+
   const syncAiPrompts = async () => {
     store.setLoading(true, 'Đang lưu cấu hình Prompt...');
     const res = await callApi('UPDATE_AI_PROMPTS', { prompts: localPrompts, role: 'admin' });
