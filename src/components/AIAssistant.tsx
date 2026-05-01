@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Bot, X, Send, Loader2, Maximize2, Minimize2, Sparkles, AlertCircle } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { fetchWithRetry } from '../utils/helpers';
+import { callApi } from '../services/api';
 import Swal from 'sweetalert2';
 
 interface Message {
@@ -12,7 +13,7 @@ interface Message {
 
 export default function AIAssistant() {
   const store = useAppStore();
-  const { groqKeys, currentUser, logs, shiftData, checklistItems, adminSchedules } = store;
+  const { groqKeys, currentUser, logs, shiftData, checklistItems, adminSchedules, chatHistory } = store;
   
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -26,6 +27,20 @@ export default function AIAssistant() {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const historyLoaded = useRef(false);
+
+  // Auto load history
+  useEffect(() => {
+    if (chatHistory && chatHistory.length > 0 && !historyLoaded.current) {
+      historyLoaded.current = true;
+      const historyMessages: Message[] = chatHistory.map((h, i) => ({
+        id: `hist_${i}`,
+        role: h.role as 'user' | 'assistant',
+        content: h.content
+      }));
+      setMessages(prev => [prev[0], ...historyMessages]); // Keep welcome message
+    }
+  }, [chatHistory]);
 
   // Auto scroll to bottom
   useEffect(() => {
@@ -119,6 +134,15 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
         content: aiText
       };
       setMessages(prev => [...prev, assistantMessage]);
+
+      // Bắn API lưu lịch sử ngầm
+      callApi('SAVE_CHAT_LOG', {
+        fullname: currentUser?.fullname,
+        messages: [
+          { role: 'user', content: userMessage.content },
+          { role: 'assistant', content: aiText }
+        ]
+      }, { background: true });
 
     } catch (error) {
       console.error(error);

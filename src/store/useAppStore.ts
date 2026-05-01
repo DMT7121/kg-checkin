@@ -215,6 +215,9 @@ interface AppState {
   adminSchedules: AdminScheduleEntry[];
   originalAdminSchedules: AdminScheduleEntry[];
 
+  // Chatbot
+  chatHistory: { role: string; content: string }[];
+
   // Preview
   isPreviewOpen: boolean;
   previewImageUrl: string;
@@ -232,6 +235,7 @@ interface AppState {
   setChecklists: (items: ChecklistItem[]) => void;
   setChecklistLogs: (logs: ChecklistLog[]) => void;
   setFeedbacks: (items: Feedback[]) => void;
+  setChatHistory: (history: { role: string; content: string }[]) => void;
   toggleDarkMode: () => void;
   setLoading: (v: boolean, text?: string) => void;
   setUpdating: (v: boolean) => void;
@@ -338,6 +342,9 @@ export const useAppStore = create<AppState>((set) => ({
   selectedMonth: new Date().getMonth() + 1,
   selectedYear: new Date().getFullYear(),
 
+  // Chatbot
+  chatHistory: [],
+
   // Preview
   isPreviewOpen: false,
   previewImageUrl: '',
@@ -358,6 +365,7 @@ export const useAppStore = create<AppState>((set) => ({
   setHasNewSwaps: (has) => set({ hasNewSwaps: has }),
   setSwapRequests: (reqs) => set({ swapRequests: reqs }),
   setChecklists: (items) => set({ checklists: items }),
+  setChatHistory: (history) => set({ chatHistory: history }),
   setAdvances: (advances) => set({ advances }),
   addAdvance: (advance) => set((state) => ({ advances: [advance, ...state.advances] })),
   setBonusPenalties: (records) => set({ bonusPenalties: records }),

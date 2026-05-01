@@ -23,6 +23,7 @@ var CONFIG = {
   SHEET_USERS: "DATA",
   SHEET_LOGS: "\u2714\uFE0FCH\u1EA4M C\u00D4NG",
   SHEET_API_KEYS: "\uD83D\uDD12API_KEYS",
+  SHEET_CHAT_LOGS: "\uD83D\uDCACCHAT_LOGS",
   SHEET_CONFIG: "\u2699\uFE0F C\u1EA4U H\u00CCNH",
   SHEET_CHECKLIST_CONFIG: "CHECKLIST_CONFIG",
   LOCATION: {
@@ -67,6 +68,7 @@ function doPost(e) {
       case 'GET_DATA': return handleGetData(payload);
       case 'SYNC_KEYS': return handleSyncKeys(payload);
       case 'GET_KEYS': return handleGetKeys(payload);
+      case 'SAVE_CHAT_LOG': return handleSaveChatLog(payload);
       case 'GEOCODE': return handleGeocode(payload);
       case 'UPDATE_GPS_CONFIG': return handleUpdateGpsConfig(payload);
       case 'UPDATE_ORG_CONFIG': return handleUpdateOrgConfig(payload);

@@ -1228,6 +1228,26 @@ function handleGetData(payload) {
     }
   } catch(e) { Logger.log('Error loading keys: ' + e.message); }
   
+  // === CHAT LOGS ===
+  try {
+    var chatSheet = ss.getSheetByName(CONFIG.SHEET_CHAT_LOGS);
+    if (chatSheet && chatSheet.getLastRow() > 1) {
+      var chatData = chatSheet.getDataRange().getValues();
+      var chatHistory = [];
+      // Data starts at row 2, limit to last 50 messages to avoid overload
+      var startIdx = Math.max(1, chatData.length - 50);
+      for (var c = startIdx; c < chatData.length; c++) {
+        if (chatData[c][1] && chatData[c][1].toString().toLowerCase() === payload.fullname.toLowerCase()) {
+          chatHistory.push({
+            role: chatData[c][2].toString(),
+            content: chatData[c][3].toString()
+          });
+        }
+      }
+      result.chatHistory = chatHistory;
+    }
+  } catch(e) { Logger.log('Error loading chat logs: ' + e.message); }
+  
   // === SCHEDULE STATUS (Monthly Sheet Architecture) ===
   if (payload.monthSheet && payload.weekLabel) {
     try {
@@ -1347,6 +1367,29 @@ function handleGetKeys(payload) {
     }
   }
   return jsonResponse(true, keys);
+}
+
+function handleSaveChatLog(payload) {
+  var ss = getSS();
+  var sheet = ss.getSheetByName(CONFIG.SHEET_CHAT_LOGS);
+  if (!sheet) {
+    sheet = ss.insertSheet(CONFIG.SHEET_CHAT_LOGS);
+    sheet.appendRow(['Timestamp', 'Fullname', 'Role', 'Content']);
+  }
+  
+  if (payload.messages && payload.messages.length > 0) {
+    var newRows = [];
+    var now = new Date();
+    for (var i = 0; i < payload.messages.length; i++) {
+      if (payload.messages[i].content) {
+        newRows.push([now, payload.fullname, payload.messages[i].role, payload.messages[i].content]);
+      }
+    }
+    if (newRows.length > 0) {
+      sheet.getRange(sheet.getLastRow() + 1, 1, newRows.length, 4).setValues(newRows);
+    }
+  }
+  return jsonResponse(true, 'Saved');
 }
 
 function handleSetMasterPin(payload) {

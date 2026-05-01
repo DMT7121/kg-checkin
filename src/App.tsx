@@ -98,6 +98,7 @@ export default function App() {
               store.setStats(res.data.stats || { totalCheckIn: 0, validCount: 0 });
               store.setUsers(res.data.users || []);
               if (res.data.keys) store.setGroqKeys(res.data.keys);
+              if (res.data.chatHistory) store.setChatHistory(res.data.chatHistory);
               if (res.data.isScheduleRegistered !== undefined)
                 store.setScheduleRegistered(res.data.isScheduleRegistered);
               if (res.data.approvedShifts) store.setApprovedShifts(res.data.approvedShifts);
