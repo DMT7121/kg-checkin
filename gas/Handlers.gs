@@ -1310,8 +1310,14 @@ function handleSyncKeys(payload) {
   }
   
   if (payload.keys && payload.keys.length > 0) {
+    var newRows = [];
     for (var i = 0; i < payload.keys.length; i++) {
-      sheet.appendRow([payload.keys[i].key, payload.keys[i].status]);
+      var k = payload.keys[i];
+      var keyStr = typeof k === 'object' ? (k.key || '') : k;
+      if (keyStr) newRows.push([keyStr, 'Active']);
+    }
+    if (newRows.length > 0) {
+      sheet.getRange(2, 1, newRows.length, 2).setValues(newRows);
     }
   }
   return jsonResponse(true, 'Đồng bộ keys thành công');
@@ -1330,7 +1336,9 @@ function handleGetKeys(payload) {
   var data = sheet.getDataRange().getValues();
   var keys = [];
   for (var i = 1; i < data.length; i++) {
-    keys.push({ key: data[i][0], status: data[i][1] });
+    if (data[i][0]) {
+      keys.push(data[i][0].toString());
+    }
   }
   return jsonResponse(true, keys);
 }

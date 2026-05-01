@@ -22,6 +22,13 @@ export default function Admin() {
     if (res?.ok) store.setSwapRequests(res.data);
   };
 
+  // Auto-populate groqKeysInput if empty
+  useEffect(() => {
+    if (isAdminUnlocked && store.groqKeys.length > 0 && !store.groqKeysInput) {
+      store.setGroqKeysInput(store.groqKeys.join('\n'));
+    }
+  }, [isAdminUnlocked, store.groqKeys, store.groqKeysInput, store.setGroqKeysInput]);
+
   // === UNLOCK (with rate limiting + hash comparison) ===
   const unlockAdmin = async () => {
     const rl = checkRateLimit();
@@ -123,41 +130,9 @@ export default function Admin() {
     store.setLoading(false);
     if (res?.ok) {
       Swal.fire('Thành công', 'Đã lưu trữ hệ thống Key an toàn', 'success');
-      store.setGroqKeysInput('');
       store.setGroqKeys(keyArray);
     } else { Swal.fire('Lỗi', 'Không thể đồng bộ Key lúc này', 'error'); }
   };
-
-  const extractApiKeys = async () => {
-    const rl = checkRateLimit();
-    if (!rl.allowed) {
-      Swal.fire('Tạm khóa', `Quá nhiều lần thử sai. Đợi ${rl.waitSeconds}s.`, 'error');
-      return;
-    }
-    const { value: masterPin } = await Swal.fire({
-      title: 'Trích xuất Key', text: 'Yêu cầu Mật mã riêng cấp 2', input: 'password',
-      inputAttributes: { autocapitalize: 'off', autocorrect: 'off' },
-      confirmButtonColor: '#dc2626', showCancelButton: true,
-    });
-    if (!masterPin) return;
-    const pinHash = await sha256(masterPin);
-    if (pinHash === MASTER_PIN_HASH) {
-      resetFailedAttempts();
-      store.setLoading(true, 'Đang trích xuất...');
-      const res = await callApi('GET_KEYS', {});
-      store.setLoading(false);
-      if (res?.ok && res.data) {
-        store.setGroqKeysInput(res.data.join('\n'));
-        Swal.fire({ icon: 'success', title: 'Đã tải bộ Key', timer: 1500, showConfirmButton: false });
-        setTimeout(() => store.setGroqKeysInput(''), 30000);
-      } else { Swal.fire('Chú ý', 'Hệ thống hiện chưa lưu Key nào.', 'info'); }
-    } else {
-      recordFailedAttempt();
-      Swal.fire('Cảnh báo bảo mật', 'Mật mã Master không chính xác!', 'error');
-    }
-  };
-
-
   // === LOCKED STATE ===
   if (!isAdminUnlocked) {
     return (
@@ -206,12 +181,9 @@ export default function Admin() {
             <textarea value={groqKeysInput} onChange={(e) => store.setGroqKeysInput(e.target.value)} rows={5}
               className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500 font-mono text-gray-800 dark:text-white" placeholder={'gsk_...\ngsk_...'} />
           </div>
-          <div className="grid grid-cols-2 gap-3 pt-2">
-            <button onClick={syncApiKeys} className="bg-ocean-600 hover:bg-ocean-700 text-white font-bold py-2.5 rounded-lg text-sm transition flex items-center justify-center">
-              <CloudUpload size={14} className="mr-1" /> Đồng bộ
-            </button>
-            <button onClick={extractApiKeys} className="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-bold py-2.5 rounded-lg text-sm transition flex items-center justify-center">
-              <Eye size={14} className="mr-1" /> Trích xuất
+          <div className="pt-2">
+            <button onClick={syncApiKeys} className="w-full bg-ocean-600 hover:bg-ocean-700 text-white font-bold py-2.5 rounded-lg text-sm transition flex items-center justify-center">
+              <CloudUpload size={14} className="mr-1" /> Lưu & Đồng bộ
             </button>
           </div>
         </div>
