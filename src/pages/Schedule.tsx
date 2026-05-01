@@ -11,7 +11,13 @@ export default function Schedule() {
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'tester';
 
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
-  const [currentDate, setCurrentDate] = useState(() => new Date());
+  const [currentDate, setCurrentDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7); // Default to next week
+    return d;
+  });
+  
+  const weekInfo = useMemo(() => computeWeekInfo(currentDate, false), [currentDate]);
   
   // Calculate week info and month info based on currentDate for Admin navigation
   const selectedMonth = currentDate.getMonth() + 1;
@@ -93,7 +99,6 @@ export default function Schedule() {
   const users = store.users && store.users.length > 0 ? store.users : [];
 
 
-  const [weekInfo] = useState(() => computeWeekInfo());
   const [hasWeekendOff, setHasWeekendOff] = useState(false);
   const [hasConsecutiveOffs, setHasConsecutiveOffs] = useState(false);
   const [regWindow, setRegWindow] = useState(() => isRegistrationOpen());
@@ -124,10 +129,13 @@ export default function Schedule() {
       weekInfo.weekDatesKeys.forEach((k) => (initShifts[k] = 'OFF'));
       store.setShiftData(initShifts);
     }
-    if (isAdmin && adminSchedules.length === 0) {
+  }, [weekInfo.weekDatesKeys]);
+
+  useEffect(() => {
+    if (isAdmin && viewMode === 'week') {
       loadAdminSchedules();
     }
-  }, [isAdmin]);
+  }, [isAdmin, viewMode, weekInfo.weekLabel]);
 
   // Auto-check approval when pending (every 2 minutes)
   useEffect(() => {
@@ -263,7 +271,7 @@ export default function Schedule() {
   );
 
   // === ADMIN FUNCTIONS ===
-  const loadAdminSchedules = async () => {
+  async function loadAdminSchedules() {
     store.setLoading(true, 'Đang kết nối Server...');
     const res = await callApi('GET_ALL_SCHEDULES', { monthSheet: weekInfo.monthSheet, weekLabel: weekInfo.weekLabel });
     store.setLoading(false);
