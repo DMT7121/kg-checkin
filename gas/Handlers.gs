@@ -450,6 +450,9 @@ function handleCheckInOut(payload) {
   
   // === COL B: LOẠI CHẤM CÔNG ===
   var loaiChamCong = payload.type; // "Vào ca" / "Ra ca"
+  if (payload.lateMins && payload.lateMins > 0) {
+    loaiChamCong += ' (Trễ ' + payload.lateMins + 'p)';
+  }
   
   // === COL C: THỜI GIAN (DD/MM/YYYY HH:MM:SS) ===
   var thoiGian = payload.time || Utilities.formatDate(time, CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm:ss');
@@ -530,6 +533,8 @@ function handleCheckInOut(payload) {
     khoangCach: distMeters + 'm',
     linkAnh: imageUrl,
     toaDo: { lat: payload.lat, lng: payload.lng },
+    caLam: payload.shift || '',
+    diTre: payload.lateMins || 0,
     timestamp: time.toISOString()
   });
   

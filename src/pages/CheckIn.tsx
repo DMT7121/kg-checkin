@@ -291,6 +291,8 @@ export default function CheckIn() {
 
     // Late check-in warning
     let isLate = false;
+    let lateMinsInfo = 0;
+    let shiftString = '';
     if (type === 'Vào ca' && approvedShifts) {
       const todayDate = new Date();
       let dayIdx = todayDate.getDay() - 1;
@@ -303,11 +305,11 @@ export default function CheckIn() {
           const currentTotal = todayDate.getHours() * 60 + todayDate.getMinutes();
           if (currentTotal > shiftTotal) {
             isLate = true;
-            const lateMins = currentTotal - shiftTotal;
-            speak(`Cảnh báo, bạn đang vào ca trễ ${lateMins} phút.`);
+            lateMinsInfo = currentTotal - shiftTotal;
+            speak(`Cảnh báo, bạn đang vào ca trễ ${lateMinsInfo} phút.`);
             const { isConfirmed } = await Swal.fire({
               title: 'Cảnh báo: Vào ca trễ!',
-              html: `Theo lịch đã duyệt, ca của bạn bắt đầu lúc <b>${todayShift}</b>.<br>Bạn đang vào ca trễ <b>${lateMins} phút</b>.`,
+              html: `Theo lịch đã duyệt, ca của bạn bắt đầu lúc <b>${todayShift}</b>.<br>Bạn đang vào ca trễ <b>${lateMinsInfo} phút</b>.`,
               icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444', cancelButtonColor: '#6b7280',
               confirmButtonText: 'Đồng ý & Chấm công', cancelButtonText: 'Hủy',
             });
@@ -315,6 +317,7 @@ export default function CheckIn() {
           }
         }
       }
+      if (!shiftString) shiftString = todayShift || 'Không có ca';
     }
 
     // Optimistic update
@@ -347,7 +350,9 @@ export default function CheckIn() {
       username: currentUser!.username, fullname: currentUser!.fullname,
       email: currentUser!.email, type, lat: gps.lat, lng: gps.lng, image: payloadImage,
       time: payloadTime,
-      location: gps.address || gps.status
+      location: gps.address || gps.status,
+      shift: shiftString,
+      lateMins: lateMinsInfo
     };
 
     // Đẩy lên Server (Background)
