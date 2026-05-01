@@ -20,7 +20,7 @@ export default function AIAssistant() {
     {
       id: 'welcome',
       role: 'assistant',
-      content: 'Chào bạn! Mình là Trợ lý AI của King\\'s Grill. Mình có thể giúp bạn kiểm tra lịch làm việc, hướng dẫn các hạng mục Checklist, hỗ trợ đào tạo nghiệp vụ và trả lời các câu hỏi về quán. Mình có thể giúp gì cho bạn hôm nay?'
+      content: "Chào bạn! Mình là Trợ lý AI của King's Grill. Mình có thể giúp bạn kiểm tra lịch làm việc, hướng dẫn các hạng mục Checklist, hỗ trợ đào tạo nghiệp vụ và trả lời các câu hỏi về quán. Mình có thể giúp gì cho bạn hôm nay?"
     }
   ]);
   const [input, setInput] = useState('');
@@ -133,12 +133,12 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
   const renderFormattedText = (text: string) => {
     // Chuyển markdown cơ bản thành HTML
     let html = text
-      .replace(/\\*\\*(.*?)\\*\\*/g, '<strong>$1</strong>') // Bold
-      .replace(/\\*(.*?)\\*/g, '<em>$1</em>') // Italic
-      .replace(/\\n/g, '<br />') // Newlines
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold
+      .replace(/\*(.*?)\*/g, '<em>$1</em>') // Italic
+      .replace(/\n/g, '<br />') // Newlines
       .replace(/- (.*?)<br \/>/g, '<li>$1</li>') // Simple lists
-      .replace(/<li>(.*?)<\\/li>/g, '<ul class="list-disc pl-4 space-y-1 mb-2"><li>$1</li></ul>') // Wrap lists
-      .replace(/<\\/ul><ul class="list-disc pl-4 space-y-1 mb-2">/g, ''); // Merge adjacent lists
+      .replace(/<li>(.*?)<\/li>/g, '<ul class="list-disc pl-4 space-y-1 mb-2"><li>$1</li></ul>') // Wrap lists
+      .replace(/<\/ul><ul class="list-disc pl-4 space-y-1 mb-2">/g, ''); // Merge adjacent lists
 
     return <div dangerouslySetInnerHTML={{ __html: html }} className="text-sm space-y-2 leading-relaxed" />;
   };
@@ -176,7 +176,7 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
                 <Bot size={22} />
               </div>
               <div>
-                <h3 className="font-bold text-sm">Trợ lý AI King's Grill</h3>
+                <h3 className="font-bold text-sm">Trợ lý AI King&apos;s Grill</h3>
                 <p className="text-[10px] text-indigo-100 flex items-center"><span className="w-1.5 h-1.5 bg-green-400 rounded-full mr-1.5 animate-pulse"></span> Sẵn sàng ({groqKeys.length} Keys)</p>
               </div>
             </div>
