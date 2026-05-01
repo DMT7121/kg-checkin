@@ -3,7 +3,7 @@ import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import { speak, computeWeekInfo, getActiveShiftClass, getPreviewShiftClass, SHIFT_OPTIONS, DAY_NAMES, SHORT_DAY_NAMES, isRegistrationOpen, getAdminShiftClass, ADMIN_SHIFT_OPTIONS, generateMonthDates, MonthDateInfo, formatDateShort } from '../utils/helpers';
 import Swal from 'sweetalert2';
-import { CalendarCheck, Eye, AlertTriangle, Send, Lock, ExternalLink, Clock, RefreshCw, Pencil, CheckCheck, Inbox, LayoutGrid, CalendarRange, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CalendarCheck, Eye, AlertTriangle, Send, Lock, ExternalLink, Clock, RefreshCw, Pencil, CheckCheck, Inbox, LayoutGrid, CalendarRange, ChevronLeft, ChevronRight, Sparkles, X, Bot } from 'lucide-react';
 
 export default function Schedule() {
   const store = useAppStore();
@@ -11,6 +11,9 @@ export default function Schedule() {
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'tester';
 
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [aiInputText, setAiInputText] = useState('');
+  const [isAiProcessing, setIsAiProcessing] = useState(false);
   const [currentDate, setCurrentDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() + 7); // Default to next week
@@ -383,6 +386,101 @@ export default function Schedule() {
     }
   };
 
+  const handleAiProcess = async () => {
+    if (!aiInputText.trim()) return;
+    if (!store.groqKeys || store.groqKeys.length === 0) {
+      Swal.fire('Lỗi', 'Chưa cấu hình Groq API key trong Cấu hình AI', 'error');
+      return;
+    }
+    setIsAiProcessing(true);
+    
+    try {
+      const apiKey = store.groqKeys[Math.floor(Math.random() * store.groqKeys.length)].key;
+      const prompt = `
+Bạn là trợ lý AI tự động sắp xếp lịch làm việc từ văn bản người dùng cung cấp.
+Danh sách nhân viên hợp lệ: ${users.map((u: any) => u.fullname).join(', ')}.
+Danh sách ca hợp lệ: ${ADMIN_SHIFT_OPTIONS.join(', ')}.
+Phân tích văn bản, với mỗi nhân viên xuất hiện, xếp lịch từ Thứ 2 đến Chủ nhật.
+Quy tắc:
+1. Nếu không nhắc đến ca của 1 ngày, để chuỗi rỗng "".
+2. Nếu nhắc OFF hoặc nghỉ, điền "OFF".
+3. Chỉ xuất MỘT chuỗi JSON hợp lệ, KHÔNG có markdown, KHÔNG giải thích.
+Định dạng JSON yêu cầu:
+{
+  "schedules": [
+    {
+      "fullname": "Tên nhân viên chính xác",
+      "shifts": ["ca T2", "ca T3", "ca T4", "ca T5", "ca T6", "ca T7", "ca CN"]
+    }
+  ]
+}
+Văn bản:
+${aiInputText}
+`;
+
+      const result = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.1
+        })
+      });
+
+      const resData = await result.json();
+      let content = resData.choices?.[0]?.message?.content || '';
+      
+      content = content.trim();
+      if (content.startsWith('\`\`\`json')) content = content.substring(7);
+      if (content.startsWith('\`\`\`')) content = content.substring(3);
+      if (content.endsWith('\`\`\`')) content = content.substring(0, content.length - 3);
+      content = content.trim();
+      
+      const parsed = JSON.parse(content);
+      if (parsed.schedules && Array.isArray(parsed.schedules)) {
+        const updated = [...adminSchedules];
+        let matchedCount = 0;
+        
+        parsed.schedules.forEach((parsedEmp: any) => {
+           const idx = updated.findIndex(e => e.fullname === parsedEmp.fullname);
+           if (idx >= 0) {
+              matchedCount++;
+              const emp = { ...updated[idx], shifts: [...updated[idx].shifts] };
+              for(let i=0; i<7; i++) {
+                 if (parsedEmp.shifts[i]) emp.shifts[i] = parsedEmp.shifts[i];
+              }
+              
+              const origEmp = originalAdminSchedules[idx];
+              const changes: string[] = [];
+              for (let i = 0; i < 7; i++) {
+                if (emp.shifts[i] !== origEmp.shifts[i]) {
+                  changes.push(`Ngày ${weekInfo.weekDates[i]} (${origEmp.shifts[i] || 'Chưa ĐK'} ⮕ ${emp.shifts[i]})`);
+                }
+              }
+              emp.note = changes.length > 0 ? 'AI điền: ' + changes.join('; ') : '';
+              updated[idx] = emp;
+           }
+        });
+        
+        store.setAdminSchedules(updated);
+        Swal.fire('Thành công', \`Đã điền lịch cho \${matchedCount} nhân viên. Vui lòng kiểm tra lại và nhấn Xác Nhận Sắp Xếp Ca!\`, 'success');
+        setAiModalOpen(false);
+        setAiInputText('');
+      } else {
+        throw new Error('Dữ liệu JSON không đúng định dạng');
+      }
+    } catch (err: any) {
+      console.error(err);
+      Swal.fire('Lỗi AI', 'Không thể phân tích dữ liệu, vui lòng kiểm tra lại văn bản đầu vào. Lỗi: ' + err.message, 'error');
+    } finally {
+      setIsAiProcessing(false);
+    }
+  };
+
   return (
     <div className="p-4 animate-slide-up">
       {/* Header Banner */}
@@ -550,9 +648,14 @@ export default function Schedule() {
                   </tbody>
                 </table>
               </div>
-              <button onClick={approveAllSchedules} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 rounded-xl shadow-lg transition transform active:scale-95 flex items-center justify-center touch-manipulation">
-                <CheckCheck size={18} className="mr-2" /> XÁC NHẬN SẮP XẾP CA (GHI ĐÈ LÊN SERVER)
-              </button>
+              <div className="flex flex-col sm:flex-row gap-3 mb-2">
+                <button onClick={() => setAiModalOpen(true)} className="flex-1 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-bold py-3.5 rounded-xl shadow-md transition transform active:scale-95 flex items-center justify-center touch-manipulation">
+                  <Bot size={18} className="mr-2" /> XẾP CA BẰNG AI
+                </button>
+                <button onClick={approveAllSchedules} className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 rounded-xl shadow-lg transition transform active:scale-95 flex items-center justify-center touch-manipulation">
+                  <CheckCheck size={18} className="mr-2" /> XÁC NHẬN SẮP XẾP CA (GHI ĐÈ LÊN SERVER)
+                </button>
+              </div>
             </>
           )}
 
@@ -844,6 +947,59 @@ export default function Schedule() {
       )}
       </>
       )}
+      {/* AI Schedule Modal */}
+      {aiModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-4 md:p-6 flex-shrink-0 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20">
+              <div className="flex items-center text-indigo-700 dark:text-indigo-300">
+                <Bot size={24} className="mr-3" />
+                <h3 className="text-xl font-bold">Xếp ca nhanh bằng AI</h3>
+              </div>
+              <button onClick={() => !isAiProcessing && setAiModalOpen(false)} className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors text-gray-500">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-4 md:p-6 overflow-y-auto custom-scrollbar flex-grow">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Dán tin nhắn đăng ký ca hoặc đoạn văn bản chứa lịch làm của nhân viên vào đây. AI sẽ tự động phân tích và điền vào bảng cho bạn.
+                <br/>Ví dụ: <em className="text-gray-500">"Huy đăng ký thứ 2 18h, t3 19h. Trang nghỉ t7 chủ nhật, còn lại 17h."</em>
+              </p>
+              
+              <textarea
+                value={aiInputText}
+                onChange={(e) => setAiInputText(e.target.value)}
+                placeholder="Dán nội dung phân ca vào đây..."
+                className="w-full h-40 md:h-64 p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none transition-all"
+                disabled={isAiProcessing}
+              ></textarea>
+            </div>
+            
+            <div className="p-4 md:p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex justify-end gap-3 flex-shrink-0">
+              <button
+                onClick={() => setAiModalOpen(false)}
+                disabled={isAiProcessing}
+                className="px-5 py-2.5 rounded-xl font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleAiProcess}
+                disabled={isAiProcessing || !aiInputText.trim()}
+                className="px-5 py-2.5 rounded-xl font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/30 transition-all flex items-center disabled:opacity-50"
+              >
+                {isAiProcessing ? (
+                  <><RefreshCw size={18} className="animate-spin mr-2" /> Đang xử lý...</>
+                ) : (
+                  <><Sparkles size={18} className="mr-2" /> Phân Tích & Điền Ca</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
