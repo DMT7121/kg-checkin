@@ -127,7 +127,7 @@ export default function Dashboard() {
       icon: Settings,
       adminOnly: true,
       items: [
-        { id: 'admin', label: 'Quản trị chung', icon: ShieldAlert, adminOnly: true },
+        { id: 'admin', label: 'Cấu hình AI', icon: ShieldAlert, adminOnly: true },
         { id: 'admin_org', label: 'Tổ chức & Quyền', icon: KeyRound, adminOnly: true },
         { id: 'admin_shift', label: 'Cấu hình phân ca', icon: CalendarRange, adminOnly: true },
         { id: 'admin_payroll', label: 'Cấu hình lương thưởng', icon: DollarSign, adminOnly: true },

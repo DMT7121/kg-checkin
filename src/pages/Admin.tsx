@@ -11,89 +11,12 @@ export default function Admin() {
   const { isAdminUnlocked, adminSchedules, originalAdminSchedules, groqKeysInput, groqKeys, logs, users, isUpdating, swapRequests } = store;
   const weekInfo = computeWeekInfo();
 
-  useEffect(() => {
-    if (isAdminUnlocked) {
-      loadAdminSwapRequests();
-    }
-  }, [isAdminUnlocked]);
-
-  const loadAdminSwapRequests = async () => {
-    const res = await callApi('GET_SWAP_REQUESTS', { role: 'admin' });
-    if (res?.ok) store.setSwapRequests(res.data);
-  };
-
   // Auto-populate groqKeysInput if empty
   useEffect(() => {
-    if (isAdminUnlocked && store.groqKeys.length > 0 && !store.groqKeysInput) {
+    if (store.groqKeys.length > 0 && !store.groqKeysInput) {
       store.setGroqKeysInput(store.groqKeys.join('\n'));
     }
-  }, [isAdminUnlocked, store.groqKeys, store.groqKeysInput, store.setGroqKeysInput]);
-
-  // === UNLOCK (with rate limiting + hash comparison) ===
-  const unlockAdmin = async () => {
-    const rl = checkRateLimit();
-    if (!rl.allowed) {
-      Swal.fire('Tạm khóa', `Quá nhiều lần thử sai. Đợi ${rl.waitSeconds}s.`, 'error');
-      return;
-    }
-    const { value: pin } = await Swal.fire({
-      title: 'Xác thực', input: 'password', inputPlaceholder: 'Nhập mã PIN Admin',
-      inputAttributes: { autocapitalize: 'off', autocorrect: 'off' },
-      confirmButtonColor: '#006994', showCancelButton: true, cancelButtonText: 'Hủy',
-    });
-    if (!pin) return;
-    const pinHash = await sha256(pin);
-    if (pinHash === ADMIN_PIN_HASH) {
-      resetFailedAttempts();
-      store.setAdminUnlocked(true);
-      speak('Xác thực quản trị viên thành công');
-      Swal.fire({ icon: 'success', title: 'Đã mở khóa', timer: 1500, showConfirmButton: false });
-    } else {
-      recordFailedAttempt();
-      speak('Mã PIN không hợp lệ');
-      Swal.fire('Từ chối', 'Mã PIN không hợp lệ', 'error');
-    }
-  };
-
-  // === LOAD SCHEDULES ===
-  const loadAdminSchedules = async () => {
-    store.setLoading(true, 'Đang kết nối Server...');
-    const res = await callApi('GET_ALL_SCHEDULES', { monthSheet: weekInfo.monthSheet, weekLabel: weekInfo.weekLabel });
-    store.setLoading(false);
-    if (res?.ok) {
-      const parsedSchedules = Array.isArray(res.data) ? res.data : (res.data.schedules || []);
-      
-      // Clean up previously appended notes so dropdowns map correctly
-      const cleanSchedules = parsedSchedules.map((emp: any) => {
-        const shifts: string[] = [];
-        const shiftNotes: string[] = emp.shiftNotes || Array(7).fill('');
-        
-        (emp.shifts || []).forEach((s: string, idx: number) => {
-          if (s && s.includes('\n')) {
-            const parts = s.split('\n');
-            shifts[idx] = parts[0].trim();
-            if (!shiftNotes[idx]) {
-               shiftNotes[idx] = parts.slice(1).join('\n').trim();
-            }
-          } else {
-            shifts[idx] = s;
-          }
-        });
-
-        return {
-          ...emp,
-          shifts,
-          shiftNotes
-        };
-      });
-
-      store.setAdminSchedules(cleanSchedules);
-      store.setOriginalAdminSchedules(JSON.parse(JSON.stringify(cleanSchedules)));
-      Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Đã tải dữ liệu lịch', showConfirmButton: false, timer: 2000 });
-    } else if (res) {
-      Swal.fire('Thông báo', res.message, 'info');
-    }
-  };
+  }, [store.groqKeys, store.groqKeysInput, store.setGroqKeysInput]);
 
   // === GROQ AI ===
   const analyzeWithGroq = async () => {
@@ -133,25 +56,7 @@ export default function Admin() {
       store.setGroqKeys(keyArray);
     } else { Swal.fire('Lỗi', 'Không thể đồng bộ Key lúc này', 'error'); }
   };
-  // === LOCKED STATE ===
-  if (!isAdminUnlocked) {
-    return (
-      <div className="p-4 animate-slide-up">
-        <div className="flex flex-col items-center justify-center py-16 bg-white dark:bg-gray-800 rounded-3xl shadow-lg border border-gray-100 dark:border-gray-700 text-center">
-          <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-6">
-            <Lock size={40} className="text-gray-400 dark:text-gray-500" />
-          </div>
-          <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">Khu Vực Nội Bộ</h3>
-          <p className="text-gray-500 dark:text-gray-400 mb-8 text-sm px-4">Yêu cầu quyền truy cập cấp cao để vào bảng điều khiển quản trị viên.</p>
-          <button onClick={unlockAdmin} className="bg-gray-800 dark:bg-gray-700 hover:bg-black dark:hover:bg-gray-600 text-white font-bold py-3.5 px-8 rounded-full transition shadow-lg flex items-center">
-            <Key size={18} className="mr-2" /> Xác Thực Quản Trị Viên
-          </button>
-        </div>
-      </div>
-    );
-  }
 
-  // === UNLOCKED STATE ===
   return (
     <div className="p-4 space-y-4 animate-slide-up pb-10">
       {/* Groq AI Keys */}

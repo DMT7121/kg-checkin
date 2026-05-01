@@ -1301,12 +1301,12 @@ function handleSyncKeys(payload) {
   var sheet = ss.getSheetByName(CONFIG.SHEET_API_KEYS);
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEET_API_KEYS);
-    sheet.appendRow(['Key', 'Status']);
+    sheet.appendRow(['Key', 'Tag', 'Status']);
   }
   
   // Clear old keys
   if (sheet.getLastRow() > 1) {
-    sheet.getRange(2, 1, sheet.getLastRow() - 1, 2).clearContent();
+    sheet.getRange(2, 1, sheet.getLastRow() - 1, 3).clearContent();
   }
   
   if (payload.keys && payload.keys.length > 0) {
@@ -1314,10 +1314,10 @@ function handleSyncKeys(payload) {
     for (var i = 0; i < payload.keys.length; i++) {
       var k = payload.keys[i];
       var keyStr = typeof k === 'object' ? (k.key || '') : k;
-      if (keyStr) newRows.push([keyStr, 'Active']);
+      if (keyStr) newRows.push([keyStr, 'Key ' + (i + 1), 'Active']);
     }
     if (newRows.length > 0) {
-      sheet.getRange(2, 1, newRows.length, 2).setValues(newRows);
+      sheet.getRange(2, 1, newRows.length, 3).setValues(newRows);
     }
   }
   return jsonResponse(true, 'Đồng bộ keys thành công');
