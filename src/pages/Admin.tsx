@@ -92,9 +92,9 @@ export default function Admin() {
             {groqKeys.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-2">
                 {groqKeys.map((k, i) => (
-                  <div key={i} className="flex items-center bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded text-[10px] font-bold border border-green-200 dark:border-green-800/50">
-                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5 animate-pulse"></span>
-                    {k.tag}
+                  <div key={i} className="flex items-center bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded-md text-[10px] font-bold border border-green-200 dark:border-green-800/50 max-w-full">
+                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5 animate-pulse shrink-0"></span>
+                    <span className="truncate">{k.tag}: {k.key}</span>
                   </div>
                 ))}
               </div>
