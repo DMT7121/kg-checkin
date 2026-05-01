@@ -43,8 +43,20 @@ export default function Schedule() {
 
   const loadMonthSchedules = async () => {
     store.setLoading(true, `Đang tải lịch Tháng ${selectedMonth}...`);
-    const monthSheet = `Tháng ${String(selectedMonth).padStart(2, '0')}/${selectedYear}`;
-    const res = await callApi('GET_MONTH_SCHEDULES', { monthSheet });
+    
+    // Calculate all unique (monthSheet, weekLabel) required for the current month view
+    const requestsMap = new Map<string, string>();
+    monthDates.forEach(mDate => {
+      const wInfo = computeWeekInfo(mDate.date, false);
+      requestsMap.set(wInfo.weekLabel, wInfo.monthSheet);
+    });
+    
+    const requests = Array.from(requestsMap.entries()).map(([weekLabel, monthSheet]) => ({ monthSheet, weekLabel }));
+    
+    const res = await callApi('GET_MONTH_SCHEDULES', { 
+      monthSheet: `Tháng ${String(selectedMonth).padStart(2, '0')}/${selectedYear}`,
+      requests 
+    });
     store.setLoading(false);
     if (res?.ok && res.data?.weeks) {
       setMonthData(res.data.weeks);

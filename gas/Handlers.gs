@@ -1632,19 +1632,13 @@ function handleRegisterShift(payload) {
   return jsonResponse(true, payload.isEdit ? 'Đã cập nhật lịch đăng ký thành công' : 'Đăng ký ca thành công');
 }
 
-function handleGetAllSchedules(payload) {
-  var monthSheet = payload.monthSheet || payload.targetSheet;
-  var weekLabel = payload.weekLabel;
-  
-  if (!monthSheet) return jsonResponse(false, 'Thiếu thông tin sheet');
-  
+function getSingleWeekSchedules(monthSheet, weekLabel) {
   var ss = getSS();
   var sheet = ss.getSheetByName(monthSheet);
-  if (!sheet) return jsonResponse(true, []);
+  if (!sheet) return [];
   
-  // Use getDisplayValues() for shift columns to avoid Date/timezone issues
-  // getValues() returns Date objects for HH:mm cells which can lose data due to timezone
-  var data = sheet.getDataRange().getValues();           // For names, reasons, status
+  var data = sheet.getDataRange().getValues();
+  var displayData = sheet.getDataRange().getDisplayValues();
   var displayData = sheet.getDataRange().getDisplayValues(); // For shift values (text as shown)
   
   var headerRow = -1;
@@ -1655,7 +1649,7 @@ function handleGetAllSchedules(payload) {
       break;
     }
   }
-  if (headerRow === -1) return jsonResponse(true, []);
+  if (headerRow === -1) return [];
   
   var schedules = [];
   var employeesMap = {};
@@ -1737,13 +1731,44 @@ function handleGetAllSchedules(payload) {
   for (var key in employeesMap) {
     schedules.push(employeesMap[key]);
   }
+  return schedules;
+}
+
+function handleGetAllSchedules(payload) {
+  var monthSheet = payload.monthSheet || payload.targetSheet;
+  var weekLabel = payload.weekLabel;
   
-  Logger.log('[GET_ALL_SCHEDULES] Returning ' + schedules.length + ' employees. Sample: ' + (schedules.length > 0 ? JSON.stringify(schedules[0]) : 'none'));
+  if (!monthSheet) return jsonResponse(false, 'Thiếu thông tin sheet');
   
+  var schedules = getSingleWeekSchedules(monthSheet, weekLabel);
+  
+  Logger.log('[GET_ALL_SCHEDULES] Returning ' + schedules.length + ' employees');
   return jsonResponse(true, schedules);
 }
 
 function handleGetMonthSchedules(payload) {
+  var requests = payload.requests;
+  if (requests && requests.length > 0) {
+    var weeks = [];
+    for (var k = 0; k < requests.length; k++) {
+      var req = requests[k];
+      var weekSchedules = getSingleWeekSchedules(req.monthSheet, req.weekLabel);
+      if (weekSchedules.length > 0) {
+        weeks.push({
+          weekLabel: req.weekLabel,
+          schedules: weekSchedules
+        });
+      } else {
+        weeks.push({
+          weekLabel: req.weekLabel,
+          schedules: []
+        });
+      }
+    }
+    return jsonResponse(true, { weeks: weeks });
+  }
+
+  // Fallback
   var monthSheet = payload.monthSheet;
   if (!monthSheet) return jsonResponse(false, 'Thiếu thông tin sheet');
   
