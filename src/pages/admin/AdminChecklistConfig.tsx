@@ -93,6 +93,11 @@ export default function AdminChecklistConfig() {
 
   return (
     <div className="p-4 space-y-6 animate-slide-up pb-10 max-w-6xl mx-auto">
+      <div className="flex mb-2 -mt-2">
+        <button onClick={() => store.setCurrentTab('admin')} className="flex items-center text-xs font-bold text-gray-500 hover:text-ocean-600 transition-colors">
+          <span className="mr-1">←</span> Quay lại Cài đặt chung
+        </button>
+      </div>
       {/* Header Banner */}
       <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex items-center justify-between">
         <div className="relative z-10">

@@ -132,14 +132,12 @@ export default function Payroll() {
           <h3 className="font-bold text-gray-800 dark:text-white flex items-center text-lg">
             <Calculator size={20} className="mr-2 text-emerald-600" /> Chi tiết thu nhập
           </h3>
-          {isAdmin && (
-            <button 
-              onClick={() => setSelectedUser(null)}
-              className="text-sm text-gray-500 hover:text-emerald-600 font-medium"
-            >
-              Quay lại
-            </button>
-          )}
+          <button 
+            onClick={() => isAdmin ? setSelectedUser(null) : store.setCurrentTab('dashboard')}
+            className="flex items-center text-sm text-gray-500 hover:text-emerald-600 font-medium"
+          >
+            <ChevronRight size={16} className="rotate-180 mr-1" /> Quay lại
+          </button>
         </div>
 
         <div className="space-y-4">

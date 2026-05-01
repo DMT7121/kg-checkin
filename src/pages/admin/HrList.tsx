@@ -87,6 +87,11 @@ export default function HrList() {
 
   return (
     <div className="p-4 space-y-6 animate-slide-up pb-10 max-w-5xl mx-auto">
+      <div className="flex mb-2 -mt-2">
+        <button onClick={() => store.setCurrentTab('admin')} className="flex items-center text-xs font-bold text-gray-500 hover:text-ocean-600 transition-colors">
+          <span className="mr-1">←</span> Quay lại Cài đặt chung
+        </button>
+      </div>
       {/* Header Banner */}
       <div className="bg-gradient-to-r from-ocean-600 via-blue-600 to-indigo-700 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex items-center justify-between">
         <div className="relative z-10">

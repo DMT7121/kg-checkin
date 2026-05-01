@@ -141,6 +141,11 @@ export default function AdminPayroll() {
 
   return (
     <div className="p-4 space-y-4 animate-slide-up pb-10">
+      <div className="flex mb-2 -mt-2">
+        <button onClick={() => store.setCurrentTab('admin')} className="flex items-center text-xs font-bold text-gray-500 hover:text-ocean-600 transition-colors">
+          <span className="mr-1">←</span> Quay lại Cài đặt chung
+        </button>
+      </div>
       {/* Header Banner */}
       <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-700 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex items-center justify-between mb-6">
         <div className="relative z-10">
