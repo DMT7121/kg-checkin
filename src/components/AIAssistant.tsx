@@ -151,7 +151,7 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-tr from-violet-600 to-indigo-600 rounded-full shadow-2xl flex items-center justify-center text-white hover:scale-110 transition-transform z-50 animate-bounce hover:animate-none border-2 border-white/20"
+          className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-tr from-violet-600 to-indigo-600 rounded-full shadow-2xl flex items-center justify-center text-white hover:scale-110 transition-transform z-[9999] animate-bounce hover:animate-none border-2 border-white/20"
         >
           <Sparkles size={24} />
           {/* Notification Dot */}
@@ -163,7 +163,7 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
       {/* Chat Window */}
       {isOpen && (
         <div 
-          className={`fixed right-0 md:right-6 bottom-0 md:bottom-6 bg-white dark:bg-gray-900 shadow-2xl z-50 flex flex-col transition-all duration-300 ease-in-out border border-gray-200 dark:border-gray-800 ${
+          className={`fixed right-0 md:right-6 bottom-0 md:bottom-6 bg-white dark:bg-gray-900 shadow-2xl z-[9999] flex flex-col transition-all duration-300 ease-in-out border border-gray-200 dark:border-gray-800 ${
             isExpanded 
               ? 'w-full md:w-[600px] h-full md:h-[80vh] md:rounded-2xl' 
               : 'w-full md:w-[380px] h-[75vh] md:h-[550px] md:rounded-2xl rounded-t-2xl'
