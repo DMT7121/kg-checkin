@@ -13,7 +13,7 @@ interface Message {
 
 export default function AIAssistant() {
   const store = useAppStore();
-  const { groqKeys, currentUser, logs, shiftData, checklistItems, adminSchedules, chatHistory, aiPrompts } = store;
+  const { groqKeys, currentUser, logs, shiftData, checklistItems, adminSchedules, chatHistory, aiPrompts, payrollData, checklistLogs, approvedShifts, shiftName } = store;
   
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -51,28 +51,72 @@ export default function AIAssistant() {
 
   const generateSystemPrompt = () => {
     const today = new Date().toLocaleDateString('vi-VN');
-    let prompt = `Bạn là Trợ lý AI chuyên nghiệp của nhà hàng King's Grill. Hôm nay là ngày ${today}.
-Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || 'Ẩn danh'}, vai trò: ${currentUser?.role || 'Nhân viên'}) trong công việc.
+    let prompt = `Bạn là Trợ lý AI chuyên nghiệp của nhà hàng King's Grill. Hôm nay là ngày ${today}, đang là ${shiftName}.
+Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || 'Ẩn danh'}, vai trò: ${currentUser?.role || 'Nhân viên'}, chức vụ: ${currentUser?.position || 'Phục vụ'}) trong công việc.
 
 [NGỮ CẢNH DỮ LIỆU HIỆN TẠI TỪ HỆ THỐNG HR]
 `;
     // Add Schedule context
     if (currentUser?.role === 'admin') {
-      prompt += `- Lịch làm tổng quan: Cửa hàng hiện có ${adminSchedules.length} nhân sự đăng ký lịch tuần này.\n`;
+      prompt += `- Lịch làm tổng quan: Cửa hàng hiện có ${adminSchedules.length} nhân sự đăng ký lịch.\n`;
     } else {
+      const todayDay = new Date().getDay();
+      const dayIdx = todayDay === 0 ? 6 : todayDay - 1; 
+      const todayShift = approvedShifts ? approvedShifts[dayIdx] : 'Chưa xếp ca';
+      prompt += `- Lịch làm hôm nay của ${currentUser?.fullname}: ${todayShift}.\n`;
       const activeShifts = Object.entries(shiftData).filter(([_, v]) => v && v !== 'OFF').map(([k, v]) => `${k}: ${v}`);
-      prompt += `- Lịch làm của ${currentUser?.fullname}: ${activeShifts.length > 0 ? activeShifts.join(', ') : 'Chưa có ca làm'}.\n`;
+      prompt += `- Lịch nguyên tuần: ${activeShifts.length > 0 ? activeShifts.join(', ') : 'Chưa có'}.\n`;
+    }
+
+    // Add Payroll/Hours context
+    if (payrollData) {
+      const userPayroll = payrollData.find(p => p.fullname === currentUser?.fullname);
+      if (userPayroll) {
+        prompt += `- Tổng số giờ công tích lũy: ${userPayroll.totalHours} giờ. Thu nhập cơ bản tạm tính: ${userPayroll.totalBaseSalary.toLocaleString()} VNĐ.\n`;
+      }
+    } else {
+      prompt += `- Tổng số giờ công: Chưa có dữ liệu bộ nhớ đệm (Hãy hướng dẫn người dùng tự mở tab Bảng Công để xem).\n`;
+    }
+
+    // Add Logs / Punctuality context
+    if (logs && logs.length > 0) {
+      const userLogs = logs.filter(l => l.fullname === currentUser?.fullname);
+      const validCount = userLogs.filter(l => l.status && l.status.includes('Hợp lệ')).length;
+      const lateCount = userLogs.filter(l => l.status && (l.status.includes('Trễ') || l.status.includes('Vi phạm'))).length;
+      prompt += `- Tình trạng chấm công gần đây (cá nhân): Có ${validCount} lần hợp lệ, ${lateCount} lần đi trễ/vi phạm.\n`;
+      const recentLogs = userLogs.slice(0, 3).map(l => `${l.type} lúc ${l.time} (${l.status})`);
+      if (recentLogs.length > 0) prompt += `- Lịch sử log gần nhất: ${recentLogs.join(' | ')}.\n`;
+    } else {
+      prompt += `- Tình trạng chấm công: Chưa có dữ liệu.\n`;
     }
 
     // Add Checklist context
     if (checklistItems && checklistItems.length > 0) {
-      prompt += `- Checklist Công việc hiện tại: Hệ thống đang có ${checklistItems.length} hạng mục công việc (VD: ${checklistItems.slice(0,3).map(c => c.taskName).join(', ')}).\n`;
-    }
-
-    // Add Logs context
-    if (logs && logs.length > 0) {
-      const recentLogs = logs.slice(0, 5).map(l => `${l.fullname} ${l.type} lúc ${l.time}`);
-      prompt += `- Hoạt động chấm công gần nhất: ${recentLogs.join(', ')}.\n`;
+      const role = currentUser?.position || 'Phục vụ';
+      const applicableTasks = checklistItems.filter(c => 
+        c.isActive && 
+        c.isRequired && 
+        (c.targetPosition === 'Tất cả' || c.targetPosition.includes(role)) &&
+        (c.targetShift === 'Tất cả' || shiftName.includes(c.targetShift))
+      );
+      
+      const todayStr = new Date().toISOString().split('T')[0];
+      const logForShift = checklistLogs?.find(l => l.date === todayStr && l.username === currentUser?.username && shiftName.includes(l.shift));
+      
+      if (applicableTasks.length > 0) {
+        const completedIds = logForShift ? logForShift.checkedTasks : [];
+        const pendingTasks = applicableTasks.filter(t => !completedIds.includes(t.id));
+        
+        if (pendingTasks.length > 0) {
+          prompt += `- Checklist tồn đọng (chưa hoàn thành trong ca này): ${pendingTasks.map(t => t.taskName).join('; ')}.\n`;
+        } else {
+          prompt += `- Checklist: Đã hoàn thành 100% công việc trong ca này. Rất tốt!\n`;
+        }
+      } else {
+        prompt += `- Checklist: Hiện tại không có hạng mục nào bắt buộc cho vị trí này trong ca này.\n`;
+      }
+    } else {
+      prompt += `- Checklist: Chưa có dữ liệu bộ nhớ đệm (Hãy hướng dẫn người dùng tự mở tab Checklist để đồng bộ).\n`;
     }
 
     prompt += `
