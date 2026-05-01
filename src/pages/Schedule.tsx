@@ -589,10 +589,8 @@ ${aiInputText}
             </div>
           </div>
 
-          {adminSchedules.length > 0 ? (
-            <>
-              
-          {viewMode === 'week' && (
+          {viewMode === 'week' ? (
+            adminSchedules.length > 0 ? (
             <>
               <div className="overflow-x-auto w-full bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 mb-4 pb-20 custom-scrollbar">
                 <table className="w-full text-sm text-left whitespace-nowrap">
@@ -678,9 +676,14 @@ ${aiInputText}
                 </button>
               </div>
             </>
-          )}
-
-          {viewMode === 'month' && (
+            ) : (
+              <div className="text-center py-6 text-gray-400 bg-gray-50 dark:bg-gray-900 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
+                <Inbox size={32} className="mx-auto mb-2 opacity-50" />
+                <p className="text-sm">Bấm "Tải lịch" để xem danh sách tuần tới</p>
+              </div>
+            )
+          ) : (
+            monthData && monthData.length > 0 ? (
             <div className="overflow-x-auto w-full bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 mb-4 pb-20 custom-scrollbar">
               {(() => {
                 const empMonthMap: Record<string, Record<string, string>> = {};
@@ -738,14 +741,12 @@ ${aiInputText}
                 );
               })()}
             </div>
-          )}
-
-            </>
-          ) : (
-            <div className="text-center py-6 text-gray-400 bg-gray-50 dark:bg-gray-900 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
-              <Inbox size={32} className="mx-auto mb-2 opacity-50" />
-              <p className="text-sm">Bấm "Tải lịch" để xem danh sách tuần tới</p>
-            </div>
+            ) : (
+              <div className="text-center py-6 text-gray-400 bg-gray-50 dark:bg-gray-900 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
+                <Inbox size={32} className="mx-auto mb-2 opacity-50" />
+                <p className="text-sm">Bấm "Tải lịch" để xem danh sách tháng {selectedMonth}</p>
+              </div>
+            )
           )}
         </div>
       ) : (
