@@ -6,7 +6,7 @@ import Swal from 'sweetalert2';
 
 export default function Payroll() {
   const store = useAppStore();
-  const { currentUser, payroll } = store;
+  const { currentUser, payrollData } = store;
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'tester';
   
   const [selectedUser, setSelectedUser] = useState<string | null>(isAdmin ? null : currentUser?.username || null);
@@ -23,7 +23,7 @@ export default function Payroll() {
     });
     store.setLoading(false);
     if (res?.ok) {
-      store.setPayroll(res.data.payroll);
+      store.setPayrollData(res.data.payroll);
       if (!isAdmin && res.data.payroll.length > 0) {
         setSelectedUser(res.data.payroll[0].username);
       }
@@ -71,7 +71,7 @@ export default function Payroll() {
           </h3>
           
           <div className="space-y-3">
-            {payroll.map(p => (
+            {payrollData.map(p => (
               <div 
                 key={p.username} 
                 onClick={() => setSelectedUser(p.username)}
@@ -89,7 +89,7 @@ export default function Payroll() {
               </div>
             ))}
             
-            {payroll.length === 0 && (
+            {payrollData.length === 0 && (
               <div className="text-center py-8 text-gray-400">
                 <p>Chưa có dữ liệu bảng lương</p>
               </div>
@@ -101,7 +101,7 @@ export default function Payroll() {
   }
 
   // View Details (Payslip)
-  const p = payroll.find(x => x.username === selectedUser);
+  const p = payrollData.find(x => x.username === selectedUser);
   if (!p) return null;
 
   return (
