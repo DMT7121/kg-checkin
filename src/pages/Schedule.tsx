@@ -55,17 +55,25 @@ export default function Schedule() {
     const newData = [...monthData];
     const weekIdx = newData.findIndex(w => w.weekLabel === mDate.weekLabel);
     if (weekIdx !== -1) {
-      const w = newData[weekIdx];
+      const w = { ...newData[weekIdx], schedules: [...newData[weekIdx].schedules] };
       const empIdx = w.schedules.findIndex((s: any) => s.fullname === empFullname);
       if (empIdx !== -1) {
-         w.schedules[empIdx].shifts[mDate.dayIndex] = value;
+         const emp = { ...w.schedules[empIdx], shifts: [...w.schedules[empIdx].shifts] };
+         emp.shifts[mDate.dayIndex] = value;
+         w.schedules[empIdx] = emp;
       } else {
          const newEmp = { fullname: empFullname, shifts: ['', '', '', '', '', '', ''] };
          newEmp.shifts[mDate.dayIndex] = value;
          w.schedules.push(newEmp);
       }
-      setMonthData(newData);
+      newData[weekIdx] = w;
+    } else {
+      // Create new week if not exists
+      const newEmp = { fullname: empFullname, shifts: ['', '', '', '', '', '', ''] };
+      newEmp.shifts[mDate.dayIndex] = value;
+      newData.push({ weekLabel: mDate.weekLabel, schedules: [newEmp] });
     }
+    setMonthData(newData);
     
     // API
     const res = await callApi('UPDATE_SINGLE_SHIFT', {
