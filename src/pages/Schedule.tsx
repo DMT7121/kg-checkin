@@ -396,15 +396,24 @@ export default function Schedule() {
     
     try {
       const apiKey = store.groqKeys[Math.floor(Math.random() * store.groqKeys.length)].key;
+      const dateContext = [
+        `T2 (${weekInfo.weekDates[0]})`, `T3 (${weekInfo.weekDates[1]})`, `T4 (${weekInfo.weekDates[2]})`,
+        `T5 (${weekInfo.weekDates[3]})`, `T6 (${weekInfo.weekDates[4]})`, `T7 (${weekInfo.weekDates[5]})`,
+        `CN (${weekInfo.weekDates[6]})`
+      ].join(', ');
+
       const prompt = `
 Bạn là trợ lý AI tự động sắp xếp lịch làm việc từ văn bản người dùng cung cấp.
+Tuần đang xét bao gồm các ngày: ${dateContext}.
 Danh sách nhân viên hợp lệ: ${users.map((u: any) => u.fullname).join(', ')}.
 Danh sách ca hợp lệ: ${ADMIN_SHIFT_OPTIONS.join(', ')}.
-Phân tích văn bản, với mỗi nhân viên xuất hiện, xếp lịch từ Thứ 2 đến Chủ nhật.
+Phân tích văn bản, với mỗi nhân viên xuất hiện, xếp lịch từ Thứ 2 đến Chủ nhật sao cho ĐÚNG VỚI NGÀY mà người dùng yêu cầu.
 Quy tắc:
-1. Nếu không nhắc đến ca của 1 ngày, để chuỗi rỗng "".
-2. Nếu nhắc OFF hoặc nghỉ, điền "OFF".
-3. Chỉ xuất MỘT chuỗi JSON hợp lệ, KHÔNG có markdown, KHÔNG giải thích.
+1. Nếu người dùng yêu cầu ca cho ngày cụ thể (ví dụ: ngày 01/05), hãy đối chiếu xem ngày đó là thứ mấy trong tuần (${dateContext}) và điền ca đúng vào vị trí thứ đó trong mảng "shifts".
+2. Tuyệt đối không tự ý dồn ca vào các ngày đầu tuần nếu người dùng yêu cầu xếp cho cuối tuần hoặc ngày khác.
+3. Nếu không nhắc đến ca của 1 ngày, để chuỗi rỗng "".
+4. Nếu nhắc OFF hoặc nghỉ, điền "OFF".
+5. Chỉ xuất MỘT chuỗi JSON hợp lệ, KHÔNG có markdown, KHÔNG giải thích.
 Định dạng JSON yêu cầu:
 {
   "schedules": [
