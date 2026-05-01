@@ -25,7 +25,7 @@ export default function Schedule() {
   // Calculate week info and month info based on currentDate for Admin navigation
   const selectedMonth = currentDate.getMonth() + 1;
   const selectedYear = currentDate.getFullYear();
-  const monthDates = useMemo(() => generateMonthDates(selectedMonth, selectedYear), [selectedMonth, selectedYear]);
+  const monthDates: MonthDateInfo[] = useMemo(() => generateMonthDates(selectedMonth, selectedYear), [selectedYear, selectedMonth]);
   
   const [monthData, setMonthData] = useState<any[]>([]);
 
