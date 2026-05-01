@@ -4,7 +4,7 @@ import { callApi } from '../services/api';
 import { speak, fetchWithRetry, computeWeekInfo, DAY_NAMES, ADMIN_SHIFT_OPTIONS, getAdminShiftClass } from '../utils/helpers';
 import { sha256, ADMIN_PIN_HASH, MASTER_PIN_HASH, escapeHtml, checkRateLimit, recordFailedAttempt, resetFailedAttempts } from '../utils/security';
 import Swal from 'sweetalert2';
-import { Lock, Key, CalendarCheck, RefreshCw, Inbox, CheckCheck, Wand2, Cpu, CloudUpload, Eye, Loader2, Users, KeyRound, ArrowLeftRight } from 'lucide-react';
+import { Lock, Key, CalendarCheck, RefreshCw, Inbox, CheckCheck, Wand2, Cpu, CloudUpload, Eye, Loader2, Users, KeyRound, ArrowLeftRight, ExternalLink } from 'lucide-react';
 
 export default function Admin() {
   const store = useAppStore();
@@ -197,7 +197,12 @@ export default function Admin() {
         </h3>
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Danh sách Groq API Keys (Llama 3.3)</label>
+            <div className="flex justify-between items-center mb-1">
+              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400">Danh sách Groq API Keys (Llama 3.3)</label>
+              <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="text-[10px] text-ocean-600 dark:text-ocean-400 hover:text-ocean-700 font-bold flex items-center bg-ocean-50 dark:bg-ocean-900/30 px-2 py-1 rounded-md transition-colors">
+                Lấy Key miễn phí <ExternalLink size={10} className="ml-1" />
+              </a>
+            </div>
             <textarea value={groqKeysInput} onChange={(e) => store.setGroqKeysInput(e.target.value)} rows={5}
               className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500 font-mono text-gray-800 dark:text-white" placeholder={'gsk_...\ngsk_...'} />
           </div>
