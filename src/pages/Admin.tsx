@@ -14,13 +14,14 @@ export default function Admin() {
   // Auto-populate groqKeysInput if empty
   useEffect(() => {
     if (store.groqKeys.length > 0 && !store.groqKeysInput) {
-      store.setGroqKeysInput(store.groqKeys.join('\n'));
+      store.setGroqKeysInput(store.groqKeys.map(k => k.key).join('\n'));
     }
   }, [store.groqKeys, store.groqKeysInput, store.setGroqKeysInput]);
 
   // === GROQ AI ===
   const analyzeWithGroq = async () => {
-    const apiKey = groqKeys.length > 0 ? groqKeys[Math.floor(Math.random() * groqKeys.length)] : null;
+    const selectedKey = groqKeys.length > 0 ? groqKeys[Math.floor(Math.random() * groqKeys.length)] : null;
+    const apiKey = selectedKey ? selectedKey.key : null;
     if (!apiKey) { Swal.fire('Cảnh báo', 'Hệ thống chưa được đồng bộ Groq API Key.', 'warning'); return; }
     if (logs.length === 0) { Swal.fire('Chú ý', 'Chưa có dữ liệu.', 'info'); return; }
 
@@ -53,7 +54,8 @@ export default function Admin() {
     store.setLoading(false);
     if (res?.ok) {
       Swal.fire('Thành công', 'Đã lưu trữ hệ thống Key an toàn', 'success');
-      store.setGroqKeys(keyArray);
+      const updatedKeys = keyArray.map((k, i) => ({ key: k, tag: 'Key ' + (i + 1), status: 'Active' }));
+      store.setGroqKeys(updatedKeys);
     } else { Swal.fire('Lỗi', 'Không thể đồng bộ Key lúc này', 'error'); }
   };
 
@@ -83,8 +85,20 @@ export default function Admin() {
                 Lấy Key miễn phí <ExternalLink size={10} className="ml-1" />
               </a>
             </div>
-            <textarea value={groqKeysInput} onChange={(e) => store.setGroqKeysInput(e.target.value)} rows={5}
-              className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500 font-mono text-gray-800 dark:text-white" placeholder={'gsk_...\ngsk_...'} />
+            <textarea value={groqKeysInput} onChange={(e) => store.setGroqKeysInput(e.target.value)} rows={3}
+              className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500 font-mono text-gray-800 dark:text-white mb-2" placeholder={'gsk_...\ngsk_...'} />
+            
+            {/* Tag Display */}
+            {groqKeys.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {groqKeys.map((k, i) => (
+                  <div key={i} className="flex items-center bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded text-[10px] font-bold border border-green-200 dark:border-green-800/50">
+                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5 animate-pulse"></span>
+                    {k.tag}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <div className="pt-2">
             <button onClick={syncApiKeys} className="w-full bg-ocean-600 hover:bg-ocean-700 text-white font-bold py-2.5 rounded-lg text-sm transition flex items-center justify-center">

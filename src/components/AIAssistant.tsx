@@ -84,7 +84,10 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
     setIsTyping(true);
 
     try {
-      const apiKey = groqKeys[Math.floor(Math.random() * groqKeys.length)];
+      const selectedKey = groqKeys[Math.floor(Math.random() * groqKeys.length)];
+      const apiKey = selectedKey ? selectedKey.key : null;
+      if (!apiKey) throw new Error('No API key available');
+
       const systemPrompt = generateSystemPrompt();
 
       // Chỉ gửi 5 tin nhắn gần nhất + system prompt để tiết kiệm token

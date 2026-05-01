@@ -57,6 +57,12 @@ export interface BonusPenaltyRecord {
   reason: string;
 }
 
+export interface GroqKey {
+  key: string;
+  tag: string;
+  status: string;
+}
+
 export interface PayrollRecord {
   username: string;
   fullname: string;
@@ -205,7 +211,7 @@ interface AppState {
   // Admin
   isAdminUnlocked: boolean;
   groqKeysInput: string;
-  groqKeys: string[];
+  groqKeys: GroqKey[];
   adminSchedules: AdminScheduleEntry[];
   originalAdminSchedules: AdminScheduleEntry[];
 
@@ -248,8 +254,8 @@ interface AppState {
   setOffReason: (v: string) => void;
   setAdminUnlocked: (v: boolean) => void;
   setGroqKeysInput: (v: string) => void;
-  setGroqKeys: (v: string[]) => void;
-  setAdminSchedules: (schedules: any[]) => void;
+  setGroqKeys: (keys: GroqKey[]) => void;
+  setAdminSchedules: (v: AdminScheduleEntry[]) => void;
   setOriginalAdminSchedules: (schedules: any[]) => void;
   setMonthSchedules: (schedules: any) => void;
   setSelectedMonth: (month: number) => void;

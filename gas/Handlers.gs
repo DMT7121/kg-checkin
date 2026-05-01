@@ -1216,7 +1216,13 @@ function handleGetData(payload) {
       var keysData = keysSheet.getDataRange().getValues();
       var keys = [];
       for (var k = 1; k < keysData.length; k++) {
-        if (keysData[k][0]) keys.push(keysData[k][0].toString());
+        if (keysData[k][0]) {
+          keys.push({
+            key: keysData[k][0].toString(),
+            tag: keysData[k][1] ? keysData[k][1].toString() : 'Key ' + k,
+            status: keysData[k][2] ? keysData[k][2].toString() : 'Active'
+          });
+        }
       }
       result.keys = keys;
     }
