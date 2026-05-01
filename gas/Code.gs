@@ -67,6 +67,7 @@ function doPost(e) {
       case 'CHECK_IN_OUT': return handleCheckInOut(payload);
       case 'GET_DATA': return handleGetData(payload);
       case 'SYNC_KEYS': return handleSyncKeys(payload);
+      case 'UPDATE_AI_PROMPTS': return handleUpdateAiPrompts(payload);
       case 'GET_KEYS': return handleGetKeys(payload);
       case 'SAVE_CHAT_LOG': return handleSaveChatLog(payload);
       case 'GEOCODE': return handleGeocode(payload);

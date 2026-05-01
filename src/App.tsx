@@ -99,6 +99,7 @@ export default function App() {
               store.setUsers(res.data.users || []);
               if (res.data.keys) store.setGroqKeys(res.data.keys);
               if (res.data.chatHistory) store.setChatHistory(res.data.chatHistory);
+              if (res.data.aiPrompts) store.setAiPrompts(res.data.aiPrompts);
               if (res.data.isScheduleRegistered !== undefined)
                 store.setScheduleRegistered(res.data.isScheduleRegistered);
               if (res.data.approvedShifts) store.setApprovedShifts(res.data.approvedShifts);

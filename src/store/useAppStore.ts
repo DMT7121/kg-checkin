@@ -57,6 +57,13 @@ export interface BonusPenaltyRecord {
   reason: string;
 }
 
+export interface AIPrompt {
+  id: string;
+  name: string;
+  content: string;
+  isActive: boolean;
+}
+
 export interface GroqKey {
   key: string;
   tag: string;
@@ -258,6 +265,7 @@ interface AppState {
   setOffReason: (v: string) => void;
   setAdminUnlocked: (v: boolean) => void;
   setGroqKeysInput: (v: string) => void;
+  setAiPrompts: (prompts: AIPrompt[]) => void;
   setGroqKeys: (keys: GroqKey[]) => void;
   setAdminSchedules: (v: AdminScheduleEntry[]) => void;
   setOriginalAdminSchedules: (schedules: any[]) => void;
@@ -336,6 +344,7 @@ export const useAppStore = create<AppState>((set) => ({
   isAdminUnlocked: false,
   groqKeysInput: '',
   groqKeys: [],
+  aiPrompts: [],
   adminSchedules: [],
   originalAdminSchedules: [],
   monthSchedules: null,
@@ -408,6 +417,7 @@ export const useAppStore = create<AppState>((set) => ({
   setOffReason: (offReason) => set({ offReason }),
   setAdminUnlocked: (isAdminUnlocked) => set({ isAdminUnlocked }),
   setGroqKeysInput: (groqKeysInput) => set({ groqKeysInput }),
+  setAiPrompts: (aiPrompts) => set({ aiPrompts }),
   setGroqKeys: (groqKeys) => set({ groqKeys }),
   setAdminSchedules: (adminSchedules) => set({ adminSchedules }),
   setOriginalAdminSchedules: (originalAdminSchedules) => set({ originalAdminSchedules }),

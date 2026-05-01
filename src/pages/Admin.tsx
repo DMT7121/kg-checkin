@@ -4,12 +4,22 @@ import { callApi } from '../services/api';
 import { speak, fetchWithRetry, computeWeekInfo, DAY_NAMES, ADMIN_SHIFT_OPTIONS, getAdminShiftClass } from '../utils/helpers';
 import { sha256, ADMIN_PIN_HASH, MASTER_PIN_HASH, escapeHtml, checkRateLimit, recordFailedAttempt, resetFailedAttempts } from '../utils/security';
 import Swal from 'sweetalert2';
-import { Lock, Key, CalendarCheck, RefreshCw, Inbox, CheckCheck, Wand2, Cpu, CloudUpload, Eye, Loader2, Users, KeyRound, ArrowLeftRight, ExternalLink } from 'lucide-react';
+import { Plus, Trash2, Edit2, Check, X, ShieldAlert, KeyRound, ArrowLeftRight, ExternalLink } from 'lucide-react';
+import { AIPrompt } from '../store/useAppStore';
 
 export default function Admin() {
   const store = useAppStore();
-  const { isAdminUnlocked, adminSchedules, originalAdminSchedules, groqKeysInput, groqKeys, logs, users, isUpdating, swapRequests } = store;
+  const { isAdminUnlocked, adminSchedules, originalAdminSchedules, groqKeysInput, groqKeys, aiPrompts, logs, users, isUpdating, swapRequests } = store;
   const weekInfo = computeWeekInfo();
+  
+  const [localPrompts, setLocalPrompts] = useState<AIPrompt[]>([]);
+  const [editingPromptId, setEditingPromptId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (aiPrompts) {
+      setLocalPrompts(aiPrompts);
+    }
+  }, [aiPrompts]);
 
   // Auto-populate groqKeysInput if empty
   useEffect(() => {
@@ -57,6 +67,35 @@ export default function Admin() {
       const updatedKeys = keyArray.map((k, i) => ({ key: k, tag: 'Key ' + (i + 1), status: 'Active' }));
       store.setGroqKeys(updatedKeys);
     } else { Swal.fire('Lỗi', 'Không thể đồng bộ Key lúc này', 'error'); }
+  const syncAiPrompts = async () => {
+    store.setLoading(true, 'Đang lưu cấu hình Prompt...');
+    const res = await callApi('UPDATE_AI_PROMPTS', { prompts: localPrompts, role: 'admin' });
+    store.setLoading(false);
+    if (res?.ok) {
+      Swal.fire('Thành công', 'Đã lưu cấu hình AI Prompt', 'success');
+      store.setAiPrompts(localPrompts);
+    } else {
+      Swal.fire('Lỗi', 'Không thể lưu cấu hình Prompt lúc này', 'error');
+    }
+  };
+
+  const addPrompt = () => {
+    const newPrompt: AIPrompt = {
+      id: Date.now().toString(),
+      name: 'Prompt mới',
+      content: 'Bạn là trợ lý AI chuyên nghiệp...',
+      isActive: false
+    };
+    setLocalPrompts([...localPrompts, newPrompt]);
+    setEditingPromptId(newPrompt.id);
+  };
+
+  const updatePrompt = (id: string, field: keyof AIPrompt, value: any) => {
+    setLocalPrompts(localPrompts.map(p => p.id === id ? { ...p, [field]: value } : p));
+  };
+
+  const removePrompt = (id: string) => {
+    setLocalPrompts(localPrompts.filter(p => p.id !== id));
   };
 
   return (
@@ -108,7 +147,93 @@ export default function Admin() {
         </div>
       </div>
 
-
+      <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+        <div className="flex justify-between items-center mb-4 border-b dark:border-gray-700 pb-2">
+          <h3 className="font-bold flex items-center text-gray-800 dark:text-white">
+            <ShieldAlert size={18} className="mr-2 text-rose-500" /> Cấu hình System Prompts (AI)
+          </h3>
+          <button onClick={addPrompt} className="text-xs bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 font-bold px-3 py-1.5 rounded-lg flex items-center hover:bg-rose-100 transition-colors">
+            <Plus size={14} className="mr-1" /> Thêm Prompt
+          </button>
+        </div>
+        
+        <div className="space-y-4">
+          {localPrompts.length === 0 ? (
+            <div className="text-center py-6 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Chưa có System Prompt nào được cấu hình.</p>
+              <button onClick={addPrompt} className="text-xs text-rose-500 font-bold hover:underline">Tạo prompt đầu tiên</button>
+            </div>
+          ) : (
+            localPrompts.map((prompt) => (
+              <div key={prompt.id} className={`p-4 rounded-xl border ${prompt.isActive ? 'border-rose-300 bg-rose-50/50 dark:border-rose-500/30 dark:bg-rose-900/10' : 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900'}`}>
+                {editingPromptId === prompt.id ? (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Tên Prompt</label>
+                      <input 
+                        value={prompt.name} 
+                        onChange={(e) => updatePrompt(prompt.id, 'name', e.target.value)}
+                        className="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 text-gray-800 dark:text-white"
+                        placeholder="VD: Trợ lý Nhân Sự"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Nội dung (System Context)</label>
+                      <textarea 
+                        value={prompt.content} 
+                        onChange={(e) => updatePrompt(prompt.id, 'content', e.target.value)}
+                        rows={4}
+                        className="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 font-mono text-gray-800 dark:text-white"
+                        placeholder="Bạn là chuyên gia nhân sự. Nhiệm vụ của bạn là..."
+                      />
+                    </div>
+                    <div className="flex items-center justify-between pt-2">
+                      <label className="flex items-center cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={prompt.isActive}
+                          onChange={(e) => updatePrompt(prompt.id, 'isActive', e.target.checked)}
+                          className="w-4 h-4 text-rose-600 bg-gray-100 border-gray-300 rounded focus:ring-rose-500 dark:focus:ring-rose-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                        />
+                        <span className="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">Kích hoạt sử dụng</span>
+                      </label>
+                      <button onClick={() => setEditingPromptId(null)} className="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white text-xs font-bold py-1.5 px-4 rounded-lg flex items-center transition">
+                        <Check size={14} className="mr-1" /> Xong
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex items-center">
+                        <span className={`w-2 h-2 rounded-full mr-2 ${prompt.isActive ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-gray-300 dark:bg-gray-600'}`}></span>
+                        <h4 className="font-bold text-gray-800 dark:text-white text-sm">{prompt.name}</h4>
+                      </div>
+                      <div className="flex space-x-2">
+                        <button onClick={() => setEditingPromptId(prompt.id)} className="p-1.5 text-gray-500 hover:text-ocean-600 hover:bg-ocean-50 dark:hover:bg-ocean-900/30 rounded-md transition-colors">
+                          <Edit2 size={14} />
+                        </button>
+                        <button onClick={() => removePrompt(prompt.id)} className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-md transition-colors">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 italic">"{prompt.content}"</p>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+          
+          {localPrompts.length > 0 && (
+            <div className="pt-2">
+              <button onClick={syncAiPrompts} className="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-2.5 rounded-lg text-sm transition flex items-center justify-center">
+                <CloudUpload size={14} className="mr-1" /> Lưu Cấu hình Prompts
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

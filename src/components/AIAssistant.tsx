@@ -13,7 +13,7 @@ interface Message {
 
 export default function AIAssistant() {
   const store = useAppStore();
-  const { groqKeys, currentUser, logs, shiftData, checklistItems, adminSchedules, chatHistory } = store;
+  const { groqKeys, currentUser, logs, shiftData, checklistItems, adminSchedules, chatHistory, aiPrompts } = store;
   
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -81,6 +81,17 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
 - Nếu người dùng yêu cầu "tạo bộ checklist", hãy liệt kê dưới dạng danh sách chuyên nghiệp (bullet points).
 - Luôn trả lời bằng tiếng Việt, thân thiện, ngắn gọn, súc tích (không quá dài dòng), có thể dùng emoji để thân thiện hơn.
 - KHÔNG BỊA ĐẶT DỮ LIỆU nếu không có trong ngữ cảnh.`;
+
+    // Add active Custom AI Prompts
+    if (aiPrompts && aiPrompts.length > 0) {
+      const activePrompts = aiPrompts.filter(p => p.isActive);
+      if (activePrompts.length > 0) {
+        prompt += `\n\n[CÁC QUY TẮC BỔ SUNG ĐƯỢC ADMIN CẤU HÌNH]\n`;
+        activePrompts.forEach(p => {
+          prompt += `- ${p.name}: ${p.content}\n`;
+        });
+      }
+    }
 
     return prompt;
   };

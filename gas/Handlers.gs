@@ -1139,6 +1139,18 @@ function handleUpdatePayrollConfig(payload) {
   }
 }
 
+function handleUpdateAiPrompts(payload) {
+  if (payload.role !== 'admin' && payload.role !== 'tester') {
+    return jsonResponse(false, 'Không có quyền thực hiện chức năng này');
+  }
+  try {
+    saveConfigToSheet("AI_PROMPTS", payload.prompts || []);
+    return jsonResponse(true, 'Cập nhật cấu hình Prompt thành công');
+  } catch (e) {
+    return jsonResponse(false, 'Lỗi hệ thống: ' + e.message);
+  }
+}
+
 function handleGetData(payload) {
   var ss = getSS();
   var result = { logs: [], stats: { totalCheckIn: 0, validCount: 0 } };
@@ -1252,6 +1264,11 @@ function handleGetData(payload) {
       result.chatHistory = chatHistory;
     }
   } catch(e) { Logger.log('Error loading chat logs: ' + e.message); }
+  
+  // === AI PROMPTS ===
+  try {
+    result.aiPrompts = getConfigFromSheet("AI_PROMPTS", []);
+  } catch(e) { Logger.log('Error loading AI prompts: ' + e.message); }
   
   // === SCHEDULE STATUS (Monthly Sheet Architecture) ===
   if (payload.monthSheet && payload.weekLabel) {
@@ -1647,8 +1664,11 @@ function getSingleWeekSchedules(monthSheet, weekLabel) {
   
   var data = sheet.getDataRange().getValues();
   var displayData = sheet.getDataRange().getDisplayValues();
-  var displayData = sheet.getDataRange().getDisplayValues(); // For shift values (text as shown)
   
+  return extractSchedulesFromData(data, displayData, weekLabel, monthSheet);
+}
+
+function extractSchedulesFromData(data, displayData, weekLabel, monthSheet) {
   var headerRow = -1;
   var cleanWeekLabel = weekLabel.replace('📅 TUẦN ', '').replace('TUẦN ', '').trim();
   var searchStr = 'TUẦN ' + cleanWeekLabel;
@@ -1687,8 +1707,6 @@ function getSingleWeekSchedules(monthSheet, weekLabel) {
     return str;
   }
 
-  Logger.log('[GET_ALL_SCHEDULES] Sheet: ' + monthSheet + ', Week: ' + weekLabel + ', HeaderRow(0idx): ' + headerRow);
-
   for (var j = headerRow + 1; j < data.length; j++) {
     var name = data[j][0] ? data[j][0].toString().trim() : '';
     if (name.indexOf('TUẦN ') >= 0) break; // Next week header
@@ -1720,8 +1738,6 @@ function getSingleWeekSchedules(monthSheet, weekLabel) {
       formatDisplayShift(displayData[j][6]),
       formatDisplayShift(displayData[j][7])
     ];
-    
-    Logger.log('[ROW ' + j + '] Name: "' + name + '" | isAdj: ' + isAdjustment + ' | displayShifts: ' + JSON.stringify(rowShifts) + ' | rawCol1: ' + data[j][1] + ' (type: ' + typeof data[j][1] + ')');
 
     if (isAdjustment) {
       emp.shifts = rowShifts;
@@ -1761,20 +1777,34 @@ function handleGetMonthSchedules(payload) {
   var requests = payload.requests;
   if (requests && requests.length > 0) {
     var weeks = [];
+    var sheetCache = {};
+    var ss = getSS();
+    
     for (var k = 0; k < requests.length; k++) {
       var req = requests[k];
-      var weekSchedules = getSingleWeekSchedules(req.monthSheet, req.weekLabel);
-      if (weekSchedules.length > 0) {
-        weeks.push({
-          weekLabel: req.weekLabel,
-          schedules: weekSchedules
-        });
-      } else {
-        weeks.push({
-          weekLabel: req.weekLabel,
-          schedules: []
-        });
+      
+      if (sheetCache[req.monthSheet] === undefined) {
+        var sheet = ss.getSheetByName(req.monthSheet);
+        if (sheet) {
+          sheetCache[req.monthSheet] = {
+            data: sheet.getDataRange().getValues(),
+            displayData: sheet.getDataRange().getDisplayValues()
+          };
+        } else {
+          sheetCache[req.monthSheet] = null;
+        }
       }
+      
+      var cache = sheetCache[req.monthSheet];
+      var weekSchedules = [];
+      if (cache) {
+        weekSchedules = extractSchedulesFromData(cache.data, cache.displayData, req.weekLabel, req.monthSheet);
+      }
+      
+      weeks.push({
+        weekLabel: req.weekLabel,
+        schedules: weekSchedules
+      });
     }
     return jsonResponse(true, { weeks: weeks });
   }
