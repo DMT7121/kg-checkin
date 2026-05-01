@@ -467,7 +467,7 @@ ${aiInputText}
         });
         
         store.setAdminSchedules(updated);
-        Swal.fire('Thành công', \`Đã điền lịch cho \${matchedCount} nhân viên. Vui lòng kiểm tra lại và nhấn Xác Nhận Sắp Xếp Ca!\`, 'success');
+        Swal.fire('Thành công', `Đã điền lịch cho ${matchedCount} nhân viên. Vui lòng kiểm tra lại và nhấn Xác Nhận Sắp Xếp Ca!`, 'success');
         setAiModalOpen(false);
         setAiInputText('');
       } else {
