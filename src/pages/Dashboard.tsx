@@ -229,9 +229,11 @@ export default function Dashboard() {
     const todayShift = approvedShifts ? approvedShifts[dayIdx] : 'Chưa xếp ca';
     const isOff = !todayShift || todayShift === 'OFF' || todayShift === 'Chưa xếp ca';
 
+    const [dashboardSchedules, setDashboardSchedules] = useState<any[]>([]);
+
     // Admin shift logic
     useEffect(() => {
-      if (isAdmin && store.adminSchedules.length === 0) {
+      if (isAdmin) {
         const weekInfo = computeWeekInfo();
         callApi('GET_ALL_SCHEDULES', { monthSheet: weekInfo.monthSheet, weekLabel: weekInfo.weekLabel }, { background: true }).then((res) => {
           if (res?.ok) {
@@ -244,18 +246,18 @@ export default function Dashboard() {
               });
               return { ...emp, shifts };
             });
-            store.setAdminSchedules(cleanSchedules);
+            setDashboardSchedules(cleanSchedules);
           }
         });
       }
-    }, []);
+    }, [isAdmin]);
 
     const shiftCounts: Record<string, number> = {};
     let waitstaffCount = 0;
     let otherCount = 0;
 
-    if (isAdmin && store.adminSchedules.length > 0) {
-      store.adminSchedules.forEach((emp) => {
+    if (isAdmin && dashboardSchedules.length > 0) {
+      dashboardSchedules.forEach((emp) => {
         const shift = emp.shifts ? emp.shifts[dayIdx] : 'OFF';
         if (shift && shift !== 'OFF') {
           shiftCounts[shift] = (shiftCounts[shift] || 0) + 1;

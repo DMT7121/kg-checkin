@@ -1268,8 +1268,9 @@ function handleGetData(payload) {
           var cellVal = schedData[s][0] ? schedData[s][0].toString() : '';
           
           // Track week headers
+          var cleanWeekLabel = payload.weekLabel.replace('📅 TUẦN ', '').replace('TUẦN ', '').trim();
           if (cellVal.indexOf('TUẦN ') >= 0) {
-            inTargetWeek = cellVal.indexOf(payload.weekLabel) >= 0;
+            inTargetWeek = cellVal.indexOf(cleanWeekLabel) >= 0;
             continue;
           }
           
@@ -1505,11 +1506,13 @@ function getMonthlyScheduleSheet(sheetName) {
  */
 function findOrCreateWeekHeader(sheet, weekLabel) {
   var data = sheet.getDataRange().getValues();
-  var headerTag = '📅 TUẦN ' + weekLabel;
+  var cleanWeekLabel = weekLabel.replace('📅 TUẦN ', '').replace('TUẦN ', '').trim();
+  var searchStr = 'TUẦN ' + cleanWeekLabel;
+  var headerTag = '📅 TUẦN ' + cleanWeekLabel;
   
   // Search for existing header
   for (var i = 0; i < data.length; i++) {
-    if (data[i][0] && data[i][0].toString().indexOf('TUẦN ' + weekLabel) >= 0) {
+    if (data[i][0] && data[i][0].toString().indexOf(searchStr) >= 0) {
       return i + 1; // 1-indexed
     }
   }
@@ -1647,9 +1650,12 @@ function getSingleWeekSchedules(monthSheet, weekLabel) {
   var displayData = sheet.getDataRange().getDisplayValues(); // For shift values (text as shown)
   
   var headerRow = -1;
+  var cleanWeekLabel = weekLabel.replace('📅 TUẦN ', '').replace('TUẦN ', '').trim();
+  var searchStr = 'TUẦN ' + cleanWeekLabel;
+
   for (var i = 0; i < data.length; i++) {
     var cellStr = data[i][0] ? data[i][0].toString() : '';
-    if (cellStr.indexOf('TUẦN ' + weekLabel) >= 0) {
+    if (cellStr.indexOf(searchStr) >= 0) {
       headerRow = i;
       break;
     }
