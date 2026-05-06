@@ -547,10 +547,29 @@ function handleSendEmailNotification(payload) {
   try {
     // Reconstruct time object
     var timeObj = payload.timeISO ? new Date(payload.timeISO) : new Date();
-    sendCheckInEmail(payload, timeObj, payload.viTri, payload.imageUrl, payload.distMeters, payload.isValid);
+    
+    // CRITICAL FIX: isValid truyền qua JSON có thể bị coerce thành string
+    // String "false" là truthy trong JS → phải convert rõ ràng về boolean
+    var isValid = (payload.isValid === true || payload.isValid === 'true');
+    
+    // distMeters: đảm bảo là string có đơn vị
+    var distMeters = payload.distMeters;
+    if (typeof distMeters === 'number') {
+      distMeters = distMeters + 'm';
+    } else if (typeof distMeters === 'string' && distMeters && distMeters.indexOf('m') === -1) {
+      distMeters = distMeters + 'm';
+    }
+    
+    Logger.log('SEND_EMAIL_NOTIFICATION: fullname=' + payload.fullname + ', email=' + payload.email + ', type=' + payload.type + ', isValid=' + isValid + ', dist=' + distMeters);
+    
+    sendCheckInEmail(payload, timeObj, payload.viTri, payload.imageUrl, distMeters, isValid);
     return jsonResponse(true, 'Đã gửi email');
   } catch (e) {
-    Logger.log('Lỗi gửi email bất đồng bộ: ' + e.message);
+    Logger.log('LỖI GỬI EMAIL: ' + e.message + ' | Stack: ' + (e.stack || 'N/A'));
+    // Ghi lỗi vào sheet config để dễ debug
+    try {
+      getSS().getSheetByName(CONFIG.SHEET_CONFIG).appendRow(['ERR_EMAIL_ASYNC', e.message, new Date()]);
+    } catch(logErr) {}
     return jsonResponse(false, e.message);
   }
 }
@@ -1092,21 +1111,49 @@ function sendCheckInEmail(payload, timeObj, loc, imgUrl, distMeters, isValid) {
   var formattedTimeAdmin = Utilities.formatDate(timeObj, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss');
   var formattedTimeUI = formattedTimeAdmin.replace(' ', '<br/>'); // Thay khoảng trắng bằng <br/> an toàn
   
-  var adminBody = buildEmailHtml(payload, formattedTimeUI, loc, distMeters, isValid, true);
-  var empBody = buildEmailHtml(payload, formattedTimeUI, loc, distMeters, isValid, false);
+  // Đảm bảo isValid là boolean (phòng trường hợp truyền string từ JSON)
+  isValid = (isValid === true || isValid === 'true');
+  
+  Logger.log('sendCheckInEmail START: to_admins=' + JSON.stringify(CONFIG.EMAILS) + ', emp_email=' + (payload.email || 'NONE') + ', isValid=' + isValid);
+  
+  var adminBody, empBody;
+  try {
+    adminBody = buildEmailHtml(payload, formattedTimeUI, loc, distMeters, isValid, true);
+    empBody = buildEmailHtml(payload, formattedTimeUI, loc, distMeters, isValid, false);
+  } catch (buildErr) {
+    Logger.log('LỖI buildEmailHtml: ' + buildErr.message + ' | Stack: ' + (buildErr.stack || 'N/A'));
+    throw buildErr; // Re-throw để handleSendEmailNotification bắt được
+  }
+  
+  // Kiểm tra quota email còn lại
+  var remainingQuota = MailApp.getRemainingDailyQuota();
+  Logger.log('Email quota còn lại: ' + remainingQuota);
+  if (remainingQuota < 1) {
+    var quotaErr = 'Hết quota email hàng ngày (còn lại: ' + remainingQuota + ')';
+    Logger.log(quotaErr);
+    getSS().getSheetByName(CONFIG.SHEET_CONFIG).appendRow(['ERR_EMAIL_QUOTA', quotaErr, new Date()]);
+    throw new Error(quotaErr);
+  }
 
+  var adminSent = 0, adminFailed = 0;
+  
   // Gửi email cho admin
   CONFIG.EMAILS.forEach(function(email) {
     if(email) {
       try {
         MailApp.sendEmail(email, '[KING\'S GRILL] ' + fullnameStr + ' - ' + typeStr, '', { htmlBody: adminBody });
+        adminSent++;
+        Logger.log('✅ Gửi admin OK: ' + email);
       } catch (adminErr) {
+        adminFailed++;
         var errStr = 'Lỗi gửi email admin (' + email + '): ' + adminErr.message;
-        Logger.log(errStr);
-        getSS().getSheetByName(CONFIG.SHEET_CONFIG).appendRow(["ERR_EMAIL_ADMIN", errStr, new Date()]);
+        Logger.log('❌ ' + errStr);
+        try { getSS().getSheetByName(CONFIG.SHEET_CONFIG).appendRow(['ERR_EMAIL_ADMIN', errStr, new Date()]); } catch(x){}
       }
     }
   });
+  
+  Logger.log('Admin emails: sent=' + adminSent + ', failed=' + adminFailed);
 
   // Gửi email xác nhận cho nhân viên
   if (payload.email && String(payload.email).indexOf('@') > 0) {
@@ -1117,12 +1164,14 @@ function sendCheckInEmail(payload, timeObj, loc, imgUrl, distMeters, isValid) {
         'Xác nhận chấm công: ' + typeStr + ' lúc ' + formattedTimeAdmin,
         { htmlBody: empBody }
       );
-      Logger.log('Đã gửi email xác nhận cho nhân viên: ' + payload.email);
+      Logger.log('✅ Gửi nhân viên OK: ' + payload.email);
     } catch(empErr) {
-      var errStr2 = 'Lỗi gửi email nhân viên: ' + empErr.message;
-      Logger.log(errStr2);
-      getSS().getSheetByName(CONFIG.SHEET_CONFIG).appendRow(["ERR_EMAIL_EMP", errStr2, new Date()]);
+      var errStr2 = 'Lỗi gửi email nhân viên (' + payload.email + '): ' + empErr.message;
+      Logger.log('❌ ' + errStr2);
+      try { getSS().getSheetByName(CONFIG.SHEET_CONFIG).appendRow(['ERR_EMAIL_EMP', errStr2, new Date()]); } catch(x){}
     }
+  } else {
+    Logger.log('⚠️ Nhân viên không có email hợp lệ: "' + (payload.email || '') + '" → Bỏ qua gửi email nhân viên');
   }
 }
 

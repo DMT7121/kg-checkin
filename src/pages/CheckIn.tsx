@@ -380,7 +380,13 @@ export default function CheckIn() {
             isValid: res.data.isValid,
             viTri: res.data.viTri,
             timeISO: res.data.timeISO
-          }, { background: true });
+          }, { background: true }).then((emailRes) => {
+            if (emailRes?.ok) {
+              console.log('[Email] Gửi email thông báo thành công');
+            } else {
+              console.error('[Email] Gửi email thất bại:', emailRes?.message || 'Unknown error');
+            }
+          });
           
           // --- CHẠY NGẦM UPLOAD ẢNH NẾU CÓ ---
           if (payloadImage) {
