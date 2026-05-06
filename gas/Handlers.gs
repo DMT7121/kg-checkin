@@ -1109,12 +1109,12 @@ function sendCheckInEmail(payload, timeObj, loc, imgUrl, distMeters, isValid) {
   var fullnameStr = payload.fullname ? String(payload.fullname) : 'Nhân viên';
 
   var formattedTimeAdmin = Utilities.formatDate(timeObj, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss');
-  var formattedTimeUI = formattedTimeAdmin.replace(' ', '<br/>'); // Thay khoảng trắng bằng <br/> an toàn
+  var formattedTimeUI = formattedTimeAdmin.replace(' ', '<br/>');
   
-  // Đảm bảo isValid là boolean (phòng trường hợp truyền string từ JSON)
+  // Đảm bảo isValid là boolean
   isValid = (isValid === true || isValid === 'true');
   
-  Logger.log('sendCheckInEmail START: to_admins=' + JSON.stringify(CONFIG.EMAILS) + ', emp_email=' + (payload.email || 'NONE') + ', isValid=' + isValid);
+  Logger.log('sendCheckInEmail START: emp_email=' + (payload.email || 'NONE') + ', isValid=' + isValid);
   
   var adminBody, empBody;
   try {
@@ -1122,40 +1122,20 @@ function sendCheckInEmail(payload, timeObj, loc, imgUrl, distMeters, isValid) {
     empBody = buildEmailHtml(payload, formattedTimeUI, loc, distMeters, isValid, false);
   } catch (buildErr) {
     Logger.log('LỖI buildEmailHtml: ' + buildErr.message + ' | Stack: ' + (buildErr.stack || 'N/A'));
-    throw buildErr; // Re-throw để handleSendEmailNotification bắt được
+    throw buildErr;
   }
   
-  // Kiểm tra quota email còn lại
+  // Kiểm tra quota email còn lại (cần ít nhất 2: 1 nhân viên + 1 admin gộp)
   var remainingQuota = MailApp.getRemainingDailyQuota();
   Logger.log('Email quota còn lại: ' + remainingQuota);
-  if (remainingQuota < 1) {
+  if (remainingQuota < 2) {
     var quotaErr = 'Hết quota email hàng ngày (còn lại: ' + remainingQuota + ')';
     Logger.log(quotaErr);
-    getSS().getSheetByName(CONFIG.SHEET_CONFIG).appendRow(['ERR_EMAIL_QUOTA', quotaErr, new Date()]);
+    try { getSS().getSheetByName(CONFIG.SHEET_CONFIG).appendRow(['ERR_EMAIL_QUOTA', quotaErr, new Date()]); } catch(x){}
     throw new Error(quotaErr);
   }
 
-  var adminSent = 0, adminFailed = 0;
-  
-  // Gửi email cho admin
-  CONFIG.EMAILS.forEach(function(email) {
-    if(email) {
-      try {
-        MailApp.sendEmail(email, '[KING\'S GRILL] ' + fullnameStr + ' - ' + typeStr, '', { htmlBody: adminBody });
-        adminSent++;
-        Logger.log('✅ Gửi admin OK: ' + email);
-      } catch (adminErr) {
-        adminFailed++;
-        var errStr = 'Lỗi gửi email admin (' + email + '): ' + adminErr.message;
-        Logger.log('❌ ' + errStr);
-        try { getSS().getSheetByName(CONFIG.SHEET_CONFIG).appendRow(['ERR_EMAIL_ADMIN', errStr, new Date()]); } catch(x){}
-      }
-    }
-  });
-  
-  Logger.log('Admin emails: sent=' + adminSent + ', failed=' + adminFailed);
-
-  // Gửi email xác nhận cho nhân viên
+  // === ƯU TIÊN 1: Gửi email xác nhận cho nhân viên TRƯỚC ===
   if (payload.email && String(payload.email).indexOf('@') > 0) {
     try {
       MailApp.sendEmail(
@@ -1171,9 +1151,25 @@ function sendCheckInEmail(payload, timeObj, loc, imgUrl, distMeters, isValid) {
       try { getSS().getSheetByName(CONFIG.SHEET_CONFIG).appendRow(['ERR_EMAIL_EMP', errStr2, new Date()]); } catch(x){}
     }
   } else {
-    Logger.log('⚠️ Nhân viên không có email hợp lệ: "' + (payload.email || '') + '" → Bỏ qua gửi email nhân viên');
+    Logger.log('⚠️ Nhân viên không có email hợp lệ: "' + (payload.email || '') + '" → Bỏ qua');
+  }
+
+  // === ƯU TIÊN 2: Gửi 1 email GỘP cho tất cả Admin (tiết kiệm quota) ===
+  // MailApp.sendEmail hỗ trợ nhiều recipients cách nhau bằng dấu phẩy → chỉ tốn 1 quota
+  var adminEmails = CONFIG.EMAILS.filter(function(e) { return !!e; });
+  if (adminEmails.length > 0) {
+    try {
+      var adminRecipients = adminEmails.join(',');
+      MailApp.sendEmail(adminRecipients, '[KING\'S GRILL] ' + fullnameStr + ' - ' + typeStr, '', { htmlBody: adminBody });
+      Logger.log('✅ Gửi admin OK (gộp ' + adminEmails.length + ' emails): ' + adminRecipients);
+    } catch (adminErr) {
+      var errStr = 'Lỗi gửi email admin (' + adminEmails.join(',') + '): ' + adminErr.message;
+      Logger.log('❌ ' + errStr);
+      try { getSS().getSheetByName(CONFIG.SHEET_CONFIG).appendRow(['ERR_EMAIL_ADMIN', errStr, new Date()]); } catch(x){}
+    }
   }
 }
+
 
 // 3. GET DATA - New 8-column format
 // Col A(0): HỌ VÀ TÊN | Col B(1): LOẠI | Col C(2): THỜI GIAN | Col D(3): VỊ TRÍ
