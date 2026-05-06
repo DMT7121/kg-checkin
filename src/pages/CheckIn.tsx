@@ -347,7 +347,7 @@ export default function CheckIn() {
 
     const payload = {
       username: currentUser!.username, fullname: currentUser!.fullname,
-      email: currentUser!.email, type, lat: gps.lat, lng: gps.lng, image: payloadImage,
+      email: currentUser!.email, type, lat: gps.lat, lng: gps.lng, image: payloadImage ? 'PENDING' : null,
       time: payloadTime,
       location: gps.address || gps.status,
       shift: shiftString,
@@ -367,6 +367,15 @@ export default function CheckIn() {
             viTri: res.data.viTri,
             timeISO: res.data.timeISO
           }, { background: true });
+          
+          // --- CHẠY NGẦM UPLOAD ẢNH NẾU CÓ ---
+          if (payloadImage) {
+            callApi('UPLOAD_CHECKIN_IMAGE', {
+              fullname: currentUser!.fullname,
+              timeISO: res.data.timeISO,
+              image: payloadImage
+            }, { background: true });
+          }
         }
 
         // --- BẮT ĐẦU: KHẢO SÁT NỘI BỘ (PULSE SURVEY) ---

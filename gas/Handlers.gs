@@ -495,45 +495,9 @@ function handleCheckInOut(payload) {
   
   // === COL G: LINK HÌNH ẢNH ===
   var imageUrl = '';
-  if (payload.image) {
-    try {
-      // Decode base64 and determine mime type
-      var mimeType = 'image/jpeg';
-      var ext = '.jpg';
-      if (payload.image.indexOf('data:image/webp') === 0) {
-        mimeType = 'image/webp'; ext = '.webp';
-      } else if (payload.image.indexOf('data:image/png') === 0) {
-        mimeType = 'image/png'; ext = '.png';
-      }
-      var base64Data = payload.image.split(',')[1];
-      var blob = Utilities.newBlob(
-        Utilities.base64Decode(base64Data),
-        mimeType,
-        payload.fullname + '_' + time.getTime() + ext
-      );
-      
-      // Upload using DriveApp (with fallback to Root Folder)
-      var folder;
-      try {
-        folder = DriveApp.getFolderById(CONFIG.FOLDER_ID);
-      } catch (eFolder) {
-        folder = DriveApp.getRootFolder(); // Fallback nếu thư mục cấu hình bị xóa/lỗi quyền
-      }
-      var file = folder.createFile(blob);
-      imageUrl = file.getUrl();
-      
-      // Tách riêng setSharing vào try-catch để tránh lỗi nếu Google Workspace chặn chia sẻ ra bên ngoài (Lỗi phổ biến nhất gây 'Lỗi ảnh')
-      try {
-        file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-      } catch (eShare) {
-        Logger.log('Cảnh báo phân quyền: ' + eShare.message);
-        // Vẫn giữ được imageUrl thay vì gán thành 'Lỗi ảnh'
-      }
-    } catch (e) {
-      Logger.log('Lỗi upload ảnh: ' + e.message);
-      imageUrl = 'Lỗi ảnh';
-    }
-  }
+  if (payload.image === 'PENDING') {
+    imageUrl = 'Đang tải ảnh...'; // Hệ thống sẽ đẩy ảnh lên ngầm ở luồng UPLOAD_CHECKIN_IMAGE
+
   
   // === COL H: DATA JSON ===
   var dataJson = JSON.stringify({
@@ -882,152 +846,127 @@ function formatEntireCheckInSheet() {
 }
 
 // Hàm gửi email thông báo checkin/checkout ngay lập tức
-function sendCheckInEmail(payload, timeObj, loc, imgUrl, distMeters, isValid) {
-  var formattedTime = Utilities.formatDate(timeObj, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss');
+function buildEmailHtml(payload, formattedTimeUI, loc, distMeters, isValid, isAdmin) {
+  var typeStr = payload.type ? String(payload.type) : 'Vào ca';
+  var fullnameStr = payload.fullname ? String(payload.fullname) : 'Nhân viên';
+
   var statusColor = isValid ? '#10b981' : '#ef4444';
   var statusText = isValid ? 'Hợp lệ' : 'Không hợp lệ';
   
-  // === GỬI EMAIL THÔNG BÁO CHO ADMIN === (Premium Template)
-  var adminBadgeColor = isValid ? '#10b981' : '#ef4444';
-  var adminIcon = isValid ? '&#10004;' : '&#10008;';
-  
+  var headerTitle = isAdmin ? 'Thông Báo Quản Trị Hệ Thống' : 'Xác Nhận Chấm Công';
+  var badgeText = isAdmin ? 'PHÁT SINH LƯỢT CHẤM CÔNG MỚI' : typeStr.toUpperCase() + ' THÀNH CÔNG';
+  var badgeBg = isValid ? 'linear-gradient(90deg, #22c55e, #16a34a)' : 'linear-gradient(90deg, #ef4444, #dc2626)';
+  var badgeIcon = isValid ? 'https://img.icons8.com/ios-filled/50/ffffff/checkmark--v1.png' : 'https://img.icons8.com/ios-filled/50/ffffff/multiply.png';
+
+  var greeting = typeStr === 'Vào ca' ? 'Chúc bạn có ca làm việc hiệu quả!' : 'Cảm ơn bạn đã hoàn thành ca làm việc!';
+  var subtitleHTML = isAdmin 
+    ? 'Hệ thống ghi nhận thao tác từ <strong style="color:#2563eb;">' + fullnameStr + '</strong>'
+    : 'Xin chào <strong style="color:#2563eb;">' + fullnameStr + '</strong>,<br/><span style="font-size:13px;color:#64748b;font-weight:normal;">' + greeting + '</span>';
+
   var body = '<!DOCTYPE html><html><head><meta charset="utf-8">'
-    + '<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;600;700;800&display=swap" rel="stylesheet">'
-    + '</head><body style="margin:0;padding:0;background:#f0f4f8;font-family:Libre Franklin,Arial,sans-serif;">'
-    + '<div style="max-width:560px;margin:20px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.08);">'
-
-    // Header gradient (Admin Dark Theme)
-    + '<div style="background:linear-gradient(135deg,#0f172a 0%,#1e3a8a 50%,#312e81 100%);padding:32px 24px;text-align:center;">'
-    + '<div style="width:48px;height:48px;background:rgba(255,255,255,0.1);border-radius:14px;margin:0 auto 12px;line-height:48px;font-size:20px;font-weight:900;color:#fbbf24;">KG</div>'
-    + '<h1 style="color:#fff;font-size:20px;font-weight:700;margin:0 0 4px;">KING\'S GRILL HR</h1>'
-    + '<p style="color:rgba(255,255,255,0.7);font-size:12px;margin:0;">Thông Báo Quản Trị Hệ Thống</p>'
+    + '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">'
+    + '</head><body style="margin:0;padding:0;background:#f0f4f8;font-family:Inter,Arial,sans-serif;">'
+    + '<div style="max-width:500px;margin:20px auto;background:linear-gradient(180deg, #f8fafc 0%, #eff6ff 100%);border-radius:24px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.06);padding:30px 20px;">'
+    
+    // Logo & Header
+    + '<div style="text-align:center;margin-bottom:20px;">'
+    + '<div style="width:56px;height:56px;background:linear-gradient(135deg, #1e3a8a, #2563eb);border-radius:14px;margin:0 auto;text-align:center;line-height:56px;color:#fbbf24;font-weight:900;font-size:24px;box-shadow:0 6px 16px rgba(37,99,235,0.25);">KG</div>'
+    + '<h1 style="color:#1e293b;font-size:22px;font-weight:800;margin:15px 0 5px;letter-spacing:-0.5px;">KING\'S GRILL HR</h1>'
+    + '<p style="color:#64748b;font-size:11px;margin:0;text-transform:uppercase;letter-spacing:1px;font-weight:600;">&bull; ' + headerTitle + ' &bull;</p>'
     + '</div>'
 
-    // Status badge
-    + '<div style="padding:0 24px;">'
-    + '<div style="background:' + adminBadgeColor + ';color:#fff;padding:12px 20px;border-radius:12px;margin-top:-16px;text-align:center;font-weight:700;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.15);">'
-    + adminIcon + ' PHÁT SINH LƯỢT CHẤM CÔNG MỚI'
-    + '</div></div>'
-
-    // Notice text
-    + '<div style="padding:20px 24px 0;text-align:center;">'
-    + '<p style="font-size:15px;color:#1e293b;margin:0;">Hệ thống ghi nhận thao tác từ <strong>' + payload.fullname + '</strong></p>'
+    // Badge
+    + '<div style="background:' + badgeBg + ';padding:14px;border-radius:14px;text-align:center;color:#fff;font-weight:700;font-size:14px;box-shadow:0 8px 20px rgba(34,197,94,0.25);margin-bottom:20px;">'
+    + '<img src="' + badgeIcon + '" width="18" style="vertical-align:middle;margin-right:8px;"/> ' + badgeText
     + '</div>'
 
-    // Detail table
-    + '<div style="padding:16px 24px;">'
-    + '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">'
-    + '<table style="width:100%;border-collapse:collapse;">'
-    + '<tr><td style="padding:12px 16px;border-bottom:1px solid #e2e8f0;font-size:13px;color:#64748b;width:120px;"><strong>Hành động</strong></td>'
-    + '<td style="padding:12px 16px;border-bottom:1px solid #e2e8f0;font-size:13px;color:#2563eb;text-align:right;font-weight:700;">' + payload.type.toUpperCase() + '</td></tr>'
-    + '<tr><td style="padding:12px 16px;border-bottom:1px solid #e2e8f0;font-size:13px;color:#64748b;"><strong>Thời gian</strong></td>'
-    + '<td style="padding:12px 16px;border-bottom:1px solid #e2e8f0;font-size:13px;color:#1e293b;text-align:right;font-weight:600;">' + formattedTime + '</td></tr>'
-    + '<tr><td style="padding:12px 16px;border-bottom:1px solid #e2e8f0;font-size:13px;color:#64748b;"><strong>Vị trí</strong></td>'
-    + '<td style="padding:12px 16px;border-bottom:1px solid #e2e8f0;font-size:13px;color:#1e293b;text-align:right;">' + loc + '</td></tr>'
-    + '<tr><td style="padding:12px 16px;border-bottom:1px solid #e2e8f0;font-size:13px;color:#64748b;"><strong>Khoảng cách</strong></td>'
-    + '<td style="padding:12px 16px;border-bottom:1px solid #e2e8f0;font-size:13px;color:#1e293b;text-align:right;">' + distMeters + 'm</td></tr>'
-    + '<tr><td style="padding:12px 16px;font-size:13px;color:#64748b;"><strong>Trạng thái</strong></td>'
-    + '<td style="padding:12px 16px;font-size:13px;text-align:right;font-weight:700;color:' + statusColor + ';">' + statusText + '</td></tr>'
-    + '</table></div></div>';
+    // Subtitle
+    + '<p style="text-align:center;color:#334155;font-size:15px;margin:0 0 20px;font-weight:600;">' + subtitleHTML + '</p>'
 
-  if (imgUrl && imgUrl !== 'Lỗi ảnh') {
-    body += '<div style="padding:0 24px 16px;text-align:center;">'
-         + '<a href="' + imgUrl + '" style="display:inline-block;padding:10px 24px;background:#f0f4ff;border:1px solid #c7d2fe;border-radius:10px;color:#4f46e5;text-decoration:none;font-weight:600;font-size:13px;">'
-         + '<span style="display:inline-block;width:20px;height:20px;line-height:20px;text-align:center;background:#6366f1;color:#fff;border-radius:6px;font-size:10px;font-weight:700;vertical-align:middle;margin-right:6px;">A</span>'
-         + 'Xem ảnh xác thực</a></div>';
-  }
+    // Info Card
+    + '<div style="background:#ffffff;border-radius:18px;padding:20px;box-shadow:0 8px 24px rgba(0,0,0,0.04);margin-bottom:24px;">'
+    + '<table width="100%" cellpadding="0" cellspacing="0" style="font-family:Inter,Arial,sans-serif;">'
+    
+    // Row 1: Hành động
+    + '<tr><td width="44" style="padding:12px 0;"><div style="width:36px;height:36px;border-radius:18px;background:#eff6ff;text-align:center;line-height:40px;"><img src="https://img.icons8.com/ios-filled/50/2563eb/user.png" width="18"/></div></td>'
+    + '<td style="padding:12px 0;color:#64748b;font-size:13px;font-weight:600;">Hành động</td>'
+    + '<td align="right" style="padding:12px 0;color:#1e3a8a;font-weight:800;font-size:14px;">' + typeStr.toUpperCase() + '</td></tr>'
+    + '<tr><td colspan="3" style="border-bottom:1px dashed #e2e8f0;height:1px;"></td></tr>'
+
+    // Row 2: Thời gian
+    + '<tr><td width="44" style="padding:12px 0;"><div style="width:36px;height:36px;border-radius:18px;background:#eff6ff;text-align:center;line-height:40px;"><img src="https://img.icons8.com/ios-filled/50/2563eb/clock--v1.png" width="18"/></div></td>'
+    + '<td style="padding:12px 0;color:#64748b;font-size:13px;font-weight:600;">Thời gian</td>'
+    + '<td align="right" style="padding:12px 0;color:#1e293b;font-weight:700;font-size:13px;line-height:1.4;">' + formattedTimeUI + '</td></tr>'
+    + '<tr><td colspan="3" style="border-bottom:1px dashed #e2e8f0;height:1px;"></td></tr>'
+
+    // Row 3: Vị trí
+    + '<tr><td width="44" style="padding:12px 0;"><div style="width:36px;height:36px;border-radius:18px;background:#eff6ff;text-align:center;line-height:40px;"><img src="https://img.icons8.com/ios-filled/50/2563eb/marker.png" width="18"/></div></td>'
+    + '<td style="padding:12px 0;color:#64748b;font-size:13px;font-weight:600;">Vị trí</td>'
+    + '<td align="right" style="padding:12px 0 12px 15px;color:#475569;font-weight:600;font-size:12px;line-height:1.4;">' + loc + '</td></tr>'
+    + '<tr><td colspan="3" style="border-bottom:1px dashed #e2e8f0;height:1px;"></td></tr>'
+
+    // Row 4: Khoảng cách
+    + '<tr><td width="44" style="padding:12px 0;"><div style="width:36px;height:36px;border-radius:18px;background:#eff6ff;text-align:center;line-height:40px;"><img src="https://img.icons8.com/ios-filled/50/2563eb/radar.png" width="18"/></div></td>'
+    + '<td style="padding:12px 0;color:#64748b;font-size:13px;font-weight:600;">Khoảng cách</td>'
+    + '<td align="right" style="padding:12px 0;color:#1e293b;font-weight:700;font-size:13px;">' + distMeters + '</td></tr>'
+    + '<tr><td colspan="3" style="border-bottom:1px dashed #e2e8f0;height:1px;"></td></tr>'
+
+    // Row 5: Trạng thái
+    + '<tr><td width="44" style="padding:12px 0;"><div style="width:36px;height:36px;border-radius:18px;background:' + (isValid ? '#f0fdf4' : '#fef2f2') + ';text-align:center;line-height:40px;"><img src="' + (isValid ? 'https://img.icons8.com/ios-filled/50/10b981/shield.png' : 'https://img.icons8.com/ios-filled/50/ef4444/shield.png') + '" width="18"/></div></td>'
+    + '<td style="padding:12px 0;color:#64748b;font-size:13px;font-weight:600;">Trạng thái</td>'
+    + '<td align="right" style="padding:12px 0;color:' + statusColor + ';font-weight:800;font-size:14px;">' + statusText + '</td></tr>'
+
+    + '</table></div>'
+
+    // Action Button
+    + '<a href="' + CONFIG.WEB_APP_URL + '" style="display:block;text-align:center;background:linear-gradient(90deg, #1e3a8a, #3b82f6);color:#ffffff;text-decoration:none;padding:16px;border-radius:14px;font-weight:700;font-size:15px;box-shadow:0 8px 20px rgba(37,99,235,0.25);margin-bottom:30px;">'
+    + '<img src="https://img.icons8.com/ios-filled/50/ffffff/circled-menu.png" width="20" style="vertical-align:middle;margin-right:8px;margin-top:-2px;"/> Truy cập Dashboard</a>'
+
+    // Footer
+    + '<div style="text-align:center;">'
+    + '<img src="https://img.icons8.com/ios-filled/50/cbd5e1/shield.png" width="16" style="margin-bottom:8px;"/>'
+    + '<p style="color:#94a3b8;font-size:11px;margin:0 0 4px;font-weight:600;">Email tự động từ hệ thống máy chủ</p>'
+    + '<p style="color:#1e293b;font-size:11px;font-weight:800;margin:0;letter-spacing:0.5px;">KING\'S GRILL &copy; ' + new Date().getFullYear() + '</p>'
+    + '</div>'
+
+    + '</div></body></html>';
+
+  return body;
+}
+
+function sendCheckInEmail(payload, timeObj, loc, imgUrl, distMeters, isValid) {
+  var typeStr = payload.type ? String(payload.type) : 'Vào ca';
+  var fullnameStr = payload.fullname ? String(payload.fullname) : 'Nhân viên';
+
+  var formattedTimeAdmin = Utilities.formatDate(timeObj, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss');
+  var formattedTimeUI = formattedTimeAdmin.replace(' ', '<br/>'); // Thay khoảng trắng bằng <br/> an toàn
   
-  body += '<div style="padding:0 24px 20px;text-align:center;">'
-       + '<a href="' + CONFIG.WEB_APP_URL + '" style="background:#2563eb;color:#ffffff;padding:12px 32px;text-decoration:none;border-radius:10px;font-weight:bold;display:inline-block;font-size:13px;box-shadow:0 4px 12px rgba(37,99,235,0.2);">Truy cập Dashboard</a>'
-       + '</div>'
-       + '<div style="background:#f8fafc;padding:20px 24px;text-align:center;border-top:1px solid #e2e8f0;">'
-       + '<p style="margin:0 0 4px;font-size:11px;color:#94a3b8;">Email tự động từ hệ thống máy chủ</p>'
-       + '<p style="margin:0;font-size:12px;font-weight:800;color:#1e293b;letter-spacing:1px;">KING\'S GRILL &copy; ' + new Date().getFullYear() + '</p>'
-       + '</div></div></body></html>';
+  var adminBody = buildEmailHtml(payload, formattedTimeUI, loc, distMeters, isValid, true);
+  var empBody = buildEmailHtml(payload, formattedTimeUI, loc, distMeters, isValid, false);
 
-  // Gửi cho admin hoặc email cấu hình
+  // Gửi email cho admin
   CONFIG.EMAILS.forEach(function(email) {
     if(email) {
-      GmailApp.sendEmail(email, '[KING\'S GRILL] ' + payload.fullname + ' - ' + payload.type, '', { htmlBody: body });
+      try {
+        GmailApp.sendEmail(email, '[KING\'S GRILL] ' + fullnameStr + ' - ' + typeStr, '', { htmlBody: adminBody });
+      } catch (adminErr) {
+        Logger.log('Lỗi gửi email admin (' + email + '): ' + adminErr.message);
+      }
     }
   });
 
-  // === GỬI EMAIL XÁC NHẬN CHO NHÂN VIÊN ===
-  if (payload.email && payload.email.indexOf('@') > 0) {
+  // Gửi email xác nhận cho nhân viên
+  if (payload.email && String(payload.email).indexOf('@') > 0) {
     try {
-      var typeColor = payload.type === 'Vào ca' ? '#10b981' : '#ef4444';
-      var typeIcon = payload.type === 'Vào ca' ? '&#9654;' : '&#9632;';
-      var greeting = payload.type === 'Vào ca' ? 'Chúc bạn có ca làm việc hiệu quả!' : 'Cảm ơn bạn đã hoàn thành ca làm việc!';
-
-      var empBody = '<!DOCTYPE html><html><head><meta charset="utf-8">'
-        + '<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;600;700;800&display=swap" rel="stylesheet">'
-        + '</head><body style="margin:0;padding:0;background:#f0f4f8;font-family:Libre Franklin,Arial,sans-serif;">'
-        + '<div style="max-width:560px;margin:20px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.08);">'
-
-        // Header gradient
-        + '<div style="background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 50%,#7c3aed 100%);padding:32px 24px;text-align:center;">'
-        + '<div style="width:48px;height:48px;background:rgba(255,255,255,0.2);border-radius:14px;margin:0 auto 12px;line-height:48px;font-size:20px;font-weight:900;color:#fbbf24;">KG</div>'
-        + '<h1 style="color:#fff;font-size:20px;font-weight:700;margin:0 0 4px;">KING\'S GRILL HR</h1>'
-        + '<p style="color:rgba(255,255,255,0.8);font-size:12px;margin:0;">Xác Nhận Chấm Công</p>'
-        + '</div>'
-
-        // Status badge
-        + '<div style="padding:0 24px;">'
-        + '<div style="background:' + typeColor + ';color:#fff;padding:12px 20px;border-radius:12px;margin-top:-16px;text-align:center;font-weight:700;font-size:15px;box-shadow:0 4px 12px rgba(0,0,0,0.15);">'
-        + typeIcon + ' ' + payload.type.toUpperCase() + ' THÀNH CÔNG'
-        + '</div></div>'
-
-        // Greeting
-        + '<div style="padding:20px 24px 0;text-align:center;">'
-        + '<p style="font-size:15px;color:#1e293b;margin:0;">Xin chào <strong>' + payload.fullname + '</strong>,</p>'
-        + '<p style="font-size:13px;color:#64748b;margin:6px 0 0;">' + greeting + '</p>'
-        + '</div>'
-
-        // Detail table
-        + '<div style="padding:16px 24px;">'
-        + '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">'
-        + '<table style="width:100%;border-collapse:collapse;">'
-        + '<tr><td style="padding:12px 16px;border-bottom:1px solid #e2e8f0;font-size:13px;color:#64748b;width:120px;"><strong>Thời gian</strong></td>'
-        + '<td style="padding:12px 16px;border-bottom:1px solid #e2e8f0;font-size:13px;color:#1e293b;text-align:right;font-weight:600;">' + formattedTime + '</td></tr>'
-        + '<tr><td style="padding:12px 16px;border-bottom:1px solid #e2e8f0;font-size:13px;color:#64748b;"><strong>Vị trí</strong></td>'
-        + '<td style="padding:12px 16px;border-bottom:1px solid #e2e8f0;font-size:13px;color:#1e293b;text-align:right;">' + loc + '</td></tr>'
-        + '<tr><td style="padding:12px 16px;border-bottom:1px solid #e2e8f0;font-size:13px;color:#64748b;"><strong>Khoảng cách</strong></td>'
-        + '<td style="padding:12px 16px;border-bottom:1px solid #e2e8f0;font-size:13px;color:#1e293b;text-align:right;">' + distMeters + 'm</td></tr>'
-        + '<tr><td style="padding:12px 16px;font-size:13px;color:#64748b;"><strong>Trạng thái</strong></td>'
-        + '<td style="padding:12px 16px;font-size:13px;text-align:right;font-weight:700;color:' + statusColor + ';">' + statusText + '</td></tr>'
-        + '</table></div></div>';
-
-      // Photo link
-      if (imgUrl && imgUrl !== 'Lỗi ảnh') {
-        empBody += '<div style="padding:0 24px 16px;text-align:center;">'
-          + '<a href="' + imgUrl + '" style="display:inline-block;padding:10px 24px;background:#f0f4ff;border:1px solid #c7d2fe;border-radius:10px;color:#4f46e5;text-decoration:none;font-weight:600;font-size:13px;">'
-          + '<span style="display:inline-block;width:20px;height:20px;line-height:20px;text-align:center;background:#6366f1;color:#fff;border-radius:6px;font-size:10px;font-weight:700;vertical-align:middle;margin-right:6px;">A</span>'
-          + 'Xem ảnh xác thực</a></div>';
-      }
-
-      // Google Maps link
-      if (payload.lat && payload.lng) {
-        empBody += '<div style="padding:0 24px 16px;text-align:center;">'
-          + '<a href="https://www.google.com/maps?q=' + payload.lat + ',' + payload.lng + '" style="display:inline-block;padding:8px 20px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;color:#15803d;text-decoration:none;font-weight:600;font-size:12px;">'
-          + '<span style="display:inline-block;width:20px;height:20px;line-height:20px;text-align:center;background:#22c55e;color:#fff;border-radius:6px;font-size:10px;font-weight:700;vertical-align:middle;margin-right:6px;">M</span>'
-          + 'Xem vị trí trên Google Maps</a></div>';
-      }
-
-      // Footer
-      empBody += '<div style="background:#f8fafc;padding:20px 24px;text-align:center;border-top:1px solid #e2e8f0;">'
-        + '<p style="margin:0 0 4px;font-size:11px;color:#94a3b8;">Email tự động - Vui lòng không trả lời</p>'
-        + '<p style="margin:0;font-size:12px;font-weight:800;color:#1e293b;letter-spacing:1px;">KING\'S GRILL &copy; ' + new Date().getFullYear() + '</p>'
-        + '</div></div></body></html>';
-
       GmailApp.sendEmail(
         payload.email,
-        '[KING\'S GRILL] Xác nhận ' + payload.type + ' - ' + formattedTime,
-        'Xác nhận chấm công: ' + payload.type + ' lúc ' + formattedTime,
+        '[KING\'S GRILL] Xác nhận ' + typeStr + ' - ' + formattedTimeAdmin,
+        'Xác nhận chấm công: ' + typeStr + ' lúc ' + formattedTimeAdmin,
         { htmlBody: empBody }
       );
       Logger.log('Đã gửi email xác nhận cho nhân viên: ' + payload.email);
     } catch(empErr) {
-      Logger.log('Loi gui email nhan vien: ' + empErr.message);
+      Logger.log('Lỗi gửi email nhân viên: ' + empErr.message);
     }
   }
 }
@@ -2202,6 +2141,90 @@ function handleSaveChecklistConfig(payload) {
 // =====================================================================================
 // 14. UPLOAD IMAGE (GENERAL PURPOSE)
 // =====================================================================================
+
+function handleUploadCheckinImage(payload) {
+  if (!payload || !payload.image || !payload.fullname || !payload.timeISO) {
+    return jsonResponse(false, 'Thiếu dữ liệu upload ảnh ngầm');
+  }
+  
+  try {
+    // Decode base64
+    var base64Data = payload.image;
+    var mimeType = 'image/jpeg';
+    var ext = '.jpg';
+    if (base64Data.indexOf('data:image/webp') === 0) { mimeType = 'image/webp'; ext = '.webp'; }
+    else if (base64Data.indexOf('data:image/png') === 0) { mimeType = 'image/png'; ext = '.png'; }
+    
+    if (base64Data.indexOf(',') !== -1) {
+      base64Data = base64Data.split(',')[1];
+    }
+    
+    // Xóa ký tự lạ và tự động đệm '='
+    base64Data = base64Data.replace(/[^A-Za-z0-9+/=]/g, '');
+    while (base64Data.length % 4 !== 0) {
+      base64Data += '=';
+    }
+    
+    var safeName = payload.fullname.replace(/[^a-zA-Z0-9_\u00C0-\u1EF9]/g, '_');
+    var filename = safeName + '_' + new Date().getTime() + ext;
+    
+    var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType, filename);
+    
+    var folder;
+    try {
+      folder = DriveApp.getFolderById(CONFIG.FOLDER_ID);
+    } catch (eF) {
+      folder = DriveApp.getRootFolder();
+    }
+    
+    var file = folder.createFile(blob);
+    var imageUrl = file.getUrl();
+    
+    try {
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (eS) {}
+    
+    // Tìm dòng tương ứng trên Sheet bằng fullname và timeISO
+    var sheet = getSS().getSheetByName(CONFIG.SHEET_LOGS);
+    var data = sheet.getDataRange().getValues(); // Cache data in memory
+    
+    for (var i = 1; i < data.length; i++) {
+      var row = data[i];
+      // Cột 0: Tên, Cột 6: Ảnh
+      if (row[0].toString() === payload.fullname && row[6].toString().indexOf('Đang tải ảnh') !== -1) {
+        // Cột 7: Data Json - Chứa timeISO để verify chính xác ca này
+        if (row[7] && row[7].toString().indexOf(payload.timeISO) !== -1) {
+          
+          var rowIdx = i + 1;
+          // Ghi đè Link vào Sheet
+          sheet.getRange(rowIdx, 7).setValue(imageUrl);
+          
+          // Format Link cho đẹp
+          var isValid = row[4].toString().indexOf('Hợp lệ') >= 0;
+          var linkColor = isValid ? '#10b981' : '#ef4444';
+          sheet.getRange(rowIdx, 7).setFormula('=HYPERLINK("' + imageUrl + '", "📷 Xem ảnh")')
+               .setFontColor(linkColor)
+               .setTextDecoration('none');
+          
+          // Cập nhật lại JSON data
+          try {
+            var oldJson = JSON.parse(row[7].toString());
+            oldJson.linkAnh = imageUrl;
+            sheet.getRange(rowIdx, 8).setValue(JSON.stringify(oldJson));
+          } catch(ej){}
+          
+          return jsonResponse(true, { url: imageUrl, rowMatched: rowIdx });
+        }
+      }
+    }
+    
+    return jsonResponse(false, 'Không tìm thấy dòng tương ứng để cập nhật ảnh trên Sheet');
+  } catch (e) {
+    Logger.log('Lỗi upload ảnh ngầm: ' + e.message);
+    return jsonResponse(false, 'Lỗi: ' + e.message);
+  }
+}
+
 function handleUploadImage(payload) {
   if (!payload || !payload.image) return jsonResponse(false, 'Không có ảnh upload');
   
