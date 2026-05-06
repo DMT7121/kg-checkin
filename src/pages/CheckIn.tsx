@@ -136,42 +136,56 @@ export default function CheckIn() {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
     setCameraActive(false);
   };
 
+  const isStartingCameraRef = useRef(false);
+
   const startCamera = async () => {
+    if (isStartingCameraRef.current) return;
+    isStartingCameraRef.current = true;
     setCameraError(false);
-    if (!window.isSecureContext && location.hostname !== 'localhost') { setCameraError(true); return; }
+    
+    try {
+      if (!window.isSecureContext && location.hostname !== 'localhost') { setCameraError(true); return; }
 
-    const constraintsList = [{ video: { facingMode: 'user' as const } }, { video: { facingMode: 'environment' as const } }, { video: true }];
+      const constraintsList = [{ video: { facingMode: 'user' as const } }, { video: { facingMode: 'environment' as const } }, { video: true }];
 
-    for (const constraint of constraintsList) {
-      try {
-        if (streamRef.current) stopCamera();
-        const stream = await navigator.mediaDevices.getUserMedia(constraint);
-        streamRef.current = stream;
-        const video = videoRef.current;
-        if (!video) continue;
-        video.srcObject = stream;
+      for (const constraint of constraintsList) {
+        try {
+          if (streamRef.current) stopCamera();
+          const stream = await navigator.mediaDevices.getUserMedia(constraint);
+          streamRef.current = stream;
+          const video = videoRef.current;
+          if (!video) continue;
+          video.srcObject = stream;
 
-        await new Promise<void>((resolve, reject) => {
-          video.onloadedmetadata = () => {
-            video.play().then(() => {
-              setTimeout(() => {
-                if (video.videoWidth > 0 && !video.paused) {
-                  setCameraActive(true);
-                  resolve();
-                } else reject('Video stream empty');
-              }, 500);
-            }).catch(reject);
-          };
-          video.onerror = () => reject('Video error');
-        });
-        return; // success
-      } catch { /* try next constraint */ }
+          await new Promise<void>((resolve, reject) => {
+            video.onloadedmetadata = () => {
+              video.play().then(() => {
+                setTimeout(() => {
+                  if (video.videoWidth > 0 && !video.paused) {
+                    setCameraActive(true);
+                    resolve();
+                  } else reject('Video stream empty');
+                }, 500);
+              }).catch(reject);
+            };
+            video.onerror = () => reject('Video error');
+          });
+          
+          isStartingCameraRef.current = false;
+          return; // success
+        } catch { /* try next constraint */ }
+      }
+      setCameraError(true);
+      speak('Không thể mở máy ảnh. Vui lòng kiểm tra quyền truy cập.');
+    } finally {
+      isStartingCameraRef.current = false;
     }
-    setCameraError(true);
-    speak('Không thể mở máy ảnh. Vui lòng kiểm tra quyền truy cập.');
   };
 
   const takePhoto = () => {
@@ -593,6 +607,9 @@ export default function CheckIn() {
         {/* Shutter button */}
         {!capturedImage && !cameraError && (
           <div className="absolute bottom-6 left-0 right-0 flex justify-center items-center space-x-6 z-20">
+            <button onClick={() => { stopCamera(); setTimeout(startCamera, 300); }} className="w-12 h-12 bg-black/40 rounded-full flex items-center justify-center text-white backdrop-blur-md shadow-lg border border-white/20 active:scale-90 transition" title="Khởi động lại máy ảnh">
+              <RotateCcw size={20} />
+            </button>
             {cameraActive ? (
               <button onClick={takePhoto} disabled={!isFaceDetected} className={`group relative touch-manipulation transition-all duration-300 ${!isFaceDetected ? 'opacity-30 scale-90 grayscale' : 'scale-100'}`}>
                 <div className="absolute inset-0 bg-white rounded-full opacity-30 group-hover:opacity-50 transition-opacity duration-300 scale-110" />
