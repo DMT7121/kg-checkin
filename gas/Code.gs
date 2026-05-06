@@ -38,7 +38,7 @@ var CONFIG = {
   // Email Relay: Thêm URL relay từ tài khoản phụ để tăng quota
   // Mỗi URL = 1 tài khoản Google = +100 emails/ngày
   EMAIL_RELAY_URLS: [
-    // VD: "https://script.google.com/macros/s/DEPLOY_ID_TAI_KHOAN_2/exec"
+    "https://script.google.com/macros/s/AKfycbyvklGluH_7uQ2WN43CiY2k1WOIWtebLC9Q8E3rFNl5tb9xInDQpBcYglTb-X7XlNAxuw/exec"
   ],
   EMAIL_RELAY_SECRET: "kg-relay-2026"
 };
