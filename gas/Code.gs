@@ -54,12 +54,7 @@ function doGet(e) {
 }
 
 function doPost(e) {
-  var lock = LockService.getScriptLock();
   try {
-    lock.tryLock(30000);
-    if (!lock.hasLock()) {
-      throw new Error('Hệ thống đang bận, vui lòng bấm chấm công lại!');
-    }
     var payload = JSON.parse(e.postData.contents);
     switch (payload.action) {
       case 'LOGIN': return handleLogin(payload);
@@ -163,8 +158,6 @@ function doPost(e) {
     }
   } catch (error) {
     return jsonResponse(false, error.toString());
-  } finally {
-    lock.releaseLock();
   }
 }
 

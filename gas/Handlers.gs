@@ -497,12 +497,19 @@ function handleCheckInOut(payload) {
   var imageUrl = '';
   if (payload.image) {
     try {
-      // Decode base64
+      // Decode base64 and determine mime type
+      var mimeType = 'image/jpeg';
+      var ext = '.jpg';
+      if (payload.image.indexOf('data:image/webp') === 0) {
+        mimeType = 'image/webp'; ext = '.webp';
+      } else if (payload.image.indexOf('data:image/png') === 0) {
+        mimeType = 'image/png'; ext = '.png';
+      }
       var base64Data = payload.image.split(',')[1];
       var blob = Utilities.newBlob(
         Utilities.base64Decode(base64Data),
-        'image/webp',
-        payload.fullname + '_' + time.getTime() + '.webp'
+        mimeType,
+        payload.fullname + '_' + time.getTime() + ext
       );
       
       // Upload using DriveApp
@@ -538,21 +545,29 @@ function handleCheckInOut(payload) {
     timestamp: time.toISOString()
   });
   
-  // === INSERT AT ROW 2 (always push new data to top) ===
-  sheet.insertRowBefore(2);
-  // Thêm nháy đơn "'" trước thời gian để ép text tương tự API V4 batch
-  var newRow = [hoVaTen, loaiChamCong, "'" + thoiGian, viTri, xacMinh, distMeters + 'm', imageUrl, dataJson];
-  sheet.getRange(2, 1, 1, 8).setValues([newRow]);
-  
-  // === AUTO-FORMAT THE NEW ROW ===
-  formatCheckInRow(sheet, 2, isValid, imageUrl);
-  
-  // Trigger email thông báo chấm công
+  // === INSERT AT ROW 2 WITH LOCK ===
+  var lock = LockService.getScriptLock();
   try {
-    sendCheckInEmail(payload, time, viTri, imageUrl, distMeters, isValid);
-  } catch(e) {
-    Logger.log('Lỗi gửi email CC: ' + e.message);
+    lock.waitLock(15000);
+    sheet.insertRowBefore(2);
+    // Thêm nháy đơn "'" trước thời gian để ép text tương tự API V4 batch
+    var newRow = [hoVaTen, loaiChamCong, "'" + thoiGian, viTri, xacMinh, distMeters + 'm', imageUrl, dataJson];
+    sheet.getRange(2, 1, 1, 8).setValues([newRow]);
+    
+    // === AUTO-FORMAT THE NEW ROW ===
+    formatCheckInRow(sheet, 2, isValid, imageUrl);
+  } catch (eRow) {
+    Logger.log('Lỗi ghi dòng: ' + eRow.message);
+  } finally {
+    lock.releaseLock();
   }
+  
+  // Trigger email thông báo chấm công (ĐÃ TẮT ĐỂ TĂNG TỐC)
+  // try {
+  //   sendCheckInEmail(payload, time, viTri, imageUrl, distMeters, isValid);
+  // } catch(e) {
+  //   Logger.log('Lỗi gửi email CC: ' + e.message);
+  // }
   
   return jsonResponse(true, 'Chấm công thành công');
 }

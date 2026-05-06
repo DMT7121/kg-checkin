@@ -278,13 +278,13 @@ export default function CheckIn() {
   const submitCheck = async (type: string) => {
     if (!capturedImage || !gps.isValid || !gps.lat) return;
 
-    // Anti-spam 30min check
+    // Anti-spam 1min check (Giảm từ 30p xuống 1p để test)
     const now = Date.now();
     const lastTime = useAppStore.getState().lastCheckInTime;
-    if (now - lastTime < 30 * 60 * 1000) {
-      const remainingMins = Math.ceil((30 * 60 * 1000 - (now - lastTime)) / 60000);
-      speak(`Vui lòng đợi thêm ${remainingMins} phút để chấm công lại.`);
-      Swal.fire({ title: 'Cảnh báo Spam', text: `Bạn vừa mới chấm công. Vui lòng đợi thêm ${remainingMins} phút.`, icon: 'warning', confirmButtonColor: '#0ea5e9' });
+    if (now - lastTime < 1 * 60 * 1000) {
+      const remainingSecs = Math.ceil((1 * 60 * 1000 - (now - lastTime)) / 1000);
+      speak(`Vui lòng đợi thêm ${remainingSecs} giây để chấm công lại.`);
+      Swal.fire({ title: 'Cảnh báo Spam', text: `Bạn vừa mới chấm công. Vui lòng đợi thêm ${remainingSecs} giây.`, icon: 'warning', confirmButtonColor: '#0ea5e9' });
       return;
     }
 
