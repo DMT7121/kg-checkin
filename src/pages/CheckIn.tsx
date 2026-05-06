@@ -4,7 +4,6 @@ import { callApi } from '../services/api';
 import KalmanFilter from '../utils/kalman';
 import { getDist, speak, getCurrentTimeString, computeWeekInfo, KG_LAT, KG_LNG, KG_RADIUS_METERS } from '../utils/helpers';
 import Swal from 'sweetalert2';
-import Swal from 'sweetalert2';
 import { MapPin, RefreshCw, CameraOff, Camera, RotateCcw, LogIn, LogOut, UserCheck } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import * as faceapi from 'face-api.js';
