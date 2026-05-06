@@ -357,6 +357,18 @@ export default function CheckIn() {
     // Đẩy lên Server (Background)
     callApi('CHECK_IN_OUT', payload, { background: true }).then(async (res) => {
       if (res?.ok) {
+        // --- CHẠY NGẦM GỬI EMAIL BÁO CÁO (Tránh block UI) ---
+        if (res.data) {
+          callApi('SEND_EMAIL_NOTIFICATION', {
+            ...payload,
+            imageUrl: res.data.imageUrl,
+            distMeters: res.data.distMeters,
+            isValid: res.data.isValid,
+            viTri: res.data.viTri,
+            timeISO: res.data.timeISO
+          }, { background: true });
+        }
+
         // --- BẮT ĐẦU: KHẢO SÁT NỘI BỘ (PULSE SURVEY) ---
         if (type === 'Vào ca' && Math.random() < 0.4) {
           setTimeout(async () => {

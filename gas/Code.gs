@@ -60,6 +60,7 @@ function doPost(e) {
       case 'LOGIN': return handleLogin(payload);
       case 'REGISTER': return handleRegister(payload);
       case 'CHECK_IN_OUT': return handleCheckInOut(payload);
+      case 'SEND_EMAIL_NOTIFICATION': return handleSendEmailNotification(payload);
       case 'GET_DATA': return handleGetData(payload);
       case 'SYNC_KEYS': return handleSyncKeys(payload);
       case 'UPDATE_AI_PROMPTS': return handleUpdateAiPrompts(payload);

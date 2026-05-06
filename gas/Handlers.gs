@@ -512,8 +512,13 @@ function handleCheckInOut(payload) {
         payload.fullname + '_' + time.getTime() + ext
       );
       
-      // Upload using DriveApp
-      var folder = DriveApp.getFolderById(CONFIG.FOLDER_ID);
+      // Upload using DriveApp (with fallback to Root Folder)
+      var folder;
+      try {
+        folder = DriveApp.getFolderById(CONFIG.FOLDER_ID);
+      } catch (eFolder) {
+        folder = DriveApp.getRootFolder(); // Fallback nếu thư mục cấu hình bị xóa/lỗi quyền
+      }
       var file = folder.createFile(blob);
       imageUrl = file.getUrl();
       
@@ -562,14 +567,28 @@ function handleCheckInOut(payload) {
     lock.releaseLock();
   }
   
-  // Trigger email thông báo chấm công (ĐÃ TẮT ĐỂ TĂNG TỐC)
-  // try {
-  //   sendCheckInEmail(payload, time, viTri, imageUrl, distMeters, isValid);
-  // } catch(e) {
-  //   Logger.log('Lỗi gửi email CC: ' + e.message);
-  // }
+  // XÓA GỌI EMAIL Ở ĐÂY ĐỂ TRÁNH BLOCK API
   
-  return jsonResponse(true, 'Chấm công thành công');
+  return jsonResponse(true, {
+    message: 'Chấm công thành công',
+    imageUrl: imageUrl,
+    distMeters: distMeters,
+    isValid: isValid,
+    timeISO: time.toISOString(),
+    viTri: viTri
+  });
+}
+
+function handleSendEmailNotification(payload) {
+  try {
+    // Reconstruct time object
+    var timeObj = payload.timeISO ? new Date(payload.timeISO) : new Date();
+    sendCheckInEmail(payload, timeObj, payload.viTri, payload.imageUrl, payload.distMeters, payload.isValid);
+    return jsonResponse(true, 'Đã gửi email');
+  } catch (e) {
+    Logger.log('Lỗi gửi email bất đồng bộ: ' + e.message);
+    return jsonResponse(false, e.message);
+  }
 }
 
 /**
