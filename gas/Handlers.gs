@@ -1104,6 +1104,69 @@ function buildEmailHtml(payload, formattedTimeUI, loc, distMeters, isValid, isAd
 </html>`;
 }
 
+/**
+ * SMART EMAIL SENDER: Tự động chọn kênh gửi email tối ưu
+ * 1. Ưu tiên MailApp (local quota)
+ * 2. Nếu hết quota → fallback sang relay accounts
+ * 3. Round-robin qua các relay để phân tải đều
+ */
+var _relayIndex = 0; // Round-robin counter
+
+function smartSendEmail(to, subject, body, htmlBody) {
+  // Thử gửi bằng MailApp trước (nhanh nhất, không cần HTTP call)
+  var localQuota = MailApp.getRemainingDailyQuota();
+  if (localQuota >= 1) {
+    MailApp.sendEmail(to, subject, body || '', { htmlBody: htmlBody });
+    Logger.log('📧 [LOCAL] Gửi OK → ' + to + ' (quota còn: ' + (localQuota - 1) + ')');
+    return 'local';
+  }
+  
+  // Hết quota local → thử relay accounts
+  var relayUrls = CONFIG.EMAIL_RELAY_URLS || [];
+  if (relayUrls.length === 0) {
+    throw new Error('Hết quota email local (' + localQuota + ') và chưa có relay account nào');
+  }
+  
+  // Round-robin: thử từng relay
+  for (var attempt = 0; attempt < relayUrls.length; attempt++) {
+    var idx = (_relayIndex + attempt) % relayUrls.length;
+    var relayUrl = relayUrls[idx];
+    
+    try {
+      var relayPayload = JSON.stringify({
+        action: 'SEND_EMAIL',
+        secret: CONFIG.EMAIL_RELAY_SECRET,
+        to: to,
+        subject: subject,
+        body: body || '',
+        htmlBody: htmlBody,
+        name: "King's Grill HR"
+      });
+      
+      var response = UrlFetchApp.fetch(relayUrl, {
+        method: 'post',
+        contentType: 'text/plain;charset=utf-8',
+        payload: relayPayload,
+        muteHttpExceptions: true,
+        followRedirects: true
+      });
+      
+      var result = JSON.parse(response.getContentText());
+      if (result.ok) {
+        _relayIndex = (idx + 1) % relayUrls.length; // Next relay for next call
+        Logger.log('📧 [RELAY#' + (idx + 1) + '] Gửi OK → ' + to);
+        return 'relay#' + (idx + 1);
+      } else {
+        Logger.log('⚠️ [RELAY#' + (idx + 1) + '] Thất bại: ' + (result.message || 'Unknown'));
+      }
+    } catch (relayErr) {
+      Logger.log('⚠️ [RELAY#' + (idx + 1) + '] Error: ' + relayErr.message);
+    }
+  }
+  
+  throw new Error('Tất cả kênh email đều đã hết quota (local + ' + relayUrls.length + ' relay)');
+}
+
 function sendCheckInEmail(payload, timeObj, loc, imgUrl, distMeters, isValid) {
   var typeStr = payload.type ? String(payload.type) : 'Vào ca';
   var fullnameStr = payload.fullname ? String(payload.fullname) : 'Nhân viên';
@@ -1114,58 +1177,47 @@ function sendCheckInEmail(payload, timeObj, loc, imgUrl, distMeters, isValid) {
   // Đảm bảo isValid là boolean
   isValid = (isValid === true || isValid === 'true');
   
-  Logger.log('sendCheckInEmail START: emp_email=' + (payload.email || 'NONE') + ', isValid=' + isValid);
+  Logger.log('sendCheckInEmail START: emp=' + (payload.email || 'NONE') + ', isValid=' + isValid);
   
   var adminBody, empBody;
   try {
     adminBody = buildEmailHtml(payload, formattedTimeUI, loc, distMeters, isValid, true);
     empBody = buildEmailHtml(payload, formattedTimeUI, loc, distMeters, isValid, false);
   } catch (buildErr) {
-    Logger.log('LỖI buildEmailHtml: ' + buildErr.message + ' | Stack: ' + (buildErr.stack || 'N/A'));
+    Logger.log('LỖI buildEmailHtml: ' + buildErr.message);
     throw buildErr;
-  }
-  
-  // Kiểm tra quota email còn lại (cần ít nhất 2: 1 nhân viên + 1 admin gộp)
-  var remainingQuota = MailApp.getRemainingDailyQuota();
-  Logger.log('Email quota còn lại: ' + remainingQuota);
-  if (remainingQuota < 2) {
-    var quotaErr = 'Hết quota email hàng ngày (còn lại: ' + remainingQuota + ')';
-    Logger.log(quotaErr);
-    try { getSS().getSheetByName(CONFIG.SHEET_CONFIG).appendRow(['ERR_EMAIL_QUOTA', quotaErr, new Date()]); } catch(x){}
-    throw new Error(quotaErr);
   }
 
   // === ƯU TIÊN 1: Gửi email xác nhận cho nhân viên TRƯỚC ===
   if (payload.email && String(payload.email).indexOf('@') > 0) {
     try {
-      MailApp.sendEmail(
+      smartSendEmail(
         payload.email,
         '[KING\'S GRILL] Xác nhận ' + typeStr + ' - ' + formattedTimeAdmin,
         'Xác nhận chấm công: ' + typeStr + ' lúc ' + formattedTimeAdmin,
-        { htmlBody: empBody }
+        empBody
       );
-      Logger.log('✅ Gửi nhân viên OK: ' + payload.email);
     } catch(empErr) {
-      var errStr2 = 'Lỗi gửi email nhân viên (' + payload.email + '): ' + empErr.message;
-      Logger.log('❌ ' + errStr2);
-      try { getSS().getSheetByName(CONFIG.SHEET_CONFIG).appendRow(['ERR_EMAIL_EMP', errStr2, new Date()]); } catch(x){}
+      Logger.log('❌ Lỗi email nhân viên: ' + empErr.message);
+      try { getSS().getSheetByName(CONFIG.SHEET_CONFIG).appendRow(['ERR_EMAIL_EMP', empErr.message, new Date()]); } catch(x){}
     }
   } else {
-    Logger.log('⚠️ Nhân viên không có email hợp lệ: "' + (payload.email || '') + '" → Bỏ qua');
+    Logger.log('⚠️ NV không có email: "' + (payload.email || '') + '"');
   }
 
-  // === ƯU TIÊN 2: Gửi 1 email GỘP cho tất cả Admin (tiết kiệm quota) ===
-  // MailApp.sendEmail hỗ trợ nhiều recipients cách nhau bằng dấu phẩy → chỉ tốn 1 quota
+  // === ƯU TIÊN 2: Gửi 1 email GỘP cho Admin ===
   var adminEmails = CONFIG.EMAILS.filter(function(e) { return !!e; });
   if (adminEmails.length > 0) {
     try {
-      var adminRecipients = adminEmails.join(',');
-      MailApp.sendEmail(adminRecipients, '[KING\'S GRILL] ' + fullnameStr + ' - ' + typeStr, '', { htmlBody: adminBody });
-      Logger.log('✅ Gửi admin OK (gộp ' + adminEmails.length + ' emails): ' + adminRecipients);
+      smartSendEmail(
+        adminEmails.join(','),
+        '[KING\'S GRILL] ' + fullnameStr + ' - ' + typeStr,
+        '',
+        adminBody
+      );
     } catch (adminErr) {
-      var errStr = 'Lỗi gửi email admin (' + adminEmails.join(',') + '): ' + adminErr.message;
-      Logger.log('❌ ' + errStr);
-      try { getSS().getSheetByName(CONFIG.SHEET_CONFIG).appendRow(['ERR_EMAIL_ADMIN', errStr, new Date()]); } catch(x){}
+      Logger.log('❌ Lỗi email admin: ' + adminErr.message);
+      try { getSS().getSheetByName(CONFIG.SHEET_CONFIG).appendRow(['ERR_EMAIL_ADMIN', adminErr.message, new Date()]); } catch(x){}
     }
   }
 }

@@ -34,7 +34,13 @@ var CONFIG = {
   EMAILS: ["dmt.kgwork@gmail.com", "leminhsang993@gmail.com", "nguyentien1744293@gmail.com"],
   TIMEZONE: "Asia/Ho_Chi_Minh",
   MAX_COLS: 11,
-  SPECIAL_DAYS_KEY: "SPECIAL_DAYS_TAGS"
+  SPECIAL_DAYS_KEY: "SPECIAL_DAYS_TAGS",
+  // Email Relay: Thêm URL relay từ tài khoản phụ để tăng quota
+  // Mỗi URL = 1 tài khoản Google = +100 emails/ngày
+  EMAIL_RELAY_URLS: [
+    // VD: "https://script.google.com/macros/s/DEPLOY_ID_TAI_KHOAN_2/exec"
+  ],
+  EMAIL_RELAY_SECRET: "kg-relay-2026"
 };
 
 // Backward-compatible aliases (cac ham cu van dung duoc)
