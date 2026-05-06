@@ -850,7 +850,7 @@ function buildEmailHtml(payload, formattedTimeUI, loc, distMeters, isValid, isAd
   var typeStr = payload.type ? String(payload.type) : 'Vào ca';
   var fullnameStr = payload.fullname ? String(payload.fullname) : 'Nhân viên';
   
-  if (!loc || loc === 'undefined') loc = 'Không xác định';
+  if (!loc || String(loc) === 'undefined' || !String(loc).trim()) loc = 'Không xác định';
 
   var statusColor = isValid ? '#15aa4f' : '#dc2626';
   var statusText = isValid ? 'Hợp lệ' : 'Không hợp lệ';
