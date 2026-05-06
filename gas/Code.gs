@@ -393,7 +393,7 @@ function autoProcessDaily() {
         + '</div></body></html>';
 
       REPORT_EMAILS.forEach(function(email) {
-        GmailApp.sendEmail(
+        MailApp.sendEmail(
           email,
           '[KING\'s GRILL] Loi tong hop cham cong - ' + formattedTime,
           'Loi tong hop cham cong: ' + e.message + ' - Thoi gian: ' + formattedTime,
@@ -571,7 +571,7 @@ function sendReportEmail(ss) {
     if (pdfBlob) emailOptions.attachments = [pdfBlob];
 
     REPORT_EMAILS.forEach(function(email) {
-      GmailApp.sendEmail(
+      MailApp.sendEmail(
         email,
         '[KING\'s GRILL] Bao cao tong hop cham cong - ' + formattedDate,
         'Bao cao tong hop cham cong KING\'s GRILL - ' + formattedTime,
