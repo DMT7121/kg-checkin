@@ -864,7 +864,7 @@ function formatEntireCheckInSheet() {
   ss.toast('✅ Hoàn thành 100%! ' + rowsNum + ' dòng đã được làm đẹp chuẩn chuyên nghiệp.', 'Xong', 5);
 }
 
-// Email template v5 - TABLE-BASED for Gmail/Outlook compatibility
+// Email template v6 - TABLE-BASED, emoji icons, Gmail/Outlook safe
 function buildEmailHtml(payload, formattedTimeUI, loc, distMeters, isValid, isAdmin) {
   var typeStr = payload.type ? String(payload.type) : 'Vào ca';
   var fullnameStr = payload.fullname ? String(payload.fullname) : 'Nhân viên';
@@ -873,13 +873,14 @@ function buildEmailHtml(payload, formattedTimeUI, loc, distMeters, isValid, isAd
   var badgeText = isAdmin ? 'PHÁT SINH LƯỢT CHẤM CÔNG MỚI' : (typeStr.toUpperCase() + (isValid ? ' THÀNH CÔNG' : ' KHÔNG HỢP LỆ'));
   var statusText = isValid ? 'Hợp lệ' : 'Không hợp lệ';
   var greeting = typeStr === 'Vào ca' ? 'Chúc bạn có ca làm việc hiệu quả!' : 'Cảm ơn bạn đã hoàn thành ca làm việc!';
-  var noteHTML = isAdmin ? 'Hệ thống ghi nhận thao tác từ <b style="color:#0d55ff">' + fullnameStr + '</b>' : 'Xin chào <b style="color:#0d55ff">' + fullnameStr + '</b>, ' + greeting;
+  var noteHTML = isAdmin
+    ? 'Hệ thống ghi nhận thao tác từ <b style="color:#0d55ff">' + fullnameStr + '</b>'
+    : 'Xin chào <b style="color:#0d55ff">' + fullnameStr + '</b>, ' + greeting;
   var bannerBg = isValid ? 'linear-gradient(135deg,#38e98d 0%,#0abc56 54%,#16c971 100%)' : 'linear-gradient(135deg,#ff6b6b 0%,#ee2a2a 54%,#d61818 100%)';
-  var bannerShadow = isValid ? 'rgba(22,195,103,.22)' : 'rgba(195,22,22,.22)';
+  var bannerShadow = isValid ? 'rgba(22,195,103,.20)' : 'rgba(195,22,22,.20)';
   var checkColor = isValid ? '#0fbd59' : '#dc2626';
-  var checkShadow = isValid ? 'rgba(0,77,40,.14)' : 'rgba(77,0,0,.14)';
+  var checkShadow = isValid ? 'rgba(0,77,40,.12)' : 'rgba(77,0,0,.12)';
   var checkChar = isValid ? '&#10003;' : '&#10007;';
-  var badgeTextShadow = isValid ? 'rgba(0,83,42,.12)' : 'rgba(83,0,0,.12)';
   var statusColor = isValid ? '#15aa4f' : '#dc2626';
   var statusIconColor = isValid ? '#11b956' : '#dc2626';
   var statusIconBg = isValid ? '#eefff5' : '#fff0f0';
@@ -896,198 +897,172 @@ function buildEmailHtml(payload, formattedTimeUI, loc, distMeters, isValid, isAd
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 *{box-sizing:border-box}
-body,html{margin:0;padding:0;width:100%;background:#edf6ff;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%}
+body,html{margin:0;padding:0;width:100%;background:#edf6ff}
 body{font-family:Inter,'Segoe UI',Roboto,Arial,sans-serif}
-table{border-spacing:0;border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt}
-img{border:0;line-height:100%;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic}
+table{border-spacing:0;border-collapse:collapse}
 a{color:#0d5cff;text-decoration:none}
 @media only screen and (max-width:620px){
-  .outer{width:100%!important;padding:0!important}
-  .card{width:100%!important;border-radius:0!important}
-  .card-pad{padding:28px 18px 22px!important}
-  .logo-box{width:64px!important;height:64px!important;border-radius:16px!important;font-size:26px!important}
-  .title{font-size:26px!important}
-  .subtitle{font-size:14px!important}
-  .banner{border-radius:16px!important;padding:14px!important}
-  .banner-text{font-size:18px!important}
-  .check-c{width:40px!important;height:40px!important;font-size:20px!important;line-height:40px!important}
-  .note{font-size:15px!important}
-  .info-box{border-radius:16px!important;padding:4px 10px!important}
-  .row-icon{width:40px!important;height:40px!important;border-radius:12px!important;font-size:18px!important;line-height:40px!important}
-  .row-label{font-size:14px!important}
-  .row-value{font-size:14px!important}
-  .btn{border-radius:16px!important;font-size:17px!important}
-  .btn-pad{padding:16px 20px!important}
-  .footer-text{font-size:13px!important}
-  .footer-brand{font-size:15px!important}
+.outer{padding:0 0!important}
+.card{width:100%!important;border-radius:0!important}
+.cpad{padding:32px 20px 24px!important}
+.logo-box{width:68px!important;height:68px!important;font-size:28px!important;line-height:68px!important;border-radius:17px!important}
+.main-title{font-size:28px!important}
+.sub-title{font-size:14px!important}
+.b-pad{padding:15px 16px!important}
+.b-text{font-size:17px!important}
+.chk{width:42px!important;height:42px!important;font-size:22px!important;line-height:42px!important}
+.note{font-size:15px!important}
+.ipad{padding:2px 14px!important}
+.ic{width:42px!important;height:42px!important;font-size:18px!important;line-height:42px!important;border-radius:13px!important}
+.rl{font-size:14px!important}
+.rv{font-size:14px!important}
+.rv-act{font-size:16px!important}
+.rv-addr{font-size:13px!important}
+.rv-st{font-size:15px!important}
+.btn-a{font-size:17px!important;padding:15px 20px!important}
+.ft{font-size:12px!important}
+.fb{font-size:14px!important;letter-spacing:1.5px!important}
 }
 </style>
 </head>
-<body style="margin:0;padding:0;background:#edf6ff;font-family:Inter,'Segoe UI',Roboto,Arial,sans-serif;color:#08295e;-webkit-text-size-adjust:100%">
+<body style="margin:0;padding:0;background:#edf6ff;font-family:Inter,'Segoe UI',Roboto,Arial,sans-serif;color:#08295e">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#edf6ff">
+<tr><td align="center" class="outer" style="padding:28px 16px">
 
-<!-- Outer wrapper -->
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#edf6ff;min-height:100%">
-<tr><td align="center" style="padding:24px 16px" class="outer">
+<table role="presentation" cellpadding="0" cellspacing="0" width="580" class="card" style="width:580px;max-width:100%;border-radius:24px;background:#ffffff;background:linear-gradient(155deg,#ffffff 0%,#f8fbff 40%,#f0f6ff 100%);border:1px solid #e3ecf8;box-shadow:0 16px 48px rgba(8,41,94,.10)">
+<tr><td class="cpad" style="padding:44px 40px 32px">
 
-<!-- Card -->
-<table role="presentation" cellpadding="0" cellspacing="0" width="580" class="card" style="width:580px;max-width:100%;border-radius:28px;background:linear-gradient(145deg,#ffffff 0%,#f5f9ff 50%,#eef5ff 100%);border:1px solid rgba(200,220,255,.6);box-shadow:0 20px 60px rgba(8,54,125,.12),0 1px 0 #fff inset">
-<tr><td class="card-pad" style="padding:42px 36px 30px">
-
-<!-- Logo -->
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-<tr><td align="center" style="padding-bottom:18px">
-<div class="logo-box" style="display:inline-block;width:80px;height:80px;border-radius:20px;background:linear-gradient(145deg,#1664ff,#003cbd);text-align:center;line-height:80px;font-size:32px;font-weight:900;color:#ffd65a;letter-spacing:-2px;text-shadow:0 2px 0 rgba(80,38,0,.18);box-shadow:0 12px 28px rgba(0,58,169,.28),0 -6px 14px rgba(0,0,0,.2) inset">KG</div>
+<!-- LOGO -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding-bottom:16px">
+<table role="presentation" cellpadding="0" cellspacing="0"><tr><td class="logo-box" style="width:84px;height:84px;border-radius:21px;background:linear-gradient(145deg,#1664ff 0%,#003cbd 60%,#001f6e 100%);text-align:center;line-height:84px;font-size:34px;font-weight:900;color:#ffd65a;letter-spacing:-2px;box-shadow:0 14px 30px rgba(0,58,169,.30),0 -6px 12px rgba(0,0,0,.18) inset">KG</td></tr></table>
 </td></tr>
 
-<!-- Title -->
-<tr><td align="center" style="padding-bottom:6px">
-<h1 class="title" style="margin:0;font-size:34px;font-weight:900;color:#082b63;letter-spacing:-.8px;line-height:1.1">KING'S GRILL HR</h1>
+<!-- TITLE -->
+<tr><td align="center" style="padding-bottom:4px">
+<div class="main-title" style="font-size:36px;font-weight:900;color:#082b63;letter-spacing:-.8px;line-height:1.1">KING&#8217;S GRILL HR</div>
 </td></tr>
 
-<!-- Subtitle -->
-<tr><td align="center" style="padding-bottom:24px">
-<p class="subtitle" style="margin:0;font-size:17px;font-weight:500;color:#71829f;line-height:1.4">
-<span style="color:#7b9cc9;margin-right:8px">&#9679;</span>{{HEADER_TITLE}}<span style="color:#7b9cc9;margin-left:8px">&#9679;</span>
-</p>
+<!-- SUBTITLE -->
+<tr><td align="center" style="padding-bottom:22px">
+<div class="sub-title" style="font-size:16px;font-weight:500;color:#71829f;line-height:1.4">
+<span style="color:#94a8c5;font-size:8px;vertical-align:middle">&#9679;</span>
+&nbsp;&nbsp;{{HEADER_TITLE}}&nbsp;&nbsp;
+<span style="color:#94a8c5;font-size:8px;vertical-align:middle">&#9679;</span>
+</div>
 </td></tr>
 
-<!-- Banner -->
-<tr><td align="center" style="padding-bottom:18px">
-<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-radius:20px;overflow:hidden;background:{{BANNER_BG}};box-shadow:0 14px 30px {{BANNER_SHADOW}}">
-<tr><td class="banner" style="padding:18px 22px">
-<table role="presentation" cellpadding="0" cellspacing="0" width="100%">
-<tr>
-<td width="48" valign="middle" style="padding-right:16px">
-<div class="check-c" style="width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,.93);text-align:center;line-height:48px;font-size:24px;font-weight:900;color:{{CHECK_COLOR}};box-shadow:0 8px 18px {{CHECK_SHADOW}}">{{CHECK_CHAR}}</div>
+<!-- BANNER -->
+<tr><td style="padding-bottom:16px">
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-radius:18px;background:{{BANNER_BG}};box-shadow:0 12px 28px {{BANNER_SHADOW}}">
+<tr><td class="b-pad" style="padding:17px 22px">
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+<td width="52" valign="middle" style="padding-right:14px">
+<table role="presentation" cellpadding="0" cellspacing="0"><tr><td class="chk" style="width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,.93);text-align:center;line-height:48px;font-size:26px;font-weight:900;color:{{CHECK_COLOR}};box-shadow:0 6px 16px {{CHECK_SHADOW}}">{{CHECK_CHAR}}</td></tr></table>
 </td>
 <td valign="middle">
-<strong class="banner-text" style="display:block;font-size:22px;font-weight:900;color:#ffffff;line-height:1.2;letter-spacing:.2px;text-shadow:0 2px 8px {{BADGE_TEXT_SHADOW}}">{{BADGE_TEXT}}</strong>
+<div class="b-text" style="font-size:21px;font-weight:900;color:#ffffff;line-height:1.22;letter-spacing:.3px">{{BADGE_TEXT}}</div>
 </td>
-</tr>
-</table>
-</td></tr>
-</table>
+</tr></table>
+</td></tr></table>
 </td></tr>
 
-<!-- Note -->
+<!-- NOTE -->
+<tr><td style="padding-bottom:14px">
+<div class="note" style="font-size:16px;font-weight:500;color:#2b4265;line-height:1.45">{{NOTE_HTML}}</div>
+</td></tr>
+
+<!-- INFO CARD -->
 <tr><td style="padding-bottom:16px">
-<p class="note" style="margin:0;font-size:17px;font-weight:500;color:#2b4265;line-height:1.45">{{NOTE_HTML}}</p>
-</td></tr>
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" class="ipad" style="border-radius:18px;background:#f8faff;border:1px solid #e8eff8;box-shadow:0 10px 28px rgba(35,81,143,.06);padding:4px 18px">
 
-<!-- Info Card -->
-<tr><td style="padding-bottom:18px">
-<table role="presentation" cellpadding="0" cellspacing="0" width="100%" class="info-box" style="border-radius:20px;background:linear-gradient(145deg,rgba(255,255,255,.92),rgba(247,252,255,.85));border:1px solid rgba(220,233,255,.65);box-shadow:0 16px 36px rgba(35,81,143,.08);padding:6px 16px">
-
-<!-- Row: Hành động -->
-<tr><td style="padding:14px 0;border-bottom:1px solid rgba(23,68,131,.08)">
-<table role="presentation" cellpadding="0" cellspacing="0" width="100%">
-<tr>
-<td width="52" valign="middle" style="padding-right:14px">
-<div class="row-icon" style="width:48px;height:48px;border-radius:15px;background:linear-gradient(145deg,#fff,#f0f5ff);border:1px solid rgba(230,240,255,.9);text-align:center;line-height:48px;font-size:20px;color:#2365f4;box-shadow:0 8px 18px rgba(28,95,195,.08)">&#9787;</div>
+<!-- Hành động -->
+<tr><td style="padding:13px 0;border-bottom:1px solid #edf2fa">
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+<td width="56" valign="middle" style="padding-right:12px">
+<table role="presentation" cellpadding="0" cellspacing="0"><tr><td class="ic" style="width:46px;height:46px;border-radius:14px;background:linear-gradient(145deg,#ffffff,#f0f5ff);border:1px solid #e4edfa;text-align:center;line-height:46px;font-size:20px;color:#2365f4;box-shadow:0 6px 14px rgba(28,95,195,.07)">&#128100;</td></tr></table>
 </td>
-<td valign="middle"><span class="row-label" style="font-size:16px;font-weight:800;color:#40536f">Hành động</span></td>
-<td valign="middle" align="right"><span class="row-value" style="font-size:18px;font-weight:900;color:#0c55f4;letter-spacing:.2px">{{ACTION}}</span></td>
-</tr>
-</table>
+<td valign="middle"><span class="rl" style="font-size:16px;font-weight:700;color:#40536f">Hành động</span></td>
+<td valign="middle" align="right"><span class="rv rv-act" style="font-size:18px;font-weight:900;color:#0c55f4;letter-spacing:.3px">{{ACTION}}</span></td>
+</tr></table>
 </td></tr>
 
-<!-- Row: Thời gian -->
-<tr><td style="padding:14px 0;border-bottom:1px solid rgba(23,68,131,.08)">
-<table role="presentation" cellpadding="0" cellspacing="0" width="100%">
-<tr>
-<td width="52" valign="middle" style="padding-right:14px">
-<div class="row-icon" style="width:48px;height:48px;border-radius:15px;background:linear-gradient(145deg,#fff,#f0f5ff);border:1px solid rgba(230,240,255,.9);text-align:center;line-height:48px;font-size:20px;color:#2365f4;box-shadow:0 8px 18px rgba(28,95,195,.08)">&#9200;</div>
+<!-- Thời gian -->
+<tr><td style="padding:13px 0;border-bottom:1px solid #edf2fa">
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+<td width="56" valign="middle" style="padding-right:12px">
+<table role="presentation" cellpadding="0" cellspacing="0"><tr><td class="ic" style="width:46px;height:46px;border-radius:14px;background:linear-gradient(145deg,#ffffff,#f0f5ff);border:1px solid #e4edfa;text-align:center;line-height:46px;font-size:20px;color:#2365f4;box-shadow:0 6px 14px rgba(28,95,195,.07)">&#128339;</td></tr></table>
 </td>
-<td valign="middle"><span class="row-label" style="font-size:16px;font-weight:800;color:#40536f">Thời gian</span></td>
-<td valign="middle" align="right"><span class="row-value" style="font-size:16px;font-weight:800;color:#071f4b;line-height:1.35">{{TIME}}</span></td>
-</tr>
-</table>
+<td valign="middle"><span class="rl" style="font-size:16px;font-weight:700;color:#40536f">Thời gian</span></td>
+<td valign="middle" align="right"><span class="rv" style="font-size:16px;font-weight:800;color:#071f4b;line-height:1.35">{{TIME}}</span></td>
+</tr></table>
 </td></tr>
 
-<!-- Row: Vị trí -->
-<tr><td style="padding:14px 0;border-bottom:1px solid rgba(23,68,131,.08)">
-<table role="presentation" cellpadding="0" cellspacing="0" width="100%">
-<tr>
-<td width="52" valign="top" style="padding-right:14px;padding-top:2px">
-<div class="row-icon" style="width:48px;height:48px;border-radius:15px;background:linear-gradient(145deg,#fff,#f0f5ff);border:1px solid rgba(230,240,255,.9);text-align:center;line-height:48px;font-size:20px;color:#2365f4;box-shadow:0 8px 18px rgba(28,95,195,.08)">&#9906;</div>
+<!-- Vị trí -->
+<tr><td style="padding:13px 0;border-bottom:1px solid #edf2fa">
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+<td width="56" valign="top" style="padding-right:12px;padding-top:2px">
+<table role="presentation" cellpadding="0" cellspacing="0"><tr><td class="ic" style="width:46px;height:46px;border-radius:14px;background:linear-gradient(145deg,#ffffff,#f0f5ff);border:1px solid #e4edfa;text-align:center;line-height:46px;font-size:20px;color:#2365f4;box-shadow:0 6px 14px rgba(28,95,195,.07)">&#128205;</td></tr></table>
 </td>
-<td valign="top"><span class="row-label" style="font-size:16px;font-weight:800;color:#40536f">Vị trí</span></td>
-<td valign="top" align="right" style="max-width:220px"><span class="row-value" style="font-size:14px;font-weight:500;color:#071f4b;line-height:1.4">{{LOCATION}}</span></td>
-</tr>
-</table>
+<td valign="top"><span class="rl" style="font-size:16px;font-weight:700;color:#40536f">Vị trí</span></td>
+<td valign="top" align="right" style="max-width:200px"><span class="rv rv-addr" style="font-size:14px;font-weight:500;color:#334965;line-height:1.38">{{LOCATION}}</span></td>
+</tr></table>
 </td></tr>
 
-<!-- Row: Khoảng cách -->
-<tr><td style="padding:14px 0;border-bottom:1px solid rgba(23,68,131,.08)">
-<table role="presentation" cellpadding="0" cellspacing="0" width="100%">
-<tr>
-<td width="52" valign="middle" style="padding-right:14px">
-<div class="row-icon" style="width:48px;height:48px;border-radius:15px;background:linear-gradient(145deg,#fff,#f0f5ff);border:1px solid rgba(230,240,255,.9);text-align:center;line-height:48px;font-size:20px;color:#2365f4;box-shadow:0 8px 18px rgba(28,95,195,.08)">&#8982;</div>
+<!-- Khoảng cách -->
+<tr><td style="padding:13px 0;border-bottom:1px solid #edf2fa">
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+<td width="56" valign="middle" style="padding-right:12px">
+<table role="presentation" cellpadding="0" cellspacing="0"><tr><td class="ic" style="width:46px;height:46px;border-radius:14px;background:linear-gradient(145deg,#ffffff,#f0f5ff);border:1px solid #e4edfa;text-align:center;line-height:46px;font-size:20px;color:#2365f4;box-shadow:0 6px 14px rgba(28,95,195,.07)">&#127919;</td></tr></table>
 </td>
-<td valign="middle"><span class="row-label" style="font-size:16px;font-weight:800;color:#40536f">Khoảng cách</span></td>
-<td valign="middle" align="right"><span class="row-value" style="font-size:16px;font-weight:800;color:#071f4b">{{DISTANCE}}</span></td>
-</tr>
-</table>
+<td valign="middle"><span class="rl" style="font-size:16px;font-weight:700;color:#40536f">Khoảng cách</span></td>
+<td valign="middle" align="right"><span class="rv" style="font-size:16px;font-weight:800;color:#071f4b">{{DISTANCE}}</span></td>
+</tr></table>
 </td></tr>
 
-<!-- Row: Trạng thái -->
-<tr><td style="padding:14px 0">
-<table role="presentation" cellpadding="0" cellspacing="0" width="100%">
-<tr>
-<td width="52" valign="middle" style="padding-right:14px">
-<div class="row-icon" style="width:48px;height:48px;border-radius:15px;background:linear-gradient(145deg,#fff,{{STATUS_ICON_BG}});border:1px solid rgba(230,240,255,.9);text-align:center;line-height:48px;font-size:20px;color:{{STATUS_ICON_COLOR}};box-shadow:0 8px 18px rgba(28,95,195,.08)">&#9741;</div>
+<!-- Trạng thái -->
+<tr><td style="padding:13px 0">
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+<td width="56" valign="middle" style="padding-right:12px">
+<table role="presentation" cellpadding="0" cellspacing="0"><tr><td class="ic" style="width:46px;height:46px;border-radius:14px;background:linear-gradient(145deg,#ffffff,{{STATUS_ICON_BG}});border:1px solid #e4edfa;text-align:center;line-height:46px;font-size:20px;color:{{STATUS_ICON_COLOR}};box-shadow:0 6px 14px rgba(28,95,195,.07)">&#128737;</td></tr></table>
 </td>
-<td valign="middle"><span class="row-label" style="font-size:16px;font-weight:800;color:#40536f">Trạng thái</span></td>
-<td valign="middle" align="right"><span class="row-value" style="font-size:17px;font-weight:900;color:{{STATUS_COLOR}}">{{STATUS}}</span></td>
-</tr>
-</table>
+<td valign="middle"><span class="rl" style="font-size:16px;font-weight:700;color:#40536f">Trạng thái</span></td>
+<td valign="middle" align="right"><span class="rv rv-st" style="font-size:17px;font-weight:900;color:{{STATUS_COLOR}}">{{STATUS}}</span></td>
+</tr></table>
 </td></tr>
 
 </table>
 </td></tr>
 
-<!-- Dashboard Button -->
-<tr><td align="center" style="padding-bottom:14px">
-<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:420px">
-<tr><td align="center" class="btn" style="border-radius:18px;background:linear-gradient(180deg,#338dff,#0055f4 50%,#0039b4);box-shadow:0 16px 30px rgba(0,64,180,.25),0 2px 4px rgba(255,255,255,.5) inset">
-<a href="{{DASHBOARD_URL}}" target="_blank" class="btn-pad" style="display:block;padding:18px 28px;color:#ffffff;font-size:20px;font-weight:900;text-decoration:none;text-align:center;letter-spacing:.3px">
-<span style="display:inline-block;width:28px;height:14px;margin-right:10px;vertical-align:middle">
-<span style="display:inline-block;width:11px;height:11px;background:#fff;border-radius:3px;margin-right:3px"></span><span style="display:inline-block;width:11px;height:11px;background:#fff;border-radius:3px"></span><br/>
-<span style="display:inline-block;width:11px;height:11px;background:#fff;border-radius:3px;margin-right:3px;margin-top:2px"></span><span style="display:inline-block;width:11px;height:11px;background:#fff;border-radius:3px;margin-top:2px"></span>
+<!-- DASHBOARD BUTTON -->
+<tr><td align="center" style="padding-bottom:12px">
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:440px;margin:0 auto">
+<tr><td align="center" style="border-radius:18px;background:linear-gradient(180deg,#3d91ff 0%,#0055f4 50%,#0039b4 100%);box-shadow:0 14px 28px rgba(0,64,180,.22)">
+<a href="{{DASHBOARD_URL}}" target="_blank" class="btn-a" style="display:block;padding:18px 28px;color:#ffffff;font-size:20px;font-weight:900;text-decoration:none;text-align:center;letter-spacing:.3px;line-height:1.2">
+<span style="display:inline-block;vertical-align:middle;margin-right:10px;width:22px">
+<span style="display:inline-block;width:9px;height:9px;background:#fff;border-radius:2px;margin:0 1px 2px 0"></span><span style="display:inline-block;width:9px;height:9px;background:#fff;border-radius:2px;margin:0 0 2px 1px"></span><br/><span style="display:inline-block;width:9px;height:9px;background:#fff;border-radius:2px;margin:0 1px 0 0"></span><span style="display:inline-block;width:9px;height:9px;background:#fff;border-radius:2px;margin:0 0 0 1px"></span>
 </span>
-Truy c&#7853;p Dashboard
+<span style="vertical-align:middle">Truy c&#7853;p Dashboard</span>
 </a>
-</td></tr>
-</table>
-</td></tr>
-
-<!-- Divider shield -->
-<tr><td align="center" style="padding:6px 0 14px">
-<table role="presentation" cellpadding="0" cellspacing="0" width="60%">
-<tr>
-<td style="height:1px;background:linear-gradient(90deg,transparent,rgba(57,111,195,.25))"></td>
-<td width="40" align="center">
-<div style="width:36px;height:36px;border-radius:50%;background:rgba(245,249,255,.95);border:1px solid rgba(200,220,255,.6);text-align:center;line-height:36px;font-size:16px;color:#8da2c1;box-shadow:0 6px 14px rgba(17,66,143,.08)">&#9737;</div>
-</td>
-<td style="height:1px;background:linear-gradient(90deg,rgba(57,111,195,.25),transparent)"></td>
-</tr>
-</table>
+</td></tr></table>
 </td></tr>
 
-<!-- Footer -->
-<tr><td align="center" style="padding-bottom:6px">
-<p class="footer-text" style="margin:0 0 8px;font-size:15px;font-weight:500;color:#667898;line-height:1.4;letter-spacing:.2px">Email t&#7921; &#273;&#7897;ng t&#7915; h&#7879; th&#7889;ng m&aacute;y ch&#7911;</p>
-<strong class="footer-brand" style="font-size:17px;font-weight:900;color:#08275c;letter-spacing:2px">KING'S GRILL &copy; {{YEAR}}</strong>
+<!-- DIVIDER -->
+<tr><td align="center" style="padding:4px 0 12px">
+<table role="presentation" cellpadding="0" cellspacing="0" width="65%"><tr>
+<td style="height:1px;background:linear-gradient(90deg,transparent,#d0ddf0)"></td>
+<td width="38" align="center"><div style="width:32px;height:32px;border-radius:50%;background:#f4f8ff;border:1px solid #dfe8f6;text-align:center;line-height:32px;font-size:14px;color:#94a8c5;box-shadow:0 4px 10px rgba(17,66,143,.06)">&#128274;</div></td>
+<td style="height:1px;background:linear-gradient(90deg,#d0ddf0,transparent)"></td>
+</tr></table>
 </td></tr>
 
+<!-- FOOTER -->
+<tr><td align="center">
+<p class="ft" style="margin:0 0 6px;font-size:14px;font-weight:500;color:#667898;line-height:1.4">Email t&#7921; &#273;&#7897;ng t&#7915; h&#7879; th&#7889;ng m&aacute;y ch&#7911;</p>
+<p class="fb" style="margin:0;font-size:16px;font-weight:900;color:#08275c;letter-spacing:2px;line-height:1.4">KING&#8217;S GRILL &copy; {{YEAR}}</p>
 </td></tr>
-</table>
-<!-- /Card -->
 
-</td></tr>
-</table>
-<!-- /Outer -->
-
+</td></tr></table>
+</td></tr></table>
 </body>
 </html>
 `;
@@ -1106,7 +1081,6 @@ Truy c&#7853;p Dashboard
   html = html.replace(/\{\{CHECK_COLOR\}\}/g, checkColor);
   html = html.replace(/\{\{CHECK_SHADOW\}\}/g, checkShadow);
   html = html.replace(/\{\{CHECK_CHAR\}\}/g, checkChar);
-  html = html.replace(/\{\{BADGE_TEXT_SHADOW\}\}/g, badgeTextShadow);
   html = html.replace(/\{\{STATUS_COLOR\}\}/g, statusColor);
   html = html.replace(/\{\{STATUS_ICON_COLOR\}\}/g, statusIconColor);
   html = html.replace(/\{\{STATUS_ICON_BG\}\}/g, statusIconBg);
