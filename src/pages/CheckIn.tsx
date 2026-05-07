@@ -401,12 +401,57 @@ export default function CheckIn() {
         // --- BẮT ĐẦU: KHẢO SÁT NỘI BỘ (PULSE SURVEY) ---
         if (type === 'Vào ca' && Math.random() < 0.4) {
           setTimeout(async () => {
-            const { value: emotion } = await Swal.fire({
-              title: 'Khảo sát nhanh!', text: 'Hôm nay bạn cảm thấy thế nào trước khi vào ca?', icon: 'question',
-              input: 'radio', inputOptions: { '5': '😍 Tuyệt vời, đầy năng lượng!', '4': '🙂 Vui vẻ, sẵn sàng làm việc', '3': '😐 Bình thường', '2': '🙁 Hơi mệt mỏi/Buồn', '1': '😠 Căng thẳng/Bực bội' },
-              inputValidator: (value) => { if (!value) return 'Vui lòng chọn cảm xúc của bạn!'; },
-              confirmButtonText: 'Tiếp tục', confirmButtonColor: '#0ea5e9', allowOutsideClick: false, backdrop: `rgba(0,0,0,0.8)`
+            let selectedEmotion = '';
+            await Swal.fire({
+              title: 'Khảo sát nhanh!',
+              html: `
+                <p style="color:#94a3b8;font-size:14px;margin:0 0 16px">Hôm nay bạn cảm thấy thế nào trước khi vào ca?</p>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <button class="mood-btn" data-value="5" style="display:flex;align-items:center;gap:12px;width:100%;padding:12px 16px;border:1.5px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(255,255,255,.06);color:#e2e8f0;font-size:15px;font-weight:600;cursor:pointer;transition:all .15s;text-align:left;font-family:inherit">
+                    <span style="font-size:28px;line-height:1;flex-shrink:0">😍</span>
+                    <span>Tuyệt vời, đầy năng lượng!</span>
+                  </button>
+                  <button class="mood-btn" data-value="4" style="display:flex;align-items:center;gap:12px;width:100%;padding:12px 16px;border:1.5px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(255,255,255,.06);color:#e2e8f0;font-size:15px;font-weight:600;cursor:pointer;transition:all .15s;text-align:left;font-family:inherit">
+                    <span style="font-size:28px;line-height:1;flex-shrink:0">🙂</span>
+                    <span>Vui vẻ, sẵn sàng làm việc</span>
+                  </button>
+                  <button class="mood-btn" data-value="3" style="display:flex;align-items:center;gap:12px;width:100%;padding:12px 16px;border:1.5px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(255,255,255,.06);color:#e2e8f0;font-size:15px;font-weight:600;cursor:pointer;transition:all .15s;text-align:left;font-family:inherit">
+                    <span style="font-size:28px;line-height:1;flex-shrink:0">😐</span>
+                    <span>Bình thường</span>
+                  </button>
+                  <button class="mood-btn" data-value="2" style="display:flex;align-items:center;gap:12px;width:100%;padding:12px 16px;border:1.5px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(255,255,255,.06);color:#e2e8f0;font-size:15px;font-weight:600;cursor:pointer;transition:all .15s;text-align:left;font-family:inherit">
+                    <span style="font-size:28px;line-height:1;flex-shrink:0">🙁</span>
+                    <span>Hơi mệt mỏi / Buồn</span>
+                  </button>
+                  <button class="mood-btn" data-value="1" style="display:flex;align-items:center;gap:12px;width:100%;padding:12px 16px;border:1.5px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(255,255,255,.06);color:#e2e8f0;font-size:15px;font-weight:600;cursor:pointer;transition:all .15s;text-align:left;font-family:inherit">
+                    <span style="font-size:28px;line-height:1;flex-shrink:0">😠</span>
+                    <span>Căng thẳng / Bực bội</span>
+                  </button>
+                </div>
+              `,
+              showConfirmButton: false,
+              allowOutsideClick: false,
+              backdrop: 'rgba(0,0,0,0.8)',
+              didOpen: () => {
+                const popup = Swal.getPopup();
+                if (!popup) return;
+                popup.querySelectorAll('.mood-btn').forEach((btn) => {
+                  btn.addEventListener('mouseenter', () => {
+                    (btn as HTMLElement).style.background = 'rgba(14,165,233,.18)';
+                    (btn as HTMLElement).style.borderColor = 'rgba(14,165,233,.5)';
+                  });
+                  btn.addEventListener('mouseleave', () => {
+                    (btn as HTMLElement).style.background = 'rgba(255,255,255,.06)';
+                    (btn as HTMLElement).style.borderColor = 'rgba(255,255,255,.12)';
+                  });
+                  btn.addEventListener('click', () => {
+                    selectedEmotion = (btn as HTMLElement).dataset.value || '';
+                    Swal.close();
+                  });
+                });
+              }
             });
+            const emotion = selectedEmotion;
 
             if (emotion) {
               const { value: note } = await Swal.fire({
