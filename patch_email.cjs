@@ -2,7 +2,7 @@ const fs = require('fs');
 const tpl = fs.readFileSync('gas/email_template.html', 'utf8')
   .replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
 
-const newFunc = `// Email template v7 - compact, no-overflow, Gmail/Outlook safe
+const newFunc = `// Email template v8 - FIXED OVERFLOW, table-layout:fixed, word-break
 function buildEmailHtml(payload, formattedTimeUI, loc, distMeters, isValid, isAdmin) {
   var typeStr = payload.type ? String(payload.type) : 'Vào ca';
   var fullnameStr = payload.fullname ? String(payload.fullname) : 'Nhân viên';
@@ -15,7 +15,7 @@ function buildEmailHtml(payload, formattedTimeUI, loc, distMeters, isValid, isAd
     ? 'Hệ thống ghi nhận thao tác từ <b style="color:#0d55ff">' + fullnameStr + '</b>'
     : 'Xin chào <b style="color:#0d55ff">' + fullnameStr + '</b>, ' + greeting;
   var bannerBg = isValid ? 'linear-gradient(135deg,#38e98d 0%,#0abc56 54%,#16c971 100%)' : 'linear-gradient(135deg,#ff6b6b 0%,#ee2a2a 54%,#d61818 100%)';
-  var bannerShadow = isValid ? 'rgba(22,195,103,.18)' : 'rgba(195,22,22,.18)';
+  var bannerShadow = isValid ? 'rgba(22,195,103,.16)' : 'rgba(195,22,22,.16)';
   var checkColor = isValid ? '#0fbd59' : '#dc2626';
   var checkShadow = isValid ? 'rgba(0,77,40,.10)' : 'rgba(77,0,0,.10)';
   var checkChar = isValid ? '&#10003;' : '&#10007;';
@@ -47,7 +47,7 @@ function buildEmailHtml(payload, formattedTimeUI, loc, distMeters, isValid, isAd
 }`;
 
 let c = fs.readFileSync('gas/Handlers.gs', 'utf8');
-const ms = ['// Email template v7','// Email template v6','// Email template v5','function buildEmailHtml('];
+const ms = ['// Email template v8','// Email template v7','// Email template v6','// Email template v5','function buildEmailHtml('];
 let si = -1;
 for (const m of ms) { si = c.indexOf(m); if (si !== -1) break; }
 if (si === -1) { console.error('START not found'); process.exit(1); }
@@ -57,5 +57,5 @@ if (ei === -1) { console.error('END not found'); process.exit(1); }
 ei = c.indexOf('}', ei + 12) + 1;
 c = c.substring(0, si) + newFunc + c.substring(ei);
 fs.writeFileSync('gas/Handlers.gs', c, 'utf8');
-console.log(c.includes('template v7') && c.includes('smartSendEmail') ? 'OK' : 'FAIL');
+console.log(c.includes('template v8') && c.includes('smartSendEmail') ? 'OK' : 'FAIL');
 fs.unlinkSync('gas/email_template.html');
