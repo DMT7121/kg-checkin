@@ -864,199 +864,252 @@ function formatEntireCheckInSheet() {
   ss.toast('✅ Hoàn thành 100%! ' + rowsNum + ' dòng đã được làm đẹp chuẩn chuyên nghiệp.', 'Xong', 5);
 }
 
-// Hàm gửi email thông báo checkin/checkout - PREMIUM TEMPLATE v4
+// Email template v5 - TABLE-BASED for Gmail/Outlook compatibility
 function buildEmailHtml(payload, formattedTimeUI, loc, distMeters, isValid, isAdmin) {
   var typeStr = payload.type ? String(payload.type) : 'Vào ca';
   var fullnameStr = payload.fullname ? String(payload.fullname) : 'Nhân viên';
   if (!loc || String(loc) === 'undefined' || !String(loc).trim()) loc = 'Không xác định';
-
   var headerTitle = isAdmin ? 'Thông Báo Quản Trị Hệ Thống' : 'Xác Nhận Chấm Công';
   var badgeText = isAdmin ? 'PHÁT SINH LƯỢT CHẤM CÔNG MỚI' : (typeStr.toUpperCase() + (isValid ? ' THÀNH CÔNG' : ' KHÔNG HỢP LỆ'));
   var statusText = isValid ? 'Hợp lệ' : 'Không hợp lệ';
-
   var greeting = typeStr === 'Vào ca' ? 'Chúc bạn có ca làm việc hiệu quả!' : 'Cảm ơn bạn đã hoàn thành ca làm việc!';
-  var noteHTML = isAdmin
-    ? 'Hệ thống ghi nhận thao tác từ <b>' + fullnameStr + '</b>'
-    : 'Xin chào <b>' + fullnameStr + '</b>, ' + greeting;
-
-  // Banner colors: green (valid) vs red (invalid)
-  var bannerG1 = isValid ? '#38e98d' : '#ff6b6b';
-  var bannerG2 = isValid ? '#0abc56' : '#ee2a2a';
-  var bannerG3 = isValid ? '#16c971' : '#d61818';
-  var bannerGlow = isValid ? 'rgba(101,255,179,.65)' : 'rgba(255,101,101,.65)';
-  var bannerShadow = isValid ? 'rgba(22,195,103,.28)' : 'rgba(195,22,22,.28)';
-  var bannerGlow2 = isValid ? 'rgba(18,217,112,.16)' : 'rgba(217,18,18,.16)';
-  var bannerInset = isValid ? 'rgba(0,92,46,.20)' : 'rgba(92,0,0,.20)';
+  var noteHTML = isAdmin ? 'Hệ thống ghi nhận thao tác từ <b style="color:#0d55ff">' + fullnameStr + '</b>' : 'Xin chào <b style="color:#0d55ff">' + fullnameStr + '</b>, ' + greeting;
+  var bannerBg = isValid ? 'linear-gradient(135deg,#38e98d 0%,#0abc56 54%,#16c971 100%)' : 'linear-gradient(135deg,#ff6b6b 0%,#ee2a2a 54%,#d61818 100%)';
+  var bannerShadow = isValid ? 'rgba(22,195,103,.22)' : 'rgba(195,22,22,.22)';
   var checkColor = isValid ? '#0fbd59' : '#dc2626';
-  var checkShadow = isValid ? 'rgba(0,77,40,.18)' : 'rgba(77,0,0,.18)';
-  var badgeTextShadow = isValid ? 'rgba(0,83,42,.14)' : 'rgba(83,0,0,.14)';
+  var checkShadow = isValid ? 'rgba(0,77,40,.14)' : 'rgba(77,0,0,.14)';
+  var checkChar = isValid ? '&#10003;' : '&#10007;';
+  var badgeTextShadow = isValid ? 'rgba(0,83,42,.12)' : 'rgba(83,0,0,.12)';
   var statusColor = isValid ? '#15aa4f' : '#dc2626';
   var statusIconColor = isValid ? '#11b956' : '#dc2626';
-  var statusIconBg = isValid ? 'rgba(220,255,237,.78)' : 'rgba(255,220,220,.78)';
-  var bannerIconSvg = isValid ? '<path d="M20 6 9 17l-5-5" />' : '<path d="M18 6 6 18M6 6l12 12" />';
+  var statusIconBg = isValid ? '#eefff5' : '#fff0f0';
   var dashUrl = CONFIG.WEB_APP_URL || '#';
   var year = new Date().getFullYear();
-
   var html = `<!DOCTYPE html>
-<html lang="vi">
+<html lang="vi" xmlns="http://www.w3.org/1999/xhtml">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>King's Grill HR Notification</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <style>
-    :root{--navy:#08295e;--navy-soft:#334965;--blue:#0d5cff;--green:#12bd5a;--card:rgba(255,255,255,.66);--line:rgba(23,68,131,.11);--shadow:0 24px 70px rgba(8,54,125,.18);--content-max:640px;--radius-xl:clamp(24px,4vw,42px);--radius-lg:clamp(18px,2.7vw,30px);--space-page:clamp(14px,3vw,28px);--space-card:clamp(20px,5vw,48px)}
-    *{box-sizing:border-box}
-    html{min-height:100%;background:#edf6ff}
-    body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--navy);background:radial-gradient(circle at 50% -8%,rgba(255,255,255,.98),transparent 38%),radial-gradient(circle at 10% 8%,rgba(255,255,255,.7),transparent 24%),radial-gradient(circle at 90% 4%,rgba(181,211,255,.6),transparent 26%),linear-gradient(135deg,#f9fcff 0%,#edf6ff 52%,#e8f2ff 100%)}
-    button,a{font:inherit}
-    .stage{width:100%;min-height:100vh;display:grid;place-items:center;padding:var(--space-page)}
-    .poster{position:relative;isolation:isolate;overflow:hidden;width:min(100%,720px);min-height:min(1240px,calc(100vh - (var(--space-page)*2)));display:flex;flex-direction:column;justify-content:center;gap:clamp(20px,2.8vh,34px);padding:clamp(34px,6vw,76px) var(--space-card) clamp(26px,4vw,36px);border-radius:var(--radius-xl);background:radial-gradient(circle at 9% 7%,rgba(255,255,255,.98) 0 7%,rgba(255,255,255,.45) 12%,rgba(255,255,255,.10) 18%,transparent 24%),radial-gradient(circle at 93% 4%,rgba(207,226,255,.74) 0 13%,rgba(255,255,255,.24) 20%,transparent 28%),linear-gradient(118deg,rgba(255,255,255,.98) 0%,rgba(243,248,255,.97) 44%,rgba(232,243,255,.98) 100%);border:1px solid rgba(255,255,255,.9);box-shadow:var(--shadow),0 1px 0 rgba(255,255,255,.96) inset,0 -18px 45px rgba(187,214,255,.22) inset,0 0 0 1px rgba(39,107,211,.05) inset}
-    .poster::before,.poster::after,.shine-layer,.bubble-layer,.dot-layer,.waves{content:"";position:absolute;pointer-events:none;z-index:-1}
-    .shine-layer{inset:0;opacity:.82;background:linear-gradient(90deg,transparent 0 7%,rgba(255,255,255,.56) 7.2%,transparent 7.5%),linear-gradient(105deg,transparent 0 66.5%,rgba(108,165,255,.13) 67% 72%,transparent 72.5%),linear-gradient(104deg,transparent 0 66.7%,rgba(255,255,255,.7) 66.9% 67.2%,transparent 67.5%),radial-gradient(circle at 8% 12%,rgba(255,255,255,.62),transparent 7%),radial-gradient(circle at 11% 12.5%,rgba(255,255,255,.22),transparent 3%);mix-blend-mode:screen}
-    .bubble-layer{inset:0;background:radial-gradient(circle at -3% 7%,rgba(255,255,255,.24) 0 15%,transparent 15.3%),radial-gradient(circle at 9% 8%,transparent 0 10.5%,rgba(255,255,255,.7) 10.8% 11.1%,transparent 11.4%),radial-gradient(circle at 90% 0%,transparent 0 13.5%,rgba(255,255,255,.58) 13.8% 14.1%,transparent 14.4%),radial-gradient(circle at 8% 13%,rgba(255,255,255,.4) 0 4%,transparent 4.2%);filter:blur(.2px)}
-    .dot-layer{right:clamp(14px,3vw,24px);bottom:28%;width:92px;height:92px;opacity:.26;background-image:radial-gradient(circle,#78a8ee 1.8px,transparent 2px);background-size:15px 15px}
-    .dot-layer::after{content:"";position:absolute;width:110px;height:82px;left:min(-74vw,-560px);top:240px;background-image:radial-gradient(circle,#7caaf1 1.6px,transparent 2px);background-size:15px 15px;opacity:.45}
-    .poster::before{right:-18%;top:11%;width:min(465px,68vw);height:275px;border-radius:67% 0 0 58%;opacity:.78;background:linear-gradient(142deg,transparent 0 38%,rgba(255,255,255,.88) 38.4% 39%,transparent 39.4%),linear-gradient(133deg,transparent 0 41%,rgba(115,172,255,.22) 41.5% 62%,transparent 62.5%),linear-gradient(145deg,rgba(171,203,255,.1),rgba(79,147,255,.22));transform:rotate(-17deg)}
-    .poster::after{right:-18%;bottom:-4%;width:min(665px,92vw);height:310px;border-radius:70% 0 0 0;opacity:.82;background:linear-gradient(150deg,transparent 0 26%,rgba(255,255,255,.72) 26.4% 27%,transparent 27.5%),linear-gradient(164deg,rgba(120,177,255,.07),rgba(81,145,245,.25));transform:rotate(-8deg)}
-    .waves{inset:auto -12% -9% -8%;height:31%;min-height:260px;opacity:.88;background:radial-gradient(90% 55% at 7% 88%,rgba(198,224,255,.82),transparent 60%),linear-gradient(164deg,transparent 0 34%,rgba(118,174,255,.15) 34.5% 53%,transparent 53.5%),linear-gradient(158deg,transparent 0 41%,rgba(255,255,255,.86) 41.2% 41.7%,transparent 42.1%),linear-gradient(172deg,transparent 0 47%,rgba(119,177,255,.17) 47.4% 68%,transparent 68.5%),linear-gradient(168deg,transparent 0 58%,rgba(255,255,255,.48) 58.2% 58.6%,transparent 59%)}
-    .brand{position:relative;z-index:2;width:min(100%,var(--content-max));margin-inline:auto;text-align:center}
-    .logo{width:clamp(74px,13vw,112px);height:clamp(74px,13vw,112px);margin:0 auto clamp(18px,3.4vw,32px);display:grid;place-items:center;border-radius:clamp(18px,3vw,24px);color:#ffd65a;font-size:clamp(30px,5vw,42px);line-height:1;font-weight:900;letter-spacing:-2px;background:radial-gradient(circle at 35% 15%,rgba(79,145,255,.95),transparent 30%),linear-gradient(145deg,#1664ff 0%,#003cbd 56%,#00217e 100%);text-shadow:0 2px 0 rgba(80,38,0,.18);box-shadow:0 16px 35px rgba(0,58,169,.34),0 1px 0 rgba(255,255,255,.62) inset,0 -7px 16px rgba(0,0,0,.24) inset,0 0 0 1px rgba(255,255,255,.3) inset}
-    h1{margin:0;color:#082b63;font-size:clamp(30px,6.4vw,54px);line-height:1.02;font-weight:900;letter-spacing:clamp(-1.8px,-.2vw,-.6px);text-wrap:balance;text-shadow:0 2px 0 rgba(255,255,255,.55)}
-    .subtitle{display:flex;align-items:center;justify-content:center;gap:clamp(8px,2vw,14px);margin-top:clamp(10px,2vw,18px);color:#71829f;font-size:clamp(15px,2.9vw,24px);font-weight:500;line-height:1.35;text-wrap:balance}
-    .subtitle::before,.subtitle::after{content:"";width:clamp(22px,7vw,44px);height:1px;flex:0 1 44px;background:linear-gradient(90deg,transparent,rgba(73,113,180,.33))}
-    .subtitle::after{background:linear-gradient(90deg,rgba(73,113,180,.33),transparent)}
-    .subtitle span::before,.subtitle span::after{content:"";display:inline-block;width:6px;height:6px;margin:0 clamp(6px,1.6vw,12px) 4px;border-radius:50%;background:rgba(72,112,179,.72)}
-    .glass{position:relative;border:1px solid rgba(255,255,255,.82);backdrop-filter:blur(20px) saturate(150%);-webkit-backdrop-filter:blur(20px) saturate(150%)}
-    .glass::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(145deg,rgba(255,255,255,.68),rgba(255,255,255,0) 38%,rgba(255,255,255,.18) 100%);mix-blend-mode:screen}
-    .success-banner{position:relative;z-index:2;width:min(100%,var(--content-max));margin-inline:auto;display:flex;align-items:center;justify-content:center;gap:clamp(14px,3vw,24px);min-height:clamp(78px,14vw,118px);padding:clamp(16px,3.4vw,24px) clamp(18px,4vw,36px);border-radius:clamp(18px,3vw,24px);color:white;overflow:hidden;background:radial-gradient(circle at 83% 50%,rgba(255,255,255,.18),transparent 27%),radial-gradient(circle at 18% 12%,{{BANNER_GLOW}},transparent 30%),linear-gradient(135deg,{{BANNER_G1}} 0%,{{BANNER_G2}} 54%,{{BANNER_G3}} 100%);box-shadow:0 18px 38px {{BANNER_SHADOW}},0 0 38px {{BANNER_GLOW2}},0 2px 4px rgba(255,255,255,.48) inset,0 -7px 18px {{BANNER_INSET}} inset}
-    .success-banner::after{content:"";position:absolute;inset:0;background:linear-gradient(105deg,transparent 0 16%,rgba(255,255,255,.34) 22%,transparent 30%),radial-gradient(circle,rgba(255,255,255,.23) 1px,transparent 1.5px);background-size:100% 100%,18px 18px;opacity:.32;animation:shimmer 5.5s ease-in-out infinite}
-    .check-circle{position:relative;z-index:2;flex:0 0 clamp(46px,8vw,58px);width:clamp(46px,8vw,58px);height:clamp(46px,8vw,58px);display:grid;place-items:center;border-radius:50%;background:rgba(255,255,255,.93);color:{{CHECK_COLOR}};box-shadow:0 12px 24px {{CHECK_SHADOW}},0 1px 0 rgba(255,255,255,.9) inset}
-    .success-banner strong{position:relative;z-index:2;min-width:0;font-size:clamp(18px,4.2vw,34px);font-weight:900;line-height:1.18;letter-spacing:.2px;text-align:center;text-wrap:balance;text-shadow:0 2px 10px {{BADGE_TEXT_SHADOW}}}
-    .note{position:relative;z-index:2;width:min(100%,var(--content-max));margin:0 auto calc(clamp(14px,2.6vw,24px)*-0.2);color:#2b4265;font-size:clamp(16px,3.1vw,25px);font-weight:500;line-height:1.4;text-shadow:0 1px 0 rgba(255,255,255,.72)}
-    .note b{color:#0d55ff;font-weight:800}
-    .info-card{position:relative;z-index:2;width:min(100%,var(--content-max));margin-inline:auto;overflow:hidden;border-radius:var(--radius-lg);padding:clamp(12px,2.8vw,24px) clamp(14px,3.2vw,28px);background:linear-gradient(145deg,rgba(255,255,255,.86),rgba(247,252,255,.62)),var(--card);box-shadow:0 24px 44px rgba(35,81,143,.12),0 0 45px rgba(255,255,255,.78) inset,0 1px 0 rgba(255,255,255,.95) inset}
-    .info-card::after{content:"";position:absolute;inset:-30% -20%;background:radial-gradient(circle at 28% 20%,rgba(255,255,255,.58),transparent 21%),linear-gradient(110deg,transparent 0 35%,rgba(255,255,255,.24) 44%,transparent 52%);opacity:.58;pointer-events:none}
-    .row{position:relative;z-index:2;display:grid;grid-template-columns:clamp(48px,10vw,82px) minmax(112px,1fr) minmax(92px,auto);align-items:center;gap:clamp(12px,3vw,24px);min-height:clamp(74px,12vw,102px);padding-block:clamp(8px,1.4vw,12px);border-bottom:1px solid var(--line)}
-    .row:last-child{border-bottom:0}
-    .icon-box{width:clamp(48px,8.8vw,70px);height:clamp(48px,8.8vw,70px);display:grid;place-items:center;border-radius:clamp(16px,3vw,22px);background:radial-gradient(circle at 30% 18%,rgba(255,255,255,.96),transparent 50%),rgba(255,255,255,.68);border:1px solid rgba(255,255,255,.92);box-shadow:0 12px 24px rgba(28,95,195,.12),0 0 22px rgba(255,255,255,.86) inset,0 -4px 11px rgba(111,155,225,.10) inset;color:#2365f4}
-    .row:last-child .icon-box{color:{{STATUS_ICON_COLOR}};background:radial-gradient(circle at 30% 18%,rgba(255,255,255,.95),transparent 50%),linear-gradient(145deg,rgba(255,255,255,.7),{{STATUS_ICON_BG}})}
-    .label{min-width:0;color:#40536f;font-size:clamp(16px,3.1vw,25px);font-weight:800;line-height:1.2;text-shadow:0 1px 0 rgba(255,255,255,.7)}
-    .value{min-width:0;max-width:320px;text-align:right;color:#071f4b;font-size:clamp(16px,3vw,24px);font-weight:800;line-height:1.28;overflow-wrap:anywhere}
-    .value.action{color:#0c55f4;font-size:clamp(17px,3.35vw,27px);font-weight:900;letter-spacing:.2px;white-space:nowrap}
-    .value.address{max-width:270px;font-weight:500;font-size:clamp(14px,2.55vw,21px);line-height:1.34}
-    .value.ok{color:{{STATUS_COLOR}};font-size:clamp(17px,3.15vw,25px);font-weight:900;white-space:nowrap}
-    .dashboard{position:relative;z-index:2;overflow:hidden;width:min(100%,470px);min-height:clamp(64px,11vw,88px);margin:clamp(4px,1vh,8px) auto 0;display:flex;align-items:center;justify-content:center;gap:clamp(14px,3vw,26px);border:1px solid rgba(255,255,255,.78);border-radius:clamp(18px,3vw,22px);color:white;font-family:inherit;font-size:clamp(18px,3.5vw,28px);font-weight:900;text-decoration:none;background:radial-gradient(circle at 50% 0,rgba(123,202,255,.85),transparent 34%),linear-gradient(180deg,#338dff 0%,#0055f4 51%,#0039b4 100%);box-shadow:0 20px 36px rgba(0,64,180,.30),0 0 34px rgba(0,97,255,.18),0 2px 5px rgba(255,255,255,.62) inset,0 -7px 17px rgba(0,0,0,.22) inset}
-    .dashboard::after{content:"";position:absolute;inset:0;background:linear-gradient(105deg,transparent 0 24%,rgba(255,255,255,.32) 34%,transparent 45%);opacity:.5;animation:shimmer 6s ease-in-out infinite}
-    .grid-icon{position:relative;z-index:1;width:clamp(28px,5.2vw,40px);display:grid;grid-template-columns:repeat(2,1fr);gap:clamp(5px,1vw,7px);flex:0 0 auto}
-    .grid-icon i{display:block;aspect-ratio:1;border-radius:5px;background:white;box-shadow:inset 0 -2px 3px rgba(0,0,0,.1)}
-    .dashboard span:last-child{position:relative;z-index:1}
-    .divider{position:relative;z-index:2;display:grid;grid-template-columns:1fr clamp(38px,7vw,54px) 1fr;align-items:center;gap:clamp(12px,3vw,20px);width:min(70%,460px);margin:clamp(-4px,-.5vh,0px) auto 0;color:#8da2c1}
-    .divider::before,.divider::after{content:"";height:1px;background:linear-gradient(90deg,transparent,rgba(57,111,195,.32))}
-    .divider::after{background:linear-gradient(90deg,rgba(57,111,195,.32),transparent)}
-    .mini-shield{width:clamp(36px,6vw,42px);height:clamp(36px,6vw,42px);display:grid;place-items:center;margin:auto;border-radius:50%;background:rgba(255,255,255,.82);border:1px solid rgba(255,255,255,.9);box-shadow:0 8px 18px rgba(17,66,143,.12),0 0 18px rgba(255,255,255,.9) inset}
-    .footer{position:relative;z-index:2;width:min(100%,var(--content-max));margin-inline:auto;text-align:center}
-    .footer p{margin:0 0 clamp(8px,1.5vw,12px);color:#667898;font-size:clamp(14px,2.4vw,19px);font-weight:500;letter-spacing:.2px;line-height:1.35}
-    .footer strong{color:#08275c;font-size:clamp(17px,3vw,23px);font-weight:900;letter-spacing:clamp(1.6px,.42vw,3px)}
-    svg{width:clamp(24px,4.4vw,32px);height:clamp(24px,4.4vw,32px);stroke-width:2.6}
-    .check-circle svg{width:clamp(30px,5vw,36px);height:clamp(30px,5vw,36px);stroke-width:4}
-    @keyframes shimmer{0%,70%,100%{transform:translateX(-36%)}82%{transform:translateX(42%)}}
-    @media(min-width:900px){.stage{padding-block:36px}.poster{width:min(720px,92vw);min-height:auto;aspect-ratio:720/1240}}
-    @media(max-width:680px){:root{--content-max:100%}.stage{padding:0}.poster{width:100%;min-height:100vh;border-radius:0;padding-inline:clamp(18px,5vw,28px);box-shadow:none}.subtitle::before,.subtitle::after{flex-basis:26px}.dot-layer{opacity:.18}}
-    @media(max-width:460px){.poster{justify-content:start;gap:18px;padding-top:34px}.subtitle span::before,.subtitle span::after{display:none}.success-banner{justify-content:flex-start}.success-banner strong{text-align:left}.info-card{padding-inline:14px}.row{grid-template-columns:50px 1fr;grid-template-areas:"icon label" "icon value";align-items:center;gap:4px 12px;min-height:auto;padding-block:13px}.icon-box{grid-area:icon}.label{grid-area:label}.value{grid-area:value;max-width:none;text-align:left}.value.address{max-width:none}.dashboard{width:100%}.divider{width:86%}}
-    @media(max-width:360px){.poster{padding-inline:14px}h1{font-size:28px}.success-banner{padding-inline:14px}.dashboard{font-size:17px}}
-  </style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+<title>King's Grill HR</title>
+<!--[if mso]><style>table,td{font-family:Arial,sans-serif!important}</style><![endif]-->
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+*{box-sizing:border-box}
+body,html{margin:0;padding:0;width:100%;background:#edf6ff;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%}
+body{font-family:Inter,'Segoe UI',Roboto,Arial,sans-serif}
+table{border-spacing:0;border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt}
+img{border:0;line-height:100%;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic}
+a{color:#0d5cff;text-decoration:none}
+@media only screen and (max-width:620px){
+  .outer{width:100%!important;padding:0!important}
+  .card{width:100%!important;border-radius:0!important}
+  .card-pad{padding:28px 18px 22px!important}
+  .logo-box{width:64px!important;height:64px!important;border-radius:16px!important;font-size:26px!important}
+  .title{font-size:26px!important}
+  .subtitle{font-size:14px!important}
+  .banner{border-radius:16px!important;padding:14px!important}
+  .banner-text{font-size:18px!important}
+  .check-c{width:40px!important;height:40px!important;font-size:20px!important;line-height:40px!important}
+  .note{font-size:15px!important}
+  .info-box{border-radius:16px!important;padding:4px 10px!important}
+  .row-icon{width:40px!important;height:40px!important;border-radius:12px!important;font-size:18px!important;line-height:40px!important}
+  .row-label{font-size:14px!important}
+  .row-value{font-size:14px!important}
+  .btn{border-radius:16px!important;font-size:17px!important}
+  .btn-pad{padding:16px 20px!important}
+  .footer-text{font-size:13px!important}
+  .footer-brand{font-size:15px!important}
+}
+</style>
 </head>
-<body>
-  <main class="stage">
-    <section class="poster">
-      <div class="shine-layer"></div>
-      <div class="bubble-layer"></div>
-      <div class="dot-layer"></div>
-      <div class="waves"></div>
-      <header class="brand">
-        <div class="logo">KG</div>
-        <h1>KING'S GRILL HR</h1>
-        <div class="subtitle"><span>{{HEADER_TITLE}}</span></div>
-      </header>
-      <section class="success-banner glass">
-        <div class="check-circle">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">{{BANNER_ICON_SVG}}</svg>
-        </div>
-        <strong>{{BADGE_TEXT}}</strong>
-      </section>
-      <p class="note">{{NOTE_HTML}}</p>
-      <section class="info-card glass">
-        <div class="row">
-          <div class="icon-box"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="7" r="4"/><path d="M4 21c.7-4.6 3.3-7 8-7s7.3 2.4 8 7H4z"/></svg></div>
-          <div class="label">Hành động</div>
-          <div class="value action">{{ACTION}}</div>
-        </div>
-        <div class="row">
-          <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/></svg></div>
-          <div class="label">Thời gian</div>
-          <div class="value">{{TIME}}</div>
-        </div>
-        <div class="row">
-          <div class="icon-box"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2a8 8 0 0 0-8 8c0 5.2 8 12 8 12s8-6.8 8-12a8 8 0 0 0-8-8zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/></svg></div>
-          <div class="label">Vị trí</div>
-          <div class="value address">{{LOCATION}}</div>
-        </div>
-        <div class="row">
-          <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M12 9v3l2 1"/></svg></div>
-          <div class="label">Khoảng cách</div>
-          <div class="value">{{DISTANCE}}</div>
-        </div>
-        <div class="row">
-          <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-5"/></svg></div>
-          <div class="label">Trạng thái</div>
-          <div class="value ok">{{STATUS}}</div>
-        </div>
-      </section>
-      <a class="dashboard glass" href="{{DASHBOARD_URL}}" target="_blank">
-        <span class="grid-icon"><i></i><i></i><i></i><i></i></span>
-        <span>Truy cập Dashboard</span>
-      </a>
-      <div class="divider">
-        <span class="mini-shield"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s6-3 6-8V6l-6-2-6 2v7c0 5 6 8 6 8z"/><path d="m10 12 1.5 1.5L15 10"/></svg></span>
-      </div>
-      <footer class="footer">
-        <p>Email tự động từ hệ thống máy chủ</p>
-        <strong>KING'S GRILL © {{YEAR}}</strong>
-      </footer>
-    </section>
-  </main>
+<body style="margin:0;padding:0;background:#edf6ff;font-family:Inter,'Segoe UI',Roboto,Arial,sans-serif;color:#08295e;-webkit-text-size-adjust:100%">
+
+<!-- Outer wrapper -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#edf6ff;min-height:100%">
+<tr><td align="center" style="padding:24px 16px" class="outer">
+
+<!-- Card -->
+<table role="presentation" cellpadding="0" cellspacing="0" width="580" class="card" style="width:580px;max-width:100%;border-radius:28px;background:linear-gradient(145deg,#ffffff 0%,#f5f9ff 50%,#eef5ff 100%);border:1px solid rgba(200,220,255,.6);box-shadow:0 20px 60px rgba(8,54,125,.12),0 1px 0 #fff inset">
+<tr><td class="card-pad" style="padding:42px 36px 30px">
+
+<!-- Logo -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+<tr><td align="center" style="padding-bottom:18px">
+<div class="logo-box" style="display:inline-block;width:80px;height:80px;border-radius:20px;background:linear-gradient(145deg,#1664ff,#003cbd);text-align:center;line-height:80px;font-size:32px;font-weight:900;color:#ffd65a;letter-spacing:-2px;text-shadow:0 2px 0 rgba(80,38,0,.18);box-shadow:0 12px 28px rgba(0,58,169,.28),0 -6px 14px rgba(0,0,0,.2) inset">KG</div>
+</td></tr>
+
+<!-- Title -->
+<tr><td align="center" style="padding-bottom:6px">
+<h1 class="title" style="margin:0;font-size:34px;font-weight:900;color:#082b63;letter-spacing:-.8px;line-height:1.1">KING'S GRILL HR</h1>
+</td></tr>
+
+<!-- Subtitle -->
+<tr><td align="center" style="padding-bottom:24px">
+<p class="subtitle" style="margin:0;font-size:17px;font-weight:500;color:#71829f;line-height:1.4">
+<span style="color:#7b9cc9;margin-right:8px">&#9679;</span>{{HEADER_TITLE}}<span style="color:#7b9cc9;margin-left:8px">&#9679;</span>
+</p>
+</td></tr>
+
+<!-- Banner -->
+<tr><td align="center" style="padding-bottom:18px">
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-radius:20px;overflow:hidden;background:{{BANNER_BG}};box-shadow:0 14px 30px {{BANNER_SHADOW}}">
+<tr><td class="banner" style="padding:18px 22px">
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+<td width="48" valign="middle" style="padding-right:16px">
+<div class="check-c" style="width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,.93);text-align:center;line-height:48px;font-size:24px;font-weight:900;color:{{CHECK_COLOR}};box-shadow:0 8px 18px {{CHECK_SHADOW}}">{{CHECK_CHAR}}</div>
+</td>
+<td valign="middle">
+<strong class="banner-text" style="display:block;font-size:22px;font-weight:900;color:#ffffff;line-height:1.2;letter-spacing:.2px;text-shadow:0 2px 8px {{BADGE_TEXT_SHADOW}}">{{BADGE_TEXT}}</strong>
+</td>
+</tr>
+</table>
+</td></tr>
+</table>
+</td></tr>
+
+<!-- Note -->
+<tr><td style="padding-bottom:16px">
+<p class="note" style="margin:0;font-size:17px;font-weight:500;color:#2b4265;line-height:1.45">{{NOTE_HTML}}</p>
+</td></tr>
+
+<!-- Info Card -->
+<tr><td style="padding-bottom:18px">
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" class="info-box" style="border-radius:20px;background:linear-gradient(145deg,rgba(255,255,255,.92),rgba(247,252,255,.85));border:1px solid rgba(220,233,255,.65);box-shadow:0 16px 36px rgba(35,81,143,.08);padding:6px 16px">
+
+<!-- Row: Hành động -->
+<tr><td style="padding:14px 0;border-bottom:1px solid rgba(23,68,131,.08)">
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+<td width="52" valign="middle" style="padding-right:14px">
+<div class="row-icon" style="width:48px;height:48px;border-radius:15px;background:linear-gradient(145deg,#fff,#f0f5ff);border:1px solid rgba(230,240,255,.9);text-align:center;line-height:48px;font-size:20px;color:#2365f4;box-shadow:0 8px 18px rgba(28,95,195,.08)">&#9787;</div>
+</td>
+<td valign="middle"><span class="row-label" style="font-size:16px;font-weight:800;color:#40536f">Hành động</span></td>
+<td valign="middle" align="right"><span class="row-value" style="font-size:18px;font-weight:900;color:#0c55f4;letter-spacing:.2px">{{ACTION}}</span></td>
+</tr>
+</table>
+</td></tr>
+
+<!-- Row: Thời gian -->
+<tr><td style="padding:14px 0;border-bottom:1px solid rgba(23,68,131,.08)">
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+<td width="52" valign="middle" style="padding-right:14px">
+<div class="row-icon" style="width:48px;height:48px;border-radius:15px;background:linear-gradient(145deg,#fff,#f0f5ff);border:1px solid rgba(230,240,255,.9);text-align:center;line-height:48px;font-size:20px;color:#2365f4;box-shadow:0 8px 18px rgba(28,95,195,.08)">&#9200;</div>
+</td>
+<td valign="middle"><span class="row-label" style="font-size:16px;font-weight:800;color:#40536f">Thời gian</span></td>
+<td valign="middle" align="right"><span class="row-value" style="font-size:16px;font-weight:800;color:#071f4b;line-height:1.35">{{TIME}}</span></td>
+</tr>
+</table>
+</td></tr>
+
+<!-- Row: Vị trí -->
+<tr><td style="padding:14px 0;border-bottom:1px solid rgba(23,68,131,.08)">
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+<td width="52" valign="top" style="padding-right:14px;padding-top:2px">
+<div class="row-icon" style="width:48px;height:48px;border-radius:15px;background:linear-gradient(145deg,#fff,#f0f5ff);border:1px solid rgba(230,240,255,.9);text-align:center;line-height:48px;font-size:20px;color:#2365f4;box-shadow:0 8px 18px rgba(28,95,195,.08)">&#9906;</div>
+</td>
+<td valign="top"><span class="row-label" style="font-size:16px;font-weight:800;color:#40536f">Vị trí</span></td>
+<td valign="top" align="right" style="max-width:220px"><span class="row-value" style="font-size:14px;font-weight:500;color:#071f4b;line-height:1.4">{{LOCATION}}</span></td>
+</tr>
+</table>
+</td></tr>
+
+<!-- Row: Khoảng cách -->
+<tr><td style="padding:14px 0;border-bottom:1px solid rgba(23,68,131,.08)">
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+<td width="52" valign="middle" style="padding-right:14px">
+<div class="row-icon" style="width:48px;height:48px;border-radius:15px;background:linear-gradient(145deg,#fff,#f0f5ff);border:1px solid rgba(230,240,255,.9);text-align:center;line-height:48px;font-size:20px;color:#2365f4;box-shadow:0 8px 18px rgba(28,95,195,.08)">&#8982;</div>
+</td>
+<td valign="middle"><span class="row-label" style="font-size:16px;font-weight:800;color:#40536f">Khoảng cách</span></td>
+<td valign="middle" align="right"><span class="row-value" style="font-size:16px;font-weight:800;color:#071f4b">{{DISTANCE}}</span></td>
+</tr>
+</table>
+</td></tr>
+
+<!-- Row: Trạng thái -->
+<tr><td style="padding:14px 0">
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+<td width="52" valign="middle" style="padding-right:14px">
+<div class="row-icon" style="width:48px;height:48px;border-radius:15px;background:linear-gradient(145deg,#fff,{{STATUS_ICON_BG}});border:1px solid rgba(230,240,255,.9);text-align:center;line-height:48px;font-size:20px;color:{{STATUS_ICON_COLOR}};box-shadow:0 8px 18px rgba(28,95,195,.08)">&#9741;</div>
+</td>
+<td valign="middle"><span class="row-label" style="font-size:16px;font-weight:800;color:#40536f">Trạng thái</span></td>
+<td valign="middle" align="right"><span class="row-value" style="font-size:17px;font-weight:900;color:{{STATUS_COLOR}}">{{STATUS}}</span></td>
+</tr>
+</table>
+</td></tr>
+
+</table>
+</td></tr>
+
+<!-- Dashboard Button -->
+<tr><td align="center" style="padding-bottom:14px">
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:420px">
+<tr><td align="center" class="btn" style="border-radius:18px;background:linear-gradient(180deg,#338dff,#0055f4 50%,#0039b4);box-shadow:0 16px 30px rgba(0,64,180,.25),0 2px 4px rgba(255,255,255,.5) inset">
+<a href="{{DASHBOARD_URL}}" target="_blank" class="btn-pad" style="display:block;padding:18px 28px;color:#ffffff;font-size:20px;font-weight:900;text-decoration:none;text-align:center;letter-spacing:.3px">
+<span style="display:inline-block;width:28px;height:14px;margin-right:10px;vertical-align:middle">
+<span style="display:inline-block;width:11px;height:11px;background:#fff;border-radius:3px;margin-right:3px"></span><span style="display:inline-block;width:11px;height:11px;background:#fff;border-radius:3px"></span><br/>
+<span style="display:inline-block;width:11px;height:11px;background:#fff;border-radius:3px;margin-right:3px;margin-top:2px"></span><span style="display:inline-block;width:11px;height:11px;background:#fff;border-radius:3px;margin-top:2px"></span>
+</span>
+Truy c&#7853;p Dashboard
+</a>
+</td></tr>
+</table>
+</td></tr>
+
+<!-- Divider shield -->
+<tr><td align="center" style="padding:6px 0 14px">
+<table role="presentation" cellpadding="0" cellspacing="0" width="60%">
+<tr>
+<td style="height:1px;background:linear-gradient(90deg,transparent,rgba(57,111,195,.25))"></td>
+<td width="40" align="center">
+<div style="width:36px;height:36px;border-radius:50%;background:rgba(245,249,255,.95);border:1px solid rgba(200,220,255,.6);text-align:center;line-height:36px;font-size:16px;color:#8da2c1;box-shadow:0 6px 14px rgba(17,66,143,.08)">&#9737;</div>
+</td>
+<td style="height:1px;background:linear-gradient(90deg,rgba(57,111,195,.25),transparent)"></td>
+</tr>
+</table>
+</td></tr>
+
+<!-- Footer -->
+<tr><td align="center" style="padding-bottom:6px">
+<p class="footer-text" style="margin:0 0 8px;font-size:15px;font-weight:500;color:#667898;line-height:1.4;letter-spacing:.2px">Email t&#7921; &#273;&#7897;ng t&#7915; h&#7879; th&#7889;ng m&aacute;y ch&#7911;</p>
+<strong class="footer-brand" style="font-size:17px;font-weight:900;color:#08275c;letter-spacing:2px">KING'S GRILL &copy; {{YEAR}}</strong>
+</td></tr>
+
+</td></tr>
+</table>
+<!-- /Card -->
+
+</td></tr>
+</table>
+<!-- /Outer -->
+
 </body>
 </html>
 `;
-
-  // Replace all placeholders
   html = html.replace(/\{\{HEADER_TITLE\}\}/g, headerTitle);
   html = html.replace(/\{\{BADGE_TEXT\}\}/g, badgeText);
   html = html.replace(/\{\{NOTE_HTML\}\}/g, noteHTML);
   html = html.replace(/\{\{ACTION\}\}/g, typeStr.toUpperCase());
   html = html.replace(/\{\{TIME\}\}/g, formattedTimeUI);
   html = html.replace(/\{\{LOCATION\}\}/g, loc);
-  html = html.replace(/\{\{DISTANCE\}\}/g, distMeters);
+  html = html.replace(/\{\{DISTANCE\}\}/g, distMeters || '');
   html = html.replace(/\{\{STATUS\}\}/g, statusText);
   html = html.replace(/\{\{DASHBOARD_URL\}\}/g, dashUrl);
   html = html.replace(/\{\{YEAR\}\}/g, String(year));
-  html = html.replace(/\{\{BANNER_G1\}\}/g, bannerG1);
-  html = html.replace(/\{\{BANNER_G2\}\}/g, bannerG2);
-  html = html.replace(/\{\{BANNER_G3\}\}/g, bannerG3);
-  html = html.replace(/\{\{BANNER_GLOW\}\}/g, bannerGlow);
+  html = html.replace(/\{\{BANNER_BG\}\}/g, bannerBg);
   html = html.replace(/\{\{BANNER_SHADOW\}\}/g, bannerShadow);
-  html = html.replace(/\{\{BANNER_GLOW2\}\}/g, bannerGlow2);
-  html = html.replace(/\{\{BANNER_INSET\}\}/g, bannerInset);
   html = html.replace(/\{\{CHECK_COLOR\}\}/g, checkColor);
   html = html.replace(/\{\{CHECK_SHADOW\}\}/g, checkShadow);
+  html = html.replace(/\{\{CHECK_CHAR\}\}/g, checkChar);
   html = html.replace(/\{\{BADGE_TEXT_SHADOW\}\}/g, badgeTextShadow);
   html = html.replace(/\{\{STATUS_COLOR\}\}/g, statusColor);
   html = html.replace(/\{\{STATUS_ICON_COLOR\}\}/g, statusIconColor);
   html = html.replace(/\{\{STATUS_ICON_BG\}\}/g, statusIconBg);
-  html = html.replace(/\{\{BANNER_ICON_SVG\}\}/g, bannerIconSvg);
   return html;
 }
 
