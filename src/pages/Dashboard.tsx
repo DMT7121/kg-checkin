@@ -11,6 +11,7 @@ import {
   Settings, Briefcase, CheckSquare, Users, KeyRound, CalendarRange, DollarSign, Building2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { triggerDeveloperMode } from '../utils/githubApi';
 import CheckIn from './CheckIn';
 import Schedule from './Schedule';
 import ActivityHistory from './ActivityHistory';
@@ -592,19 +593,7 @@ export default function Dashboard() {
                     setClickCount(newCount);
                     if (newCount >= 5) {
                       setClickCount(0);
-                      const currentUrl = localStorage.getItem('kg_gas_url') || '';
-                      const url = window.prompt('🔧 Nhập link GAS API mới:', currentUrl);
-                      if (url !== null) {
-                        if (url.trim()) {
-                          localStorage.setItem('kg_gas_url', url.trim());
-                          alert('Đã cập nhật link GAS. Đang tải lại trang...');
-                          window.location.reload();
-                        } else {
-                          localStorage.removeItem('kg_gas_url');
-                          alert('Đã khôi phục link GAS mặc định. Đang tải lại trang...');
-                          window.location.reload();
-                        }
-                      }
+                      triggerDeveloperMode();
                     }
                   }}
                 >
