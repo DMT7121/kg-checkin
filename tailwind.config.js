@@ -7,6 +7,9 @@ export default {
   darkMode: 'class',
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+      },
       colors: {
         ocean: {
           50: '#f0f9ff',
@@ -19,6 +22,12 @@ export default {
           700: '#0369a1',
           800: '#075985',
           900: '#0c4a6e'
+        },
+        glass: {
+          light: 'rgba(255, 255, 255, 0.7)',
+          dark: 'rgba(17, 24, 39, 0.7)',
+          border: 'rgba(255, 255, 255, 0.2)',
+          borderDark: 'rgba(255, 255, 255, 0.05)',
         }
       },
       animation: { 

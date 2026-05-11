@@ -188,7 +188,12 @@ export default function Login() {
   };
 
   return (
-    <div className="flex-1 flex flex-col justify-center p-6 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 min-h-screen">
+    <div className="flex-1 flex flex-col justify-center p-6 min-h-screen relative overflow-hidden bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-slate-900 dark:via-gray-900 dark:to-slate-900 font-sans">
+      {/* Abstract Background Shapes */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40rem] h-[40rem] bg-ocean-400/20 dark:bg-ocean-500/10 rounded-full mix-blend-multiply dark:mix-blend-lighten filter blur-3xl opacity-70 animate-pulse-ring"></div>
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40rem] h-[40rem] bg-purple-400/20 dark:bg-purple-500/10 rounded-full mix-blend-multiply dark:mix-blend-lighten filter blur-3xl opacity-70 animate-pulse-ring" style={{ animationDelay: '2s' }}></div>
+
+      <div className="relative z-10 w-full max-w-md mx-auto">
       {/* Logo */}
       <div className="text-center mb-8 animate-fade-in">
         <div className="inline-block mb-2 transform hover:scale-105 transition-transform duration-300">
@@ -211,22 +216,22 @@ export default function Login() {
 
       {/* LOGIN FORM */}
       {mode === 'login' && (
-        <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] border border-gray-100 dark:border-gray-700 animate-slide-up">
-          <h3 className="text-2xl font-bold mb-6 text-center text-gray-800 dark:text-white">Đăng Nhập</h3>
+        <div className="glass p-8 rounded-[2rem] animate-slide-up w-full">
+          <h3 className="text-2xl font-extrabold mb-6 text-center bg-clip-text text-transparent bg-gradient-to-r from-gray-800 to-gray-600 dark:from-white dark:to-gray-300">Đăng Nhập</h3>
           <form onSubmit={handleLogin}>
             <div className="mb-5 relative group">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-ocean-500 transition-colors">
                 <User size={16} />
               </div>
               <input type="text" id="username" name="username" autoComplete="username" value={loginForm.username} onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
-                className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-11 pr-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-ocean-500/50 min-h-[44px] text-gray-800 dark:text-white" placeholder="Tài khoản" />
+                className="w-full bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm border border-white/40 dark:border-gray-700/50 rounded-xl pl-11 pr-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-ocean-500/50 min-h-[44px] text-gray-800 dark:text-white transition-all placeholder-gray-400" placeholder="Tài khoản" />
             </div>
             <div className="mb-4 relative group">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-ocean-500 transition-colors">
                 <Lock size={16} />
               </div>
               <input type={showPass ? 'text' : 'password'} id="password" name="password" autoComplete="current-password" value={loginForm.password} onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-11 pr-12 py-3.5 focus:outline-none focus:ring-2 focus:ring-ocean-500/50 min-h-[44px] text-gray-800 dark:text-white" placeholder="Mật khẩu" />
+                className="w-full bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm border border-white/40 dark:border-gray-700/50 rounded-xl pl-11 pr-12 py-3.5 focus:outline-none focus:ring-2 focus:ring-ocean-500/50 min-h-[44px] text-gray-800 dark:text-white transition-all placeholder-gray-400" placeholder="Mật khẩu" />
               <button type="button" onClick={() => setShowPass(!showPass)} className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none min-h-[44px] min-w-[44px]">
                 {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
@@ -240,7 +245,7 @@ export default function Login() {
               </label>
             </div>
 
-            <button type="submit" className="w-full bg-gradient-to-r from-ocean-600 to-ocean-500 text-white font-bold py-3.5 rounded-xl shadow-lg hover:shadow-ocean-500/50 transition-all transform hover:-translate-y-0.5 active:scale-95 min-h-[44px] touch-manipulation flex items-center justify-center">
+            <button type="submit" className="w-full bg-gradient-to-r from-[#1856FF] to-[#0ea5e9] text-white font-bold py-3.5 rounded-xl shadow-[0_8px_20px_rgba(24,86,255,0.3)] hover:shadow-[0_8px_25px_rgba(24,86,255,0.4)] transition-all transform hover:-translate-y-0.5 active:scale-95 min-h-[44px] flex items-center justify-center">
               ĐĂNG NHẬP <ArrowRight size={14} className="ml-2 opacity-80" />
             </button>
           </form>
@@ -253,9 +258,9 @@ export default function Login() {
 
       {/* REGISTER FORM */}
       {mode === 'register' && (
-        <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-700 animate-slide-up w-full max-w-lg mx-auto">
+        <div className="glass p-6 md:p-8 rounded-[2rem] animate-slide-up w-full">
           <div className="text-center mb-6">
-            <h3 className="text-2xl font-bold text-gray-800 dark:text-white">Tạo tài khoản mới</h3>
+            <h3 className="text-2xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-gray-800 to-gray-600 dark:from-white dark:to-gray-300">Tạo tài khoản mới</h3>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Gia nhập hệ thống King's Grill</p>
           </div>
 
@@ -318,7 +323,7 @@ export default function Login() {
               </div>
             </div>
 
-            <button type="submit" className="w-full mt-2 bg-gradient-to-r from-ocean-600 to-ocean-500 text-white font-bold py-3.5 rounded-xl shadow-lg hover:shadow-ocean-500/40 transition transform active:scale-95 min-h-[44px] flex items-center justify-center">
+            <button type="submit" className="w-full mt-2 bg-gradient-to-r from-[#1856FF] to-[#0ea5e9] text-white font-bold py-3.5 rounded-xl shadow-[0_8px_20px_rgba(24,86,255,0.3)] hover:shadow-[0_8px_25px_rgba(24,86,255,0.4)] transition transform active:scale-95 min-h-[44px] flex items-center justify-center">
               HOÀN TẤT ĐĂNG KÝ
             </button>
             <button type="button" onClick={() => setMode('login')} className="w-full mt-4 text-gray-500 text-sm hover:text-gray-800 dark:hover:text-white font-medium flex items-center justify-center transition-colors">
@@ -330,12 +335,12 @@ export default function Login() {
 
       {/* FORGOT PASSWORD FORM */}
       {mode === 'forgot' && (
-        <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-700 animate-slide-up w-full max-w-md mx-auto">
+        <div className="glass p-8 rounded-[2rem] animate-slide-up w-full">
           <div className="text-center mb-6">
-            <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg">
+            <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-[0_8px_20px_rgba(245,158,11,0.3)]">
               <KeyRound size={24} className="text-white" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-800 dark:text-white">Khôi phục mật khẩu</h3>
+            <h3 className="text-2xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-gray-800 to-gray-600 dark:from-white dark:to-gray-300">Khôi phục mật khẩu</h3>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Nhập Email hoặc SĐT đã đăng ký để nhận mã OTP khôi phục</p>
           </div>
 
@@ -378,6 +383,8 @@ export default function Login() {
           </form>
         </div>
       )}
+      
+      </div>
     </div>
   );
 }
