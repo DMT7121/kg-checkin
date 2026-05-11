@@ -41,10 +41,10 @@ export default function CalendarGrid({ monthDates, renderCell }: CalendarGridPro
               key={mDate.dateKey} 
               className={`min-h-[80px] sm:min-h-[100px] flex flex-col p-1 sm:p-2 rounded-xl border transition-all ${
                 isToday 
-                  ? 'border-indigo-400 bg-indigo-50/80 dark:bg-indigo-900/30 dark:border-indigo-600 shadow-sm' 
+                  ? 'border-indigo-400 bg-indigo-50/80 dark:bg-indigo-900/30 dark:border-indigo-600 ' 
                   : mDate.isWeekend 
                     ? 'border-orange-100 bg-orange-50/30 dark:border-gray-700 dark:bg-gray-800/50' 
-                    : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 shadow-sm'
+                    : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 '
               }`}
             >
               <div className="flex justify-between items-start mb-1 sm:mb-2">

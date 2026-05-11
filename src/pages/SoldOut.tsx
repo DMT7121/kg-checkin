@@ -83,7 +83,7 @@ export default function SoldOut() {
   );
 
   return (
-    <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900 pb-20">
+    <div className="flex flex-col h-full origami-bg pb-20">
       <div className="p-4 animate-slide-up">
         {/* Header Banner */}
         <div className="bg-gradient-to-r from-red-500 via-rose-500 to-red-700 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex items-center justify-between mb-6 shrink-0">
@@ -116,12 +116,12 @@ export default function SoldOut() {
               placeholder="Tìm món đang hết..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl py-2.5 pl-10 pr-4 text-sm text-gray-800 dark:text-white focus:ring-2 focus:ring-red-500 transition outline-none shadow-sm"
+              className="w-full origami-card border border-gray-200 dark:border-gray-700 rounded-xl py-2.5 pl-10 pr-4 text-sm text-gray-800 dark:text-white focus:ring-2 focus:ring-red-500 transition outline-none "
             />
           </div>
           <button
             onClick={() => setIsAdding(!isAdding)}
-            className="flex items-center space-x-1 bg-red-500 hover:bg-red-600 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition shadow-sm whitespace-nowrap"
+            className="flex items-center space-x-1 bg-red-500 hover:bg-red-600 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition  whitespace-nowrap"
           >
             <Plus size={18} className="mr-1" />
             <span>Báo hết</span>
@@ -136,7 +136,7 @@ export default function SoldOut() {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 shadow-sm"
+            className="overflow-hidden origami-card border-b border-gray-100 dark:border-gray-700 "
           >
             <form onSubmit={handleAdd} className="p-4">
               <p className="text-sm text-gray-600 dark:text-gray-300 font-medium mb-2">Nhập tên món vừa hết nguyên liệu:</p>
@@ -152,7 +152,7 @@ export default function SoldOut() {
                 <button
                   type="submit"
                   disabled={!newItemName.trim() || store.isUpdating}
-                  className="bg-gray-800 hover:bg-gray-900 disabled:bg-gray-400 dark:bg-white dark:hover:bg-gray-200 dark:disabled:bg-gray-600 dark:text-gray-900 text-white px-4 py-2 rounded-lg text-sm font-bold transition shadow-sm whitespace-nowrap"
+                  className="bg-gray-800 hover:bg-gray-900 disabled:bg-gray-400 dark:bg-white dark:hover:bg-gray-200 dark:disabled:bg-gray-600 dark:text-gray-900 text-white px-4 py-2 rounded-lg text-sm font-bold transition  whitespace-nowrap"
                 >
                   Xác nhận
                 </button>
@@ -186,7 +186,7 @@ export default function SoldOut() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95 }}
-                  className="bg-white dark:bg-gray-800 rounded-xl p-3 shadow-sm border border-red-100 dark:border-red-900/30 flex flex-col relative overflow-hidden"
+                  className="origami-card p-3  border border-red-100 dark:border-red-900/30 flex flex-col relative overflow-hidden"
                 >
                   {/* Decorative stripe */}
                   <div className="absolute top-0 left-0 bottom-0 w-1 bg-red-500"></div>

@@ -123,7 +123,7 @@ export default function Advance() {
       </div>
 
       {!isAdmin && (
-        <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+        <form onSubmit={handleSubmit} className="origami-card p-5 rounded-2xl  ">
           <h3 className="font-bold flex items-center text-gray-800 dark:text-white mb-4 border-b dark:border-gray-700 pb-2">
             <Send size={18} className="mr-2 text-green-600" /> Tạo yêu cầu mới
           </h3>
@@ -140,7 +140,7 @@ export default function Advance() {
                   value={amount}
                   onChange={(e) => setAmount(formatMoney(e.target.value))}
                   placeholder="Ví dụ: 500,000"
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-green-500 font-bold text-green-600 dark:text-green-400 text-lg transition-all outline-none"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 origami-bg focus:ring-2 focus:ring-green-500 font-bold text-green-600 dark:text-green-400 text-lg transition-all outline-none"
                 />
               </div>
             </div>
@@ -151,7 +151,7 @@ export default function Advance() {
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 placeholder="Nhập lý do cụ thể..."
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-green-500 transition-all outline-none min-h-[100px] text-sm"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 origami-bg focus:ring-2 focus:ring-green-500 transition-all outline-none min-h-[100px] text-sm"
               />
             </div>
             
@@ -163,13 +163,13 @@ export default function Advance() {
       )}
 
       {/* History */}
-      <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+      <div className="origami-card p-5 rounded-2xl  ">
         <h3 className="font-bold flex items-center text-gray-800 dark:text-white mb-4 border-b dark:border-gray-700 pb-2">
           <History size={18} className="mr-2 text-ocean-600" /> {isAdmin ? 'Danh sách yêu cầu ứng lương' : 'Lịch sử ứng lương của bạn'}
         </h3>
         
         {advances.length === 0 ? (
-          <div className="text-center py-8 text-gray-400 bg-gray-50 dark:bg-gray-900 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
+          <div className="text-center py-8 text-gray-400 origami-bg rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
             <BadgeDollarSign size={32} className="mx-auto mb-2 opacity-30" />
             <p className="text-sm">Chưa có dữ liệu ứng lương</p>
           </div>
@@ -192,16 +192,16 @@ export default function Advance() {
                       {isPending ? 'Chờ duyệt' : isApproved ? 'Đã duyệt' : 'Từ chối'}
                     </div>
                   </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 p-2.5 rounded-lg border border-gray-100 dark:border-gray-700/50 mt-2">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 origami-card p-2.5 rounded-lg /50 mt-2">
                     <span className="font-medium text-gray-500">Lý do:</span> {adv.reason}
                   </p>
                   
                   {isAdmin && isPending && (
                     <div className="flex space-x-2 mt-3 pt-3 border-t border-orange-200 dark:border-orange-800/50">
-                      <button onClick={() => handleApprove(adv.id, 'APPROVE')} className="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-2 rounded-lg text-sm transition shadow-sm">
+                      <button onClick={() => handleApprove(adv.id, 'APPROVE')} className="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-2 rounded-lg text-sm transition ">
                         Chấp thuận
                       </button>
-                      <button onClick={() => handleApprove(adv.id, 'REJECT')} className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-2 rounded-lg text-sm transition shadow-sm">
+                      <button onClick={() => handleApprove(adv.id, 'REJECT')} className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-2 rounded-lg text-sm transition ">
                         Từ chối
                       </button>
                     </div>

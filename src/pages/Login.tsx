@@ -239,7 +239,7 @@ export default function Login() {
             
             <div className="mb-6 flex items-center">
               <input id="remember-me" name="remember-me" type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)}
-                className="h-4 w-4 text-ocean-600 focus:ring-ocean-500 border-gray-300 rounded bg-gray-50 dark:bg-gray-900 dark:border-gray-600" />
+                className="h-4 w-4 text-ocean-600 focus:ring-ocean-500 border-gray-300 rounded origami-bg dark:border-gray-600" />
               <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
                 Ghi nhớ đăng nhập
               </label>
@@ -304,13 +304,13 @@ export default function Login() {
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-500 transition-colors">
                       <Mail size={16} />
                     </div>
-                    <input type="email" value={registerForm.email} onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })} placeholder="Email cá nhân" className="w-full bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-3 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm text-gray-800 dark:text-white shadow-sm transition-all" />
+                    <input type="email" value={registerForm.email} onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })} placeholder="Email cá nhân" className="w-full bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-3 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm text-gray-800 dark:text-white  transition-all" />
                   </div>
                   <div className="relative group">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-500 transition-colors">
                       <Phone size={16} />
                     </div>
-                    <input type="tel" value={registerForm.phone} onChange={(e) => setRegisterForm({ ...registerForm, phone: e.target.value })} placeholder="SĐT / Zalo" className="w-full bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-3 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm text-gray-800 dark:text-white shadow-sm transition-all" />
+                    <input type="tel" value={registerForm.phone} onChange={(e) => setRegisterForm({ ...registerForm, phone: e.target.value })} placeholder="SĐT / Zalo" className="w-full bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-3 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm text-gray-800 dark:text-white  transition-all" />
                   </div>
                 </div>
 
@@ -318,7 +318,7 @@ export default function Login() {
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-500 transition-colors">
                     <Calendar size={16} />
                   </div>
-                  <input type="text" inputMode="numeric" value={registerForm.dob} onChange={handleDobChange} placeholder="Ngày sinh (Gõ số liền nhau, VD: 15082000)" className="w-full bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-11 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm text-gray-800 dark:text-white shadow-sm tracking-widest font-medium transition-all" />
+                  <input type="text" inputMode="numeric" value={registerForm.dob} onChange={handleDobChange} placeholder="Ngày sinh (Gõ số liền nhau, VD: 15082000)" className="w-full bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-11 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm text-gray-800 dark:text-white  tracking-widest font-medium transition-all" />
                 </div>
               </div>
             </div>
@@ -363,13 +363,13 @@ export default function Login() {
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-orange-500 transition-colors">
                     <KeyRound size={16} />
                   </div>
-                  <input type="text" required value={resetForm.otp} onChange={(e) => setResetForm({ ...resetForm, otp: e.target.value })} placeholder="Nhập mã OTP 6 số" className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-11 pr-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-orange-500/50 min-h-[44px] text-gray-800 dark:text-white text-center tracking-widest font-bold" maxLength={6} />
+                  <input type="text" required value={resetForm.otp} onChange={(e) => setResetForm({ ...resetForm, otp: e.target.value })} placeholder="Nhập mã OTP 6 số" className="w-full origami-bg/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-11 pr-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-orange-500/50 min-h-[44px] text-gray-800 dark:text-white text-center tracking-widest font-bold" maxLength={6} />
                 </div>
                 <div className="relative group mb-6">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-orange-500 transition-colors">
                     <Lock size={16} />
                   </div>
-                  <input type="password" required value={resetForm.newPassword} onChange={(e) => setResetForm({ ...resetForm, newPassword: e.target.value })} placeholder="Mật khẩu mới" className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-11 pr-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-orange-500/50 min-h-[44px] text-gray-800 dark:text-white" />
+                  <input type="password" required value={resetForm.newPassword} onChange={(e) => setResetForm({ ...resetForm, newPassword: e.target.value })} placeholder="Mật khẩu mới" className="w-full origami-bg/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-11 pr-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-orange-500/50 min-h-[44px] text-gray-800 dark:text-white" />
                 </div>
                 <button type="submit" className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold py-3.5 rounded-xl shadow-lg hover:shadow-green-500/40 transition transform active:scale-95 min-h-[44px] flex items-center justify-center">
                   ĐẶT LẠI MẬT KHẨU

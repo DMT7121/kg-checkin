@@ -103,7 +103,7 @@ export default function Checklist() {
   const progress = filteredLists.length > 0 ? Math.round((checkedIds.size / filteredLists.length) * 100) : 0;
 
   return (
-    <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900 animate-fade-in relative pb-24">
+    <div className="h-full flex flex-col origami-bg animate-fade-in relative pb-24">
       <div className="p-4 flex-none">
         {/* Header Banner */}
         <div className="bg-gradient-to-r from-teal-500 via-emerald-600 to-green-700 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex items-center justify-between mb-6 shrink-0">
@@ -127,7 +127,7 @@ export default function Checklist() {
         </div>
 
         {/* Progress */}
-        <div className="mb-6 bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 w-full">
+        <div className="mb-6 origami-card p-4 w-full">
           <div className="flex justify-between items-center mb-2">
             <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Tiến độ ca làm</span>
             <span className="text-sm font-bold bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 px-2 py-0.5 rounded-full">{progress}%</span>
@@ -145,7 +145,7 @@ export default function Checklist() {
 
       {/* Filters */}
       <div className="px-4 mt-4 shrink-0">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
+        <div className="origami-card p-4">
           <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center">
             <Filter size={14} className="mr-1.5" /> Bộ lọc Checklist
           </h3>
@@ -182,7 +182,7 @@ export default function Checklist() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
           </div>
         ) : filteredLists.length === 0 ? (
-          <div className="text-center py-10 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">
+          <div className="text-center py-10 origami-card ">
             <CheckSquare size={48} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
             <p className="text-gray-500 dark:text-gray-400 font-medium">Không có công việc nào cho bộ lọc này.</p>
           </div>
@@ -200,7 +200,7 @@ export default function Checklist() {
                   className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between ${
                     isChecked 
                     ? 'border-green-500 bg-green-50/50 dark:bg-green-900/20' 
-                    : 'border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm hover:border-blue-300 dark:hover:border-blue-600'
+                    : 'border-gray-100 dark:border-gray-700 origami-card  hover:border-blue-300 dark:hover:border-blue-600'
                   }`}
                 >
                   <div className="flex items-start space-x-3 pr-4">

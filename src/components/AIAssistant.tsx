@@ -245,7 +245,7 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
       {/* Chat Window */}
       {isOpen && (
         <div 
-          className={`fixed right-0 md:right-6 bottom-0 md:bottom-6 bg-white dark:bg-gray-900 shadow-2xl z-[9999] flex flex-col transition-all duration-300 ease-in-out border border-gray-200 dark:border-gray-800 ${
+          className={`fixed right-0 md:right-6 bottom-0 md:bottom-6 origami-bg shadow-2xl z-[9999] flex flex-col transition-all duration-300 ease-in-out border border-gray-200 dark:border-gray-800 ${
             isExpanded 
               ? 'w-full md:w-[600px] h-full md:h-[80vh] md:rounded-2xl' 
               : 'w-full md:w-[380px] h-[75vh] md:h-[550px] md:rounded-2xl rounded-t-2xl'
@@ -283,10 +283,10 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
 
             {messages.map((msg) => (
               <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm ${
+                <div className={`max-w-[85%] rounded-2xl px-4 py-3  ${
                   msg.role === 'user' 
                     ? 'bg-indigo-600 text-white rounded-tr-sm' 
-                    : 'bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-gray-800 dark:text-gray-200 rounded-tl-sm'
+                    : 'origami-card  text-gray-800 dark:text-gray-200 rounded-tl-sm'
                 }`}>
                   {msg.role === 'user' ? (
                     <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
@@ -299,7 +299,7 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
             
             {isTyping && (
               <div className="flex justify-start">
-                <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm flex items-center space-x-2">
+                <div className="origami-card  rounded-2xl rounded-tl-sm px-4 py-3  flex items-center space-x-2">
                   <Loader2 size={16} className="animate-spin text-indigo-600" />
                   <span className="text-xs text-gray-500 font-medium tracking-wide">AI đang suy nghĩ...</span>
                 </div>
@@ -321,7 +321,7 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
                   }
                 }}
                 placeholder="Hỏi AI về lịch làm, checklist, hướng dẫn nghiệp vụ..."
-                className="flex-1 max-h-32 min-h-[44px] bg-gray-100 dark:bg-gray-800 border-transparent focus:border-indigo-500 focus:bg-white dark:focus:bg-gray-900 rounded-xl px-4 py-3 text-sm resize-none transition-all dark:text-white"
+                className="flex-1 max-h-32 min-h-[44px] paper-layer border-transparent focus:border-indigo-500 focus:bg-white dark:focus:bg-gray-900 rounded-xl px-4 py-3 text-sm resize-none transition-all dark:text-white"
                 rows={1}
                 disabled={isTyping}
               />

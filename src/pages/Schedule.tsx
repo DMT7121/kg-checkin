@@ -277,7 +277,7 @@ export default function Schedule() {
           <span className="text-[9px] text-gray-500 font-medium mb-1 uppercase">
             {shortDayName}
           </span>
-          <div className={`w-full text-center py-1.5 rounded text-xs font-bold text-white shadow-sm ${getPreviewShiftClass(getShift(i))}`}>
+          <div className={`w-full text-center py-1.5 rounded text-xs font-bold text-white  ${getPreviewShiftClass(getShift(i))}`}>
             {getShift(i)}
           </div>
         </div>
@@ -542,7 +542,7 @@ ${aiInputText}
 
       {/* Toggle Mode & Time Navigation for Admin */}
         {isAdmin && (
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 relative z-10 gap-3 w-full bg-white dark:bg-gray-800 p-2 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 relative z-10 gap-3 w-full origami-card p-2 rounded-2xl  ">
             <div className="flex items-center space-x-1">
               <button 
                 onClick={() => setViewMode('week')} 
@@ -558,12 +558,12 @@ ${aiInputText}
               </button>
             </div>
             
-            <div className="flex items-center space-x-2 bg-gray-50 dark:bg-gray-900/50 rounded-xl p-1.5 border border-gray-200 dark:border-gray-700 w-full sm:w-auto justify-center sm:justify-start">
-              <button onClick={() => viewMode === 'week' ? changeWeek(-1) : changeMonth(-1)} className="p-1.5 hover:bg-white dark:hover:bg-gray-800 hover:shadow-sm rounded-lg transition-all text-gray-600 dark:text-gray-400"><ChevronLeft size={18} /></button>
+            <div className="flex items-center space-x-2 origami-bg/50 rounded-xl p-1.5 border border-gray-200 dark:border-gray-700 w-full sm:w-auto justify-center sm:justify-start">
+              <button onClick={() => viewMode === 'week' ? changeWeek(-1) : changeMonth(-1)} className="p-1.5 hover:bg-white dark:hover:bg-gray-800 hover: rounded-lg transition-all text-gray-600 dark:text-gray-400"><ChevronLeft size={18} /></button>
               <div className="text-sm font-bold px-2 min-w-[140px] text-center text-gray-800 dark:text-gray-200">
                 {viewMode === 'week' ? weekInfo.weekDisplay : `Tháng ${selectedMonth}/${selectedYear}`}
               </div>
-              <button onClick={() => viewMode === 'week' ? changeWeek(1) : changeMonth(1)} className="p-1.5 hover:bg-white dark:hover:bg-gray-800 hover:shadow-sm rounded-lg transition-all text-gray-600 dark:text-gray-400"><ChevronRight size={18} /></button>
+              <button onClick={() => viewMode === 'week' ? changeWeek(1) : changeMonth(1)} className="p-1.5 hover:bg-white dark:hover:bg-gray-800 hover: rounded-lg transition-all text-gray-600 dark:text-gray-400"><ChevronRight size={18} /></button>
             </div>
           </div>
         )}
@@ -572,7 +572,7 @@ ${aiInputText}
 
       {isAdmin ? (
         // ================= ADMIN VIEW =================
-        <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 animate-fade-in">
+        <div className="origami-card p-5 rounded-2xl   animate-fade-in">
           <div className="flex justify-between items-center mb-4 border-b dark:border-gray-700 pb-2">
             <h3 className="font-bold flex items-center text-gray-800 dark:text-white">
               <CalendarCheck size={18} className="mr-2 text-indigo-600" /> Quản Lý Lịch Làm Việc Tuần Tới
@@ -592,7 +592,7 @@ ${aiInputText}
           {viewMode === 'week' ? (
             adminSchedules.length > 0 ? (
             <>
-              <div className="overflow-x-auto w-full bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 mb-4 pb-20 custom-scrollbar">
+              <div className="overflow-x-auto w-full origami-bg rounded-xl border border-gray-200 dark:border-gray-700 mb-4 pb-20 custom-scrollbar">
                 <table className="w-full text-sm text-left whitespace-nowrap">
                   <thead className="text-xs text-gray-700 dark:text-gray-300 uppercase bg-gray-200 dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700">
                     <tr>
@@ -612,8 +612,8 @@ ${aiInputText}
                       const hasRegistered = emp.isRegistered;
                       
                       return (
-                      <tr key={empIdx} className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                        <td className="px-4 py-3 sticky left-0 bg-white dark:bg-gray-800 z-10 font-medium text-gray-900 dark:text-white shadow-[1px_0_0_0_rgba(0,0,0,0.05)] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.05)] border-r dark:border-gray-700 group cursor-help">
+                      <tr key={empIdx} className="origami-card border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                        <td className="px-4 py-3 sticky left-0 origami-card z-10 font-medium text-gray-900 dark:text-white shadow-[1px_0_0_0_rgba(0,0,0,0.05)] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.05)] border-r dark:border-gray-700 group cursor-help">
                           <div className="flex items-center">
                             <span>{emp.fullname}</span>
                             {hasRegistered && (
@@ -677,14 +677,14 @@ ${aiInputText}
               </div>
             </>
             ) : (
-              <div className="text-center py-6 text-gray-400 bg-gray-50 dark:bg-gray-900 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
+              <div className="text-center py-6 text-gray-400 origami-bg rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
                 <Inbox size={32} className="mx-auto mb-2 opacity-50" />
                 <p className="text-sm">Bấm "Tải lịch" để xem danh sách tuần tới</p>
               </div>
             )
           ) : (
             monthData && monthData.length > 0 ? (
-            <div className="overflow-x-auto w-full bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 mb-4 pb-20 custom-scrollbar">
+            <div className="overflow-x-auto w-full origami-bg rounded-xl border border-gray-200 dark:border-gray-700 mb-4 pb-20 custom-scrollbar">
               {(() => {
                 const empMonthMap: Record<string, Record<string, string>> = {};
                 monthData?.forEach(week => {
@@ -711,15 +711,15 @@ ${aiInputText}
                     </thead>
                     <tbody>
                       {users.map((emp, empIdx) => (
-                        <tr key={empIdx} className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                          <td className="px-3 py-3 sticky left-0 bg-white dark:bg-gray-800 z-10 font-bold text-gray-800 dark:text-gray-200 shadow-[1px_0_0_0_rgba(0,0,0,0.05)] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.05)] border-r dark:border-gray-700 text-xs">
+                        <tr key={empIdx} className="origami-card border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                          <td className="px-3 py-3 sticky left-0 origami-card z-10 font-bold text-gray-800 dark:text-gray-200 shadow-[1px_0_0_0_rgba(0,0,0,0.05)] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.05)] border-r dark:border-gray-700 text-xs">
                             {emp.fullname}
                           </td>
                           {monthDates.map((mDate, dayIdx) => {
                             const shift = empMonthMap[emp.fullname]?.[`${mDate.weekLabel}_${mDate.dayIndex}`] || '';
                             const isOff = shift === 'OFF' || !shift;
                             return (
-                              <td key={dayIdx} className={`px-1 py-1 relative border-r dark:border-gray-700 ${mDate.isWeekend ? 'bg-gray-50 dark:bg-gray-800/80' : ''}`}>
+                              <td key={dayIdx} className={`px-1 py-1 relative border-r dark:border-gray-700 ${mDate.isWeekend ? 'paper-layer/80' : ''}`}>
                                 <div className="relative">
                                   <select value={shift} onChange={(e) => updateSingleMonthShift(emp.fullname, mDate, e.target.value)}
                                     className={`text-[10px] font-bold rounded-lg border focus:outline-none p-1 w-full cursor-pointer appearance-none text-center transition-all ${
@@ -742,7 +742,7 @@ ${aiInputText}
               })()}
             </div>
             ) : (
-              <div className="text-center py-6 text-gray-400 bg-gray-50 dark:bg-gray-900 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
+              <div className="text-center py-6 text-gray-400 origami-bg rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
                 <Inbox size={32} className="mx-auto mb-2 opacity-50" />
                 <p className="text-sm">Bấm "Tải lịch" để xem danh sách tháng {selectedMonth}</p>
               </div>
@@ -780,7 +780,7 @@ ${aiInputText}
 
       {/* Approved Shifts Display */}
       {approvedShifts && approvedShifts.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border-2 border-green-200 dark:border-green-700 mb-6">
+        <div className="origami-card p-4 rounded-2xl  border-2 border-green-200 dark:border-green-700 mb-6">
           <h3 className="text-sm font-bold text-green-600 dark:text-green-400 uppercase tracking-wider mb-3 flex items-center">
             <CalendarCheck size={16} className="mr-2" /> Lịch đã duyệt
           </h3>
@@ -797,7 +797,7 @@ ${aiInputText}
                   <span className="text-[9px] text-gray-500 font-medium mb-1 uppercase">
                     {shortDayName}
                   </span>
-                  <div className={`w-full text-center py-1.5 rounded text-xs font-bold text-white shadow-sm ${getPreviewShiftClass(approved)} ${isChanged ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}>
+                  <div className={`w-full text-center py-1.5 rounded text-xs font-bold text-white  ${getPreviewShiftClass(approved)} ${isChanged ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}>
                     {approved}
                   </div>
                   {isChanged && (
@@ -812,7 +812,7 @@ ${aiInputText}
 
       {/* === REGISTERED PREVIEW (not editing) === */}
       {isScheduleRegistered && !isEditing && (
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 mb-6">
+        <div className="origami-card p-4 rounded-2xl   mb-6">
           <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center">
             <Eye size={16} className="mr-2" /> Lịch đã đăng ký
           </h3>
@@ -840,7 +840,7 @@ ${aiInputText}
               <p className="text-xs text-red-600 dark:text-red-500">{regWindow.message}</p>
             </div>
           </div>
-          <div className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-6 text-center mb-6">
+          <div className="paper-layer p-6 text-center mb-6">
             <AlertTriangle size={32} className="mx-auto text-gray-400 mb-3" />
             <p className="text-sm text-gray-500 dark:text-gray-400">Bạn chưa đăng ký ca cho tuần tới.</p>
             <p className="text-xs text-gray-400 mt-1">Vui lòng đăng ký khi mở đăng ký vào Thứ Hai.</p>
@@ -865,7 +865,7 @@ ${aiInputText}
       {isOpen && !isScheduleRegistered && (
         <>
           {/* Preview grid */}
-          <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 mb-6">
+          <div className="origami-card p-4 rounded-2xl   mb-6">
             <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center">
               <Eye size={16} className="mr-2" /> Bản xem trước
             </h3>
@@ -893,7 +893,7 @@ ${aiInputText}
 
           {/* Preview grid (editing mode) */}
           {isEditing && (
-            <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 mb-6">
+            <div className="origami-card p-4 rounded-2xl   mb-6">
               <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center">
                 <Eye size={16} className="mr-2" /> Bản xem trước
               </h3>
@@ -907,7 +907,7 @@ ${aiInputText}
               const key = weekInfo.weekDatesKeys[index];
               const currentShift = shiftData[key] || 'OFF';
               return (
-                <div key={index} className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 transition hover:shadow-md">
+                <div key={index} className="origami-card p-4 rounded-2xl   transition hover:shadow-md">
                   <div className="flex justify-between items-center mb-3">
                     <span className={`font-bold ${index >= 4 && currentShift === 'OFF' ? 'text-red-500' : 'text-gray-800 dark:text-white'}`}>
                       {weekInfo.weekDates[index]} <span className="text-sm text-gray-500 dark:text-gray-400 font-medium ml-1">({shortDayName})</span>
@@ -945,7 +945,7 @@ ${aiInputText}
                     </a>
                   </p>
                   <textarea value={offReason} onChange={(e) => store.setOffReason(e.target.value)}
-                    className="w-full bg-white dark:bg-gray-800 border border-red-200 dark:border-red-800 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 text-gray-800 dark:text-gray-200" rows={3} placeholder="Nhập lý do xin nghỉ cụ thể..." />
+                    className="w-full origami-card border border-red-200 dark:border-red-800 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 text-gray-800 dark:text-gray-200" rows={3} placeholder="Nhập lý do xin nghỉ cụ thể..." />
                 </div>
               </div>
             </div>
@@ -972,7 +972,7 @@ ${aiInputText}
       {/* AI Schedule Modal */}
       {aiModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="origami-card shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div className="p-4 md:p-6 flex-shrink-0 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20">
               <div className="flex items-center text-indigo-700 dark:text-indigo-300">
                 <Bot size={24} className="mr-3" />
@@ -993,12 +993,12 @@ ${aiInputText}
                 value={aiInputText}
                 onChange={(e) => setAiInputText(e.target.value)}
                 placeholder="Dán nội dung phân ca vào đây..."
-                className="w-full h-40 md:h-64 p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none transition-all"
+                className="w-full h-40 md:h-64 p-4 rounded-xl border border-gray-200 dark:border-gray-700 origami-bg text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none transition-all"
                 disabled={isAiProcessing}
               ></textarea>
             </div>
             
-            <div className="p-4 md:p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex justify-end gap-3 flex-shrink-0">
+            <div className="p-4 md:p-6 border-t border-gray-100 dark:border-gray-700 paper-layer/50 flex justify-end gap-3 flex-shrink-0">
               <button
                 onClick={() => setAiModalOpen(false)}
                 disabled={isAiProcessing}

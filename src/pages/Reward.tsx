@@ -87,7 +87,7 @@ export default function Reward() {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex space-x-2 bg-gray-100 dark:bg-gray-800 p-1.5 rounded-2xl">
+      <div className="flex space-x-2 paper-layer p-1.5 rounded-2xl">
         {[
           { id: 'wallet', label: 'Ví điểm', icon: Award },
           { id: 'leaderboard', label: 'Bảng vàng', icon: Trophy },
@@ -98,7 +98,7 @@ export default function Reward() {
             onClick={() => setActiveTab(tab.id as any)}
             className={`flex-1 flex items-center justify-center space-x-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
               activeTab === tab.id 
-                ? 'bg-white dark:bg-gray-700 text-ocean-600 dark:text-ocean-400 shadow-sm' 
+                ? 'bg-white dark:bg-gray-700 text-ocean-600 dark:text-ocean-400 ' 
                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
             }`}
           >
@@ -129,7 +129,7 @@ export default function Reward() {
                 { title: 'Khách hàng đánh giá tốt', time: '05/04/2026', pts: '+50', type: 'bonus' },
                 { title: 'Đổi Voucher Trà sữa', time: '01/04/2026', pts: '-150', type: 'spend' },
               ].map((item, idx) => (
-                <div key={idx} className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                <div key={idx} className="origami-card p-4 rounded-2xl   flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                       item.type === 'bonus' ? 'bg-green-100 text-green-600' : 
@@ -160,7 +160,7 @@ export default function Reward() {
               <p className="text-sm text-yellow-700 dark:text-yellow-600 font-medium">Làm việc chăm chỉ để được vinh danh và nhận thưởng nhé!</p>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+            <div className="origami-card overflow-hidden">
               {[
                 { name: 'Nguyễn Văn A', pts: 1250, rank: 1 },
                 { name: 'Lê Minh Sang', pts: 980, rank: 2 },
@@ -203,7 +203,7 @@ export default function Reward() {
                 { name: 'Voucher 100k Tiền mặt', cost: 1000, image: '💵', color: 'from-yellow-100 to-yellow-50' },
                 { name: "Balo King's Grill", cost: 800, image: '🎒', color: 'from-purple-100 to-purple-50' },
               ].map((item, idx) => (
-                <div key={idx} className={`bg-gradient-to-b ${item.color} dark:from-gray-800 dark:to-gray-800 rounded-2xl p-4 border border-gray-100 dark:border-gray-700 flex flex-col shadow-sm`}>
+                <div key={idx} className={`bg-gradient-to-b ${item.color} dark:from-gray-800 dark:to-gray-800 rounded-2xl p-4  flex flex-col `}>
                   <div className="text-4xl text-center mb-3 mt-2 filter drop-shadow-md">{item.image}</div>
                   <h4 className="font-bold text-xs text-gray-800 dark:text-gray-200 text-center mb-2 line-clamp-2 min-h-[32px]">{item.name}</h4>
                   <div className="mt-auto">

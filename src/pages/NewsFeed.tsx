@@ -177,7 +177,7 @@ export default function NewsFeed() {
 
       {/* Admin Post Box */}
       {currentUser?.role === 'admin' && (
-        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-indigo-100 dark:border-indigo-900/50 overflow-hidden mb-6 p-4">
+        <div className="origami-card  border border-indigo-100 dark:border-indigo-900/50 overflow-hidden mb-6 p-4">
           <h3 className="font-bold text-gray-800 dark:text-white mb-3 flex items-center text-sm">
             <Edit3 size={16} className="mr-2 text-indigo-500" /> Tạo thông báo mới
           </h3>
@@ -186,7 +186,7 @@ export default function NewsFeed() {
             onChange={(e) => setNewPostContent(e.target.value)}
             rows={3}
             placeholder="Bạn muốn thông báo điều gì cho toàn bộ quán?"
-            className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-800 dark:text-white resize-none mb-3"
+            className="w-full origami-bg border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-800 dark:text-white resize-none mb-3"
           />
 
           {/* Image Preview */}
@@ -234,11 +234,11 @@ export default function NewsFeed() {
             const hasLiked = post.likes.includes(currentUser?.username || 'Guest');
             
             return (
-              <div key={post.id} className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden animate-fade-in">
+              <div key={post.id} className="origami-card overflow-hidden animate-fade-in">
                 {/* Author */}
                 <div className="p-4 flex items-center justify-between">
                   <div className="flex items-center">
-                    <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 flex items-center justify-center font-bold text-lg mr-3 shadow-sm border border-indigo-200 dark:border-indigo-800">
+                    <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 flex items-center justify-center font-bold text-lg mr-3  border border-indigo-200 dark:border-indigo-800">
                       {post.author.charAt(0)}
                     </div>
                     <div>
@@ -261,7 +261,7 @@ export default function NewsFeed() {
 
                 {/* Image */}
                 {post.image && (
-                  <div className="w-full h-48 bg-gray-100 dark:bg-gray-900">
+                  <div className="w-full h-48 origami-bg">
                     <img src={post.image} alt="Post cover" className="w-full h-full object-cover" />
                   </div>
                 )}
@@ -286,14 +286,14 @@ export default function NewsFeed() {
 
                 {/* Comments Section */}
                 {activeCommentPostId === post.id && (
-                  <div className="bg-gray-50 dark:bg-gray-800/50 p-4 animate-fade-in">
+                  <div className="paper-layer/50 p-4 animate-fade-in">
                     <div className="space-y-4 mb-4 max-h-[250px] overflow-y-auto hide-scrollbar pr-1">
                       {post.comments.map(comment => (
                         <div key={comment.id} className="flex space-x-2">
                           <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex-shrink-0 flex items-center justify-center text-xs font-bold text-gray-600 dark:text-gray-300">
                             {comment.author.charAt(0)}
                           </div>
-                          <div className="flex-1 bg-white dark:bg-gray-700 rounded-2xl rounded-tl-none p-3 shadow-sm border border-gray-100 dark:border-gray-600">
+                          <div className="flex-1 bg-white dark:bg-gray-700 rounded-2xl rounded-tl-none p-3  ">
                             <h5 className="text-xs font-bold text-gray-800 dark:text-white mb-0.5">{comment.author}</h5>
                             <p className="text-sm text-gray-700 dark:text-gray-200">{comment.content}</p>
                             <p className="text-[9px] text-gray-400 mt-1">{comment.time}</p>

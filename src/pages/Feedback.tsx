@@ -122,7 +122,7 @@ export default function Feedback() {
   const displayFeedbacks = feedbacks;
 
   return (
-    <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900 animate-fade-in relative pb-6">
+    <div className="h-full flex flex-col origami-bg animate-fade-in relative pb-6">
       <div className="p-4 flex-none">
         {/* Header Banner */}
         <div className="bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex items-center justify-between shrink-0 mb-6">
@@ -150,7 +150,7 @@ export default function Feedback() {
         
         {/* User Submit Form (Hide for Admin unless Admin wants to submit) */}
         {!isAdmin && (
-          <div className="bg-white dark:bg-gray-800 rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 shrink-0">
+          <div className="origami-card p-5 shrink-0">
             <h3 className="font-bold text-gray-800 dark:text-white mb-3 text-sm flex items-center">
               <Send size={16} className="mr-2 text-purple-500" /> Gửi phản hồi mới
             </h3>
@@ -158,7 +158,7 @@ export default function Feedback() {
               <select 
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 text-gray-800 dark:text-white text-sm"
+                className="w-full origami-bg/50 border border-gray-200 dark:border-gray-700 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 text-gray-800 dark:text-white text-sm"
               >
                 <option>Góp ý hệ thống</option>
                 <option>Khiếu nại lương/ca</option>
@@ -171,7 +171,7 @@ export default function Feedback() {
                 onChange={(e) => setContent(e.target.value)}
                 placeholder="Nội dung chi tiết..."
                 rows={3}
-                className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 text-gray-800 dark:text-white text-sm"
+                className="w-full origami-bg/50 border border-gray-200 dark:border-gray-700 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 text-gray-800 dark:text-white text-sm"
               ></textarea>
 
               <div className="flex items-center justify-between mt-2">
@@ -200,7 +200,7 @@ export default function Feedback() {
           {loading ? (
             <div className="flex justify-center py-4"><div className="animate-spin h-6 w-6 border-b-2 border-purple-500 rounded-full"></div></div>
           ) : displayFeedbacks.length === 0 ? (
-            <div className="text-center py-8 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">
+            <div className="text-center py-8 origami-card ">
               <AlertCircle size={32} className="mx-auto text-gray-300 dark:text-gray-600 mb-2" />
               <p className="text-sm text-gray-500">Chưa có phản hồi nào</p>
             </div>
@@ -212,7 +212,7 @@ export default function Feedback() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.05 }}
-                  className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700"
+                  className="origami-card p-4"
                 >
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex items-center space-x-2">
@@ -255,7 +255,7 @@ export default function Feedback() {
                             value={replyContent}
                             onChange={(e) => setReplyContent(e.target.value)}
                             placeholder="Nhập phản hồi của bạn..."
-                            className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg p-2 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500"
+                            className="w-full origami-bg/50 border border-gray-200 dark:border-gray-700 rounded-lg p-2 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500"
                             rows={2}
                           ></textarea>
                           <div className="flex justify-end space-x-2">

@@ -168,7 +168,7 @@ export default function AdminPayroll() {
       </div>
 
       {/* Dynamic Formula Builder */}
-      <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+      <div className="origami-card p-5 rounded-2xl  ">
         <div className="flex flex-wrap justify-between items-center gap-3 mb-4 border-b dark:border-gray-700 pb-2">
           <h3 className="font-bold flex items-center text-gray-800 dark:text-white min-w-0 pr-2">
             <MathIcon size={18} className="mr-2 text-ocean-600 flex-shrink-0" /> <span className="truncate">Dynamic Formula Builder</span>
@@ -182,7 +182,7 @@ export default function AdminPayroll() {
         </div>
         
         <div className={`space-y-4 ${formulaLocked ? 'opacity-70 pointer-events-none' : ''}`}>
-          <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-xl border border-dashed border-gray-300 dark:border-gray-700">
+          <div className="p-4 origami-bg rounded-xl border border-dashed border-gray-300 dark:border-gray-700">
             <p className="text-xs text-gray-500 mb-2 font-bold uppercase">Công thức hiện tại:</p>
             <div className="flex flex-wrap gap-2 items-center">
               <span className="font-mono text-sm font-bold text-gray-700 dark:text-gray-300 bg-transparent px-1">{baseFormula}</span>
@@ -202,7 +202,7 @@ export default function AdminPayroll() {
             <p className="text-xs text-gray-500 mb-2 font-bold">Biến số có sẵn (Kéo thả hoặc Click để thêm):</p>
             <div className="flex flex-wrap gap-2">
               {['LUONG_CO_BAN', 'TONG_GIO_LAM', 'PHU_CAP', 'KHAU_TRU', 'THUONG', 'GIO_OT'].map(v => (
-                <button key={v} className="px-2 py-1 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-mono text-xs rounded hover:bg-gray-200 transition-colors">
+                <button key={v} className="px-2 py-1 paper-layer border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-mono text-xs rounded hover:bg-gray-200 transition-colors">
                   {v}
                 </button>
               ))}
@@ -218,7 +218,7 @@ export default function AdminPayroll() {
       </div>
 
       {/* Advance Salary Settings */}
-      <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+      <div className="origami-card p-5 rounded-2xl  ">
         <h3 className="font-bold mb-4 border-b dark:border-gray-700 pb-2 flex items-center text-gray-800 dark:text-white">
           <HandCoins size={18} className="mr-2 text-ocean-600" /> Cấu hình Ứng lương
         </h3>
@@ -245,7 +245,7 @@ export default function AdminPayroll() {
       </div>
 
       {/* Allowances & Deductions */}
-      <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+      <div className="origami-card p-5 rounded-2xl  ">
         <h3 className="font-bold mb-4 border-b dark:border-gray-700 pb-2 flex items-center text-gray-800 dark:text-white">
           <Settings2 size={18} className="mr-2 text-ocean-600" /> Phụ cấp & Khấu trừ
         </h3>
@@ -255,7 +255,7 @@ export default function AdminPayroll() {
             <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Phụ cấp (Allowances)</h4>
             <div className="space-y-2">
               {allowances.map(a => (
-                <div key={a.id} className="flex flex-wrap justify-between items-center gap-2 bg-gray-50 dark:bg-gray-900 p-2.5 rounded-lg border border-gray-100 dark:border-gray-800">
+                <div key={a.id} className="flex flex-wrap justify-between items-center gap-2 origami-bg p-2.5 rounded-lg border border-gray-100 dark:border-gray-800">
                   <div className="min-w-0 pr-2">
                     <p className="text-xs font-bold truncate">{a.name}</p>
                     <p className="text-[10px] text-gray-500 truncate">{Number(a.amount).toLocaleString()}đ - {a.description}</p>
@@ -302,7 +302,7 @@ export default function AdminPayroll() {
       </div>
       
       {/* Salary Matrix */}
-      <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+      <div className="origami-card p-5 rounded-2xl  ">
         <h3 className="font-bold mb-4 border-b dark:border-gray-700 pb-2 flex items-center text-gray-800 dark:text-white">
           <KeyRound size={18} className="mr-2 text-ocean-600" /> Ma trận Mức Lương
         </h3>

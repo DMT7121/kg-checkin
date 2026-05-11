@@ -139,13 +139,13 @@ export default function HrList() {
             return (
               <div 
                 key={user.username} 
-                className={`p-4 md:p-5 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-all duration-300 ${isProcessing ? 'opacity-60 pointer-events-none grayscale-[50%]' : ''}`}
+                className={`p-4 md:p-5 origami-card   hover:shadow-md transition-all duration-300 ${isProcessing ? 'opacity-60 pointer-events-none grayscale-[50%]' : ''}`}
               >
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 items-center">
                   
                   {/* User Info (Left - takes 5 columns on lg) */}
                   <div className="lg:col-span-5 flex items-center min-w-0">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-ocean-100 to-indigo-100 dark:from-ocean-900/40 dark:to-indigo-900/40 text-ocean-600 dark:text-ocean-400 flex items-center justify-center font-bold text-lg shadow-sm border border-ocean-200/50 dark:border-ocean-700/50 flex-shrink-0">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-ocean-100 to-indigo-100 dark:from-ocean-900/40 dark:to-indigo-900/40 text-ocean-600 dark:text-ocean-400 flex items-center justify-center font-bold text-lg  border border-ocean-200/50 dark:border-ocean-700/50 flex-shrink-0">
                       {user.fullname.charAt(0)}
                     </div>
                     <div className="ml-4 min-w-0 flex-1">
@@ -178,7 +178,7 @@ export default function HrList() {
                         <select 
                           value={user.position || 'Phục vụ'} 
                           onChange={(e) => handleUpdatePosition(user.username, user.fullname, e.target.value)}
-                          className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 rounded-xl px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-ocean-500 focus:border-ocean-500 outline-none transition-shadow shadow-sm cursor-pointer appearance-none"
+                          className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 rounded-xl px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-ocean-500 focus:border-ocean-500 outline-none transition-shadow  cursor-pointer appearance-none"
                           style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em', paddingRight: '2.5rem' }}
                         >
                           {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
@@ -193,7 +193,7 @@ export default function HrList() {
                         <select 
                           value={user.role || 'user'} 
                           onChange={(e) => handleUpdateRole(user.username, user.fullname, e.target.value)}
-                          className={`w-full rounded-xl px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-ocean-500 focus:outline-none transition-all shadow-sm cursor-pointer appearance-none ${roleStyle}`}
+                          className={`w-full rounded-xl px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-ocean-500 focus:outline-none transition-all  cursor-pointer appearance-none ${roleStyle}`}
                           style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em', paddingRight: '2.5rem' }}
                         >
                           {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
@@ -204,7 +204,7 @@ export default function HrList() {
                       <div className="col-span-2 md:col-span-1 flex justify-end md:justify-center">
                         <button 
                           onClick={() => handleForceReset(user.username, user.fullname)}
-                          className="flex items-center justify-center w-full md:w-12 h-10 text-gray-500 hover:text-red-600 bg-white dark:bg-gray-800 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl transition-all border border-gray-200 dark:border-gray-700 hover:border-red-200 dark:hover:border-red-800/50 shadow-sm group"
+                          className="flex items-center justify-center w-full md:w-12 h-10 text-gray-500 hover:text-red-600 origami-card hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl transition-all border border-gray-200 dark:border-gray-700 hover:border-red-200 dark:hover:border-red-800/50  group"
                           title="Khôi phục mật khẩu"
                         >
                           <KeyRound size={18} className="group-hover:scale-110 transition-transform" />

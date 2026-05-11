@@ -398,7 +398,7 @@ export default function Dashboard() {
             <div className="space-y-2.5">
               {recentLogs.map((log, i) => (
                 <div key={i} className="flex items-center space-x-3 p-2.5 paper-layer">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm ${log.type === 'Vào ca' ? 'bg-green-500' : 'bg-red-500'}`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold  ${log.type === 'Vào ca' ? 'bg-green-500' : 'bg-red-500'}`}>
                     {log.type === 'Vào ca' ? '→' : '←'}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -435,10 +435,10 @@ export default function Dashboard() {
       {/* Header */}
       <header className="paper-layer text-ocean-800 dark:text-white p-4 flex justify-between items-center sticky top-0 z-40 mx-2 mt-2">
         <div className="flex items-center space-x-3">
-          <button onClick={handleOpenSidebar} className="w-11 h-11 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition flex items-center justify-center text-gray-700 dark:text-gray-200 touch-manipulation">
+          <button onClick={handleOpenSidebar} className="w-11 h-11 rounded-xl paper-layer hover:bg-gray-200 dark:hover:bg-gray-700 transition flex items-center justify-center text-gray-700 dark:text-gray-200 touch-manipulation">
             <Menu size={20} />
           </button>
-          <div className="w-10 h-10 rounded-full bg-white dark:bg-gray-800 items-center justify-center shadow-md overflow-hidden border border-gray-200 dark:border-gray-700 min-h-[44px] min-w-[44px] hidden sm:flex">
+          <div className="w-10 h-10 rounded-full origami-card items-center justify-center shadow-md overflow-hidden border border-gray-200 dark:border-gray-700 min-h-[44px] min-w-[44px] hidden sm:flex">
             <img src="/android-chrome-192x192.png?v=3" alt="Logo" className="w-8 h-8 object-contain" />
           </div>
           <div>
@@ -447,7 +447,7 @@ export default function Dashboard() {
           </div>
         </div>
         <div className="flex items-center space-x-2">
-          <button onClick={() => store.toggleDarkMode()} className="w-11 h-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition flex items-center justify-center text-gray-600 dark:text-gray-300 touch-manipulation relative">
+          <button onClick={() => store.toggleDarkMode()} className="w-11 h-11 rounded-full paper-layer hover:bg-gray-200 dark:hover:bg-gray-700 transition flex items-center justify-center text-gray-600 dark:text-gray-300 touch-manipulation relative">
             {isDark ? <Sun size={18} /> : <Moon size={18} />}
           </button>
           <button onClick={handleLogout} className="w-11 h-11 rounded-full bg-red-50 dark:bg-red-900/30 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 transition flex items-center justify-center touch-manipulation">
@@ -489,7 +489,7 @@ export default function Dashboard() {
                     </p>
                   </div>
                 </div>
-                <button onClick={() => setSidebarOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 hover:text-gray-800 dark:hover:text-white transition-colors">
+                <button onClick={() => setSidebarOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-full paper-layer text-gray-500 hover:text-gray-800 dark:hover:text-white transition-colors">
                   <X size={16} />
                 </button>
               </div>
@@ -550,16 +550,16 @@ export default function Dashboard() {
                                       item.comingSoon
                                         ? 'text-gray-400 dark:text-gray-600 cursor-default'
                                         : isActive
-                                        ? 'bg-ocean-100/80 dark:bg-ocean-900/30 text-ocean-700 dark:text-ocean-400 shadow-sm'
+                                        ? 'bg-ocean-100/80 dark:bg-ocean-900/30 text-ocean-700 dark:text-ocean-400 '
                                         : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/60'
                                     }`}
                                   >
                                     <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
                                       item.comingSoon
-                                        ? 'bg-gray-100 dark:bg-gray-800'
+                                        ? 'paper-layer'
                                         : isActive
                                         ? 'bg-ocean-500 shadow-md'
-                                        : 'bg-gray-100 dark:bg-gray-800'
+                                        : 'paper-layer'
                                     }`}>
                                       <Icon size={14} className={
                                         item.comingSoon
