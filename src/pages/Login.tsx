@@ -17,6 +17,7 @@ export default function Login() {
   const [forgotStep, setForgotStep] = useState<1 | 2>(1);
   const [resetForm, setResetForm] = useState({ otp: '', newPassword: '' });
   const [showPass, setShowPass] = useState(false);
+  const [clickCount, setClickCount] = useState(0);
 
   // Khôi phục trạng thái Ghi nhớ từ localStorage khi mở app
   useState(() => {
@@ -192,7 +193,31 @@ export default function Login() {
         <div className="inline-block mb-2 transform hover:scale-105 transition-transform duration-300">
           <img src="/LOGO.png?v=3" alt="King's Grill Logo" className="w-[160px] h-auto object-contain mx-auto drop-shadow-[0_0_12px_rgba(14,165,233,0.3)] dark:drop-shadow-[0_0_20px_rgba(14,165,233,0.5)]" />
         </div>
-        <p className="text-ocean-600 dark:text-ocean-400 font-semibold text-sm tracking-wide">KING's GRILL APP v1.0</p>
+        <p 
+          className="text-ocean-600 dark:text-ocean-400 font-semibold text-sm tracking-wide cursor-pointer"
+          onClick={() => {
+            const newCount = clickCount + 1;
+            setClickCount(newCount);
+            if (newCount >= 5) {
+              setClickCount(0);
+              const currentUrl = localStorage.getItem('kg_gas_url') || '';
+              const url = window.prompt('🔧 Nhập link GAS API mới:', currentUrl);
+              if (url !== null) {
+                if (url.trim()) {
+                  localStorage.setItem('kg_gas_url', url.trim());
+                  alert('Đã cập nhật link GAS. Đang tải lại trang...');
+                  window.location.reload();
+                } else {
+                  localStorage.removeItem('kg_gas_url');
+                  alert('Đã khôi phục link GAS mặc định. Đang tải lại trang...');
+                  window.location.reload();
+                }
+              }
+            }
+          }}
+        >
+          KING's GRILL APP v1.0
+        </p>
       </div>
 
       {/* LOGIN FORM */}

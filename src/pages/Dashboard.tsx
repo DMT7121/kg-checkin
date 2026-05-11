@@ -61,6 +61,7 @@ export default function Dashboard() {
   const { currentUser, isDark, currentTab, isScheduleRegistered } = store;
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<string[]>(['info']);
+  const [clickCount, setClickCount] = useState(0);
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'tester';
 
   // ============================================
@@ -584,7 +585,29 @@ export default function Dashboard() {
 
               {/* Sidebar Footer */}
               <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
-                <p className="text-[10px] text-gray-400 dark:text-gray-600 text-center font-medium">
+                <p 
+                  className="text-[10px] text-gray-400 dark:text-gray-600 text-center font-medium cursor-pointer"
+                  onClick={() => {
+                    const newCount = clickCount + 1;
+                    setClickCount(newCount);
+                    if (newCount >= 5) {
+                      setClickCount(0);
+                      const currentUrl = localStorage.getItem('kg_gas_url') || '';
+                      const url = window.prompt('🔧 Nhập link GAS API mới:', currentUrl);
+                      if (url !== null) {
+                        if (url.trim()) {
+                          localStorage.setItem('kg_gas_url', url.trim());
+                          alert('Đã cập nhật link GAS. Đang tải lại trang...');
+                          window.location.reload();
+                        } else {
+                          localStorage.removeItem('kg_gas_url');
+                          alert('Đã khôi phục link GAS mặc định. Đang tải lại trang...');
+                          window.location.reload();
+                        }
+                      }
+                    }
+                  }}
+                >
                   King's Grill HR • Phase 6
                 </p>
               </div>

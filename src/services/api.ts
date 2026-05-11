@@ -3,8 +3,20 @@
 // ============================================
 import Swal from 'sweetalert2';
 
-const GAS_URL = import.meta.env.VITE_GAS_URL ||
-  'https://script.google.com/macros/s/AKfycbzLsmPb89mVPxcAeQwEsHIojCcy20eYL7SmIinwLiU_IYPhHER7HdgRGTxoTqUInAEN/exec';
+// Get GAS URL dynamically so we can update it without rebuilds
+export const getGasUrl = () => {
+  return localStorage.getItem('kg_gas_url') || 
+    import.meta.env.VITE_GAS_URL ||
+    'https://script.google.com/macros/s/AKfycby7KjB0bPjsBpSPI69X7qSxLGd66v_FcCoKsv97nGMCyyT3_0jNtoX88rIFBkCnvq_p/exec';
+};
+
+export const setGasUrl = (url: string) => {
+  if (url) {
+    localStorage.setItem('kg_gas_url', url.trim());
+  } else {
+    localStorage.removeItem('kg_gas_url');
+  }
+};
 
 /**
  * Call Google Apps Script API
@@ -34,7 +46,7 @@ export async function callApi(
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
 
-      const response = await fetch(GAS_URL, {
+      const response = await fetch(getGasUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         redirect: 'follow',
