@@ -188,10 +188,10 @@ export default function Login() {
   };
 
   return (
-    <div className="flex-1 flex flex-col justify-center p-6 min-h-screen relative overflow-hidden bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-slate-900 dark:via-gray-900 dark:to-slate-900 font-sans">
-      {/* Abstract Background Shapes */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40rem] h-[40rem] bg-ocean-400/20 dark:bg-ocean-500/10 rounded-full mix-blend-multiply dark:mix-blend-lighten filter blur-3xl opacity-70 animate-pulse-ring"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40rem] h-[40rem] bg-purple-400/20 dark:bg-purple-500/10 rounded-full mix-blend-multiply dark:mix-blend-lighten filter blur-3xl opacity-70 animate-pulse-ring" style={{ animationDelay: '2s' }}></div>
+    <div className="flex-1 flex flex-col justify-center p-6 min-h-screen relative overflow-hidden origami-bg font-sans">
+      {/* Origami Fold Accents */}
+      <div className="absolute top-0 right-0 w-32 h-32 bg-white/20 dark:bg-white/5 border-l border-b border-black/5 dark:border-white/5 shadow-[-5px_5px_15px_rgba(0,0,0,0.05)] transform rotate-45 translate-x-16 -translate-y-16"></div>
+      <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/30 dark:bg-white/5 border-r border-t border-black/5 dark:border-white/5 shadow-[5px_-5px_15px_rgba(0,0,0,0.05)] transform rotate-45 -translate-x-24 translate-y-24"></div>
 
       <div className="relative z-10 w-full max-w-md mx-auto">
       {/* Logo */}
@@ -216,22 +216,22 @@ export default function Login() {
 
       {/* LOGIN FORM */}
       {mode === 'login' && (
-        <div className="glass p-8 rounded-[2rem] animate-slide-up w-full">
-          <h3 className="text-2xl font-extrabold mb-6 text-center bg-clip-text text-transparent bg-gradient-to-r from-gray-800 to-gray-600 dark:from-white dark:to-gray-300">Đăng Nhập</h3>
+        <div className="origami-card p-8 animate-slide-up w-full">
+          <h3 className="text-2xl font-extrabold mb-6 text-center text-gray-800 dark:text-gray-100">Đăng Nhập</h3>
           <form onSubmit={handleLogin}>
             <div className="mb-5 relative group">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-ocean-500 transition-colors">
                 <User size={16} />
               </div>
               <input type="text" id="username" name="username" autoComplete="username" value={loginForm.username} onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
-                className="w-full bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm border border-white/40 dark:border-gray-700/50 rounded-xl pl-11 pr-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-ocean-500/50 min-h-[44px] text-gray-800 dark:text-white transition-all placeholder-gray-400" placeholder="Tài khoản" />
+                className="w-full bg-gray-50 dark:bg-[#2a2a35] border border-gray-200 dark:border-gray-700 rounded-sm pl-11 pr-4 py-3.5 focus:outline-none focus:border-ocean-500 focus:ring-1 focus:ring-ocean-500 min-h-[44px] text-gray-800 dark:text-white transition-all placeholder-gray-400 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]" placeholder="Tài khoản" />
             </div>
             <div className="mb-4 relative group">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-ocean-500 transition-colors">
                 <Lock size={16} />
               </div>
               <input type={showPass ? 'text' : 'password'} id="password" name="password" autoComplete="current-password" value={loginForm.password} onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                className="w-full bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm border border-white/40 dark:border-gray-700/50 rounded-xl pl-11 pr-12 py-3.5 focus:outline-none focus:ring-2 focus:ring-ocean-500/50 min-h-[44px] text-gray-800 dark:text-white transition-all placeholder-gray-400" placeholder="Mật khẩu" />
+                className="w-full bg-gray-50 dark:bg-[#2a2a35] border border-gray-200 dark:border-gray-700 rounded-sm pl-11 pr-12 py-3.5 focus:outline-none focus:border-ocean-500 focus:ring-1 focus:ring-ocean-500 min-h-[44px] text-gray-800 dark:text-white transition-all placeholder-gray-400 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]" placeholder="Mật khẩu" />
               <button type="button" onClick={() => setShowPass(!showPass)} className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none min-h-[44px] min-w-[44px]">
                 {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
@@ -245,7 +245,7 @@ export default function Login() {
               </label>
             </div>
 
-            <button type="submit" className="w-full bg-gradient-to-r from-[#1856FF] to-[#0ea5e9] text-white font-bold py-3.5 rounded-xl shadow-[0_8px_20px_rgba(24,86,255,0.3)] hover:shadow-[0_8px_25px_rgba(24,86,255,0.4)] transition-all transform hover:-translate-y-0.5 active:scale-95 min-h-[44px] flex items-center justify-center">
+            <button type="submit" className="origami-btn-primary w-full font-bold py-3.5 min-h-[44px] flex items-center justify-center">
               ĐĂNG NHẬP <ArrowRight size={14} className="ml-2 opacity-80" />
             </button>
           </form>
@@ -258,9 +258,9 @@ export default function Login() {
 
       {/* REGISTER FORM */}
       {mode === 'register' && (
-        <div className="glass p-6 md:p-8 rounded-[2rem] animate-slide-up w-full">
+        <div className="origami-card p-6 md:p-8 animate-slide-up w-full">
           <div className="text-center mb-6">
-            <h3 className="text-2xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-gray-800 to-gray-600 dark:from-white dark:to-gray-300">Tạo tài khoản mới</h3>
+            <h3 className="text-2xl font-extrabold text-gray-800 dark:text-gray-100">Tạo tài khoản mới</h3>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Gia nhập hệ thống King's Grill</p>
           </div>
 
@@ -275,13 +275,13 @@ export default function Login() {
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-green-500 transition-colors">
                     <User size={16} />
                   </div>
-                  <input type="text" required value={registerForm.username} onChange={(e) => setRegisterForm({ ...registerForm, username: e.target.value })} placeholder="Tên đăng nhập" className="w-full bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-3 py-3 focus:outline-none focus:ring-2 focus:ring-green-500/50 text-sm text-gray-800 dark:text-white shadow-sm transition-all" />
+                  <input type="text" required value={registerForm.username} onChange={(e) => setRegisterForm({ ...registerForm, username: e.target.value })} placeholder="Tên đăng nhập" className="w-full bg-white dark:bg-[#2a2a35] border border-gray-200 dark:border-gray-700 rounded-sm pl-9 pr-3 py-3 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-sm text-gray-800 dark:text-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)] transition-all" />
                 </div>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-green-500 transition-colors">
                     <Lock size={16} />
                   </div>
-                  <input type="password" required value={registerForm.password} onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })} placeholder="Mật khẩu" className="w-full bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-3 py-3 focus:outline-none focus:ring-2 focus:ring-green-500/50 text-sm text-gray-800 dark:text-white shadow-sm transition-all" />
+                  <input type="password" required value={registerForm.password} onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })} placeholder="Mật khẩu" className="w-full bg-white dark:bg-[#2a2a35] border border-gray-200 dark:border-gray-700 rounded-sm pl-9 pr-3 py-3 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-sm text-gray-800 dark:text-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)] transition-all" />
                 </div>
               </div>
             </div>
@@ -296,7 +296,7 @@ export default function Login() {
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-500 transition-colors">
                     <BadgeCheck size={16} />
                   </div>
-                  <input type="text" required value={registerForm.fullname} onChange={(e) => setRegisterForm({ ...registerForm, fullname: e.target.value })} placeholder="Họ và Tên (VD: Nguyễn Văn A)" className="w-full bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-11 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm text-gray-800 dark:text-white shadow-sm transition-all" />
+                  <input type="text" required value={registerForm.fullname} onChange={(e) => setRegisterForm({ ...registerForm, fullname: e.target.value })} placeholder="Họ và Tên" className="w-full bg-white dark:bg-[#2a2a35] border border-gray-200 dark:border-gray-700 rounded-sm pl-11 pr-4 py-3 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm text-gray-800 dark:text-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)] transition-all" />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -323,7 +323,7 @@ export default function Login() {
               </div>
             </div>
 
-            <button type="submit" className="w-full mt-2 bg-gradient-to-r from-[#1856FF] to-[#0ea5e9] text-white font-bold py-3.5 rounded-xl shadow-[0_8px_20px_rgba(24,86,255,0.3)] hover:shadow-[0_8px_25px_rgba(24,86,255,0.4)] transition transform active:scale-95 min-h-[44px] flex items-center justify-center">
+            <button type="submit" className="origami-btn-primary w-full mt-2 font-bold py-3.5 min-h-[44px] flex items-center justify-center">
               HOÀN TẤT ĐĂNG KÝ
             </button>
             <button type="button" onClick={() => setMode('login')} className="w-full mt-4 text-gray-500 text-sm hover:text-gray-800 dark:hover:text-white font-medium flex items-center justify-center transition-colors">
@@ -335,12 +335,12 @@ export default function Login() {
 
       {/* FORGOT PASSWORD FORM */}
       {mode === 'forgot' && (
-        <div className="glass p-8 rounded-[2rem] animate-slide-up w-full">
+        <div className="origami-card p-8 animate-slide-up w-full">
           <div className="text-center mb-6">
-            <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-[0_8px_20px_rgba(245,158,11,0.3)]">
-              <KeyRound size={24} className="text-white" />
+            <div className="w-12 h-12 paper-layer bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center mx-auto mb-3">
+              <KeyRound size={24} className="text-orange-500" />
             </div>
-            <h3 className="text-2xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-gray-800 to-gray-600 dark:from-white dark:to-gray-300">Khôi phục mật khẩu</h3>
+            <h3 className="text-2xl font-extrabold text-gray-800 dark:text-gray-100">Khôi phục mật khẩu</h3>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Nhập Email hoặc SĐT đã đăng ký để nhận mã OTP khôi phục</p>
           </div>
 
@@ -351,9 +351,9 @@ export default function Login() {
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-orange-500 transition-colors">
                     <Mail size={16} />
                   </div>
-                  <input type="email" required value={forgotForm.email} onChange={(e) => setForgotForm({ email: e.target.value })} placeholder="Nhập Email đã đăng ký..." className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-11 pr-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-orange-500/50 min-h-[44px] text-gray-800 dark:text-white" />
+                  <input type="email" required value={forgotForm.email} onChange={(e) => setForgotForm({ email: e.target.value })} placeholder="Nhập Email đã đăng ký..." className="w-full bg-gray-50 dark:bg-[#2a2a35] border border-gray-200 dark:border-gray-700 rounded-sm pl-11 pr-4 py-3.5 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 min-h-[44px] text-gray-800 dark:text-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]" />
                 </div>
-                <button type="submit" className="w-full bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold py-3.5 rounded-xl shadow-lg hover:shadow-orange-500/40 transition transform active:scale-95 min-h-[44px] flex items-center justify-center">
+                <button type="submit" className="origami-btn w-full font-bold py-3.5 min-h-[44px] flex items-center justify-center text-orange-600 dark:text-orange-400">
                   GỬI MÃ OTP
                 </button>
               </>

@@ -274,7 +274,7 @@ export default function Dashboard() {
     return (
       <div className="p-4 space-y-4">
         {/* Header Banner */}
-        <div className="glass !bg-gradient-to-r from-[#1856FF] via-[#0ea5e9] to-[#3A344E] rounded-[2rem] p-6 md:p-8 text-white shadow-[0_15px_30px_rgba(24,86,255,0.3)] relative overflow-hidden flex items-center justify-between mb-2 border-0">
+        <div className="origami-card !bg-gradient-to-r from-[#1856FF] via-[#0ea5e9] to-[#3A344E] p-6 md:p-8 text-white shadow-[0_15px_30px_rgba(24,86,255,0.3)] relative overflow-hidden flex items-center justify-between mb-2">
           <div className="relative z-10">
             <div className="flex items-center space-x-3 mb-2">
               <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
@@ -295,7 +295,7 @@ export default function Dashboard() {
         </div>
 
         {/* Ca hôm nay */}
-        <div className="glass rounded-[1.5rem] p-4 animate-slide-up relative z-10">
+        <div className="origami-card p-4 animate-slide-up relative z-10">
           <div className="flex items-center justify-between mb-3">
              <div className="flex items-center space-x-2">
                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isOff ? 'bg-gray-100 text-gray-500 dark:bg-gray-700' : 'bg-ocean-100 text-ocean-600 dark:bg-ocean-900/30'}`}>
@@ -347,7 +347,7 @@ export default function Dashboard() {
 
         {/* Quick stats */}
         <div className="grid grid-cols-2 gap-3 relative z-10">
-          <div className="glass rounded-[1.5rem] p-4">
+          <div className="origami-card p-4">
             <div className="flex items-center space-x-2 mb-2">
               <div className="w-8 h-8 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
                 <Camera size={16} className="text-green-600" />
@@ -356,7 +356,7 @@ export default function Dashboard() {
             </div>
             <p className="text-2xl font-bold text-gray-800 dark:text-white">{stats.totalCheckIn}</p>
           </div>
-          <div className="glass rounded-[1.5rem] p-4">
+          <div className="origami-card p-4">
             <div className="flex items-center space-x-2 mb-2">
               <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
                 <ClipboardCheck size={16} className="text-blue-600" />
@@ -368,7 +368,7 @@ export default function Dashboard() {
         </div>
 
         {/* Quick actions */}
-        <div className="glass rounded-[1.5rem] p-4 relative z-10">
+        <div className="origami-card p-4 relative z-10">
           <h3 className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-3">Thao tác nhanh</h3>
           <div className="grid grid-cols-4 gap-2">
             {[
@@ -378,7 +378,7 @@ export default function Dashboard() {
               { icon: UtensilsCrossed, label: 'Món hết', tab: 'soldout' as TabId, color: 'from-amber-500 to-orange-600' },
             ].map((action) => (
               <button key={action.tab} onClick={() => handleTabChange(action.tab)}
-                className="flex flex-col items-center space-y-1.5 p-3 rounded-2xl hover:bg-white/40 dark:hover:bg-white/10 transition-all active:scale-95">
+                className="flex flex-col items-center space-y-1.5 p-3 rounded-sm hover:bg-black/5 dark:hover:bg-white/5 transition-all active:scale-95">
                 <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${action.color} flex items-center justify-center shadow-md`}>
                   <action.icon size={18} className="text-white" />
                 </div>
@@ -390,14 +390,14 @@ export default function Dashboard() {
 
         {/* Recent activity */}
         {recentLogs.length > 0 && (
-          <div className="glass rounded-[1.5rem] p-4 relative z-10">
+          <div className="origami-card p-4 relative z-10">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-bold text-gray-700 dark:text-gray-200">Hoạt động gần đây</h3>
               <button onClick={() => handleTabChange('history')} className="text-xs text-ocean-500 font-medium">Xem tất cả →</button>
             </div>
             <div className="space-y-2.5">
               {recentLogs.map((log, i) => (
-                <div key={i} className="flex items-center space-x-3 p-2.5 rounded-xl bg-white/40 dark:bg-white/5 border border-white/20 dark:border-white/10 backdrop-blur-sm">
+                <div key={i} className="flex items-center space-x-3 p-2.5 paper-layer">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm ${log.type === 'Vào ca' ? 'bg-green-500' : 'bg-red-500'}`}>
                     {log.type === 'Vào ca' ? '→' : '←'}
                   </div>
@@ -427,13 +427,13 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="max-w-md mx-auto min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-slate-900 dark:via-gray-900 dark:to-slate-900 shadow-2xl relative overflow-hidden flex flex-col font-sans">
-      {/* Abstract Background Shapes */}
-      <div className="absolute top-[-5%] left-[-20%] w-[30rem] h-[30rem] bg-ocean-400/20 dark:bg-ocean-500/10 rounded-full mix-blend-multiply dark:mix-blend-lighten filter blur-3xl opacity-60 animate-pulse-ring pointer-events-none"></div>
-      <div className="absolute bottom-[20%] right-[-20%] w-[25rem] h-[25rem] bg-purple-400/20 dark:bg-purple-500/10 rounded-full mix-blend-multiply dark:mix-blend-lighten filter blur-3xl opacity-60 animate-pulse-ring pointer-events-none" style={{ animationDelay: '1s' }}></div>
+    <div className="max-w-md mx-auto min-h-screen origami-bg shadow-2xl relative overflow-hidden flex flex-col font-sans">
+      {/* Origami Fold Accents */}
+      <div className="absolute top-[-5%] left-[-20%] w-[30rem] h-[30rem] bg-white/20 dark:bg-white/5 border-b border-black/5 dark:border-white/5 transform rotate-12 pointer-events-none"></div>
+      <div className="absolute bottom-[20%] right-[-20%] w-[25rem] h-[25rem] bg-white/30 dark:bg-white/5 border-t border-black/5 dark:border-white/5 transform -rotate-12 pointer-events-none"></div>
 
       {/* Header */}
-      <header className="glass text-ocean-800 dark:text-white p-4 flex justify-between items-center sticky top-0 z-40 border-x-0 border-t-0 rounded-b-2xl mx-2 mt-2">
+      <header className="paper-layer text-ocean-800 dark:text-white p-4 flex justify-between items-center sticky top-0 z-40 mx-2 mt-2">
         <div className="flex items-center space-x-3">
           <button onClick={handleOpenSidebar} className="w-11 h-11 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition flex items-center justify-center text-gray-700 dark:text-gray-200 touch-manipulation">
             <Menu size={20} />
@@ -474,7 +474,7 @@ export default function Dashboard() {
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="absolute top-0 left-0 bottom-0 w-[85%] max-w-[320px] glass z-50 flex flex-col shadow-2xl border-r-0"
+              className="absolute top-0 left-0 bottom-0 w-[85%] max-w-[320px] origami-card z-50 flex flex-col border-r-0"
             >
               {/* Sidebar Header */}
               <div className="p-5 border-b border-white/20 dark:border-white/10 flex justify-between items-center">
