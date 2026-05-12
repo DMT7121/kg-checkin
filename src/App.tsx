@@ -121,7 +121,7 @@ export default function App() {
   }, []);
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-300 min-h-screen">
+    <div className="artisan-bg text-gray-800 dark:text-gray-100 transition-colors duration-300 min-h-screen">
       {/* Zalo/Facebook in-app browser warning */}
       {isInAppBrowser() && <ZaloWarning />}
 
