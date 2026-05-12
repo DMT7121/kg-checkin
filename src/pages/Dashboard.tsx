@@ -6,7 +6,7 @@ import {
   Sun, Moon, Power, Camera, Calendar, Clock3, ShieldAlert,
   ArrowLeftRight, Newspaper, GraduationCap, Menu, X,
   LayoutDashboard, UtensilsCrossed, MessageSquareWarning,
-  ClipboardCheck, Repeat, CalendarDays, History,
+  ClipboardCheck, Repeat, CalendarDays, History, BellRing,
   CalendarClock, Banknote, BadgeDollarSign, Award, ChevronDown,
   Settings, Briefcase, CheckSquare, Users, KeyRound, CalendarRange, DollarSign, Building2
 } from 'lucide-react';
@@ -251,6 +251,13 @@ export default function Dashboard() {
             setDashboardSchedules(cleanSchedules);
           }
         });
+        // Fetch approval queue for Admin
+        callApi('GET_SWAP_REQUESTS', { username: currentUser!.username, role: currentUser!.role }, { background: true }).then((res) => {
+          if (res?.ok) store.setSwapRequests(res.data);
+        });
+        callApi('GET_ADVANCES', { username: currentUser!.username, role: currentUser!.role }, { background: true }).then((res) => {
+          if (res?.ok) store.setAdvances(res.data);
+        });
       }
     }, [isAdmin]);
 
@@ -270,6 +277,11 @@ export default function Dashboard() {
         }
       });
     }
+
+    const pendingLeaves = store.swapRequests.filter(req => req.status === 'Pending_Admin' && req.targetUsername === 'ADMIN');
+    const pendingSwaps = store.swapRequests.filter(req => req.status === 'Pending_Admin' && req.targetUsername !== 'ADMIN');
+    const pendingAdvances = store.advances.filter(adv => adv.status === 'Pending');
+    const hasPendingApprovals = isAdmin && (pendingLeaves.length > 0 || pendingSwaps.length > 0 || pendingAdvances.length > 0);
 
     return (
       <div className="p-4 space-y-4">
@@ -293,6 +305,38 @@ export default function Dashboard() {
           <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
           <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-ocean-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
         </div>
+
+        {/* Admin Approval Center */}
+        {hasPendingApprovals && (
+          <div className="soft3d-card p-4 animate-slide-up relative z-10 border-2 border-orange-200 dark:border-orange-900/50">
+            <div className="flex items-center justify-between mb-3 border-b border-gray-100 dark:border-gray-700 pb-2">
+              <div className="flex items-center space-x-2 text-orange-600 dark:text-orange-400">
+                <BellRing size={16} />
+                <h3 className="text-sm font-bold">Cần Quản lý duyệt</h3>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {pendingSwaps.length > 0 && (
+                <button onClick={() => handleTabChange('swap')} className="flex flex-col items-center p-2.5 rounded-xl bg-teal-50 dark:bg-teal-900/20 border border-teal-100 dark:border-teal-800 hover:bg-teal-100 transition-all text-teal-700 dark:text-teal-400">
+                  <span className="text-xl font-bold mb-1">{pendingSwaps.length}</span>
+                  <span className="text-[10px] font-bold text-center leading-tight">Đổi ca</span>
+                </button>
+              )}
+              {pendingLeaves.length > 0 && (
+                <button onClick={() => handleTabChange('swap')} className="flex flex-col items-center p-2.5 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 hover:bg-blue-100 transition-all text-blue-700 dark:text-blue-400">
+                  <span className="text-xl font-bold mb-1">{pendingLeaves.length}</span>
+                  <span className="text-[10px] font-bold text-center leading-tight">Xin nghỉ</span>
+                </button>
+              )}
+              {pendingAdvances.length > 0 && (
+                <button onClick={() => handleTabChange('advance')} className="flex flex-col items-center p-2.5 rounded-xl bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-800 hover:bg-orange-100 transition-all text-orange-700 dark:text-orange-400">
+                  <span className="text-xl font-bold mb-1">{pendingAdvances.length}</span>
+                  <span className="text-[10px] font-bold text-center leading-tight">Ứng lương</span>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Ca hôm nay */}
         <div className="soft3d-card p-4 animate-slide-up relative z-10">

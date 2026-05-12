@@ -2,14 +2,14 @@ import { useState, useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { DAY_NAMES, SHORT_DAY_NAMES, computeWeekInfo } from '../utils/helpers';
 import Swal from 'sweetalert2';
-import { ArrowLeftRight, Send, BellRing, Copy, User, Megaphone, Inbox, Clock, HandshakeIcon } from 'lucide-react';
+import { ArrowLeftRight, Send, BellRing, Copy, User, Megaphone, Inbox, Clock, HandshakeIcon, LogOut } from 'lucide-react';
 
 export default function SwapShift() {
   const store = useAppStore();
   const { currentUser, users, approvedShifts, swapRequests } = store;
   const [weekInfo] = useState(() => computeWeekInfo());
   
-  const [viewTab, setViewTab] = useState<'board' | 'post'>('board');
+  const [viewTab, setViewTab] = useState<'board' | 'post' | 'leave'>('board');
   const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(null);
   const [targetUsername, setTargetUsername] = useState<string>('ALL');
   const [reason, setReason] = useState<string>('');
@@ -51,17 +51,29 @@ export default function SwapShift() {
     }
 
     const dayName = DAY_NAMES[selectedDayIndex];
-    const isPublic = targetUsername === 'ALL';
-    const targetUser = isPublic ? null : users.find(u => u.username === targetUsername);
+    const isLeave = viewTab === 'leave';
+    const isPublic = !isLeave && targetUsername === 'ALL';
+    const targetUser = isPublic || isLeave ? null : users.find(u => u.username === targetUsername);
+
+    let confirmTitle = '';
+    let confirmBtn = '';
+    if (isLeave) {
+      confirmTitle = `Gửi yêu cầu xin nghỉ ngày ${dayName}?`;
+      confirmBtn = 'Gửi cho Quản Lý';
+    } else if (isPublic) {
+      confirmTitle = `Đăng yêu cầu đổi ca ${myShift} ngày ${dayName} lên Bảng tin?`;
+      confirmBtn = 'Đăng lên Bảng tin';
+    } else {
+      confirmTitle = `Xin đổi ca ${myShift} ngày ${dayName} với ${targetUser?.fullname}?`;
+      confirmBtn = 'Gửi yêu cầu trực tiếp';
+    }
 
     Swal.fire({
-      title: 'Xác nhận đổi ca',
-      text: isPublic 
-        ? `Đăng yêu cầu đổi ca ${myShift} ngày ${dayName} lên Bảng tin?`
-        : `Xin đổi ca ${myShift} ngày ${dayName} với ${targetUser?.fullname}?`,
+      title: 'Xác nhận',
+      text: confirmTitle,
       icon: 'question',
       showCancelButton: true,
-      confirmButtonText: isPublic ? 'Đăng lên Bảng tin' : 'Gửi yêu cầu trực tiếp',
+      confirmButtonText: confirmBtn,
       cancelButtonText: 'Hủy'
     }).then((res) => {
       if (res.isConfirmed) {
@@ -72,15 +84,20 @@ export default function SwapShift() {
           dayName: dayName,
           shift: myShift,
           date: weekInfo.weekDates[selectedDayIndex],
-          reason: reason || 'Cần hỗ trợ đổi ca đột xuất',
-          targetUsername: isPublic ? 'ALL' : targetUser?.username,
-          targetFullname: isPublic ? 'ALL' : targetUser?.fullname,
+          reason: reason || (isLeave ? 'Xin nghỉ phép đột xuất' : 'Cần hỗ trợ đổi ca đột xuất'),
+          targetUsername: isLeave ? 'ADMIN' : (isPublic ? 'ALL' : targetUser?.username),
+          targetFullname: isLeave ? 'Quản Lý (Xin Nghỉ Phép)' : (isPublic ? 'ALL' : targetUser?.fullname),
           monthSheet: weekInfo.monthSheet
         }).then((apiRes) => {
           store.setLoading(false);
           if (apiRes?.ok) {
-            Swal.fire('Thành công!', isPublic ? 'Yêu cầu của bạn đã được đăng lên Bảng tin.' : `Yêu cầu đổi ca đã gửi đến ${targetUser?.fullname}. Hãy nhắn Zalo cho họ nhé!`, 'success');
-            if (isPublic) setViewTab('board');
+            let successMsg = '';
+            if (isLeave) successMsg = 'Đơn xin nghỉ phép đã được gửi đến Quản Lý để chờ duyệt.';
+            else if (isPublic) successMsg = 'Yêu cầu của bạn đã được đăng lên Bảng tin.';
+            else successMsg = `Yêu cầu đổi ca đã gửi đến ${targetUser?.fullname}. Hãy nhắn Zalo cho họ nhé!`;
+            
+            Swal.fire('Thành công!', successMsg, 'success');
+            if (isPublic || isLeave) setViewTab('board');
             loadSwapRequests();
           } else {
             Swal.fire('Lỗi', apiRes?.message || 'Có lỗi xảy ra', 'error');
@@ -173,12 +190,15 @@ export default function SwapShift() {
 
       {/* Tabs Menu */}
       <div className="flex paint-layer p-1 rounded-2xl mb-6">
-        <button onClick={() => setViewTab('board')} className={`flex-1 flex items-center justify-center py-3 rounded-xl font-bold text-sm transition-all ${viewTab === 'board' ? 'bg-white dark:bg-gray-700 text-teal-600 dark:text-teal-400 ' : 'text-gray-500 dark:text-gray-400'}`}>
-          <Megaphone size={16} className="mr-2" /> Bảng tin
+        <button onClick={() => setViewTab('board')} className={`flex-1 flex items-center justify-center py-3 rounded-xl font-bold text-[11px] sm:text-sm transition-all ${viewTab === 'board' ? 'bg-white dark:bg-gray-700 text-teal-600 dark:text-teal-400 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>
+          <Megaphone size={16} className="mr-1.5" /> Bảng tin
           {store.hasNewSwaps && viewTab !== 'board' && <span className="w-2 h-2 rounded-full bg-red-500 ml-2 animate-ping" />}
         </button>
-        <button onClick={() => setViewTab('post')} className={`flex-1 flex items-center justify-center py-3 rounded-xl font-bold text-sm transition-all ${viewTab === 'post' ? 'bg-white dark:bg-gray-700 text-teal-600 dark:text-teal-400 ' : 'text-gray-500 dark:text-gray-400'}`}>
-          <Send size={16} className="mr-2" /> Đăng bài
+        <button onClick={() => setViewTab('post')} className={`flex-1 flex items-center justify-center py-3 rounded-xl font-bold text-[11px] sm:text-sm transition-all ${viewTab === 'post' ? 'bg-white dark:bg-gray-700 text-teal-600 dark:text-teal-400 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>
+          <Send size={16} className="mr-1.5" /> Tìm người thay
+        </button>
+        <button onClick={() => setViewTab('leave')} className={`flex-1 flex items-center justify-center py-3 rounded-xl font-bold text-[11px] sm:text-sm transition-all ${viewTab === 'leave' ? 'bg-white dark:bg-gray-700 text-teal-600 dark:text-teal-400 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>
+          <LogOut size={16} className="mr-1.5" /> Xin nghỉ phép
         </button>
       </div>
 
@@ -197,14 +217,18 @@ export default function SwapShift() {
                   <div key={req.id} className="bg-orange-50 dark:bg-orange-900/10 border border-orange-200 dark:border-orange-800 rounded-2xl p-4  animate-fade-in">
                     <div className="mb-2">
                       <span className="font-bold text-gray-800 dark:text-gray-200">{req.fullname}</span>
-                      <span className="text-gray-500 text-sm mx-1">muốn đổi ca</span>
-                      <span className="font-bold text-ocean-600 dark:text-ocean-400">{req.shift}</span>
+                      <span className="text-gray-500 text-sm mx-1">muốn</span>
+                      <span className="font-bold text-ocean-600 dark:text-ocean-400">
+                        {req.targetUsername === 'ADMIN' ? 'Xin Nghỉ Phép' : 'Đổi ca ' + req.shift}
+                      </span>
                       <span className="text-gray-500 text-sm mx-1">vào</span>
                       <span className="font-bold text-gray-700 dark:text-gray-300">{req.dayName} ({req.date})</span>
                     </div>
                     <div className="soft3d-card p-3 rounded-xl mb-3 text-sm border border-orange-100 dark:border-orange-800/50">
                       <p className="mb-1"><span className="text-gray-500">Lý do:</span> {req.reason}</p>
-                      <p><span className="text-gray-500">Người nhận thay:</span> <span className="font-bold text-teal-600 dark:text-teal-400">{req.targetFullname}</span></p>
+                      {req.targetUsername !== 'ADMIN' && (
+                        <p><span className="text-gray-500">Người nhận thay:</span> <span className="font-bold text-teal-600 dark:text-teal-400">{req.targetFullname}</span></p>
+                      )}
                     </div>
                     <div className="flex space-x-2">
                       <button onClick={() => {
@@ -298,11 +322,13 @@ export default function SwapShift() {
         </div>
       )}
 
-      {/* POST VIEW */}
-      {viewTab === 'post' && (
+      {/* POST / LEAVE VIEW */}
+      {(viewTab === 'post' || viewTab === 'leave') && (
         <div className="animate-fade-in">
           <div className="soft3d-card p-5 mb-6">
-            <h3 className="font-bold text-gray-800 dark:text-white mb-4">1. Chọn ca của bạn muốn đổi</h3>
+            <h3 className="font-bold text-gray-800 dark:text-white mb-4">
+              1. Chọn ca của bạn muốn {viewTab === 'leave' ? 'xin nghỉ' : 'đổi'}
+            </h3>
             <div className="flex overflow-x-auto space-x-2 pb-2 snap-x">
               {SHORT_DAY_NAMES.map((shortDay, i) => {
                 const shift = approvedShifts?.[i] || 'OFF';
@@ -320,25 +346,35 @@ export default function SwapShift() {
             </div>
           </div>
 
-          <div className="soft3d-card p-5 mb-6">
-            <h3 className="font-bold text-gray-800 dark:text-white mb-4">2. Chọn người làm thay</h3>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <User size={16} className="text-gray-400" />
+          {viewTab === 'post' && (
+            <div className="soft3d-card p-5 mb-6">
+              <h3 className="font-bold text-gray-800 dark:text-white mb-4">2. Chọn người làm thay</h3>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <User size={16} className="text-gray-400" />
+                </div>
+                <select value={targetUsername} onChange={(e) => setTargetUsername(e.target.value)} className="w-full soft3d-bg border border-gray-200 dark:border-gray-700 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-800 dark:text-white appearance-none">
+                  <option value="ALL" className="font-bold text-teal-600">🌍 Tất cả mọi người (Đăng lên Chợ)</option>
+                  {users.filter(u => u.username !== currentUser?.username).map(u => (
+                    <option key={u.username} value={u.username}>👤 {u.fullname}</option>
+                  ))}
+                </select>
               </div>
-              <select value={targetUsername} onChange={(e) => setTargetUsername(e.target.value)} className="w-full soft3d-bg border border-gray-200 dark:border-gray-700 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-800 dark:text-white appearance-none">
-                <option value="ALL" className="font-bold text-teal-600">🌍 Tất cả mọi người (Đăng lên Chợ)</option>
-                {users.filter(u => u.username !== currentUser?.username).map(u => (
-                  <option key={u.username} value={u.username}>👤 {u.fullname}</option>
-                ))}
-              </select>
+
+              <h3 className="font-bold text-gray-800 dark:text-white mt-5 mb-3">Lý do đổi ca</h3>
+              <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Nhập lý do..." className="w-full soft3d-bg border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-800 dark:text-white" />
             </div>
+          )}
 
-            <h3 className="font-bold text-gray-800 dark:text-white mt-5 mb-3">Lý do đổi ca</h3>
-            <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Nhập lý do..." className="w-full soft3d-bg border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-800 dark:text-white" />
-          </div>
+          {viewTab === 'leave' && (
+            <div className="soft3d-card p-5 mb-6">
+              <h3 className="font-bold text-gray-800 dark:text-white mb-3">2. Lý do xin nghỉ phép</h3>
+              <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Nhập lý do xin nghỉ..." className="w-full soft3d-bg border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-800 dark:text-white" />
+              <p className="text-xs text-gray-500 mt-2 italic">Lưu ý: Đơn xin nghỉ phép sẽ được gửi trực tiếp cho Quản lý phê duyệt.</p>
+            </div>
+          )}
 
-          {selectedDayIndex !== null && targetUsername !== 'ALL' && (
+          {selectedDayIndex !== null && targetUsername !== 'ALL' && viewTab === 'post' && (
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-4 mb-6 animate-fade-in">
               <div className="flex items-center mb-2">
                 <BellRing size={16} className="text-blue-500 mr-2" />
@@ -357,7 +393,9 @@ export default function SwapShift() {
           )}
 
           <button onClick={handleSwapRequest} className="soft3d-card w-full !bg-gradient-to-r from-teal-500 to-emerald-600 text-white font-bold py-4 hover: transition-all transform active:scale-95 flex items-center justify-center touch-manipulation border-opacity-30">
-            {targetUsername === 'ALL' ? (
+            {viewTab === 'leave' ? (
+              <><LogOut size={18} className="mr-2" /> GỬI YÊU CẦU NGHỈ PHÉP</>
+            ) : targetUsername === 'ALL' ? (
               <><Megaphone size={18} className="mr-2" /> ĐĂNG LÊN BẢNG TIN</>
             ) : (
               <><Send size={18} className="mr-2" /> GỬI YÊU CẦU ĐỔI CA</>

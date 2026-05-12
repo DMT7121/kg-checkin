@@ -1265,8 +1265,9 @@ function handleGetSwapRequests(payload) {
 function handleSubmitSwap(payload) {
   var sheet = _getSwapSheet();
   var newId = "SWAP_" + new Date().getTime().toString();
-  var isDirect = payload.targetUsername && payload.targetUsername !== 'ALL';
-  var status = isDirect ? 'Pending_User' : 'Pending_User'; // If direct, target user still needs to accept.
+  var isLeave = payload.targetUsername === 'ADMIN';
+  var isDirect = payload.targetUsername && payload.targetUsername !== 'ALL' && !isLeave;
+  var status = isLeave ? 'Pending_Admin' : 'Pending_User'; // If direct, target user still needs to accept.
   
   sheet.appendRow([
     newId,
@@ -1377,7 +1378,7 @@ function handleApproveSwap(payload) {
                 if (uName === requester) {
                   mSheet.getRange(k + 1, colIndex + 1).setValue("OFF");
                 }
-                if (uName === accepter) {
+                if (uName === accepter && accepter !== 'ADMIN') {
                   mSheet.getRange(k + 1, colIndex + 1).setValue(shift);
                 }
               }
