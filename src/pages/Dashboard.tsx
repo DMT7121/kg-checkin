@@ -214,7 +214,7 @@ export default function Dashboard() {
       <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs">
         Tính năng này đang được phát triển và sẽ sớm ra mắt trong các bản cập nhật tiếp theo.
       </p>
-      <div className="mt-6 px-5 py-2.5 rounded-full bg-gradient-to-r from-ocean-500 to-purple-500 text-white text-xs font-bold tracking-wide shadow-md">
+      <div className="soft3d-card mt-6 px-5 py-2.5 rounded-full !bg-gradient-to-r from-ocean-500 to-purple-500 text-white text-xs font-bold tracking-wide border-opacity-30">
         COMING SOON
       </div>
     </div>
@@ -274,7 +274,7 @@ export default function Dashboard() {
     return (
       <div className="p-4 space-y-4">
         {/* Header Banner */}
-        <div className="soft3d-card !bg-gradient-to-r from-[#1856FF] via-[#0ea5e9] to-[#3A344E] p-6 md:p-8 text-white shadow-[0_15px_30px_rgba(24,86,255,0.3)] relative overflow-hidden flex items-center justify-between mb-2">
+        <div className="soft3d-card !bg-gradient-to-r from-[#1856FF] via-[#0ea5e9] to-[#3A344E] p-6 md:p-8 text-white relative overflow-hidden flex items-center justify-between mb-2 border-opacity-30">
           <div className="relative z-10">
             <div className="flex items-center space-x-3 mb-2">
               <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
@@ -479,7 +479,7 @@ export default function Dashboard() {
               {/* Sidebar Header */}
               <div className="p-5 border-b border-white/20 dark:border-white/10 flex justify-between items-center">
                 <div className="flex items-center space-x-3">
-                  <div className="w-11 h-11 rounded-full bg-gradient-to-br from-ocean-500 to-purple-600 text-white flex items-center justify-center font-bold text-lg shadow-lg">
+                  <div className="soft3d-card w-11 h-11 rounded-full !bg-gradient-to-br from-ocean-500 to-purple-600 text-white flex items-center justify-center font-bold text-lg border-opacity-30">
                     {currentUser?.fullname.charAt(0) || 'U'}
                   </div>
                   <div>

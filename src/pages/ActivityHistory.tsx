@@ -58,7 +58,7 @@ export default function ActivityHistory() {
   return (
     <div className="p-4 space-y-5 animate-slide-up pb-10">
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-slate-600 via-gray-600 to-zinc-700 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex items-center justify-between mb-6">
+      <div className="soft3d-card !bg-gradient-to-r from-slate-600 via-gray-600 to-zinc-700 p-6 md:p-8 text-white relative overflow-hidden flex items-center justify-between mb-6 border-opacity-30">
         <div className="relative z-10">
           <div className="flex items-center space-x-3 mb-2">
             <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
@@ -97,11 +97,11 @@ export default function ActivityHistory() {
       </div>
 
       {/* Action buttons */}
-      <button onClick={openTimesheet} className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white font-bold py-4 rounded-2xl shadow-lg hover:shadow-green-500/50 transition-all transform active:scale-95 flex items-center justify-center mb-2 touch-manipulation border border-green-400">
+      <button onClick={openTimesheet} className="soft3d-card w-full !bg-gradient-to-r from-green-500 to-green-600 text-white font-bold py-4 hover: transition-all transform active:scale-95 flex items-center justify-center mb-2 touch-manipulation border border-green-400 border-opacity-30">
         <FileSpreadsheet size={20} className="mr-2" /> XEM BẢNG CHẤM CÔNG GỐC
       </button>
 
-      <button onClick={analyzeMyProductivity} className="w-full bg-gradient-to-r from-blue-500 to-cyan-600 text-white font-bold py-4 rounded-2xl shadow-lg hover:shadow-cyan-500/50 transition-all transform active:scale-95 flex items-center justify-center mb-2 touch-manipulation border border-cyan-400">
+      <button onClick={analyzeMyProductivity} className="soft3d-card w-full !bg-gradient-to-r from-blue-500 to-cyan-600 text-white font-bold py-4 hover: transition-all transform active:scale-95 flex items-center justify-center mb-2 touch-manipulation border border-cyan-400 border-opacity-30">
         <Bot size={20} className="mr-2" /> ✨ AI ĐÁNH GIÁ NĂNG SUẤT
       </button>
 

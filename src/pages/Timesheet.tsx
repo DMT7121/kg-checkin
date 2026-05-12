@@ -37,7 +37,7 @@ export default function Timesheet() {
   if (!timesheetData || !timesheetData.year) {
     return (
       <div className="p-4 space-y-5 animate-slide-up pb-10">
-        <div className="bg-gradient-to-br from-indigo-500 to-blue-600 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
+        <div className="soft3d-card !bg-gradient-to-br from-indigo-500 to-blue-600 p-6 text-white relative overflow-hidden border-opacity-30">
           <div className="absolute right-0 top-0 opacity-10 text-8xl transform translate-x-4 -translate-y-4">
             <CalendarClock size={100} />
           </div>
@@ -105,7 +105,7 @@ export default function Timesheet() {
   return (
     <div className="p-4 space-y-5 animate-slide-up pb-10">
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-700 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex items-center justify-between mb-6">
+      <div className="soft3d-card !bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-700 p-6 md:p-8 text-white relative overflow-hidden flex items-center justify-between mb-6 border-opacity-30">
         <div className="relative z-10">
           <div className="flex items-center space-x-3 mb-2">
             <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">

@@ -108,7 +108,7 @@ export default function Admin() {
 
       {/* AI Analysis */}
       <div className="soft3d-card p-5 rounded-2xl  ">
-        <button onClick={analyzeWithGroq} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold py-4 rounded-2xl shadow-lg hover:shadow-purple-500/50 transition-all transform active:scale-95 flex items-center justify-center touch-manipulation border border-purple-400">
+        <button onClick={analyzeWithGroq} className="soft3d-card w-full !bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold py-4 hover: transition-all transform active:scale-95 flex items-center justify-center touch-manipulation border border-purple-400 border-opacity-30">
           <Wand2 size={20} className="mr-2" /> ✨ GROQ PHÂN TÍCH NHÂN SỰ
         </button>
       </div>

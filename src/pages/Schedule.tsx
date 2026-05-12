@@ -505,7 +505,7 @@ ${aiInputText}
   return (
     <div className="p-4 animate-slide-up">
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex flex-col mb-6">
+      <div className="soft3d-card !bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600 p-6 md:p-8 text-white relative overflow-hidden flex flex-col mb-6 border-opacity-30">
         <div className="flex items-center justify-between relative z-10 w-full">
           <div>
             <div className="flex items-center space-x-3 mb-2">
@@ -952,7 +952,7 @@ ${aiInputText}
           )}
 
           {/* Submit */}
-          <button onClick={submitRegistration} className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold py-4 rounded-2xl shadow-lg hover:shadow-green-500/50 transition-all transform active:scale-95 flex items-center justify-center touch-manipulation border border-green-400">
+          <button onClick={submitRegistration} className="soft3d-card w-full !bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold py-4 hover: transition-all transform active:scale-95 flex items-center justify-center touch-manipulation border border-green-400 border-opacity-30">
             {isScheduleRegistered ? (
               <><RefreshCw size={20} className="mr-2" /> CẬP NHẬT LỊCH ĐĂNG KÝ</>
             ) : (

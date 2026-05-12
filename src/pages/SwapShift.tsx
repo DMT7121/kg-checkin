@@ -151,7 +151,7 @@ export default function SwapShift() {
   return (
     <div className="p-4 animate-slide-up">
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-teal-500 via-emerald-500 to-green-600 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex items-center justify-between mb-6">
+      <div className="soft3d-card !bg-gradient-to-r from-teal-500 via-emerald-500 to-green-600 p-6 md:p-8 text-white relative overflow-hidden flex items-center justify-between mb-6 border-opacity-30">
         <div className="relative z-10">
           <div className="flex items-center space-x-3 mb-2">
             <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
@@ -356,7 +356,7 @@ export default function SwapShift() {
             </div>
           )}
 
-          <button onClick={handleSwapRequest} className="w-full bg-gradient-to-r from-teal-500 to-emerald-600 text-white font-bold py-4 rounded-2xl shadow-lg hover:shadow-teal-500/50 transition-all transform active:scale-95 flex items-center justify-center touch-manipulation">
+          <button onClick={handleSwapRequest} className="soft3d-card w-full !bg-gradient-to-r from-teal-500 to-emerald-600 text-white font-bold py-4 hover: transition-all transform active:scale-95 flex items-center justify-center touch-manipulation border-opacity-30">
             {targetUsername === 'ALL' ? (
               <><Megaphone size={18} className="mr-2" /> ĐĂNG LÊN BẢNG TIN</>
             ) : (

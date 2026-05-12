@@ -566,7 +566,7 @@ export default function CheckIn() {
   return (
     <div className="p-4 space-y-4 animate-fade-in pb-10">
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-emerald-500 via-green-600 to-teal-700 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex items-center justify-between mb-4">
+      <div className="soft3d-card !bg-gradient-to-r from-emerald-500 via-green-600 to-teal-700 p-6 md:p-8 text-white relative overflow-hidden flex items-center justify-between mb-4 border-opacity-30">
         <div className="relative z-10">
           <div className="flex items-center space-x-3 mb-2">
             <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
@@ -587,7 +587,7 @@ export default function CheckIn() {
       </div>
 
       {/* GPS Status Card */}
-      <div className="bg-gradient-to-r from-ocean-600 to-ocean-500 rounded-3xl p-5 text-white shadow-lg shadow-ocean-500/20 relative overflow-hidden">
+      <div className="soft3d-card !bg-gradient-to-r from-ocean-600 to-ocean-500 p-5 text-white relative overflow-hidden border-opacity-30">
         <div className="absolute -right-4 -top-4 opacity-10 text-8xl transform rotate-12"><MapPin size={100} /></div>
         <div className="flex items-start space-x-4 relative z-10">
           <div className="bg-white/20 backdrop-blur-sm p-3 rounded-2xl relative">
@@ -622,7 +622,7 @@ export default function CheckIn() {
             <p className="mb-2 text-[1rem] font-medium max-w-[80%]">Camera đang bị chặn bởi ứng dụng.</p>
             <p className="mb-6 text-xs text-gray-500">Vui lòng dùng máy ảnh hệ thống để tiếp tục.</p>
             <input type="file" ref={fileInputRef} accept="image/*" capture="user" className="hidden" onChange={handleFileUpload} />
-            <button onClick={() => fileInputRef.current?.click()} className="bg-gradient-to-r from-ocean-600 to-ocean-500 text-white px-8 py-4 rounded-full shadow-lg font-bold flex items-center mb-6 min-h-[44px] touch-manipulation text-[1rem]">
+            <button onClick={() => fileInputRef.current?.click()} className="soft3d-card !bg-gradient-to-r from-ocean-600 to-ocean-500 text-white px-8 py-4 rounded-full font-bold flex items-center mb-6 min-h-[44px] touch-manipulation text-[1rem] border-opacity-30">
               <Camera className="mr-2" size={20} /> MỞ MÁY ẢNH
             </button>
             <button onClick={() => startCamera()} className="text-sm text-gray-400 hover:text-white underline flex items-center min-h-[44px] p-2">

@@ -106,7 +106,7 @@ export default function Checklist() {
     <div className="h-full flex flex-col soft3d-bg animate-fade-in relative pb-24">
       <div className="p-4 flex-none">
         {/* Header Banner */}
-        <div className="bg-gradient-to-r from-teal-500 via-emerald-600 to-green-700 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex items-center justify-between mb-6 shrink-0">
+        <div className="soft3d-card !bg-gradient-to-r from-teal-500 via-emerald-600 to-green-700 p-6 md:p-8 text-white relative overflow-hidden flex items-center justify-between mb-6 shrink-0 border-opacity-30">
           <div className="relative z-10">
             <div className="flex items-center space-x-3 mb-2">
               <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
@@ -232,7 +232,7 @@ export default function Checklist() {
         <button
           onClick={handleSubmit}
           disabled={checkedIds.size === 0 || loading}
-          className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-2xl shadow-lg hover:shadow-blue-500/40 transition transform active:scale-95 flex items-center justify-center"
+          className="soft3d-card w-full !bg-gradient-to-r from-blue-600 to-indigo-600 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed text-white font-bold py-3.5 hover: transition transform active:scale-95 flex items-center justify-center border-opacity-30"
         >
           XÁC NHẬN HOÀN THÀNH ({checkedIds.size}/{filteredLists.length})
         </button>

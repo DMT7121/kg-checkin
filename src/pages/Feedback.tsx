@@ -125,7 +125,7 @@ export default function Feedback() {
     <div className="h-full flex flex-col soft3d-bg animate-fade-in relative pb-6">
       <div className="p-4 flex-none">
         {/* Header Banner */}
-        <div className="bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex items-center justify-between shrink-0 mb-6">
+        <div className="soft3d-card !bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600 p-6 md:p-8 text-white relative overflow-hidden flex items-center justify-between shrink-0 mb-6 border-opacity-30">
           <div className="relative z-10">
             <div className="flex items-center space-x-3 mb-2">
               <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">

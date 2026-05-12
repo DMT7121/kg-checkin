@@ -46,7 +46,7 @@ export default function Reward() {
     <div className="p-4 space-y-4 animate-fade-in pb-20">
       
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-yellow-400 via-amber-500 to-orange-500 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex flex-col mb-6">
+      <div className="soft3d-card !bg-gradient-to-r from-yellow-400 via-amber-500 to-orange-500 p-6 md:p-8 text-white relative overflow-hidden flex flex-col mb-6 border-opacity-30">
         <div className="flex items-center justify-between relative z-10 w-full">
           <div>
             <div className="flex items-center space-x-3 mb-2">
