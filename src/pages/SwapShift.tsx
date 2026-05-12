@@ -202,7 +202,7 @@ export default function SwapShift() {
                       <span className="text-gray-500 text-sm mx-1">vào</span>
                       <span className="font-bold text-gray-700 dark:text-gray-300">{req.dayName} ({req.date})</span>
                     </div>
-                    <div className="artisan-card p-3 rounded-xl mb-3 text-sm border border-orange-100 dark:border-orange-800/50">
+                    <div className="soft3d-card p-3 rounded-xl mb-3 text-sm border border-orange-100 dark:border-orange-800/50">
                       <p className="mb-1"><span className="text-gray-500">Lý do:</span> {req.reason}</p>
                       <p><span className="text-gray-500">Người nhận thay:</span> <span className="font-bold text-teal-600 dark:text-teal-400">{req.targetFullname}</span></p>
                     </div>
@@ -240,14 +240,14 @@ export default function SwapShift() {
 
           <h3 className="font-bold text-gray-800 dark:text-white mb-3">Tất cả bài đăng</h3>
           {swapRequests.length === 0 ? (
-            <div className="artisan-card p-8 text-center  ">
+            <div className="soft3d-card p-8 text-center  ">
               <Inbox size={48} className="mx-auto text-gray-300 dark:text-gray-600 mb-4" />
               <h3 className="text-gray-500 dark:text-gray-400 font-bold mb-1">Chưa có ai cần đổi ca</h3>
               <p className="text-xs text-gray-400">Những yêu cầu đổi ca sẽ xuất hiện ở đây.</p>
             </div>
           ) : (
             swapRequests.map((req) => (
-              <div key={req.id} className="artisan-card p-5  border border-teal-100 dark:border-teal-900 relative overflow-hidden animate-fade-in group">
+              <div key={req.id} className="soft3d-card p-5  border border-teal-100 dark:border-teal-900 relative overflow-hidden animate-fade-in group">
                 {req.username === currentUser?.username && (
                   <div className="absolute top-0 right-0 bg-teal-500 text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg">Của bạn</div>
                 )}
@@ -263,7 +263,7 @@ export default function SwapShift() {
                   </div>
                 </div>
                 
-                <div className="artisan-bg/50 rounded-xl p-3 mb-4 ">
+                <div className="soft3d-bg/50 rounded-xl p-3 mb-4 ">
                   <p className="text-sm text-gray-700 dark:text-gray-300 font-medium mb-1">
                     Cần người làm thay ca <strong className="text-teal-600 dark:text-teal-400">{req.shift}</strong>
                   </p>
@@ -301,7 +301,7 @@ export default function SwapShift() {
       {/* POST VIEW */}
       {viewTab === 'post' && (
         <div className="animate-fade-in">
-          <div className="artisan-card p-5 mb-6">
+          <div className="soft3d-card p-5 mb-6">
             <h3 className="font-bold text-gray-800 dark:text-white mb-4">1. Chọn ca của bạn muốn đổi</h3>
             <div className="flex overflow-x-auto space-x-2 pb-2 snap-x">
               {SHORT_DAY_NAMES.map((shortDay, i) => {
@@ -320,13 +320,13 @@ export default function SwapShift() {
             </div>
           </div>
 
-          <div className="artisan-card p-5 mb-6">
+          <div className="soft3d-card p-5 mb-6">
             <h3 className="font-bold text-gray-800 dark:text-white mb-4">2. Chọn người làm thay</h3>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <User size={16} className="text-gray-400" />
               </div>
-              <select value={targetUsername} onChange={(e) => setTargetUsername(e.target.value)} className="w-full artisan-bg border border-gray-200 dark:border-gray-700 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-800 dark:text-white appearance-none">
+              <select value={targetUsername} onChange={(e) => setTargetUsername(e.target.value)} className="w-full soft3d-bg border border-gray-200 dark:border-gray-700 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-800 dark:text-white appearance-none">
                 <option value="ALL" className="font-bold text-teal-600">🌍 Tất cả mọi người (Đăng lên Chợ)</option>
                 {users.filter(u => u.username !== currentUser?.username).map(u => (
                   <option key={u.username} value={u.username}>👤 {u.fullname}</option>
@@ -335,7 +335,7 @@ export default function SwapShift() {
             </div>
 
             <h3 className="font-bold text-gray-800 dark:text-white mt-5 mb-3">Lý do đổi ca</h3>
-            <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Nhập lý do..." className="w-full artisan-bg border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-800 dark:text-white" />
+            <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Nhập lý do..." className="w-full soft3d-bg border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-800 dark:text-white" />
           </div>
 
           {selectedDayIndex !== null && targetUsername !== 'ALL' && (
@@ -344,9 +344,9 @@ export default function SwapShift() {
                 <BellRing size={16} className="text-blue-500 mr-2" />
                 <span className="font-bold text-sm text-blue-700 dark:text-blue-400">Tin nhắn tự động Zalo</span>
               </div>
-              <p className="text-xs text-blue-600 dark:text-blue-300 italic artisan-card p-3 rounded-xl border border-blue-100 dark:border-blue-900">"{getZaloMessage()}"</p>
+              <p className="text-xs text-blue-600 dark:text-blue-300 italic soft3d-card p-3 rounded-xl border border-blue-100 dark:border-blue-900">"{getZaloMessage()}"</p>
               <div className="flex space-x-2 mt-3">
-                <button onClick={() => copyToClipboard(getZaloMessage())} className="flex-1 artisan-card text-blue-600 dark:text-blue-400 text-xs font-bold py-2 rounded-lg border border-blue-200 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-gray-700 transition flex items-center justify-center">
+                <button onClick={() => copyToClipboard(getZaloMessage())} className="flex-1 soft3d-card text-blue-600 dark:text-blue-400 text-xs font-bold py-2 rounded-lg border border-blue-200 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-gray-700 transition flex items-center justify-center">
                   <Copy size={14} className="mr-1" /> Copy
                 </button>
                 <a href={`https://zalo.me`} target="_blank" rel="noreferrer" className="flex-1 bg-[#0068ff] text-white text-xs font-bold py-2 rounded-lg hover:bg-blue-700 transition flex items-center justify-center text-center">

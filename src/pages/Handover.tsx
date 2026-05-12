@@ -108,7 +108,7 @@ export default function Handover() {
   };
 
   return (
-    <div className="h-full flex flex-col artisan-bg animate-fade-in relative pb-6">
+    <div className="h-full flex flex-col soft3d-bg animate-fade-in relative pb-6">
       <div className="p-4 flex-none">
         {/* Header Banner */}
         <div className="bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-600 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex items-center justify-between shrink-0 mb-6">
@@ -136,7 +136,7 @@ export default function Handover() {
       <div className="px-4 relative z-20 flex-1 flex flex-col">
         
         {/* Custom Tabs */}
-        <div className="artisan-card p-1 rounded-2xl   flex mb-5">
+        <div className="soft3d-card p-1 rounded-2xl   flex mb-5">
           <button 
             onClick={() => setActiveTab('handover')}
             className={`flex-1 flex items-center justify-center py-2.5 rounded-xl text-sm font-semibold transition-all ${
@@ -169,7 +169,7 @@ export default function Handover() {
                 exit={{ opacity: 0, x: 10 }}
                 transition={{ duration: 0.2 }}
               >
-                <div className="artisan-card p-5">
+                <div className="soft3d-card p-5">
                   <div className="flex items-center mb-4 pb-4 border-b border-gray-100 dark:border-gray-700">
                     <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mr-3 shrink-0">
                       <Banknote size={20} className="text-blue-600 dark:text-blue-400" />
@@ -193,7 +193,7 @@ export default function Handover() {
                           value={cashAmount}
                           onChange={handleCashChange}
                           placeholder="VD: 500.000"
-                          className="w-full artisan-bg/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-10 pr-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-gray-800 dark:text-white font-semibold tracking-wide"
+                          className="w-full soft3d-bg/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-10 pr-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-gray-800 dark:text-white font-semibold tracking-wide"
                         />
                       </div>
                     </div>
@@ -209,7 +209,7 @@ export default function Handover() {
                           onChange={(e) => setHandoverNote(e.target.value)}
                           placeholder="Ghi chú về tiền dư/thiếu, hóa đơn nợ..."
                           rows={3}
-                          className="w-full artisan-bg/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-gray-800 dark:text-white text-sm"
+                          className="w-full soft3d-bg/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-gray-800 dark:text-white text-sm"
                         ></textarea>
                       </div>
                     </div>
@@ -230,7 +230,7 @@ export default function Handover() {
                 exit={{ opacity: 0, x: -10 }}
                 transition={{ duration: 0.2 }}
               >
-                <div className="artisan-card p-5  border border-red-100 dark:border-red-900/20">
+                <div className="soft3d-card p-5  border border-red-100 dark:border-red-900/20">
                   <div className="flex items-center mb-4 pb-4 border-b border-gray-100 dark:border-gray-700">
                     <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mr-3 shrink-0">
                       <AlertTriangle size={20} className="text-red-600 dark:text-red-400" />
@@ -268,7 +268,7 @@ export default function Handover() {
                         onChange={(e) => setIncidentDesc(e.target.value)}
                         placeholder="Mô tả cụ thể sự cố (Ví dụ: Máy lạnh khu A bị chảy nước...)"
                         rows={4}
-                        className="w-full artisan-bg/50 border border-gray-200 dark:border-gray-700 rounded-xl p-4 focus:outline-none focus:ring-2 focus:ring-red-500/50 text-gray-800 dark:text-white text-sm"
+                        className="w-full soft3d-bg/50 border border-gray-200 dark:border-gray-700 rounded-xl p-4 focus:outline-none focus:ring-2 focus:ring-red-500/50 text-gray-800 dark:text-white text-sm"
                       ></textarea>
                     </div>
 

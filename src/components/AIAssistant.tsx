@@ -245,7 +245,7 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
       {/* Chat Window */}
       {isOpen && (
         <div 
-          className={`fixed right-0 md:right-6 bottom-0 md:bottom-6 artisan-bg shadow-2xl z-[9999] flex flex-col transition-all duration-300 ease-in-out border border-gray-200 dark:border-gray-800 ${
+          className={`fixed right-0 md:right-6 bottom-0 md:bottom-6 soft3d-bg shadow-2xl z-[9999] flex flex-col transition-all duration-300 ease-in-out border border-gray-200 dark:border-gray-800 ${
             isExpanded 
               ? 'w-full md:w-[600px] h-full md:h-[80vh] md:rounded-2xl' 
               : 'w-full md:w-[380px] h-[75vh] md:h-[550px] md:rounded-2xl rounded-t-2xl'
@@ -286,7 +286,7 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
                 <div className={`max-w-[85%] rounded-2xl px-4 py-3  ${
                   msg.role === 'user' 
                     ? 'bg-indigo-600 text-white rounded-tr-sm' 
-                    : 'artisan-card  text-gray-800 dark:text-gray-200 rounded-tl-sm'
+                    : 'soft3d-card  text-gray-800 dark:text-gray-200 rounded-tl-sm'
                 }`}>
                   {msg.role === 'user' ? (
                     <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
@@ -299,7 +299,7 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
             
             {isTyping && (
               <div className="flex justify-start">
-                <div className="artisan-card  rounded-2xl rounded-tl-sm px-4 py-3  flex items-center space-x-2">
+                <div className="soft3d-card  rounded-2xl rounded-tl-sm px-4 py-3  flex items-center space-x-2">
                   <Loader2 size={16} className="animate-spin text-indigo-600" />
                   <span className="text-xs text-gray-500 font-medium tracking-wide">AI đang suy nghĩ...</span>
                 </div>

@@ -119,7 +119,7 @@ export default function AdminChecklistConfig() {
         <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-emerald-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
       </div>
 
-      <div className="artisan-card p-5">
+      <div className="soft3d-card p-5">
         <div className="flex flex-wrap items-center justify-between mb-6 gap-4">
           <h3 className="font-bold text-gray-800 dark:text-gray-100 flex items-center min-w-0 pr-2 truncate">
             Danh sách Hạng mục ({items.length})
@@ -242,7 +242,7 @@ export default function AdminChecklistConfig() {
             <div className="overflow-x-auto hide-scrollbar">
               <table className="w-full text-left border-collapse min-w-[800px]">
                 <thead>
-                  <tr className="artisan-bg/50 border-b border-gray-100 dark:border-gray-700 text-xs uppercase font-bold text-gray-500">
+                  <tr className="soft3d-bg/50 border-b border-gray-100 dark:border-gray-700 text-xs uppercase font-bold text-gray-500">
                     <th className="py-3 px-4 rounded-tl-xl w-1/3">Hạng Mục Công Việc</th>
                     <th className="py-3 px-4 text-center">Mục tiêu</th>
                     <th className="py-3 px-4 text-center">Nghiệm thu</th>

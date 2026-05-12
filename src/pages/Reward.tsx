@@ -129,7 +129,7 @@ export default function Reward() {
                 { title: 'Khách hàng đánh giá tốt', time: '05/04/2026', pts: '+50', type: 'bonus' },
                 { title: 'Đổi Voucher Trà sữa', time: '01/04/2026', pts: '-150', type: 'spend' },
               ].map((item, idx) => (
-                <div key={idx} className="artisan-card p-4 rounded-2xl   flex items-center justify-between">
+                <div key={idx} className="soft3d-card p-4 rounded-2xl   flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                       item.type === 'bonus' ? 'bg-green-100 text-green-600' : 
@@ -160,7 +160,7 @@ export default function Reward() {
               <p className="text-sm text-yellow-700 dark:text-yellow-600 font-medium">Làm việc chăm chỉ để được vinh danh và nhận thưởng nhé!</p>
             </div>
 
-            <div className="artisan-card overflow-hidden">
+            <div className="soft3d-card overflow-hidden">
               {[
                 { name: 'Nguyễn Văn A', pts: 1250, rank: 1 },
                 { name: 'Lê Minh Sang', pts: 980, rank: 2 },

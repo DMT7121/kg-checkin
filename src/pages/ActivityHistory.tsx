@@ -80,14 +80,14 @@ export default function ActivityHistory() {
 
       {/* Stats cards */}
       <div className="grid grid-cols-2 gap-4">
-        <div className="artisan-card p-4 rounded-2xl  ">
+        <div className="soft3d-card p-4 rounded-2xl  ">
           <div className="flex items-center space-x-2 mb-2">
             <div className="p-1.5 bg-ocean-100 dark:bg-ocean-900 rounded-lg text-ocean-600 dark:text-ocean-300"><CalendarCheck size={16} /></div>
             <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Tháng này</p>
           </div>
           <h4 className="text-3xl font-extrabold text-gray-800 dark:text-white">{stats.totalCheckIn} ca</h4>
         </div>
-        <div className="artisan-card p-4 rounded-2xl  ">
+        <div className="soft3d-card p-4 rounded-2xl  ">
           <div className="flex items-center space-x-2 mb-2">
             <div className="p-1.5 bg-green-100 dark:bg-green-900 rounded-lg text-green-600 dark:text-green-300"><ShieldCheck size={16} /></div>
             <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Hợp lệ</p>
@@ -150,7 +150,7 @@ export default function ActivityHistory() {
             const isIn = log.type === 'Vào ca' || log.type === 'IN';
             const isValid = log.status?.includes('Hợp lệ') || log.status?.includes('HỢP LỆ') || log.status === 'Đồng bộ...';
             return (
-              <div key={idx} className="group artisan-card p-4 rounded-2xl  hover:shadow-md transition-all  relative overflow-hidden">
+              <div key={idx} className="group soft3d-card p-4 rounded-2xl  hover:shadow-md transition-all  relative overflow-hidden">
                 <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${isIn ? 'bg-green-500' : 'bg-red-500'}`} />
                 <div className="flex justify-between items-center pl-3">
                   <div>

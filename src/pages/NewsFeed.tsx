@@ -177,7 +177,7 @@ export default function NewsFeed() {
 
       {/* Admin Post Box */}
       {currentUser?.role === 'admin' && (
-        <div className="artisan-card  border border-indigo-100 dark:border-indigo-900/50 overflow-hidden mb-6 p-4">
+        <div className="soft3d-card  border border-indigo-100 dark:border-indigo-900/50 overflow-hidden mb-6 p-4">
           <h3 className="font-bold text-gray-800 dark:text-white mb-3 flex items-center text-sm">
             <Edit3 size={16} className="mr-2 text-indigo-500" /> Tạo thông báo mới
           </h3>
@@ -186,7 +186,7 @@ export default function NewsFeed() {
             onChange={(e) => setNewPostContent(e.target.value)}
             rows={3}
             placeholder="Bạn muốn thông báo điều gì cho toàn bộ quán?"
-            className="w-full artisan-bg border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-800 dark:text-white resize-none mb-3"
+            className="w-full soft3d-bg border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-800 dark:text-white resize-none mb-3"
           />
 
           {/* Image Preview */}
@@ -234,7 +234,7 @@ export default function NewsFeed() {
             const hasLiked = post.likes.includes(currentUser?.username || 'Guest');
             
             return (
-              <div key={post.id} className="artisan-card overflow-hidden animate-fade-in">
+              <div key={post.id} className="soft3d-card overflow-hidden animate-fade-in">
                 {/* Author */}
                 <div className="p-4 flex items-center justify-between">
                   <div className="flex items-center">
@@ -261,7 +261,7 @@ export default function NewsFeed() {
 
                 {/* Image */}
                 {post.image && (
-                  <div className="w-full h-48 artisan-bg">
+                  <div className="w-full h-48 soft3d-bg">
                     <img src={post.image} alt="Post cover" className="w-full h-full object-cover" />
                   </div>
                 )}

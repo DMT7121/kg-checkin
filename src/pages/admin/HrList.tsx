@@ -139,7 +139,7 @@ export default function HrList() {
             return (
               <div 
                 key={user.username} 
-                className={`p-4 md:p-5 artisan-card   hover:shadow-md transition-all duration-300 ${isProcessing ? 'opacity-60 pointer-events-none grayscale-[50%]' : ''}`}
+                className={`p-4 md:p-5 soft3d-card   hover:shadow-md transition-all duration-300 ${isProcessing ? 'opacity-60 pointer-events-none grayscale-[50%]' : ''}`}
               >
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 items-center">
                   
@@ -204,7 +204,7 @@ export default function HrList() {
                       <div className="col-span-2 md:col-span-1 flex justify-end md:justify-center">
                         <button 
                           onClick={() => handleForceReset(user.username, user.fullname)}
-                          className="flex items-center justify-center w-full md:w-12 h-10 text-gray-500 hover:text-red-600 artisan-card hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl transition-all border border-gray-200 dark:border-gray-700 hover:border-red-200 dark:hover:border-red-800/50  group"
+                          className="flex items-center justify-center w-full md:w-12 h-10 text-gray-500 hover:text-red-600 soft3d-card hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl transition-all border border-gray-200 dark:border-gray-700 hover:border-red-200 dark:hover:border-red-800/50  group"
                           title="Khôi phục mật khẩu"
                         >
                           <KeyRound size={18} className="group-hover:scale-110 transition-transform" />

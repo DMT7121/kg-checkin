@@ -65,7 +65,7 @@ export default function Payroll() {
           <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-green-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
         </div>
 
-        <div className="artisan-card p-5 rounded-2xl  ">
+        <div className="soft3d-card p-5 rounded-2xl  ">
           <h3 className="font-bold flex items-center text-gray-800 dark:text-white mb-4 border-b dark:border-gray-700 pb-2">
             <FileSpreadsheet size={18} className="mr-2 text-emerald-600" /> Danh sách nhân viên
           </h3>
@@ -127,7 +127,7 @@ export default function Payroll() {
         <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-green-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
       </div>
 
-      <div className="artisan-card p-6 rounded-2xl  ">
+      <div className="soft3d-card p-6 rounded-2xl  ">
         <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-100 dark:border-gray-700">
           <h3 className="font-bold text-gray-800 dark:text-white flex items-center text-lg">
             <Calculator size={20} className="mr-2 text-emerald-600" /> Chi tiết thu nhập

@@ -7,7 +7,7 @@ export default function LoadingScreen() {
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="artisan-card p-8 rounded-3xl shadow-2xl flex flex-col items-center ">
+      <div className="soft3d-card p-8 rounded-3xl shadow-2xl flex flex-col items-center ">
         <Loader2 className="animate-spin h-14 w-14 text-ocean-600 mb-4" />
         <p className="text-lg font-semibold animate-pulse text-ocean-700 dark:text-ocean-400">
           {loadingText}
