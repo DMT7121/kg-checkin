@@ -8,8 +8,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['"Playfair Display"', 'serif'],
-        serif: ['"Playfair Display"', 'serif'],
+        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
       },
       colors: {
         ocean: {
