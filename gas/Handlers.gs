@@ -450,7 +450,103 @@ function handleCheckInOut(payload) {
   
   // === COL B: LOẠI CHẤM CÔNG ===
   var loaiChamCong = payload.type; // "Vào ca" / "Ra ca"
-  if (payload.lateMins && payload.lateMins > 0) {
+  
+  // === PHASE 2: Auto Shift Lookup & Late Calculation ===
+  var serverShift = '';
+  var serverLateMins = 0;
+  var checklistPending = false;
+  
+  if (loaiChamCong === 'Vào ca' || loaiChamCong === 'IN') {
+    // 1. Find today's shift from schedule sheet
+    try {
+      var todayDate = new Date();
+      var dayOfWeek = todayDate.getDay(); // 0=Sun
+      var dayIdx = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // 0=Mon, 6=Sun
+      var monthNum = String(todayDate.getMonth() + 1).padStart(2, '0');
+      var yearNum = todayDate.getFullYear();
+      var monthSheetName = 'Tháng ' + monthNum + '/' + yearNum;
+      
+      var schedSheet = ss.getSheetByName(monthSheetName);
+      if (schedSheet) {
+        var schedData = schedSheet.getDataRange().getDisplayValues();
+        var todayDayStr = String(todayDate.getDate()).padStart(2, '0');
+        var todayMonthStr = String(todayDate.getMonth() + 1).padStart(2, '0');
+        var inCorrectWeek = false;
+        
+        for (var si = 0; si < schedData.length; si++) {
+          var cellStr = schedData[si][0] ? schedData[si][0].toString() : '';
+          
+          if (cellStr.indexOf('TUẦN ') >= 0) {
+            var dateMatch = cellStr.match(/(\d{2})\/(\d{2})\s*-\s*(\d{2})\/(\d{2})/);
+            if (dateMatch) {
+              var todayNum = parseInt(todayDayStr);
+              var todayMon = parseInt(todayMonthStr);
+              var startNum = parseInt(dateMatch[1]);
+              var startMon = parseInt(dateMatch[2]);
+              var endNum = parseInt(dateMatch[3]);
+              var endMon = parseInt(dateMatch[4]);
+              
+              if (startMon === endMon) {
+                inCorrectWeek = (todayMon === startMon && todayNum >= startNum && todayNum <= endNum);
+              } else {
+                inCorrectWeek = (todayMon === startMon && todayNum >= startNum) || (todayMon === endMon && todayNum <= endNum);
+              }
+            }
+            continue;
+          }
+          
+          if (!inCorrectWeek) continue;
+          
+          var isApproval = cellStr.indexOf('┗') >= 0;
+          var cleanName = isApproval ? cellStr.replace('┗ ', '').replace('┗', '').trim() : cellStr.trim();
+          
+          if (cleanName.toLowerCase() === payload.fullname.toLowerCase()) {
+            var shiftVal = schedData[si][dayIdx + 1] ? schedData[si][dayIdx + 1].toString().trim() : 'OFF';
+            if (shiftVal === '' || shiftVal === '0:00' || shiftVal === '00:00') shiftVal = 'OFF';
+            if (isApproval) { serverShift = shiftVal; }
+            else if (!serverShift) { serverShift = shiftVal; }
+          }
+        }
+      }
+    } catch(schedErr) { Logger.log('Phase2 shift lookup error: ' + schedErr.message); }
+    
+    // 2. Calculate late minutes
+    if (serverShift && serverShift !== 'OFF' && serverShift !== 'RẢNH' && !serverShift.startsWith('OFF')) {
+      try {
+        var shiftParts = serverShift.split(':');
+        if (shiftParts.length === 2) {
+          var shiftHour = parseInt(shiftParts[0]);
+          var shiftMin = parseInt(shiftParts[1]);
+          var nowHour = time.getHours();
+          var nowMin = time.getMinutes();
+          serverLateMins = (nowHour * 60 + nowMin) - (shiftHour * 60 + shiftMin);
+          if (serverLateMins < 0) serverLateMins = 0;
+        }
+      } catch(lateErr) {}
+    }
+    
+    // 3. Check if checklist is done today
+    try {
+      var clSheet = ss.getSheetByName('ChecklistLogs');
+      if (clSheet && clSheet.getLastRow() > 1) {
+        var todayFmt = Utilities.formatDate(time, CONFIG.TIMEZONE, 'dd/MM/yyyy');
+        var clData = clSheet.getDataRange().getValues();
+        checklistPending = true;
+        for (var cli = clData.length - 1; cli > 0; cli--) {
+          if (clData[cli][1] && clData[cli][1].toString() === todayFmt &&
+              clData[cli][3] && clData[cli][3].toString().toLowerCase() === (payload.username || '').toLowerCase()) {
+            checklistPending = false;
+            break;
+          }
+        }
+      }
+    } catch(clErr) {}
+  }
+  
+  // Apply late info to check-in type
+  if (serverLateMins > 5) {
+    loaiChamCong += ' (Trễ ' + serverLateMins + 'p)';
+  } else if (payload.lateMins && payload.lateMins > 0) {
     loaiChamCong += ' (Trễ ' + payload.lateMins + 'p)';
   }
   
@@ -459,13 +555,10 @@ function handleCheckInOut(payload) {
   
   // === COL D: VỊ TRÍ (Google Maps reverse geocode) ===
   var viTri = '';
-  // Kiểm tra xem vị trí gửi lên có phải là toạ độ dạng "10.123, 106.123" hay không
   var isRawCoords = /^-?\d{1,2}\.\d+\s*,\s*-?\d{1,3}\.\d+$/.test(payload.location);
   if (payload.location && payload.location.length > 5 && !isRawCoords && payload.location.indexOf('Throttled') === -1) {
-    // Client đã get được địa chỉ văn bản (Tên vị trí/Địa chỉ) -> Dùng luôn để khớp 100% với ảnh chụp
     viTri = payload.location;
   } else if (payload.lat && payload.lng) {
-    // Server-side reverse geocoding via Google Maps
     viTri = reverseGeocodeGoogle(Number(payload.lat), Number(payload.lng));
   } else {
     viTri = 'Khong xac dinh';
@@ -476,9 +569,8 @@ function handleCheckInOut(payload) {
   if (payload.distance !== undefined && payload.distance !== null) {
     distMeters = Math.round(Number(payload.distance));
   } else if (payload.lat && payload.lng) {
-    // Calculate distance server-side using Haversine
     var gpsConfig = getGpsConfig();
-    var R = 6371000; // Earth radius in meters
+    var R = 6371000;
     var dLat = (gpsConfig.lat - payload.lat) * Math.PI / 180;
     var dLon = (gpsConfig.lng - payload.lng) * Math.PI / 180;
     var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
@@ -496,7 +588,7 @@ function handleCheckInOut(payload) {
   // === COL G: LINK HÌNH ẢNH ===
   var imageUrl = '';
   if (payload.image === 'PENDING') {
-    imageUrl = 'Đang tải ảnh...'; // Hệ thống sẽ đẩy ảnh lên ngầm ở luồng UPLOAD_CHECKIN_IMAGE
+    imageUrl = 'Đang tải ảnh...';
   }
   
   // === COL H: DATA JSON ===
@@ -509,8 +601,8 @@ function handleCheckInOut(payload) {
     khoangCach: distMeters + 'm',
     linkAnh: imageUrl,
     toaDo: { lat: payload.lat, lng: payload.lng },
-    caLam: payload.shift || '',
-    diTre: payload.lateMins || 0,
+    caLam: serverShift || payload.shift || '',
+    diTre: serverLateMins || payload.lateMins || 0,
     timestamp: time.toISOString()
   });
   
@@ -519,12 +611,45 @@ function handleCheckInOut(payload) {
   try {
     lock.waitLock(15000);
     sheet.insertRowBefore(2);
-    // Thêm nháy đơn "'" trước thời gian để ép text tương tự API V4 batch
     var newRow = [hoVaTen, loaiChamCong, "'" + thoiGian, viTri, xacMinh, distMeters + 'm', imageUrl, dataJson];
     sheet.getRange(2, 1, 1, 8).setValues([newRow]);
     
     // === AUTO-FORMAT THE NEW ROW ===
     formatCheckInRow(sheet, 2, isValid, imageUrl);
+  
+    // === PHASE 2: Auto Penalty for Late Arrivals ===
+    if (serverLateMins > 5 && isValid) {
+      try {
+        var penaltyAmount = Math.floor(serverLateMins / 15) * 10000;
+        if (penaltyAmount < 10000) penaltyAmount = 10000;
+        var penaltySheet = ss.getSheetByName('BonusPenalty');
+        if (!penaltySheet) {
+          penaltySheet = ss.insertSheet('BonusPenalty');
+          penaltySheet.appendRow(['ID', 'Date', 'TargetUsername', 'TargetFullname', 'Type', 'Amount', 'Reason', 'CreatedBy']);
+        }
+        var penaltyId = 'AUTO_' + time.getTime();
+        var dateStr = Utilities.formatDate(time, CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm');
+        penaltySheet.appendRow([
+          penaltyId, dateStr, payload.username, payload.fullname,
+          'PENALTY', penaltyAmount,
+          'Tự động: Đi trễ ' + serverLateMins + ' phút (ca ' + serverShift + ')',
+          'SYSTEM'
+        ]);
+        Logger.log('Auto penalty: ' + payload.fullname + ' trễ ' + serverLateMins + 'p → -' + penaltyAmount + 'đ');
+      } catch(penErr) { Logger.log('Auto penalty error: ' + penErr.message); }
+    }
+  
+    return jsonResponse(true, {
+      message: 'Chấm công thành công',
+      imageUrl: imageUrl,
+      distMeters: distMeters,
+      isValid: isValid,
+      timeISO: time.toISOString(),
+      viTri: viTri,
+      shift: serverShift || '',
+      lateMins: serverLateMins,
+      checklistPending: checklistPending
+    });
   } catch (eRow) {
     Logger.log('Lỗi ghi dòng: ' + eRow.message);
   } finally {
@@ -539,7 +664,10 @@ function handleCheckInOut(payload) {
     distMeters: distMeters,
     isValid: isValid,
     timeISO: time.toISOString(),
-    viTri: viTri
+    viTri: viTri,
+    shift: serverShift || '',
+    lateMins: serverLateMins,
+    checklistPending: checklistPending
   });
 }
 

@@ -371,6 +371,27 @@ export default function CheckIn() {
     // Đẩy lên Server (Background)
     callApi('CHECK_IN_OUT', payload, { background: true }).then(async (res) => {
       if (res?.ok) {
+        // --- Phase 2: Smart Check-in Feedback ---
+        if (res.data?.lateMins > 5 && type === 'Vào ca') {
+          const penaltyAmount = Math.max(10000, Math.floor(res.data.lateMins / 15) * 10000);
+          setTimeout(() => {
+            Swal.fire({
+              title: '⚠️ Đi trễ ' + res.data.lateMins + ' phút',
+              html: `<p>Ca <b>${res.data.shift}</b> — Hệ thống đã tự động ghi nhận.</p><p style="color:#ef4444;font-weight:bold;margin-top:8px">Phạt: -${penaltyAmount.toLocaleString()}đ</p>`,
+              icon: 'warning', timer: 4000, showConfirmButton: false
+            });
+          }, 2000);
+        }
+        if (res.data?.checklistPending && type === 'Vào ca') {
+          setTimeout(() => {
+            Swal.fire({
+              title: '📋 Nhắc nhở Checklist',
+              text: 'Bạn chưa nộp Checklist hôm nay. Hãy hoàn thành ngay nhé!',
+              icon: 'info', confirmButtonText: 'OK', confirmButtonColor: '#0ea5e9', timer: 5000
+            });
+          }, res.data?.lateMins > 5 ? 6500 : 2000);
+        }
+
         // --- CHẠY NGẦM GỬI EMAIL BÁO CÁO (Tránh block UI) ---
         if (res.data) {
           callApi('SEND_EMAIL_NOTIFICATION', {
