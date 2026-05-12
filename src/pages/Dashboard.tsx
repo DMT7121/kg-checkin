@@ -283,6 +283,33 @@ export default function Dashboard() {
     const pendingAdvances = store.advances.filter(adv => adv.status === 'Pending');
     const hasPendingApprovals = isAdmin && (pendingLeaves.length > 0 || pendingSwaps.length > 0 || pendingAdvances.length > 0);
 
+    // Discrepancy Logic (Phase 3: Schedule vs Check-in Validation)
+    const todayPrefix = String(new Date().getDate()).padStart(2, '0') + '/' + String(new Date().getMonth() + 1).padStart(2, '0') + '/' + new Date().getFullYear();
+    const checkinMap = new Map();
+    store.logs.forEach(l => {
+      if (l.time.startsWith(todayPrefix)) {
+        if (!checkinMap.has(l.fullname)) checkinMap.set(l.fullname, []);
+        checkinMap.get(l.fullname).push(l);
+      }
+    });
+
+    const scheduledToday = dashboardSchedules.map(emp => {
+      const shift = emp.shifts[dayIdx];
+      if (shift && shift !== 'OFF' && shift !== 'OFF#') return { fullname: emp.fullname, shift };
+      return null;
+    }).filter(Boolean);
+
+    const notArrived = scheduledToday.filter(emp => {
+      const userLogs = checkinMap.get(emp.fullname) || [];
+      const hasIn = userLogs.some((l: any) => l.type.includes('Vào ca') || l.type.includes('IN'));
+      return !hasIn;
+    });
+
+    const lateArrived = scheduledToday.filter(emp => {
+      const userLogs = checkinMap.get(emp.fullname) || [];
+      return userLogs.some((l: any) => l.type.includes('Trễ'));
+    });
+
     return (
       <div className="p-4 space-y-4">
         {/* Header Banner */}
@@ -379,6 +406,39 @@ export default function Dashboard() {
                     <div className="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.5)]"></div>
                     <span className="text-xs text-gray-600 dark:text-gray-400">Chức vụ khác: <strong className="text-gray-800 dark:text-gray-200">{otherCount}</strong></span>
                   </div>
+                </div>
+              )}
+              {/* Discrepancy Alerts */}
+              {(notArrived.length > 0 || lateArrived.length > 0) && (
+                <div className="mt-3 space-y-2 pt-3 border-t border-dashed border-gray-200 dark:border-gray-700">
+                  {lateArrived.length > 0 && (
+                    <div className="bg-orange-50 dark:bg-orange-900/20 p-2.5 rounded-lg border border-orange-100 dark:border-orange-800/50">
+                      <p className="text-xs font-bold text-orange-700 dark:text-orange-400 mb-1 flex items-center">
+                        <MessageSquareWarning size={12} className="mr-1.5" /> Nhân viên đi trễ hôm nay
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {lateArrived.map((emp: any, i) => (
+                          <span key={i} className="text-[10px] font-medium bg-white dark:bg-gray-800 px-2 py-0.5 rounded border border-orange-100 dark:border-gray-700 text-gray-700 dark:text-gray-300">
+                            {emp.fullname}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {notArrived.length > 0 && (
+                    <div className="bg-red-50 dark:bg-red-900/20 p-2.5 rounded-lg border border-red-100 dark:border-red-800/50">
+                      <p className="text-xs font-bold text-red-700 dark:text-red-400 mb-1 flex items-center">
+                        <ShieldAlert size={12} className="mr-1.5" /> Chưa thấy chấm công vào ca
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {notArrived.map((emp: any, i) => (
+                          <span key={i} className="text-[10px] font-medium bg-white dark:bg-gray-800 px-2 py-0.5 rounded border border-red-100 dark:border-gray-700 text-gray-700 dark:text-gray-300">
+                            {emp.fullname} ({emp.shift})
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

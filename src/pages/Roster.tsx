@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import { computeWeekInfo, DAY_NAMES, SHORT_DAY_NAMES, getAdminShiftClass, generateMonthDates, MonthDateInfo, formatDateShort } from '../utils/helpers';
-import { CalendarDays, RefreshCw, Info, Calendar, ChevronLeft, ChevronRight, LayoutGrid, CalendarRange } from 'lucide-react';
+import { CalendarDays, RefreshCw, Info, Calendar, ChevronLeft, ChevronRight, LayoutGrid, CalendarRange, Filter, ShieldAlert } from 'lucide-react';
 import CalendarGrid from '../components/CalendarGrid';
 import Swal from 'sweetalert2';
 
@@ -10,6 +10,7 @@ export default function Roster() {
   const store = useAppStore();
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
   const [currentDate, setCurrentDate] = useState(() => new Date());
+  const [selectedRole, setSelectedRole] = useState<string>('ALL');
   
   // Calculate week info and month info based on currentDate
   const weekInfo = useMemo(() => computeWeekInfo(currentDate, false), [currentDate]);
@@ -59,15 +60,39 @@ export default function Roster() {
 
   // Build the matrix for the current view
   // Merge store.users with monthData to ensure all active employees are shown
-  const users = store.users && store.users.length > 0 ? store.users : [];
+  const activeUsers = store.users && store.users.length > 0 ? store.users : [];
+  
+  const uniqueRoles = useMemo(() => {
+    const roles = new Set<string>();
+    activeUsers.forEach(u => {
+      if (u.position) roles.add(u.position);
+    });
+    return Array.from(roles);
+  }, [activeUsers]);
+
+  const filteredUsers = useMemo(() => {
+    if (selectedRole === 'ALL') return activeUsers;
+    return activeUsers.filter(u => u.position === selectedRole);
+  }, [activeUsers, selectedRole]);
   
   const renderWeekView = () => {
     // Find the week data in monthData
     const weekData = monthData.find(w => w.weekLabel === weekInfo.weekLabel);
     const schedules = weekData ? weekData.schedules : [];
     
-    // Map to ensure all users exist
-    const rosterToRender = users.map(u => {
+    const dailyWaitstaffCounts = [0, 0, 0, 0, 0, 0, 0];
+    schedules.forEach((emp: any) => {
+      const user = activeUsers.find(u => u.fullname === emp.fullname);
+      const isWaitstaff = user?.position?.toLowerCase().includes('phục vụ') || false;
+      (emp.shifts || []).forEach((shift: string, idx: number) => {
+        if (shift && shift !== 'OFF') {
+          if (isWaitstaff) dailyWaitstaffCounts[idx]++;
+        }
+      });
+    });
+
+    // Map to ensure all filteredUsers exist
+    const rosterToRender = filteredUsers.map(u => {
       const found = schedules.find((s: any) => s.fullname === u.fullname);
       return {
         fullname: u.fullname,
@@ -78,7 +103,7 @@ export default function Roster() {
 
   
   const showDayDetails = (mDate: MonthDateInfo, empMonthMap: Record<string, Record<string, string>>) => {
-    const dayShifts = users.map(u => ({
+    const dayShifts = filteredUsers.map(u => ({
       name: u.fullname,
       shift: empMonthMap[u.fullname]?.[`${mDate.weekLabel}_${mDate.dayIndex}`] || ''
     })).filter(u => u.shift && u.shift !== 'OFF');
@@ -157,12 +182,19 @@ export default function Roster() {
           <thead className="text-[10px] text-gray-500 dark:text-gray-400 uppercase paint-layer/80 border-b border-gray-200 dark:border-gray-700">
             <tr>
               <th className="px-3 py-3 sticky left-0 paint-layer z-20 font-bold border-r border-gray-200 dark:border-gray-700 shadow-[1px_0_0_0_rgba(0,0,0,0.05)]">Nhân Viên</th>
-              {SHORT_DAY_NAMES.map((d, idx) => (
-                <th key={d} className="px-1 py-3 text-center border-r border-gray-200 dark:border-gray-700 last:border-r-0">
+              {SHORT_DAY_NAMES.map((d, idx) => {
+                const isUnderstaffed = dailyWaitstaffCounts[idx] < 3;
+                return (
+                <th key={d} className="px-1 py-3 text-center border-r border-gray-200 dark:border-gray-700 last:border-r-0 relative">
                   <div className="font-bold text-[13px]">{weekInfo.weekDates[idx]}</div>
                   <div className="text-[10px] font-normal opacity-70 mt-0.5">{d}</div>
+                  {isUnderstaffed && (
+                     <div className="absolute top-1 right-1 text-red-500 animate-pulse" title={`Thiếu nhân sự phục vụ (${dailyWaitstaffCounts[idx]} người)`}>
+                        <ShieldAlert size={12} />
+                     </div>
+                  )}
                 </th>
-              ))}
+              )})}
             </tr>
           </thead>
           <tbody>
@@ -209,7 +241,22 @@ export default function Roster() {
       });
     });
 
-    const rosterToRender = users.map(u => {
+    const dailyWaitstaffCounts = monthDates.map(() => 0);
+    monthData?.forEach(week => {
+      week?.schedules?.forEach((emp: any) => {
+        const user = activeUsers.find(u => u.fullname === emp.fullname);
+        const isWaitstaff = user?.position?.toLowerCase().includes('phục vụ') || false;
+        emp?.shifts?.forEach((s: string, i: number) => {
+          if (s && s !== 'OFF' && isWaitstaff) {
+            // Find which mDate this corresponds to
+            const dateIndex = monthDates.findIndex(md => md.weekLabel === week.weekLabel && md.dayIndex === i);
+            if (dateIndex !== -1) dailyWaitstaffCounts[dateIndex]++;
+          }
+        });
+      });
+    });
+
+    const rosterToRender = filteredUsers.map(u => {
       const shifts = monthDates.map(mDate => {
         return empMonthMap[u.fullname]?.[`${mDate.weekLabel}_${mDate.dayIndex}`] || '';
       });
@@ -226,12 +273,19 @@ export default function Roster() {
           <thead className="text-[10px] text-gray-500 dark:text-gray-400 uppercase paint-layer/80 border-b border-gray-200 dark:border-gray-700">
             <tr>
               <th className="px-3 py-3 sticky left-0 paint-layer z-20 font-bold border-r border-gray-200 dark:border-gray-700 shadow-[1px_0_0_0_rgba(0,0,0,0.05)]">Nhân Viên</th>
-              {monthDates.map((mDate) => (
-                <th key={mDate.dateKey} className={`px-1 py-2 text-center border-r border-gray-200 dark:border-gray-700 min-w-[50px] ${mDate.isWeekend ? 'bg-gray-200 dark:bg-gray-700/50' : ''}`}>
+              {monthDates.map((mDate, idx) => {
+                const isUnderstaffed = dailyWaitstaffCounts[idx] < 3;
+                return (
+                <th key={mDate.dateKey} className={`px-1 py-2 text-center border-r border-gray-200 dark:border-gray-700 min-w-[50px] relative ${mDate.isWeekend ? 'bg-gray-200 dark:bg-gray-700/50' : ''}`}>
                   <div className="font-bold text-gray-700 dark:text-gray-300 text-[13px]">{formatDateShort(mDate.date)}</div>
                   <div className="text-[10px] font-normal opacity-70 mt-0.5">{SHORT_DAY_NAMES[mDate.dayIndex]}</div>
+                  {isUnderstaffed && (
+                     <div className="absolute top-0.5 right-0.5 text-red-500 animate-pulse" title={`Thiếu nhân sự phục vụ (${dailyWaitstaffCounts[idx]} người)`}>
+                        <ShieldAlert size={10} />
+                     </div>
+                  )}
                 </th>
-              ))}
+              )})}
             </tr>
           </thead>
           <tbody>
@@ -315,13 +369,30 @@ export default function Roster() {
 
 
       <div className="soft3d-card p-5 rounded-2xl  ">
-        <div className="flex justify-between items-center mb-4 border-b dark:border-gray-700 pb-2">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 border-b dark:border-gray-700 pb-3 gap-3">
           <h3 className="font-bold flex items-center text-gray-800 dark:text-white text-sm">
             <Calendar size={16} className="mr-2 text-indigo-600" /> Bảng phân ca toàn quán
           </h3>
-          <button onClick={loadSchedules} className="text-xs bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300 px-3 py-1.5 rounded-lg hover:bg-indigo-200 transition flex items-center font-bold">
-            <RefreshCw size={12} className="mr-1" /> Làm mới
-          </button>
+          <div className="flex items-center space-x-2 w-full sm:w-auto">
+            <div className="relative w-full sm:w-48">
+              <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
+                <Filter size={14} className="text-gray-400" />
+              </div>
+              <select 
+                value={selectedRole}
+                onChange={(e) => setSelectedRole(e.target.value)}
+                className="w-full pl-8 pr-4 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-700 soft3d-bg focus:ring-2 focus:ring-indigo-500 appearance-none text-gray-700 dark:text-gray-300 font-medium"
+              >
+                <option value="ALL">Tất cả chức vụ</option>
+                {uniqueRoles.map(role => (
+                  <option key={role} value={role}>{role}</option>
+                ))}
+              </select>
+            </div>
+            <button onClick={loadSchedules} className="text-xs bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300 px-3 py-1.5 rounded-lg hover:bg-indigo-200 transition flex items-center font-bold flex-shrink-0">
+              <RefreshCw size={12} className="mr-1" /> Làm mới
+            </button>
+          </div>
         </div>
 
         <div className="mb-4 text-xs text-gray-500 dark:text-gray-400 soft3d-bg p-3 rounded-xl  flex items-start">
@@ -329,10 +400,10 @@ export default function Roster() {
           <p>Đây là lịch làm việc chính thức đã được Quản lý phê duyệt. Nếu có nhu cầu thay đổi, vui lòng báo Quản lý (Admin).</p>
         </div>
 
-        {users.length > 0 ? (
+        {filteredUsers.length > 0 ? (
           viewMode === 'week' ? renderWeekView() : (store.currentUser?.role === 'admin' || store.currentUser?.role === 'tester' ? renderAdminMonthView() : renderUserMonthView())
         ) : (
-          <div className="text-center py-10 text-gray-400">Không có dữ liệu nhân viên</div>
+          <div className="text-center py-10 text-gray-400">Không có dữ liệu nhân viên cho chức vụ này</div>
         )}
       </div>
     </div>
