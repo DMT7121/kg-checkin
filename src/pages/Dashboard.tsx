@@ -167,6 +167,11 @@ export default function Dashboard() {
           if (res.data.gpsConfig) store.setServerGpsConfig(res.data.gpsConfig);
           if (res.data.orgConfig) store.setServerOrgConfig(res.data.orgConfig);
           if (res.data.payrollConfig) store.setServerPayrollConfig(res.data.payrollConfig);
+          // Dashboard Hub (Phase 1)
+          if (res.data.recentPosts) store.setRecentPosts(res.data.recentPosts);
+          if (res.data.pendingFeedbackCount !== undefined) store.setPendingFeedbackCount(res.data.pendingFeedbackCount);
+          if (res.data.todayChecklistDone !== undefined) store.setTodayChecklistDone(res.data.todayChecklistDone);
+          if (res.data.todayHandoverDone !== undefined) store.setTodayHandoverDone(res.data.todayHandoverDone);
           localStorage.setItem('kg_logs', JSON.stringify(res.data.logs || []));
           localStorage.setItem('kg_stats', JSON.stringify(res.data.stats));
         }
@@ -469,6 +474,94 @@ export default function Dashboard() {
             </div>
             <p className="text-2xl font-bold text-gray-800 dark:text-white">{stats.validCount}</p>
           </div>
+        </div>
+
+        {/* ===== DASHBOARD HUB WIDGETS (Phase 1) ===== */}
+        <div className="grid grid-cols-1 gap-3 relative z-10">
+          {/* Widget: Bài viết mới */}
+          {store.recentPosts.length > 0 && (
+            <button onClick={() => handleTabChange('news')} className="soft3d-card p-4 text-left hover:shadow-md transition-all group">
+              <div className="flex items-center justify-between mb-2.5">
+                <div className="flex items-center space-x-2">
+                  <div className="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                    <Newspaper size={16} className="text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <h3 className="text-sm font-bold text-gray-700 dark:text-gray-200">Bảng tin mới</h3>
+                </div>
+                <span className="text-[10px] font-medium text-ocean-500 group-hover:underline">Xem tất cả →</span>
+              </div>
+              <div className="space-y-2">
+                {store.recentPosts.slice(0, 2).map((post) => (
+                  <div key={post.id} className="flex items-start space-x-2.5 p-2 paint-layer rounded-lg">
+                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">
+                      {post.author?.charAt(0) || '?'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-gray-700 dark:text-gray-200 truncate">{post.author}</p>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{post.content}</p>
+                      <div className="flex items-center space-x-3 mt-1">
+                        <span className="text-[9px] text-gray-400">❤️ {post.likesCount}</span>
+                        <span className="text-[9px] text-gray-400">💬 {post.commentsCount}</span>
+                        <span className="text-[9px] text-gray-400">{post.time}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </button>
+          )}
+
+          {/* Widget row: Checklist + Bàn giao */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Checklist hôm nay */}
+            <button onClick={() => handleTabChange('checklist')} className="soft3d-card p-4 text-left hover:shadow-md transition-all">
+              <div className="flex items-center space-x-2 mb-2">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.todayChecklistDone ? 'bg-green-100 dark:bg-green-900/30' : 'bg-amber-100 dark:bg-amber-900/30'}`}>
+                  <ClipboardCheck size={16} className={store.todayChecklistDone ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'} />
+                </div>
+                <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Checklist</span>
+              </div>
+              {store.todayChecklistDone ? (
+                <p className="text-sm font-bold text-green-600 dark:text-green-400">✓ Đã nộp</p>
+              ) : (
+                <p className="text-sm font-bold text-amber-600 dark:text-amber-400">Chưa nộp</p>
+              )}
+            </button>
+
+            {/* Bàn giao ca */}
+            <button onClick={() => handleTabChange('handover')} className="soft3d-card p-4 text-left hover:shadow-md transition-all">
+              <div className="flex items-center space-x-2 mb-2">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.todayHandoverDone ? 'bg-green-100 dark:bg-green-900/30' : 'bg-sky-100 dark:bg-sky-900/30'}`}>
+                  <Repeat size={16} className={store.todayHandoverDone ? 'text-green-600 dark:text-green-400' : 'text-sky-600 dark:text-sky-400'} />
+                </div>
+                <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Bàn giao</span>
+              </div>
+              {store.todayHandoverDone ? (
+                <p className="text-sm font-bold text-green-600 dark:text-green-400">✓ Đã ghi</p>
+              ) : (
+                <p className="text-sm font-bold text-sky-600 dark:text-sky-400">Chưa ghi</p>
+              )}
+            </button>
+          </div>
+
+          {/* Feedback Badge (Admin only) */}
+          {isAdmin && store.pendingFeedbackCount > 0 && (
+            <button onClick={() => handleTabChange('feedback')} className="soft3d-card p-3.5 text-left hover:shadow-md transition-all border-2 border-rose-200 dark:border-rose-900/50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center relative">
+                    <MessageSquareWarning size={16} className="text-rose-600 dark:text-rose-400" />
+                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 rounded-full text-white text-[8px] font-bold flex items-center justify-center shadow-sm">{store.pendingFeedbackCount}</span>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-700 dark:text-gray-200">Góp ý chờ xử lý</p>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400">{store.pendingFeedbackCount} phản hồi cần trả lời</p>
+                  </div>
+                </div>
+                <span className="text-[10px] font-medium text-rose-500">Xem →</span>
+              </div>
+            </button>
+          )}
         </div>
 
         {/* Quick actions */}

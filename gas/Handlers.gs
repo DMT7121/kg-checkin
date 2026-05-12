@@ -1520,6 +1520,82 @@ function handleGetData(payload) {
   result.orgConfig = getOrgConfig();
   result.payrollConfig = getPayrollConfig();
   
+  // === DASHBOARD HUB DATA (Phase 1) ===
+  var todayStr = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'dd/MM/yyyy');
+  
+  // 1. Recent Posts (top 3 bài mới nhất)
+  try {
+    var postsSheet = ss.getSheetByName("Posts");
+    if (postsSheet && postsSheet.getLastRow() > 1) {
+      var postsData = postsSheet.getDataRange().getValues();
+      var recentPosts = [];
+      for (var pi = postsData.length - 1; pi > 0 && recentPosts.length < 3; pi--) {
+        var pr = postsData[pi];
+        recentPosts.push({
+          id: pr[0],
+          author: pr[1],
+          content: pr[2] ? pr[2].toString().substring(0, 100) : '',
+          likesCount: pr[3] ? JSON.parse(pr[3]).length : 0,
+          commentsCount: pr[4] ? JSON.parse(pr[4]).length : 0,
+          image: pr[5] || '',
+          time: pr[6] || ''
+        });
+      }
+      result.recentPosts = recentPosts;
+    }
+  } catch(e) { Logger.log('Error loading recent posts: ' + e.message); }
+  
+  // 2. Pending Feedback Count (Admin only)
+  if (payload.role === 'admin' || payload.role === 'tester') {
+    try {
+      var fbSheet = ss.getSheetByName("Feedbacks");
+      if (fbSheet && fbSheet.getLastRow() > 1) {
+        var fbData = fbSheet.getDataRange().getValues();
+        var pendingCount = 0;
+        for (var fi = 1; fi < fbData.length; fi++) {
+          if (fbData[fi][6] && fbData[fi][6].toString() === 'Pending') pendingCount++;
+        }
+        result.pendingFeedbackCount = pendingCount;
+      }
+    } catch(e) { Logger.log('Error loading feedback count: ' + e.message); }
+  }
+  
+  // 3. Today Checklist Status
+  try {
+    var clSheet = ss.getSheetByName("ChecklistLogs");
+    if (clSheet && clSheet.getLastRow() > 1) {
+      var clData = clSheet.getDataRange().getValues();
+      var todayCompleted = false;
+      for (var ci = clData.length - 1; ci > 0; ci--) {
+        var clDate = clData[ci][1] ? clData[ci][1].toString() : '';
+        var clUser = clData[ci][3] ? clData[ci][3].toString().toLowerCase() : '';
+        if (clDate === todayStr && clUser === payload.username.toLowerCase()) {
+          todayCompleted = true;
+          break;
+        }
+      }
+      result.todayChecklistDone = todayCompleted;
+    }
+  } catch(e) { Logger.log('Error loading checklist status: ' + e.message); }
+  
+  // 4. Today Handover Status
+  try {
+    var hoSheet = ss.getSheetByName("Handovers");
+    if (hoSheet && hoSheet.getLastRow() > 1) {
+      var hoData = hoSheet.getDataRange().getValues();
+      var handoverDone = false;
+      for (var hi = hoData.length - 1; hi > 0; hi--) {
+        var hoDate = hoData[hi][1] ? hoData[hi][1].toString() : '';
+        var hoUser = hoData[hi][3] ? hoData[hi][3].toString().toLowerCase() : '';
+        if (hoDate === todayStr && hoUser === payload.username.toLowerCase()) {
+          handoverDone = true;
+          break;
+        }
+      }
+      result.todayHandoverDone = handoverDone;
+    }
+  } catch(e) { Logger.log('Error loading handover status: ' + e.message); }
+  
   return jsonResponse(true, result);
 }
 

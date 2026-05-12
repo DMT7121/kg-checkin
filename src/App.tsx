@@ -106,6 +106,11 @@ export default function App() {
               if (res.data.gpsConfig) store.setServerGpsConfig(res.data.gpsConfig);
               if (res.data.orgConfig) store.setServerOrgConfig(res.data.orgConfig);
               if (res.data.payrollConfig) store.setServerPayrollConfig(res.data.payrollConfig);
+              // Dashboard Hub (Phase 1)
+              if (res.data.recentPosts) store.setRecentPosts(res.data.recentPosts);
+              if (res.data.pendingFeedbackCount !== undefined) store.setPendingFeedbackCount(res.data.pendingFeedbackCount);
+              if (res.data.todayChecklistDone !== undefined) store.setTodayChecklistDone(res.data.todayChecklistDone);
+              if (res.data.todayHandoverDone !== undefined) store.setTodayHandoverDone(res.data.todayHandoverDone);
               localStorage.setItem('kg_logs', JSON.stringify(res.data.logs || []));
               localStorage.setItem('kg_stats', JSON.stringify(res.data.stats));
             }

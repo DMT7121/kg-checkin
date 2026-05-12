@@ -210,6 +210,12 @@ interface AppState {
   checklistLogs: ChecklistLog[];
   feedbacks: Feedback[];
 
+  // Dashboard Hub (Phase 1)
+  recentPosts: { id: number; author: string; content: string; likesCount: number; commentsCount: number; image: string; time: string }[];
+  pendingFeedbackCount: number;
+  todayChecklistDone: boolean;
+  todayHandoverDone: boolean;
+
   // Schedule registration
   isScheduleRegistered: boolean;
   approvedShifts: string[] | null;
@@ -288,6 +294,10 @@ interface AppState {
   setServerGpsConfig: (config: { lat: number; lng: number; radius: number } | null) => void;
   setServerOrgConfig: (config: { name: string; address: string } | null) => void;
   setServerPayrollConfig: (config: { baseFormula: string; maxAdvancePercent: number; mealAllowance: number } | null) => void;
+  setRecentPosts: (posts: AppState['recentPosts']) => void;
+  setPendingFeedbackCount: (count: number) => void;
+  setTodayChecklistDone: (done: boolean) => void;
+  setTodayHandoverDone: (done: boolean) => void;
   logout: () => void;
 }
 
@@ -333,6 +343,12 @@ export const useAppStore = create<AppState>((set) => ({
   isCheckInOutCompleted: false,
   checklists: [],
   checklistLogs: [],
+
+  // Dashboard Hub (Phase 1)
+  recentPosts: [],
+  pendingFeedbackCount: 0,
+  todayChecklistDone: false,
+  todayHandoverDone: false,
   feedbacks: [],
 
   // Schedule
@@ -385,6 +401,10 @@ export const useAppStore = create<AppState>((set) => ({
   setServerGpsConfig: (config) => set({ serverGpsConfig: config }),
   setServerOrgConfig: (config) => set({ serverOrgConfig: config }),
   setServerPayrollConfig: (config) => set({ serverPayrollConfig: config }),
+  setRecentPosts: (recentPosts) => set({ recentPosts }),
+  setPendingFeedbackCount: (pendingFeedbackCount) => set({ pendingFeedbackCount }),
+  setTodayChecklistDone: (todayChecklistDone) => set({ todayChecklistDone }),
+  setTodayHandoverDone: (todayHandoverDone) => set({ todayHandoverDone }),
   setChecklistLogs: (logs) => set({ checklistLogs: logs }),
   setFeedbacks: (items) => set({ feedbacks: items }),
   toggleDarkMode: () =>
