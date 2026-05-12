@@ -268,21 +268,48 @@ export default function NewsFeed() {
 
                 {/* Stats */}
                 <div className="px-4 py-2 flex justify-between text-[11px] text-gray-500 font-medium">
-                  <div className="flex items-center space-x-3">
-                    <span className="flex items-center"><Heart size={12} className="mr-1 text-pink-500 fill-current" /> {post.likes.length}</span>
-                    <span className="flex items-center"><MessageSquare size={12} className="mr-1 text-blue-500" /> {post.comments.length}</span>
+                  <div className="flex items-center space-x-3 w-full">
+                    <div className="flex items-center cursor-help" title={post.likes.length > 0 ? `Được thích bởi: ${post.likes.join(', ')}` : ''}>
+                      <Heart size={12} className="mr-1 text-pink-500 fill-current" /> 
+                      <span className="mr-1">{post.likes.length}</span>
+                      {post.likes.length > 0 && (
+                        <span className="text-[10px] opacity-70 truncate max-w-[120px]">
+                          ({post.likes.length <= 2 ? post.likes.join(', ') : `${post.likes[0]} và ${post.likes.length - 1} người khác`})
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center ml-auto cursor-pointer hover:text-blue-500" onClick={() => setActiveCommentPostId(activeCommentPostId === post.id ? null : post.id)}>
+                      <MessageSquare size={12} className="mr-1 text-blue-500" /> {post.comments.length} bình luận
+                    </div>
                   </div>
                 </div>
 
                 {/* Actions */}
                 <div className="flex px-2 py-1.5 border-y border-gray-100 dark:border-gray-700">
                   <button onClick={() => toggleLike(post.id)} className={`flex-1 flex justify-center items-center py-2 text-xs font-bold rounded-xl transition-all ${hasLiked ? 'text-pink-500 bg-pink-50 dark:bg-pink-900/20' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
-                    <Heart size={16} className={`mr-1.5 ${hasLiked ? 'fill-current' : ''}`} /> Thích
+                    <Heart size={16} className={`mr-1.5 ${hasLiked ? 'fill-current' : ''}`} /> {hasLiked ? 'Đã thích' : 'Thích'}
                   </button>
                   <button onClick={() => setActiveCommentPostId(activeCommentPostId === post.id ? null : post.id)} className={`flex-1 flex justify-center items-center py-2 text-xs font-bold rounded-xl transition-all ${activeCommentPostId === post.id ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
                     <MessageSquare size={16} className="mr-1.5" /> Bình luận
                   </button>
                 </div>
+
+                {/* Latest Comment Preview (if not expanded) */}
+                {activeCommentPostId !== post.id && post.comments.length > 0 && (
+                  <div className="px-4 py-3 bg-gray-50/50 dark:bg-gray-800/30 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors" onClick={() => setActiveCommentPostId(post.id)}>
+                    <div className="flex space-x-2">
+                      <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 flex-shrink-0 flex items-center justify-center text-[10px] font-bold text-gray-600 dark:text-gray-300">
+                        {post.comments[post.comments.length - 1].author.charAt(0)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-gray-700 dark:text-gray-300 truncate">
+                          <span className="font-bold text-gray-800 dark:text-gray-200 mr-1.5">{post.comments[post.comments.length - 1].author}</span>
+                          {post.comments[post.comments.length - 1].content}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Comments Section */}
                 {activeCommentPostId === post.id && (

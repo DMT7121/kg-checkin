@@ -879,7 +879,7 @@ function handleGetPosts() {
       likes: row[3] ? JSON.parse(row[3]) : [],
       comments: row[4] ? JSON.parse(row[4]) : [],
       image: row[5] || "",
-      time: "Gần đây"
+      time: row[6] || "Gần đây"
     });
   }
   return jsonResponse(true, posts);
@@ -890,17 +890,19 @@ function handleAddPost(payload) {
   var sheet = ss.getSheetByName("Posts");
   if (!sheet) {
     sheet = ss.insertSheet("Posts");
-    sheet.appendRow(["ID", "Author", "Content", "Likes", "Comments", "Image"]);
+    sheet.appendRow(["ID", "Author", "Content", "Likes", "Comments", "Image", "Time"]);
   }
   
   var newId = new Date().getTime();
+  var timeStr = Utilities.formatDate(new Date(), "GMT+7", "dd/MM HH:mm");
   sheet.appendRow([
     newId,
     payload.author,
     payload.content,
     "[]", // Likes
     "[]",  // Comments
-    payload.image || "" // Image URL
+    payload.image || "", // Image URL
+    timeStr
   ]);
   
   return jsonResponse(true, "Đã đăng bài");
@@ -937,11 +939,12 @@ function handleInteractPost(payload) {
   // Xử lý COMMENT
   if (payload.action === 'COMMENT') {
     var comments = data[rowIndex-1][4] ? JSON.parse(data[rowIndex-1][4]) : [];
+    var timeStr = Utilities.formatDate(new Date(), "GMT+7", "dd/MM HH:mm");
     comments.push({
       id: new Date().getTime(),
       author: payload.author,
       content: payload.content,
-      time: "Vừa xong"
+      time: timeStr
     });
     sheet.getRange(rowIndex, 5).setValue(JSON.stringify(comments));
   }
