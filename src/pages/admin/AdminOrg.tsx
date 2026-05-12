@@ -140,7 +140,7 @@ export default function AdminOrg() {
       </div>
 
       {/* Company Info */}
-      <div className="origami-card p-5 rounded-2xl  ">
+      <div className="artisan-card p-5 rounded-2xl  ">
         <h3 className="font-bold mb-4 border-b dark:border-gray-700 pb-2 flex items-center text-gray-800 dark:text-white">
           <Building2 size={18} className="mr-2 text-ocean-600" /> Thông tin Doanh nghiệp
         </h3>
@@ -165,14 +165,14 @@ export default function AdminOrg() {
       </div>
 
       {/* Roles & Permissions */}
-      <div className="origami-card p-5 rounded-2xl  ">
+      <div className="artisan-card p-5 rounded-2xl  ">
         <h3 className="font-bold mb-4 border-b dark:border-gray-700 pb-2 flex items-center text-gray-800 dark:text-white">
           <Shield size={18} className="mr-2 text-ocean-600" /> Phân quyền (Roles)
         </h3>
         
         <div className="space-y-3">
           {roles.map((r, i) => (
-            <div key={r.id} className={`p-3 rounded-xl border flex flex-wrap justify-between items-center gap-2 ${i === 0 ? 'bg-ocean-50 dark:bg-ocean-900/10 border-ocean-100 dark:border-ocean-800' : 'origami-bg border-gray-100 dark:border-gray-800'}`}>
+            <div key={r.id} className={`p-3 rounded-xl border flex flex-wrap justify-between items-center gap-2 ${i === 0 ? 'bg-ocean-50 dark:bg-ocean-900/10 border-ocean-100 dark:border-ocean-800' : 'artisan-bg border-gray-100 dark:border-gray-800'}`}>
               <div className="min-w-0 pr-2">
                 <p className={`text-sm font-bold truncate ${i === 0 ? 'text-ocean-800 dark:text-ocean-400' : 'text-gray-800 dark:text-gray-200'}`}>{r.name}</p>
                 <p className={`text-[10px] truncate ${i === 0 ? 'text-ocean-600' : 'text-gray-500'}`}>{r.description}</p>
@@ -191,14 +191,14 @@ export default function AdminOrg() {
       </div>
 
       {/* Organization Chart */}
-      <div className="origami-card p-5 rounded-2xl  ">
+      <div className="artisan-card p-5 rounded-2xl  ">
         <h3 className="font-bold mb-4 border-b dark:border-gray-700 pb-2 flex items-center text-gray-800 dark:text-white">
           <Network size={18} className="mr-2 text-ocean-600" /> Cơ cấu tổ chức
         </h3>
         
         <div className="space-y-3">
           {orgStructure.map((org, i) => (
-            <div key={org.id} className="flex flex-wrap items-center justify-between gap-2 p-3 origami-bg rounded-xl border border-gray-100 dark:border-gray-800">
+            <div key={org.id} className="flex flex-wrap items-center justify-between gap-2 p-3 artisan-bg rounded-xl border border-gray-100 dark:border-gray-800">
               <div className="min-w-0 pr-2">
                 <p className="text-sm font-bold text-gray-800 dark:text-gray-200 truncate">{org.name}</p>
                 <p className="text-[10px] text-gray-500 truncate">Hệ số lương: {org.salaryMultiplier}</p>
@@ -213,7 +213,7 @@ export default function AdminOrg() {
       </div>
 
       {/* Onboarding Automation */}
-      <div className="origami-card p-5 rounded-2xl  ">
+      <div className="artisan-card p-5 rounded-2xl  ">
         <h3 className="font-bold mb-4 border-b dark:border-gray-700 pb-2 flex items-center text-gray-800 dark:text-white">
           <UserPlus size={18} className="mr-2 text-ocean-600" /> Quy trình Onboarding
         </h3>

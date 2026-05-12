@@ -60,7 +60,7 @@ export default function Training() {
       <h3 className="font-bold text-gray-800 dark:text-white mb-4 text-lg">📚 Tài liệu nội bộ</h3>
       <div className="space-y-4 mb-8">
         {lessons.map(lesson => (
-          <div key={lesson.id} className="origami-card overflow-hidden">
+          <div key={lesson.id} className="artisan-card overflow-hidden">
             <button onClick={() => setActiveLesson(activeLesson === lesson.id ? null : lesson.id)} className="w-full flex items-center justify-between p-4 focus:outline-none">
               <div className="flex items-center">
                 <div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-900/50 text-orange-600 flex items-center justify-center mr-3">
@@ -80,7 +80,7 @@ export default function Training() {
       </div>
 
       <h3 className="font-bold text-gray-800 dark:text-white mb-4 text-lg">📝 Trắc nghiệm Mini (Quiz)</h3>
-      <div className="origami-card  border border-amber-200 dark:border-amber-900/50 p-5">
+      <div className="artisan-card  border border-amber-200 dark:border-amber-900/50 p-5">
         <div className="flex items-center mb-4">
           <Award size={24} className="text-amber-500 mr-2" />
           <h4 className="font-bold text-gray-800 dark:text-white">Bài test Tuần 2, Tháng 5</h4>
@@ -90,7 +90,7 @@ export default function Training() {
           <div>
             <p className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Câu 1: Trà Đào Cam Sả dùng bao nhiêu ml syrup đào?</p>
             <div className="space-y-2">
-              <label className="flex items-center p-3 border border-gray-200 dark:border-gray-700 rounded-xl origami-bg cursor-pointer">
+              <label className="flex items-center p-3 border border-gray-200 dark:border-gray-700 rounded-xl artisan-bg cursor-pointer">
                 <input type="radio" name="q1" className="text-orange-500 mr-3" />
                 <span className="text-sm text-gray-700 dark:text-gray-300">30ml</span>
               </label>

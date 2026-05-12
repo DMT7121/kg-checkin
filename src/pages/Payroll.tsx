@@ -65,7 +65,7 @@ export default function Payroll() {
           <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-green-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
         </div>
 
-        <div className="origami-card p-5 rounded-2xl  ">
+        <div className="artisan-card p-5 rounded-2xl  ">
           <h3 className="font-bold flex items-center text-gray-800 dark:text-white mb-4 border-b dark:border-gray-700 pb-2">
             <FileSpreadsheet size={18} className="mr-2 text-emerald-600" /> Danh sách nhân viên
           </h3>
@@ -75,7 +75,7 @@ export default function Payroll() {
               <div 
                 key={p.username} 
                 onClick={() => setSelectedUser(p.username)}
-                className="p-4 rounded-xl  hover:border-emerald-300 dark:hover:border-emerald-700 hover:shadow-md transition-all cursor-pointer paper-layer/50 flex justify-between items-center group"
+                className="p-4 rounded-xl  hover:border-emerald-300 dark:hover:border-emerald-700 hover:shadow-md transition-all cursor-pointer paint-layer/50 flex justify-between items-center group"
               >
                 <div>
                   <p className="font-bold text-gray-800 dark:text-gray-200 text-lg">{p.fullname}</p>
@@ -127,7 +127,7 @@ export default function Payroll() {
         <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-green-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
       </div>
 
-      <div className="origami-card p-6 rounded-2xl  ">
+      <div className="artisan-card p-6 rounded-2xl  ">
         <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-100 dark:border-gray-700">
           <h3 className="font-bold text-gray-800 dark:text-white flex items-center text-lg">
             <Calculator size={20} className="mr-2 text-emerald-600" /> Chi tiết thu nhập

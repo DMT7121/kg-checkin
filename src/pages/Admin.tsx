@@ -107,14 +107,14 @@ export default function Admin() {
 
 
       {/* AI Analysis */}
-      <div className="origami-card p-5 rounded-2xl  ">
+      <div className="artisan-card p-5 rounded-2xl  ">
         <button onClick={analyzeWithGroq} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold py-4 rounded-2xl shadow-lg hover:shadow-purple-500/50 transition-all transform active:scale-95 flex items-center justify-center touch-manipulation border border-purple-400">
           <Wand2 size={20} className="mr-2" /> ✨ GROQ PHÂN TÍCH NHÂN SỰ
         </button>
       </div>
 
       {/* API Key Management */}
-      <div className="origami-card p-5 rounded-2xl  ">
+      <div className="artisan-card p-5 rounded-2xl  ">
         <h3 className="font-bold mb-4 border-b dark:border-gray-700 pb-2 flex items-center text-gray-800 dark:text-white">
           <Cpu size={18} className="mr-2 text-ocean-600" /> Quản lý Nguồn lực AI
         </h3>
@@ -127,7 +127,7 @@ export default function Admin() {
               </a>
             </div>
             <textarea value={groqKeysInput} onChange={(e) => store.setGroqKeysInput(e.target.value)} rows={3}
-              className="w-full origami-bg border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500 font-mono text-gray-800 dark:text-white mb-2" placeholder={'gsk_...\ngsk_...'} />
+              className="w-full artisan-bg border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500 font-mono text-gray-800 dark:text-white mb-2" placeholder={'gsk_...\ngsk_...'} />
             
             {/* Tag Display */}
             {groqKeys.length > 0 && (
@@ -149,7 +149,7 @@ export default function Admin() {
         </div>
       </div>
 
-      <div className="origami-card p-5 rounded-2xl  ">
+      <div className="artisan-card p-5 rounded-2xl  ">
         <div className="flex justify-between items-center mb-4 border-b dark:border-gray-700 pb-2">
           <h3 className="font-bold flex items-center text-gray-800 dark:text-white">
             <ShieldAlert size={18} className="mr-2 text-rose-500" /> Cấu hình System Prompts (AI)
@@ -161,7 +161,7 @@ export default function Admin() {
         
         <div className="space-y-4">
           {localPrompts.length === 0 ? (
-            <div className="text-center py-6 origami-bg/50 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
+            <div className="text-center py-6 artisan-bg/50 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Chưa có System Prompt nào được cấu hình.</p>
               <button onClick={addPrompt} className="text-xs text-rose-500 font-bold hover:underline">Tạo prompt đầu tiên</button>
             </div>
@@ -175,7 +175,7 @@ export default function Admin() {
                       <input 
                         value={prompt.name} 
                         onChange={(e) => updatePrompt(prompt.id, 'name', e.target.value)}
-                        className="w-full origami-card border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 text-gray-800 dark:text-white"
+                        className="w-full artisan-card border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 text-gray-800 dark:text-white"
                         placeholder="VD: Trợ lý Nhân Sự"
                       />
                     </div>
@@ -185,7 +185,7 @@ export default function Admin() {
                         value={prompt.content} 
                         onChange={(e) => updatePrompt(prompt.id, 'content', e.target.value)}
                         rows={4}
-                        className="w-full origami-card border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 font-mono text-gray-800 dark:text-white"
+                        className="w-full artisan-card border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 font-mono text-gray-800 dark:text-white"
                         placeholder="Bạn là chuyên gia nhân sự. Nhiệm vụ của bạn là..."
                       />
                     </div>

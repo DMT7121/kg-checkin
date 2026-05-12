@@ -188,7 +188,7 @@ export default function Login() {
   };
 
   return (
-    <div className="flex-1 flex flex-col justify-center p-6 min-h-screen relative overflow-hidden origami-bg font-sans">
+    <div className="flex-1 flex flex-col justify-center p-6 min-h-screen relative overflow-hidden artisan-bg font-sans">
       {/* Origami Fold Accents */}
       <div className="absolute top-0 right-0 w-32 h-32 bg-white/20 dark:bg-white/5 border-l border-b border-black/5 dark:border-white/5 shadow-[-5px_5px_15px_rgba(0,0,0,0.05)] transform rotate-45 translate-x-16 -translate-y-16"></div>
       <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/30 dark:bg-white/5 border-r border-t border-black/5 dark:border-white/5 shadow-[5px_-5px_15px_rgba(0,0,0,0.05)] transform rotate-45 -translate-x-24 translate-y-24"></div>
@@ -216,7 +216,7 @@ export default function Login() {
 
       {/* LOGIN FORM */}
       {mode === 'login' && (
-        <div className="origami-card p-8 animate-slide-up w-full">
+        <div className="artisan-card p-8 animate-slide-up w-full">
           <h3 className="text-2xl font-extrabold mb-6 text-center text-gray-800 dark:text-gray-100">Đăng Nhập</h3>
           <form onSubmit={handleLogin}>
             <div className="mb-5 relative group">
@@ -239,13 +239,13 @@ export default function Login() {
             
             <div className="mb-6 flex items-center">
               <input id="remember-me" name="remember-me" type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)}
-                className="h-4 w-4 text-ocean-600 focus:ring-ocean-500 border-gray-300 rounded origami-bg dark:border-gray-600" />
+                className="h-4 w-4 text-ocean-600 focus:ring-ocean-500 border-gray-300 rounded artisan-bg dark:border-gray-600" />
               <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
                 Ghi nhớ đăng nhập
               </label>
             </div>
 
-            <button type="submit" className="origami-btn-primary w-full font-bold py-3.5 min-h-[44px] flex items-center justify-center">
+            <button type="submit" className="artisan-btn-primary w-full font-bold py-3.5 min-h-[44px] flex items-center justify-center">
               ĐĂNG NHẬP <ArrowRight size={14} className="ml-2 opacity-80" />
             </button>
           </form>
@@ -258,7 +258,7 @@ export default function Login() {
 
       {/* REGISTER FORM */}
       {mode === 'register' && (
-        <div className="origami-card p-6 md:p-8 animate-slide-up w-full">
+        <div className="artisan-card p-6 md:p-8 animate-slide-up w-full">
           <div className="text-center mb-6">
             <h3 className="text-2xl font-extrabold text-gray-800 dark:text-gray-100">Tạo tài khoản mới</h3>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Gia nhập hệ thống King's Grill</p>
@@ -323,7 +323,7 @@ export default function Login() {
               </div>
             </div>
 
-            <button type="submit" className="origami-btn-primary w-full mt-2 font-bold py-3.5 min-h-[44px] flex items-center justify-center">
+            <button type="submit" className="artisan-btn-primary w-full mt-2 font-bold py-3.5 min-h-[44px] flex items-center justify-center">
               HOÀN TẤT ĐĂNG KÝ
             </button>
             <button type="button" onClick={() => setMode('login')} className="w-full mt-4 text-gray-500 text-sm hover:text-gray-800 dark:hover:text-white font-medium flex items-center justify-center transition-colors">
@@ -335,9 +335,9 @@ export default function Login() {
 
       {/* FORGOT PASSWORD FORM */}
       {mode === 'forgot' && (
-        <div className="origami-card p-8 animate-slide-up w-full">
+        <div className="artisan-card p-8 animate-slide-up w-full">
           <div className="text-center mb-6">
-            <div className="w-12 h-12 paper-layer bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center mx-auto mb-3">
+            <div className="w-12 h-12 paint-layer bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center mx-auto mb-3">
               <KeyRound size={24} className="text-orange-500" />
             </div>
             <h3 className="text-2xl font-extrabold text-gray-800 dark:text-gray-100">Khôi phục mật khẩu</h3>
@@ -353,7 +353,7 @@ export default function Login() {
                   </div>
                   <input type="email" required value={forgotForm.email} onChange={(e) => setForgotForm({ email: e.target.value })} placeholder="Nhập Email đã đăng ký..." className="w-full bg-gray-50 dark:bg-[#2a2a35] border border-gray-200 dark:border-gray-700 rounded-sm pl-11 pr-4 py-3.5 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 min-h-[44px] text-gray-800 dark:text-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]" />
                 </div>
-                <button type="submit" className="origami-btn w-full font-bold py-3.5 min-h-[44px] flex items-center justify-center text-orange-600 dark:text-orange-400">
+                <button type="submit" className="artisan-btn w-full font-bold py-3.5 min-h-[44px] flex items-center justify-center text-orange-600 dark:text-orange-400">
                   GỬI MÃ OTP
                 </button>
               </>
@@ -363,13 +363,13 @@ export default function Login() {
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-orange-500 transition-colors">
                     <KeyRound size={16} />
                   </div>
-                  <input type="text" required value={resetForm.otp} onChange={(e) => setResetForm({ ...resetForm, otp: e.target.value })} placeholder="Nhập mã OTP 6 số" className="w-full origami-bg/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-11 pr-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-orange-500/50 min-h-[44px] text-gray-800 dark:text-white text-center tracking-widest font-bold" maxLength={6} />
+                  <input type="text" required value={resetForm.otp} onChange={(e) => setResetForm({ ...resetForm, otp: e.target.value })} placeholder="Nhập mã OTP 6 số" className="w-full artisan-bg/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-11 pr-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-orange-500/50 min-h-[44px] text-gray-800 dark:text-white text-center tracking-widest font-bold" maxLength={6} />
                 </div>
                 <div className="relative group mb-6">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-orange-500 transition-colors">
                     <Lock size={16} />
                   </div>
-                  <input type="password" required value={resetForm.newPassword} onChange={(e) => setResetForm({ ...resetForm, newPassword: e.target.value })} placeholder="Mật khẩu mới" className="w-full origami-bg/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-11 pr-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-orange-500/50 min-h-[44px] text-gray-800 dark:text-white" />
+                  <input type="password" required value={resetForm.newPassword} onChange={(e) => setResetForm({ ...resetForm, newPassword: e.target.value })} placeholder="Mật khẩu mới" className="w-full artisan-bg/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-11 pr-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-orange-500/50 min-h-[44px] text-gray-800 dark:text-white" />
                 </div>
                 <button type="submit" className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold py-3.5 rounded-xl shadow-lg hover:shadow-green-500/40 transition transform active:scale-95 min-h-[44px] flex items-center justify-center">
                   ĐẶT LẠI MẬT KHẨU

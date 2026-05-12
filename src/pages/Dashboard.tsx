@@ -274,7 +274,7 @@ export default function Dashboard() {
     return (
       <div className="p-4 space-y-4">
         {/* Header Banner */}
-        <div className="origami-card !bg-gradient-to-r from-[#1856FF] via-[#0ea5e9] to-[#3A344E] p-6 md:p-8 text-white shadow-[0_15px_30px_rgba(24,86,255,0.3)] relative overflow-hidden flex items-center justify-between mb-2">
+        <div className="artisan-card !bg-gradient-to-r from-[#1856FF] via-[#0ea5e9] to-[#3A344E] p-6 md:p-8 text-white shadow-[0_15px_30px_rgba(24,86,255,0.3)] relative overflow-hidden flex items-center justify-between mb-2">
           <div className="relative z-10">
             <div className="flex items-center space-x-3 mb-2">
               <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
@@ -295,7 +295,7 @@ export default function Dashboard() {
         </div>
 
         {/* Ca hôm nay */}
-        <div className="origami-card p-4 animate-slide-up relative z-10">
+        <div className="artisan-card p-4 animate-slide-up relative z-10">
           <div className="flex items-center justify-between mb-3">
              <div className="flex items-center space-x-2">
                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isOff ? 'bg-gray-100 text-gray-500 dark:bg-gray-700' : 'bg-ocean-100 text-ocean-600 dark:bg-ocean-900/30'}`}>
@@ -347,7 +347,7 @@ export default function Dashboard() {
 
         {/* Quick stats */}
         <div className="grid grid-cols-2 gap-3 relative z-10">
-          <div className="origami-card p-4">
+          <div className="artisan-card p-4">
             <div className="flex items-center space-x-2 mb-2">
               <div className="w-8 h-8 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
                 <Camera size={16} className="text-green-600" />
@@ -356,7 +356,7 @@ export default function Dashboard() {
             </div>
             <p className="text-2xl font-bold text-gray-800 dark:text-white">{stats.totalCheckIn}</p>
           </div>
-          <div className="origami-card p-4">
+          <div className="artisan-card p-4">
             <div className="flex items-center space-x-2 mb-2">
               <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
                 <ClipboardCheck size={16} className="text-blue-600" />
@@ -368,7 +368,7 @@ export default function Dashboard() {
         </div>
 
         {/* Quick actions */}
-        <div className="origami-card p-4 relative z-10">
+        <div className="artisan-card p-4 relative z-10">
           <h3 className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-3">Thao tác nhanh</h3>
           <div className="grid grid-cols-4 gap-2">
             {[
@@ -390,14 +390,14 @@ export default function Dashboard() {
 
         {/* Recent activity */}
         {recentLogs.length > 0 && (
-          <div className="origami-card p-4 relative z-10">
+          <div className="artisan-card p-4 relative z-10">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-bold text-gray-700 dark:text-gray-200">Hoạt động gần đây</h3>
               <button onClick={() => handleTabChange('history')} className="text-xs text-ocean-500 font-medium">Xem tất cả →</button>
             </div>
             <div className="space-y-2.5">
               {recentLogs.map((log, i) => (
-                <div key={i} className="flex items-center space-x-3 p-2.5 paper-layer">
+                <div key={i} className="flex items-center space-x-3 p-2.5 paint-layer">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold  ${log.type === 'Vào ca' ? 'bg-green-500' : 'bg-red-500'}`}>
                     {log.type === 'Vào ca' ? '→' : '←'}
                   </div>
@@ -427,18 +427,18 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="max-w-md mx-auto min-h-screen origami-bg shadow-2xl relative overflow-hidden flex flex-col font-sans">
+    <div className="max-w-md mx-auto min-h-screen artisan-bg shadow-2xl relative overflow-hidden flex flex-col font-sans">
       {/* Origami Fold Accents */}
       <div className="absolute top-[-5%] left-[-20%] w-[30rem] h-[30rem] bg-white/20 dark:bg-white/5 border-b border-black/5 dark:border-white/5 transform rotate-12 pointer-events-none"></div>
       <div className="absolute bottom-[20%] right-[-20%] w-[25rem] h-[25rem] bg-white/30 dark:bg-white/5 border-t border-black/5 dark:border-white/5 transform -rotate-12 pointer-events-none"></div>
 
       {/* Header */}
-      <header className="paper-layer text-ocean-800 dark:text-white p-4 flex justify-between items-center sticky top-0 z-40 mx-2 mt-2">
+      <header className="paint-layer text-ocean-800 dark:text-white p-4 flex justify-between items-center sticky top-0 z-40 mx-2 mt-2">
         <div className="flex items-center space-x-3">
-          <button onClick={handleOpenSidebar} className="w-11 h-11 rounded-xl paper-layer hover:bg-gray-200 dark:hover:bg-gray-700 transition flex items-center justify-center text-gray-700 dark:text-gray-200 touch-manipulation">
+          <button onClick={handleOpenSidebar} className="w-11 h-11 rounded-xl paint-layer hover:bg-gray-200 dark:hover:bg-gray-700 transition flex items-center justify-center text-gray-700 dark:text-gray-200 touch-manipulation">
             <Menu size={20} />
           </button>
-          <div className="w-10 h-10 rounded-full origami-card items-center justify-center shadow-md overflow-hidden border border-gray-200 dark:border-gray-700 min-h-[44px] min-w-[44px] hidden sm:flex">
+          <div className="w-10 h-10 rounded-full artisan-card items-center justify-center shadow-md overflow-hidden border border-gray-200 dark:border-gray-700 min-h-[44px] min-w-[44px] hidden sm:flex">
             <img src="/android-chrome-192x192.png?v=3" alt="Logo" className="w-8 h-8 object-contain" />
           </div>
           <div>
@@ -447,7 +447,7 @@ export default function Dashboard() {
           </div>
         </div>
         <div className="flex items-center space-x-2">
-          <button onClick={() => store.toggleDarkMode()} className="w-11 h-11 rounded-full paper-layer hover:bg-gray-200 dark:hover:bg-gray-700 transition flex items-center justify-center text-gray-600 dark:text-gray-300 touch-manipulation relative">
+          <button onClick={() => store.toggleDarkMode()} className="w-11 h-11 rounded-full paint-layer hover:bg-gray-200 dark:hover:bg-gray-700 transition flex items-center justify-center text-gray-600 dark:text-gray-300 touch-manipulation relative">
             {isDark ? <Sun size={18} /> : <Moon size={18} />}
           </button>
           <button onClick={handleLogout} className="w-11 h-11 rounded-full bg-red-50 dark:bg-red-900/30 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 transition flex items-center justify-center touch-manipulation">
@@ -474,7 +474,7 @@ export default function Dashboard() {
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="absolute top-0 left-0 bottom-0 w-[85%] max-w-[320px] origami-card z-50 flex flex-col border-r-0"
+              className="absolute top-0 left-0 bottom-0 w-[85%] max-w-[320px] artisan-card z-50 flex flex-col border-r-0"
             >
               {/* Sidebar Header */}
               <div className="p-5 border-b border-white/20 dark:border-white/10 flex justify-between items-center">
@@ -489,7 +489,7 @@ export default function Dashboard() {
                     </p>
                   </div>
                 </div>
-                <button onClick={() => setSidebarOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-full paper-layer text-gray-500 hover:text-gray-800 dark:hover:text-white transition-colors">
+                <button onClick={() => setSidebarOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-full paint-layer text-gray-500 hover:text-gray-800 dark:hover:text-white transition-colors">
                   <X size={16} />
                 </button>
               </div>
@@ -556,10 +556,10 @@ export default function Dashboard() {
                                   >
                                     <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
                                       item.comingSoon
-                                        ? 'paper-layer'
+                                        ? 'paint-layer'
                                         : isActive
                                         ? 'bg-ocean-500 shadow-md'
-                                        : 'paper-layer'
+                                        : 'paint-layer'
                                     }`}>
                                       <Icon size={14} className={
                                         item.comingSoon

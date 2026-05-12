@@ -93,7 +93,7 @@ export default function Roster() {
         grouped[item.shift].push(item.name);
       });
       Object.entries(grouped).forEach(([shift, names]) => {
-        html += `<div class="mb-4 paper-layer p-3 rounded-xl ">
+        html += `<div class="mb-4 paint-layer p-3 rounded-xl ">
           <div class="font-bold text-indigo-600 dark:text-indigo-400 border-b border-indigo-100 dark:border-indigo-900/50 mb-2 pb-1 text-sm flex items-center">
             <span class="w-2 h-2 rounded-full bg-indigo-500 mr-2"></span>${shift}
           </div>
@@ -144,7 +144,7 @@ export default function Roster() {
             );
           }}
         />
-        <div className="mt-5 text-xs text-center text-gray-500 dark:text-gray-400 paper-layer/50 py-2 rounded-lg border border-dashed border-gray-200 dark:border-gray-700">
+        <div className="mt-5 text-xs text-center text-gray-500 dark:text-gray-400 paint-layer/50 py-2 rounded-lg border border-dashed border-gray-200 dark:border-gray-700">
           💡 Nhấn vào một ngày bất kỳ để xem lịch làm của toàn quán
         </div>
       </div>
@@ -152,11 +152,11 @@ export default function Roster() {
   };
 
   return (
-      <div className="overflow-x-auto w-full origami-bg rounded-xl border border-gray-200 dark:border-gray-700 pb-10">
+      <div className="overflow-x-auto w-full artisan-bg rounded-xl border border-gray-200 dark:border-gray-700 pb-10">
         <table className="w-full text-sm text-left whitespace-nowrap">
-          <thead className="text-[10px] text-gray-500 dark:text-gray-400 uppercase paper-layer/80 border-b border-gray-200 dark:border-gray-700">
+          <thead className="text-[10px] text-gray-500 dark:text-gray-400 uppercase paint-layer/80 border-b border-gray-200 dark:border-gray-700">
             <tr>
-              <th className="px-3 py-3 sticky left-0 paper-layer z-20 font-bold border-r border-gray-200 dark:border-gray-700 shadow-[1px_0_0_0_rgba(0,0,0,0.05)]">Nhân Viên</th>
+              <th className="px-3 py-3 sticky left-0 paint-layer z-20 font-bold border-r border-gray-200 dark:border-gray-700 shadow-[1px_0_0_0_rgba(0,0,0,0.05)]">Nhân Viên</th>
               {SHORT_DAY_NAMES.map((d, idx) => (
                 <th key={d} className="px-1 py-3 text-center border-r border-gray-200 dark:border-gray-700 last:border-r-0">
                   <div className="font-bold text-[13px]">{weekInfo.weekDates[idx]}</div>
@@ -167,8 +167,8 @@ export default function Roster() {
           </thead>
           <tbody>
             {rosterToRender.map((emp, empIdx) => (
-              <tr key={empIdx} className={`origami-card border-b dark:border-gray-700 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 transition-colors ${emp.username === store.currentUser?.username ? 'bg-indigo-50/30 dark:bg-indigo-900/20' : ''}`}>
-                <td className="px-3 py-3 sticky left-0 origami-card z-10 shadow-[1px_0_0_0_rgba(0,0,0,0.05)] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.05)] border-r border-gray-200 dark:border-gray-700">
+              <tr key={empIdx} className={`artisan-card border-b dark:border-gray-700 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 transition-colors ${emp.username === store.currentUser?.username ? 'bg-indigo-50/30 dark:bg-indigo-900/20' : ''}`}>
+                <td className="px-3 py-3 sticky left-0 artisan-card z-10 shadow-[1px_0_0_0_rgba(0,0,0,0.05)] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.05)] border-r border-gray-200 dark:border-gray-700">
                   <div className="font-bold text-gray-800 dark:text-gray-200 truncate max-w-[100px] text-xs">
                     {emp.fullname}
                   </div>
@@ -221,11 +221,11 @@ export default function Roster() {
     });
 
     return (
-      <div className="overflow-x-auto w-full origami-bg rounded-xl border border-gray-200 dark:border-gray-700 pb-10 custom-scrollbar">
+      <div className="overflow-x-auto w-full artisan-bg rounded-xl border border-gray-200 dark:border-gray-700 pb-10 custom-scrollbar">
         <table className="w-full text-sm text-left whitespace-nowrap">
-          <thead className="text-[10px] text-gray-500 dark:text-gray-400 uppercase paper-layer/80 border-b border-gray-200 dark:border-gray-700">
+          <thead className="text-[10px] text-gray-500 dark:text-gray-400 uppercase paint-layer/80 border-b border-gray-200 dark:border-gray-700">
             <tr>
-              <th className="px-3 py-3 sticky left-0 paper-layer z-20 font-bold border-r border-gray-200 dark:border-gray-700 shadow-[1px_0_0_0_rgba(0,0,0,0.05)]">Nhân Viên</th>
+              <th className="px-3 py-3 sticky left-0 paint-layer z-20 font-bold border-r border-gray-200 dark:border-gray-700 shadow-[1px_0_0_0_rgba(0,0,0,0.05)]">Nhân Viên</th>
               {monthDates.map((mDate) => (
                 <th key={mDate.dateKey} className={`px-1 py-2 text-center border-r border-gray-200 dark:border-gray-700 min-w-[50px] ${mDate.isWeekend ? 'bg-gray-200 dark:bg-gray-700/50' : ''}`}>
                   <div className="font-bold text-gray-700 dark:text-gray-300 text-[13px]">{formatDateShort(mDate.date)}</div>
@@ -236,8 +236,8 @@ export default function Roster() {
           </thead>
           <tbody>
             {rosterToRender.map((emp, empIdx) => (
-              <tr key={empIdx} className={`origami-card border-b dark:border-gray-700 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 transition-colors ${emp.username === store.currentUser?.username ? 'bg-indigo-50/30 dark:bg-indigo-900/20' : ''}`}>
-                <td className="px-3 py-3 sticky left-0 origami-card z-10 shadow-[1px_0_0_0_rgba(0,0,0,0.05)] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.05)] border-r border-gray-200 dark:border-gray-700">
+              <tr key={empIdx} className={`artisan-card border-b dark:border-gray-700 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 transition-colors ${emp.username === store.currentUser?.username ? 'bg-indigo-50/30 dark:bg-indigo-900/20' : ''}`}>
+                <td className="px-3 py-3 sticky left-0 artisan-card z-10 shadow-[1px_0_0_0_rgba(0,0,0,0.05)] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.05)] border-r border-gray-200 dark:border-gray-700">
                   <div className="font-bold text-gray-800 dark:text-gray-200 truncate max-w-[100px] text-xs">
                     {emp.fullname}
                   </div>
@@ -246,7 +246,7 @@ export default function Roster() {
                   const mDate = monthDates[dayIdx];
                   const isOff = shift === 'OFF' || !shift;
                   return (
-                    <td key={dayIdx} className={`px-1 py-1 border-r border-gray-100 dark:border-gray-700/50 text-center ${mDate.isWeekend ? 'paper-layer/80' : ''}`}>
+                    <td key={dayIdx} className={`px-1 py-1 border-r border-gray-100 dark:border-gray-700/50 text-center ${mDate.isWeekend ? 'paint-layer/80' : ''}`}>
                       <div className={`inline-flex items-center justify-center text-[9px] font-bold w-full py-1 rounded-md ${getAdminShiftClass(shift)}`}>
                         {isOff ? 'OFF' : shift}
                       </div>
@@ -287,7 +287,7 @@ export default function Roster() {
       </div>
         
       {/* Toggle Mode & Time Navigation */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 relative z-10 gap-3 w-full origami-card p-2 rounded-2xl  ">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 relative z-10 gap-3 w-full artisan-card p-2 rounded-2xl  ">
           <div className="flex items-center space-x-1">
             <button 
               onClick={() => setViewMode('week')} 
@@ -303,7 +303,7 @@ export default function Roster() {
             </button>
           </div>
           
-          <div className="flex items-center space-x-2 origami-bg/50 rounded-xl p-1.5 border border-gray-200 dark:border-gray-700 w-full sm:w-auto justify-center sm:justify-start">
+          <div className="flex items-center space-x-2 artisan-bg/50 rounded-xl p-1.5 border border-gray-200 dark:border-gray-700 w-full sm:w-auto justify-center sm:justify-start">
             <button onClick={() => viewMode === 'week' ? changeWeek(-1) : changeMonth(-1)} className="p-1.5 hover:bg-white dark:hover:bg-gray-800 hover: rounded-lg transition-all text-gray-600 dark:text-gray-400"><ChevronLeft size={18} /></button>
             <div className="text-sm font-bold px-2 min-w-[140px] text-center text-gray-800 dark:text-gray-200">
               {viewMode === 'week' ? weekInfo.weekDisplay : `Tháng ${selectedMonth}/${selectedYear}`}
@@ -314,7 +314,7 @@ export default function Roster() {
         
 
 
-      <div className="origami-card p-5 rounded-2xl  ">
+      <div className="artisan-card p-5 rounded-2xl  ">
         <div className="flex justify-between items-center mb-4 border-b dark:border-gray-700 pb-2">
           <h3 className="font-bold flex items-center text-gray-800 dark:text-white text-sm">
             <Calendar size={16} className="mr-2 text-indigo-600" /> Bảng phân ca toàn quán
@@ -324,7 +324,7 @@ export default function Roster() {
           </button>
         </div>
 
-        <div className="mb-4 text-xs text-gray-500 dark:text-gray-400 origami-bg p-3 rounded-xl  flex items-start">
+        <div className="mb-4 text-xs text-gray-500 dark:text-gray-400 artisan-bg p-3 rounded-xl  flex items-start">
           <Info size={14} className="mr-2 text-indigo-500 mt-0.5 flex-shrink-0" />
           <p>Đây là lịch làm việc chính thức đã được Quản lý phê duyệt. Nếu có nhu cầu thay đổi, vui lòng báo Quản lý (Admin).</p>
         </div>

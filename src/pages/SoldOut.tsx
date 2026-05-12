@@ -83,7 +83,7 @@ export default function SoldOut() {
   );
 
   return (
-    <div className="flex flex-col h-full origami-bg pb-20">
+    <div className="flex flex-col h-full artisan-bg pb-20">
       <div className="p-4 animate-slide-up">
         {/* Header Banner */}
         <div className="bg-gradient-to-r from-red-500 via-rose-500 to-red-700 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex items-center justify-between mb-6 shrink-0">
@@ -116,7 +116,7 @@ export default function SoldOut() {
               placeholder="Tìm món đang hết..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full origami-card border border-gray-200 dark:border-gray-700 rounded-xl py-2.5 pl-10 pr-4 text-sm text-gray-800 dark:text-white focus:ring-2 focus:ring-red-500 transition outline-none "
+              className="w-full artisan-card border border-gray-200 dark:border-gray-700 rounded-xl py-2.5 pl-10 pr-4 text-sm text-gray-800 dark:text-white focus:ring-2 focus:ring-red-500 transition outline-none "
             />
           </div>
           <button
@@ -136,7 +136,7 @@ export default function SoldOut() {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden origami-card border-b border-gray-100 dark:border-gray-700 "
+            className="overflow-hidden artisan-card border-b border-gray-100 dark:border-gray-700 "
           >
             <form onSubmit={handleAdd} className="p-4">
               <p className="text-sm text-gray-600 dark:text-gray-300 font-medium mb-2">Nhập tên món vừa hết nguyên liệu:</p>
@@ -186,7 +186,7 @@ export default function SoldOut() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95 }}
-                  className="origami-card p-3  border border-red-100 dark:border-red-900/30 flex flex-col relative overflow-hidden"
+                  className="artisan-card p-3  border border-red-100 dark:border-red-900/30 flex flex-col relative overflow-hidden"
                 >
                   {/* Decorative stripe */}
                   <div className="absolute top-0 left-0 bottom-0 w-1 bg-red-500"></div>

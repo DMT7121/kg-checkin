@@ -131,7 +131,7 @@ export default function AdminShift() {
       </div>
 
       {/* GPS Configuration */}
-      <div className="origami-card p-5 rounded-2xl  ">
+      <div className="artisan-card p-5 rounded-2xl  ">
         <h3 className="font-bold mb-4 border-b dark:border-gray-700 pb-2 flex items-center text-gray-800 dark:text-white">
           <MapPin size={18} className="mr-2 text-ocean-600" /> Tọa độ GPS Nhà hàng
         </h3>
@@ -170,14 +170,14 @@ export default function AdminShift() {
       </div>
 
       {/* Shift Codes */}
-      <div className="origami-card p-5 rounded-2xl  ">
+      <div className="artisan-card p-5 rounded-2xl  ">
         <h3 className="font-bold mb-4 border-b dark:border-gray-700 pb-2 flex items-center text-gray-800 dark:text-white">
           <CalendarRange size={18} className="mr-2 text-ocean-600" /> Mã Ca Làm
         </h3>
         
         <div className="space-y-3">
           {shiftCodes.map((s) => (
-            <div key={s.id} className={`flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl border ${s.type === 'standard' ? 'origami-bg border-gray-100 dark:border-gray-800' : s.type === 'admin' ? 'bg-orange-50 dark:bg-orange-900/10 border-orange-100 dark:border-orange-800' : 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-800'}`}>
+            <div key={s.id} className={`flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl border ${s.type === 'standard' ? 'artisan-bg border-gray-100 dark:border-gray-800' : s.type === 'admin' ? 'bg-orange-50 dark:bg-orange-900/10 border-orange-100 dark:border-orange-800' : 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-800'}`}>
               <div className="min-w-0 pr-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className={`text-sm font-bold truncate ${s.type === 'standard' ? 'text-gray-800 dark:text-gray-200' : s.type === 'admin' ? 'text-orange-800 dark:text-orange-400' : 'text-red-800 dark:text-red-400'}`}>{s.code}</p>
@@ -198,7 +198,7 @@ export default function AdminShift() {
       </div>
       
       {/* Registration Settings */}
-      <div className="origami-card p-5 rounded-2xl  ">
+      <div className="artisan-card p-5 rounded-2xl  ">
         <h3 className="font-bold mb-4 border-b dark:border-gray-700 pb-2 flex items-center text-gray-800 dark:text-white">
           <AlertCircle size={18} className="mr-2 text-ocean-600" /> Luật Đăng Ký Ca
         </h3>
