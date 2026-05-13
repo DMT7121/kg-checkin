@@ -637,6 +637,11 @@ function handleCheckInOut(payload) {
         ]);
         Logger.log('Auto penalty: ' + payload.fullname + ' trễ ' + serverLateMins + 'p → -' + penaltyAmount + 'đ');
       } catch(penErr) { Logger.log('Auto penalty error: ' + penErr.message); }
+      // Phase 3: Deduct King Coins for late
+      recordKingCoins(payload.username, payload.fullname, 'Đi trễ ' + serverLateMins + 'p (ca ' + serverShift + ')', -10, 'CheckIn');
+    } else if (serverShift && serverShift !== 'OFF' && isValid && (loaiChamCong === 'Vào ca' || loaiChamCong.indexOf('Vào ca') >= 0)) {
+      // Phase 3: Award King Coins for on-time arrival
+      recordKingCoins(payload.username, payload.fullname, 'Vào ca đúng giờ (' + serverShift + ')', 5, 'CheckIn');
     }
   
     return jsonResponse(true, {

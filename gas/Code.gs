@@ -161,6 +161,12 @@ function doPost(e) {
       case 'UPLOAD_IMAGE':
         return handleUploadImage(payload);
 
+      // --- KING COINS (GAMIFICATION) ---
+      case 'GET_LEADERBOARD':
+        return handleGetLeaderboard();
+      case 'GET_USER_COINS':
+        return handleGetUserCoins(payload);
+
       default:
         return jsonResponse(false, 'Unknown action');
     }

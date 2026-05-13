@@ -1069,6 +1069,10 @@ function handleSubmitChecklist(payload) {
     now.toString()
   ]);
   
+  // Phase 3: Award King Coins for checklist completion
+  var tasksCount = (payload.checkedTasks || []).length;
+  recordKingCoins(payload.username || '', payload.fullname || '', 'Hoàn thành Checklist (' + tasksCount + ' mục)', 10, 'Checklist');
+  
   return jsonResponse(true, "Đã nộp checklist thành công");
 }
 
@@ -1097,6 +1101,9 @@ function handleSubmitHandover(payload) {
     payload.note || '',
     now.toString()
   ]);
+  
+  // Phase 3: Award King Coins for handover
+  recordKingCoins(payload.username || '', payload.fullname || payload.username || '', 'Bàn giao ca đầy đủ', 15, 'Handover');
   
   return jsonResponse(true, "Đã ghi nhận bàn giao ca");
 }
@@ -1521,6 +1528,10 @@ function handleAddBonusPenalty(payload) {
     payload.reason
   ]);
   
+  // Phase 3: Award/deduct King Coins for manual bonus/penalty
+  var coinPoints = payload.type === 'BONUS' ? 20 : -15;
+  recordKingCoins(payload.targetUsername, payload.targetFullname, (payload.type === 'BONUS' ? 'Thưởng: ' : 'Phạt: ') + payload.reason, coinPoints, 'Discipline');
+  
   return jsonResponse(true, "Đã ghi nhận " + (payload.type === 'BONUS' ? 'thưởng' : 'phạt') + " thành công");
 }
 
@@ -1816,4 +1827,99 @@ function handleGetTimesheet(payload) {
   } catch (err) {
     return jsonResponse(false, "Lỗi phân tích công: " + err.message);
   }
+}
+
+// ==========================================
+// PHASE 3: KING COINS — GAMIFICATION ENGINE
+// ==========================================
+
+/**
+ * Record King Coins for a user. Called internally by other handlers.
+ * @param {string} username
+ * @param {string} fullname
+ * @param {string} action - description of the action
+ * @param {number} points - positive=earn, negative=deduct
+ * @param {string} source - module name (CheckIn, Checklist, Discipline, etc.)
+ */
+function recordKingCoins(username, fullname, action, points, source) {
+  try {
+    var ss = getSS();
+    var sheet = ss.getSheetByName('KING_COINS');
+    if (!sheet) {
+      sheet = ss.insertSheet('KING_COINS');
+      sheet.appendRow(['ID', 'Date', 'Username', 'Fullname', 'Action', 'Points', 'Source']);
+    }
+    var now = new Date();
+    var dateStr = Utilities.formatDate(now, CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm');
+    sheet.appendRow([
+      'KC_' + now.getTime(),
+      dateStr,
+      username,
+      fullname,
+      action,
+      points,
+      source
+    ]);
+  } catch(e) {
+    Logger.log('recordKingCoins error: ' + e.message);
+  }
+}
+
+function handleGetLeaderboard() {
+  var ss = getSS();
+  var sheet = ss.getSheetByName('KING_COINS');
+  if (!sheet || sheet.getLastRow() <= 1) return jsonResponse(true, []);
+
+  var data = sheet.getDataRange().getValues();
+  var userTotals = {};
+
+  for (var i = 1; i < data.length; i++) {
+    var uname = data[i][2] ? data[i][2].toString() : '';
+    var fname = data[i][3] ? data[i][3].toString() : '';
+    var pts = Number(data[i][5]) || 0;
+    if (!uname) continue;
+
+    if (!userTotals[uname]) {
+      userTotals[uname] = { username: uname, fullname: fname, totalPoints: 0 };
+    }
+    userTotals[uname].totalPoints += pts;
+  }
+
+  var leaderboard = Object.values(userTotals);
+  leaderboard.sort(function(a, b) { return b.totalPoints - a.totalPoints; });
+
+  // Add rank
+  for (var r = 0; r < leaderboard.length; r++) {
+    leaderboard[r].rank = r + 1;
+  }
+
+  return jsonResponse(true, leaderboard);
+}
+
+function handleGetUserCoins(payload) {
+  var ss = getSS();
+  var sheet = ss.getSheetByName('KING_COINS');
+  if (!sheet || sheet.getLastRow() <= 1) return jsonResponse(true, { totalPoints: 0, history: [] });
+
+  var data = sheet.getDataRange().getValues();
+  var history = [];
+  var totalPoints = 0;
+  var targetUser = (payload.username || '').toLowerCase();
+
+  for (var i = data.length - 1; i > 0; i--) {
+    var uname = data[i][2] ? data[i][2].toString().toLowerCase() : '';
+    if (uname === targetUser) {
+      var pts = Number(data[i][5]) || 0;
+      totalPoints += pts;
+      history.push({
+        id: data[i][0],
+        date: data[i][1],
+        action: data[i][4],
+        points: pts,
+        source: data[i][6]
+      });
+    }
+  }
+
+  return jsonResponse(true, { totalPoints: totalPoints, history: history.slice(0, 50) });
 }
