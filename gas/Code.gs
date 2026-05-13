@@ -167,6 +167,14 @@ function doPost(e) {
       case 'GET_USER_COINS':
         return handleGetUserCoins(payload);
 
+      // --- TRAINING ---
+      case 'GET_TRAINING_CONTENT':
+        return handleGetTrainingContent();
+      case 'SUBMIT_TRAINING_QUIZ':
+        return handleSubmitTrainingQuiz(payload);
+      case 'GET_TRAINING_PROGRESS':
+        return handleGetTrainingProgress(payload);
+
       default:
         return jsonResponse(false, 'Unknown action');
     }

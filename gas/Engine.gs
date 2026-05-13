@@ -1923,3 +1923,119 @@ function handleGetUserCoins(payload) {
 
   return jsonResponse(true, { totalPoints: totalPoints, history: history.slice(0, 50) });
 }
+
+// ==========================================
+// PHASE 4: TRAINING — DYNAMIC CONTENT
+// ==========================================
+
+function _getTrainingContentSheet() {
+  var ss = getSS();
+  var sheet = ss.getSheetByName('TRAINING_CONTENT');
+  if (!sheet) {
+    sheet = ss.insertSheet('TRAINING_CONTENT');
+    sheet.appendRow(['ID', 'Title', 'Type', 'Content', 'QuizJSON', 'Points', 'IsActive', 'CreatedAt']);
+    // Seed initial lessons
+    var now = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'dd/MM/yyyy');
+    sheet.appendRow(['TR_1', 'Menu Đồ Uống Mùa Hè', 'lesson', 
+      '1. Trà Đào Cam Sả: 40ml syrup đào, 2 lát cam, 1 nhánh sả, 100ml trà xanh.\n2. Trà Vải Hoa Hồng: 30ml syrup vải, nụ hoa hồng khô, 100ml trà oolong.\n3. Cà phê Muối: 30ml espresso, 20ml sữa đặc, 30ml kem mặn.',
+      JSON.stringify([
+        { q: 'Trà Đào Cam Sả dùng bao nhiêu ml syrup đào?', options: ['30ml', '40ml', '50ml', '60ml'], answer: 1 },
+        { q: 'Cà phê Muối dùng bao nhiêu ml espresso?', options: ['20ml', '25ml', '30ml', '35ml'], answer: 2 }
+      ]), 50, true, now]);
+    sheet.appendRow(['TR_2', 'Quy trình đón khách (5 sao)', 'lesson',
+      '1. Mỉm cười chào khách trong vòng 3 giây đầu.\n2. Hỏi số lượng người và hướng dẫn vị trí ngồi.\n3. Đưa menu bằng 2 tay và giới thiệu món đặc biệt trong ngày.\n4. Rót nước lọc mời khách.',
+      JSON.stringify([
+        { q: 'Bao lâu phải chào khách khi khách bước vào?', options: ['5 giây', '10 giây', '3 giây', '1 phút'], answer: 2 },
+        { q: 'Đưa menu cho khách bằng mấy tay?', options: ['1 tay', '2 tay', 'Để lên bàn', 'Không cần'], answer: 1 }
+      ]), 50, true, now]);
+    sheet.appendRow(['TR_3', 'Vệ sinh an toàn thực phẩm', 'lesson',
+      '1. Rửa tay bằng xà phòng ít nhất 20 giây trước khi chế biến.\n2. Thực phẩm tươi sống phải được bảo quản riêng biệt.\n3. Nhiệt độ tủ lạnh duy trì dưới 5°C.\n4. Thực phẩm chín phải được phục vụ trong vòng 2 giờ.',
+      JSON.stringify([
+        { q: 'Rửa tay ít nhất bao lâu?', options: ['10 giây', '15 giây', '20 giây', '30 giây'], answer: 2 },
+        { q: 'Nhiệt độ tủ lạnh phải duy trì dưới bao nhiêu độ?', options: ['0°C', '3°C', '5°C', '8°C'], answer: 2 }
+      ]), 50, true, now]);
+  }
+  return sheet;
+}
+
+function handleGetTrainingContent() {
+  var sheet = _getTrainingContentSheet();
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return jsonResponse(true, []);
+
+  var lessons = [];
+  for (var i = 1; i < data.length; i++) {
+    var isActive = data[i][6] === true || data[i][6] === 'TRUE' || data[i][6] === true;
+    if (!isActive) continue;
+    
+    var quiz = [];
+    try { quiz = data[i][4] ? JSON.parse(data[i][4]) : []; } catch(e) {}
+    
+    lessons.push({
+      id: data[i][0],
+      title: data[i][1],
+      type: data[i][2],
+      content: data[i][3],
+      quiz: quiz,
+      points: Number(data[i][5]) || 0
+    });
+  }
+  return jsonResponse(true, lessons);
+}
+
+function handleGetTrainingProgress(payload) {
+  var ss = getSS();
+  var sheet = ss.getSheetByName('TRAINING_PROGRESS');
+  if (!sheet || sheet.getLastRow() <= 1) return jsonResponse(true, []);
+
+  var data = sheet.getDataRange().getValues();
+  var completed = [];
+  var targetUser = (payload.username || '').toLowerCase();
+
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][1] && data[i][1].toString().toLowerCase() === targetUser) {
+      completed.push({
+        lessonId: data[i][2],
+        score: Number(data[i][3]) || 0,
+        completedAt: data[i][4]
+      });
+    }
+  }
+  return jsonResponse(true, completed);
+}
+
+function handleSubmitTrainingQuiz(payload) {
+  var ss = getSS();
+  var sheet = ss.getSheetByName('TRAINING_PROGRESS');
+  if (!sheet) {
+    sheet = ss.insertSheet('TRAINING_PROGRESS');
+    sheet.appendRow(['ID', 'Username', 'LessonID', 'Score', 'CompletedAt']);
+  }
+
+  // Check if already completed
+  if (sheet.getLastRow() > 1) {
+    var existing = sheet.getDataRange().getValues();
+    for (var i = 1; i < existing.length; i++) {
+      if (existing[i][1] && existing[i][1].toString().toLowerCase() === (payload.username || '').toLowerCase() &&
+          existing[i][2] && existing[i][2].toString() === payload.lessonId) {
+        return jsonResponse(false, 'Bạn đã hoàn thành bài này rồi');
+      }
+    }
+  }
+
+  var now = new Date();
+  var dateStr = Utilities.formatDate(now, CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm');
+  sheet.appendRow([
+    'TP_' + now.getTime(),
+    payload.username || '',
+    payload.lessonId || '',
+    payload.score || 100,
+    dateStr
+  ]);
+
+  // Award King Coins
+  var points = Number(payload.points) || 50;
+  recordKingCoins(payload.username || '', payload.fullname || '', 'Hoàn thành bài: ' + (payload.lessonTitle || payload.lessonId), points, 'Training');
+
+  return jsonResponse(true, 'Đã ghi nhận hoàn thành bài học');
+}
