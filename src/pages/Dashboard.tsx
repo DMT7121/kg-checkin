@@ -34,6 +34,7 @@ import Discipline from './Discipline';
 import Payroll from './Payroll';
 import Reward from './Reward';
 import Timesheet from './Timesheet';
+import NotificationBell from '../components/NotificationBell';
 
 // ============================================
 // Định nghĩa cấu trúc Sidebar theo 5 Nhóm
@@ -644,6 +645,7 @@ export default function Dashboard() {
           </div>
         </div>
         <div className="flex items-center space-x-2">
+          <NotificationBell />
           <button onClick={() => store.toggleDarkMode()} className="w-11 h-11 rounded-full paint-layer hover:bg-gray-200 dark:hover:bg-gray-700 transition flex items-center justify-center text-gray-600 dark:text-gray-300 touch-manipulation relative">
             {isDark ? <Sun size={18} /> : <Moon size={18} />}
           </button>

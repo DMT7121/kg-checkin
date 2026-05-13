@@ -175,6 +175,12 @@ function doPost(e) {
       case 'GET_TRAINING_PROGRESS':
         return handleGetTrainingProgress(payload);
 
+      // --- NOTIFICATIONS ---
+      case 'GET_NOTIFICATIONS':
+        return handleGetNotifications(payload);
+      case 'MARK_NOTIFICATION_READ':
+        return handleMarkNotificationRead(payload);
+
       default:
         return jsonResponse(false, 'Unknown action');
     }

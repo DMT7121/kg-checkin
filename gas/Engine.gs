@@ -1197,6 +1197,9 @@ function handleSubmitFeedback(payload) {
     "",
     payload.fullname || '' // Store fullname at col 8
   ]);
+  // Phase 5: Notify admins about new feedback
+  var senderName = payload.isAnonymous ? 'Ẩn danh' : (payload.fullname || payload.username || 'NV');
+  createNotification('ALL', '💬 Góp ý mới', senderName + ': ' + (payload.content || '').substring(0, 60), 'action', 'feedback');
   
   return jsonResponse(true, "Đã gửi góp ý");
 }
@@ -2038,4 +2041,105 @@ function handleSubmitTrainingQuiz(payload) {
   recordKingCoins(payload.username || '', payload.fullname || '', 'Hoàn thành bài: ' + (payload.lessonTitle || payload.lessonId), points, 'Training');
 
   return jsonResponse(true, 'Đã ghi nhận hoàn thành bài học');
+}
+
+// ==========================================
+// PHASE 5: NOTIFICATION SYSTEM
+// ==========================================
+
+/**
+ * Create a notification. Called internally by other handlers.
+ * @param {string} targetUsername - who receives this. Use 'ALL' for broadcast.
+ * @param {string} title
+ * @param {string} body
+ * @param {string} type - 'info' | 'warning' | 'success' | 'action'
+ * @param {string} link - optional tab to navigate to
+ */
+function createNotification(targetUsername, title, body, type, link) {
+  try {
+    var ss = getSS();
+    var sheet = ss.getSheetByName('NOTIFICATIONS');
+    if (!sheet) {
+      sheet = ss.insertSheet('NOTIFICATIONS');
+      sheet.appendRow(['ID', 'Target', 'Title', 'Body', 'Type', 'Link', 'IsRead', 'CreatedAt']);
+    }
+    var now = new Date();
+    var dateStr = Utilities.formatDate(now, CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm');
+    sheet.appendRow([
+      'NTF_' + now.getTime(),
+      targetUsername || 'ALL',
+      title || '',
+      body || '',
+      type || 'info',
+      link || '',
+      false,
+      dateStr
+    ]);
+  } catch(e) {
+    Logger.log('createNotification error: ' + e.message);
+  }
+}
+
+function handleGetNotifications(payload) {
+  var ss = getSS();
+  var sheet = ss.getSheetByName('NOTIFICATIONS');
+  if (!sheet || sheet.getLastRow() <= 1) return jsonResponse(true, { notifications: [], unreadCount: 0 });
+
+  var data = sheet.getDataRange().getValues();
+  var notifications = [];
+  var unreadCount = 0;
+  var targetUser = (payload.username || '').toLowerCase();
+
+  // Read latest 30, newest first
+  for (var i = data.length - 1; i > 0 && notifications.length < 30; i--) {
+    var target = data[i][1] ? data[i][1].toString().toLowerCase() : '';
+    if (target === targetUser || target === 'all') {
+      var isRead = data[i][6] === true || data[i][6] === 'TRUE';
+      if (!isRead) unreadCount++;
+      notifications.push({
+        id: data[i][0],
+        title: data[i][2],
+        body: data[i][3],
+        type: data[i][4],
+        link: data[i][5],
+        isRead: isRead,
+        createdAt: data[i][7],
+        rowIndex: i + 1
+      });
+    }
+  }
+
+  return jsonResponse(true, { notifications: notifications, unreadCount: unreadCount });
+}
+
+function handleMarkNotificationRead(payload) {
+  var ss = getSS();
+  var sheet = ss.getSheetByName('NOTIFICATIONS');
+  if (!sheet) return jsonResponse(false, 'Sheet not found');
+
+  if (payload.markAll) {
+    // Mark all as read for this user
+    var data = sheet.getDataRange().getValues();
+    var targetUser = (payload.username || '').toLowerCase();
+    for (var i = 1; i < data.length; i++) {
+      var target = data[i][1] ? data[i][1].toString().toLowerCase() : '';
+      if ((target === targetUser || target === 'all') && !(data[i][6] === true || data[i][6] === 'TRUE')) {
+        sheet.getRange(i + 1, 7).setValue(true);
+      }
+    }
+    return jsonResponse(true, 'Đã đọc tất cả');
+  }
+
+  // Mark single notification
+  if (payload.notificationId) {
+    var data2 = sheet.getDataRange().getValues();
+    for (var j = 1; j < data2.length; j++) {
+      if (data2[j][0] && data2[j][0].toString() === payload.notificationId) {
+        sheet.getRange(j + 1, 7).setValue(true);
+        return jsonResponse(true, 'Đã đọc');
+      }
+    }
+  }
+
+  return jsonResponse(false, 'Không tìm thấy thông báo');
 }
