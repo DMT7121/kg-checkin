@@ -154,6 +154,10 @@ function doPost(e) {
         return handleAddBonusPenalty(payload);
       case 'DELETE_BONUS_PENALTY':
         return handleDeleteBonusPenalty(payload);
+      case 'GET_SALARY_CONFIG':
+        return handleGetSalaryConfig(payload);
+      case 'UPDATE_SALARY_CONFIG':
+        return handleUpdateSalaryConfig(payload);
       case 'GET_PAYROLL':
         return handleGetPayroll(payload);
       case 'GET_TIMESHEET':

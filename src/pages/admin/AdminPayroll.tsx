@@ -6,6 +6,7 @@ import { callApi } from '../../services/api';
 
 export default function AdminPayroll() {
   const { serverPayrollConfig, currentUser, setServerPayrollConfig } = useAppStore();
+  const setCurrentTab = useAppStore(s => s.setCurrentTab);
   const [formulaLocked, setFormulaLocked] = useState(true);
   const [advanceLimit, setAdvanceLimit] = useState('50');
   const [baseFormula, setBaseFormula] = useState('(HOURS * RATE) + BONUS - PENALTY + ALLOWANCE');
@@ -142,7 +143,7 @@ export default function AdminPayroll() {
   return (
     <div className="p-4 space-y-4 animate-slide-up pb-10">
       <div className="flex mb-2 -mt-2">
-        <button onClick={() => store.setCurrentTab('admin')} className="flex items-center text-xs font-bold text-gray-500 hover:text-ocean-600 transition-colors">
+        <button onClick={() => setCurrentTab('admin')} className="flex items-center text-xs font-bold text-gray-500 hover:text-ocean-600 transition-colors">
           <span className="mr-1">←</span> Quay lại Cài đặt chung
         </button>
       </div>

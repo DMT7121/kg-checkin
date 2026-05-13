@@ -1582,6 +1582,47 @@ function _getSalaryConfigSheet() {
   return sheet;
 }
 
+function handleGetSalaryConfig(payload) {
+  if (payload.role !== 'admin' && payload.role !== 'tester') {
+    return jsonResponse(false, 'Không có quyền');
+  }
+  var sheet = _getSalaryConfigSheet();
+  var data = sheet.getDataRange().getValues();
+  var items = [];
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0]) {
+      items.push({
+        username: data[i][0].toString(),
+        fullname: data[i][1] ? data[i][1].toString() : '',
+        baseSalaryPerHour: Number(data[i][2]) || 20000
+      });
+    }
+  }
+  return jsonResponse(true, { salaryConfig: items });
+}
+
+function handleUpdateSalaryConfig(payload) {
+  if (payload.role !== 'admin' && payload.role !== 'tester') {
+    return jsonResponse(false, 'Không có quyền');
+  }
+  var items = payload.items;
+  if (!items || !Array.isArray(items)) {
+    return jsonResponse(false, 'Dữ liệu không hợp lệ');
+  }
+  var sheet = _getSalaryConfigSheet();
+  // Clear existing data (keep header)
+  if (sheet.getLastRow() > 1) {
+    sheet.getRange(2, 1, sheet.getLastRow() - 1, 3).clearContent();
+  }
+  if (items.length > 0) {
+    var rows = items.map(function(it) {
+      return [it.username || '', it.fullname || '', Number(it.baseSalaryPerHour) || 20000];
+    });
+    sheet.getRange(2, 1, rows.length, 3).setValues(rows);
+  }
+  return jsonResponse(true, 'Cập nhật bảng lương cá nhân thành công');
+}
+
 function handleGetPayroll(payload) {
   var ss = getSS();
   var isAdmin = payload.role === 'admin' || payload.role === 'tester';
