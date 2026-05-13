@@ -1521,7 +1521,7 @@ function handleGetData(payload) {
         var ud = usersSheet.getDataRange().getValues();
         var users = [];
         for (var j = 1; j < ud.length; j++) {
-          users.push({ username: ud[j][0] ? ud[j][0].toString() : '', fullname: ud[j][2] ? ud[j][2].toString() : '', email: ud[j][4] ? ud[j][4].toString() : '', role: ud[j][5] ? ud[j][5].toString() : 'user', position: ud[j][6] ? ud[j][6].toString() : 'Phục vụ' });
+          users.push({ username: ud[j][0] ? ud[j][0].toString() : '', fullname: ud[j][2] ? ud[j][2].toString() : '', dob: ud[j][3] ? ud[j][3].toString() : '', email: ud[j][4] ? ud[j][4].toString() : '', role: ud[j][5] ? ud[j][5].toString() : 'user', position: ud[j][6] ? ud[j][6].toString() : 'Phục vụ' });
         }
         result.users = users;
       }
