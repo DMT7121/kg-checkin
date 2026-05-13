@@ -35,6 +35,7 @@ import Payroll from './Payroll';
 import Reward from './Reward';
 import Timesheet from './Timesheet';
 import NotificationBell from '../components/NotificationBell';
+import AdminAnalytics from './admin/AdminAnalytics';
 
 // ============================================
 // Định nghĩa cấu trúc Sidebar theo 5 Nhóm
@@ -135,6 +136,7 @@ export default function Dashboard() {
         { id: 'admin_shift', label: 'Cấu hình phân ca', icon: CalendarRange, adminOnly: true },
         { id: 'admin_payroll', label: 'Cấu hình lương thưởng', icon: DollarSign, adminOnly: true },
         { id: 'admin_checklist', label: 'Cấu hình Checklist', icon: ClipboardCheck, adminOnly: true },
+        { id: 'admin_analytics', label: 'Thống kê & Báo cáo', icon: Building2, adminOnly: true },
       ],
     },
   ];
@@ -844,6 +846,7 @@ export default function Dashboard() {
             {currentTab === 'admin_org' && <AdminOrg />}
             {currentTab === 'admin_payroll' && <AdminPayroll />}
             {currentTab === 'admin_checklist' && <AdminChecklistConfig />}
+            {currentTab === 'admin_analytics' && <AdminAnalytics />}
             {currentTab === 'hr_list' && <HrList />}
             {/* Coming Soon Pages */}
             {[]?.includes(currentTab) && (

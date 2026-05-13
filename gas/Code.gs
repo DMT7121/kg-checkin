@@ -181,6 +181,10 @@ function doPost(e) {
       case 'MARK_NOTIFICATION_READ':
         return handleMarkNotificationRead(payload);
 
+      // --- ANALYTICS ---
+      case 'GET_ANALYTICS':
+        return handleGetAnalytics(payload);
+
       default:
         return jsonResponse(false, 'Unknown action');
     }

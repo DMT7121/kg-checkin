@@ -2143,3 +2143,165 @@ function handleMarkNotificationRead(payload) {
 
   return jsonResponse(false, 'Không tìm thấy thông báo');
 }
+
+// ==========================================
+// PHASE 6: ANALYTICS & REPORTING
+// ==========================================
+
+function handleGetAnalytics(payload) {
+  var ss = getSS();
+  var now = new Date();
+  var todayStr = Utilities.formatDate(now, CONFIG.TIMEZONE, 'dd/MM/yyyy');
+  var currentMonth = now.getMonth() + 1;
+  var currentYear = now.getFullYear();
+
+  var result = {
+    checkinStats: { total: 0, valid: 0, invalid: 0, late: 0 },
+    dailyCheckins: [],
+    topLateEmployees: [],
+    checklistRate: 0,
+    handoverRate: 0,
+    moodDistribution: {},
+    kingCoinsTop5: [],
+    trainingCompletion: { total: 0, completed: 0 },
+    feedbackStats: { total: 0, pending: 0, resolved: 0 }
+  };
+
+  // 1. Check-in analytics (last 30 days)
+  try {
+    var logSheet = ss.getSheetByName(CONFIG.SHEET_LOGS);
+    if (logSheet && logSheet.getLastRow() > 1) {
+      var logData = logSheet.getDataRange().getValues();
+      var dailyMap = {};
+      var lateMap = {};
+      var thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      for (var i = 1; i < logData.length; i++) {
+        var timeStr = logData[i][2] ? logData[i][2].toString().replace("'", "") : '';
+        var parts = timeStr.split(' ');
+        var datePart = parts[0] || '';
+        
+        // Parse dd/MM/yyyy
+        var dp = datePart.split('/');
+        if (dp.length !== 3) continue;
+        var logDate = new Date(parseInt(dp[2]), parseInt(dp[1]) - 1, parseInt(dp[0]));
+        if (logDate < thirtyDaysAgo) continue;
+
+        result.checkinStats.total++;
+        var verification = logData[i][4] ? logData[i][4].toString() : '';
+        if (verification === 'Hợp lệ') result.checkinStats.valid++;
+        else result.checkinStats.invalid++;
+
+        var typeStr = logData[i][1] ? logData[i][1].toString() : '';
+        if (typeStr.indexOf('Trễ') >= 0) {
+          result.checkinStats.late++;
+          var empName = logData[i][0] ? logData[i][0].toString() : '';
+          lateMap[empName] = (lateMap[empName] || 0) + 1;
+        }
+
+        // Daily aggregation
+        if (!dailyMap[datePart]) dailyMap[datePart] = { date: datePart, checkins: 0, late: 0 };
+        dailyMap[datePart].checkins++;
+        if (typeStr.indexOf('Trễ') >= 0) dailyMap[datePart].late++;
+      }
+
+      // Convert to arrays
+      result.dailyCheckins = Object.values(dailyMap).sort(function(a, b) {
+        var ad = a.date.split('/'), bd = b.date.split('/');
+        return new Date(ad[2], ad[1]-1, ad[0]) - new Date(bd[2], bd[1]-1, bd[0]);
+      }).slice(-14); // Last 14 days
+
+      // Top late employees
+      var lateArr = [];
+      for (var emp in lateMap) { lateArr.push({ name: emp, count: lateMap[emp] }); }
+      lateArr.sort(function(a,b) { return b.count - a.count; });
+      result.topLateEmployees = lateArr.slice(0, 5);
+    }
+  } catch(e) { Logger.log('Analytics checkin error: ' + e.message); }
+
+  // 2. Checklist completion rate (today)
+  try {
+    var clSheet = ss.getSheetByName('ChecklistLogs');
+    var usersSheet = ss.getSheetByName(CONFIG.SHEET_USERS);
+    if (clSheet && usersSheet) {
+      var totalUsers = Math.max(1, usersSheet.getLastRow() - 1);
+      var clData = clSheet.getDataRange().getValues();
+      var todaySubmitters = new Set();
+      for (var ci = 1; ci < clData.length; ci++) {
+        if (clData[ci][1] && clData[ci][1].toString() === todayStr) {
+          todaySubmitters.add(clData[ci][3]);
+        }
+      }
+      result.checklistRate = Math.round((todaySubmitters.size / totalUsers) * 100);
+    }
+  } catch(e) {}
+
+  // 3. Handover rate (today)
+  try {
+    var hoSheet = ss.getSheetByName('Handovers');
+    if (hoSheet && hoSheet.getLastRow() > 1) {
+      var hoData = hoSheet.getDataRange().getValues();
+      var todayHandovers = 0;
+      for (var hi = 1; hi < hoData.length; hi++) {
+        if (hoData[hi][1] && hoData[hi][1].toString() === todayStr) todayHandovers++;
+      }
+      result.handoverRate = todayHandovers;
+    }
+  } catch(e) {}
+
+  // 4. Mood survey distribution (last 30 days)
+  try {
+    var surveySheet = ss.getSheetByName('Surveys');
+    if (surveySheet && surveySheet.getLastRow() > 1) {
+      var sData = surveySheet.getDataRange().getValues();
+      var moods = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
+      for (var si = 1; si < sData.length; si++) {
+        var emotion = sData[si][2] ? sData[si][2].toString() : '';
+        if (moods[emotion] !== undefined) moods[emotion]++;
+      }
+      result.moodDistribution = moods;
+    }
+  } catch(e) {}
+
+  // 5. King Coins top 5
+  try {
+    var kcSheet = ss.getSheetByName('KING_COINS');
+    if (kcSheet && kcSheet.getLastRow() > 1) {
+      var kcData = kcSheet.getDataRange().getValues();
+      var coinMap = {};
+      for (var ki = 1; ki < kcData.length; ki++) {
+        var uname = kcData[ki][3] ? kcData[ki][3].toString() : '';
+        var pts = Number(kcData[ki][5]) || 0;
+        if (uname) coinMap[uname] = (coinMap[uname] || 0) + pts;
+      }
+      var coinArr = [];
+      for (var cn in coinMap) { coinArr.push({ name: cn, points: coinMap[cn] }); }
+      coinArr.sort(function(a,b) { return b.points - a.points; });
+      result.kingCoinsTop5 = coinArr.slice(0, 5);
+    }
+  } catch(e) {}
+
+  // 6. Training completion
+  try {
+    var tcSheet = ss.getSheetByName('TRAINING_CONTENT');
+    var tpSheet = ss.getSheetByName('TRAINING_PROGRESS');
+    if (tcSheet) result.trainingCompletion.total = Math.max(0, tcSheet.getLastRow() - 1);
+    if (tpSheet) result.trainingCompletion.completed = Math.max(0, tpSheet.getLastRow() - 1);
+  } catch(e) {}
+
+  // 7. Feedback stats
+  try {
+    var fbSheet = ss.getSheetByName('Feedbacks');
+    if (fbSheet && fbSheet.getLastRow() > 1) {
+      var fbData = fbSheet.getDataRange().getValues();
+      for (var fi = 1; fi < fbData.length; fi++) {
+        result.feedbackStats.total++;
+        var status = fbData[fi][6] ? fbData[fi][6].toString() : '';
+        if (status === 'Pending') result.feedbackStats.pending++;
+        else result.feedbackStats.resolved++;
+      }
+    }
+  } catch(e) {}
+
+  return jsonResponse(true, result);
+}
