@@ -238,6 +238,9 @@ interface AppState {
   // Anti-spam
   lastCheckInTime: number;
 
+  // Phase 7: Data freshness
+  lastFetchTime: number;
+
   // Actions
   setCurrentUser: (user: User | null) => void;
   setRememberMe: (v: boolean) => void;
@@ -298,6 +301,7 @@ interface AppState {
   setPendingFeedbackCount: (count: number) => void;
   setTodayChecklistDone: (done: boolean) => void;
   setTodayHandoverDone: (done: boolean) => void;
+  setLastFetchTime: (t: number) => void;
   logout: () => void;
 }
 
@@ -376,6 +380,9 @@ export const useAppStore = create<AppState>((set) => ({
 
   // Anti-spam
   lastCheckInTime: 0,
+
+  // Phase 7: Data freshness
+  lastFetchTime: 0,
 
   // Actions
   setCurrentUser: (user) => set({ currentUser: user }),
@@ -458,6 +465,7 @@ export const useAppStore = create<AppState>((set) => ({
     }),
   removeSwapRequest: (id) => set((s) => ({ swapRequests: s.swapRequests.filter(r => r.id !== id) })),
 
+  setLastFetchTime: (t) => set({ lastFetchTime: t }),
   logout: () => {
     localStorage.removeItem('kg_user');
     localStorage.removeItem('kg_session_time');

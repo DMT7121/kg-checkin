@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import { computeWeekInfo } from '../utils/helpers';
+import { refreshAppData } from '../utils/refreshData';
 import {
   Sun, Moon, Power, Camera, Calendar, Clock3, ShieldAlert,
   ArrowLeftRight, Newspaper, GraduationCap, Menu, X,
@@ -150,35 +151,9 @@ export default function Dashboard() {
     store.setCurrentTab(tab);
     setSidebarOpen(false);
 
-    // Fetch data when switching to history or admin
+    // Phase 7: Refresh data using centralized function (stale check)
     if (tab === 'history' || tab === 'admin' || tab === 'dashboard') {
-      const weekInfo = computeWeekInfo();
-      callApi('GET_DATA', {
-        username: currentUser!.username,
-        fullname: currentUser!.fullname,
-        role: currentUser!.role,
-        monthSheet: weekInfo.monthSheet,
-        weekLabel: weekInfo.weekLabel,
-      }, { background: true }).then((res) => {
-        if (res?.ok) {
-          store.setLogs(res.data.logs || []);
-          store.setStats(res.data.stats || { totalCheckIn: 0, validCount: 0 });
-          store.setUsers(res.data.users || []);
-          if (res.data.keys) store.setGroqKeys(res.data.keys);
-          store.setScheduleRegistered(res.data.isScheduleRegistered ?? false);
-          if (res.data.approvedShifts) store.setApprovedShifts(res.data.approvedShifts);
-          if (res.data.gpsConfig) store.setServerGpsConfig(res.data.gpsConfig);
-          if (res.data.orgConfig) store.setServerOrgConfig(res.data.orgConfig);
-          if (res.data.payrollConfig) store.setServerPayrollConfig(res.data.payrollConfig);
-          // Dashboard Hub (Phase 1)
-          if (res.data.recentPosts) store.setRecentPosts(res.data.recentPosts);
-          if (res.data.pendingFeedbackCount !== undefined) store.setPendingFeedbackCount(res.data.pendingFeedbackCount);
-          if (res.data.todayChecklistDone !== undefined) store.setTodayChecklistDone(res.data.todayChecklistDone);
-          if (res.data.todayHandoverDone !== undefined) store.setTodayHandoverDone(res.data.todayHandoverDone);
-          localStorage.setItem('kg_logs', JSON.stringify(res.data.logs || []));
-          localStorage.setItem('kg_stats', JSON.stringify(res.data.stats));
-        }
-      });
+      refreshAppData();
     }
   };
 

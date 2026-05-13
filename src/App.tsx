@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useAppStore } from './store/useAppStore';
 import { callApi } from './services/api';
 import { isInAppBrowser, computeWeekInfo, getCurrentTimeString } from './utils/helpers';
+import { refreshAppData } from './utils/refreshData';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import LoadingScreen from './components/LoadingScreen';
@@ -85,36 +86,8 @@ export default function App() {
           // Refresh session timestamp (extend session on reload)
           localStorage.setItem('kg_session_time', Date.now().toString());
 
-          // Fetch fresh data in background
-          callApi('GET_DATA', {
-            username: user.username,
-            fullname: user.fullname,
-            role: user.role,
-            monthSheet: weekInfo.monthSheet,
-            weekLabel: weekInfo.weekLabel,
-          }, { background: true }).then((res) => {
-            if (res?.ok) {
-              store.setLogs(res.data.logs || []);
-              store.setStats(res.data.stats || { totalCheckIn: 0, validCount: 0 });
-              store.setUsers(res.data.users || []);
-              if (res.data.keys) store.setGroqKeys(res.data.keys);
-              if (res.data.chatHistory) store.setChatHistory(res.data.chatHistory);
-              if (res.data.aiPrompts) store.setAiPrompts(res.data.aiPrompts);
-              if (res.data.isScheduleRegistered !== undefined)
-                store.setScheduleRegistered(res.data.isScheduleRegistered);
-              if (res.data.approvedShifts) store.setApprovedShifts(res.data.approvedShifts);
-              if (res.data.gpsConfig) store.setServerGpsConfig(res.data.gpsConfig);
-              if (res.data.orgConfig) store.setServerOrgConfig(res.data.orgConfig);
-              if (res.data.payrollConfig) store.setServerPayrollConfig(res.data.payrollConfig);
-              // Dashboard Hub (Phase 1)
-              if (res.data.recentPosts) store.setRecentPosts(res.data.recentPosts);
-              if (res.data.pendingFeedbackCount !== undefined) store.setPendingFeedbackCount(res.data.pendingFeedbackCount);
-              if (res.data.todayChecklistDone !== undefined) store.setTodayChecklistDone(res.data.todayChecklistDone);
-              if (res.data.todayHandoverDone !== undefined) store.setTodayHandoverDone(res.data.todayHandoverDone);
-              localStorage.setItem('kg_logs', JSON.stringify(res.data.logs || []));
-              localStorage.setItem('kg_stats', JSON.stringify(res.data.stats));
-            }
-          });
+          // Fetch fresh data in background (Phase 7: centralized)
+          refreshAppData(true);
         }
       } catch {
         localStorage.removeItem('kg_user');
@@ -122,7 +95,13 @@ export default function App() {
       }
     }
 
-    return () => clearInterval(timer);
+    // Phase 7: Background refresh every 5 minutes (stale check inside)
+    const refreshInterval = setInterval(() => refreshAppData(), 5 * 60 * 1000);
+
+    return () => {
+      clearInterval(timer);
+      clearInterval(refreshInterval);
+    };
   }, []);
 
   return (
