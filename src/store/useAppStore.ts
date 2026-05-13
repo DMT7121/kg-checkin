@@ -10,6 +10,7 @@ export interface User {
   dob?: string;
   role?: string;
   position?: string;
+  avatarUrl?: string;
 }
 
 export interface Comment {

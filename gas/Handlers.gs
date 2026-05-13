@@ -1521,7 +1521,7 @@ function handleGetData(payload) {
         var ud = usersSheet.getDataRange().getValues();
         var users = [];
         for (var j = 1; j < ud.length; j++) {
-          users.push({ username: ud[j][0] ? ud[j][0].toString() : '', fullname: ud[j][2] ? ud[j][2].toString() : '', dob: ud[j][3] ? ud[j][3].toString() : '', email: ud[j][4] ? ud[j][4].toString() : '', role: ud[j][5] ? ud[j][5].toString() : 'user', position: ud[j][6] ? ud[j][6].toString() : 'Phục vụ' });
+          users.push({ username: ud[j][0] ? ud[j][0].toString() : '', fullname: ud[j][2] ? ud[j][2].toString() : '', dob: ud[j][3] ? ud[j][3].toString() : '', email: ud[j][4] ? ud[j][4].toString() : '', role: ud[j][5] ? ud[j][5].toString() : 'user', position: ud[j][6] ? ud[j][6].toString() : 'Phục vụ', avatarUrl: ud[j][7] ? ud[j][7].toString() : '' });
         }
         result.users = users;
       }
@@ -2608,6 +2608,41 @@ function handleUploadCheckinImage(payload) {
   }
 }
 
+function handleUploadAvatar(payload) {
+  if (!payload || !payload.image || !payload.username) return jsonResponse(false, 'Thiếu dữ liệu');
+  try {
+    var base64Data = payload.image;
+    if (base64Data.indexOf('base64,') >= 0) base64Data = base64Data.split('base64,')[1];
+    else if (base64Data.indexOf(',') >= 0) base64Data = base64Data.split(',')[1];
+    
+    var filename = 'avatar_' + payload.username.replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now() + '.jpg';
+    var mimeType = 'image/jpeg';
+    var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType, filename);
+    var folder = DriveApp.getFolderById(CONFIG.FOLDER_ID);
+    var file = folder.createFile(blob);
+    try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(e) {}
+    
+    var imageUrl = 'https://drive.google.com/thumbnail?id=' + file.getId() + '&sz=w400';
+    
+    // Save to DATA sheet Col 8 (index 7)
+    var ss = getSS();
+    var sheet = ss.getSheetByName(CONFIG.SHEET_USERS);
+    if (sheet) {
+      var data = sheet.getDataRange().getValues();
+      for (var i = 1; i < data.length; i++) {
+        if (data[i][0] && data[i][0].toString().toLowerCase() === payload.username.toLowerCase()) {
+          sheet.getRange(i + 1, 8).setValue(imageUrl);
+          break;
+        }
+      }
+    }
+    
+    invalidateGetDataCache(payload.username);
+    return jsonResponse(true, { url: imageUrl });
+  } catch(e) {
+    return jsonResponse(false, 'Lỗi upload avatar: ' + e.message);
+  }
+}
 function handleUploadImage(payload) {
   if (!payload || !payload.image) return jsonResponse(false, 'Không có ảnh upload');
   

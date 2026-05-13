@@ -160,6 +160,8 @@ function doPost(e) {
         return handleGetTimesheet(payload);
       case 'UPLOAD_IMAGE':
         return handleUploadImage(payload);
+      case 'UPLOAD_AVATAR':
+        return handleUploadAvatar(payload);
 
       // --- KING COINS (GAMIFICATION) ---
       case 'GET_LEADERBOARD':

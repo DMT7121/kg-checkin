@@ -655,9 +655,13 @@ export default function Dashboard() {
               {/* Sidebar Header */}
               <div className="p-5 border-b border-white/20 dark:border-white/10 flex justify-between items-center">
                 <div className="flex items-center space-x-3">
-                  <div className="soft3d-card w-11 h-11 rounded-full !bg-gradient-to-br from-ocean-500 to-purple-600 text-white flex items-center justify-center font-bold text-lg border-opacity-30">
-                    {currentUser?.fullname.charAt(0) || 'U'}
-                  </div>
+                  {currentUser?.avatarUrl ? (
+                    <img src={currentUser.avatarUrl} alt="" className="w-11 h-11 rounded-full object-cover border-2 border-white/30 shadow-md" />
+                  ) : (
+                    <div className="soft3d-card w-11 h-11 rounded-full !bg-gradient-to-br from-ocean-500 to-purple-600 text-white flex items-center justify-center font-bold text-lg border-opacity-30">
+                      {currentUser?.fullname.charAt(0) || 'U'}
+                    </div>
+                  )}
                   <div>
                     <h3 className="font-bold text-gray-800 dark:text-white leading-tight text-sm">{currentUser?.fullname.split(' ').pop()}</h3>
                     <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">
