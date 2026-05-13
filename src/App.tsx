@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useAppStore } from './store/useAppStore';
 import { callApi } from './services/api';
 import { isInAppBrowser, computeWeekInfo, getCurrentTimeString } from './utils/helpers';
-import { refreshAppData } from './utils/refreshData';
+import { refreshAppData, restoreFromCache } from './utils/refreshData';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import LoadingScreen from './components/LoadingScreen';
@@ -53,13 +53,8 @@ export default function App() {
           const user = JSON.parse(savedUser);
           store.setCurrentUser(user);
 
-          // Restore cached data instantly
-          const cachedLogs = localStorage.getItem('kg_logs');
-          const cachedStats = localStorage.getItem('kg_stats');
-          const lastCheckIn = localStorage.getItem('kg_last_checkin');
-          if (cachedLogs) store.setLogs(JSON.parse(cachedLogs));
-          if (cachedStats) store.setStats(JSON.parse(cachedStats));
-          if (lastCheckIn) store.setLastCheckInTime(parseInt(lastCheckIn));
+          // Phase A+B: Restore ALL cached data instantly (SWR pattern)
+          restoreFromCache();
 
           // Init week schedule
           const weekInfo = computeWeekInfo();

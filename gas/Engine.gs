@@ -15,6 +15,23 @@
 // 6. LOGIC XỬ LÝ CHÍNH (CORE ENGINE) - OPTIMIZED
 // =====================================================================================
 
+/**
+ * Phase A [1.2]: Invalidate GET_DATA cache after data-mutating operations.
+ * @param {string} username - optional, clears specific user cache. If omitted, clears all.
+ */
+function invalidateGetDataCache(username) {
+  try {
+    var cache = CacheService.getScriptCache();
+    if (username) {
+      var prefix = 'GD_' + username.substring(0, 10);
+      cache.removeAll([prefix + '_A', prefix + '_U']);
+    } else {
+      // Can't enumerate keys, so just remove common patterns
+      cache.removeAll(['GD_ALL']);
+    }
+  } catch(e) {}
+}
+
 function processSelectedSheetEnhanced(selectedSheetName, x2DaysStr, x3DaysStr) {
   if (x2DaysStr === undefined) x2DaysStr = '';
   if (x3DaysStr === undefined) x3DaysStr = '';

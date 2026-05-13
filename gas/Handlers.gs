@@ -646,6 +646,9 @@ function handleCheckInOut(payload) {
       recordKingCoins(payload.username, payload.fullname, 'Vào ca đúng giờ (' + serverShift + ')', 5, 'CheckIn');
     }
   
+    // Phase A: Invalidate cache after check-in
+    invalidateGetDataCache(payload.username);
+  
     return jsonResponse(true, {
       message: 'Chấm công thành công',
       imageUrl: imageUrl,
@@ -1466,273 +1469,236 @@ function handleUpdateAiPrompts(payload) {
 }
 
 function handleGetData(payload) {
+  var isAdmin = payload.role === 'admin' || payload.role === 'tester';
+  
+  // === PHASE A [1.2]: CacheService (TTL 120s) ===
+  var cache = CacheService.getScriptCache();
+  var cacheKey = 'GD_' + (payload.username || '').substring(0, 10) + '_' + (isAdmin ? 'A' : 'U');
+  if (!payload.forceRefresh) {
+    try {
+      var cached = cache.get(cacheKey);
+      if (cached) return jsonResponse(true, JSON.parse(cached));
+    } catch(ce) {}
+  }
+  
   var ss = getSS();
   var result = { logs: [], stats: { totalCheckIn: 0, validCount: 0 } };
   
-  // === LOGS & STATS ===
-  var sheet = ss.getSheetByName(CONFIG.SHEET_LOGS);
-  if (sheet && sheet.getLastRow() > 1) {
-    var data = sheet.getDataRange().getValues();
-    var logs = [];
-    var userCheckins = 0;
-    var validCount = 0;
-    
-    // Row 0 is header, data starts from row 1 (newest first since insertRowBefore(2))
-    for (var i = 1; i < data.length; i++) {
-      var row = data[i];
-      if (!row[0]) continue;
-      var isCurrentUser = row[0].toString().toLowerCase() === payload.fullname.toLowerCase();
-      var isAdmin = payload.role === 'admin' || payload.role === 'tester';
-      
-      if (isCurrentUser || isAdmin) {
-        // Handle time: could be Date object (auto-detected by Sheets) or string
-        var timeVal = row[2];
-        if (timeVal instanceof Date) {
-          timeVal = Utilities.formatDate(timeVal, CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm:ss');
-        } else {
-          timeVal = timeVal ? timeVal.toString() : '';
-        }
-        
-        var statusVal = row[4] ? row[4].toString() : '';
-        var isHopLe = statusVal.toUpperCase().indexOf('HỢP LỆ') >= 0 && statusVal.toUpperCase().indexOf('KHÔNG') < 0;
-        
-        logs.push({
-          fullname: row[0].toString(),
-          type: row[1] ? row[1].toString() : '',
-          time: timeVal,
-          location: row[3] ? row[3].toString() : '',
-          status: statusVal,
-          distance: row[5] ? row[5].toString() : '',
-          image: row[6] ? row[6].toString() : ''
-        });
-        
-        if (row[1] && row[1].toString().toLowerCase() === 'vào ca') {
-          userCheckins++;
-        }
-        if (isHopLe) {
-          validCount++;
+  // === LOGS — [1.1] Last 200 rows only ===
+  try {
+    var logSheet = ss.getSheetByName(CONFIG.SHEET_LOGS);
+    if (logSheet && logSheet.getLastRow() > 1) {
+      var lastRow = logSheet.getLastRow();
+      var numCols = logSheet.getLastColumn();
+      var startRow = Math.max(2, lastRow - 199);
+      var data = logSheet.getRange(startRow, 1, lastRow - startRow + 1, numCols).getValues();
+      var logs = [], userCheckins = 0, validCount = 0;
+      for (var i = data.length - 1; i >= 0; i--) {
+        var row = data[i];
+        if (!row[0]) continue;
+        var isCurrentUser = row[0].toString().toLowerCase() === payload.fullname.toLowerCase();
+        if (isCurrentUser || isAdmin) {
+          var timeVal = row[2];
+          if (timeVal instanceof Date) timeVal = Utilities.formatDate(timeVal, CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm:ss');
+          else timeVal = timeVal ? timeVal.toString() : '';
+          var statusVal = row[4] ? row[4].toString() : '';
+          var isHopLe = statusVal.toUpperCase().indexOf('HỢP LỆ') >= 0 && statusVal.toUpperCase().indexOf('KHÔNG') < 0;
+          logs.push({ fullname: row[0].toString(), type: row[1] ? row[1].toString() : '', time: timeVal, location: row[3] ? row[3].toString() : '', status: statusVal, distance: row[5] ? row[5].toString() : '', image: row[6] ? row[6].toString() : '' });
+          if (row[1] && row[1].toString().toLowerCase() === 'vào ca') userCheckins++;
+          if (isHopLe) validCount++;
         }
       }
+      result.logs = logs;
+      result.stats = { totalCheckIn: userCheckins, validCount: validCount };
     }
-    
-    result.logs = logs;
-    result.stats = { totalCheckIn: userCheckins, validCount: validCount };
-  }
+  } catch(e) { Logger.log('Logs error: ' + e.message); }
   
-  // === USERS (for admin) ===
-  if (payload.role === 'admin' || payload.role === 'tester') {
+  // === USERS — Admin only [1.4] ===
+  if (isAdmin) {
     try {
       var usersSheet = ss.getSheetByName(CONFIG.SHEET_USERS);
       if (usersSheet) {
-        var usersData = usersSheet.getDataRange().getValues();
+        var ud = usersSheet.getDataRange().getValues();
         var users = [];
-        for (var j = 1; j < usersData.length; j++) {
-          users.push({
-            username: usersData[j][0] ? usersData[j][0].toString() : '',
-            fullname: usersData[j][2] ? usersData[j][2].toString() : '',
-            email: usersData[j][4] ? usersData[j][4].toString() : '',
-            role: usersData[j][5] ? usersData[j][5].toString() : 'user',
-            position: usersData[j][6] ? usersData[j][6].toString() : 'Phục vụ'
-          });
+        for (var j = 1; j < ud.length; j++) {
+          users.push({ username: ud[j][0] ? ud[j][0].toString() : '', fullname: ud[j][2] ? ud[j][2].toString() : '', email: ud[j][4] ? ud[j][4].toString() : '', role: ud[j][5] ? ud[j][5].toString() : 'user', position: ud[j][6] ? ud[j][6].toString() : 'Phục vụ' });
         }
         result.users = users;
       }
-    } catch(e) { Logger.log('Error loading users: ' + e.message); }
+    } catch(e) {}
   }
   
   // === API KEYS ===
   try {
     var keysSheet = ss.getSheetByName(CONFIG.SHEET_API_KEYS);
     if (keysSheet && keysSheet.getLastRow() > 1) {
-      var keysData = keysSheet.getDataRange().getValues();
+      var kd = keysSheet.getDataRange().getValues();
       var keys = [];
-      for (var k = 1; k < keysData.length; k++) {
-        if (keysData[k][0]) {
-          keys.push({
-            key: keysData[k][0].toString(),
-            tag: keysData[k][1] ? keysData[k][1].toString() : 'Key ' + k,
-            status: keysData[k][2] ? keysData[k][2].toString() : 'Active'
-          });
-        }
+      for (var k = 1; k < kd.length; k++) {
+        if (kd[k][0]) keys.push({ key: kd[k][0].toString(), tag: kd[k][1] ? kd[k][1].toString() : 'Key ' + k, status: kd[k][2] ? kd[k][2].toString() : 'Active' });
       }
       result.keys = keys;
     }
-  } catch(e) { Logger.log('Error loading keys: ' + e.message); }
+  } catch(e) {}
   
-  // === CHAT LOGS ===
+  // === CHAT LOGS — last 50 ===
   try {
     var chatSheet = ss.getSheetByName(CONFIG.SHEET_CHAT_LOGS);
     if (chatSheet && chatSheet.getLastRow() > 1) {
-      var chatData = chatSheet.getDataRange().getValues();
+      var cd = chatSheet.getDataRange().getValues();
       var chatHistory = [];
-      // Data starts at row 2, limit to last 50 messages to avoid overload
-      var startIdx = Math.max(1, chatData.length - 50);
-      for (var c = startIdx; c < chatData.length; c++) {
-        if (chatData[c][1] && chatData[c][1].toString().toLowerCase() === payload.fullname.toLowerCase()) {
-          chatHistory.push({
-            role: chatData[c][2].toString(),
-            content: chatData[c][3].toString()
-          });
+      var si = Math.max(1, cd.length - 50);
+      for (var c = si; c < cd.length; c++) {
+        if (cd[c][1] && cd[c][1].toString().toLowerCase() === payload.fullname.toLowerCase()) {
+          chatHistory.push({ role: cd[c][2].toString(), content: cd[c][3].toString() });
         }
       }
       result.chatHistory = chatHistory;
     }
-  } catch(e) { Logger.log('Error loading chat logs: ' + e.message); }
+  } catch(e) {}
   
   // === AI PROMPTS ===
-  try {
-    result.aiPrompts = getConfigFromSheet("AI_PROMPTS", []);
-  } catch(e) { Logger.log('Error loading AI prompts: ' + e.message); }
+  try { result.aiPrompts = getConfigFromSheet("AI_PROMPTS", []); } catch(e) {}
   
-  // === SCHEDULE STATUS (Monthly Sheet Architecture) ===
+  // === SCHEDULE ===
   if (payload.monthSheet && payload.weekLabel) {
     try {
       var schedSheet = ss.getSheetByName(payload.monthSheet);
       if (schedSheet) {
-        // USE getDisplayValues() to NEVER receive Date objects for time cells
-        var schedData = schedSheet.getDataRange().getDisplayValues();
-        var isRegistered = false;
-        var approvedShifts = null;
-        var inTargetWeek = false;
-        
-        for (var s = 0; s < schedData.length; s++) {
-          var cellVal = schedData[s][0] ? schedData[s][0].toString() : '';
-          
-          // Track week headers
-          var cleanWeekLabel = payload.weekLabel.replace('📅 TUẦN ', '').replace('TUẦN ', '').trim();
-          if (cellVal.indexOf('TUẦN ') >= 0) {
-            inTargetWeek = cellVal.indexOf(cleanWeekLabel) >= 0;
-            continue;
-          }
-          
-          if (!inTargetWeek) continue;
-          
-          // Check for registration row
-          if (cellVal.toLowerCase() === payload.fullname.toLowerCase()) {
-            isRegistered = true;
-          }
-          
-          // Check for approval row
-          if (cellVal.indexOf('┗') >= 0 && cellVal.toLowerCase().indexOf(payload.fullname.toLowerCase()) >= 0) {
-            approvedShifts = [];
-            for (var d = 1; d <= 7; d++) {
-              approvedShifts.push(schedData[s][d] ? schedData[s][d].toString().trim() : 'OFF');
-            }
-          }
-        }
-        
-        result.isScheduleRegistered = isRegistered;
-        if (approvedShifts) result.approvedShifts = approvedShifts;
-      }
-    } catch(e) { Logger.log('Error loading schedule: ' + e.message); }
-  }
-  // Legacy fallback
-  else if (payload.targetSheet) {
-    try {
-      var legacySheet = ss.getSheetByName(payload.targetSheet);
-      if (legacySheet) {
-        // USE getDisplayValues() to natively skip Date formatting bugs
-        var legacyData = legacySheet.getDataRange().getDisplayValues();
-        var isReg = false;
-        var appShifts = null;
-        for (var sl = 1; sl < legacyData.length; sl++) {
-          if (legacyData[sl][0] && legacyData[sl][0].toString().toLowerCase() === payload.fullname.toLowerCase()) {
-            isReg = true;
+        var sd = schedSheet.getDataRange().getDisplayValues();
+        var isReg = false, appShifts = null, inWeek = false;
+        var cleanWL = payload.weekLabel.replace('📅 TUẦN ', '').replace('TUẦN ', '').trim();
+        for (var s = 0; s < sd.length; s++) {
+          var cv = sd[s][0] ? sd[s][0].toString() : '';
+          if (cv.indexOf('TUẦN ') >= 0) { inWeek = cv.indexOf(cleanWL) >= 0; continue; }
+          if (!inWeek) continue;
+          if (cv.toLowerCase() === payload.fullname.toLowerCase()) isReg = true;
+          if (cv.indexOf('┗') >= 0 && cv.toLowerCase().indexOf(payload.fullname.toLowerCase()) >= 0) {
             appShifts = [];
-            for (var dl = 1; dl <= 7; dl++) {
-              appShifts.push(legacyData[sl][dl] ? legacyData[sl][dl].toString().trim() : 'OFF');
-            }
-            break;
+            for (var d = 1; d <= 7; d++) appShifts.push(sd[s][d] ? sd[s][d].toString().trim() : 'OFF');
           }
         }
         result.isScheduleRegistered = isReg;
         if (appShifts) result.approvedShifts = appShifts;
       }
-    } catch(e) { Logger.log('Error loading schedule (legacy): ' + e.message); }
+    } catch(e) {}
   }
   
+  // === CONFIGS ===
   result.gpsConfig = getGpsConfig();
   result.orgConfig = getOrgConfig();
   result.payrollConfig = getPayrollConfig();
   
-  // === DASHBOARD HUB DATA (Phase 1) ===
+  // === DASHBOARD HUB ===
   var todayStr = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'dd/MM/yyyy');
   
-  // 1. Recent Posts (top 3 bài mới nhất)
   try {
     var postsSheet = ss.getSheetByName("Posts");
     if (postsSheet && postsSheet.getLastRow() > 1) {
-      var postsData = postsSheet.getDataRange().getValues();
-      var recentPosts = [];
-      for (var pi = postsData.length - 1; pi > 0 && recentPosts.length < 3; pi--) {
-        var pr = postsData[pi];
-        recentPosts.push({
-          id: pr[0],
-          author: pr[1],
-          content: pr[2] ? pr[2].toString().substring(0, 100) : '',
-          likesCount: pr[3] ? JSON.parse(pr[3]).length : 0,
-          commentsCount: pr[4] ? JSON.parse(pr[4]).length : 0,
-          image: pr[5] || '',
-          time: pr[6] || ''
-        });
+      var pd = postsSheet.getDataRange().getValues();
+      var rp = [];
+      for (var pi = pd.length - 1; pi > 0 && rp.length < 3; pi--) {
+        rp.push({ id: pd[pi][0], author: pd[pi][1], content: pd[pi][2] ? pd[pi][2].toString().substring(0, 100) : '', likesCount: pd[pi][3] ? JSON.parse(pd[pi][3]).length : 0, commentsCount: pd[pi][4] ? JSON.parse(pd[pi][4]).length : 0, image: pd[pi][5] || '', time: pd[pi][6] || '' });
       }
-      result.recentPosts = recentPosts;
+      result.recentPosts = rp;
     }
-  } catch(e) { Logger.log('Error loading recent posts: ' + e.message); }
+  } catch(e) {}
   
-  // 2. Pending Feedback Count (Admin only)
-  if (payload.role === 'admin' || payload.role === 'tester') {
+  if (isAdmin) {
     try {
       var fbSheet = ss.getSheetByName("Feedbacks");
       if (fbSheet && fbSheet.getLastRow() > 1) {
-        var fbData = fbSheet.getDataRange().getValues();
-        var pendingCount = 0;
-        for (var fi = 1; fi < fbData.length; fi++) {
-          if (fbData[fi][6] && fbData[fi][6].toString() === 'Pending') pendingCount++;
-        }
-        result.pendingFeedbackCount = pendingCount;
+        var fbd = fbSheet.getDataRange().getValues();
+        var pc = 0;
+        for (var fi = 1; fi < fbd.length; fi++) { if (fbd[fi][6] && fbd[fi][6].toString() === 'Pending') pc++; }
+        result.pendingFeedbackCount = pc;
       }
-    } catch(e) { Logger.log('Error loading feedback count: ' + e.message); }
+    } catch(e) {}
   }
   
-  // 3. Today Checklist Status
+  // Checklist — last 50 rows
   try {
     var clSheet = ss.getSheetByName("ChecklistLogs");
     if (clSheet && clSheet.getLastRow() > 1) {
-      var clData = clSheet.getDataRange().getValues();
-      var todayCompleted = false;
-      for (var ci = clData.length - 1; ci > 0; ci--) {
-        var clDate = clData[ci][1] ? clData[ci][1].toString() : '';
-        var clUser = clData[ci][3] ? clData[ci][3].toString().toLowerCase() : '';
-        if (clDate === todayStr && clUser === payload.username.toLowerCase()) {
-          todayCompleted = true;
-          break;
-        }
+      var clLast = clSheet.getLastRow(), clStart = Math.max(2, clLast - 49);
+      var cld = clSheet.getRange(clStart, 1, clLast - clStart + 1, 4).getValues();
+      var tDone = false;
+      for (var ci = cld.length - 1; ci >= 0; ci--) {
+        if (cld[ci][0] && cld[ci][0].toString() === todayStr && cld[ci][2] && cld[ci][2].toString().toLowerCase() === payload.username.toLowerCase()) { tDone = true; break; }
       }
-      result.todayChecklistDone = todayCompleted;
+      result.todayChecklistDone = tDone;
     }
-  } catch(e) { Logger.log('Error loading checklist status: ' + e.message); }
+  } catch(e) {}
   
-  // 4. Today Handover Status
+  // Handover — last 30 rows
   try {
     var hoSheet = ss.getSheetByName("Handovers");
     if (hoSheet && hoSheet.getLastRow() > 1) {
-      var hoData = hoSheet.getDataRange().getValues();
-      var handoverDone = false;
-      for (var hi = hoData.length - 1; hi > 0; hi--) {
-        var hoDate = hoData[hi][1] ? hoData[hi][1].toString() : '';
-        var hoUser = hoData[hi][3] ? hoData[hi][3].toString().toLowerCase() : '';
-        if (hoDate === todayStr && hoUser === payload.username.toLowerCase()) {
-          handoverDone = true;
-          break;
+      var hoLast = hoSheet.getLastRow(), hoStart = Math.max(2, hoLast - 29);
+      var hod = hoSheet.getRange(hoStart, 1, hoLast - hoStart + 1, 4).getValues();
+      var hDone = false;
+      for (var hi = hod.length - 1; hi >= 0; hi--) {
+        if (hod[hi][0] && hod[hi][0].toString() === todayStr && hod[hi][2] && hod[hi][2].toString().toLowerCase() === payload.username.toLowerCase()) { hDone = true; break; }
+      }
+      result.todayHandoverDone = hDone;
+    }
+  } catch(e) {}
+  
+  // === MEGA-FETCH [1.3]: Embed extra data ===
+  try {
+    var kcSheet = ss.getSheetByName('KING_COINS');
+    if (kcSheet && kcSheet.getLastRow() > 1) {
+      var kcd = kcSheet.getDataRange().getValues();
+      var uTotal = 0, recent = [];
+      for (var ki = kcd.length - 1; ki > 0; ki--) {
+        if (kcd[ki][1] && kcd[ki][1].toString().toLowerCase() === payload.username.toLowerCase()) {
+          var pts = Number(kcd[ki][5]) || 0;
+          uTotal += pts;
+          if (recent.length < 10) recent.push({ date: kcd[ki][0], reason: kcd[ki][4] ? kcd[ki][4].toString() : '', points: pts, source: kcd[ki][6] ? kcd[ki][6].toString() : '' });
         }
       }
-      result.todayHandoverDone = handoverDone;
+      result.kingCoinsSummary = { totalPoints: uTotal, recentActivity: recent };
     }
-  } catch(e) { Logger.log('Error loading handover status: ' + e.message); }
+  } catch(e) {}
+  
+  try {
+    var ntfSheet = ss.getSheetByName('NOTIFICATIONS');
+    if (ntfSheet && ntfSheet.getLastRow() > 1) {
+      var ntfd = ntfSheet.getDataRange().getValues();
+      var unread = 0;
+      var tUser = (payload.username || '').toLowerCase();
+      for (var ni = ntfd.length - 1; ni > 0; ni--) {
+        var nt = ntfd[ni][1] ? ntfd[ni][1].toString().toLowerCase() : '';
+        if ((nt === tUser || nt === 'all') && !(ntfd[ni][6] === true || ntfd[ni][6] === 'TRUE')) unread++;
+      }
+      result.notificationsUnread = unread;
+    }
+  } catch(e) {}
+  
+  try {
+    var tcSheet = ss.getSheetByName('TRAINING_CONTENT');
+    var tpSheet = ss.getSheetByName('TRAINING_PROGRESS');
+    var tTotal = tcSheet ? Math.max(0, tcSheet.getLastRow() - 1) : 0;
+    var tComp = 0;
+    if (tpSheet && tpSheet.getLastRow() > 1) {
+      var tpd = tpSheet.getDataRange().getValues();
+      for (var ti = 1; ti < tpd.length; ti++) {
+        if (tpd[ti][0] && tpd[ti][0].toString().toLowerCase() === payload.username.toLowerCase()) tComp++;
+      }
+    }
+    result.trainingProgress = { total: tTotal, completed: tComp };
+  } catch(e) {}
+  
+  // === Cache result (max 100KB, TTL 120s) ===
+  try {
+    var rs = JSON.stringify(result);
+    if (rs.length < 100000) cache.put(cacheKey, rs, 120);
+  } catch(ce) {}
   
   return jsonResponse(true, result);
 }
+
+
 
 // 3. API Keys
 function handleSyncKeys(payload) {

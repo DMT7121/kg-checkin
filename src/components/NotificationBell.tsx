@@ -17,8 +17,11 @@ export default function NotificationBell() {
   const store = useAppStore();
   const { currentUser } = store;
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+  // Phase B: Use mega-fetch cached count initially
+  const cachedUnread = parseInt(localStorage.getItem('kg_notif_unread') || '0');
+  const [unreadCount, setUnreadCount] = useState(cachedUnread);
   const [isOpen, setIsOpen] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const fetchNotifications = async () => {
@@ -27,14 +30,20 @@ export default function NotificationBell() {
     if (res?.ok) {
       setNotifications(res.data.notifications || []);
       setUnreadCount(res.data.unreadCount || 0);
+      setHasFetched(true);
     }
   };
 
+  // Phase B: Only poll every 2 minutes (down from 60s), and lazy-fetch on open
   useEffect(() => {
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 60000); // Poll every minute
+    const interval = setInterval(fetchNotifications, 120000);
     return () => clearInterval(interval);
   }, [currentUser?.username]);
+
+  // Fetch full list only when dropdown opens for first time
+  useEffect(() => {
+    if (isOpen && !hasFetched) fetchNotifications();
+  }, [isOpen]);
 
   // Close dropdown on outside click
   useEffect(() => {
