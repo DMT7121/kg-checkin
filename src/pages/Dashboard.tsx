@@ -9,7 +9,8 @@ import {
   LayoutDashboard, UtensilsCrossed, MessageSquareWarning,
   ClipboardCheck, Repeat, CalendarDays, History, BellRing,
   CalendarClock, Banknote, BadgeDollarSign, Award, ChevronDown,
-  Settings, Briefcase, CheckSquare, Users, KeyRound, CalendarRange, DollarSign, Building2
+  Settings, Briefcase, CheckSquare, Users, KeyRound, CalendarRange, DollarSign, Building2,
+  RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { triggerDeveloperMode } from '../utils/githubApi';
@@ -228,6 +229,9 @@ export default function Dashboard() {
     prefetchModule(tab);
     store.setCurrentTab(tab);
     setSidebarOpen(false);
+
+    // Scroll to top on tab change for better UX
+    window.scrollTo({ top: 0, behavior: 'instant' });
 
     // Phase 7: Refresh data using centralized function (stale check)
     if (tab === 'history' || tab === 'admin' || tab === 'dashboard') {
@@ -898,96 +902,7 @@ export default function Dashboard() {
 
               {/* Sidebar Menu Groups */}
               <div className="flex-1 overflow-y-auto py-3 px-3 space-y-1 hide-scrollbar">
-                {menuGroups.map((group) => {
-                  // Ẩn nhóm admin-only nếu không phải admin
-                  if (group.adminOnly && !isAdmin) return null;
-
-                  const isExpanded = expandedGroups.includes(group.id);
-                  const GroupIcon = group.icon;
-                  const hasBadge = groupHasBadge(group);
-                  const hasActiveItem = group.items.some((item) => item.id === currentTab);
-
-                  return (
-                    <div key={group.id} className="mb-0.5">
-                      {/* Group Header */}
-                      <button
-                        onClick={() => toggleGroup(group.id)}
-                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-all ${
-                          hasActiveItem
-                            ? 'bg-ocean-50/80 dark:bg-ocean-900/20 text-ocean-700 dark:text-ocean-400'
-                            : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/60'
-                        }`}
-                      >
-                        <div className="flex items-center space-x-2.5">
-                          <GroupIcon size={16} className={hasActiveItem ? 'text-ocean-500' : 'text-gray-400 dark:text-gray-500'} />
-                          <span className="text-[13px] font-bold">{group.label}</span>
-                          {hasBadge && <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />}
-                        </div>
-                        <motion.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
-                          <ChevronDown size={14} className="text-gray-400" />
-                        </motion.div>
-                      </button>
-
-                      {/* Group Items (Accordion) */}
-                      <AnimatePresence initial={false}>
-                        {isExpanded && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.25, ease: 'easeInOut' }}
-                            className="overflow-hidden"
-                          >
-                            <div className="pl-4 pr-1 py-1 space-y-0.5">
-                              {group.items.map((item) => {
-                                if (item.adminOnly && !isAdmin) return null;
-                                const Icon = item.icon;
-                                const isActive = currentTab === item.id;
-
-                                return (
-                                  <button
-                                    key={item.id}
-                                    onClick={() => handleTabChange(item.id)}
-                                    className={`w-full flex items-center space-x-2.5 px-3 py-2.5 rounded-xl transition-all relative ${
-                                      item.comingSoon
-                                        ? 'text-gray-400 dark:text-gray-600 cursor-default'
-                                        : isActive
-                                        ? 'bg-ocean-100/80 dark:bg-ocean-900/30 text-ocean-700 dark:text-ocean-400 '
-                                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/60'
-                                    }`}
-                                  >
-                                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-                                      item.comingSoon
-                                        ? 'paint-layer'
-                                        : isActive
-                                        ? 'bg-ocean-500 shadow-md'
-                                        : 'paint-layer'
-                                    }`}>
-                                      <Icon size={14} className={
-                                        item.comingSoon
-                                          ? 'text-gray-400 dark:text-gray-600'
-                                          : isActive
-                                          ? 'text-white'
-                                          : 'text-gray-500 dark:text-gray-400'
-                                      } />
-                                    </div>
-                                    <span className="text-xs font-semibold flex-1 text-left">{item.label}</span>
-                                    {item.comingSoon && (
-                                      <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 uppercase tracking-wide">Soon</span>
-                                    )}
-                                    {item.showBadge && !item.comingSoon && (
-                                      <span className="w-2 h-2 bg-red-500 rounded-full animate-ping" />
-                                    )}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  );
-                })}
+                {renderSidebarMenu('drawer')}
               </div>
 
               {/* Sidebar Footer */}
@@ -1045,13 +960,13 @@ export default function Dashboard() {
       {/* Content Area                                 */}
       {/* ============================================ */}
       <main className="flex-1 pb-6 overflow-x-hidden md:px-4 lg:px-6 min-w-0">
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="popLayout">
           <motion.div
             key={currentTab}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.2 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.12 }}
             className="h-full"
           >
             <AppErrorBoundary resetKey={currentTab} fallback={<ModuleRecoverFallback />}>

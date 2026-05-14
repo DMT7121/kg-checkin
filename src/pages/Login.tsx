@@ -10,7 +10,7 @@ export default function Login() {
   const store = useAppStore();
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(() => localStorage.getItem('kg_remember') === 'true');
   const [registerForm, setRegisterForm] = useState({ username: '', password: '', fullname: '', dob: '', email: '', phone: '' });
   
   // Forgot Password States
@@ -19,13 +19,6 @@ export default function Login() {
   const [resetForm, setResetForm] = useState({ otp: '', newPassword: '' });
   const [showPass, setShowPass] = useState(false);
   const [clickCount, setClickCount] = useState(0);
-
-  // Khôi phục trạng thái Ghi nhớ từ localStorage khi mở app
-  useState(() => {
-    if (localStorage.getItem('kg_remember') === 'true') {
-      setRememberMe(true);
-    }
-  });
 
   const handleLogin = async (e?: React.FormEvent, bioCreds?: {username: string, password: string}) => {
     if (e) e.preventDefault();

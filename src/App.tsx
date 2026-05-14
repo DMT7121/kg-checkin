@@ -23,7 +23,8 @@ export default function App() {
     store.setDark(isNight);
     store.setShiftName(isNight ? 'Ca Tối' : 'Ca Sáng');
 
-    // Clock - updates every second, also checks for shift change
+    // Clock - updates every 10 seconds (display shows HH:MM only), also checks for shift change
+    store.setCurrentTime(getCurrentTimeString());
     const timer = setInterval(() => {
       store.setCurrentTime(getCurrentTimeString());
       const currentHour = new Date().getHours();
@@ -33,7 +34,7 @@ export default function App() {
         store.setShiftName(newShift);
         store.setDark(newShift === 'Ca Tối');
       }
-    }, 1000);
+    }, 10000);
 
     // Restore saved user session (with 30-minute expiry)
     const savedUser = localStorage.getItem('kg_user');

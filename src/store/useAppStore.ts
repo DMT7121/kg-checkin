@@ -489,7 +489,7 @@ export const useAppStore = create<AppState>((set) => ({
       adminSchedules: [],
       originalAdminSchedules: [],
       approvedShifts: null,
-      registeredShifts: null,
+      registeredShifts: [],
       lastCheckInTime: 0,
       isPreviewOpen: false,
       previewImageUrl: '',
