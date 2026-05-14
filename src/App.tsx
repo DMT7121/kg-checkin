@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import LoadingScreen from './components/LoadingScreen';
 import ZaloWarning from './components/ZaloWarning';
 import ImagePreview from './components/ImagePreview';
+import AppErrorBoundary from './components/AppErrorBoundary';
 
 const AIAssistant = lazy(() => import('./components/AIAssistant'));
 
@@ -118,7 +119,19 @@ export default function App() {
       )}
 
       {/* Main App */}
-      {currentUser ? <Dashboard /> : <Login />}
+      <AppErrorBoundary
+        resetKey={currentUser?.username || 'guest'}
+        fallback={
+          <div className="min-h-screen flex items-center justify-center p-6">
+            <div className="soft3d-card p-6 text-center max-w-sm">
+              <div className="w-10 h-10 mx-auto mb-3 rounded-lg bg-teal-50 dark:bg-teal-950/40" />
+              <p className="text-sm font-bold text-slate-800 dark:text-white">Đang phục hồi giao diện...</p>
+            </div>
+          </div>
+        }
+      >
+        {currentUser ? <Dashboard /> : <Login />}
+      </AppErrorBoundary>
     </div>
   );
 }

@@ -12,6 +12,11 @@ interface State {
 
 const CHUNK_ERROR_RE = /Loading chunk|ChunkLoadError|Failed to fetch dynamically imported module|Importing a module script failed/i;
 
+function getBuildReloadKey() {
+  const scriptSrc = document.querySelector<HTMLScriptElement>('script[type="module"][src]')?.src || location.href;
+  return `kg_chunk_reload_done:${scriptSrc}`;
+}
+
 export default class AppErrorBoundary extends React.Component<Props, State> {
   state: State = { error: null };
 
@@ -22,8 +27,11 @@ export default class AppErrorBoundary extends React.Component<Props, State> {
   componentDidCatch(error: Error) {
     const message = error?.message || '';
     if (CHUNK_ERROR_RE.test(message)) {
-      sessionStorage.removeItem('kg_chunk_reload_done');
-      window.location.reload();
+      const reloadKey = getBuildReloadKey();
+      if (sessionStorage.getItem(reloadKey) !== 'true') {
+        sessionStorage.setItem(reloadKey, 'true');
+        window.location.reload();
+      }
       return;
     }
   }

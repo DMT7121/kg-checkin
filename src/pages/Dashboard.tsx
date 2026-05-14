@@ -33,57 +33,76 @@ function lazyWithRetry<T extends { default: React.ComponentType<any> }>(loader: 
   });
 }
 
-const CheckIn = lazyWithRetry(() => import('./CheckIn'));
-const Schedule = lazyWithRetry(() => import('./Schedule'));
-const ActivityHistory = lazyWithRetry(() => import('./ActivityHistory'));
-const SwapShift = lazyWithRetry(() => import('./SwapShift'));
-const NewsFeed = lazyWithRetry(() => import('./NewsFeed'));
-const Training = lazyWithRetry(() => import('./Training'));
-const SoldOut = lazyWithRetry(() => import('./SoldOut'));
-const Roster = lazyWithRetry(() => import('./Roster'));
-const Checklist = lazyWithRetry(() => import('./Checklist'));
-const Handover = lazyWithRetry(() => import('./Handover'));
-const Feedback = lazyWithRetry(() => import('./Feedback'));
-const Admin = lazyWithRetry(() => import('./Admin'));
-const HrList = lazyWithRetry(() => import('./admin/HrList'));
-const AdminShift = lazyWithRetry(() => import('./admin/AdminShift'));
-const AdminOrg = lazyWithRetry(() => import('./admin/AdminOrg'));
-const AdminPayroll = lazyWithRetry(() => import('./admin/AdminPayroll'));
-const AdminChecklistConfig = lazyWithRetry(() => import('./admin/AdminChecklistConfig'));
-const AdminAnalytics = lazyWithRetry(() => import('./admin/AdminAnalytics'));
-const Advance = lazyWithRetry(() => import('./Advance'));
-const Discipline = lazyWithRetry(() => import('./Discipline'));
-const Payroll = lazyWithRetry(() => import('./Payroll'));
-const Reward = lazyWithRetry(() => import('./Reward'));
-const Timesheet = lazyWithRetry(() => import('./Timesheet'));
+const moduleLoaders = {
+  checkin: () => import('./CheckIn'),
+  schedule: () => import('./Schedule'),
+  history: () => import('./ActivityHistory'),
+  swap: () => import('./SwapShift'),
+  news: () => import('./NewsFeed'),
+  training: () => import('./Training'),
+  soldout: () => import('./SoldOut'),
+  roster: () => import('./Roster'),
+  checklist: () => import('./Checklist'),
+  handover: () => import('./Handover'),
+  feedback: () => import('./Feedback'),
+  admin: () => import('./Admin'),
+  hr_list: () => import('./admin/HrList'),
+  admin_shift: () => import('./admin/AdminShift'),
+  admin_org: () => import('./admin/AdminOrg'),
+  admin_payroll: () => import('./admin/AdminPayroll'),
+  admin_checklist: () => import('./admin/AdminChecklistConfig'),
+  admin_analytics: () => import('./admin/AdminAnalytics'),
+  advance: () => import('./Advance'),
+  discipline: () => import('./Discipline'),
+  payroll: () => import('./Payroll'),
+  reward: () => import('./Reward'),
+  timesheet: () => import('./Timesheet'),
+} as const;
 
-const prefetchModuleScreens = () => {
-  const jobs = [
-    import('./CheckIn'),
-    import('./Schedule'),
-    import('./ActivityHistory'),
-    import('./SwapShift'),
-    import('./NewsFeed'),
-    import('./Training'),
-    import('./SoldOut'),
-    import('./Roster'),
-    import('./Checklist'),
-    import('./Handover'),
-    import('./Feedback'),
-    import('./Admin'),
-    import('./admin/HrList'),
-    import('./admin/AdminShift'),
-    import('./admin/AdminOrg'),
-    import('./admin/AdminPayroll'),
-    import('./admin/AdminChecklistConfig'),
-    import('./admin/AdminAnalytics'),
-    import('./Advance'),
-    import('./Discipline'),
-    import('./Payroll'),
-    import('./Reward'),
-    import('./Timesheet'),
+const CheckIn = lazyWithRetry(moduleLoaders.checkin);
+const Schedule = lazyWithRetry(moduleLoaders.schedule);
+const ActivityHistory = lazyWithRetry(moduleLoaders.history);
+const SwapShift = lazyWithRetry(moduleLoaders.swap);
+const NewsFeed = lazyWithRetry(moduleLoaders.news);
+const Training = lazyWithRetry(moduleLoaders.training);
+const SoldOut = lazyWithRetry(moduleLoaders.soldout);
+const Roster = lazyWithRetry(moduleLoaders.roster);
+const Checklist = lazyWithRetry(moduleLoaders.checklist);
+const Handover = lazyWithRetry(moduleLoaders.handover);
+const Feedback = lazyWithRetry(moduleLoaders.feedback);
+const Admin = lazyWithRetry(moduleLoaders.admin);
+const HrList = lazyWithRetry(moduleLoaders.hr_list);
+const AdminShift = lazyWithRetry(moduleLoaders.admin_shift);
+const AdminOrg = lazyWithRetry(moduleLoaders.admin_org);
+const AdminPayroll = lazyWithRetry(moduleLoaders.admin_payroll);
+const AdminChecklistConfig = lazyWithRetry(moduleLoaders.admin_checklist);
+const AdminAnalytics = lazyWithRetry(moduleLoaders.admin_analytics);
+const Advance = lazyWithRetry(moduleLoaders.advance);
+const Discipline = lazyWithRetry(moduleLoaders.discipline);
+const Payroll = lazyWithRetry(moduleLoaders.payroll);
+const Reward = lazyWithRetry(moduleLoaders.reward);
+const Timesheet = lazyWithRetry(moduleLoaders.timesheet);
+
+const prefetchedModules = new Set<string>();
+
+const prefetchModule = (tab: string) => {
+  const loader = moduleLoaders[tab as keyof typeof moduleLoaders];
+  if (!loader || prefetchedModules.has(tab)) return;
+  prefetchedModules.add(tab);
+  loader().catch(() => prefetchedModules.delete(tab));
+};
+
+const prefetchModuleScreens = async () => {
+  const queue = [
+    'checkin', 'schedule', 'checklist', 'handover', 'news', 'soldout',
+    'swap', 'roster', 'history', 'timesheet', 'advance', 'payroll',
+    'discipline', 'reward', 'training', 'feedback', 'admin', 'hr_list',
+    'admin_shift', 'admin_org', 'admin_payroll', 'admin_checklist', 'admin_analytics',
   ];
-  Promise.allSettled(jobs).catch(() => undefined);
+  for (const tab of queue) {
+    prefetchModule(tab);
+    await wait(140);
+  }
 };
 
 // ============================================
@@ -206,6 +225,7 @@ export default function Dashboard() {
   };
 
   const handleTabChange = (tab: TabId) => {
+    prefetchModule(tab);
     store.setCurrentTab(tab);
     setSidebarOpen(false);
 
@@ -760,6 +780,8 @@ export default function Dashboard() {
                       return (
                         <button
                           key={`${mode}-${item.id}`}
+                          onMouseEnter={() => prefetchModule(item.id)}
+                          onFocus={() => prefetchModule(item.id)}
                           onClick={() => handleTabChange(item.id)}
                           className={`w-full flex items-center space-x-2.5 px-3 py-2.5 rounded-xl transition-all relative ${
                             item.comingSoon
