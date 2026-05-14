@@ -3,6 +3,8 @@
 // ============================================
 import Swal from 'sweetalert2';
 
+const inFlightBackgroundCalls = new Map<string, Promise<any>>();
+
 // Get GAS URL dynamically so we can update it without rebuilds
 export const getGasUrl = () => {
   return localStorage.getItem('kg_gas_url') || 
@@ -38,13 +40,20 @@ export async function callApi(
     options?.onLoadingStart?.();
   }
 
-  const maxRetries = bg ? 1 : 2;
   const bodyStr = JSON.stringify({ action, ...payload });
+  const requestKey = `${getGasUrl()}|${bodyStr}`;
 
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+  if (bg && inFlightBackgroundCalls.has(requestKey)) {
+    return inFlightBackgroundCalls.get(requestKey);
+  }
+
+  const requestPromise = (async () => {
+    const maxAttempts = bg ? 0 : 1;
+
+  for (let attempt = 0; attempt <= maxAttempts; attempt++) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+      const timeoutId = setTimeout(() => controller.abort(), bg ? 15000 : 35000);
 
       const response = await fetch(getGasUrl(), {
         method: 'POST',
@@ -77,9 +86,9 @@ export async function callApi(
       
       return result;
     } catch (error) {
-      if (attempt < maxRetries) {
+      if (attempt < maxAttempts) {
         // Wait briefly before retry
-        await new Promise(r => setTimeout(r, 1000));
+        await new Promise(r => setTimeout(r, 600));
         continue;
       }
       if (!bg) {
@@ -90,4 +99,12 @@ export async function callApi(
       return null;
     }
   }
+  })();
+
+  if (bg) {
+    inFlightBackgroundCalls.set(requestKey, requestPromise);
+    requestPromise.finally(() => inFlightBackgroundCalls.delete(requestKey));
+  }
+
+  return requestPromise;
 }

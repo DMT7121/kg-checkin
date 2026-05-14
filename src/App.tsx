@@ -1,6 +1,5 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { useAppStore } from './store/useAppStore';
-import { callApi } from './services/api';
 import { isInAppBrowser, computeWeekInfo, getCurrentTimeString } from './utils/helpers';
 import { refreshAppData, restoreFromCache } from './utils/refreshData';
 import Login from './pages/Login';
@@ -8,7 +7,8 @@ import Dashboard from './pages/Dashboard';
 import LoadingScreen from './components/LoadingScreen';
 import ZaloWarning from './components/ZaloWarning';
 import ImagePreview from './components/ImagePreview';
-import AIAssistant from './components/AIAssistant';
+
+const AIAssistant = lazy(() => import('./components/AIAssistant'));
 
 export default function App() {
   const store = useAppStore();
@@ -110,8 +110,12 @@ export default function App() {
       {/* Image Preview Modal */}
       <ImagePreview />
 
-      {/* AI Chatbot Assistant */}
-      <AIAssistant />
+      {/* AI Chatbot Assistant - loaded only after login */}
+      {currentUser && (
+        <Suspense fallback={null}>
+          <AIAssistant />
+        </Suspense>
+      )}
 
       {/* Main App */}
       {currentUser ? <Dashboard /> : <Login />}

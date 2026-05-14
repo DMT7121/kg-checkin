@@ -13,7 +13,15 @@
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Plus Jakarta Sans', sans-serif;
   }
-  :root { --primary: #1856FF; --secondary: #3A344E; }
+  :root {
+    --primary: #0f766e;
+    --primary-strong: #0f4f4a;
+    --secondary: #1f2937;
+    --surface: #ffffff;
+    --surface-muted: #f6f8fb;
+    --line: #dbe3ee;
+    --ink: #162033;
+  }
 }
 
 @layer utilities {
@@ -33,103 +41,81 @@
     box-shadow: 0 0 0 2px #22c55e;
   }
 
-  /* Soft 3D Pastel Design System */
+  /* King's Grill Operations Design System */
   .soft3d-bg {
-    background-color: #F8F9FA;
-    background-image: 
-      radial-gradient(circle at 0% 0%, rgba(224, 247, 250, 0.4) 0%, transparent 50%),
-      radial-gradient(circle at 100% 100%, rgba(252, 228, 236, 0.4) 0%, transparent 50%);
+    background-color: #f4f7fb;
+    background-image:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(244, 247, 251, 0.96)),
+      linear-gradient(90deg, rgba(15, 118, 110, 0.06) 1px, transparent 1px),
+      linear-gradient(180deg, rgba(15, 118, 110, 0.05) 1px, transparent 1px);
+    background-size: auto, 32px 32px, 32px 32px;
     background-attachment: fixed;
   }
   .dark .soft3d-bg {
-    background-color: #121212;
-    background-image: 
-      radial-gradient(circle at 0% 0%, rgba(0, 150, 136, 0.15) 0%, transparent 50%),
-      radial-gradient(circle at 100% 100%, rgba(156, 39, 176, 0.15) 0%, transparent 50%);
-    background-blend-mode: normal;
+    background-color: #0b1120;
+    background-image:
+      linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(2, 6, 23, 0.98)),
+      linear-gradient(90deg, rgba(45, 212, 191, 0.08) 1px, transparent 1px),
+      linear-gradient(180deg, rgba(45, 212, 191, 0.06) 1px, transparent 1px);
   }
 
   .soft3d-card {
-    background: #ffffff;
-    border-radius: 24px;
-    border: 2px solid #ffffff;
-    box-shadow: 
-      12px 12px 32px rgba(166, 171, 189, 0.3),
-      -12px -12px 32px rgba(255, 255, 255, 0.8),
-      inset 0px 4px 8px rgba(255, 255, 255, 1);
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    background: rgba(255, 255, 255, 0.94);
+    border-radius: 14px;
+    border: 1px solid rgba(203, 213, 225, 0.86);
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.07);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
   }
   
   .dark .soft3d-card {
-    background: #1e1e1e;
-    border: 2px solid rgba(255, 255, 255, 0.05);
-    box-shadow: 
-      8px 8px 24px rgba(0, 0, 0, 0.6),
-      -8px -8px 24px rgba(255, 255, 255, 0.03),
-      inset 0px 2px 4px rgba(255, 255, 255, 0.05);
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid rgba(71, 85, 105, 0.75);
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.28);
   }
   
-  /* Paint Layers -> Pill Layers */
   .paint-layer {
-    background: rgba(248, 249, 250, 0.8);
-    border: 1px solid #ffffff;
-    border-radius: 20px;
-    box-shadow: 
-      4px 4px 12px rgba(166, 171, 189, 0.2),
-      -4px -4px 12px rgba(255, 255, 255, 0.7);
+    background: rgba(248, 250, 252, 0.92);
+    border: 1px solid rgba(203, 213, 225, 0.75);
+    border-radius: 12px;
+    box-shadow: none;
   }
   .dark .paint-layer {
-    background: rgba(40, 40, 40, 0.8);
-    border: 1px solid rgba(255, 255, 255, 0.02);
-    box-shadow: 
-      4px 4px 12px rgba(0, 0, 0, 0.4),
-      -4px -4px 12px rgba(255, 255, 255, 0.02);
+    background: rgba(30, 41, 59, 0.78);
+    border: 1px solid rgba(71, 85, 105, 0.75);
+    box-shadow: none;
   }
 
-  /* Buttons */
   .soft3d-btn-primary {
-    background: linear-gradient(135deg, #0ea5e9, #38bdf8);
+    background: linear-gradient(135deg, #0f766e, #14b8a6);
     color: white;
-    border-radius: 9999px;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    box-shadow: 
-      6px 6px 16px rgba(14, 165, 233, 0.3),
-      -4px -4px 12px rgba(255, 255, 255, 0.6),
-      inset 2px 2px 4px rgba(255, 255, 255, 0.4);
+    border-radius: 12px;
+    border: 1px solid rgba(15, 118, 110, 0.35);
+    box-shadow: 0 10px 22px rgba(15, 118, 110, 0.22);
     transition: all 0.2s ease;
     font-weight: 700;
   }
   .soft3d-btn-primary:active {
-    transform: translateY(2px) scale(0.98);
-    box-shadow: 
-      2px 2px 6px rgba(14, 165, 233, 0.3),
-      -2px -2px 6px rgba(255, 255, 255, 0.6),
-      inset 4px 4px 8px rgba(0, 0, 0, 0.1);
+    transform: translateY(1px) scale(0.99);
+    box-shadow: 0 5px 14px rgba(15, 118, 110, 0.2);
   }
   
   .soft3d-btn {
-    background: #F8F9FA;
-    border-radius: 9999px;
-    box-shadow: 
-      4px 4px 10px rgba(166, 171, 189, 0.25),
-      -4px -4px 10px rgba(255, 255, 255, 0.8);
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid rgba(203, 213, 225, 0.9);
+    box-shadow: none;
     transition: all 0.2s ease;
   }
   .soft3d-btn:active {
-    box-shadow: 
-      inset 4px 4px 8px rgba(166, 171, 189, 0.25),
-      inset -4px -4px 8px rgba(255, 255, 255, 0.8);
+    transform: translateY(1px);
   }
   .dark .soft3d-btn {
-    background: #2a2a2a;
-    box-shadow: 
-      4px 4px 10px rgba(0, 0, 0, 0.5),
-      -4px -4px 10px rgba(255, 255, 255, 0.03);
+    background: #1e293b;
+    border-color: rgba(71, 85, 105, 0.75);
+    box-shadow: none;
   }
   .dark .soft3d-btn:active {
-    box-shadow: 
-      inset 4px 4px 8px rgba(0, 0, 0, 0.5),
-      inset -4px -4px 8px rgba(255, 255, 255, 0.03);
+    transform: translateY(1px);
   }
 }
 
@@ -158,24 +144,18 @@
 }
 
 .swal2-popup {
-  border-radius: 24px !important;
+  border-radius: 14px !important;
   padding: 1.5rem !important;
   background: #ffffff !important;
-  box-shadow: 
-    12px 12px 32px rgba(166, 171, 189, 0.3),
-    -12px -12px 32px rgba(255, 255, 255, 0.8),
-    inset 0px 4px 8px rgba(255, 255, 255, 1) !important;
-  border: 2px solid #ffffff !important;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.22) !important;
+  border: 1px solid rgba(203, 213, 225, 0.9) !important;
   font-family: 'Plus Jakarta Sans', sans-serif !important;
 }
 
 .dark .swal2-popup {
-  background: #1e1e1e !important;
-  box-shadow: 
-    8px 8px 24px rgba(0, 0, 0, 0.6),
-    -8px -8px 24px rgba(255, 255, 255, 0.03),
-    inset 0px 2px 4px rgba(255, 255, 255, 0.05) !important;
-  border: 2px solid rgba(255, 255, 255, 0.05) !important;
+  background: #0f172a !important;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45) !important;
+  border: 1px solid rgba(71, 85, 105, 0.75) !important;
   color: #f1f5f9 !important;
 }
 
@@ -271,4 +251,447 @@
 .dark .swal2-input:focus, .dark .swal2-textarea:focus, .dark .swal2-select:focus {
   border-color: #3b82f6 !important;
   background: #1e293b !important;
+}
+
+/* Global polish pass for the operations UI. These selectors intentionally
+   normalize legacy Tailwind-heavy pages without changing their behavior. */
+button, input, select, textarea {
+  font: inherit;
+}
+
+input, select, textarea {
+  border-radius: 10px !important;
+}
+
+button {
+  letter-spacing: 0 !important;
+}
+
+.soft3d-card:hover {
+  border-color: rgba(15, 118, 110, 0.28);
+}
+
+.soft3d-card[class*="text-white"][class*="bg-gradient"] {
+  background: linear-gradient(135deg, #0f4f4a 0%, #0f766e 52%, #1f2937 100%) !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
+}
+
+.dark .soft3d-card[class*="text-white"][class*="bg-gradient"] {
+  background: linear-gradient(135deg, #0f766e 0%, #155e75 54%, #111827 100%) !important;
+}
+
+.soft3d-card[class*="text-white"][class*="bg-gradient"] [class*="blur-"] {
+  display: none;
+}
+
+.soft3d-card[class*="text-white"][class*="bg-gradient"] h2 {
+  letter-spacing: 0;
+}
+
+.soft3d-card[class*="text-white"][class*="bg-gradient"] p {
+  color: rgba(240, 253, 250, 0.86) !important;
+}
+
+.rounded-2xl, .rounded-3xl {
+  border-radius: 14px !important;
+}
+
+.rounded-full {
+  border-radius: 9999px !important;
+}
+
+.shadow-2xl, .shadow-xl, .shadow-lg {
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.13) !important;
+}
+
+.dark .shadow-2xl, .dark .shadow-xl, .dark .shadow-lg {
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.34) !important;
+}
+
+@media (min-width: 768px) {
+  .soft3d-card {
+    border-radius: 12px;
+  }
+}
+
+main table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+main thead {
+  background: rgba(248, 250, 252, 0.96);
+}
+
+.dark main thead {
+  background: rgba(15, 23, 42, 0.96);
+}
+
+main th {
+  color: #475569;
+  font-size: 0.72rem;
+  letter-spacing: 0 !important;
+  text-transform: uppercase;
+  border-bottom: 1px solid rgba(203, 213, 225, 0.9);
+}
+
+.dark main th {
+  color: #94a3b8;
+  border-bottom-color: rgba(71, 85, 105, 0.9);
+}
+
+main td {
+  border-bottom: 1px solid rgba(226, 232, 240, 0.86);
+}
+
+.dark main td {
+  border-bottom-color: rgba(51, 65, 85, 0.86);
+}
+
+main input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+main select,
+main textarea {
+  background-color: rgba(255, 255, 255, 0.96) !important;
+  border: 1px solid rgba(203, 213, 225, 0.96) !important;
+  box-shadow: none !important;
+}
+
+.dark main input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.dark main select,
+.dark main textarea {
+  background-color: rgba(15, 23, 42, 0.92) !important;
+  border-color: rgba(71, 85, 105, 0.9) !important;
+  color: #f8fafc !important;
+}
+
+main input:focus,
+main select:focus,
+main textarea:focus {
+  border-color: rgba(13, 148, 136, 0.95) !important;
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.16) !important;
+  outline: none !important;
+}
+
+main label {
+  color: #64748b;
+}
+
+.dark main label {
+  color: #94a3b8;
+}
+
+main .soft3d-card > h3,
+main .soft3d-card > div > h3 {
+  letter-spacing: 0;
+}
+
+main button[class*="bg-gradient-to-r"],
+main button[class*="bg-gradient-to-br"] {
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12) !important;
+}
+
+main button:disabled {
+  cursor: not-allowed;
+}
+
+main [class*="border-dashed"] {
+  background-color: rgba(248, 250, 252, 0.72);
+}
+
+.dark main [class*="border-dashed"] {
+  background-color: rgba(15, 23, 42, 0.54);
+}
+
+@media (min-width: 1024px) {
+  main > div[class*="p-4"] {
+    padding: 1.5rem;
+  }
+
+  main .soft3d-card[class*="text-white"][class*="bg-gradient"] {
+    min-height: 150px;
+  }
+}
+
+/* Nova Ops redesign: a full-system visual reset for the HR operations app. */
+:root {
+  --kg-bg: #eef2f6;
+  --kg-panel: #ffffff;
+  --kg-panel-2: #f8fafc;
+  --kg-sidebar: #101828;
+  --kg-sidebar-2: #182230;
+  --kg-line: #d7dde8;
+  --kg-text: #101828;
+  --kg-muted: #667085;
+  --kg-brand: #0e9384;
+  --kg-brand-2: #175cd3;
+  --kg-warn: #dc6803;
+  --kg-danger: #d92d20;
+  --kg-success: #039855;
+}
+
+.dark {
+  --kg-bg: #080d18;
+  --kg-panel: #111827;
+  --kg-panel-2: #182230;
+  --kg-line: #344054;
+  --kg-text: #f8fafc;
+  --kg-muted: #98a2b3;
+}
+
+body {
+  background: var(--kg-bg);
+  color: var(--kg-text);
+}
+
+.soft3d-bg {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.72), rgba(238,242,246,0.96)),
+    linear-gradient(90deg, rgba(16,24,40,0.035) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(16,24,40,0.03) 1px, transparent 1px) !important;
+  background-size: auto, 28px 28px, 28px 28px !important;
+}
+
+.dark .soft3d-bg {
+  background:
+    linear-gradient(180deg, rgba(8,13,24,0.92), rgba(8,13,24,0.98)),
+    linear-gradient(90deg, rgba(148,163,184,0.06) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(148,163,184,0.045) 1px, transparent 1px) !important;
+  background-size: auto, 28px 28px, 28px 28px !important;
+}
+
+.soft3d-card,
+.paint-layer {
+  background: var(--kg-panel) !important;
+  border: 1px solid var(--kg-line) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05) !important;
+}
+
+.dark .soft3d-card,
+.dark .paint-layer {
+  background: var(--kg-panel) !important;
+  border-color: var(--kg-line) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.26) !important;
+}
+
+.soft3d-card:hover {
+  border-color: rgba(14, 147, 132, 0.42) !important;
+  box-shadow: 0 10px 24px rgba(16, 24, 40, 0.08) !important;
+}
+
+.soft3d-btn,
+.soft3d-btn-primary {
+  border-radius: 8px !important;
+}
+
+.soft3d-btn-primary {
+  background: linear-gradient(135deg, var(--kg-brand), var(--kg-brand-2)) !important;
+  box-shadow: 0 8px 18px rgba(14, 147, 132, 0.18) !important;
+}
+
+.rounded-xl,
+.rounded-2xl,
+.rounded-3xl {
+  border-radius: 8px !important;
+}
+
+.rounded-lg,
+.rounded-md,
+.rounded-sm {
+  border-radius: 6px !important;
+}
+
+header {
+  background: rgba(255,255,255,0.95) !important;
+  border-bottom: 1px solid var(--kg-line) !important;
+  box-shadow: 0 1px 2px rgba(16,24,40,0.04);
+}
+
+.dark header {
+  background: rgba(17,24,39,0.95) !important;
+}
+
+aside {
+  background:
+    linear-gradient(180deg, var(--kg-sidebar), var(--kg-sidebar-2)) !important;
+  border-right: 1px solid rgba(255,255,255,0.08) !important;
+}
+
+aside h3,
+aside p,
+aside span,
+aside button {
+  color: rgba(255,255,255,0.86) !important;
+}
+
+aside button:hover {
+  background: rgba(255,255,255,0.08) !important;
+}
+
+aside button[class*="bg-teal-600"],
+aside button[class*="bg-teal-50"] {
+  background: rgba(14,147,132,0.22) !important;
+  color: #ffffff !important;
+  box-shadow: inset 3px 0 0 #2dd4bf !important;
+}
+
+aside [class*="border-slate"],
+aside [class*="bg-slate"] {
+  border-color: rgba(255,255,255,0.09) !important;
+  background: rgba(255,255,255,0.06) !important;
+}
+
+main {
+  background: transparent;
+}
+
+main > div,
+main .h-full > div {
+  max-width: 1180px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.soft3d-card[class*="text-white"][class*="bg-gradient"] {
+  background:
+    linear-gradient(135deg, rgba(16,24,40,0.94), rgba(23,92,211,0.88)),
+    linear-gradient(90deg, rgba(255,255,255,0.12) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(255,255,255,0.1) 1px, transparent 1px) !important;
+  background-size: auto, 24px 24px, 24px 24px !important;
+  border: 1px solid rgba(255,255,255,0.16) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 18px 42px rgba(16, 24, 40, 0.18) !important;
+}
+
+.soft3d-card[class*="text-white"][class*="bg-gradient"] .rounded-xl,
+.soft3d-card[class*="text-white"][class*="bg-gradient"] .rounded-lg {
+  background: rgba(255,255,255,0.12) !important;
+  border: 1px solid rgba(255,255,255,0.14);
+}
+
+main h2 {
+  font-size: clamp(1.35rem, 2vw, 2rem) !important;
+  line-height: 1.15 !important;
+}
+
+main h3 {
+  color: var(--kg-text);
+}
+
+.dark main h3 {
+  color: var(--kg-text);
+}
+
+main input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+main select,
+main textarea,
+.swal2-input,
+.swal2-textarea,
+.swal2-select {
+  border-radius: 8px !important;
+  border: 1px solid var(--kg-line) !important;
+  background: var(--kg-panel) !important;
+  min-height: 42px;
+}
+
+main table {
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+main th {
+  background: var(--kg-panel-2);
+  color: var(--kg-muted) !important;
+  font-weight: 800 !important;
+  padding-top: 0.75rem !important;
+  padding-bottom: 0.75rem !important;
+}
+
+main td {
+  background: var(--kg-panel);
+}
+
+main tr:hover td {
+  background: rgba(14,147,132,0.045) !important;
+}
+
+main .grid > .soft3d-card {
+  min-width: 0;
+}
+
+main [class*="bg-green-100"],
+main [class*="bg-emerald-100"] {
+  background-color: rgba(3, 152, 85, 0.12) !important;
+}
+
+main [class*="bg-blue-100"],
+main [class*="bg-ocean-100"] {
+  background-color: rgba(23, 92, 211, 0.12) !important;
+}
+
+main [class*="bg-amber-100"],
+main [class*="bg-orange-100"] {
+  background-color: rgba(220, 104, 3, 0.13) !important;
+}
+
+main [class*="bg-red-100"],
+main [class*="bg-rose-100"] {
+  background-color: rgba(217, 45, 32, 0.11) !important;
+}
+
+main [class*="text-ocean"],
+main [class*="text-teal"] {
+  color: var(--kg-brand) !important;
+}
+
+main [class*="bg-ocean-500"],
+main [class*="bg-teal-600"] {
+  background-color: var(--kg-brand) !important;
+}
+
+.swal2-popup {
+  border-radius: 10px !important;
+  border-color: var(--kg-line) !important;
+  box-shadow: 0 24px 60px rgba(16,24,40,0.24) !important;
+}
+
+@media (min-width: 768px) {
+  .w-full.max-w-7xl {
+    max-width: none !important;
+  }
+}
+
+.dashboard-overview {
+  container-type: inline-size;
+}
+
+@media (min-width: 1024px) {
+  .dashboard-overview {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.85fr);
+    align-items: start;
+    gap: 1rem;
+  }
+
+  .dashboard-overview > * {
+    margin: 0 !important;
+  }
+
+  .dashboard-overview > :first-child {
+    grid-column: 1 / -1;
+  }
+
+  .dashboard-overview > .grid.grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-overview > .grid.grid-cols-1 {
+    grid-column: 2;
+    grid-row: span 3;
+  }
+
+  .dashboard-overview > .soft3d-card:last-child {
+    grid-column: 1 / -1;
+  }
 }

@@ -188,19 +188,16 @@ export default function Login() {
   };
 
   return (
-    <div className="flex-1 flex flex-col justify-center p-6 min-h-screen relative overflow-hidden soft3d-bg font-sans">
-      {/* Origami Fold Accents */}
-      <div className="absolute top-0 right-0 w-32 h-32 bg-white/20 dark:bg-white/5 border-l border-b border-black/5 dark:border-white/5 shadow-[-5px_5px_15px_rgba(0,0,0,0.05)] transform rotate-45 translate-x-16 -translate-y-16"></div>
-      <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/30 dark:bg-white/5 border-r border-t border-black/5 dark:border-white/5 shadow-[5px_-5px_15px_rgba(0,0,0,0.05)] transform rotate-45 -translate-x-24 translate-y-24"></div>
+    <div className="flex-1 flex flex-col justify-center p-4 sm:p-6 min-h-screen relative overflow-hidden soft3d-bg font-sans">
 
-      <div className="relative z-10 w-full max-w-md mx-auto">
+      <div className="relative z-10 w-full max-w-5xl mx-auto grid lg:grid-cols-[0.95fr_1.05fr] gap-6 lg:gap-10 items-center">
       {/* Logo */}
-      <div className="text-center mb-8 animate-fade-in">
-        <div className="inline-block mb-2 transform hover:scale-105 transition-transform duration-300">
-          <img src="/LOGO.png?v=3" alt="King's Grill Logo" className="w-[160px] h-auto object-contain mx-auto drop-shadow-[0_0_12px_rgba(14,165,233,0.3)] dark:drop-shadow-[0_0_20px_rgba(14,165,233,0.5)]" />
+      <div className="text-center lg:text-left animate-fade-in">
+        <div className="inline-flex mb-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 shadow-lg">
+          <img src="/LOGO.png?v=3" alt="King's Grill Logo" className="w-[150px] h-auto object-contain" />
         </div>
         <p 
-          className="text-ocean-600 dark:text-ocean-400 font-semibold text-sm tracking-wide cursor-pointer"
+          className="text-teal-700 dark:text-teal-300 font-bold text-sm tracking-wide cursor-pointer"
           onClick={() => {
             const newCount = clickCount + 1;
             setClickCount(newCount);
@@ -210,7 +207,13 @@ export default function Login() {
             }
           }}
         >
-          KING's GRILL APP v1.0
+          KING'S GRILL OPERATIONS
+        </p>
+        <h1 className="mt-3 text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white leading-tight">
+          Quản lý ca, chấm công và vận hành nhà hàng
+        </h1>
+        <p className="mt-3 text-sm sm:text-base text-slate-600 dark:text-slate-400 max-w-md mx-auto lg:mx-0">
+          Một giao diện tập trung cho nhân sự, lịch làm, checklist, bàn giao ca và công lương.
         </p>
       </div>
 

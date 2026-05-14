@@ -6,7 +6,6 @@ import { getDist, speak, getCurrentTimeString, computeWeekInfo, KG_LAT, KG_LNG, 
 import Swal from 'sweetalert2';
 import { MapPin, RefreshCw, CameraOff, Camera, RotateCcw, LogIn, LogOut, UserCheck } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import * as faceapi from 'face-api.js';
 
 export default function CheckIn() {
   const store = useAppStore();
@@ -28,6 +27,7 @@ export default function CheckIn() {
   const [cameraError, setCameraError] = useState(false);
   const [isFaceModelLoaded, setIsFaceModelLoaded] = useState(false);
   const [isFaceDetected, setIsFaceDetected] = useState(false);
+  const faceApiRef = useRef<any>(null);
 
   // Clock
   useEffect(() => {
@@ -511,6 +511,8 @@ export default function CheckIn() {
   useEffect(() => {
     const loadModels = async () => {
       try {
+        const faceapi = await import('face-api.js');
+        faceApiRef.current = faceapi;
         await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
         setIsFaceModelLoaded(true);
       } catch (e) {
@@ -535,6 +537,8 @@ export default function CheckIn() {
     if (cameraActive && isFaceModelLoaded && videoRef.current && overlayCanvasRef.current) {
       const video = videoRef.current;
       const canvas = overlayCanvasRef.current;
+      const faceapi = faceApiRef.current;
+      if (!faceapi) return;
 
       interval = setInterval(async () => {
         if (video.paused || video.ended || !cameraActive) return;

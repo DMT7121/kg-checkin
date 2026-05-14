@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { lazy, Suspense, useState, useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import { computeWeekInfo } from '../utils/helpers';
@@ -13,30 +13,31 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { triggerDeveloperMode } from '../utils/githubApi';
-import CheckIn from './CheckIn';
-import Schedule from './Schedule';
-import ActivityHistory from './ActivityHistory';
-import SwapShift from './SwapShift';
-import NewsFeed from './NewsFeed';
-import Training from './Training';
-import SoldOut from './SoldOut';
-import Roster from './Roster';
-import Checklist from './Checklist';
-import Handover from './Handover';
-import Feedback from './Feedback';
-import Admin from './Admin';
-import HrList from './admin/HrList';
-import AdminShift from './admin/AdminShift';
-import AdminOrg from './admin/AdminOrg';
-import AdminPayroll from './admin/AdminPayroll';
-import AdminChecklistConfig from './admin/AdminChecklistConfig';
-import Advance from './Advance';
-import Discipline from './Discipline';
-import Payroll from './Payroll';
-import Reward from './Reward';
-import Timesheet from './Timesheet';
 import NotificationBell from '../components/NotificationBell';
-import AdminAnalytics from './admin/AdminAnalytics';
+
+const CheckIn = lazy(() => import('./CheckIn'));
+const Schedule = lazy(() => import('./Schedule'));
+const ActivityHistory = lazy(() => import('./ActivityHistory'));
+const SwapShift = lazy(() => import('./SwapShift'));
+const NewsFeed = lazy(() => import('./NewsFeed'));
+const Training = lazy(() => import('./Training'));
+const SoldOut = lazy(() => import('./SoldOut'));
+const Roster = lazy(() => import('./Roster'));
+const Checklist = lazy(() => import('./Checklist'));
+const Handover = lazy(() => import('./Handover'));
+const Feedback = lazy(() => import('./Feedback'));
+const Admin = lazy(() => import('./Admin'));
+const HrList = lazy(() => import('./admin/HrList'));
+const AdminShift = lazy(() => import('./admin/AdminShift'));
+const AdminOrg = lazy(() => import('./admin/AdminOrg'));
+const AdminPayroll = lazy(() => import('./admin/AdminPayroll'));
+const AdminChecklistConfig = lazy(() => import('./admin/AdminChecklistConfig'));
+const AdminAnalytics = lazy(() => import('./admin/AdminAnalytics'));
+const Advance = lazy(() => import('./Advance'));
+const Discipline = lazy(() => import('./Discipline'));
+const Payroll = lazy(() => import('./Payroll'));
+const Reward = lazy(() => import('./Reward'));
+const Timesheet = lazy(() => import('./Timesheet'));
 
 // ============================================
 // Định nghĩa cấu trúc Sidebar theo 5 Nhóm
@@ -203,6 +204,15 @@ export default function Dashboard() {
     </div>
   );
 
+  const TabFallback = () => (
+    <div className="p-4 md:p-6">
+      <div className="soft3d-card p-6 flex items-center gap-3 text-slate-600 dark:text-slate-300">
+        <RefreshCw size={18} className="animate-spin text-teal-600" />
+        <span className="text-sm font-semibold">Đang mở màn hình...</span>
+      </div>
+    </div>
+  );
+
   // Trang Tổng Quan (Dashboard Overview)
   const DashboardOverview = () => {
     const { stats, logs, approvedShifts } = store;
@@ -294,7 +304,7 @@ export default function Dashboard() {
     });
 
     return (
-      <div className="p-4 space-y-4">
+      <div className="dashboard-overview p-4 lg:p-6 space-y-4">
         {/* Header Banner */}
         <div className="soft3d-card !bg-gradient-to-r from-[#1856FF] via-[#0ea5e9] to-[#3A344E] p-6 md:p-8 text-white relative overflow-hidden flex items-center justify-between mb-2 border-opacity-30">
           <div className="relative z-10">
@@ -601,32 +611,121 @@ export default function Dashboard() {
     return '';
   };
 
+  const renderSidebarMenu = (mode: 'drawer' | 'desktop' = 'drawer') => (
+    <div className="space-y-1">
+      {menuGroups.map((group) => {
+        if (group.adminOnly && !isAdmin) return null;
+
+        const isExpanded = expandedGroups.includes(group.id);
+        const GroupIcon = group.icon;
+        const hasBadge = groupHasBadge(group);
+        const hasActiveItem = group.items.some((item) => item.id === currentTab);
+
+        return (
+          <div key={`${mode}-${group.id}`} className="mb-0.5">
+            <button
+              onClick={() => toggleGroup(group.id)}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-all ${
+                hasActiveItem
+                  ? 'bg-teal-50 text-teal-800 dark:bg-teal-950/50 dark:text-teal-300'
+                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80'
+              }`}
+            >
+              <div className="flex items-center space-x-2.5 min-w-0">
+                <GroupIcon size={16} className={hasActiveItem ? 'text-teal-600 dark:text-teal-300' : 'text-slate-400 dark:text-slate-500'} />
+                <span className="text-[13px] font-bold truncate">{group.label}</span>
+                {hasBadge && <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse flex-shrink-0" />}
+              </div>
+              <motion.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                <ChevronDown size={14} className="text-slate-400" />
+              </motion.div>
+            </button>
+
+            <AnimatePresence initial={false}>
+              {isExpanded && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.22, ease: 'easeInOut' }}
+                  className="overflow-hidden"
+                >
+                  <div className="pl-4 pr-1 py-1 space-y-0.5">
+                    {group.items.map((item) => {
+                      if (item.adminOnly && !isAdmin) return null;
+                      const Icon = item.icon;
+                      const isActive = currentTab === item.id;
+
+                      return (
+                        <button
+                          key={`${mode}-${item.id}`}
+                          onClick={() => handleTabChange(item.id)}
+                          className={`w-full flex items-center space-x-2.5 px-3 py-2.5 rounded-xl transition-all relative ${
+                            item.comingSoon
+                              ? 'text-slate-400 dark:text-slate-600 cursor-default'
+                              : isActive
+                              ? 'bg-teal-600 text-white shadow-sm'
+                              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80'
+                          }`}
+                        >
+                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+                            item.comingSoon
+                              ? 'bg-slate-100 dark:bg-slate-800'
+                              : isActive
+                              ? 'bg-white/18'
+                              : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700'
+                          }`}>
+                            <Icon size={14} className={
+                              item.comingSoon
+                                ? 'text-slate-400 dark:text-slate-600'
+                                : isActive
+                                ? 'text-white'
+                                : 'text-slate-500 dark:text-slate-400'
+                            } />
+                          </div>
+                          <span className="text-xs font-semibold flex-1 text-left truncate">{item.label}</span>
+                          {item.comingSoon && (
+                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 uppercase tracking-wide">Soon</span>
+                          )}
+                          {item.showBadge && !item.comingSoon && (
+                            <span className="w-2 h-2 bg-red-400 rounded-full animate-ping" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        );
+      })}
+    </div>
+  );
+
   return (
-    <div className="max-w-md mx-auto min-h-screen soft3d-bg shadow-2xl relative overflow-hidden flex flex-col font-sans">
-      {/* Origami Fold Accents */}
-      <div className="absolute top-[-5%] left-[-20%] w-[30rem] h-[30rem] bg-white/20 dark:bg-white/5 border-b border-black/5 dark:border-white/5 transform rotate-12 pointer-events-none"></div>
-      <div className="absolute bottom-[20%] right-[-20%] w-[25rem] h-[25rem] bg-white/30 dark:bg-white/5 border-t border-black/5 dark:border-white/5 transform -rotate-12 pointer-events-none"></div>
+    <div className="w-full max-w-7xl mx-auto min-h-screen soft3d-bg relative overflow-hidden flex flex-col font-sans md:border-x md:border-slate-200/80 md:dark:border-slate-800">
 
       {/* Header */}
-      <header className="paint-layer text-ocean-800 dark:text-white p-4 flex justify-between items-center sticky top-0 z-40 mx-2 mt-2">
+      <header className="bg-white/92 dark:bg-slate-950/90 text-slate-800 dark:text-white px-4 md:px-6 py-3 flex justify-between items-center sticky top-0 z-40 border-b border-slate-200/80 dark:border-slate-800 backdrop-blur-xl">
         <div className="flex items-center space-x-3">
-          <button onClick={handleOpenSidebar} className="w-11 h-11 rounded-xl paint-layer hover:bg-gray-200 dark:hover:bg-gray-700 transition flex items-center justify-center text-gray-700 dark:text-gray-200 touch-manipulation">
+          <button onClick={handleOpenSidebar} className="w-11 h-11 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 transition flex md:hidden items-center justify-center text-slate-700 dark:text-slate-200 touch-manipulation">
             <Menu size={20} />
           </button>
-          <div className="w-10 h-10 rounded-full soft3d-card items-center justify-center shadow-md overflow-hidden border border-gray-200 dark:border-gray-700 min-h-[44px] min-w-[44px] hidden sm:flex">
+          <div className="w-10 h-10 rounded-xl items-center justify-center overflow-hidden border border-slate-200 dark:border-slate-700 min-h-[44px] min-w-[44px] bg-white dark:bg-slate-900 hidden sm:flex">
             <img src="/android-chrome-192x192.png?v=3" alt="Logo" className="w-8 h-8 object-contain" />
           </div>
           <div>
-            <h1 className="font-bold text-lg leading-tight tracking-tight">King's Grill</h1>
-            <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">{currentUser?.fullname || 'Staff'}</p>
+            <h1 className="font-bold text-base md:text-lg leading-tight tracking-tight">King's Grill Ops</h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{currentUser?.fullname || 'Staff'}</p>
           </div>
         </div>
         <div className="flex items-center space-x-2">
           <NotificationBell />
-          <button onClick={() => store.toggleDarkMode()} className="w-11 h-11 rounded-full paint-layer hover:bg-gray-200 dark:hover:bg-gray-700 transition flex items-center justify-center text-gray-600 dark:text-gray-300 touch-manipulation relative">
+          <button onClick={() => store.toggleDarkMode()} className="w-11 h-11 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 transition flex items-center justify-center text-slate-600 dark:text-slate-300 touch-manipulation relative">
             {isDark ? <Sun size={18} /> : <Moon size={18} />}
           </button>
-          <button onClick={handleLogout} className="w-11 h-11 rounded-full bg-red-50 dark:bg-red-900/30 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 transition flex items-center justify-center touch-manipulation">
+          <button onClick={handleLogout} className="w-11 h-11 rounded-xl bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/60 transition flex items-center justify-center touch-manipulation">
             <Power size={18} />
           </button>
         </div>
@@ -650,7 +749,7 @@ export default function Dashboard() {
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="absolute top-0 left-0 bottom-0 w-[85%] max-w-[320px] soft3d-card z-50 flex flex-col border-r-0"
+              className="absolute top-0 left-0 bottom-0 w-[88%] max-w-[360px] bg-white dark:bg-slate-950 z-50 flex flex-col border-r border-slate-200 dark:border-slate-800 shadow-2xl"
             >
               {/* Sidebar Header */}
               <div className="p-5 border-b border-white/20 dark:border-white/10 flex justify-between items-center">
@@ -769,7 +868,7 @@ export default function Dashboard() {
               </div>
 
               {/* Sidebar Footer */}
-              <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
+              <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-slate-50/80 dark:bg-slate-900/60">
                 <p 
                   className="text-[10px] text-gray-400 dark:text-gray-600 text-center font-medium cursor-pointer"
                   onClick={() => {
@@ -789,10 +888,40 @@ export default function Dashboard() {
         )}
       </AnimatePresence>
 
+      <div className="flex flex-1 min-h-0">
+        <aside className="hidden md:flex w-72 shrink-0 flex-col border-r border-slate-200/80 dark:border-slate-800 bg-white/82 dark:bg-slate-950/76 backdrop-blur-xl">
+          <div className="px-4 py-5 border-b border-slate-200/80 dark:border-slate-800">
+            <div className="flex items-center gap-3">
+              {currentUser?.avatarUrl ? (
+                <img src={currentUser.avatarUrl} alt="" className="w-11 h-11 rounded-xl object-cover border border-slate-200 dark:border-slate-700" />
+              ) : (
+                <div className="w-11 h-11 rounded-xl bg-teal-600 text-white flex items-center justify-center font-bold text-lg">
+                  {currentUser?.fullname.charAt(0) || 'U'}
+                </div>
+              )}
+              <div className="min-w-0">
+                <h3 className="font-bold text-slate-900 dark:text-white leading-tight text-sm truncate">{currentUser?.fullname || 'Staff'}</h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">
+                  {currentUser?.role === 'admin' ? 'Quản lý hệ thống' : currentUser?.role === 'tester' ? 'Tester' : 'Nhân viên'}
+                </p>
+              </div>
+            </div>
+          </div>
+          <nav className="flex-1 overflow-y-auto px-3 py-4">
+            {renderSidebarMenu('desktop')}
+          </nav>
+          <div className="px-4 py-4 border-t border-slate-200/80 dark:border-slate-800">
+            <div className="rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-3 py-2">
+              <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wide">Phiên bản</p>
+              <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">King's Grill HR Phase 6</p>
+            </div>
+          </div>
+        </aside>
+
       {/* ============================================ */}
       {/* Content Area                                 */}
       {/* ============================================ */}
-      <div className="flex-1 pb-6 overflow-x-hidden">
+      <main className="flex-1 pb-6 overflow-x-hidden md:px-4 lg:px-6 min-w-0">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentTab}
@@ -802,31 +931,33 @@ export default function Dashboard() {
             transition={{ duration: 0.2 }}
             className="h-full"
           >
-            {currentTab === 'dashboard' && <DashboardOverview />}
-            {currentTab === 'checkin' && <CheckIn />}
-            {currentTab === 'schedule' && <Schedule />}
-            {currentTab === 'swap' && <SwapShift />}
-            {currentTab === 'roster' && <Roster />}
-            {currentTab === 'profile' && <Profile />}
-            {currentTab === 'checklist' && <Checklist />}
-            {currentTab === 'handover' && <Handover />}
-            {currentTab === 'feedback' && <Feedback />}
-            {currentTab === 'news' && <NewsFeed />}
-            {currentTab === 'soldout' && <SoldOut />}
-            {currentTab === 'training' && <Training />}
-            {currentTab === 'advance' && <Advance />}
-            {currentTab === 'discipline' && <Discipline />}
-            {currentTab === 'payroll' && <Payroll />}
-            {currentTab === 'reward' && <Reward />}
-            {currentTab === 'timesheet' && <Timesheet />}
-            {currentTab === 'history' && <ActivityHistory />}
-            {currentTab === 'admin' && <Admin />}
-            {currentTab === 'admin_shift' && <AdminShift />}
-            {currentTab === 'admin_org' && <AdminOrg />}
-            {currentTab === 'admin_payroll' && <AdminPayroll />}
-            {currentTab === 'admin_checklist' && <AdminChecklistConfig />}
-            {currentTab === 'admin_analytics' && <AdminAnalytics />}
-            {currentTab === 'hr_list' && <HrList />}
+            <Suspense fallback={<TabFallback />}>
+              {currentTab === 'dashboard' && <DashboardOverview />}
+              {currentTab === 'checkin' && <CheckIn />}
+              {currentTab === 'schedule' && <Schedule />}
+              {currentTab === 'swap' && <SwapShift />}
+              {currentTab === 'roster' && <Roster />}
+              {currentTab === 'profile' && <ComingSoonPage title="Hồ sơ cá nhân" />}
+              {currentTab === 'checklist' && <Checklist />}
+              {currentTab === 'handover' && <Handover />}
+              {currentTab === 'feedback' && <Feedback />}
+              {currentTab === 'news' && <NewsFeed />}
+              {currentTab === 'soldout' && <SoldOut />}
+              {currentTab === 'training' && <Training />}
+              {currentTab === 'advance' && <Advance />}
+              {currentTab === 'discipline' && <Discipline />}
+              {currentTab === 'payroll' && <Payroll />}
+              {currentTab === 'reward' && <Reward />}
+              {currentTab === 'timesheet' && <Timesheet />}
+              {currentTab === 'history' && <ActivityHistory />}
+              {currentTab === 'admin' && <Admin />}
+              {currentTab === 'admin_shift' && <AdminShift />}
+              {currentTab === 'admin_org' && <AdminOrg />}
+              {currentTab === 'admin_payroll' && <AdminPayroll />}
+              {currentTab === 'admin_checklist' && <AdminChecklistConfig />}
+              {currentTab === 'admin_analytics' && <AdminAnalytics />}
+              {currentTab === 'hr_list' && <HrList />}
+            </Suspense>
             {/* Coming Soon Pages */}
             {[]?.includes(currentTab) && (
               <div className="flex flex-col items-center justify-center h-full p-6 text-center mt-10">
@@ -835,6 +966,7 @@ export default function Dashboard() {
             )}
           </motion.div>
         </AnimatePresence>
+      </main>
       </div>
     </div>
   );
