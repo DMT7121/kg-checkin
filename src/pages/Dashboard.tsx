@@ -16,29 +16,46 @@ import { triggerDeveloperMode } from '../utils/githubApi';
 import NotificationBell from '../components/NotificationBell';
 import AppErrorBoundary from '../components/AppErrorBoundary';
 
-const CheckIn = lazy(() => import('./CheckIn'));
-const Schedule = lazy(() => import('./Schedule'));
-const ActivityHistory = lazy(() => import('./ActivityHistory'));
-const SwapShift = lazy(() => import('./SwapShift'));
-const NewsFeed = lazy(() => import('./NewsFeed'));
-const Training = lazy(() => import('./Training'));
-const SoldOut = lazy(() => import('./SoldOut'));
-const Roster = lazy(() => import('./Roster'));
-const Checklist = lazy(() => import('./Checklist'));
-const Handover = lazy(() => import('./Handover'));
-const Feedback = lazy(() => import('./Feedback'));
-const Admin = lazy(() => import('./Admin'));
-const HrList = lazy(() => import('./admin/HrList'));
-const AdminShift = lazy(() => import('./admin/AdminShift'));
-const AdminOrg = lazy(() => import('./admin/AdminOrg'));
-const AdminPayroll = lazy(() => import('./admin/AdminPayroll'));
-const AdminChecklistConfig = lazy(() => import('./admin/AdminChecklistConfig'));
-const AdminAnalytics = lazy(() => import('./admin/AdminAnalytics'));
-const Advance = lazy(() => import('./Advance'));
-const Discipline = lazy(() => import('./Discipline'));
-const Payroll = lazy(() => import('./Payroll'));
-const Reward = lazy(() => import('./Reward'));
-const Timesheet = lazy(() => import('./Timesheet'));
+const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+function lazyWithRetry<T extends { default: React.ComponentType<any> }>(loader: () => Promise<T>) {
+  return lazy(async () => {
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await loader();
+      } catch (error) {
+        lastError = error;
+        await wait(250 * (attempt + 1));
+      }
+    }
+    throw lastError;
+  });
+}
+
+const CheckIn = lazyWithRetry(() => import('./CheckIn'));
+const Schedule = lazyWithRetry(() => import('./Schedule'));
+const ActivityHistory = lazyWithRetry(() => import('./ActivityHistory'));
+const SwapShift = lazyWithRetry(() => import('./SwapShift'));
+const NewsFeed = lazyWithRetry(() => import('./NewsFeed'));
+const Training = lazyWithRetry(() => import('./Training'));
+const SoldOut = lazyWithRetry(() => import('./SoldOut'));
+const Roster = lazyWithRetry(() => import('./Roster'));
+const Checklist = lazyWithRetry(() => import('./Checklist'));
+const Handover = lazyWithRetry(() => import('./Handover'));
+const Feedback = lazyWithRetry(() => import('./Feedback'));
+const Admin = lazyWithRetry(() => import('./Admin'));
+const HrList = lazyWithRetry(() => import('./admin/HrList'));
+const AdminShift = lazyWithRetry(() => import('./admin/AdminShift'));
+const AdminOrg = lazyWithRetry(() => import('./admin/AdminOrg'));
+const AdminPayroll = lazyWithRetry(() => import('./admin/AdminPayroll'));
+const AdminChecklistConfig = lazyWithRetry(() => import('./admin/AdminChecklistConfig'));
+const AdminAnalytics = lazyWithRetry(() => import('./admin/AdminAnalytics'));
+const Advance = lazyWithRetry(() => import('./Advance'));
+const Discipline = lazyWithRetry(() => import('./Discipline'));
+const Payroll = lazyWithRetry(() => import('./Payroll'));
+const Reward = lazyWithRetry(() => import('./Reward'));
+const Timesheet = lazyWithRetry(() => import('./Timesheet'));
 
 const prefetchModuleScreens = () => {
   const jobs = [
@@ -245,10 +262,54 @@ export default function Dashboard() {
   );
 
   const TabFallback = () => (
+    <div className="p-4 md:p-6 space-y-4">
+      <div className="soft3d-card p-5 md:p-6 overflow-hidden">
+        <div className="flex items-center justify-between gap-4 mb-5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-teal-50 dark:bg-teal-950/40 flex items-center justify-center">
+              <RefreshCw size={18} className="animate-spin text-teal-600" />
+            </div>
+            <div>
+              <p className="text-sm font-extrabold text-slate-900 dark:text-white">Đang mở module</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Dữ liệu giao diện đang được tải nhanh...</p>
+            </div>
+          </div>
+          <div className="hidden sm:block h-2 w-28 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+            <div className="h-full w-1/2 rounded-full bg-teal-500 animate-pulse" />
+          </div>
+        </div>
+        <div className="grid md:grid-cols-3 gap-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-24 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3">
+              <div className="h-3 w-20 rounded bg-slate-200 dark:bg-slate-700 animate-pulse mb-3" />
+              <div className="h-6 w-16 rounded bg-slate-200 dark:bg-slate-700 animate-pulse" />
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 space-y-2">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-10 rounded-lg bg-slate-100 dark:bg-slate-800 animate-pulse" />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  const ModuleRecoverFallback = () => (
     <div className="p-4 md:p-6">
-      <div className="soft3d-card p-6 flex items-center gap-3 text-slate-600 dark:text-slate-300">
-        <RefreshCw size={18} className="animate-spin text-teal-600" />
-        <span className="text-sm font-semibold">Đang mở màn hình...</span>
+      <div className="soft3d-card p-5 md:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Module đang được tải lại</h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            Hệ thống đang giữ nguyên màn hình hiện tại và thử nạp lại giao diện.
+          </p>
+        </div>
+        <button
+          onClick={() => window.location.reload()}
+          className="soft3d-btn-primary px-4 py-2.5 text-sm font-bold inline-flex items-center justify-center gap-2"
+        >
+          <RefreshCw size={16} /> Làm mới
+        </button>
       </div>
     </div>
   );
@@ -971,7 +1032,7 @@ export default function Dashboard() {
             transition={{ duration: 0.2 }}
             className="h-full"
           >
-            <AppErrorBoundary resetKey={currentTab} onRecover={() => store.setCurrentTab('dashboard')}>
+            <AppErrorBoundary resetKey={currentTab} fallback={<ModuleRecoverFallback />}>
               <Suspense fallback={<TabFallback />}>
                 {currentTab === 'dashboard' && <DashboardOverview />}
                 {currentTab === 'checkin' && <CheckIn />}

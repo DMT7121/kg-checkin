@@ -3,7 +3,7 @@ import React from 'react';
 interface Props {
   children: React.ReactNode;
   resetKey?: string;
-  onRecover?: () => void;
+  fallback?: React.ReactNode;
 }
 
 interface State {
@@ -26,11 +26,6 @@ export default class AppErrorBoundary extends React.Component<Props, State> {
       window.location.reload();
       return;
     }
-
-    window.setTimeout(() => {
-      this.props.onRecover?.();
-      this.setState({ error: null });
-    }, 0);
   }
 
   componentDidUpdate(prevProps: Props) {
@@ -40,7 +35,7 @@ export default class AppErrorBoundary extends React.Component<Props, State> {
   }
 
   render() {
-    if (this.state.error) return null;
+    if (this.state.error) return this.props.fallback ?? null;
     return this.props.children;
   }
 }
