@@ -23,13 +23,24 @@ const types = {
 function resolvePath(urlPath) {
   const cleanPath = decodeURIComponent(urlPath.split('?')[0]);
   const candidate = normalize(join(root, cleanPath));
-  if (!candidate.startsWith(root)) return join(root, 'index.html');
-  if (existsSync(candidate) && statSync(candidate).isFile()) return candidate;
-  return join(root, 'index.html');
+  if (!candidate.startsWith(root)) return { path: join(root, 'index.html'), found: true };
+  if (existsSync(candidate) && statSync(candidate).isFile()) return { path: candidate, found: true };
+  if (cleanPath.startsWith('/assets/')) return { path: candidate, found: false };
+  return { path: join(root, 'index.html'), found: true };
 }
 
 createServer((req, res) => {
-  const path = resolvePath(req.url || '/');
+  const resolved = resolvePath(req.url || '/');
+  if (!resolved.found) {
+    res.writeHead(404, {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'no-store',
+    });
+    res.end('Not found');
+    return;
+  }
+
+  const path = resolved.path;
   const type = types[extname(path)] || 'application/octet-stream';
   res.writeHead(200, {
     'Content-Type': type,

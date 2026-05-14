@@ -40,6 +40,35 @@ const Payroll = lazy(() => import('./Payroll'));
 const Reward = lazy(() => import('./Reward'));
 const Timesheet = lazy(() => import('./Timesheet'));
 
+const prefetchModuleScreens = () => {
+  const jobs = [
+    import('./CheckIn'),
+    import('./Schedule'),
+    import('./ActivityHistory'),
+    import('./SwapShift'),
+    import('./NewsFeed'),
+    import('./Training'),
+    import('./SoldOut'),
+    import('./Roster'),
+    import('./Checklist'),
+    import('./Handover'),
+    import('./Feedback'),
+    import('./Admin'),
+    import('./admin/HrList'),
+    import('./admin/AdminShift'),
+    import('./admin/AdminOrg'),
+    import('./admin/AdminPayroll'),
+    import('./admin/AdminChecklistConfig'),
+    import('./admin/AdminAnalytics'),
+    import('./Advance'),
+    import('./Discipline'),
+    import('./Payroll'),
+    import('./Reward'),
+    import('./Timesheet'),
+  ];
+  Promise.allSettled(jobs).catch(() => undefined);
+};
+
 // ============================================
 // Định nghĩa cấu trúc Sidebar theo 5 Nhóm
 // ============================================
@@ -69,6 +98,16 @@ export default function Dashboard() {
   const [expandedGroups, setExpandedGroups] = useState<string[]>(['info']);
   const [clickCount, setClickCount] = useState(0);
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'tester';
+
+  useEffect(() => {
+    const run = () => prefetchModuleScreens();
+    if ('requestIdleCallback' in window) {
+      const id = window.requestIdleCallback(run, { timeout: 2500 });
+      return () => window.cancelIdleCallback?.(id);
+    }
+    const timer = window.setTimeout(run, 1200);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   // ============================================
   // 5 Nhóm Menu theo MASTER BLUEPRINT
@@ -932,7 +971,7 @@ export default function Dashboard() {
             transition={{ duration: 0.2 }}
             className="h-full"
           >
-            <AppErrorBoundary resetKey={currentTab}>
+            <AppErrorBoundary resetKey={currentTab} onRecover={() => store.setCurrentTab('dashboard')}>
               <Suspense fallback={<TabFallback />}>
                 {currentTab === 'dashboard' && <DashboardOverview />}
                 {currentTab === 'checkin' && <CheckIn />}
