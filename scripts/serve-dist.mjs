@@ -33,7 +33,7 @@ createServer((req, res) => {
   const type = types[extname(path)] || 'application/octet-stream';
   res.writeHead(200, {
     'Content-Type': type,
-    'Cache-Control': type.includes('html') ? 'no-store' : 'public, max-age=31536000, immutable',
+    'Cache-Control': 'no-store',
   });
   createReadStream(path).pipe(res);
 }).listen(port, host, () => {

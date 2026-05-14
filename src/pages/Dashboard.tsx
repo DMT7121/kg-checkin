@@ -14,6 +14,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { triggerDeveloperMode } from '../utils/githubApi';
 import NotificationBell from '../components/NotificationBell';
+import AppErrorBoundary from '../components/AppErrorBoundary';
 
 const CheckIn = lazy(() => import('./CheckIn'));
 const Schedule = lazy(() => import('./Schedule'));
@@ -931,33 +932,35 @@ export default function Dashboard() {
             transition={{ duration: 0.2 }}
             className="h-full"
           >
-            <Suspense fallback={<TabFallback />}>
-              {currentTab === 'dashboard' && <DashboardOverview />}
-              {currentTab === 'checkin' && <CheckIn />}
-              {currentTab === 'schedule' && <Schedule />}
-              {currentTab === 'swap' && <SwapShift />}
-              {currentTab === 'roster' && <Roster />}
-              {currentTab === 'profile' && <ComingSoonPage title="Hồ sơ cá nhân" />}
-              {currentTab === 'checklist' && <Checklist />}
-              {currentTab === 'handover' && <Handover />}
-              {currentTab === 'feedback' && <Feedback />}
-              {currentTab === 'news' && <NewsFeed />}
-              {currentTab === 'soldout' && <SoldOut />}
-              {currentTab === 'training' && <Training />}
-              {currentTab === 'advance' && <Advance />}
-              {currentTab === 'discipline' && <Discipline />}
-              {currentTab === 'payroll' && <Payroll />}
-              {currentTab === 'reward' && <Reward />}
-              {currentTab === 'timesheet' && <Timesheet />}
-              {currentTab === 'history' && <ActivityHistory />}
-              {currentTab === 'admin' && <Admin />}
-              {currentTab === 'admin_shift' && <AdminShift />}
-              {currentTab === 'admin_org' && <AdminOrg />}
-              {currentTab === 'admin_payroll' && <AdminPayroll />}
-              {currentTab === 'admin_checklist' && <AdminChecklistConfig />}
-              {currentTab === 'admin_analytics' && <AdminAnalytics />}
-              {currentTab === 'hr_list' && <HrList />}
-            </Suspense>
+            <AppErrorBoundary resetKey={currentTab}>
+              <Suspense fallback={<TabFallback />}>
+                {currentTab === 'dashboard' && <DashboardOverview />}
+                {currentTab === 'checkin' && <CheckIn />}
+                {currentTab === 'schedule' && <Schedule />}
+                {currentTab === 'swap' && <SwapShift />}
+                {currentTab === 'roster' && <Roster />}
+                {currentTab === 'profile' && <ComingSoonPage title="Hồ sơ cá nhân" />}
+                {currentTab === 'checklist' && <Checklist />}
+                {currentTab === 'handover' && <Handover />}
+                {currentTab === 'feedback' && <Feedback />}
+                {currentTab === 'news' && <NewsFeed />}
+                {currentTab === 'soldout' && <SoldOut />}
+                {currentTab === 'training' && <Training />}
+                {currentTab === 'advance' && <Advance />}
+                {currentTab === 'discipline' && <Discipline />}
+                {currentTab === 'payroll' && <Payroll />}
+                {currentTab === 'reward' && <Reward />}
+                {currentTab === 'timesheet' && <Timesheet />}
+                {currentTab === 'history' && <ActivityHistory />}
+                {currentTab === 'admin' && <Admin />}
+                {currentTab === 'admin_shift' && <AdminShift />}
+                {currentTab === 'admin_org' && <AdminOrg />}
+                {currentTab === 'admin_payroll' && <AdminPayroll />}
+                {currentTab === 'admin_checklist' && <AdminChecklistConfig />}
+                {currentTab === 'admin_analytics' && <AdminAnalytics />}
+                {currentTab === 'hr_list' && <HrList />}
+              </Suspense>
+            </AppErrorBoundary>
             {/* Coming Soon Pages */}
             {[]?.includes(currentTab) && (
               <div className="flex flex-col items-center justify-center h-full p-6 text-center mt-10">
