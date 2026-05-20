@@ -9,7 +9,7 @@ const inFlightBackgroundCalls = new Map<string, Promise<any>>();
 export const getGasUrl = () => {
   return localStorage.getItem('kg_gas_url') || 
     import.meta.env.VITE_GAS_URL ||
-    'https://script.google.com/macros/s/AKfycby7KjB0bPjsBpSPI69X7qSxLGd66v_FcCoKsv97nGMCyyT3_0jNtoX88rIFBkCnvq_p/exec';
+    'https://script.google.com/macros/s/AKfycbxLIwrO0zd2jEoFJftmO-pgMoXinN1EEoUriJEZmmEVSl49jct50jy-oe3OCarw-phm/exec';
 };
 
 export const setGasUrl = (url: string) => {
