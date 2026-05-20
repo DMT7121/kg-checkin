@@ -17,6 +17,13 @@ export default function App() {
 
   // Init on mount - matches original initApp()
   useEffect(() => {
+    // Force clear outdated GAS URL configurations
+    const storedGas = localStorage.getItem('kg_gas_url');
+    const targetGas = 'https://script.google.com/macros/s/AKfycbyQ4Y5cQ0BCHBlmzftWq0dPVP2qNgc-PaYMklh44raSX4hDOCIyFi0bV-G6QdUbb-3D/exec';
+    if (storedGas && storedGas.trim() !== targetGas) {
+      localStorage.removeItem('kg_gas_url');
+    }
+
     // Auto dark mode based on time of day
     const hour = new Date().getHours();
     const isNight = hour < 6 || hour >= 17;

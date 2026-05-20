@@ -8,14 +8,9 @@ const inFlightBackgroundCalls = new Map<string, Promise<any>>();
 // Get GAS URL dynamically so we can update it without rebuilds
 export const getGasUrl = () => {
   const stored = localStorage.getItem('kg_gas_url');
-  const oldUrls = [
-    'https://script.google.com/macros/s/AKfycbxLIwrO0zd2jEoFJftmO-pgMoXinN1EEoUriJEZmmEVSl49jct50jy-oe3OCarw-phm/exec',
-    'https://script.google.com/macros/s/AKfycbzLsmPb89mVPxcAeQwEsHIojCcy20eYL7SmIinwLiU_IYPhHER7HdgRGTxoTqUInAEN/exec',
-    'https://script.google.com/macros/s/AKfycbxqPRgIrusXho5OhV8YUv9o1Qf3DwvK7_q9lthQMGq5ADLRW198OiKDD4-SlS5c2Y-W/exec'
-  ];
   const newUrl = 'https://script.google.com/macros/s/AKfycbyQ4Y5cQ0BCHBlmzftWq0dPVP2qNgc-PaYMklh44raSX4hDOCIyFi0bV-G6QdUbb-3D/exec';
   
-  if (stored && oldUrls.includes(stored)) {
+  if (stored && stored.trim() !== newUrl) {
     localStorage.removeItem('kg_gas_url');
     return newUrl;
   }
