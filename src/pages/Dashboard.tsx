@@ -112,30 +112,6 @@ const prefetchModuleScreens = async () => {
   }
 };
 
-export default function Dashboard() {
-  const store = useAppStore();
-  const { currentUser, currentTab } = store;
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'tester';
-
-  useEffect(() => {
-    const run = () => prefetchModuleScreens();
-    if ('requestIdleCallback' in window) {
-      const id = window.requestIdleCallback(run, { timeout: 2500 });
-      return () => window.cancelIdleCallback?.(id);
-    }
-    const timer = window.setTimeout(run, 1200);
-    return () => window.clearTimeout(timer);
-  }, []);
-
-  const handleTabChange = (tab: any) => {
-    prefetchModule(tab);
-    store.setCurrentTab(tab);
-    window.scrollTo({ top: 0, behavior: 'instant' });
-    if (tab === 'history' || tab === 'admin' || tab === 'dashboard') {
-      refreshAppData();
-    }
-  };
-
 const ComingSoonPage = ({ title }: { title: string }) => (
   <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
     <div className="w-20 h-20 rounded-2xl bg-[#FFF0ED] dark:bg-[#E85D4A]/10 flex items-center justify-center mb-5 shadow-sm">
