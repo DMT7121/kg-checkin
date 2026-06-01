@@ -565,46 +565,46 @@ export default function CheckIn() {
     <div className="space-y-4 animate-fade-in pb-10">
       
       {/* Header Banner */}
-      <div className="soft3d-card !bg-gradient-to-r from-emerald-600 via-green-600 to-teal-700 p-6 md:p-8 text-white relative overflow-hidden flex items-center justify-between border-opacity-30">
+      <div className="bg-[#062B49] p-6 md:p-8 text-white relative overflow-hidden flex items-center justify-between rounded-3xl border border-[#0B3A5F]">
         <div className="relative z-10">
           <div className="flex items-center space-x-3 mb-2">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
+            <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
               <Camera size={20} className="text-white" />
             </div>
-            <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Chấm công GPS</h2>
+            <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">Chấm công GPS</h2>
           </div>
-          <p className="text-green-100 font-medium opacity-90 text-sm md:text-base max-w-lg">
+          <p className="text-[#A0ABC0] font-medium opacity-90 text-sm md:text-base max-w-lg">
             Chụp ảnh minh chứng tại nhà hàng để hoàn thành chấm công.
           </p>
         </div>
         <div className="hidden md:block relative z-10 opacity-80">
-          <UserCheck size={80} strokeWidth={1} />
+          <UserCheck size={80} strokeWidth={1} className="text-[#A0ABC0]" />
         </div>
-        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
-        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-green-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
+        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-[#E85D4A]/10 rounded-full blur-3xl mix-blend-overlay"></div>
+        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-white/5 rounded-full blur-2xl mix-blend-overlay"></div>
       </div>
 
       {/* GPS Status Card */}
-      <div className="soft3d-card !bg-gradient-to-r from-teal-650 to-teal-555 p-5 text-white relative overflow-hidden border-opacity-30">
-        <div className="absolute -right-4 -top-4 opacity-10 text-8xl transform rotate-12"><MapPin size={100} /></div>
+      <div className="bg-white dark:bg-[#0E273C] p-5 rounded-3xl relative overflow-hidden border border-[#E8DED1] dark:border-[#1E3F57] text-[#172033] dark:text-white shadow-sm">
+        <div className="absolute -right-4 -top-4 opacity-5 text-8xl transform rotate-12 text-[#062B49]"><MapPin size={100} /></div>
         <div className="flex items-start space-x-4 relative z-10">
-          <div className="bg-white/20 backdrop-blur-sm p-3 rounded-2xl relative flex-shrink-0">
+          <div className="bg-[#062B49]/5 dark:bg-[#122F48] p-3 rounded-2xl relative flex-shrink-0 text-[#062B49] dark:text-[#E85D4A]">
             <MapPin className="relative z-10" size={24} />
             {gps.status.includes('Đang') && <div className="gps-ping absolute inset-0" />}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-bold text-teal-200 uppercase tracking-wider">Vị trí hiện tại</p>
-            <h3 className="font-extrabold text-sm md:text-base mt-0.5 leading-tight break-words">
+            <p className="text-[10px] font-bold text-[#6F7785] dark:text-[#A0ABC0] uppercase tracking-wider">Vị trí hiện tại</p>
+            <h3 className="font-extrabold text-sm md:text-base mt-0.5 leading-tight break-words text-[#172033] dark:text-white">
               {gps.address ? gps.address : gps.status}
             </h3>
-            <div className={`mt-2 inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-black/20 backdrop-blur-md ${gps.isValid ? 'text-green-300' : 'text-red-300'}`}>
+            <div className={`mt-2 inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold ${gps.isValid ? 'bg-[#EEF7F0] text-[#4F8A5B]' : 'bg-[#FFF0EE] text-[#C94335]'}`}>
               <span className="truncate">{gps.message}</span>
             </div>
           </div>
         </div>
         <button
           onClick={restartGps}
-          className="absolute top-4 right-4 text-xs bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-full transition backdrop-blur-md font-bold flex items-center min-h-[44px] touch-manipulation shadow-sm"
+          className="absolute top-4 right-4 text-xs bg-[#062B49] hover:bg-[#0B3A5F] text-white px-3 py-1.5 rounded-full transition font-bold flex items-center min-h-[44px] touch-manipulation shadow-sm"
         >
           <RefreshCw size={14} className={`mr-1.5 ${gps.status.includes('Đang') ? 'animate-spin' : ''}`} />
           Làm mới
@@ -612,7 +612,7 @@ export default function CheckIn() {
       </div>
 
       {/* Camera Viewport */}
-      <div className={`relative bg-slate-950 rounded-3xl overflow-hidden shadow-xl aspect-[3/4] group border-[5px] max-w-sm mx-auto ${gps.isValid ? 'border-teal-500 shadow-teal-500/10' : 'border-slate-350 dark:border-slate-805'}`}>
+      <div className={`relative bg-slate-950 rounded-3xl overflow-hidden shadow-sm aspect-[3/4] group border-[5px] max-w-sm mx-auto ${gps.isValid ? 'border-[#062B49]' : 'border-[#C94335]'}`}>
         <video ref={videoRef} autoPlay muted playsInline className={`w-full h-full object-cover mirror-cam ${(cameraError || capturedImage) ? 'hidden' : ''}`} />
         <canvas ref={overlayCanvasRef} className={`absolute inset-0 w-full h-full object-cover pointer-events-none ${(cameraError || capturedImage) ? 'hidden' : ''}`} />
         <canvas ref={canvasRef} className="hidden" />

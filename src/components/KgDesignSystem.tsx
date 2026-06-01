@@ -18,7 +18,7 @@ export function KgSection({ children, title, className = '' }: { children: React
   return (
     <section className={`space-y-3 ${className}`}>
       {title && (
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 pl-1">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-[#6F7785] dark:text-[#9AA1AA] pl-1">
           {title}
         </h3>
       )}
@@ -39,19 +39,19 @@ export function KgPageHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200/80 dark:border-slate-800 pb-4">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[#E8DED1] dark:border-[#1E3F57] pb-4">
       <div className="flex items-center gap-3">
         {Icon && (
-          <div className="w-10 h-10 rounded-xl bg-teal-50 dark:bg-teal-950/40 flex items-center justify-center text-teal-650 dark:text-teal-400 flex-shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-[#062B49]/5 dark:bg-[#1E3F57]/40 flex items-center justify-center text-[#062B49] dark:text-[#E85D4A] flex-shrink-0">
             <Icon size={20} />
           </div>
         )}
         <div className="min-w-0">
-          <h2 className="text-lg md:text-xl font-extrabold text-slate-900 dark:text-white leading-tight truncate">
+          <h2 className="text-lg md:text-xl font-extrabold text-[#172033] dark:text-white leading-tight truncate">
             {title}
           </h2>
           {description && (
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate max-w-[280px] sm:max-w-md">
+            <p className="text-xs text-[#6F7785] dark:text-[#A0ABC0] mt-0.5 truncate max-w-[280px] sm:max-w-md">
               {description}
             </p>
           )}
@@ -80,11 +80,11 @@ export function KgCard({
   return (
     <div
       onClick={onClick}
-      className={`soft3d-card p-4 md:p-5 ${
+      className={`bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-2xl p-4 md:p-5 transition-all duration-200 min-w-0 ${
         onClick ? 'cursor-pointer select-none active:scale-[0.99] touch-manipulation' : ''
       } ${
-        hoverable || onClick ? 'hover:border-teal-500/40 dark:hover:border-teal-500/40 hover:shadow-md' : ''
-      } transition-all duration-200 min-w-0 ${className}`}
+        hoverable || onClick ? 'hover:border-[#062B49] dark:hover:border-[#E85D4A] hover:shadow-sm' : ''
+      } ${className}`}
     >
       {children}
     </div>
@@ -122,15 +122,15 @@ export function KgButton({
   };
 
   const variantStyles = {
-    primary: 'soft3d-btn-primary',
+    primary: 'bg-[#062B49] hover:bg-[#0B3A5F] text-white border border-[#062B49] shadow-sm',
     secondary:
-      'soft3d-btn text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/80',
+      'bg-white dark:bg-[#0E273C] text-[#172033] dark:text-[#F1F5F9] border border-[#E8DED1] dark:border-[#1E3F57] hover:bg-[#FBF7F0] dark:hover:bg-[#122F48]',
     danger:
-      'bg-gradient-to-br from-red-500 to-red-650 text-white border border-red-600/20 shadow-md hover:shadow-red-500/20',
+      'bg-[#C94335] hover:bg-[#B33529] text-white border border-[#C94335] shadow-sm',
     warning:
-      'bg-gradient-to-br from-amber-500 to-amber-600 text-white border border-amber-600/20 shadow-md hover:shadow-amber-500/20',
+      'bg-[#D8A23A] hover:bg-[#C28F2D] text-white border border-[#D8A23A] shadow-sm',
     ghost:
-      'bg-transparent border-none text-slate-650 dark:text-slate-350 hover:bg-slate-100 dark:hover:bg-slate-800 shadow-none'
+      'bg-transparent border-none text-[#6F7785] dark:text-[#A0ABC0] hover:bg-[#FBF7F0] dark:hover:bg-[#122F48] shadow-none'
   };
 
   return (
@@ -166,12 +166,12 @@ export function KgIconButton({
   title?: string;
 }) {
   const variantStyles = {
-    primary: 'bg-teal-600 text-white hover:bg-teal-700 shadow-md',
+    primary: 'bg-[#062B49] hover:bg-[#0B3A5F] text-white shadow-sm',
     secondary:
-      'bg-slate-50 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-105/10 dark:hover:bg-slate-700',
+      'bg-white dark:bg-[#0E273C] text-[#172033] dark:text-[#F1F5F9] border border-[#E8DED1] dark:border-[#1E3F57] hover:bg-[#FBF7F0] dark:hover:bg-[#122F48]',
     danger:
-      'bg-red-50 dark:bg-red-950/40 text-red-650 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 border border-red-200 dark:border-red-900/30',
-    ghost: 'bg-transparent text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
+      'bg-[#FFF0EE] dark:bg-[#C94335]/15 text-[#C94335] hover:bg-[#FFE0DC] border border-[#FFF0EE] dark:border-[#C94335]/30',
+    ghost: 'bg-transparent text-[#6F7785] dark:text-[#A0ABC0] hover:bg-[#FBF7F0] dark:hover:bg-[#122F48]'
   };
 
   return (
@@ -202,24 +202,24 @@ export function KgInput({
   return (
     <div className={`space-y-1.5 w-full ${className}`}>
       {label && (
-        <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide pl-1">
+        <label className="block text-xs font-bold text-[#6F7785] dark:text-[#A0ABC0] uppercase tracking-wide pl-1">
           {label}
         </label>
       )}
       <div className="relative w-full">
         {Icon && (
-          <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+          <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9AA1AA] pointer-events-none">
             <Icon size={16} />
           </div>
         )}
         <input
           className={`w-full px-4 py-2.5 ${
             Icon ? 'pl-11' : ''
-          } text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-teal-500 dark:focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 focus:outline-none transition-all placeholder-slate-400 dark:placeholder-slate-500 text-slate-900 dark:text-white`}
+          } text-sm bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-xl focus:border-[#062B49] dark:focus:border-[#E85D4A] focus:ring-2 focus:ring-[#062B49]/10 focus:outline-none transition-all placeholder-[#9AA1AA] text-[#172033] dark:text-white`}
           {...props}
         />
       </div>
-      {error && <p className="text-xs text-red-500 dark:text-red-400 font-semibold pl-1">{error}</p>}
+      {error && <p className="text-xs text-[#C94335] dark:text-[#D8584B] font-semibold pl-1">{error}</p>}
     </div>
   );
 }
@@ -239,17 +239,17 @@ export function KgSelect({
   return (
     <div className={`space-y-1.5 w-full ${className}`}>
       {label && (
-        <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide pl-1">
+        <label className="block text-xs font-bold text-[#6F7785] dark:text-[#A0ABC0] uppercase tracking-wide pl-1">
           {label}
         </label>
       )}
       <select
-        className="w-full px-4 py-2.5 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-teal-500 dark:focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 focus:outline-none transition-all text-slate-900 dark:text-white"
+        className="w-full px-4 py-2.5 text-sm bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-xl focus:border-[#062B49] dark:focus:border-[#E85D4A] focus:ring-2 focus:ring-[#062B49]/10 focus:outline-none transition-all text-[#172033] dark:text-white"
         {...props}
       >
         {children}
       </select>
-      {error && <p className="text-xs text-red-500 dark:text-red-400 font-semibold pl-1">{error}</p>}
+      {error && <p className="text-xs text-[#C94335] dark:text-[#D8584B] font-semibold pl-1">{error}</p>}
     </div>
   );
 }
@@ -267,15 +267,15 @@ export function KgTextarea({
   return (
     <div className={`space-y-1.5 w-full ${className}`}>
       {label && (
-        <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide pl-1">
+        <label className="block text-xs font-bold text-[#6F7785] dark:text-[#A0ABC0] uppercase tracking-wide pl-1">
           {label}
         </label>
       )}
       <textarea
-        className="w-full px-4 py-2.5 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-teal-500 dark:focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 focus:outline-none transition-all placeholder-slate-400 dark:placeholder-slate-500 text-slate-900 dark:text-white min-h-[100px]"
+        className="w-full px-4 py-2.5 text-sm bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-xl focus:border-[#062B49] dark:focus:border-[#E85D4A] focus:ring-2 focus:ring-[#062B49]/10 focus:outline-none transition-all placeholder-[#9AA1AA] text-[#172033] dark:text-white min-h-[100px]"
         {...props}
       />
-      {error && <p className="text-xs text-red-500 dark:text-red-400 font-semibold pl-1">{error}</p>}
+      {error && <p className="text-xs text-[#C94335] dark:text-[#D8584B] font-semibold pl-1">{error}</p>}
     </div>
   );
 }
@@ -291,15 +291,15 @@ export function KgStatusBadge({
 }) {
   const styles = {
     success:
-      'bg-green-50 text-green-700 border border-green-200 dark:bg-green-950/20 dark:text-green-400 dark:border-green-900/30',
+      'bg-[#EEF7F0] text-[#4F8A5B] border border-[#EEF7F0] dark:bg-[#5F9D6B]/15 dark:text-[#5F9D6B] dark:border-[#5F9D6B]/30',
     warning:
-      'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900/30',
+      'bg-[#FFF7E4] text-[#D8A23A] border border-[#FFF7E4] dark:bg-[#E2B24C]/15 dark:text-[#E2B24C] dark:border-[#E2B24C]/30',
     error:
-      'bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30',
+      'bg-[#FFF0EE] text-[#C94335] border border-[#FFF0EE] dark:bg-[#D8584B]/15 dark:text-[#D8584B] dark:border-[#D8584B]/30',
     info:
-      'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/20 dark:text-blue-400 dark:border-blue-900/30',
+      'bg-[#FFF0ED] text-[#E85D4A] border border-[#FFF0ED] dark:bg-[#E85D4A]/15 dark:text-[#E85D4A] dark:border-[#E85D4A]/30',
     neutral:
-      'bg-slate-50 text-slate-650 border border-slate-200 dark:bg-slate-800/40 dark:text-slate-400 dark:border-slate-800'
+      'bg-[#FBF7F0] text-[#6F7785] border border-[#E8DED1] dark:bg-[#122F48] dark:text-[#A0ABC0] dark:border-[#1E3F57]'
   };
 
   return (
@@ -329,23 +329,23 @@ export function KgMetricCard({
   onClick?: () => void;
 }) {
   const iconStyles = {
-    success: 'bg-green-50 text-green-600 dark:bg-green-950/40 dark:text-green-405',
-    warning: 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-405',
-    error: 'bg-red-50 text-red-650 dark:bg-red-950/40 dark:text-red-405',
-    info: 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-405'
+    success: 'bg-[#EEF7F0] text-[#4F8A5B]',
+    warning: 'bg-[#FFF7E4] text-[#D8A23A]',
+    error: 'bg-[#FFF0EE] text-[#C94335]',
+    info: 'bg-[#FFF0ED] text-[#E85D4A]'
   };
 
   return (
     <KgCard onClick={onClick} className={`flex items-center justify-between p-4 ${className}`}>
       <div className="space-y-1 min-w-0">
-        <span className="text-[11px] text-slate-500 dark:text-slate-450 font-bold uppercase tracking-wider block truncate">
+        <span className="text-[11px] text-[#6F7785] dark:text-[#A0ABC0] font-bold uppercase tracking-wider block truncate">
           {title}
         </span>
-        <p className="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight truncate">
+        <p className="text-xl md:text-2xl font-black text-[#172033] dark:text-white tracking-tight truncate">
           {value}
         </p>
         {subtext && (
-          <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold truncate">
+          <p className="text-[10px] text-[#9AA1AA] dark:text-[#718096] font-bold truncate">
             {subtext}
           </p>
         )}
@@ -372,13 +372,13 @@ export function KgAlertCard({
 }) {
   const styles = {
     success:
-      'bg-green-50 border border-green-200 dark:bg-green-950/15 dark:border-green-900/40 text-green-800 dark:text-green-300',
+      'bg-[#EEF7F0] border border-[#EEF7F0]/30 text-[#4F8A5B] dark:bg-[#5F9D6B]/15 dark:text-[#5F9D6B]',
     warning:
-      'bg-amber-50 border border-amber-200 dark:bg-amber-950/15 dark:border-amber-900/40 text-amber-800 dark:text-amber-300',
+      'bg-[#FFF7E4] border border-[#FFF7E4]/30 text-[#D8A23A] dark:bg-[#E2B24C]/15 dark:text-[#E2B24C]',
     error:
-      'bg-red-50 border border-red-200 dark:bg-red-950/15 dark:border-red-900/40 text-red-800 dark:text-red-300',
+      'bg-[#FFF0EE] border border-[#FFF0EE]/30 text-[#C94335] dark:bg-[#D8584B]/15 dark:text-[#D8584B]',
     info:
-      'bg-blue-50 border border-blue-200 dark:bg-blue-950/15 dark:border-blue-900/40 text-blue-800 dark:text-blue-300'
+      'bg-[#FFF0ED] border border-[#FFF0ED]/30 text-[#E85D4A] dark:bg-[#E85D4A]/15 dark:text-[#E85D4A]'
   };
 
   const icons = {
@@ -419,14 +419,14 @@ export function KgEmptyState({
   action?: { label: string; onClick: () => void } | React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center text-center p-6 py-10 soft3d-card border-dashed">
+    <div className="flex flex-col items-center justify-center text-center p-6 py-10 bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] border-dashed rounded-2xl">
       {Icon && (
-        <div className="w-12 h-12 rounded-2xl bg-slate-50 dark:bg-slate-800/80 flex items-center justify-center text-slate-400 dark:text-slate-650 mb-4">
+        <div className="w-12 h-12 rounded-2xl bg-[#FBF7F0] dark:bg-[#122F48] flex items-center justify-center text-[#9AA1AA] dark:text-[#718096] mb-4">
           <Icon size={22} />
         </div>
       )}
-      <h4 className="text-sm font-bold text-slate-905 dark:text-white">{title}</h4>
-      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-[280px] leading-relaxed">
+      <h4 className="text-sm font-bold text-[#172033] dark:text-white">{title}</h4>
+      <p className="text-xs text-[#6F7785] dark:text-[#A0ABC0] mt-1 max-w-[280px] leading-relaxed">
         {description}
       </p>
       {action && (
@@ -448,9 +448,9 @@ export function KgEmptyState({
 export function KgLoadingOverlay({ text = 'Đang xử lý...' }: { text?: string }) {
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-      <div className="soft3d-card p-5 flex items-center gap-4 max-w-xs shadow-2xl">
-        <RefreshCw className="w-5 h-5 text-teal-650 animate-spin flex-shrink-0" />
-        <span className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
+      <div className="bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] p-5 rounded-2xl flex items-center gap-4 max-w-xs shadow-2xl">
+        <RefreshCw className="w-5 h-5 text-[#062B49] dark:text-[#E85D4A] animate-spin flex-shrink-0" />
+        <span className="text-sm font-bold text-[#172033] dark:text-white leading-tight">
           {text}
         </span>
       </div>
@@ -483,10 +483,10 @@ export function KgToast({
   }, [message, onClose]);
 
   const typeStyles = {
-    success: 'border-green-500/30 bg-green-50 dark:bg-green-950/90 text-green-800 dark:text-green-300',
-    error: 'border-red-500/30 bg-red-50 dark:bg-red-950/90 text-red-850 dark:text-red-300',
-    warning: 'border-amber-500/30 bg-amber-50 dark:bg-amber-950/90 text-amber-850 dark:text-amber-300',
-    info: 'border-blue-500/30 bg-blue-50 dark:bg-blue-950/90 text-blue-800 dark:text-blue-300'
+    success: 'border-[#EEF7F0] bg-[#EEF7F0] text-[#4F8A5B] dark:bg-[#5F9D6B]/10 dark:text-[#5F9D6B]',
+    error: 'border-[#FFF0EE] bg-[#FFF0EE] text-[#C94335] dark:bg-[#D8584B]/10 dark:text-[#D8584B]',
+    warning: 'border-[#FFF7E4] bg-[#FFF7E4] text-[#D8A23A] dark:bg-[#E2B24C]/10 dark:text-[#E2B24C]',
+    info: 'border-[#FFF0ED] bg-[#FFF0ED] text-[#E85D4A] dark:bg-[#E85D4A]/10 dark:text-[#E85D4A]'
   };
 
   const icons = {
@@ -543,19 +543,19 @@ export function KgBottomSheet({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-            className="fixed left-0 right-0 bottom-0 max-h-[85vh] bg-white dark:bg-slate-950 z-[999] rounded-t-3xl border-t border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col pointer-events-auto overflow-hidden pb-safe-bottom"
+            className="fixed left-0 right-0 bottom-0 max-h-[85vh] bg-[#F8F3EA] dark:bg-[#061B2B] z-[999] rounded-t-3xl border-t border-[#E8DED1] dark:border-[#1E3F57] shadow-2xl flex flex-col pointer-events-auto overflow-hidden pb-safe-bottom"
           >
             {/* Handle bar */}
-            <div className="w-12 h-1 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto my-3 flex-shrink-0" />
+            <div className="w-12 h-1 bg-[#E8DED1] dark:bg-[#1E3F57] rounded-full mx-auto my-3 flex-shrink-0" />
             
             {/* Header */}
-            <div className="px-5 pb-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between flex-shrink-0">
-              <h3 className="text-sm font-black uppercase tracking-wider text-slate-850 dark:text-white">
+            <div className="px-5 pb-3 border-b border-[#E8DED1] dark:border-[#1E3F57] flex items-center justify-between flex-shrink-0">
+              <h3 className="text-sm font-black uppercase tracking-wider text-[#172033] dark:text-white">
                 {title}
               </h3>
               <button
                 onClick={onClose}
-                className="w-8 h-8 rounded-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white transition-colors"
+                className="w-8 h-8 rounded-full bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] flex items-center justify-center text-[#6F7785] hover:text-[#172033] dark:hover:text-white transition-colors"
               >
                 <X size={16} />
               </button>
@@ -596,7 +596,7 @@ export function KgConfirmSheet({
   return (
     <KgBottomSheet isOpen={isOpen} onClose={onClose} title={title}>
       <div className="space-y-5 py-2">
-        <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
+        <p className="text-sm text-[#6F7785] dark:text-[#A0ABC0] leading-relaxed font-medium">
           {message}
         </p>
         <div className="flex gap-3">
@@ -637,15 +637,15 @@ export function KgSyncStatus({
   }, []);
 
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100/80 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-500 dark:text-slate-450 select-none">
+    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] text-xs font-bold text-[#6F7785] dark:text-[#A0ABC0] select-none">
       {isOnline ? (
-        <Wifi size={13} className="text-green-500" />
+        <Wifi size={13} className="text-[#4F8A5B]" />
       ) : (
-        <WifiOff size={13} className="text-red-500 animate-pulse" />
+        <WifiOff size={13} className="text-[#C94335] animate-pulse" />
       )}
       <span className="truncate">
         {pendingCount > 0 ? (
-          <span className="text-amber-500">Chờ đồng bộ ({pendingCount})</span>
+          <span className="text-[#D8A23A]">Chờ đồng bộ ({pendingCount})</span>
         ) : isSyncing ? (
           'Đang cập nhật...'
         ) : lastSyncTime ? (
@@ -658,7 +658,7 @@ export function KgSyncStatus({
         <button
           onClick={onRefresh}
           disabled={isSyncing}
-          className="ml-1 text-slate-400 hover:text-slate-700 dark:hover:text-white transition-colors"
+          className="ml-1 text-[#6F7785] hover:text-[#172033] dark:hover:text-white transition-colors"
         >
           <RefreshCw size={12} className={isSyncing ? 'animate-spin' : ''} />
         </button>
@@ -677,12 +677,12 @@ export function KgErrorState({
   onRetry?: () => void;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center text-center p-6 py-12 soft3d-card border-red-200 dark:border-red-950 bg-red-50/10 dark:bg-red-950/5">
-      <div className="w-12 h-12 rounded-2xl bg-red-50 dark:bg-red-950/40 flex items-center justify-center text-red-500 dark:text-red-400 mb-4 shadow-sm">
+    <div className="flex flex-col items-center justify-center text-center p-6 py-12 bg-[#FFF0EE] border border-[#FFF0EE] dark:bg-[#D8584B]/15 rounded-2xl">
+      <div className="w-12 h-12 rounded-2xl bg-white dark:bg-[#0E273C] flex items-center justify-center text-[#C94335] mb-4 shadow-sm">
         <AlertCircle size={22} />
       </div>
-      <h4 className="text-sm font-bold text-slate-900 dark:text-white">{title}</h4>
-      <p className="text-xs text-slate-550 dark:text-slate-400 mt-1 max-w-[280px] leading-relaxed">
+      <h4 className="text-sm font-bold text-[#172033] dark:text-white">{title}</h4>
+      <p className="text-xs text-[#6F7785] dark:text-[#A0ABC0] mt-1 max-w-[280px] leading-relaxed">
         {description}
       </p>
       {onRetry && (
@@ -727,9 +727,9 @@ export function KgActionSheet({
               act.onClick();
               onClose();
             }}
-            className="flex flex-col items-center justify-center p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900/60 active:scale-95 transition-all text-slate-650 dark:text-slate-300 gap-1.5"
+            className="flex flex-col items-center justify-center p-3 rounded-xl hover:bg-white dark:hover:bg-[#0E273C] active:scale-95 transition-all text-[#6F7785] dark:text-white gap-1.5"
           >
-            <div className={`w-11 h-11 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-center shadow-sm text-slate-555 dark:text-slate-350 ${act.color || ''}`}>
+            <div className="w-11 h-11 rounded-xl bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] flex items-center justify-center shadow-sm text-[#062B49] dark:text-[#E85D4A]">
               <act.icon size={20} />
             </div>
             <span className="text-[10px] font-bold text-center leading-tight tracking-wide uppercase break-words w-full">

@@ -14,14 +14,60 @@
     font-family: 'Plus Jakarta Sans', sans-serif;
   }
   :root {
-    --primary: #0f766e;
-    --primary-strong: #0f4f4a;
-    --secondary: #1f2937;
-    --surface: #ffffff;
-    --surface-muted: #f6f8fb;
-    --line: #dbe3ee;
-    --ink: #162033;
+    --kg-bg: #F8F3EA;
+    --kg-surface: #FFFFFF;
+    --kg-surface-soft: #FBF7F0;
+    --kg-primary: #062B49;
+    --kg-primary-hover: #0B3A5F;
+    --kg-accent: #E85D4A;
+    --kg-accent-soft: #FFF0ED;
+    --kg-success: #4F8A5B;
+    --kg-success-soft: #EEF7F0;
+    --kg-warning: #D8A23A;
+    --kg-warning-soft: #FFF7E4;
+    --kg-danger: #C94335;
+    --kg-danger-soft: #FFF0EE;
+    --kg-border: #E8DED1;
+    --kg-text: #172033;
+    --kg-text-muted: #6F7785;
+    --kg-text-soft: #9AA1AA;
+
+    --primary: #062B49;
+    --primary-strong: #0B3A5F;
+    --secondary: #E85D4A;
+    --surface: #FFFFFF;
+    --surface-muted: #FBF7F0;
+    --line: #E8DED1;
+    --ink: #172033;
   }
+}
+
+.dark {
+  --kg-bg: #061B2B;
+  --kg-surface: #0E273C;
+  --kg-surface-soft: #122F48;
+  --kg-primary: #0B3A5F;
+  --kg-primary-hover: #104C7B;
+  --kg-accent: #E85D4A;
+  --kg-accent-soft: rgba(232, 93, 74, 0.15);
+  --kg-success: #5F9D6B;
+  --kg-success-soft: rgba(95, 157, 107, 0.15);
+  --kg-warning: #E2B24C;
+  --kg-warning-soft: rgba(226, 178, 76, 0.15);
+  --kg-danger: #D8584B;
+  --kg-danger-soft: rgba(216, 88, 75, 0.15);
+  --kg-border: #1E3F57;
+  --kg-text: #F1F5F9;
+  --kg-text-muted: #A0ABC0;
+  --kg-text-soft: #718096;
+
+  --primary: #0B3A5F;
+  --primary-strong: #104C7B;
+  --secondary: #E85D4A;
+  --surface: #0E273C;
+  --surface-muted: #122F48;
+  --line: #1E3F57;
+  --ink: #F1F5F9;
 }
 
 @layer utilities {
@@ -38,71 +84,47 @@
     height: 100%;
     border-radius: 50%;
     animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
-    box-shadow: 0 0 0 2px #22c55e;
+    box-shadow: 0 0 0 2px #E85D4A;
   }
 
   /* King's Grill Operations Design System */
   .soft3d-bg {
-    background-color: #f4f7fb;
-    background-image:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(244, 247, 251, 0.96)),
-      linear-gradient(90deg, rgba(15, 118, 110, 0.06) 1px, transparent 1px),
-      linear-gradient(180deg, rgba(15, 118, 110, 0.05) 1px, transparent 1px);
-    background-size: auto, 32px 32px, 32px 32px;
-    background-attachment: fixed;
-  }
-  .dark .soft3d-bg {
-    background-color: #0b1120;
-    background-image:
-      linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(2, 6, 23, 0.98)),
-      linear-gradient(90deg, rgba(45, 212, 191, 0.08) 1px, transparent 1px),
-      linear-gradient(180deg, rgba(45, 212, 191, 0.06) 1px, transparent 1px);
+    background-color: var(--kg-bg) !important;
+    background-image: none !important;
   }
 
   .soft3d-card {
-    background: rgba(255, 255, 255, 0.94);
-    border-radius: 14px;
-    border: 1px solid rgba(203, 213, 225, 0.86);
-    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.07);
-    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
-  }
-  
-  .dark .soft3d-card {
-    background: rgba(15, 23, 42, 0.9);
-    border: 1px solid rgba(71, 85, 105, 0.75);
-    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.28);
+    background-color: var(--kg-surface) !important;
+    border: 1px solid var(--kg-border) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02) !important;
+    border-radius: 16px !important;
   }
   
   .paint-layer {
-    background: rgba(248, 250, 252, 0.92);
-    border: 1px solid rgba(203, 213, 225, 0.75);
+    background: var(--kg-surface-soft) !important;
+    border: 1px solid var(--kg-border) !important;
     border-radius: 12px;
-    box-shadow: none;
-  }
-  .dark .paint-layer {
-    background: rgba(30, 41, 59, 0.78);
-    border: 1px solid rgba(71, 85, 105, 0.75);
     box-shadow: none;
   }
 
   .soft3d-btn-primary {
-    background: linear-gradient(135deg, #0f766e, #14b8a6);
-    color: white;
+    background: var(--kg-primary) !important;
+    color: white !important;
     border-radius: 12px;
-    border: 1px solid rgba(15, 118, 110, 0.35);
-    box-shadow: 0 10px 22px rgba(15, 118, 110, 0.22);
+    border: 1px solid var(--kg-primary) !important;
+    box-shadow: 0 4px 12px rgba(6, 43, 73, 0.15) !important;
     transition: all 0.2s ease;
     font-weight: 700;
   }
   .soft3d-btn-primary:active {
     transform: translateY(1px) scale(0.99);
-    box-shadow: 0 5px 14px rgba(15, 118, 110, 0.2);
   }
   
   .soft3d-btn {
-    background: #ffffff;
+    background: var(--kg-surface) !important;
+    color: var(--kg-text) !important;
     border-radius: 12px;
-    border: 1px solid rgba(203, 213, 225, 0.9);
+    border: 1px solid var(--kg-border) !important;
     box-shadow: none;
     transition: all 0.2s ease;
   }

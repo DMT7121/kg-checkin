@@ -3,7 +3,7 @@ import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import { speak, computeWeekInfo } from '../utils/helpers';
 import Swal from 'sweetalert2';
-import { User, Lock, Eye, EyeOff, ChevronLeft, ArrowRight, Fingerprint, Mail, Phone, Calendar, BadgeCheck, KeyRound } from 'lucide-react';
+import { User, Lock, Eye, EyeOff, ChevronLeft, ArrowRight, Mail, Phone, Calendar, BadgeCheck, KeyRound } from 'lucide-react';
 import { triggerDeveloperMode } from '../utils/githubApi';
 
 export default function Login() {
@@ -92,7 +92,7 @@ export default function Login() {
             Swal.fire({
               title: '🔔 Nhắc nhở',
               text: 'Bạn chưa nộp Lịch đăng ký ca cho tuần tiếp theo. Vui lòng vào Tab "Đăng ký ca" để nộp nhé!',
-              icon: 'info', confirmButtonColor: '#0ea5e9',
+              icon: 'info', confirmButtonColor: '#062B49',
             });
           }
         }
@@ -181,205 +181,291 @@ export default function Login() {
   };
 
   return (
-    <div className="flex-1 flex flex-col justify-center p-4 sm:p-6 min-h-screen relative overflow-hidden soft3d-bg font-sans">
-
+    <div className="flex-1 flex flex-col justify-center p-4 sm:p-6 min-h-screen bg-[#F8F3EA] dark:bg-[#061B2B] font-sans">
       <div className="relative z-10 w-full max-w-5xl mx-auto grid lg:grid-cols-[0.95fr_1.05fr] gap-6 lg:gap-10 items-center">
-      {/* Logo */}
-      <div className="text-center lg:text-left animate-fade-in">
-        <div className="inline-flex mb-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 shadow-lg">
-          <img src="/LOGO.png?v=3" alt="King's Grill Logo" className="w-[150px] h-auto object-contain" />
-        </div>
-        <p 
-          className="text-teal-700 dark:text-teal-300 font-bold text-sm tracking-wide cursor-pointer"
-          onClick={() => {
-            const newCount = clickCount + 1;
-            setClickCount(newCount);
-            if (newCount >= 5) {
-              setClickCount(0);
-              triggerDeveloperMode();
-            }
-          }}
-        >
-          KING'S GRILL OPERATIONS
-        </p>
-        <h1 className="mt-3 text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white leading-tight">
-          Quản lý ca, chấm công và vận hành nhà hàng
-        </h1>
-        <p className="mt-3 text-sm sm:text-base text-slate-600 dark:text-slate-400 max-w-md mx-auto lg:mx-0">
-          Một giao diện tập trung cho nhân sự, lịch làm, checklist, bàn giao ca và công lương.
-        </p>
-      </div>
-
-      {/* LOGIN FORM */}
-      {mode === 'login' && (
-        <div className="soft3d-card p-8 animate-slide-up w-full">
-          <h3 className="text-2xl font-extrabold mb-6 text-center text-gray-800 dark:text-gray-100">Đăng Nhập</h3>
-          <form onSubmit={handleLogin}>
-            <div className="mb-5 relative group">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-ocean-500 transition-colors">
-                <User size={16} />
-              </div>
-              <input type="text" id="username" name="username" autoComplete="username" value={loginForm.username} onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
-                className="w-full bg-gray-50 dark:bg-[#2a2a35] border border-gray-200 dark:border-gray-700 rounded-sm pl-11 pr-4 py-3.5 focus:outline-none focus:border-ocean-500 focus:ring-1 focus:ring-ocean-500 min-h-[44px] text-gray-800 dark:text-white transition-all placeholder-gray-400 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]" placeholder="Tài khoản" />
-            </div>
-            <div className="mb-4 relative group">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-ocean-500 transition-colors">
-                <Lock size={16} />
-              </div>
-              <input type={showPass ? 'text' : 'password'} id="password" name="password" autoComplete="current-password" value={loginForm.password} onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                className="w-full bg-gray-50 dark:bg-[#2a2a35] border border-gray-200 dark:border-gray-700 rounded-sm pl-11 pr-12 py-3.5 focus:outline-none focus:border-ocean-500 focus:ring-1 focus:ring-ocean-500 min-h-[44px] text-gray-800 dark:text-white transition-all placeholder-gray-400 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]" placeholder="Mật khẩu" />
-              <button type="button" onClick={() => setShowPass(!showPass)} className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none min-h-[44px] min-w-[44px]">
-                {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-            
-            <div className="mb-6 flex items-center">
-              <input id="remember-me" name="remember-me" type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)}
-                className="h-4 w-4 text-ocean-600 focus:ring-ocean-500 border-gray-300 rounded soft3d-bg dark:border-gray-600" />
-              <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-                Ghi nhớ đăng nhập
-              </label>
-            </div>
-
-            <button type="submit" className="soft3d-btn-primary w-full font-bold py-3.5 min-h-[44px] flex items-center justify-center">
-              ĐĂNG NHẬP <ArrowRight size={14} className="ml-2 opacity-80" />
-            </button>
-          </form>
-          <div className="flex justify-between items-center mt-6 text-sm">
-            <button type="button" onClick={() => setMode('forgot')} className="text-gray-500 hover:text-ocean-600 dark:hover:text-ocean-400 font-medium transition-colors">Quên mật khẩu?</button>
-            <button type="button" onClick={() => setMode('register')} className="text-ocean-600 dark:text-ocean-400 font-bold hover:underline">Đăng ký mới</button>
+        {/* Logo and Intro */}
+        <div className="text-center lg:text-left animate-fade-in space-y-4">
+          <div className="inline-flex rounded-2xl bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] p-4 shadow-sm">
+            <img src="/LOGO.png?v=3" alt="King's Grill Logo" className="w-[120px] h-auto object-contain" />
           </div>
+          <p 
+            className="text-[#062B49] dark:text-[#E85D4A] font-extrabold text-xs tracking-wider uppercase cursor-pointer"
+            onClick={() => {
+              const newCount = clickCount + 1;
+              setClickCount(newCount);
+              if (newCount >= 5) {
+                setClickCount(0);
+                triggerDeveloperMode();
+              }
+            }}
+          >
+            KING'S GRILL STAFF OS
+          </p>
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-[#172033] dark:text-white leading-tight">
+            Vận hành tinh gọn & Chấm công thông minh
+          </h1>
+          <p className="text-sm text-[#6F7785] dark:text-[#A0ABC0] max-w-md mx-auto lg:mx-0">
+            Hệ điều hành nội bộ giúp nhân viên và quản lý nhà hàng quản lý ca trực, checklist công việc, bàn giao ca và theo dõi công lương chính xác.
+          </p>
         </div>
-      )}
 
-      {/* REGISTER FORM */}
-      {mode === 'register' && (
-        <div className="soft3d-card p-6 md:p-8 animate-slide-up w-full">
-          <div className="text-center mb-6">
-            <h3 className="text-2xl font-extrabold text-gray-800 dark:text-gray-100">Tạo tài khoản mới</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Gia nhập hệ thống King's Grill</p>
-          </div>
-
-          <form onSubmit={handleRegister} className="space-y-6">
-            {/* Section 1: Tài khoản bảo mật */}
-            <div className="p-5 rounded-2xl border-2 border-green-100 dark:border-green-900/30 bg-green-50/50 dark:bg-green-900/10 relative">
-              <h4 className="text-[13px] font-bold text-green-700 dark:text-green-400 mb-4 flex items-center uppercase tracking-wide">
-                <Lock size={14} className="mr-1.5" /> 1. Tài khoản bảo mật
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Form Container */}
+        <div className="w-full">
+          {/* LOGIN FORM */}
+          {mode === 'login' && (
+            <div className="bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-3xl p-6 sm:p-8 shadow-sm">
+              <h3 className="text-xl font-bold mb-6 text-[#172033] dark:text-white">Đăng nhập tài khoản</h3>
+              <form onSubmit={handleLogin} className="space-y-4">
                 <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-green-500 transition-colors">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[#9AA1AA]">
                     <User size={16} />
                   </div>
-                  <input type="text" required value={registerForm.username} onChange={(e) => setRegisterForm({ ...registerForm, username: e.target.value })} placeholder="Tên đăng nhập" className="w-full bg-white dark:bg-[#2a2a35] border border-gray-200 dark:border-gray-700 rounded-sm pl-9 pr-3 py-3 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-sm text-gray-800 dark:text-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)] transition-all" />
+                  <input 
+                    type="text" 
+                    id="username" 
+                    name="username" 
+                    autoComplete="username" 
+                    value={loginForm.username} 
+                    onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
+                    className="w-full bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-xl pl-11 pr-4 py-3 text-sm focus:outline-none focus:border-[#062B49] focus:ring-2 focus:ring-[#062B49]/10 text-[#172033] dark:text-white placeholder-[#9AA1AA]" 
+                    placeholder="Tài khoản nhân viên" 
+                  />
                 </div>
                 <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-green-500 transition-colors">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[#9AA1AA]">
                     <Lock size={16} />
                   </div>
-                  <input type="password" required value={registerForm.password} onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })} placeholder="Mật khẩu" className="w-full bg-white dark:bg-[#2a2a35] border border-gray-200 dark:border-gray-700 rounded-sm pl-9 pr-3 py-3 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-sm text-gray-800 dark:text-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)] transition-all" />
+                  <input 
+                    type={showPass ? 'text' : 'password'} 
+                    id="password" 
+                    name="password" 
+                    autoComplete="current-password" 
+                    value={loginForm.password} 
+                    onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                    className="w-full bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-xl pl-11 pr-12 py-3 text-sm focus:outline-none focus:border-[#062B49] focus:ring-2 focus:ring-[#062B49]/10 text-[#172033] dark:text-white placeholder-[#9AA1AA]" 
+                    placeholder="Mật khẩu" 
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => setShowPass(!showPass)} 
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-[#9AA1AA] hover:text-[#172033] focus:outline-none"
+                  >
+                    {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
                 </div>
+                
+                <div className="flex items-center justify-between py-1">
+                  <div className="flex items-center">
+                    <input 
+                      id="remember-me" 
+                      name="remember-me" 
+                      type="checkbox" 
+                      checked={rememberMe} 
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="h-4 w-4 text-[#062B49] focus:ring-[#062B49]/20 border-[#E8DED1] rounded bg-white" 
+                    />
+                    <label htmlFor="remember-me" className="ml-2 block text-xs font-bold text-[#6F7785] dark:text-[#A0ABC0]">
+                      Ghi nhớ đăng nhập
+                    </label>
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={() => setMode('forgot')} 
+                    className="text-xs font-bold text-[#E85D4A] hover:underline"
+                  >
+                    Quên mật khẩu?
+                  </button>
+                </div>
+
+                <button 
+                  type="submit" 
+                  className="w-full bg-[#062B49] hover:bg-[#0B3A5F] text-white font-bold py-3.5 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 text-sm shadow-sm"
+                >
+                  Đăng nhập <ArrowRight size={15} />
+                </button>
+              </form>
+              <div className="mt-6 pt-5 border-t border-[#E8DED1] dark:border-[#1E3F57] text-center">
+                <span className="text-xs text-[#6F7785] dark:text-[#A0ABC0]">Chưa có tài khoản? </span>
+                <button 
+                  type="button" 
+                  onClick={() => setMode('register')} 
+                  className="text-xs font-bold text-[#062B49] dark:text-[#E85D4A] hover:underline"
+                >
+                  Đăng ký nhân sự mới
+                </button>
               </div>
             </div>
+          )}
 
-            {/* Section 2: Hồ sơ cá nhân */}
-            <div className="p-5 rounded-2xl border-2 border-blue-100 dark:border-blue-900/30 bg-blue-50/50 dark:bg-blue-900/10 relative">
-              <h4 className="text-[13px] font-bold text-blue-700 dark:text-blue-400 mb-4 flex items-center uppercase tracking-wide">
-                <User size={14} className="mr-1.5" /> 2. Hồ sơ cá nhân
-              </h4>
-              <div className="space-y-4">
-                <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-500 transition-colors">
-                    <BadgeCheck size={16} />
-                  </div>
-                  <input type="text" required value={registerForm.fullname} onChange={(e) => setRegisterForm({ ...registerForm, fullname: e.target.value })} placeholder="Họ và Tên" className="w-full bg-white dark:bg-[#2a2a35] border border-gray-200 dark:border-gray-700 rounded-sm pl-11 pr-4 py-3 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm text-gray-800 dark:text-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)] transition-all" />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="relative group">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-500 transition-colors">
-                      <Mail size={16} />
-                    </div>
-                    <input type="email" value={registerForm.email} onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })} placeholder="Email cá nhân" className="w-full bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-3 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm text-gray-800 dark:text-white  transition-all" />
-                  </div>
-                  <div className="relative group">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-500 transition-colors">
-                      <Phone size={16} />
-                    </div>
-                    <input type="tel" value={registerForm.phone} onChange={(e) => setRegisterForm({ ...registerForm, phone: e.target.value })} placeholder="SĐT / Zalo" className="w-full bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-3 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm text-gray-800 dark:text-white  transition-all" />
-                  </div>
-                </div>
-
-                <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-500 transition-colors">
-                    <Calendar size={16} />
-                  </div>
-                  <input type="text" inputMode="numeric" value={registerForm.dob} onChange={handleDobChange} placeholder="Ngày sinh (Gõ số liền nhau, VD: 15082000)" className="w-full bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-11 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm text-gray-800 dark:text-white  tracking-widest font-medium transition-all" />
-                </div>
+          {/* REGISTER FORM */}
+          {mode === 'register' && (
+            <div className="bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-3xl p-6 sm:p-8 shadow-sm">
+              <div className="mb-6">
+                <h3 className="text-xl font-bold text-[#172033] dark:text-white">Đăng ký nhân sự mới</h3>
+                <p className="text-xs text-[#6F7785] dark:text-[#A0ABC0] mt-1">Đăng ký tài khoản để quản lý công việc và chấm công</p>
               </div>
-            </div>
 
-            <button type="submit" className="soft3d-btn-primary w-full mt-2 font-bold py-3.5 min-h-[44px] flex items-center justify-center">
-              HOÀN TẤT ĐĂNG KÝ
-            </button>
-            <button type="button" onClick={() => setMode('login')} className="w-full mt-4 text-gray-500 text-sm hover:text-gray-800 dark:hover:text-white font-medium flex items-center justify-center transition-colors">
-              <ChevronLeft size={16} className="mr-1" /> Quay lại đăng nhập
-            </button>
-          </form>
-        </div>
-      )}
-
-      {/* FORGOT PASSWORD FORM */}
-      {mode === 'forgot' && (
-        <div className="soft3d-card p-8 animate-slide-up w-full">
-          <div className="text-center mb-6">
-            <div className="w-12 h-12 paint-layer bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center mx-auto mb-3">
-              <KeyRound size={24} className="text-orange-500" />
-            </div>
-            <h3 className="text-2xl font-extrabold text-gray-800 dark:text-gray-100">Khôi phục mật khẩu</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Nhập Email hoặc SĐT đã đăng ký để nhận mã OTP khôi phục</p>
-          </div>
-
-          <form onSubmit={handleForgot}>
-            {forgotStep === 1 ? (
-              <>
-                <div className="relative group mb-6">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-orange-500 transition-colors">
-                    <Mail size={16} />
+              <form onSubmit={handleRegister} className="space-y-4">
+                {/* Tài khoản bảo mật */}
+                <div className="p-4 rounded-xl bg-[#EEF7F0]/60 dark:bg-[#5F9D6B]/5 border border-[#EEF7F0] dark:border-[#5F9D6B]/20">
+                  <h4 className="text-[11px] font-bold text-[#4F8A5B] mb-3 uppercase tracking-wider flex items-center gap-1.5">
+                    <Lock size={12} /> 1. Tài khoản bảo mật
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <input 
+                      type="text" 
+                      required 
+                      value={registerForm.username} 
+                      onChange={(e) => setRegisterForm({ ...registerForm, username: e.target.value })} 
+                      placeholder="Tên đăng nhập" 
+                      className="w-full bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-xl px-3.5 py-2.5 text-xs text-[#172033] dark:text-white focus:outline-none focus:border-[#062B49] focus:ring-2 focus:ring-[#062B49]/10 transition-all placeholder-[#9AA1AA]" 
+                    />
+                    <input 
+                      type="password" 
+                      required 
+                      value={registerForm.password} 
+                      onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })} 
+                      placeholder="Mật khẩu" 
+                      className="w-full bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-xl px-3.5 py-2.5 text-xs text-[#172033] dark:text-white focus:outline-none focus:border-[#062B49] focus:ring-2 focus:ring-[#062B49]/10 transition-all placeholder-[#9AA1AA]" 
+                    />
                   </div>
-                  <input type="email" required value={forgotForm.email} onChange={(e) => setForgotForm({ email: e.target.value })} placeholder="Nhập Email đã đăng ký..." className="w-full bg-gray-50 dark:bg-[#2a2a35] border border-gray-200 dark:border-gray-700 rounded-sm pl-11 pr-4 py-3.5 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 min-h-[44px] text-gray-800 dark:text-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]" />
                 </div>
-                <button type="submit" className="soft3d-btn w-full font-bold py-3.5 min-h-[44px] flex items-center justify-center text-orange-600 dark:text-orange-400">
-                  GỬI MÃ OTP
+
+                {/* Hồ sơ cá nhân */}
+                <div className="p-4 rounded-xl bg-[#FFF0ED]/60 dark:bg-[#E85D4A]/5 border border-[#FFF0ED] dark:border-[#E85D4A]/20">
+                  <h4 className="text-[11px] font-bold text-[#E85D4A] mb-3 uppercase tracking-wider flex items-center gap-1.5">
+                    <User size={12} /> 2. Hồ sơ cá nhân
+                  </h4>
+                  <div className="space-y-3">
+                    <input 
+                      type="text" 
+                      required 
+                      value={registerForm.fullname} 
+                      onChange={(e) => setRegisterForm({ ...registerForm, fullname: e.target.value })} 
+                      placeholder="Họ và Tên (Tiếng Việt có dấu)" 
+                      className="w-full bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-xl px-3.5 py-2.5 text-xs text-[#172033] dark:text-white focus:outline-none focus:border-[#062B49] focus:ring-2 focus:ring-[#062B49]/10 transition-all placeholder-[#9AA1AA]" 
+                    />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <input 
+                        type="email" 
+                        required
+                        value={registerForm.email} 
+                        onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })} 
+                        placeholder="Email cá nhân" 
+                        className="w-full bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-xl px-3.5 py-2.5 text-xs text-[#172033] dark:text-white focus:outline-none focus:border-[#062B49] focus:ring-2 focus:ring-[#062B49]/10 transition-all placeholder-[#9AA1AA]" 
+                      />
+                      <input 
+                        type="tel" 
+                        required
+                        value={registerForm.phone} 
+                        onChange={(e) => setRegisterForm({ ...registerForm, phone: e.target.value })} 
+                        placeholder="Số điện thoại" 
+                        className="w-full bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-xl px-3.5 py-2.5 text-xs text-[#172033] dark:text-white focus:outline-none focus:border-[#062B49] focus:ring-2 focus:ring-[#062B49]/10 transition-all placeholder-[#9AA1AA]" 
+                      />
+                    </div>
+                    <input 
+                      type="text" 
+                      inputMode="numeric" 
+                      value={registerForm.dob} 
+                      onChange={handleDobChange} 
+                      placeholder="Ngày sinh (Gõ số liền nhau, VD: 15082000)" 
+                      className="w-full bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-xl px-3.5 py-2.5 text-xs text-[#172033] dark:text-white focus:outline-none focus:border-[#062B49] focus:ring-2 focus:ring-[#062B49]/10 transition-all placeholder-[#9AA1AA]" 
+                    />
+                  </div>
+                </div>
+
+                <button 
+                  type="submit" 
+                  className="w-full bg-[#062B49] hover:bg-[#0B3A5F] text-white font-bold py-3 rounded-xl transition-all duration-200 text-xs shadow-sm"
+                >
+                  Hoàn tất đăng ký
                 </button>
-              </>
-            ) : (
-              <>
-                <div className="relative group mb-4">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-orange-500 transition-colors">
-                    <KeyRound size={16} />
-                  </div>
-                  <input type="text" required value={resetForm.otp} onChange={(e) => setResetForm({ ...resetForm, otp: e.target.value })} placeholder="Nhập mã OTP 6 số" className="w-full soft3d-bg/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-11 pr-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-orange-500/50 min-h-[44px] text-gray-800 dark:text-white text-center tracking-widest font-bold" maxLength={6} />
-                </div>
-                <div className="relative group mb-6">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-orange-500 transition-colors">
-                    <Lock size={16} />
-                  </div>
-                  <input type="password" required value={resetForm.newPassword} onChange={(e) => setResetForm({ ...resetForm, newPassword: e.target.value })} placeholder="Mật khẩu mới" className="w-full soft3d-bg/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-11 pr-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-orange-500/50 min-h-[44px] text-gray-800 dark:text-white" />
-                </div>
-                <button type="submit" className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold py-3.5 rounded-xl shadow-lg hover:shadow-green-500/40 transition transform active:scale-95 min-h-[44px] flex items-center justify-center">
-                  ĐẶT LẠI MẬT KHẨU
+                <button 
+                  type="button" 
+                  onClick={() => setMode('login')} 
+                  className="w-full text-center text-xs font-bold text-[#6F7785] hover:text-[#172033] dark:hover:text-white flex items-center justify-center gap-1 transition-colors"
+                >
+                  <ChevronLeft size={14} /> Quay lại đăng nhập
                 </button>
-              </>
-            )}
-            
-            <button type="button" onClick={() => { setMode('login'); setForgotStep(1); }} className="w-full mt-4 text-gray-500 text-[1rem] hover:text-gray-800 dark:hover:text-white font-medium min-h-[44px] flex items-center justify-center transition-colors">
-              <ChevronLeft size={16} className="mr-1" /> Quay lại
-            </button>
-          </form>
+              </form>
+            </div>
+          )}
+
+          {/* FORGOT PASSWORD FORM */}
+          {mode === 'forgot' && (
+            <div className="bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-3xl p-6 sm:p-8 shadow-sm">
+              <div className="mb-6 text-center">
+                <div className="w-12 h-12 rounded-full bg-[#FFF0ED] dark:bg-[#E85D4A]/10 flex items-center justify-center mx-auto mb-3 text-[#E85D4A]">
+                  <KeyRound size={20} />
+                </div>
+                <h3 className="text-xl font-bold text-[#172033] dark:text-white">Khôi phục mật khẩu</h3>
+                <p className="text-xs text-[#6F7785] dark:text-[#A0ABC0] mt-1">Nhập email đã đăng ký để nhận mã OTP khôi phục mật khẩu</p>
+              </div>
+
+              <form onSubmit={handleForgot} className="space-y-4">
+                {forgotStep === 1 ? (
+                  <>
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[#9AA1AA]">
+                        <Mail size={16} />
+                      </div>
+                      <input 
+                        type="email" 
+                        required 
+                        value={forgotForm.email} 
+                        onChange={(e) => setForgotForm({ email: e.target.value })} 
+                        placeholder="Nhập Email của bạn..." 
+                        className="w-full bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-xl pl-11 pr-4 py-3 text-sm focus:outline-none focus:border-[#062B49] focus:ring-2 focus:ring-[#062B49]/10 text-[#172033] dark:text-white placeholder-[#9AA1AA]" 
+                      />
+                    </div>
+                    <button 
+                      type="submit" 
+                      className="w-full bg-[#062B49] hover:bg-[#0B3A5F] text-white font-bold py-3.5 rounded-xl transition-all duration-200 text-sm shadow-sm"
+                    >
+                      Gửi mã OTP
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div className="space-y-3">
+                      <input 
+                        type="text" 
+                        required 
+                        value={resetForm.otp} 
+                        onChange={(e) => setResetForm({ ...resetForm, otp: e.target.value })} 
+                        placeholder="Nhập mã OTP 6 số" 
+                        className="w-full bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-xl px-4 py-3 text-sm text-center tracking-widest font-bold focus:outline-none focus:border-[#062B49] focus:ring-2 focus:ring-[#062B49]/10 text-[#172033] dark:text-white" 
+                        maxLength={6} 
+                      />
+                      <input 
+                        type="password" 
+                        required 
+                        value={resetForm.newPassword} 
+                        onChange={(e) => setResetForm({ ...resetForm, newPassword: e.target.value })} 
+                        placeholder="Mật khẩu mới" 
+                        className="w-full bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#062B49] focus:ring-2 focus:ring-[#062B49]/10 text-[#172033] dark:text-white" 
+                      />
+                    </div>
+                    <button 
+                      type="submit" 
+                      className="w-full bg-[#4F8A5B] hover:bg-[#43754E] text-white font-bold py-3.5 rounded-xl transition-all duration-200 text-sm shadow-sm"
+                    >
+                      Đặt lại mật khẩu
+                    </button>
+                  </>
+                )}
+                
+                <button 
+                  type="button" 
+                  onClick={() => { setMode('login'); setForgotStep(1); }} 
+                  className="w-full text-center text-xs font-bold text-[#6F7785] hover:text-[#172033] dark:hover:text-white flex items-center justify-center gap-1 transition-colors"
+                >
+                  <ChevronLeft size={14} /> Quay lại đăng nhập
+                </button>
+              </form>
+            </div>
+          )}
         </div>
-      )}
-      
       </div>
     </div>
   );

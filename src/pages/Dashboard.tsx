@@ -138,14 +138,14 @@ export default function Dashboard() {
 
   const ComingSoonPage = ({ title }: { title: string }) => (
     <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
-      <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-teal-100 to-purple-100 dark:from-teal-900/40 dark:to-purple-900/40 flex items-center justify-center mb-5 shadow-lg">
-        <Briefcase size={32} className="text-teal-650 dark:text-teal-400" />
+      <div className="w-20 h-20 rounded-2xl bg-[#FFF0ED] dark:bg-[#E85D4A]/10 flex items-center justify-center mb-5 shadow-sm">
+        <Briefcase size={32} className="text-[#E85D4A]" />
       </div>
-      <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-2">{title}</h2>
-      <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs">
+      <h2 className="text-xl font-bold text-[#172033] dark:text-white mb-2">{title}</h2>
+      <p className="text-sm text-[#6F7785] dark:text-[#A0ABC0] max-w-xs">
         Tính năng này đang được phát triển và sẽ sớm ra mắt trong các bản cập nhật tiếp theo.
       </p>
-      <div className="soft3d-card mt-6 px-5 py-2.5 rounded-full !bg-gradient-to-r from-teal-500 to-purple-500 text-white text-xs font-bold tracking-wide border-opacity-30">
+      <div className="soft3d-card mt-6 px-5 py-2.5 rounded-full !bg-[#E85D4A] text-white text-xs font-bold tracking-wide border-none">
         COMING SOON
       </div>
     </div>
@@ -153,24 +153,24 @@ export default function Dashboard() {
 
   const TabFallback = () => (
     <div className="p-4 md:p-6 space-y-4">
-      <div className="soft3d-card p-5 md:p-6 overflow-hidden">
+      <div className="bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-3xl p-5 md:p-6 overflow-hidden">
         <div className="flex items-center justify-between gap-4 mb-5">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-teal-50 dark:bg-teal-950/40 flex items-center justify-center">
-              <RefreshCw size={18} className="animate-spin text-teal-600" />
+            <div className="w-10 h-10 rounded-lg bg-[#062B49]/5 dark:bg-[#122F48] flex items-center justify-center">
+              <RefreshCw size={18} className="animate-spin text-[#062B49] dark:text-[#E85D4A]" />
             </div>
             <div>
-              <p className="text-sm font-extrabold text-slate-900 dark:text-white">Đang mở module</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Dữ liệu giao diện đang được tải nhanh...</p>
+              <p className="text-sm font-extrabold text-[#172033] dark:text-white">Đang mở module</p>
+              <p className="text-xs text-[#6F7785] dark:text-[#A0ABC0]">Dữ liệu giao diện đang được tải nhanh...</p>
             </div>
           </div>
           <div className="hidden sm:block h-2 w-28 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-            <div className="h-full w-1/2 rounded-full bg-teal-500 animate-pulse" />
+            <div className="h-full w-1/2 rounded-full bg-[#062B49] dark:bg-[#E85D4A] animate-pulse" />
           </div>
         </div>
         <div className="grid md:grid-cols-3 gap-3">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="h-24 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3">
+            <div key={i} className="h-24 rounded-lg border border-[#E8DED1] dark:border-[#1E3F57] bg-[#FBF7F0] dark:bg-[#122F48] p-3">
               <div className="h-3 w-20 rounded bg-slate-200 dark:bg-slate-700 animate-pulse mb-3" />
               <div className="h-6 w-16 rounded bg-slate-200 dark:bg-slate-700 animate-pulse" />
             </div>
@@ -178,9 +178,12 @@ export default function Dashboard() {
         </div>
         <div className="mt-4 space-y-2">
           {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="h-10 rounded-lg bg-slate-100 dark:bg-slate-800 animate-pulse" />
+            <div key={i} className="h-10 rounded-lg bg-[#FBF7F0] dark:bg-[#122F48] animate-pulse" />
           ))}
         </div>
+      </div>
+    </div>
+  );        </div>
       </div>
     </div>
   );
@@ -321,27 +324,27 @@ export default function Dashboard() {
             {/* Left side: Hero card & Actions */}
             <div className="lg:col-span-7 space-y-4">
               {/* Personal Hero Card */}
-              <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-teal-600 via-teal-500 to-slate-900 p-6 text-white shadow-lg border border-teal-500/20">
+              <div className="relative overflow-hidden rounded-3xl bg-[#062B49] p-6 text-white shadow-sm border border-[#0B3A5F]">
                 <div className="relative z-10 flex flex-col justify-between h-full space-y-6">
                   <div>
                     <div className="flex items-center space-x-2.5">
                       <span className="text-2xl">👋</span>
-                      <h2 className="text-xl md:text-2xl font-black tracking-tight">
+                      <h2 className="text-xl md:text-2xl font-black tracking-tight text-white">
                         Xin chào, {currentUser?.fullname.split(' ').pop()}!
                       </h2>
                     </div>
-                    <p className="text-teal-100 text-xs font-semibold mt-1 opacity-90">
+                    <p className="text-[#A0ABC0] text-xs font-semibold mt-1">
                       Hôm nay • {store.currentTime}
                     </p>
                   </div>
 
-                  <div className="flex items-center justify-between bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
+                  <div className="flex items-center justify-between bg-white/5 backdrop-blur-sm rounded-2xl p-4 border border-white/10">
                     <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-teal-200">Lịch làm hôm nay</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-[#A0ABC0]">Lịch làm hôm nay</p>
                       <p className="text-sm font-extrabold mt-0.5">{todayShift}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-teal-200">Trạng thái</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-[#A0ABC0]">Trạng thái</p>
                       <KgStatusBadge variant={statusVariant} className="mt-1">
                         {statusText}
                       </KgStatusBadge>
@@ -349,8 +352,8 @@ export default function Dashboard() {
                   </div>
                 </div>
                 {/* Background circles */}
-                <div className="absolute right-[-10%] top-[-20%] w-60 h-60 bg-teal-400/20 rounded-full blur-3xl mix-blend-screen" />
-                <div className="absolute left-[-20%] bottom-[-40%] w-60 h-60 bg-blue-500/10 rounded-full blur-3xl mix-blend-screen" />
+                <div className="absolute right-[-10%] top-[-20%] w-60 h-60 bg-[#E85D4A]/10 rounded-full blur-3xl mix-blend-screen" />
+                <div className="absolute left-[-20%] bottom-[-40%] w-60 h-60 bg-white/5 rounded-full blur-3xl mix-blend-screen" />
               </div>
 
               {/* Big Action Button */}
@@ -366,7 +369,7 @@ export default function Dashboard() {
                 <KgButton
                   variant={userHasIn ? 'danger' : 'primary'}
                   size="lg"
-                  className="w-full text-base font-extrabold py-4 shadow-xl active:scale-95 transition-all h-[56px] uppercase tracking-wider"
+                  className="w-full text-base font-extrabold py-4 shadow-sm active:scale-95 transition-all h-[56px] uppercase tracking-wider"
                   icon={Camera}
                   onClick={() => handleTabChange('checkin')}
                 >
@@ -376,61 +379,61 @@ export default function Dashboard() {
 
               {/* Card việc cần làm (To-Do List) */}
               <KgCard className="p-5">
-                <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-wider mb-4 border-b border-slate-100 dark:border-slate-800 pb-2">
+                <h3 className="text-sm font-black text-[#172033] dark:text-white uppercase tracking-wider mb-4 border-b border-[#E8DED1] dark:border-[#1E3F57] pb-2">
                   Việc cần làm hôm nay
                 </h3>
                 <div className="space-y-3.5">
                   {/* Checklist item */}
-                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800">
+                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#FBF7F0] dark:bg-[#122F48]/50 border border-[#E8DED1] dark:border-[#1E3F57]">
                     <div className="flex items-center space-x-3">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.todayChecklistDone ? 'bg-green-50 text-green-600 dark:bg-green-950/40' : 'bg-amber-50 text-amber-600 dark:bg-amber-950/40'}`}>
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.todayChecklistDone ? 'bg-[#EEF7F0] text-[#4F8A5B]' : 'bg-[#FFF7E4] text-[#D8A23A]'}`}>
                         <ClipboardCheck size={16} />
                       </div>
                       <div>
-                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Nộp checklist vận hành</p>
-                        <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">Báo cáo hạng mục đầu/cuối ca</p>
+                        <p className="text-xs font-bold text-[#172033] dark:text-slate-200">Nộp checklist vận hành</p>
+                        <p className="text-[10px] text-[#6F7785] dark:text-[#A0ABC0] font-medium">Báo cáo hạng mục đầu/cuối ca</p>
                       </div>
                     </div>
                     {store.todayChecklistDone ? (
                       <KgStatusBadge variant="success">Đã nộp</KgStatusBadge>
                     ) : (
-                      <button onClick={() => handleTabChange('checklist')} className="text-xs font-bold text-teal-650 hover:underline">Làm ngay →</button>
+                      <button onClick={() => handleTabChange('checklist')} className="text-xs font-bold text-[#062B49] dark:text-[#E85D4A] hover:underline">Làm ngay →</button>
                     )}
                   </div>
 
                   {/* Handover item */}
-                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800">
+                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#FBF7F0] dark:bg-[#122F48]/50 border border-[#E8DED1] dark:border-[#1E3F57]">
                     <div className="flex items-center space-x-3">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.todayHandoverDone ? 'bg-green-50 text-green-600 dark:bg-green-950/40' : 'bg-sky-50 text-sky-600 dark:bg-sky-950/40'}`}>
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.todayHandoverDone ? 'bg-[#EEF7F0] text-[#4F8A5B]' : 'bg-[#FFF0ED] text-[#E85D4A]'}`}>
                         <Repeat size={16} />
                       </div>
                       <div>
-                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Ghi sổ bàn giao ca</p>
-                        <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">Bàn giao doanh thu, sự cố, kho</p>
+                        <p className="text-xs font-bold text-[#172033] dark:text-slate-200">Ghi sổ bàn giao ca</p>
+                        <p className="text-[10px] text-[#6F7785] dark:text-[#A0ABC0] font-medium">Bàn giao doanh thu, sự cố, kho</p>
                       </div>
                     </div>
                     {store.todayHandoverDone ? (
                       <KgStatusBadge variant="success">Đã hoàn thành</KgStatusBadge>
                     ) : (
-                      <button onClick={() => handleTabChange('handover')} className="text-xs font-bold text-teal-650 hover:underline">Ghi sổ →</button>
+                      <button onClick={() => handleTabChange('handover')} className="text-xs font-bold text-[#062B49] dark:text-[#E85D4A] hover:underline">Ghi sổ →</button>
                     )}
                   </div>
 
                   {/* Register Schedule item */}
-                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800">
+                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#FBF7F0] dark:bg-[#122F48]/50 border border-[#E8DED1] dark:border-[#1E3F57]">
                     <div className="flex items-center space-x-3">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.isScheduleRegistered ? 'bg-green-50 text-green-600 dark:bg-green-950/40' : 'bg-orange-50 text-orange-600 dark:bg-orange-950/40'}`}>
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.isScheduleRegistered ? 'bg-[#EEF7F0] text-[#4F8A5B]' : 'bg-[#FFF7E4] text-[#D8A23A]'}`}>
                         <Calendar size={16} />
                       </div>
                       <div>
-                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Đăng ký lịch tuần tới</p>
-                        <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">Hạn đăng ký trước Chủ nhật hàng tuần</p>
+                        <p className="text-xs font-bold text-[#172033] dark:text-slate-200">Đăng ký lịch tuần tới</p>
+                        <p className="text-[10px] text-[#6F7785] dark:text-[#A0ABC0] font-medium">Hạn đăng ký trước Chủ nhật hàng tuần</p>
                       </div>
                     </div>
                     {store.isScheduleRegistered ? (
                       <KgStatusBadge variant="success">Đã đăng ký</KgStatusBadge>
                     ) : (
-                      <button onClick={() => handleTabChange('schedule')} className="text-xs font-bold text-teal-650 hover:underline">Đăng ký →</button>
+                      <button onClick={() => handleTabChange('schedule')} className="text-xs font-bold text-[#062B49] dark:text-[#E85D4A] hover:underline">Đăng ký →</button>
                     )}
                   </div>
                 </div>
@@ -441,13 +444,13 @@ export default function Dashboard() {
             <div className="lg:col-span-5 space-y-4">
               {/* Quick Actions Panel */}
               <KgCard className="p-4">
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Lối tắt nhanh</h3>
+                <h3 className="text-xs font-bold text-[#6F7785] uppercase tracking-wider mb-3">Lối tắt nhanh</h3>
                 <div className="grid grid-cols-4 gap-2">
                   {[
-                    { icon: Newspaper, label: 'Bảng tin', tab: 'news' as any, color: 'text-purple-650 bg-purple-50 dark:bg-purple-950/30' },
-                    { icon: UtensilsCrossed, label: 'Món hết', tab: 'soldout' as any, color: 'text-amber-600 bg-amber-50 dark:bg-amber-950/30' },
-                    { icon: MessageSquareWarning, label: 'Góp ý', tab: 'feedback' as any, color: 'text-rose-600 bg-rose-50 dark:bg-rose-950/30' },
-                    { icon: Banknote, label: 'Phiếu lương', tab: 'payroll' as any, color: 'text-green-600 bg-green-50 dark:bg-green-950/30' },
+                    { icon: Newspaper, label: 'Bảng tin', tab: 'news' as any, color: 'text-[#062B49] bg-[#FFF0ED] dark:bg-[#1E3F57]/30' },
+                    { icon: UtensilsCrossed, label: 'Món hết', tab: 'soldout' as any, color: 'text-[#D8A23A] bg-[#FFF7E4] dark:bg-[#E2B24C]/10' },
+                    { icon: MessageSquareWarning, label: 'Góp ý', tab: 'feedback' as any, color: 'text-[#C94335] bg-[#FFF0EE] dark:bg-[#D8584B]/10' },
+                    { icon: Banknote, label: 'Phiếu lương', tab: 'payroll' as any, color: 'text-[#4F8A5B] bg-[#EEF7F0] dark:bg-[#5F9D6B]/10' },
                   ].map((act, i) => (
                     <button
                       key={i}
@@ -457,7 +460,7 @@ export default function Dashboard() {
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm ${act.color}`}>
                         <act.icon size={18} />
                       </div>
-                      <span className="text-[10px] font-bold text-slate-605 dark:text-slate-450 truncate w-full">
+                      <span className="text-[10px] font-bold text-[#6F7785] dark:text-[#A0ABC0] truncate w-full">
                         {act.label}
                       </span>
                     </button>
@@ -467,9 +470,9 @@ export default function Dashboard() {
 
               {/* Personal Recent Activity Logs */}
               <KgCard className="p-4">
-                <div className="flex items-center justify-between mb-3 border-b border-slate-100 dark:border-slate-805 pb-2">
-                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Lịch sử chấm công</h3>
-                  <button onClick={() => handleTabChange('history')} className="text-xs font-bold text-teal-650 hover:underline">
+                <div className="flex items-center justify-between mb-3 border-b border-[#E8DED1] dark:border-[#1E3F57] pb-2">
+                  <h3 className="text-xs font-bold text-[#6F7785] uppercase tracking-wider">Lịch sử chấm công</h3>
+                  <button onClick={() => handleTabChange('history')} className="text-xs font-bold text-[#062B49] dark:text-[#E85D4A] hover:underline">
                     Xem tất cả
                   </button>
                 </div>
@@ -478,14 +481,14 @@ export default function Dashboard() {
                     {recentLogs.map((log, i) => {
                       const isCheckin = log.type.includes('Vào ca') || log.type.includes('IN');
                       return (
-                        <div key={i} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800">
+                        <div key={i} className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-[#122F48]/50 border border-[#E8DED1] dark:border-[#1E3F57]">
                           <div className="flex items-center space-x-2.5 min-w-0">
-                            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0 text-xs ${isCheckin ? 'bg-green-500' : 'bg-red-500'}`}>
+                            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0 text-xs ${isCheckin ? 'bg-[#4F8A5B]' : 'bg-[#C94335]'}`}>
                               {isCheckin ? '→' : '←'}
                             </div>
                             <div className="min-w-0">
-                              <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{log.type}</p>
-                              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium truncate">{log.time}</p>
+                              <p className="text-xs font-bold text-[#172033] dark:text-slate-200 truncate">{log.type}</p>
+                              <p className="text-[10px] text-[#6F7785] dark:text-[#A0ABC0] font-medium truncate">{log.time}</p>
                             </div>
                           </div>
                           <KgStatusBadge variant={log.status?.includes('Hợp lệ') ? 'success' : 'error'}>
@@ -496,7 +499,7 @@ export default function Dashboard() {
                     })}
                   </div>
                 ) : (
-                  <div className="text-center py-4 text-xs text-slate-450 dark:text-slate-500">
+                  <div className="text-center py-4 text-xs text-[#6F7785] dark:text-slate-500">
                     Chưa có hoạt động nào hôm nay
                   </div>
                 )}
@@ -525,14 +528,14 @@ export default function Dashboard() {
                 value={notArrived.length}
                 icon={AlertCircle}
                 variant="error"
-                className={notArrived.length > 0 ? 'border-red-300 dark:border-red-900/50 bg-red-50/10' : ''}
+                className={notArrived.length > 0 ? 'border-[#C94335]/30 dark:border-[#C94335]/50 bg-[#FFF0EE]/10' : ''}
               />
               <KgMetricCard
                 title="Đi trễ"
                 value={lateArrived.length}
                 icon={ShieldAlert}
                 variant="warning"
-                className={lateArrived.length > 0 ? 'border-amber-300 dark:border-amber-900/50 bg-amber-50/10' : ''}
+                className={lateArrived.length > 0 ? 'border-[#D8A23A]/30 dark:border-[#D8A23A]/50 bg-[#FFF7E4]/10' : ''}
               />
             </div>
 
@@ -543,9 +546,9 @@ export default function Dashboard() {
                 
                 {/* Discrepancy details */}
                 {(notArrived.length > 0 || lateArrived.length > 0) && (
-                  <KgCard className="p-5 border-amber-205 dark:border-amber-900/50">
-                    <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-wider mb-4 border-b border-slate-100 dark:border-slate-800 pb-2 flex items-center">
-                      <ShieldAlert size={16} className="text-amber-500 mr-2 flex-shrink-0" />
+                  <KgCard className="p-5 border-[#D8A23A]/30 dark:border-[#1E3F57]">
+                    <h3 className="text-sm font-black text-[#172033] dark:text-white uppercase tracking-wider mb-4 border-b border-[#E8DED1] dark:border-[#1E3F57] pb-2 flex items-center">
+                      <ShieldAlert size={16} className="text-[#D8A23A] mr-2 flex-shrink-0" />
                       Cảnh báo vận hành hôm nay
                     </h3>
                     <div className="space-y-3.5">
@@ -553,7 +556,7 @@ export default function Dashboard() {
                         <KgAlertCard variant="warning" title="Nhân viên đi trễ" icon={Clock}>
                           <div className="flex flex-wrap gap-1.5 mt-1">
                             {lateArrived.map((emp, i) => (
-                              <span key={i} className="text-[10px] font-bold bg-white dark:bg-slate-900 border border-amber-200 dark:border-slate-800 px-2 py-0.5 rounded-lg text-slate-700 dark:text-slate-300">
+                              <span key={i} className="text-[10px] font-bold bg-white dark:bg-slate-900 border border-[#D8A23A]/30 dark:border-[#1E3F57] px-2 py-0.5 rounded-lg text-slate-700 dark:text-slate-300">
                                 {emp.fullname}
                               </span>
                             ))}
@@ -564,7 +567,7 @@ export default function Dashboard() {
                         <KgAlertCard variant="error" title="Chưa thấy chấm công vào ca" icon={AlertCircle}>
                           <div className="flex flex-wrap gap-1.5 mt-1">
                             {notArrived.map((emp, i) => (
-                              <span key={i} className="text-[10px] font-bold bg-white dark:bg-slate-900 border border-red-200 dark:border-slate-800 px-2 py-0.5 rounded-lg text-slate-700 dark:text-slate-300">
+                              <span key={i} className="text-[10px] font-bold bg-white dark:bg-slate-900 border border-[#C94335]/30 dark:border-[#1E3F57] px-2 py-0.5 rounded-lg text-slate-700 dark:text-slate-300">
                                 {emp.fullname} ({emp.shift})
                               </span>
                             ))}
@@ -578,47 +581,47 @@ export default function Dashboard() {
                 {/* Checklist & Handover compliance today */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Checklist widget */}
-                  <KgCard className="p-4 text-left hover:shadow-md transition-all flex flex-col justify-between min-h-[140px]">
+                  <KgCard className="p-4 text-left hover:shadow-sm transition-all flex flex-col justify-between min-h-[140px]">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center space-x-2">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.todayChecklistDone ? 'bg-green-50 text-green-600 dark:bg-green-950/40' : 'bg-amber-50 text-amber-600 dark:bg-amber-950/40'}`}>
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.todayChecklistDone ? 'bg-[#EEF7F0] text-[#4F8A5B]' : 'bg-[#FFF7E4] text-[#D8A23A]'}`}>
                           <ClipboardCheck size={16} />
                         </div>
-                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Checklist Vận Hành</span>
+                        <span className="text-xs font-bold text-[#6F7785] dark:text-[#A0ABC0]">Checklist Vận Hành</span>
                       </div>
                     </div>
                     <div>
-                      <p className="text-lg font-black text-slate-805 dark:text-white leading-tight">
+                      <p className="text-lg font-black text-[#172033] dark:text-white leading-tight">
                         {store.todayChecklistDone ? 'Tất cả đã nộp' : 'Đang chờ nộp'}
                       </p>
-                      <p className="text-[10px] text-slate-400 dark:text-slate-505 font-semibold mt-1">
+                      <p className="text-[10px] text-[#6F7785] dark:text-[#A0ABC0] font-semibold mt-1">
                         Hạng mục việc làm ca sáng & tối
                       </p>
                     </div>
-                    <button onClick={() => handleTabChange('checklist')} className="text-xs font-bold text-teal-650 hover:underline mt-3 text-left">
+                    <button onClick={() => handleTabChange('checklist')} className="text-xs font-bold text-[#062B49] dark:text-[#E85D4A] hover:underline mt-3 text-left">
                       Quản lý checklist →
                     </button>
                   </KgCard>
 
                   {/* Handover widget */}
-                  <KgCard className="p-4 text-left hover:shadow-md transition-all flex flex-col justify-between min-h-[140px]">
+                  <KgCard className="p-4 text-left hover:shadow-sm transition-all flex flex-col justify-between min-h-[140px]">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center space-x-2">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.todayHandoverDone ? 'bg-green-50 text-green-600 dark:bg-green-950/40' : 'bg-blue-50 text-blue-600 dark:bg-blue-950/40'}`}>
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.todayHandoverDone ? 'bg-[#EEF7F0] text-[#4F8A5B]' : 'bg-[#FFF0ED] text-[#E85D4A]'}`}>
                           <Repeat size={16} />
                         </div>
-                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Sổ Bàn Giao Ca</span>
+                        <span className="text-xs font-bold text-[#6F7785] dark:text-[#A0ABC0]">Sổ Bàn Giao Ca</span>
                       </div>
                     </div>
                     <div>
-                      <p className="text-lg font-black text-slate-805 dark:text-white leading-tight">
+                      <p className="text-lg font-black text-[#172033] dark:text-white leading-tight">
                         {store.todayHandoverDone ? 'Đã ghi nhận' : 'Chưa ghi bàn giao'}
                       </p>
-                      <p className="text-[10px] text-slate-400 dark:text-slate-505 font-semibold mt-1">
+                      <p className="text-[10px] text-[#6F7785] dark:text-[#A0ABC0] font-semibold mt-1">
                         Sổ tay theo dõi sự cố ca làm việc
                       </p>
                     </div>
-                    <button onClick={() => handleTabChange('handover')} className="text-xs font-bold text-teal-650 hover:underline mt-3 text-left">
+                    <button onClick={() => handleTabChange('handover')} className="text-xs font-bold text-[#062B49] dark:text-[#E85D4A] hover:underline mt-3 text-left">
                       Xem sổ bàn giao →
                     </button>
                   </KgCard>
@@ -626,26 +629,26 @@ export default function Dashboard() {
 
                 {/* Sold out items report */}
                 <KgCard className="p-4">
-                  <div className="flex items-center justify-between mb-3 border-b border-slate-100 dark:border-slate-800 pb-2">
+                  <div className="flex items-center justify-between mb-3 border-b border-[#E8DED1] dark:border-[#1E3F57] pb-2">
                     <div className="flex items-center space-x-2">
-                      <UtensilsCrossed size={16} className="text-amber-500" />
-                      <h3 className="text-xs font-bold text-slate-450 uppercase tracking-wider">Món hết hôm nay</h3>
+                      <UtensilsCrossed size={16} className="text-[#D8A23A]" />
+                      <h3 className="text-xs font-bold text-[#6F7785] uppercase tracking-wider">Món hết hôm nay</h3>
                     </div>
-                    <button onClick={() => handleTabChange('soldout')} className="text-xs font-bold text-teal-650 hover:underline">
+                    <button onClick={() => handleTabChange('soldout')} className="text-xs font-bold text-[#062B49] dark:text-[#E85D4A] hover:underline">
                       Xem thực đơn
                     </button>
                   </div>
                   {store.soldOutItems.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
                       {store.soldOutItems.map((item) => (
-                        <div key={item.id} className="bg-amber-50 dark:bg-amber-950/20 border border-amber-205 dark:border-slate-800 rounded-xl px-3 py-1.5 flex items-center space-x-2 text-xs">
-                          <span className="font-extrabold text-amber-800 dark:text-amber-400">{item.itemName}</span>
-                          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">({item.reportedBy} lúc {item.reportedAt})</span>
+                        <div key={item.id} className="bg-[#FFF7E4] dark:bg-[#E2B24C]/10 border border-[#E8DED1] dark:border-[#1E3F57] rounded-xl px-3 py-1.5 flex items-center space-x-2 text-xs">
+                          <span className="font-extrabold text-[#D8A23A]">{item.itemName}</span>
+                          <span className="text-[10px] text-[#6F7785] dark:text-[#A0ABC0] font-medium">({item.reportedBy} lúc {item.reportedAt})</span>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs text-slate-405 italic py-2">Chưa báo món hết nào hôm nay</p>
+                    <p className="text-xs text-[#6F7785] italic py-2">Chưa báo món hết nào hôm nay</p>
                   )}
                 </KgCard>
 
@@ -656,26 +659,26 @@ export default function Dashboard() {
                 
                 {/* Approvals Widget */}
                 {hasPendingApprovals ? (
-                  <KgCard className="p-4 border-orange-200 dark:border-orange-950 bg-orange-50/5">
-                    <div className="flex items-center space-x-2 mb-3 border-b border-slate-100 dark:border-slate-800 pb-2">
-                      <BellRing size={16} className="text-orange-500 animate-pulse" />
-                      <h3 className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider">Cần duyệt gấp</h3>
+                  <KgCard className="p-4 border-[#FFF0ED] dark:border-[#E85D4A]/30 bg-[#FFF0ED]/20">
+                    <div className="flex items-center space-x-2 mb-3 border-b border-[#E8DED1] dark:border-[#1E3F57] pb-2">
+                      <BellRing size={16} className="text-[#E85D4A] animate-pulse" />
+                      <h3 className="text-xs font-bold text-[#172033] dark:text-white uppercase tracking-wider">Cần duyệt gấp</h3>
                     </div>
                     <div className="grid grid-cols-1 gap-2">
                       {pendingSwaps.length > 0 && (
-                        <button onClick={() => handleTabChange('swap')} className="flex items-center justify-between p-3 rounded-xl bg-teal-50/60 dark:bg-teal-900/10 border border-teal-200/30 text-teal-700 dark:text-teal-400 hover:bg-teal-50 transition-all text-xs font-bold">
+                        <button onClick={() => handleTabChange('swap')} className="flex items-center justify-between p-3 rounded-xl bg-[#EEF7F0]/60 dark:bg-[#5F9D6B]/15 border border-[#EEF7F0]/80 text-[#4F8A5B] hover:bg-[#EEF7F0] transition-all text-xs font-bold">
                           <span>Đổi ca ({pendingSwaps.length})</span>
                           <span>Chi tiết →</span>
                         </button>
                       )}
                       {pendingLeaves.length > 0 && (
-                        <button onClick={() => handleTabChange('swap')} className="flex items-center justify-between p-3 rounded-xl bg-blue-50/60 dark:bg-blue-900/10 border border-blue-200/30 text-blue-700 dark:text-blue-400 hover:bg-blue-50 transition-all text-xs font-bold">
+                        <button onClick={() => handleTabChange('swap')} className="flex items-center justify-between p-3 rounded-xl bg-[#FFF0ED]/60 dark:bg-[#E85D4A]/15 border border-[#FFF0ED]/80 text-[#E85D4A] hover:bg-[#FFF0ED] transition-all text-xs font-bold">
                           <span>Yêu cầu xin nghỉ ({pendingLeaves.length})</span>
                           <span>Chi tiết →</span>
                         </button>
                       )}
                       {pendingAdvances.length > 0 && (
-                        <button onClick={() => handleTabChange('advance')} className="flex items-center justify-between p-3 rounded-xl bg-orange-50/60 dark:bg-orange-900/10 border border-orange-200/30 text-orange-700 dark:text-orange-400 hover:bg-orange-50 transition-all text-xs font-bold">
+                        <button onClick={() => handleTabChange('advance')} className="flex items-center justify-between p-3 rounded-xl bg-[#FFF7E4]/60 dark:bg-[#E2B24C]/15 border border-[#FFF7E4]/80 text-[#D8A23A] hover:bg-[#FFF7E4] transition-all text-xs font-bold">
                           <span>Ứng lương ({pendingAdvances.length})</span>
                           <span>Chi tiết →</span>
                         </button>
@@ -683,46 +686,46 @@ export default function Dashboard() {
                     </div>
                   </KgCard>
                 ) : (
-                  <KgCard className="p-4 text-center py-6 border-dashed">
-                    <CheckCircle2 size={24} className="mx-auto mb-2 text-green-500 opacity-80" />
-                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Không có yêu cầu chờ duyệt</p>
-                    <p className="text-[10px] text-slate-400 mt-0.5">Tất cả ca làm, ứng lương đã được giải quyết gọn gàng!</p>
+                  <KgCard className="p-4 text-center py-6 border-dashed border-[#E8DED1] dark:border-[#1E3F57]">
+                    <CheckCircle2 size={24} className="mx-auto mb-2 text-[#4F8A5B] opacity-80" />
+                    <p className="text-xs font-bold text-[#172033] dark:text-slate-200">Không có yêu cầu chờ duyệt</p>
+                    <p className="text-[10px] text-[#6F7785] mt-0.5">Tất cả ca làm, ứng lương đã được giải quyết gọn gàng!</p>
                   </KgCard>
                 )}
 
                 {/* Feedback awaiting reply */}
                 {store.pendingFeedbackCount > 0 && (
-                  <KgCard className="p-4 border-rose-200 dark:border-rose-955 bg-rose-50/5">
+                  <KgCard className="p-4 border-[#FFF0ED] dark:border-[#1E3F57] bg-[#FFF0ED]/20">
                     <div className="flex justify-between items-center text-xs">
                       <div className="flex items-center space-x-2">
-                        <div className="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-950/40 flex items-center justify-center text-rose-500 font-bold relative">
+                        <div className="w-8 h-8 rounded-lg bg-[#FFF0ED] dark:bg-[#E85D4A]/25 flex items-center justify-center text-[#E85D4A] font-bold relative">
                           <MessageSquareWarning size={16} />
-                          <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 rounded-full text-white text-[8px] font-bold flex items-center justify-center">{store.pendingFeedbackCount}</span>
+                          <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#E85D4A] rounded-full text-white text-[8px] font-bold flex items-center justify-center">{store.pendingFeedbackCount}</span>
                         </div>
                         <div>
-                          <p className="font-bold text-slate-800 dark:text-slate-200">Góp ý chưa xử lý</p>
-                          <p className="text-[10px] text-slate-400 mt-0.5">{store.pendingFeedbackCount} phản hồi cần trả lời</p>
+                          <p className="font-bold text-[#172033] dark:text-slate-200">Góp ý chưa xử lý</p>
+                          <p className="text-[10px] text-[#6F7785] mt-0.5">{store.pendingFeedbackCount} phản hồi cần trả lời</p>
                         </div>
                       </div>
-                      <button onClick={() => handleTabChange('feedback')} className="text-[11px] font-bold text-rose-500 hover:underline">Trả lời →</button>
+                      <button onClick={() => handleTabChange('feedback')} className="text-[11px] font-bold text-[#E85D4A] hover:underline">Trả lời →</button>
                     </div>
                   </KgCard>
                 )}
 
                 {/* Admin quick shortcuts */}
                 <KgCard className="p-4">
-                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Phím tắt quản lý</h3>
+                  <h3 className="text-xs font-bold text-[#6F7785] uppercase tracking-wider mb-3">Phím tắt quản lý</h3>
                   <div className="grid grid-cols-2 gap-2">
                     {[
-                      { label: 'Phân ca', icon: CalendarRange, tab: 'schedule' as any, color: 'text-teal-650 bg-teal-50 dark:bg-teal-950/20' },
-                      { label: 'Bảng công', icon: CalendarClock, tab: 'timesheet' as any, color: 'text-indigo-650 bg-indigo-50 dark:bg-indigo-950/20' },
-                      { label: 'Bảng lương', icon: Banknote, tab: 'payroll' as any, color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20' },
-                      { label: 'Nhân sự', icon: Users, tab: 'hr_list' as any, color: 'text-blue-650 bg-blue-50 dark:bg-blue-950/20' },
+                      { label: 'Phân ca', icon: CalendarRange, tab: 'schedule' as any, color: 'text-[#062B49] bg-[#062B49]/5' },
+                      { label: 'Bảng công', icon: CalendarClock, tab: 'timesheet' as any, color: 'text-[#D8A23A] bg-[#FFF7E4]' },
+                      { label: 'Bảng lương', icon: Banknote, tab: 'payroll' as any, color: 'text-[#4F8A5B] bg-[#EEF7F0]' },
+                      { label: 'Nhân sự', icon: Users, tab: 'hr_list' as any, color: 'text-[#E85D4A] bg-[#FFF0ED]' },
                     ].map((item, i) => (
                       <button
                         key={i}
                         onClick={() => handleTabChange(item.tab)}
-                        className={`flex items-center gap-2 p-2.5 rounded-xl border border-slate-105 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900/60 active:scale-[0.98] transition-all text-xs font-bold text-slate-700 dark:text-slate-300`}
+                        className={`flex items-center gap-2 p-2.5 rounded-xl border border-[#E8DED1] dark:border-[#1E3F57] hover:bg-[#FBF7F0] dark:hover:bg-[#122F48] active:scale-[0.98] transition-all text-xs font-bold text-[#172033] dark:text-slate-350`}
                       >
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${item.color}`}>
                           <item.icon size={15} />
