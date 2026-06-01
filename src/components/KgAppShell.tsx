@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 import { KgActionSheet } from './KgDesignSystem';
+import { hasTabPermission } from '../utils/permissions';
 
 type TabId = ReturnType<typeof useAppStore.getState>['currentTab'];
 
@@ -32,38 +33,36 @@ export default function KgAppShell({ children }: KgAppShellProps) {
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
-  // Bottom navigation tabs
+  // Bottom navigation tabs (dynamically filtered by permission)
   const bottomTabs = [
     { id: 'dashboard' as TabId, label: 'Hôm nay', icon: LayoutDashboard },
     { id: 'checkin' as TabId, label: 'Chấm công', icon: Camera },
     { id: 'schedule' as TabId, label: 'Lịch làm', icon: Calendar },
     { id: 'payroll' as TabId, label: 'Công lương', icon: DollarSign },
-  ];
+  ].filter(tab => hasTabPermission(tab.id, currentUser));
 
-  // Actions for bottom tab "More" action sheet
+  // Actions for bottom tab "More" action sheet (dynamically filtered by permission)
   const moreActions = [
-    { label: 'Bảng tin', icon: Newspaper, onClick: () => handleTabChange('news') },
-    { label: 'Món hết', icon: UtensilsCrossed, onClick: () => handleTabChange('soldout') },
-    { label: 'Checklist', icon: ClipboardCheck, onClick: () => handleTabChange('checklist') },
-    { label: 'Bàn giao ca', icon: Repeat, onClick: () => handleTabChange('handover') },
-    { label: 'Đổi ca', icon: ArrowLeftRight, onClick: () => handleTabChange('swap') },
-    { label: 'Lịch tổng', icon: CalendarDays, onClick: () => handleTabChange('roster') },
-    { label: 'Lịch sử', icon: History, onClick: () => handleTabChange('history') },
-    { label: 'Đào tạo', icon: CalendarClock, onClick: () => handleTabChange('training') },
-    { label: 'Góp ý', icon: MessageSquareWarning, onClick: () => handleTabChange('feedback') },
-    { label: 'Hồ sơ', icon: Users, onClick: () => handleTabChange('profile') },
-    ...(isAdmin ? [
-      { label: 'Cấu hình AI', icon: Building2, onClick: () => handleTabChange('admin') },
-      { label: 'Nhân sự', icon: Users, onClick: () => handleTabChange('hr_list') },
-      { label: 'Tổ chức & Quyền', icon: KeyRound, onClick: () => handleTabChange('admin_org') },
-      { label: 'Phân ca', icon: CalendarRange, onClick: () => handleTabChange('admin_shift') },
-      { label: 'Cấu hình lương', icon: DollarSign, onClick: () => handleTabChange('admin_payroll') },
-      { label: 'Cấu hình checklist', icon: ClipboardCheck, onClick: () => handleTabChange('admin_checklist') },
-      { label: 'Báo cáo', icon: Building2, onClick: () => handleTabChange('admin_analytics') },
-    ] : [])
-  ];
+    { id: 'news' as TabId, label: 'Bảng tin', icon: Newspaper, onClick: () => handleTabChange('news') },
+    { id: 'soldout' as TabId, label: 'Món hết', icon: UtensilsCrossed, onClick: () => handleTabChange('soldout') },
+    { id: 'checklist' as TabId, label: 'Checklist', icon: ClipboardCheck, onClick: () => handleTabChange('checklist') },
+    { id: 'handover' as TabId, label: 'Bàn giao ca', icon: Repeat, onClick: () => handleTabChange('handover') },
+    { id: 'swap' as TabId, label: 'Đổi ca', icon: ArrowLeftRight, onClick: () => handleTabChange('swap') },
+    { id: 'roster' as TabId, label: 'Lịch tổng', icon: CalendarDays, onClick: () => handleTabChange('roster') },
+    { id: 'history' as TabId, label: 'Lịch sử', icon: History, onClick: () => handleTabChange('history') },
+    { id: 'training' as TabId, label: 'Đào tạo', icon: CalendarClock, onClick: () => handleTabChange('training') },
+    { id: 'feedback' as TabId, label: 'Góp ý', icon: MessageSquareWarning, onClick: () => handleTabChange('feedback') },
+    { id: 'profile' as TabId, label: 'Hồ sơ', icon: Users, onClick: () => handleTabChange('profile') },
+    { id: 'admin' as TabId, label: 'Cấu hình AI', icon: Building2, onClick: () => handleTabChange('admin') },
+    { id: 'hr_list' as TabId, label: 'Nhân sự', icon: Users, onClick: () => handleTabChange('hr_list') },
+    { id: 'admin_org' as TabId, label: 'Tổ chức & Quyền', icon: KeyRound, onClick: () => handleTabChange('admin_org') },
+    { id: 'admin_shift' as TabId, label: 'Phân ca', icon: CalendarRange, onClick: () => handleTabChange('admin_shift') },
+    { id: 'admin_payroll' as TabId, label: 'Cấu hình lương', icon: DollarSign, onClick: () => handleTabChange('admin_payroll') },
+    { id: 'admin_checklist' as TabId, label: 'Cấu hình checklist', icon: ClipboardCheck, onClick: () => handleTabChange('admin_checklist') },
+    { id: 'admin_analytics' as TabId, label: 'Báo cáo', icon: Building2, onClick: () => handleTabChange('admin_analytics') },
+  ].filter(action => hasTabPermission(action.id, currentUser));
 
-  // Sidebar navigation menu groups for Desktop
+  // Sidebar navigation menu groups for Desktop (dynamically filtered by permission)
   const menuGroups = [
     {
       label: 'Cá nhân',
@@ -73,7 +72,7 @@ export default function KgAppShell({ children }: KgAppShellProps) {
         { id: 'schedule' as TabId, label: 'Lịch đăng ký', icon: Calendar },
         { id: 'payroll' as TabId, label: 'Phiếu lương', icon: DollarSign },
         { id: 'history' as TabId, label: 'Lịch sử chấm công', icon: History },
-      ]
+      ].filter(item => hasTabPermission(item.id, currentUser))
     },
     {
       label: 'Vận hành',
@@ -86,23 +85,21 @@ export default function KgAppShell({ children }: KgAppShellProps) {
         { id: 'soldout' as TabId, label: 'Món hết', icon: UtensilsCrossed },
         { id: 'feedback' as TabId, label: 'Góp ý', icon: MessageSquareWarning },
         { id: 'training' as TabId, label: 'Đào tạo', icon: CalendarClock },
-      ]
+      ].filter(item => hasTabPermission(item.id, currentUser))
     },
-    ...(isAdmin ? [
-      {
-        label: 'Quản lý & Cấu hình',
-        items: [
-          { id: 'admin' as TabId, label: 'Cấu hình AI', icon: Building2 },
-          { id: 'hr_list' as TabId, label: 'Danh sách nhân sự', icon: Users },
-          { id: 'admin_org' as TabId, label: 'Tổ chức & Quyền', icon: KeyRound },
-          { id: 'admin_shift' as TabId, label: 'Cấu hình phân ca', icon: CalendarRange },
-          { id: 'admin_payroll' as TabId, label: 'Cấu hình lương thưởng', icon: DollarSign },
-          { id: 'admin_checklist' as TabId, label: 'Cấu hình checklist', icon: ClipboardCheck },
-          { id: 'admin_analytics' as TabId, label: 'Thống kê & Báo cáo', icon: Building2 },
-        ]
-      }
-    ] : [])
-  ];
+    {
+      label: 'Quản lý & Cấu hình',
+      items: [
+        { id: 'admin' as TabId, label: 'Cấu hình AI', icon: Building2 },
+        { id: 'hr_list' as TabId, label: 'Danh sách nhân sự', icon: Users },
+        { id: 'admin_org' as TabId, label: 'Tổ chức & Quyền', icon: KeyRound },
+        { id: 'admin_shift' as TabId, label: 'Cấu hình phân ca', icon: CalendarRange },
+        { id: 'admin_payroll' as TabId, label: 'Cấu hình lương thưởng', icon: DollarSign },
+        { id: 'admin_checklist' as TabId, label: 'Cấu hình checklist', icon: ClipboardCheck },
+        { id: 'admin_analytics' as TabId, label: 'Thống kê & Báo cáo', icon: Building2 },
+      ].filter(item => hasTabPermission(item.id, currentUser))
+    }
+  ].filter(group => group.items.length > 0);
 
   return (
     <div className="w-full min-h-screen flex flex-col md:flex-row bg-[#F8F3EA] dark:bg-[#061B2B] text-[#172033] dark:text-[#F1F5F9] transition-colors duration-200">

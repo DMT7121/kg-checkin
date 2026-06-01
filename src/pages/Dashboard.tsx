@@ -3,6 +3,7 @@ import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import { computeWeekInfo } from '../utils/helpers';
 import { refreshAppData } from '../utils/refreshData';
+import { hasTabPermission, getTabLabel } from '../utils/permissions';
 import {
   Camera, Calendar, Clock, ShieldAlert,
   ArrowLeftRight, Newspaper, GraduationCap,
@@ -124,6 +125,21 @@ const ComingSoonPage = ({ title }: { title: string }) => (
     <div className="soft3d-card mt-6 px-5 py-2.5 rounded-full !bg-[#E85D4A] text-white text-xs font-bold tracking-wide border-none">
       COMING SOON
     </div>
+  </div>
+);
+
+const AccessDeniedPage = ({ tabTitle }: { tabTitle: string }) => (
+  <div className="flex flex-col items-center justify-center py-20 px-6 text-center animate-fade-in">
+    <div className="w-20 h-20 rounded-2xl bg-[#FFF0ED] dark:bg-[#E85D4A]/10 flex items-center justify-center mb-5 shadow-sm border border-[#E85D4A]/20">
+      <ShieldAlert size={36} className="text-[#E85D4A]" />
+    </div>
+    <h2 className="text-xl font-black text-[#062B49] dark:text-white mb-2">Không Có Quyền Truy Cập</h2>
+    <p className="text-sm text-[#6F7785] dark:text-[#A0ABC0] max-w-sm leading-relaxed">
+      Vị trí làm việc hoặc phân quyền tài khoản của bạn hiện tại không được phép truy cập phân hệ <b>{tabTitle}</b>.
+    </p>
+    <p className="text-xs text-[#6F7785] dark:text-[#A0ABC0]/80 mt-2">
+      Vui lòng liên hệ với Admin để điều chỉnh nếu đây là một sự nhầm lẫn.
+    </p>
   </div>
 );
 
@@ -359,58 +375,64 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: any) => void })
               </h3>
               <div className="space-y-3.5">
                 {/* Checklist item */}
-                <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#FBF7F0] dark:bg-[#122F48]/50 border border-[#E8DED1] dark:border-[#1E3F57]">
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.todayChecklistDone ? 'bg-[#EEF7F0] text-[#4F8A5B]' : 'bg-[#FFF7E4] text-[#D8A23A]'}`}>
-                      <ClipboardCheck size={16} />
+                {hasTabPermission('checklist', currentUser) && (
+                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#FBF7F0] dark:bg-[#122F48]/50 border border-[#E8DED1] dark:border-[#1E3F57]">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.todayChecklistDone ? 'bg-[#EEF7F0] text-[#4F8A5B]' : 'bg-[#FFF7E4] text-[#D8A23A]'}`}>
+                        <ClipboardCheck size={16} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-[#172033] dark:text-slate-200">Nộp checklist vận hành</p>
+                        <p className="text-[10px] text-[#6F7785] dark:text-[#A0ABC0] font-medium">Báo cáo hạng mục đầu/cuối ca</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-xs font-bold text-[#172033] dark:text-slate-200">Nộp checklist vận hành</p>
-                      <p className="text-[10px] text-[#6F7785] dark:text-[#A0ABC0] font-medium">Báo cáo hạng mục đầu/cuối ca</p>
-                    </div>
+                    {store.todayChecklistDone ? (
+                      <KgStatusBadge variant="success">Đã nộp</KgStatusBadge>
+                    ) : (
+                      <button onClick={() => onTabChange('checklist')} className="text-xs font-bold text-[#062B49] dark:text-[#E85D4A] hover:underline">Làm ngay →</button>
+                    )}
                   </div>
-                  {store.todayChecklistDone ? (
-                    <KgStatusBadge variant="success">Đã nộp</KgStatusBadge>
-                  ) : (
-                    <button onClick={() => onTabChange('checklist')} className="text-xs font-bold text-[#062B49] dark:text-[#E85D4A] hover:underline">Làm ngay →</button>
-                  )}
-                </div>
+                )}
 
                 {/* Handover item */}
-                <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#FBF7F0] dark:bg-[#122F48]/50 border border-[#E8DED1] dark:border-[#1E3F57]">
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.todayHandoverDone ? 'bg-[#EEF7F0] text-[#4F8A5B]' : 'bg-[#FFF0ED] text-[#E85D4A]'}`}>
-                      <Repeat size={16} />
+                {hasTabPermission('handover', currentUser) && (
+                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#FBF7F0] dark:bg-[#122F48]/50 border border-[#E8DED1] dark:border-[#1E3F57]">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.todayHandoverDone ? 'bg-[#EEF7F0] text-[#4F8A5B]' : 'bg-[#FFF0ED] text-[#E85D4A]'}`}>
+                        <Repeat size={16} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-[#172033] dark:text-slate-200">Ghi sổ bàn giao ca</p>
+                        <p className="text-[10px] text-[#6F7785] dark:text-[#A0ABC0] font-medium">Bàn giao doanh thu, sự cố, kho</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-xs font-bold text-[#172033] dark:text-slate-200">Ghi sổ bàn giao ca</p>
-                      <p className="text-[10px] text-[#6F7785] dark:text-[#A0ABC0] font-medium">Bàn giao doanh thu, sự cố, kho</p>
-                    </div>
+                    {store.todayHandoverDone ? (
+                      <KgStatusBadge variant="success">Đã hoàn thành</KgStatusBadge>
+                    ) : (
+                      <button onClick={() => onTabChange('handover')} className="text-xs font-bold text-[#062B49] dark:text-[#E85D4A] hover:underline">Ghi sổ →</button>
+                    )}
                   </div>
-                  {store.todayHandoverDone ? (
-                    <KgStatusBadge variant="success">Đã hoàn thành</KgStatusBadge>
-                  ) : (
-                    <button onClick={() => onTabChange('handover')} className="text-xs font-bold text-[#062B49] dark:text-[#E85D4A] hover:underline">Ghi sổ →</button>
-                  )}
-                </div>
+                )}
 
                 {/* Register Schedule item */}
-                <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#FBF7F0] dark:bg-[#122F48]/50 border border-[#E8DED1] dark:border-[#1E3F57]">
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.isScheduleRegistered ? 'bg-[#EEF7F0] text-[#4F8A5B]' : 'bg-[#FFF7E4] text-[#D8A23A]'}`}>
-                      <Calendar size={16} />
+                {hasTabPermission('schedule', currentUser) && (
+                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#FBF7F0] dark:bg-[#122F48]/50 border border-[#E8DED1] dark:border-[#1E3F57]">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.isScheduleRegistered ? 'bg-[#EEF7F0] text-[#4F8A5B]' : 'bg-[#FFF7E4] text-[#D8A23A]'}`}>
+                        <Calendar size={16} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-[#172033] dark:text-slate-200">Đăng ký lịch tuần tới</p>
+                        <p className="text-[10px] text-[#6F7785] dark:text-[#A0ABC0] font-medium">Hạn đăng ký trước Chủ nhật hàng tuần</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-xs font-bold text-[#172033] dark:text-slate-200">Đăng ký lịch tuần tới</p>
-                      <p className="text-[10px] text-[#6F7785] dark:text-[#A0ABC0] font-medium">Hạn đăng ký trước Chủ nhật hàng tuần</p>
-                    </div>
+                    {store.isScheduleRegistered ? (
+                      <KgStatusBadge variant="success">Đã đăng ký</KgStatusBadge>
+                    ) : (
+                      <button onClick={() => onTabChange('schedule')} className="text-xs font-bold text-[#062B49] dark:text-[#E85D4A] hover:underline">Đăng ký →</button>
+                    )}
                   </div>
-                  {store.isScheduleRegistered ? (
-                    <KgStatusBadge variant="success">Đã đăng ký</KgStatusBadge>
-                  ) : (
-                    <button onClick={() => onTabChange('schedule')} className="text-xs font-bold text-[#062B49] dark:text-[#E85D4A] hover:underline">Đăng ký →</button>
-                  )}
-                </div>
+                )}
               </div>
             </KgCard>
           </div>
@@ -420,13 +442,15 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: any) => void })
             {/* Quick Actions Panel */}
             <KgCard className="p-4">
               <h3 className="text-xs font-bold text-[#6F7785] uppercase tracking-wider mb-3">Lối tắt nhanh</h3>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-3 lg:grid-cols-4 gap-2">
                 {[
                   { icon: Newspaper, label: 'Bảng tin', tab: 'news' as any, color: 'text-[#062B49] bg-[#FFF0ED] dark:bg-[#1E3F57]/30' },
                   { icon: UtensilsCrossed, label: 'Món hết', tab: 'soldout' as any, color: 'text-[#D8A23A] bg-[#FFF7E4] dark:bg-[#E2B24C]/10' },
-                  { icon: MessageSquareWarning, label: 'Góp ý', tab: 'feedback' as any, color: 'text-[#C94335] bg-[#FFF0EE] dark:bg-[#D8584B]/10' },
+                  { icon: Award, label: 'King Coins', tab: 'reward' as any, color: 'text-[#E2B24C] bg-[#FFF8E7] dark:bg-[#E2B24C]/10' },
                   { icon: Banknote, label: 'Phiếu lương', tab: 'payroll' as any, color: 'text-[#4F8A5B] bg-[#EEF7F0] dark:bg-[#5F9D6B]/10' },
-                ].map((act, i) => (
+                  { icon: MessageSquareWarning, label: 'Góp ý', tab: 'feedback' as any, color: 'text-[#C94335] bg-[#FFF0EE] dark:bg-[#D8584B]/10' },
+                  { icon: Calendar, label: 'Lịch làm', tab: 'schedule' as any, color: 'text-[#3B82F6] bg-[#EFF6FF] dark:bg-[#3B82F6]/10' },
+                ].filter(act => hasTabPermission(act.tab, currentUser)).map((act, i) => (
                   <button
                     key={i}
                     onClick={() => onTabChange(act.tab)}
@@ -721,7 +745,7 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: any) => void })
 
 export default function Dashboard() {
   const store = useAppStore();
-  const { currentTab } = store;
+  const { currentTab, currentUser } = store;
 
   useEffect(() => {
     const run = () => prefetchModuleScreens();
@@ -742,6 +766,8 @@ export default function Dashboard() {
     }
   };
 
+  const hasAccess = hasTabPermission(currentTab, currentUser);
+
   return (
     <KgAppShell>
       <AnimatePresence mode="popLayout">
@@ -755,31 +781,37 @@ export default function Dashboard() {
         >
           <AppErrorBoundary resetKey={currentTab} fallback={<ModuleRecoverFallback />}>
             <Suspense fallback={<TabFallback />}>
-              {currentTab === 'dashboard' && <DashboardOverview onTabChange={handleTabChange} />}
-              {currentTab === 'checkin' && <CheckIn />}
-              {currentTab === 'schedule' && <Schedule />}
-              {currentTab === 'swap' && <SwapShift />}
-              {currentTab === 'roster' && <Roster />}
-              {currentTab === 'profile' && <ComingSoonPage title="Hồ sơ cá nhân" />}
-              {currentTab === 'checklist' && <Checklist />}
-              {currentTab === 'handover' && <Handover />}
-              {currentTab === 'feedback' && <Feedback />}
-              {currentTab === 'news' && <NewsFeed />}
-              {currentTab === 'soldout' && <SoldOut />}
-              {currentTab === 'training' && <Training />}
-              {currentTab === 'advance' && <Advance />}
-              {currentTab === 'discipline' && <Discipline />}
-              {currentTab === 'payroll' && <Payroll />}
-              {currentTab === 'reward' && <Reward />}
-              {currentTab === 'timesheet' && <Timesheet />}
-              {currentTab === 'history' && <ActivityHistory />}
-              {currentTab === 'admin' && <Admin />}
-              {currentTab === 'admin_shift' && <AdminShift />}
-              {currentTab === 'admin_org' && <AdminOrg />}
-              {currentTab === 'admin_payroll' && <AdminPayroll />}
-              {currentTab === 'admin_checklist' && <AdminChecklistConfig />}
-              {currentTab === 'admin_analytics' && <AdminAnalytics />}
-              {currentTab === 'hr_list' && <HrList />}
+              {!hasAccess ? (
+                <AccessDeniedPage tabTitle={getTabLabel(currentTab)} />
+              ) : (
+                <>
+                  {currentTab === 'dashboard' && <DashboardOverview onTabChange={handleTabChange} />}
+                  {currentTab === 'checkin' && <CheckIn />}
+                  {currentTab === 'schedule' && <Schedule />}
+                  {currentTab === 'swap' && <SwapShift />}
+                  {currentTab === 'roster' && <Roster />}
+                  {currentTab === 'profile' && <ComingSoonPage title="Hồ sơ cá nhân" />}
+                  {currentTab === 'checklist' && <Checklist />}
+                  {currentTab === 'handover' && <Handover />}
+                  {currentTab === 'feedback' && <Feedback />}
+                  {currentTab === 'news' && <NewsFeed />}
+                  {currentTab === 'soldout' && <SoldOut />}
+                  {currentTab === 'training' && <Training />}
+                  {currentTab === 'advance' && <Advance />}
+                  {currentTab === 'discipline' && <Discipline />}
+                  {currentTab === 'payroll' && <Payroll />}
+                  {currentTab === 'reward' && <Reward />}
+                  {currentTab === 'timesheet' && <Timesheet />}
+                  {currentTab === 'history' && <ActivityHistory />}
+                  {currentTab === 'admin' && <Admin />}
+                  {currentTab === 'admin_shift' && <AdminShift />}
+                  {currentTab === 'admin_org' && <AdminOrg />}
+                  {currentTab === 'admin_payroll' && <AdminPayroll />}
+                  {currentTab === 'admin_checklist' && <AdminChecklistConfig />}
+                  {currentTab === 'admin_analytics' && <AdminAnalytics />}
+                  {currentTab === 'hr_list' && <HrList />}
+                </>
+              )}
             </Suspense>
           </AppErrorBoundary>
         </motion.div>
