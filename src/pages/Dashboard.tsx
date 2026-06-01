@@ -4,18 +4,24 @@ import { callApi } from '../services/api';
 import { computeWeekInfo } from '../utils/helpers';
 import { refreshAppData } from '../utils/refreshData';
 import {
-  Sun, Moon, Power, Camera, Calendar, Clock3, ShieldAlert,
-  ArrowLeftRight, Newspaper, GraduationCap, Menu, X,
-  LayoutDashboard, UtensilsCrossed, MessageSquareWarning,
+  Camera, Calendar, Clock, ShieldAlert,
+  ArrowLeftRight, Newspaper, GraduationCap,
+  UtensilsCrossed, MessageSquareWarning,
   ClipboardCheck, Repeat, CalendarDays, History, BellRing,
-  CalendarClock, Banknote, BadgeDollarSign, Award, ChevronDown,
-  Settings, Briefcase, CheckSquare, Users, KeyRound, CalendarRange, DollarSign, Building2,
-  RefreshCw
+  CalendarClock, Banknote, BadgeDollarSign, Award,
+  Users, KeyRound, CalendarRange, DollarSign, Building2,
+  RefreshCw, CheckCircle2, UserCheck, AlertCircle, Info, Briefcase
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { triggerDeveloperMode } from '../utils/githubApi';
-import NotificationBell from '../components/NotificationBell';
+import { AnimatePresence, motion } from 'framer-motion';
 import AppErrorBoundary from '../components/AppErrorBoundary';
+import KgAppShell from '../components/KgAppShell';
+import {
+  KgCard,
+  KgButton,
+  KgStatusBadge,
+  KgMetricCard,
+  KgAlertCard
+} from '../components/KgDesignSystem';
 
 const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
@@ -106,34 +112,9 @@ const prefetchModuleScreens = async () => {
   }
 };
 
-// ============================================
-// Định nghĩa cấu trúc Sidebar theo 5 Nhóm
-// ============================================
-type TabId = ReturnType<typeof useAppStore.getState>['currentTab'];
-
-interface MenuItem {
-  id: TabId;
-  label: string;
-  icon: any;
-  showBadge?: boolean;
-  adminOnly?: boolean;
-  comingSoon?: boolean;
-}
-
-interface MenuGroup {
-  id: string;
-  label: string;
-  icon: any;
-  items: MenuItem[];
-  adminOnly?: boolean;
-}
-
 export default function Dashboard() {
   const store = useAppStore();
-  const { currentUser, isDark, currentTab, isScheduleRegistered } = store;
-  const [isSidebarOpen, setSidebarOpen] = useState(false);
-  const [expandedGroups, setExpandedGroups] = useState<string[]>(['info']);
-  const [clickCount, setClickCount] = useState(0);
+  const { currentUser, currentTab } = store;
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'tester';
 
   useEffect(() => {
@@ -146,140 +127,25 @@ export default function Dashboard() {
     return () => window.clearTimeout(timer);
   }, []);
 
-  // ============================================
-  // 5 Nhóm Menu theo MASTER BLUEPRINT
-  // ============================================
-  const menuGroups: MenuGroup[] = [
-    {
-      id: 'info',
-      label: 'Thông tin',
-      icon: LayoutDashboard,
-      items: [
-        { id: 'dashboard', label: 'Tổng quan', icon: LayoutDashboard },
-        { id: 'news', label: 'Bảng tin', icon: Newspaper },
-        { id: 'soldout', label: 'Món hết', icon: UtensilsCrossed },
-        { id: 'feedback', label: 'Góp ý', icon: MessageSquareWarning },
-        { id: 'training', label: 'Đào tạo', icon: GraduationCap },
-      ],
-    },
-    {
-      id: 'hr',
-      label: 'Quản lý nhân sự',
-      icon: Users,
-      adminOnly: true,
-      items: [
-        { id: 'hr_list', label: 'Danh sách nhân sự', icon: Briefcase, adminOnly: true },
-      ],
-    },
-    {
-      id: 'ops',
-      label: 'Vận hành',
-      icon: Camera,
-      items: [
-        { id: 'checkin', label: 'Chấm công', icon: Camera },
-        { id: 'checklist', label: 'Checklist', icon: ClipboardCheck },
-        { id: 'handover', label: 'Bàn giao ca', icon: Repeat },
-      ],
-    },
-    {
-      id: 'schedule',
-      label: 'Lịch làm',
-      icon: Calendar,
-      items: [
-        { id: 'schedule', label: isAdmin ? 'Sắp xếp ca' : 'Đăng ký ca', icon: Calendar },
-        { id: 'swap', label: 'Chợ đổi ca', icon: ArrowLeftRight },
-        { id: 'roster', label: 'Lịch tổng', icon: CalendarDays },
-      ],
-    },
-    {
-      id: 'payroll',
-      label: 'Công lương',
-      icon: Banknote,
-      items: [
-        { id: 'history', label: 'Lịch sử chấm công', icon: History },
-        { id: 'timesheet', label: 'Tổng hợp công', icon: CalendarClock },
-        { id: 'advance', label: 'Ứng lương', icon: BadgeDollarSign },
-        { id: 'payroll', label: 'Bảng lương', icon: Banknote },
-        { id: 'discipline', label: 'Kỷ luật - Nhắc nhở', icon: ShieldAlert },
-        { id: 'reward', label: 'Đãi ngộ & Vinh danh', icon: Award, showBadge: true },
-      ],
-    },
-    {
-      id: 'settings',
-      label: 'Cấu hình hệ thống',
-      icon: Settings,
-      adminOnly: true,
-      items: [
-        { id: 'admin', label: 'Cấu hình AI', icon: ShieldAlert, adminOnly: true },
-        { id: 'admin_org', label: 'Tổ chức & Quyền', icon: KeyRound, adminOnly: true },
-        { id: 'admin_shift', label: 'Cấu hình phân ca', icon: CalendarRange, adminOnly: true },
-        { id: 'admin_payroll', label: 'Cấu hình lương thưởng', icon: DollarSign, adminOnly: true },
-        { id: 'admin_checklist', label: 'Cấu hình Checklist', icon: ClipboardCheck, adminOnly: true },
-        { id: 'admin_analytics', label: 'Thống kê & Báo cáo', icon: Building2, adminOnly: true },
-      ],
-    },
-  ];
-
-  const handleLogout = () => {
-    store.logout();
-    document.documentElement.classList.remove('dark');
-  };
-
-  const handleTabChange = (tab: TabId) => {
+  const handleTabChange = (tab: any) => {
     prefetchModule(tab);
     store.setCurrentTab(tab);
-    setSidebarOpen(false);
-
-    // Scroll to top on tab change for better UX
     window.scrollTo({ top: 0, behavior: 'instant' });
-
-    // Phase 7: Refresh data using centralized function (stale check)
     if (tab === 'history' || tab === 'admin' || tab === 'dashboard') {
       refreshAppData();
     }
   };
 
-  const toggleGroup = (groupId: string) => {
-    setExpandedGroups((prev) =>
-      prev.includes(groupId)
-        ? prev.filter((g) => g !== groupId)
-        : [...prev, groupId]
-    );
-  };
-
-  // Tìm nhóm chứa tab hiện tại để tự động mở
-  const findGroupForTab = (tabId: TabId): string | null => {
-    for (const group of menuGroups) {
-      if (group.items.some((item) => item.id === tabId)) return group.id;
-    }
-    return null;
-  };
-
-  // Khi sidebar mở, tự expand nhóm chứa tab hiện tại
-  const handleOpenSidebar = () => {
-    const activeGroup = findGroupForTab(currentTab);
-    if (activeGroup && !expandedGroups.includes(activeGroup)) {
-      setExpandedGroups((prev) => [...prev, activeGroup]);
-    }
-    setSidebarOpen(true);
-  };
-
-  // Kiểm tra nhóm có chứa badge không
-  const groupHasBadge = (group: MenuGroup): boolean => {
-    return group.items.some((item) => item.showBadge && !item.comingSoon);
-  };
-
-  // Placeholder cho các trang chưa phát triển
   const ComingSoonPage = ({ title }: { title: string }) => (
     <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
-      <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-ocean-100 to-purple-100 dark:from-ocean-900/40 dark:to-purple-900/40 flex items-center justify-center mb-5 shadow-lg">
-        <Briefcase size={32} className="text-ocean-500" />
+      <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-teal-100 to-purple-100 dark:from-teal-900/40 dark:to-purple-900/40 flex items-center justify-center mb-5 shadow-lg">
+        <Briefcase size={32} className="text-teal-650 dark:text-teal-400" />
       </div>
-      <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-2">{title}</h2>
-      <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs">
+      <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-2">{title}</h2>
+      <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs">
         Tính năng này đang được phát triển và sẽ sớm ra mắt trong các bản cập nhật tiếp theo.
       </p>
-      <div className="soft3d-card mt-6 px-5 py-2.5 rounded-full !bg-gradient-to-r from-ocean-500 to-purple-500 text-white text-xs font-bold tracking-wide border-opacity-30">
+      <div className="soft3d-card mt-6 px-5 py-2.5 rounded-full !bg-gradient-to-r from-teal-500 to-purple-500 text-white text-xs font-bold tracking-wide border-opacity-30">
         COMING SOON
       </div>
     </div>
@@ -338,10 +204,10 @@ export default function Dashboard() {
     </div>
   );
 
-  // Trang Tổng Quan (Dashboard Overview)
+  // Màn hình Hôm nay (TodayHub)
   const DashboardOverview = () => {
     const { stats, logs, approvedShifts } = store;
-    const recentLogs = logs.slice(0, 3);
+    const recentLogs = logs.filter(l => l.fullname === currentUser?.fullname).slice(0, 3);
 
     // Determine today's shift
     const todayDay = new Date().getDay();
@@ -401,7 +267,7 @@ export default function Dashboard() {
     const pendingAdvances = store.advances.filter(adv => adv.status === 'Pending');
     const hasPendingApprovals = isAdmin && (pendingLeaves.length > 0 || pendingSwaps.length > 0 || pendingAdvances.length > 0);
 
-    // Discrepancy Logic (Phase 3: Schedule vs Check-in Validation)
+    // Discrepancy Logic
     const todayPrefix = String(new Date().getDate()).padStart(2, '0') + '/' + String(new Date().getMonth() + 1).padStart(2, '0') + '/' + new Date().getFullYear();
     const checkinMap = new Map();
     store.logs.forEach(l => {
@@ -415,7 +281,7 @@ export default function Dashboard() {
       const shift = emp.shifts[dayIdx];
       if (shift && shift !== 'OFF' && shift !== 'OFF#') return { fullname: emp.fullname, shift };
       return null;
-    }).filter(Boolean);
+    }).filter(Boolean) as { fullname: string; shift: string }[];
 
     const notArrived = scheduledToday.filter(emp => {
       const userLogs = checkinMap.get(emp.fullname) || [];
@@ -428,298 +294,446 @@ export default function Dashboard() {
       return userLogs.some((l: any) => l.type.includes('Trễ'));
     });
 
+    // Check user's check-in/out status for today
+    const userTodayLogs = store.logs.filter(l => l.fullname === currentUser?.fullname && l.time.startsWith(todayPrefix));
+    const userHasIn = userTodayLogs.some(l => l.type.includes('Vào ca') || l.type.includes('IN'));
+    const userHasOut = userTodayLogs.some(l => l.type.includes('Ra ca') || l.type.includes('OUT'));
+
+    // Work status text
+    let statusText = 'Chưa vào ca';
+    let statusVariant: 'success' | 'warning' | 'error' | 'info' | 'neutral' = 'error';
+    if (isOff) {
+      statusText = 'Hôm nay OFF';
+      statusVariant = 'neutral';
+    } else if (userHasOut) {
+      statusText = 'Đã ra ca';
+      statusVariant = 'neutral';
+    } else if (userHasIn) {
+      statusText = 'Đã vào ca';
+      statusVariant = 'success';
+    }
+
     return (
-      <div className="dashboard-overview p-4 lg:p-6 space-y-4">
-        {/* Header Banner */}
-        <div className="soft3d-card !bg-gradient-to-r from-[#1856FF] via-[#0ea5e9] to-[#3A344E] p-6 md:p-8 text-white relative overflow-hidden flex items-center justify-between mb-2 border-opacity-30">
-          <div className="relative z-10">
-            <div className="flex items-center space-x-3 mb-2">
-              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
-                <span className="text-xl">👋</span>
-              </div>
-              <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Xin chào, {currentUser?.fullname || 'Nhân viên'}</h2>
-            </div>
-            <p className="text-ocean-100 font-medium opacity-90 text-sm md:text-base max-w-lg">
-              {store.shiftName} • {store.currentTime}
-            </p>
-          </div>
-          <div className="hidden md:block relative z-10 opacity-80 pl-4">
-            <Building2 size={80} strokeWidth={1} />
-          </div>
-          {/* Background Decorations */}
-          <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
-          <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-ocean-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
-        </div>
-
-        {/* Admin Approval Center */}
-        {hasPendingApprovals && (
-          <div className="soft3d-card p-4 animate-slide-up relative z-10 border-2 border-orange-200 dark:border-orange-900/50">
-            <div className="flex items-center justify-between mb-3 border-b border-gray-100 dark:border-gray-700 pb-2">
-              <div className="flex items-center space-x-2 text-orange-600 dark:text-orange-400">
-                <BellRing size={16} />
-                <h3 className="text-sm font-bold">Cần Quản lý duyệt</h3>
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              {pendingSwaps.length > 0 && (
-                <button onClick={() => handleTabChange('swap')} className="flex flex-col items-center p-2.5 rounded-xl bg-teal-50 dark:bg-teal-900/20 border border-teal-100 dark:border-teal-800 hover:bg-teal-100 transition-all text-teal-700 dark:text-teal-400">
-                  <span className="text-xl font-bold mb-1">{pendingSwaps.length}</span>
-                  <span className="text-[10px] font-bold text-center leading-tight">Đổi ca</span>
-                </button>
-              )}
-              {pendingLeaves.length > 0 && (
-                <button onClick={() => handleTabChange('swap')} className="flex flex-col items-center p-2.5 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 hover:bg-blue-100 transition-all text-blue-700 dark:text-blue-400">
-                  <span className="text-xl font-bold mb-1">{pendingLeaves.length}</span>
-                  <span className="text-[10px] font-bold text-center leading-tight">Xin nghỉ</span>
-                </button>
-              )}
-              {pendingAdvances.length > 0 && (
-                <button onClick={() => handleTabChange('advance')} className="flex flex-col items-center p-2.5 rounded-xl bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-800 hover:bg-orange-100 transition-all text-orange-700 dark:text-orange-400">
-                  <span className="text-xl font-bold mb-1">{pendingAdvances.length}</span>
-                  <span className="text-[10px] font-bold text-center leading-tight">Ứng lương</span>
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Ca hôm nay */}
-        <div className="soft3d-card p-4 animate-slide-up relative z-10">
-          <div className="flex items-center justify-between mb-3">
-             <div className="flex items-center space-x-2">
-               <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isOff ? 'bg-gray-100 text-gray-500 dark:bg-gray-700' : 'bg-ocean-100 text-ocean-600 dark:bg-ocean-900/30'}`}>
-                 <CalendarClock size={16} />
-               </div>
-               <h3 className="text-sm font-bold text-gray-700 dark:text-gray-200">Ca hôm nay</h3>
-             </div>
-             {!isAdmin && (
-               <span className={`px-3 py-1 rounded-full text-xs font-bold ${isOff ? 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400' : 'bg-ocean-50 text-ocean-700 border border-ocean-200 dark:bg-ocean-900/30 dark:border-ocean-800 dark:text-ocean-400'}`}>
-                 {todayShift}
-               </span>
-             )}
-          </div>
-          
-          {isAdmin ? (
-            <div className="mt-2 space-y-3">
-              <div className="flex flex-wrap gap-2">
-                {Object.entries(shiftCounts).length > 0 ? (
-                  Object.entries(shiftCounts).map(([shift, count]) => (
-                    <div key={shift} className="bg-ocean-50 dark:bg-ocean-900/30 border border-ocean-100 dark:border-ocean-800 rounded-lg px-3 py-1.5 flex items-center space-x-2">
-                      <span className="text-xs font-bold text-ocean-700 dark:text-ocean-400">{shift}</span>
-                      <span className="w-1 h-1 bg-ocean-300 rounded-full"></span>
-                      <span className="text-xs font-bold text-gray-700 dark:text-gray-300">{count} nv</span>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-xs text-gray-500 italic">Chưa có nhân viên nào xếp ca hôm nay.</p>
-                )}
-              </div>
-              {Object.entries(shiftCounts).length > 0 && (
-                <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
-                  <div className="flex items-center space-x-1.5">
-                    <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]"></div>
-                    <span className="text-xs text-gray-600 dark:text-gray-400">Phục vụ: <strong className="text-gray-800 dark:text-gray-200">{waitstaffCount}</strong></span>
-                  </div>
-                  <div className="flex items-center space-x-1.5">
-                    <div className="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.5)]"></div>
-                    <span className="text-xs text-gray-600 dark:text-gray-400">Chức vụ khác: <strong className="text-gray-800 dark:text-gray-200">{otherCount}</strong></span>
-                  </div>
-                </div>
-              )}
-              {/* Discrepancy Alerts */}
-              {(notArrived.length > 0 || lateArrived.length > 0) && (
-                <div className="mt-3 space-y-2 pt-3 border-t border-dashed border-gray-200 dark:border-gray-700">
-                  {lateArrived.length > 0 && (
-                    <div className="bg-orange-50 dark:bg-orange-900/20 p-2.5 rounded-lg border border-orange-100 dark:border-orange-800/50">
-                      <p className="text-xs font-bold text-orange-700 dark:text-orange-400 mb-1 flex items-center">
-                        <MessageSquareWarning size={12} className="mr-1.5" /> Nhân viên đi trễ hôm nay
-                      </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {lateArrived.map((emp: any, i) => (
-                          <span key={i} className="text-[10px] font-medium bg-white dark:bg-gray-800 px-2 py-0.5 rounded border border-orange-100 dark:border-gray-700 text-gray-700 dark:text-gray-300">
-                            {emp.fullname}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {notArrived.length > 0 && (
-                    <div className="bg-red-50 dark:bg-red-900/20 p-2.5 rounded-lg border border-red-100 dark:border-red-800/50">
-                      <p className="text-xs font-bold text-red-700 dark:text-red-400 mb-1 flex items-center">
-                        <ShieldAlert size={12} className="mr-1.5" /> Chưa thấy chấm công vào ca
-                      </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {notArrived.map((emp: any, i) => (
-                          <span key={i} className="text-[10px] font-medium bg-white dark:bg-gray-800 px-2 py-0.5 rounded border border-red-100 dark:border-gray-700 text-gray-700 dark:text-gray-300">
-                            {emp.fullname} ({emp.shift})
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          ) : (
-             <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed mt-1">
-               {isOff ? 'Bạn không có ca làm việc nào được xếp trong hôm nay.' : 'Hãy đảm bảo bạn đến đúng giờ và chuẩn bị đầy đủ đồng phục, công cụ dụng cụ làm việc nhé!'}
-             </p>
-          )}
-        </div>
-
-        {/* Quick stats */}
-        <div className="grid grid-cols-2 gap-3 relative z-10">
-          <div className="soft3d-card p-4">
-            <div className="flex items-center space-x-2 mb-2">
-              <div className="w-8 h-8 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                <Camera size={16} className="text-green-600" />
-              </div>
-              <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Vào ca</span>
-            </div>
-            <p className="text-2xl font-bold text-gray-800 dark:text-white">{stats.totalCheckIn}</p>
-          </div>
-          <div className="soft3d-card p-4">
-            <div className="flex items-center space-x-2 mb-2">
-              <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                <ClipboardCheck size={16} className="text-blue-600" />
-              </div>
-              <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Hợp lệ</span>
-            </div>
-            <p className="text-2xl font-bold text-gray-800 dark:text-white">{stats.validCount}</p>
-          </div>
-        </div>
-
-        {/* ===== DASHBOARD HUB WIDGETS (Phase 1) ===== */}
-        <div className="grid grid-cols-1 gap-3 relative z-10">
-          {/* Widget: Bài viết mới */}
-          {store.recentPosts.length > 0 && (
-            <button onClick={() => handleTabChange('news')} className="soft3d-card p-4 text-left hover:shadow-md transition-all group">
-              <div className="flex items-center justify-between mb-2.5">
-                <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-                    <Newspaper size={16} className="text-purple-600 dark:text-purple-400" />
-                  </div>
-                  <h3 className="text-sm font-bold text-gray-700 dark:text-gray-200">Bảng tin mới</h3>
-                </div>
-                <span className="text-[10px] font-medium text-ocean-500 group-hover:underline">Xem tất cả →</span>
-              </div>
-              <div className="space-y-2">
-                {store.recentPosts.slice(0, 2).map((post) => (
-                  <div key={post.id} className="flex items-start space-x-2.5 p-2 paint-layer rounded-lg">
-                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">
-                      {post.author?.charAt(0) || '?'}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-gray-700 dark:text-gray-200 truncate">{post.author}</p>
-                      <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{post.content}</p>
-                      <div className="flex items-center space-x-3 mt-1">
-                        <span className="text-[9px] text-gray-400">❤️ {post.likesCount}</span>
-                        <span className="text-[9px] text-gray-400">💬 {post.commentsCount}</span>
-                        <span className="text-[9px] text-gray-400">{post.time}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </button>
-          )}
-
-          {/* Widget row: Checklist + Bàn giao */}
-          <div className="grid grid-cols-2 gap-3">
-            {/* Checklist hôm nay */}
-            <button onClick={() => handleTabChange('checklist')} className="soft3d-card p-4 text-left hover:shadow-md transition-all">
-              <div className="flex items-center space-x-2 mb-2">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.todayChecklistDone ? 'bg-green-100 dark:bg-green-900/30' : 'bg-amber-100 dark:bg-amber-900/30'}`}>
-                  <ClipboardCheck size={16} className={store.todayChecklistDone ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'} />
-                </div>
-                <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Checklist</span>
-              </div>
-              {store.todayChecklistDone ? (
-                <p className="text-sm font-bold text-green-600 dark:text-green-400">✓ Đã nộp</p>
-              ) : (
-                <p className="text-sm font-bold text-amber-600 dark:text-amber-400">Chưa nộp</p>
-              )}
-            </button>
-
-            {/* Bàn giao ca */}
-            <button onClick={() => handleTabChange('handover')} className="soft3d-card p-4 text-left hover:shadow-md transition-all">
-              <div className="flex items-center space-x-2 mb-2">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.todayHandoverDone ? 'bg-green-100 dark:bg-green-900/30' : 'bg-sky-100 dark:bg-sky-900/30'}`}>
-                  <Repeat size={16} className={store.todayHandoverDone ? 'text-green-600 dark:text-green-400' : 'text-sky-600 dark:text-sky-400'} />
-                </div>
-                <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Bàn giao</span>
-              </div>
-              {store.todayHandoverDone ? (
-                <p className="text-sm font-bold text-green-600 dark:text-green-400">✓ Đã ghi</p>
-              ) : (
-                <p className="text-sm font-bold text-sky-600 dark:text-sky-400">Chưa ghi</p>
-              )}
-            </button>
-          </div>
-
-          {/* Feedback Badge (Admin only) */}
-          {isAdmin && store.pendingFeedbackCount > 0 && (
-            <button onClick={() => handleTabChange('feedback')} className="soft3d-card p-3.5 text-left hover:shadow-md transition-all border-2 border-rose-200 dark:border-rose-900/50">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center relative">
-                    <MessageSquareWarning size={16} className="text-rose-600 dark:text-rose-400" />
-                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 rounded-full text-white text-[8px] font-bold flex items-center justify-center shadow-sm">{store.pendingFeedbackCount}</span>
-                  </div>
+      <div className="space-y-5 animate-fade-in pb-10">
+        {/* Render USER Today Hub */}
+        {!isAdmin ? (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+            {/* Left side: Hero card & Actions */}
+            <div className="lg:col-span-7 space-y-4">
+              {/* Personal Hero Card */}
+              <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-teal-600 via-teal-500 to-slate-900 p-6 text-white shadow-lg border border-teal-500/20">
+                <div className="relative z-10 flex flex-col justify-between h-full space-y-6">
                   <div>
-                    <p className="text-xs font-bold text-gray-700 dark:text-gray-200">Góp ý chờ xử lý</p>
-                    <p className="text-[10px] text-gray-500 dark:text-gray-400">{store.pendingFeedbackCount} phản hồi cần trả lời</p>
+                    <div className="flex items-center space-x-2.5">
+                      <span className="text-2xl">👋</span>
+                      <h2 className="text-xl md:text-2xl font-black tracking-tight">
+                        Xin chào, {currentUser?.fullname.split(' ').pop()}!
+                      </h2>
+                    </div>
+                    <p className="text-teal-100 text-xs font-semibold mt-1 opacity-90">
+                      Hôm nay • {store.currentTime}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-teal-200">Lịch làm hôm nay</p>
+                      <p className="text-sm font-extrabold mt-0.5">{todayShift}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-teal-200">Trạng thái</p>
+                      <KgStatusBadge variant={statusVariant} className="mt-1">
+                        {statusText}
+                      </KgStatusBadge>
+                    </div>
                   </div>
                 </div>
-                <span className="text-[10px] font-medium text-rose-500">Xem →</span>
+                {/* Background circles */}
+                <div className="absolute right-[-10%] top-[-20%] w-60 h-60 bg-teal-400/20 rounded-full blur-3xl mix-blend-screen" />
+                <div className="absolute left-[-20%] bottom-[-40%] w-60 h-60 bg-blue-500/10 rounded-full blur-3xl mix-blend-screen" />
               </div>
-            </button>
-          )}
-        </div>
 
-        {/* Quick actions */}
-        <div className="soft3d-card p-4 relative z-10">
-          <h3 className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-3">Thao tác nhanh</h3>
-          <div className="grid grid-cols-4 gap-2">
-            {[
-              { icon: Camera, label: 'Chấm công', tab: 'checkin' as TabId, color: 'from-green-500 to-emerald-600' },
-              { icon: CheckSquare, label: 'Checklist', tab: 'checklist' as TabId, color: 'from-blue-500 to-indigo-600' },
-              { icon: Newspaper, label: 'Bảng tin', tab: 'news' as TabId, color: 'from-purple-500 to-pink-600' },
-              { icon: UtensilsCrossed, label: 'Món hết', tab: 'soldout' as TabId, color: 'from-amber-500 to-orange-600' },
-            ].map((action) => (
-              <button key={action.tab} onClick={() => handleTabChange(action.tab)}
-                className="flex flex-col items-center space-y-1.5 p-3 rounded-sm hover:bg-black/5 dark:hover:bg-white/5 transition-all active:scale-95">
-                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${action.color} flex items-center justify-center shadow-md`}>
-                  <action.icon size={18} className="text-white" />
+              {/* Big Action Button */}
+              {isOff ? (
+                <KgAlertCard variant="info" icon={Calendar}>
+                  Hôm nay bạn không có ca làm việc nào được xếp. Chúc bạn có một ngày nghỉ vui vẻ!
+                </KgAlertCard>
+              ) : userHasOut ? (
+                <KgAlertCard variant="success" icon={CheckCircle2}>
+                  Bạn đã hoàn thành chấm công ra ca hôm nay. Hẹn gặp lại vào ca làm việc tiếp theo!
+                </KgAlertCard>
+              ) : (
+                <KgButton
+                  variant={userHasIn ? 'danger' : 'primary'}
+                  size="lg"
+                  className="w-full text-base font-extrabold py-4 shadow-xl active:scale-95 transition-all h-[56px] uppercase tracking-wider"
+                  icon={Camera}
+                  onClick={() => handleTabChange('checkin')}
+                >
+                  {userHasIn ? 'Bấm để Ra Ca' : 'Chấm Công Vào Ca Ngay'}
+                </KgButton>
+              )}
+
+              {/* Card việc cần làm (To-Do List) */}
+              <KgCard className="p-5">
+                <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-wider mb-4 border-b border-slate-100 dark:border-slate-800 pb-2">
+                  Việc cần làm hôm nay
+                </h3>
+                <div className="space-y-3.5">
+                  {/* Checklist item */}
+                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.todayChecklistDone ? 'bg-green-50 text-green-600 dark:bg-green-950/40' : 'bg-amber-50 text-amber-600 dark:bg-amber-950/40'}`}>
+                        <ClipboardCheck size={16} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Nộp checklist vận hành</p>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">Báo cáo hạng mục đầu/cuối ca</p>
+                      </div>
+                    </div>
+                    {store.todayChecklistDone ? (
+                      <KgStatusBadge variant="success">Đã nộp</KgStatusBadge>
+                    ) : (
+                      <button onClick={() => handleTabChange('checklist')} className="text-xs font-bold text-teal-650 hover:underline">Làm ngay →</button>
+                    )}
+                  </div>
+
+                  {/* Handover item */}
+                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.todayHandoverDone ? 'bg-green-50 text-green-600 dark:bg-green-950/40' : 'bg-sky-50 text-sky-600 dark:bg-sky-950/40'}`}>
+                        <Repeat size={16} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Ghi sổ bàn giao ca</p>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">Bàn giao doanh thu, sự cố, kho</p>
+                      </div>
+                    </div>
+                    {store.todayHandoverDone ? (
+                      <KgStatusBadge variant="success">Đã hoàn thành</KgStatusBadge>
+                    ) : (
+                      <button onClick={() => handleTabChange('handover')} className="text-xs font-bold text-teal-650 hover:underline">Ghi sổ →</button>
+                    )}
+                  </div>
+
+                  {/* Register Schedule item */}
+                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.isScheduleRegistered ? 'bg-green-50 text-green-600 dark:bg-green-950/40' : 'bg-orange-50 text-orange-600 dark:bg-orange-950/40'}`}>
+                        <Calendar size={16} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Đăng ký lịch tuần tới</p>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">Hạn đăng ký trước Chủ nhật hàng tuần</p>
+                      </div>
+                    </div>
+                    {store.isScheduleRegistered ? (
+                      <KgStatusBadge variant="success">Đã đăng ký</KgStatusBadge>
+                    ) : (
+                      <button onClick={() => handleTabChange('schedule')} className="text-xs font-bold text-teal-650 hover:underline">Đăng ký →</button>
+                    )}
+                  </div>
                 </div>
-                <span className="text-[10px] font-semibold text-gray-600 dark:text-gray-300">{action.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Recent activity */}
-        {recentLogs.length > 0 && (
-          <div className="soft3d-card p-4 relative z-10">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-bold text-gray-700 dark:text-gray-200">Hoạt động gần đây</h3>
-              <button onClick={() => handleTabChange('history')} className="text-xs text-ocean-500 font-medium">Xem tất cả →</button>
+              </KgCard>
             </div>
-            <div className="space-y-2.5">
-              {recentLogs.map((log, i) => (
-                <div key={i} className="flex items-center space-x-3 p-2.5 paint-layer">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold  ${log.type === 'Vào ca' ? 'bg-green-500' : 'bg-red-500'}`}>
-                    {log.type === 'Vào ca' ? '→' : '←'}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-gray-700 dark:text-gray-200 truncate">{log.type}</p>
-                    <p className="text-[10px] text-gray-400 truncate">{log.time}</p>
-                  </div>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${log.status?.includes('Hợp lệ') ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
-                    {log.status?.includes('Hợp lệ') ? '✓' : '✗'}
-                  </span>
+
+            {/* Right side: Quick actions & Recent activity */}
+            <div className="lg:col-span-5 space-y-4">
+              {/* Quick Actions Panel */}
+              <KgCard className="p-4">
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Lối tắt nhanh</h3>
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    { icon: Newspaper, label: 'Bảng tin', tab: 'news' as any, color: 'text-purple-650 bg-purple-50 dark:bg-purple-950/30' },
+                    { icon: UtensilsCrossed, label: 'Món hết', tab: 'soldout' as any, color: 'text-amber-600 bg-amber-50 dark:bg-amber-950/30' },
+                    { icon: MessageSquareWarning, label: 'Góp ý', tab: 'feedback' as any, color: 'text-rose-600 bg-rose-50 dark:bg-rose-950/30' },
+                    { icon: Banknote, label: 'Phiếu lương', tab: 'payroll' as any, color: 'text-green-600 bg-green-50 dark:bg-green-950/30' },
+                  ].map((act, i) => (
+                    <button
+                      key={i}
+                      onClick={() => handleTabChange(act.tab)}
+                      className="flex flex-col items-center p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900/60 active:scale-95 transition-all text-center gap-1.5"
+                    >
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm ${act.color}`}>
+                        <act.icon size={18} />
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-605 dark:text-slate-450 truncate w-full">
+                        {act.label}
+                      </span>
+                    </button>
+                  ))}
                 </div>
-              ))}
+              </KgCard>
+
+              {/* Personal Recent Activity Logs */}
+              <KgCard className="p-4">
+                <div className="flex items-center justify-between mb-3 border-b border-slate-100 dark:border-slate-805 pb-2">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Lịch sử chấm công</h3>
+                  <button onClick={() => handleTabChange('history')} className="text-xs font-bold text-teal-650 hover:underline">
+                    Xem tất cả
+                  </button>
+                </div>
+                {recentLogs.length > 0 ? (
+                  <div className="space-y-2.5">
+                    {recentLogs.map((log, i) => {
+                      const isCheckin = log.type.includes('Vào ca') || log.type.includes('IN');
+                      return (
+                        <div key={i} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800">
+                          <div className="flex items-center space-x-2.5 min-w-0">
+                            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0 text-xs ${isCheckin ? 'bg-green-500' : 'bg-red-500'}`}>
+                              {isCheckin ? '→' : '←'}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{log.type}</p>
+                              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium truncate">{log.time}</p>
+                            </div>
+                          </div>
+                          <KgStatusBadge variant={log.status?.includes('Hợp lệ') ? 'success' : 'error'}>
+                            {log.status?.includes('Hợp lệ') ? '✓ Hợp lệ' : '✗ Lỗi'}
+                          </KgStatusBadge>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-4 text-xs text-slate-450 dark:text-slate-500">
+                    Chưa có hoạt động nào hôm nay
+                  </div>
+                )}
+              </KgCard>
+            </div>
+          </div>
+        ) : (
+          /* Render ADMIN Today Hub */
+          <div className="space-y-5">
+            {/* Top overview row */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <KgMetricCard
+                title="Nhân viên có ca"
+                value={scheduledToday.length}
+                icon={Users}
+                variant="info"
+              />
+              <KgMetricCard
+                title="Đã vào ca"
+                value={scheduledToday.length - notArrived.length}
+                icon={UserCheck}
+                variant="success"
+              />
+              <KgMetricCard
+                title="Vắng / Chưa đến"
+                value={notArrived.length}
+                icon={AlertCircle}
+                variant="error"
+                className={notArrived.length > 0 ? 'border-red-300 dark:border-red-900/50 bg-red-50/10' : ''}
+              />
+              <KgMetricCard
+                title="Đi trễ"
+                value={lateArrived.length}
+                icon={ShieldAlert}
+                variant="warning"
+                className={lateArrived.length > 0 ? 'border-amber-300 dark:border-amber-900/50 bg-amber-50/10' : ''}
+              />
+            </div>
+
+            {/* Dashboard grid for Admin */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+              {/* Left Column: Alerts, operational checklists, roster */}
+              <div className="lg:col-span-8 space-y-4">
+                
+                {/* Discrepancy details */}
+                {(notArrived.length > 0 || lateArrived.length > 0) && (
+                  <KgCard className="p-5 border-amber-205 dark:border-amber-900/50">
+                    <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-wider mb-4 border-b border-slate-100 dark:border-slate-800 pb-2 flex items-center">
+                      <ShieldAlert size={16} className="text-amber-500 mr-2 flex-shrink-0" />
+                      Cảnh báo vận hành hôm nay
+                    </h3>
+                    <div className="space-y-3.5">
+                      {lateArrived.length > 0 && (
+                        <KgAlertCard variant="warning" title="Nhân viên đi trễ" icon={Clock}>
+                          <div className="flex flex-wrap gap-1.5 mt-1">
+                            {lateArrived.map((emp, i) => (
+                              <span key={i} className="text-[10px] font-bold bg-white dark:bg-slate-900 border border-amber-200 dark:border-slate-800 px-2 py-0.5 rounded-lg text-slate-700 dark:text-slate-300">
+                                {emp.fullname}
+                              </span>
+                            ))}
+                          </div>
+                        </KgAlertCard>
+                      )}
+                      {notArrived.length > 0 && (
+                        <KgAlertCard variant="error" title="Chưa thấy chấm công vào ca" icon={AlertCircle}>
+                          <div className="flex flex-wrap gap-1.5 mt-1">
+                            {notArrived.map((emp, i) => (
+                              <span key={i} className="text-[10px] font-bold bg-white dark:bg-slate-900 border border-red-200 dark:border-slate-800 px-2 py-0.5 rounded-lg text-slate-700 dark:text-slate-300">
+                                {emp.fullname} ({emp.shift})
+                              </span>
+                            ))}
+                          </div>
+                        </KgAlertCard>
+                      )}
+                    </div>
+                  </KgCard>
+                )}
+
+                {/* Checklist & Handover compliance today */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Checklist widget */}
+                  <KgCard className="p-4 text-left hover:shadow-md transition-all flex flex-col justify-between min-h-[140px]">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-2">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.todayChecklistDone ? 'bg-green-50 text-green-600 dark:bg-green-950/40' : 'bg-amber-50 text-amber-600 dark:bg-amber-950/40'}`}>
+                          <ClipboardCheck size={16} />
+                        </div>
+                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Checklist Vận Hành</span>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-lg font-black text-slate-805 dark:text-white leading-tight">
+                        {store.todayChecklistDone ? 'Tất cả đã nộp' : 'Đang chờ nộp'}
+                      </p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-505 font-semibold mt-1">
+                        Hạng mục việc làm ca sáng & tối
+                      </p>
+                    </div>
+                    <button onClick={() => handleTabChange('checklist')} className="text-xs font-bold text-teal-650 hover:underline mt-3 text-left">
+                      Quản lý checklist →
+                    </button>
+                  </KgCard>
+
+                  {/* Handover widget */}
+                  <KgCard className="p-4 text-left hover:shadow-md transition-all flex flex-col justify-between min-h-[140px]">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-2">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.todayHandoverDone ? 'bg-green-50 text-green-600 dark:bg-green-950/40' : 'bg-blue-50 text-blue-600 dark:bg-blue-950/40'}`}>
+                          <Repeat size={16} />
+                        </div>
+                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Sổ Bàn Giao Ca</span>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-lg font-black text-slate-805 dark:text-white leading-tight">
+                        {store.todayHandoverDone ? 'Đã ghi nhận' : 'Chưa ghi bàn giao'}
+                      </p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-505 font-semibold mt-1">
+                        Sổ tay theo dõi sự cố ca làm việc
+                      </p>
+                    </div>
+                    <button onClick={() => handleTabChange('handover')} className="text-xs font-bold text-teal-650 hover:underline mt-3 text-left">
+                      Xem sổ bàn giao →
+                    </button>
+                  </KgCard>
+                </div>
+
+                {/* Sold out items report */}
+                <KgCard className="p-4">
+                  <div className="flex items-center justify-between mb-3 border-b border-slate-100 dark:border-slate-800 pb-2">
+                    <div className="flex items-center space-x-2">
+                      <UtensilsCrossed size={16} className="text-amber-500" />
+                      <h3 className="text-xs font-bold text-slate-450 uppercase tracking-wider">Món hết hôm nay</h3>
+                    </div>
+                    <button onClick={() => handleTabChange('soldout')} className="text-xs font-bold text-teal-650 hover:underline">
+                      Xem thực đơn
+                    </button>
+                  </div>
+                  {store.soldOutItems.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {store.soldOutItems.map((item) => (
+                        <div key={item.id} className="bg-amber-50 dark:bg-amber-950/20 border border-amber-205 dark:border-slate-800 rounded-xl px-3 py-1.5 flex items-center space-x-2 text-xs">
+                          <span className="font-extrabold text-amber-800 dark:text-amber-400">{item.itemName}</span>
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">({item.reportedBy} lúc {item.reportedAt})</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-405 italic py-2">Chưa báo món hết nào hôm nay</p>
+                  )}
+                </KgCard>
+
+              </div>
+
+              {/* Right Column: Approvals list & Shortcuts */}
+              <div className="lg:col-span-4 space-y-4">
+                
+                {/* Approvals Widget */}
+                {hasPendingApprovals ? (
+                  <KgCard className="p-4 border-orange-200 dark:border-orange-950 bg-orange-50/5">
+                    <div className="flex items-center space-x-2 mb-3 border-b border-slate-100 dark:border-slate-800 pb-2">
+                      <BellRing size={16} className="text-orange-500 animate-pulse" />
+                      <h3 className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider">Cần duyệt gấp</h3>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2">
+                      {pendingSwaps.length > 0 && (
+                        <button onClick={() => handleTabChange('swap')} className="flex items-center justify-between p-3 rounded-xl bg-teal-50/60 dark:bg-teal-900/10 border border-teal-200/30 text-teal-700 dark:text-teal-400 hover:bg-teal-50 transition-all text-xs font-bold">
+                          <span>Đổi ca ({pendingSwaps.length})</span>
+                          <span>Chi tiết →</span>
+                        </button>
+                      )}
+                      {pendingLeaves.length > 0 && (
+                        <button onClick={() => handleTabChange('swap')} className="flex items-center justify-between p-3 rounded-xl bg-blue-50/60 dark:bg-blue-900/10 border border-blue-200/30 text-blue-700 dark:text-blue-400 hover:bg-blue-50 transition-all text-xs font-bold">
+                          <span>Yêu cầu xin nghỉ ({pendingLeaves.length})</span>
+                          <span>Chi tiết →</span>
+                        </button>
+                      )}
+                      {pendingAdvances.length > 0 && (
+                        <button onClick={() => handleTabChange('advance')} className="flex items-center justify-between p-3 rounded-xl bg-orange-50/60 dark:bg-orange-900/10 border border-orange-200/30 text-orange-700 dark:text-orange-400 hover:bg-orange-50 transition-all text-xs font-bold">
+                          <span>Ứng lương ({pendingAdvances.length})</span>
+                          <span>Chi tiết →</span>
+                        </button>
+                      )}
+                    </div>
+                  </KgCard>
+                ) : (
+                  <KgCard className="p-4 text-center py-6 border-dashed">
+                    <CheckCircle2 size={24} className="mx-auto mb-2 text-green-500 opacity-80" />
+                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Không có yêu cầu chờ duyệt</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Tất cả ca làm, ứng lương đã được giải quyết gọn gàng!</p>
+                  </KgCard>
+                )}
+
+                {/* Feedback awaiting reply */}
+                {store.pendingFeedbackCount > 0 && (
+                  <KgCard className="p-4 border-rose-200 dark:border-rose-955 bg-rose-50/5">
+                    <div className="flex justify-between items-center text-xs">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-950/40 flex items-center justify-center text-rose-500 font-bold relative">
+                          <MessageSquareWarning size={16} />
+                          <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 rounded-full text-white text-[8px] font-bold flex items-center justify-center">{store.pendingFeedbackCount}</span>
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-800 dark:text-slate-200">Góp ý chưa xử lý</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">{store.pendingFeedbackCount} phản hồi cần trả lời</p>
+                        </div>
+                      </div>
+                      <button onClick={() => handleTabChange('feedback')} className="text-[11px] font-bold text-rose-500 hover:underline">Trả lời →</button>
+                    </div>
+                  </KgCard>
+                )}
+
+                {/* Admin quick shortcuts */}
+                <KgCard className="p-4">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Phím tắt quản lý</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { label: 'Phân ca', icon: CalendarRange, tab: 'schedule' as any, color: 'text-teal-650 bg-teal-50 dark:bg-teal-950/20' },
+                      { label: 'Bảng công', icon: CalendarClock, tab: 'timesheet' as any, color: 'text-indigo-650 bg-indigo-50 dark:bg-indigo-950/20' },
+                      { label: 'Bảng lương', icon: Banknote, tab: 'payroll' as any, color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20' },
+                      { label: 'Nhân sự', icon: Users, tab: 'hr_list' as any, color: 'text-blue-650 bg-blue-50 dark:bg-blue-950/20' },
+                    ].map((item, i) => (
+                      <button
+                        key={i}
+                        onClick={() => handleTabChange(item.tab)}
+                        className={`flex items-center gap-2 p-2.5 rounded-xl border border-slate-105 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900/60 active:scale-[0.98] transition-all text-xs font-bold text-slate-700 dark:text-slate-300`}
+                      >
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${item.color}`}>
+                          <item.icon size={15} />
+                        </div>
+                        <span className="truncate">{item.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </KgCard>
+
+              </div>
             </div>
           </div>
         )}
@@ -727,287 +741,48 @@ export default function Dashboard() {
     );
   };
 
-  // Lấy tên trang hiện tại cho Coming Soon
-  const getPageTitle = (tabId: TabId): string => {
-    for (const group of menuGroups) {
-      const item = group.items.find((i) => i.id === tabId);
-      if (item) return item.label;
-    }
-    return '';
-  };
-
-  const renderSidebarMenu = (mode: 'drawer' | 'desktop' = 'drawer') => (
-    <div className="space-y-1">
-      {menuGroups.map((group) => {
-        if (group.adminOnly && !isAdmin) return null;
-
-        const isExpanded = expandedGroups.includes(group.id);
-        const GroupIcon = group.icon;
-        const hasBadge = groupHasBadge(group);
-        const hasActiveItem = group.items.some((item) => item.id === currentTab);
-
-        return (
-          <div key={`${mode}-${group.id}`} className="mb-0.5">
-            <button
-              onClick={() => toggleGroup(group.id)}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-all ${
-                hasActiveItem
-                  ? 'bg-teal-50 text-teal-800 dark:bg-teal-950/50 dark:text-teal-300'
-                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80'
-              }`}
-            >
-              <div className="flex items-center space-x-2.5 min-w-0">
-                <GroupIcon size={16} className={hasActiveItem ? 'text-teal-600 dark:text-teal-300' : 'text-slate-400 dark:text-slate-500'} />
-                <span className="text-[13px] font-bold truncate">{group.label}</span>
-                {hasBadge && <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse flex-shrink-0" />}
-              </div>
-              <motion.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
-                <ChevronDown size={14} className="text-slate-400" />
-              </motion.div>
-            </button>
-
-            <AnimatePresence initial={false}>
-              {isExpanded && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.22, ease: 'easeInOut' }}
-                  className="overflow-hidden"
-                >
-                  <div className="pl-4 pr-1 py-1 space-y-0.5">
-                    {group.items.map((item) => {
-                      if (item.adminOnly && !isAdmin) return null;
-                      const Icon = item.icon;
-                      const isActive = currentTab === item.id;
-
-                      return (
-                        <button
-                          key={`${mode}-${item.id}`}
-                          onMouseEnter={() => prefetchModule(item.id)}
-                          onFocus={() => prefetchModule(item.id)}
-                          onClick={() => handleTabChange(item.id)}
-                          className={`w-full flex items-center space-x-2.5 px-3 py-2.5 rounded-xl transition-all relative ${
-                            item.comingSoon
-                              ? 'text-slate-400 dark:text-slate-600 cursor-default'
-                              : isActive
-                              ? 'bg-teal-600 text-white shadow-sm'
-                              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80'
-                          }`}
-                        >
-                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-                            item.comingSoon
-                              ? 'bg-slate-100 dark:bg-slate-800'
-                              : isActive
-                              ? 'bg-white/18'
-                              : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700'
-                          }`}>
-                            <Icon size={14} className={
-                              item.comingSoon
-                                ? 'text-slate-400 dark:text-slate-600'
-                                : isActive
-                                ? 'text-white'
-                                : 'text-slate-500 dark:text-slate-400'
-                            } />
-                          </div>
-                          <span className="text-xs font-semibold flex-1 text-left truncate">{item.label}</span>
-                          {item.comingSoon && (
-                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 uppercase tracking-wide">Soon</span>
-                          )}
-                          {item.showBadge && !item.comingSoon && (
-                            <span className="w-2 h-2 bg-red-400 rounded-full animate-ping" />
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        );
-      })}
-    </div>
-  );
-
   return (
-    <div className="w-full max-w-7xl mx-auto min-h-screen soft3d-bg relative overflow-hidden flex flex-col font-sans md:border-x md:border-slate-200/80 md:dark:border-slate-800">
-
-      {/* Header */}
-      <header className="bg-white/92 dark:bg-slate-950/90 text-slate-800 dark:text-white px-4 md:px-6 py-3 flex justify-between items-center sticky top-0 z-40 border-b border-slate-200/80 dark:border-slate-800 backdrop-blur-xl">
-        <div className="flex items-center space-x-3">
-          <button onClick={handleOpenSidebar} className="w-11 h-11 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 transition flex md:hidden items-center justify-center text-slate-700 dark:text-slate-200 touch-manipulation">
-            <Menu size={20} />
-          </button>
-          <div className="w-10 h-10 rounded-xl items-center justify-center overflow-hidden border border-slate-200 dark:border-slate-700 min-h-[44px] min-w-[44px] bg-white dark:bg-slate-900 hidden sm:flex">
-            <img src="/android-chrome-192x192.png?v=3" alt="Logo" className="w-8 h-8 object-contain" />
-          </div>
-          <div>
-            <h1 className="font-bold text-base md:text-lg leading-tight tracking-tight">King's Grill Ops</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{currentUser?.fullname || 'Staff'}</p>
-          </div>
-        </div>
-        <div className="flex items-center space-x-2">
-          <NotificationBell />
-          <button onClick={() => store.toggleDarkMode()} className="w-11 h-11 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 transition flex items-center justify-center text-slate-600 dark:text-slate-300 touch-manipulation relative">
-            {isDark ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
-          <button onClick={handleLogout} className="w-11 h-11 rounded-xl bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/60 transition flex items-center justify-center touch-manipulation">
-            <Power size={18} />
-          </button>
-        </div>
-      </header>
-
-      {/* ============================================ */}
-      {/* Sidebar Drawer - 5 Nhóm Accordion           */}
-      {/* ============================================ */}
-      <AnimatePresence>
-        {isSidebarOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setSidebarOpen(false)}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50"
-            />
-            <motion.div
-              initial={{ x: '-100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="absolute top-0 left-0 bottom-0 w-[88%] max-w-[360px] bg-white dark:bg-slate-950 z-50 flex flex-col border-r border-slate-200 dark:border-slate-800 shadow-2xl"
-            >
-              {/* Sidebar Header */}
-              <div className="p-5 border-b border-white/20 dark:border-white/10 flex justify-between items-center">
-                <div className="flex items-center space-x-3">
-                  {currentUser?.avatarUrl ? (
-                    <img src={currentUser.avatarUrl} alt="" className="w-11 h-11 rounded-full object-cover border-2 border-white/30 shadow-md" />
-                  ) : (
-                    <div className="soft3d-card w-11 h-11 rounded-full !bg-gradient-to-br from-ocean-500 to-purple-600 text-white flex items-center justify-center font-bold text-lg border-opacity-30">
-                      {currentUser?.fullname.charAt(0) || 'U'}
-                    </div>
-                  )}
-                  <div>
-                    <h3 className="font-bold text-gray-800 dark:text-white leading-tight text-sm">{currentUser?.fullname.split(' ').pop()}</h3>
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">
-                      {currentUser?.role === 'admin' ? '🛡️ Quản lý' : currentUser?.role === 'tester' ? '🧪 Tester' : '👤 Nhân viên'}
-                    </p>
-                  </div>
-                </div>
-                <button onClick={() => setSidebarOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-full paint-layer text-gray-500 hover:text-gray-800 dark:hover:text-white transition-colors">
-                  <X size={16} />
-                </button>
-              </div>
-
-              {/* Sidebar Menu Groups */}
-              <div className="flex-1 overflow-y-auto py-3 px-3 space-y-1 hide-scrollbar">
-                {renderSidebarMenu('drawer')}
-              </div>
-
-              {/* Sidebar Footer */}
-              <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-slate-50/80 dark:bg-slate-900/60">
-                <p 
-                  className="text-[10px] text-gray-400 dark:text-gray-600 text-center font-medium cursor-pointer"
-                  onClick={() => {
-                    const newCount = clickCount + 1;
-                    setClickCount(newCount);
-                    if (newCount >= 5) {
-                      setClickCount(0);
-                      triggerDeveloperMode();
-                    }
-                  }}
-                >
-                  King's Grill HR • Phase 6
-                </p>
-              </div>
-            </motion.div>
-          </>
-        )}
+    <KgAppShell>
+      <AnimatePresence mode="popLayout">
+        <motion.div
+          key={currentTab}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.12 }}
+          className="h-full"
+        >
+          <AppErrorBoundary resetKey={currentTab} fallback={<ModuleRecoverFallback />}>
+            <Suspense fallback={<TabFallback />}>
+              {currentTab === 'dashboard' && <DashboardOverview />}
+              {currentTab === 'checkin' && <CheckIn />}
+              {currentTab === 'schedule' && <Schedule />}
+              {currentTab === 'swap' && <SwapShift />}
+              {currentTab === 'roster' && <Roster />}
+              {currentTab === 'profile' && <ComingSoonPage title="Hồ sơ cá nhân" />}
+              {currentTab === 'checklist' && <Checklist />}
+              {currentTab === 'handover' && <Handover />}
+              {currentTab === 'feedback' && <Feedback />}
+              {currentTab === 'news' && <NewsFeed />}
+              {currentTab === 'soldout' && <SoldOut />}
+              {currentTab === 'training' && <Training />}
+              {currentTab === 'advance' && <Advance />}
+              {currentTab === 'discipline' && <Discipline />}
+              {currentTab === 'payroll' && <Payroll />}
+              {currentTab === 'reward' && <Reward />}
+              {currentTab === 'timesheet' && <Timesheet />}
+              {currentTab === 'history' && <ActivityHistory />}
+              {currentTab === 'admin' && <Admin />}
+              {currentTab === 'admin_shift' && <AdminShift />}
+              {currentTab === 'admin_org' && <AdminOrg />}
+              {currentTab === 'admin_payroll' && <AdminPayroll />}
+              {currentTab === 'admin_checklist' && <AdminChecklistConfig />}
+              {currentTab === 'admin_analytics' && <AdminAnalytics />}
+              {currentTab === 'hr_list' && <HrList />}
+            </Suspense>
+          </AppErrorBoundary>
+        </motion.div>
       </AnimatePresence>
-
-      <div className="flex flex-1 min-h-0">
-        <aside className="hidden md:flex w-72 shrink-0 flex-col border-r border-slate-200/80 dark:border-slate-800 bg-white/82 dark:bg-slate-950/76 backdrop-blur-xl">
-          <div className="px-4 py-5 border-b border-slate-200/80 dark:border-slate-800">
-            <div className="flex items-center gap-3">
-              {currentUser?.avatarUrl ? (
-                <img src={currentUser.avatarUrl} alt="" className="w-11 h-11 rounded-xl object-cover border border-slate-200 dark:border-slate-700" />
-              ) : (
-                <div className="w-11 h-11 rounded-xl bg-teal-600 text-white flex items-center justify-center font-bold text-lg">
-                  {currentUser?.fullname.charAt(0) || 'U'}
-                </div>
-              )}
-              <div className="min-w-0">
-                <h3 className="font-bold text-slate-900 dark:text-white leading-tight text-sm truncate">{currentUser?.fullname || 'Staff'}</h3>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">
-                  {currentUser?.role === 'admin' ? 'Quản lý hệ thống' : currentUser?.role === 'tester' ? 'Tester' : 'Nhân viên'}
-                </p>
-              </div>
-            </div>
-          </div>
-          <nav className="flex-1 overflow-y-auto px-3 py-4">
-            {renderSidebarMenu('desktop')}
-          </nav>
-          <div className="px-4 py-4 border-t border-slate-200/80 dark:border-slate-800">
-            <div className="rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-3 py-2">
-              <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wide">Phiên bản</p>
-              <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">King's Grill HR Phase 6</p>
-            </div>
-          </div>
-        </aside>
-
-      {/* ============================================ */}
-      {/* Content Area                                 */}
-      {/* ============================================ */}
-      <main className="flex-1 pb-6 overflow-x-hidden md:px-4 lg:px-6 min-w-0">
-        <AnimatePresence mode="popLayout">
-          <motion.div
-            key={currentTab}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.12 }}
-            className="h-full"
-          >
-            <AppErrorBoundary resetKey={currentTab} fallback={<ModuleRecoverFallback />}>
-              <Suspense fallback={<TabFallback />}>
-                {currentTab === 'dashboard' && <DashboardOverview />}
-                {currentTab === 'checkin' && <CheckIn />}
-                {currentTab === 'schedule' && <Schedule />}
-                {currentTab === 'swap' && <SwapShift />}
-                {currentTab === 'roster' && <Roster />}
-                {currentTab === 'profile' && <ComingSoonPage title="Hồ sơ cá nhân" />}
-                {currentTab === 'checklist' && <Checklist />}
-                {currentTab === 'handover' && <Handover />}
-                {currentTab === 'feedback' && <Feedback />}
-                {currentTab === 'news' && <NewsFeed />}
-                {currentTab === 'soldout' && <SoldOut />}
-                {currentTab === 'training' && <Training />}
-                {currentTab === 'advance' && <Advance />}
-                {currentTab === 'discipline' && <Discipline />}
-                {currentTab === 'payroll' && <Payroll />}
-                {currentTab === 'reward' && <Reward />}
-                {currentTab === 'timesheet' && <Timesheet />}
-                {currentTab === 'history' && <ActivityHistory />}
-                {currentTab === 'admin' && <Admin />}
-                {currentTab === 'admin_shift' && <AdminShift />}
-                {currentTab === 'admin_org' && <AdminOrg />}
-                {currentTab === 'admin_payroll' && <AdminPayroll />}
-                {currentTab === 'admin_checklist' && <AdminChecklistConfig />}
-                {currentTab === 'admin_analytics' && <AdminAnalytics />}
-                {currentTab === 'hr_list' && <HrList />}
-              </Suspense>
-            </AppErrorBoundary>
-            {/* Coming Soon Pages */}
-            {[]?.includes(currentTab) && (
-              <div className="flex flex-col items-center justify-center h-full p-6 text-center mt-10">
-                <ComingSoonPage title={getPageTitle(currentTab)} />
-              </div>
-            )}
-          </motion.div>
-        </AnimatePresence>
-      </main>
-      </div>
-    </div>
+    </KgAppShell>
   );
 }
