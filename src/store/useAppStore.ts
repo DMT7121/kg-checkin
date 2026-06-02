@@ -171,7 +171,7 @@ interface AppState {
   loading: boolean;
   loadingText: string;
   isUpdating: boolean;
-  currentTab: 'dashboard' | 'news' | 'soldout' | 'feedback' | 'training' | 'checkin' | 'checklist' | 'handover' | 'schedule' | 'swap' | 'roster' | 'history' | 'timesheet' | 'advance' | 'payroll' | 'discipline' | 'reward' | 'admin' | 'hr_list' | 'admin_org' | 'admin_shift' | 'admin_payroll' | 'admin_checklist' | 'admin_analytics' | 'profile';
+  currentTab: 'dashboard' | 'news' | 'soldout' | 'feedback' | 'training' | 'checkin' | 'checklist' | 'handover' | 'schedule' | 'swap' | 'roster' | 'history' | 'timesheet' | 'advance' | 'payroll' | 'discipline' | 'reward' | 'admin' | 'hr_list' | 'admin_org' | 'admin_shift' | 'admin_payroll' | 'admin_checklist' | 'admin_analytics' | 'profile' | 'guide';
   shiftName: string;
   currentTime: string;
 

@@ -29,7 +29,8 @@ export type TabId =
   | 'admin_payroll'
   | 'admin_checklist'
   | 'admin_analytics'
-  | 'profile';
+  | 'profile'
+  | 'guide';
 
 /**
  * Check if a user with a given role and position has permission to access a specific tab/module.
@@ -123,6 +124,7 @@ export function getTabLabel(tabId: TabId): string {
     admin_checklist: 'Cấu hình checklist',
     admin_analytics: 'Thống kê & Báo cáo',
     profile: 'Hồ sơ cá nhân',
+    guide: 'Hướng dẫn sử dụng',
   };
   return labels[tabId] || tabId;
 }

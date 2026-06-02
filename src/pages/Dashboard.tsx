@@ -65,6 +65,7 @@ const moduleLoaders = {
   payroll: () => import('./Payroll'),
   reward: () => import('./Reward'),
   timesheet: () => import('./Timesheet'),
+  guide: () => import('./Guide'),
 } as const;
 
 const CheckIn = lazyWithRetry(moduleLoaders.checkin);
@@ -90,6 +91,7 @@ const Discipline = lazyWithRetry(moduleLoaders.discipline);
 const Payroll = lazyWithRetry(moduleLoaders.payroll);
 const Reward = lazyWithRetry(moduleLoaders.reward);
 const Timesheet = lazyWithRetry(moduleLoaders.timesheet);
+const Guide = lazyWithRetry(moduleLoaders.guide);
 
 const prefetchedModules = new Set<string>();
 
@@ -105,7 +107,7 @@ const prefetchModuleScreens = async () => {
     'checkin', 'schedule', 'checklist', 'handover', 'news', 'soldout',
     'swap', 'roster', 'history', 'timesheet', 'advance', 'payroll',
     'discipline', 'reward', 'training', 'feedback', 'admin', 'hr_list',
-    'admin_shift', 'admin_org', 'admin_payroll', 'admin_checklist', 'admin_analytics',
+    'admin_shift', 'admin_org', 'admin_payroll', 'admin_checklist', 'admin_analytics', 'guide',
   ];
   for (const tab of queue) {
     prefetchModule(tab);
@@ -810,6 +812,7 @@ export default function Dashboard() {
                   {currentTab === 'admin_checklist' && <AdminChecklistConfig />}
                   {currentTab === 'admin_analytics' && <AdminAnalytics />}
                   {currentTab === 'hr_list' && <HrList />}
+                  {currentTab === 'guide' && <Guide />}
                 </>
               )}
             </Suspense>

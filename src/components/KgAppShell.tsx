@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Newspaper, UtensilsCrossed, MessageSquareWarning,
   ClipboardCheck, Repeat, ArrowLeftRight, CalendarDays, History,
   CalendarClock, Users, KeyRound, CalendarRange, DollarSign, Building2,
-  MoreHorizontal
+  MoreHorizontal, BookOpen
 } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 import { KgActionSheet } from './KgDesignSystem';
@@ -53,6 +53,7 @@ export default function KgAppShell({ children }: KgAppShellProps) {
     { id: 'training' as TabId, label: 'Đào tạo', icon: CalendarClock, onClick: () => handleTabChange('training') },
     { id: 'feedback' as TabId, label: 'Góp ý', icon: MessageSquareWarning, onClick: () => handleTabChange('feedback') },
     { id: 'profile' as TabId, label: 'Hồ sơ', icon: Users, onClick: () => handleTabChange('profile') },
+    { id: 'guide' as TabId, label: 'Hướng dẫn', icon: BookOpen, onClick: () => handleTabChange('guide') },
     { id: 'admin' as TabId, label: 'Cấu hình AI', icon: Building2, onClick: () => handleTabChange('admin') },
     { id: 'hr_list' as TabId, label: 'Nhân sự', icon: Users, onClick: () => handleTabChange('hr_list') },
     { id: 'admin_org' as TabId, label: 'Tổ chức & Quyền', icon: KeyRound, onClick: () => handleTabChange('admin_org') },
@@ -97,6 +98,12 @@ export default function KgAppShell({ children }: KgAppShellProps) {
         { id: 'admin_payroll' as TabId, label: 'Cấu hình lương thưởng', icon: DollarSign },
         { id: 'admin_checklist' as TabId, label: 'Cấu hình checklist', icon: ClipboardCheck },
         { id: 'admin_analytics' as TabId, label: 'Thống kê & Báo cáo', icon: Building2 },
+      ].filter(item => hasTabPermission(item.id, currentUser))
+    },
+    {
+      label: 'Hỗ trợ',
+      items: [
+        { id: 'guide' as TabId, label: 'Hướng dẫn sử dụng', icon: BookOpen },
       ].filter(item => hasTabPermission(item.id, currentUser))
     }
   ].filter(group => group.items.length > 0);
