@@ -389,7 +389,7 @@ export default function CheckIn() {
       lateMins: lateMinsInfo
     };
 
-    callApi('CHECK_IN_OUT', payload, { background: true }).then(async (res) => {
+    callApi('CHECK_IN_OUT', payload, { background: true, timeoutMs: 60000, maxAttempts: 3 }).then(async (res) => {
       if (res?.ok) {
         // Late penalty notifications using custom bottom sheets
         if (res.data?.lateMins > 5 && type === 'Vào ca') {

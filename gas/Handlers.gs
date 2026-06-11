@@ -433,6 +433,21 @@ function safeShiftValue(cellValue) {
   return str || 'OFF';
 }
 
+function parseDateTimeString(str) {
+  if (!str) return new Date();
+  var parts = str.match(/^(\d{2})\/(\d{2})\/(\d{4})\s(\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (parts) {
+    var day = parseInt(parts[1], 10);
+    var month = parseInt(parts[2], 10) - 1; // 0-indexed month
+    var year = parseInt(parts[3], 10);
+    var hour = parseInt(parts[4], 10);
+    var minute = parseInt(parts[5], 10);
+    var second = parts[6] ? parseInt(parts[6], 10) : 0;
+    return new Date(year, month, day, hour, minute, second);
+  }
+  return new Date();
+}
+
 // 2B. Chấm Công Logic - 8 COLUMNS FORMAT
 // Col A: HỌ VÀ TÊN | Col B: LOẠI CHẤM CÔNG | Col C: THỜI GIAN (DD/MM/YYYY HH:MM:SS)
 // Col D: VỊ TRÍ | Col E: XÁC MINH | Col F: KHOẢNG CÁCH | Col G: LINK HÌNH ẢNH | Col H: DATA JSON
@@ -443,7 +458,7 @@ function handleCheckInOut(payload) {
   if (!sheet) return jsonResponse(false, 'Không tìm thấy sheet chấm công');
   
   // payload: username, fullname, email, type, lat, lng, image, timestamp, location, distance
-  var time = new Date();
+  var time = parseDateTimeString(payload.time);
   
   // === COL A: HỌ VÀ TÊN ===
   var hoVaTen = payload.fullname;
@@ -459,7 +474,7 @@ function handleCheckInOut(payload) {
   if (loaiChamCong === 'Vào ca' || loaiChamCong === 'IN') {
     // 1. Find today's shift from schedule sheet
     try {
-      var todayDate = new Date();
+      var todayDate = time;
       var dayOfWeek = todayDate.getDay(); // 0=Sun
       var dayIdx = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // 0=Mon, 6=Sun
       var monthNum = String(todayDate.getMonth() + 1).padStart(2, '0');

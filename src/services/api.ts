@@ -37,6 +37,8 @@ export async function callApi(
     background?: boolean;
     onLoadingStart?: () => void;
     onLoadingEnd?: () => void;
+    timeoutMs?: number;
+    maxAttempts?: number;
   }
 ): Promise<any> {
   const bg = options?.background ?? false;
@@ -53,12 +55,13 @@ export async function callApi(
   }
 
   const requestPromise = (async () => {
-    const maxAttempts = bg ? 0 : 1;
+    const maxAttempts = options?.maxAttempts !== undefined ? options.maxAttempts : (bg ? 0 : 1);
 
   for (let attempt = 0; attempt <= maxAttempts; attempt++) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), bg ? 15000 : 35000);
+      const timeoutMs = options?.timeoutMs !== undefined ? options.timeoutMs : (bg ? 15000 : 35000);
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
       const response = await fetch(getGasUrl(), {
         method: 'POST',
