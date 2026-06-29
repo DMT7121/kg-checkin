@@ -124,7 +124,7 @@ export default function Training() {
         html: `Bạn trả lời đúng <b>${correct}/${lesson.quiz.length}</b> câu (${score}%).<br/>Cần đạt tối thiểu 70% để hoàn thành.`,
         icon: 'error',
         confirmButtonText: 'Thử lại',
-        confirmButtonColor: '#E85D4A'
+        confirmButtonColor: '#ef4444'
       });
       return;
     }
@@ -349,18 +349,18 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
           width: 1.25rem;
           margin-right: 0.75rem;
           margin-top: 5px;
-          color: #062B49;
+          color: #2563eb;
           text-align: center;
         }
         .dark .sop-content-details li i {
-          color: #E85D4A;
+          color: #818cf8;
         }
         .sop-content-details strong {
           color: inherit;
           font-weight: 700;
         }
         .sop-content-details a {
-          color: #E85D4A;
+          color: #2563eb;
           font-weight: 600;
           text-decoration: underline;
         }
@@ -494,21 +494,21 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
                   {searchResults.map(({ sectionTitle, sectionId, item }, idx) => {
                     const isOpen = openAccordions[item.subtitle] ?? true;
                     return (
-                      <KgCard key={idx} className="overflow-hidden p-0 border border-[#E8DED1] dark:border-[#1E3F57]">
+                      <KgCard key={idx} className="overflow-hidden p-0 border border-slate-100 dark:border-slate-800">
                         <button
                           onClick={() => toggleAccordion(item.subtitle)}
-                          className="w-full flex items-center justify-between p-4 bg-[#FBF7F0] dark:bg-[#122F48]/40 border-b border-[#E8DED1] dark:border-[#1E3F57] text-left"
+                          className="w-full flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 text-left"
                         >
                           <div className="min-w-0">
-                            <span className="text-[10px] uppercase font-bold text-[#E85D4A] tracking-wider block mb-0.5">
+                            <span className="text-[10px] uppercase font-bold text-blue-600 dark:text-indigo-400 tracking-wider block mb-0.5">
                               {sectionTitle}
                             </span>
-                            <h4 className="font-extrabold text-gray-800 dark:text-white text-sm truncate">{item.subtitle}</h4>
+                            <h4 className="font-extrabold text-slate-800 dark:text-white text-sm truncate">{item.subtitle}</h4>
                           </div>
-                          {isOpen ? <ChevronUp size={16} className="text-[#6F7785]" /> : <ChevronDown size={16} className="text-[#6F7785]" />}
+                          {isOpen ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
                         </button>
                         {isOpen && (
-                          <div className="p-4 bg-white dark:bg-[#0E273C] text-sm text-gray-700 dark:text-gray-300 leading-relaxed font-medium sop-content-details">
+                          <div className="p-4 bg-white dark:bg-slate-900 text-sm text-slate-700 dark:text-slate-350 leading-relaxed font-medium sop-content-details">
                             <div dangerouslySetInnerHTML={{ __html: item.details }} />
                           </div>
                         )}
@@ -806,8 +806,8 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
               <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-xs leading-relaxed font-semibold shadow-sm ${
                   msg.role === 'user'
-                    ? 'bg-[#062B49] text-white rounded-tr-sm'
-                    : 'bg-white dark:bg-[#122F48] text-gray-800 dark:text-gray-200 border border-[#E8DED1] dark:border-[#1E3F57] rounded-tl-sm chat-bubble-content'
+                    ? 'bg-blue-600 text-white rounded-tr-sm'
+                    : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-100 dark:border-slate-800 rounded-tl-sm chat-bubble-content'
                 }`}>
                   <div dangerouslySetInnerHTML={{ __html: msg.content.replace(/\n/g, '<br>') }} />
                 </div>
@@ -815,8 +815,8 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
             ))}
             {isSending && (
               <div className="flex justify-start">
-                <div className="bg-white dark:bg-[#122F48] border border-[#E8DED1] dark:border-[#1E3F57] rounded-2xl rounded-tl-sm px-4 py-3 flex items-center space-x-2 text-xs font-bold text-gray-500">
-                  <RefreshCw size={13} className="animate-spin text-[#E85D4A]" />
+                <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-2xl rounded-tl-sm px-4 py-3 flex items-center space-x-2 text-xs font-bold text-slate-500">
+                  <RefreshCw size={13} className="animate-spin text-blue-600 dark:text-indigo-400" />
                   <span>AI đang tra sổ tay...</span>
                 </div>
               </div>
@@ -825,7 +825,7 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
           </div>
 
           {/* Chat Input */}
-          <div className="p-3 bg-white dark:bg-[#0E273C] border-t border-[#E8DED1] dark:border-[#1E3F57] flex-shrink-0 flex items-center gap-2">
+          <div className="p-3 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex-shrink-0 flex items-center gap-2">
             <textarea
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
@@ -836,14 +836,14 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
                 }
               }}
               placeholder="Quy trình xử lý món sai? Mất vé xe xử lý thế nào?..."
-              className="flex-1 max-h-20 min-h-[40px] border border-[#E8DED1] dark:border-[#1E3F57] focus:border-[#062B49] dark:focus:border-[#E85D4A] rounded-xl px-3.5 py-2.5 text-xs font-semibold resize-none focus:outline-none transition-all dark:bg-[#0E273C] dark:text-white"
+              className="flex-1 max-h-20 min-h-[40px] border border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-indigo-500 rounded-xl px-3.5 py-2.5 text-xs font-semibold resize-none focus:outline-none transition-all dark:bg-slate-900 dark:text-white"
               rows={1}
               disabled={isSending}
             />
             <button
               onClick={handleSendChat}
               disabled={!chatInput.trim() || isSending}
-              className="w-10 h-10 bg-[#062B49] text-white rounded-xl flex items-center justify-center hover:bg-[#0B3A5F] active:scale-95 transition disabled:opacity-50 flex-shrink-0"
+              className="w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center hover:bg-blue-700 active:scale-95 transition disabled:opacity-50 flex-shrink-0"
             >
               <Send size={15} />
             </button>

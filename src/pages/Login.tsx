@@ -92,7 +92,7 @@ export default function Login() {
             Swal.fire({
               title: '🔔 Nhắc nhở',
               text: 'Bạn chưa nộp Lịch đăng ký ca cho tuần tiếp theo. Vui lòng vào Tab "Đăng ký ca" để nộp nhé!',
-              icon: 'info', confirmButtonColor: '#062B49',
+              icon: 'info', confirmButtonColor: '#2563eb',
             });
           }
         }
@@ -297,18 +297,16 @@ export default function Login() {
             </div>
           )}
 
-          {/* REGISTER FORM */}
           {mode === 'register' && (
-            <div className="bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-3xl p-6 sm:p-8 shadow-card neo-card-stack">
+            <div className="bg-white dark:bg-[#0E273C] border border-blue-100 dark:border-blue-900/30 rounded-3xl p-6 sm:p-8 shadow-xl shadow-blue-500/5">
               <div className="mb-6">
                 <h3 className="text-xl font-bold text-[#0f172a] dark:text-white">Đăng ký nhân sự mới</h3>
                 <p className="text-xs text-[#64748b] dark:text-[#98a2b3] mt-1">Đăng ký tài khoản để quản lý công việc và chấm công</p>
               </div>
 
               <form onSubmit={handleRegister} className="space-y-4">
-                {/* Tài khoản bảo mật */}
-                <div className="p-4 rounded-2xl bg-[#EEF7F0]/60 dark:bg-[#5F9D6B]/5 border border-[#EEF7F0] dark:border-[#5F9D6B]/20">
-                  <h4 className="text-[11px] font-bold text-[#10b981] mb-3 uppercase tracking-wider flex items-center gap-1.5">
+                <div className="p-4 rounded-2xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/30">
+                  <h4 className="text-[11px] font-bold text-blue-600 dark:text-indigo-400 mb-3 uppercase tracking-wider flex items-center gap-1.5">
                     <Lock size={12} /> 1. Tài khoản bảo mật
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -318,7 +316,7 @@ export default function Login() {
                       value={registerForm.username} 
                       onChange={(e) => setRegisterForm({ ...registerForm, username: e.target.value })} 
                       placeholder="Tên đăng nhập" 
-                      className="w-full bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-xl px-3.5 py-2.5 text-xs text-[#0f172a] dark:text-white focus:outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/10 transition-all placeholder-[#9AA1AA] min-h-[44px]" 
+                      className="w-full bg-white dark:bg-[#0E273C] border border-slate-200 dark:border-[#1E3F57] rounded-xl px-3.5 py-2.5 text-xs text-[#0f172a] dark:text-white focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/10 transition-all placeholder-[#9AA1AA] min-h-[44px]" 
                     />
                     <input 
                       type="password" 

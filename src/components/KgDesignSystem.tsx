@@ -39,10 +39,10 @@ export function KgPageHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[#E8DED1] dark:border-[#1E3F57] pb-4">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
       <div className="flex items-center gap-3">
         {Icon && (
-          <div className="w-10 h-10 rounded-xl bg-[#062B49]/5 dark:bg-[#1E3F57]/40 flex items-center justify-center text-[#062B49] dark:text-[#E85D4A] flex-shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-slate-800/40 flex items-center justify-center text-blue-600 dark:text-indigo-400 flex-shrink-0">
             <Icon size={20} />
           </div>
         )}
@@ -452,8 +452,8 @@ export function KgEmptyState({
 export function KgLoadingOverlay({ text = 'Đang xử lý...' }: { text?: string }) {
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] p-5 rounded-2xl flex items-center gap-4 max-w-xs shadow-2xl">
-        <RefreshCw className="w-5 h-5 text-[#062B49] dark:text-[#E85D4A] animate-spin flex-shrink-0" />
+      <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-5 rounded-2xl flex items-center gap-4 max-w-xs shadow-2xl">
+        <RefreshCw className="w-5 h-5 text-blue-600 dark:text-indigo-400 animate-spin flex-shrink-0" />
         <span className="text-sm font-bold text-[#172033] dark:text-white leading-tight">
           {text}
         </span>
@@ -487,10 +487,10 @@ export function KgToast({
   }, [message, onClose]);
 
   const typeStyles = {
-    success: 'border-[#EEF7F0] bg-[#EEF7F0] text-[#4F8A5B] dark:bg-[#5F9D6B]/10 dark:text-[#5F9D6B]',
-    error: 'border-[#FFF0EE] bg-[#FFF0EE] text-[#C94335] dark:bg-[#D8584B]/10 dark:text-[#D8584B]',
-    warning: 'border-[#FFF7E4] bg-[#FFF7E4] text-[#D8A23A] dark:bg-[#E2B24C]/10 dark:text-[#E2B24C]',
-    info: 'border-[#FFF0ED] bg-[#FFF0ED] text-[#E85D4A] dark:bg-[#E85D4A]/10 dark:text-[#E85D4A]'
+    success: 'border-emerald-100 bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/10',
+    error: 'border-rose-100 bg-rose-50 text-rose-600 dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900/10',
+    warning: 'border-amber-100 bg-amber-50 text-amber-600 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900/10',
+    info: 'border-blue-100 bg-blue-50 text-blue-600 dark:bg-indigo-950/20 dark:text-indigo-400 dark:border-indigo-900/10'
   };
 
   const icons = {
@@ -733,7 +733,7 @@ export function KgActionSheet({
             }}
             className="flex flex-col items-center justify-center p-3 rounded-xl hover:bg-white dark:hover:bg-[#0E273C] active:scale-95 transition-all text-[#6F7785] dark:text-white gap-1.5"
           >
-            <div className="w-11 h-11 rounded-xl bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] flex items-center justify-center shadow-sm text-[#062B49] dark:text-[#E85D4A]">
+            <div className="w-11 h-11 rounded-xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 flex items-center justify-center shadow-sm text-blue-600 dark:text-indigo-400">
               <act.icon size={20} />
             </div>
             <span className="text-[10px] font-bold text-center leading-tight tracking-wide uppercase break-words w-full">
