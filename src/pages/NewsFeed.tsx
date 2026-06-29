@@ -4,6 +4,8 @@ import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import { fileToBase64, uploadImageToDrive } from '../utils/helpers';
 import Swal from 'sweetalert2';
+import { KgModuleHero } from '../components/KgDesignSystem';
+
 
 export default function NewsFeed() {
   const { currentUser, news: posts, setNews: setPosts } = useAppStore();
@@ -154,26 +156,13 @@ export default function NewsFeed() {
 
   return (
     <div className="p-4 animate-slide-up pb-10">
-      {/* Header Banner */}
-      <div className="soft3d-card !bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-600 p-6 md:p-8 text-white relative overflow-hidden flex items-center justify-between mb-6 border-opacity-30">
-        <div className="relative z-10">
-          <div className="flex items-center space-x-3 mb-2">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
-              <Megaphone size={20} className="text-white" />
-            </div>
-            <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Bảng tin Nội bộ</h2>
-          </div>
-          <p className="text-violet-100 font-medium opacity-90 text-sm md:text-base max-w-lg">
-            Thông báo và tin tức quan trọng.
-          </p>
-        </div>
-        <div className="hidden md:block relative z-10 opacity-80">
-          <Newspaper size={80} strokeWidth={1} />
-        </div>
-        {/* Background Decorations */}
-        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
-        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-violet-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
-      </div>
+      <KgModuleHero
+        moduleId="news"
+        title="Bảng tin Nội bộ"
+        description="Thông báo và tin tức quan trọng từ nhà hàng."
+        eyebrow="Thông tin"
+      />
+
 
       {/* Admin Post Box */}
       {currentUser?.role === 'admin' && (

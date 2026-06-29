@@ -5,6 +5,8 @@ import { computeWeekInfo, DAY_NAMES, SHORT_DAY_NAMES, getAdminShiftClass, genera
 import { CalendarDays, RefreshCw, Info, Calendar, ChevronLeft, ChevronRight, LayoutGrid, CalendarRange, Filter, ShieldAlert } from 'lucide-react';
 import CalendarGrid from '../components/CalendarGrid';
 import Swal from 'sweetalert2';
+import { KgModuleHero } from '../components/KgDesignSystem';
+
 
 export default function Roster() {
   const store = useAppStore();
@@ -317,28 +319,13 @@ export default function Roster() {
 
   return (
     <div className="p-4 animate-slide-up pb-10">
-      {/* Header Banner */}
-      <div className="soft3d-card !bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-600 p-6 md:p-8 text-white relative overflow-hidden flex flex-col mb-6 border-opacity-30">
-        <div className="flex items-center justify-between relative z-10 w-full">
-          <div>
-            <div className="flex items-center space-x-3 mb-2">
-              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
-                <CalendarRange size={20} className="text-white" />
-              </div>
-              <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Ma trận Xoay ca</h2>
-            </div>
-            <p className="text-purple-100 font-medium opacity-90 text-sm md:text-base max-w-lg">
-              Lịch làm việc toàn bộ nhân sự.
-            </p>
-          </div>
-          <div className="hidden md:block opacity-80 pl-4 relative z-10">
-            <CalendarDays size={80} strokeWidth={1} />
-          </div>
-        </div>
-        {/* Background Decorations */}
-        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
-        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-indigo-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
-      </div>
+      <KgModuleHero
+        moduleId="roster"
+        title="Ma trận Xoay ca"
+        description="Lịch làm việc của toàn bộ nhân sự tại nhà hàng."
+        eyebrow="Phân ca"
+      />
+
         
       {/* Toggle Mode & Time Navigation */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 relative z-10 gap-3 w-full soft3d-card p-2 rounded-2xl  ">

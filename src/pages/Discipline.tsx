@@ -3,6 +3,8 @@ import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import Swal from 'sweetalert2';
 import { Award, Plus, Trash2, ArrowUpRight, ArrowDownRight, Search, AlertOctagon, ShieldAlert } from 'lucide-react';
+import { KgModuleHero } from '../components/KgDesignSystem';
+
 
 export default function Discipline() {
   const store = useAppStore();
@@ -110,26 +112,13 @@ export default function Discipline() {
 
   return (
     <div className="p-4 space-y-5 animate-slide-up pb-10">
-      {/* Header Banner */}
-      <div className="soft3d-card !bg-gradient-to-r from-red-600 via-rose-600 to-pink-700 p-6 md:p-8 text-white relative overflow-hidden flex items-center justify-between mb-6 border-opacity-30">
-        <div className="relative z-10">
-          <div className="flex items-center space-x-3 mb-2">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
-              <AlertOctagon size={20} className="text-white" />
-            </div>
-            <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Vi phạm & Kỷ luật</h2>
-          </div>
-          <p className="text-red-100 font-medium opacity-90 text-sm md:text-base max-w-lg">
-            Báo cáo các sự cố và vi phạm.
-          </p>
-        </div>
-        <div className="hidden md:block relative z-10 opacity-80">
-          <ShieldAlert size={80} strokeWidth={1} />
-        </div>
-        {/* Background Decorations */}
-        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
-        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-red-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
-      </div>
+      <KgModuleHero
+        moduleId="soldout"
+        title="Vi phạm & Kỷ luật"
+        description="Theo dõi lịch sử khen thưởng và kỷ luật của nhân sự."
+        eyebrow="Nội quy"
+      />
+
 
       {isAdmin && (
         <form onSubmit={handleSubmit} className="soft3d-card p-5 rounded-2xl  ">

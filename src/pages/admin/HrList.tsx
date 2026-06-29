@@ -4,6 +4,8 @@ import { callApi } from '../../services/api';
 import Swal from 'sweetalert2';
 import { Users, KeyRound, Loader2, ShieldCheck, Mail, Briefcase, UserCog, Search, Calendar, ChevronDown, ChevronUp, X, Camera } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { KgModuleHero } from '../../components/KgDesignSystem';
+
 
 export default function HrList() {
   const store = useAppStore();
@@ -143,25 +145,13 @@ export default function HrList() {
         </button>
       </div>
 
-      {/* Header */}
-      <div className="soft3d-card !bg-gradient-to-r from-ocean-600 via-blue-600 to-indigo-700 p-6 md:p-8 text-white relative overflow-hidden flex flex-col border-opacity-30">
-        <div className="flex items-center justify-between relative z-10 w-full">
-          <div>
-            <div className="flex items-center space-x-3 mb-2">
-              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
-                <Users size={20} className="text-white" />
-              </div>
-              <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Hồ Sơ Nhân Sự</h2>
-            </div>
-            <p className="text-ocean-100 font-medium opacity-90 text-sm md:text-base max-w-lg">
-              Quản lý {stats.total} nhân viên, {POSITIONS.length} bộ phận.
-            </p>
-          </div>
-          <div className="hidden md:block opacity-80 pl-4 relative z-10"><ShieldCheck size={80} strokeWidth={1} /></div>
-        </div>
-        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay" />
-        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-ocean-400/30 rounded-full blur-2xl mix-blend-overlay" />
-      </div>
+      <KgModuleHero
+        moduleId="admin"
+        title="Hồ Sơ Nhân Sự"
+        description="Quản lý thông tin cá nhân, cập nhật chức vụ, phân quyền và khôi phục mật khẩu tài khoản nhân viên."
+        eyebrow="Nhân sự"
+      />
+
 
       {/* Stat Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

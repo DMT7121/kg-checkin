@@ -3,6 +3,8 @@ import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import { UtensilsCrossed, Plus, Search, Trash2, Clock, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { KgModuleHero } from '../components/KgDesignSystem';
+
 
 export default function SoldOut() {
   const store = useAppStore();
@@ -85,27 +87,12 @@ export default function SoldOut() {
   return (
     <div className="flex flex-col h-full soft3d-bg pb-20">
       <div className="p-4 animate-slide-up">
-        {/* Header Banner */}
-        <div className="soft3d-card !bg-gradient-to-r from-red-500 via-rose-500 to-red-700 p-6 md:p-8 text-white relative overflow-hidden flex items-center justify-between mb-6 shrink-0 border-opacity-30">
-          <div className="relative z-10">
-            <div className="flex items-center space-x-3 mb-2">
-              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
-                <UtensilsCrossed size={20} className="text-white" />
-              </div>
-              <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Món hết (86)</h2>
-            </div>
-            <p className="text-red-100 font-medium opacity-90 text-sm md:text-base max-w-lg">
-              Cập nhật tình trạng nguyên liệu.
-            </p>
-          </div>
-          <div className="hidden md:block opacity-80 pl-4 relative z-10">
-            <UtensilsCrossed size={80} strokeWidth={1} />
-          </div>
-
-          {/* Background Decorations */}
-          <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
-          <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-red-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
-        </div>
+        <KgModuleHero
+          moduleId="soldout"
+          title="Món Hết (86)"
+          description="Cập nhật tình trạng nguyên liệu, món hết để đồng bộ với thu ngân và phục vụ."
+          eyebrow="Vận hành"
+        />
 
         {/* Toolbar */}
         <div className="flex flex-wrap items-center gap-3 w-full mb-2">
@@ -121,7 +108,7 @@ export default function SoldOut() {
           </div>
           <button
             onClick={() => setIsAdding(!isAdding)}
-            className="flex items-center space-x-1 bg-red-500 hover:bg-red-600 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition  whitespace-nowrap"
+            className="flex items-center space-x-1 bg-gradient-to-r from-[#2563eb] to-[#7c3aed] text-white px-4 py-2.5 rounded-xl font-bold text-sm transition whitespace-nowrap shadow-sm hover:shadow-md active:scale-95 border-none"
           >
             <Plus size={18} className="mr-1" />
             <span>Báo hết</span>

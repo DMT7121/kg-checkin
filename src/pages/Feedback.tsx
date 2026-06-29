@@ -4,6 +4,8 @@ import { callApi } from '../services/api';
 import Swal from 'sweetalert2';
 import { MessageSquareWarning, Send, EyeOff, CheckCircle2, User, Clock, AlertCircle, CornerDownRight, Mailbox } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { KgModuleHero } from '../components/KgDesignSystem';
+
 
 export default function Feedback() {
   const store = useAppStore();
@@ -124,26 +126,13 @@ export default function Feedback() {
   return (
     <div className="h-full flex flex-col soft3d-bg animate-fade-in relative pb-6">
       <div className="p-4 flex-none">
-        {/* Header Banner */}
-        <div className="soft3d-card !bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600 p-6 md:p-8 text-white relative overflow-hidden flex items-center justify-between shrink-0 mb-6 border-opacity-30">
-          <div className="relative z-10">
-            <div className="flex items-center space-x-3 mb-2">
-              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
-                <MessageSquareWarning size={20} className="text-white" />
-              </div>
-              <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Góp ý & Khiếu nại</h2>
-            </div>
-            <p className="text-blue-100 font-medium opacity-90 text-sm md:text-base max-w-lg">
-              Lắng nghe ý kiến từ nhân sự.
-            </p>
-          </div>
-          <div className="hidden md:block relative z-10 opacity-80">
-            <Mailbox size={80} strokeWidth={1} />
-          </div>
-          {/* Background Decorations */}
-          <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
-          <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-blue-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
-        </div>
+        <KgModuleHero
+          moduleId="feedback"
+          title="Góp ý & Khiếu nại"
+          description="Lắng nghe ý kiến đóng góp, thắc mắc từ nhân sự để cải thiện môi trường làm việc."
+          eyebrow="Khảo sát"
+        />
+
       </div>
 
       <div className="px-4 relative z-20 flex-1 flex flex-col overflow-hidden space-y-4">

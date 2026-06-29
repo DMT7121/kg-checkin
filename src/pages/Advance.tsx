@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import Swal from 'sweetalert2';
+import { KgModuleHero } from '../components/KgDesignSystem';
+
 import { BadgeDollarSign, Send, History, CheckCheck, XCircle, Clock, Banknote, Wallet } from 'lucide-react';
 
 export default function Advance() {
@@ -101,26 +103,13 @@ export default function Advance() {
 
   return (
     <div className="p-4 space-y-5 animate-slide-up pb-10">
-      {/* Header Banner */}
-      <div className="soft3d-card !bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 p-6 md:p-8 text-white relative overflow-hidden flex items-center justify-between mb-6 border-opacity-30">
-        <div className="relative z-10">
-          <div className="flex items-center space-x-3 mb-2">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
-              <Wallet size={20} className="text-white" />
-            </div>
-            <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Tạm ứng Lương</h2>
-          </div>
-          <p className="text-orange-100 font-medium opacity-90 text-sm md:text-base max-w-lg">
-            Quản lý và đề xuất tạm ứng lương.
-          </p>
-        </div>
-        <div className="hidden md:block relative z-10 opacity-80">
-          <Banknote size={80} strokeWidth={1} />
-        </div>
-        {/* Background Decorations */}
-        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
-        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-orange-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
-      </div>
+      <KgModuleHero
+        moduleId="payroll"
+        title="Tạm ứng Lương"
+        description="Quản lý và đề xuất tạm ứng lương hàng tháng."
+        eyebrow="Tài chính"
+      />
+
 
       {!isAdmin && (
         <form onSubmit={handleSubmit} className="soft3d-card p-5 rounded-2xl  ">

@@ -4,6 +4,8 @@ import { callApi } from '../services/api';
 import { Award, Star, Gift, Trophy, Crown, AlertCircle, History, RefreshCw, Sparkles } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { motion } from 'framer-motion';
+import { KgModuleHero } from '../components/KgDesignSystem';
+
 
 interface CoinEntry {
   id: string;
@@ -89,52 +91,36 @@ export default function Reward() {
   return (
     <div className="p-4 space-y-4 animate-fade-in pb-20">
       
-      {/* Header Banner */}
-      <div className="soft3d-card !bg-gradient-to-r from-yellow-400 via-amber-500 to-orange-500 p-6 md:p-8 text-white relative overflow-hidden flex flex-col mb-6 border-opacity-30">
-        <div className="flex items-center justify-between relative z-10 w-full">
-          <div>
-            <div className="flex items-center space-x-3 mb-2">
-              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
-                <Crown size={20} className="text-white" />
-              </div>
-              <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">King Coins</h2>
-            </div>
-            <p className="text-amber-100 font-medium opacity-90 text-sm md:text-base max-w-lg">
-              Tích điểm từ mọi hoạt động, xếp hạng & đổi quà.
-            </p>
-          </div>
-          <div className="hidden md:block opacity-80 pl-4 relative z-10">
-            <Trophy size={80} strokeWidth={1} />
-          </div>
-        </div>
+      <KgModuleHero
+        moduleId="payroll"
+        title="King Coins"
+        description="Tích điểm từ mọi hoạt động chấm công, checklist công việc, bàn giao ca."
+        eyebrow="Phần thưởng"
+      />
 
-        {/* Points Card */}
-        <div className="mt-6 bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20 flex items-center justify-between relative z-10 w-full shadow-inner">
-          <div>
-            <p className="text-xs text-white/90 font-medium mb-1 uppercase tracking-wider">King Coins</p>
-            <div className="flex items-end gap-2">
-              <span className="text-3xl font-black leading-none">{loading ? '...' : totalPoints}</span>
-              <span className="text-sm font-bold text-yellow-200 mb-1">🪙</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="bg-white/10 rounded-xl px-3 py-1.5 text-center">
-              <p className="text-[10px] text-white/70 font-medium">Hạng</p>
-              <p className="text-lg font-black">{loading ? '-' : myRank}</p>
-            </div>
-            <button 
-              onClick={() => setActiveTab('shop')}
-              className="bg-white text-orange-600 hover:bg-orange-50 font-bold px-4 py-2 rounded-xl text-sm shadow-md active:scale-95 transition-all"
-            >
-              Đổi quà
-            </button>
+      {/* Points Card */}
+      <div className="bg-gradient-to-r from-[#2563eb] to-[#7c3aed] text-white rounded-3xl p-6 border border-white/10 flex items-center justify-between relative z-10 w-full shadow-lg mb-6">
+        <div>
+          <p className="text-xs text-white/80 font-bold mb-1.5 uppercase tracking-wider">King Coins khả dụng</p>
+          <div className="flex items-end gap-2">
+            <span className="text-4xl font-black leading-none">{loading ? '...' : totalPoints}</span>
+            <span className="text-lg font-bold text-yellow-200 mb-1">🪙</span>
           </div>
         </div>
-        
-        {/* Background Decorations */}
-        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
-        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-yellow-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
+        <div className="flex items-center gap-3">
+          <div className="bg-white/12 rounded-2xl px-4 py-2 text-center border border-white/10 shadow-inner">
+            <p className="text-[10px] text-white/70 font-bold uppercase tracking-wider">Hạng</p>
+            <p className="text-xl font-black">{loading ? '-' : myRank}</p>
+          </div>
+          <button 
+            onClick={() => setActiveTab('shop')}
+            className="bg-white text-blue-600 hover:bg-blue-50 font-extrabold px-5 py-3 rounded-2xl text-sm shadow-md active:scale-95 transition-all"
+          >
+            Đổi quà
+          </button>
+        </div>
       </div>
+
 
       {/* Points Source Guide */}
       <div className="soft3d-card p-3.5">

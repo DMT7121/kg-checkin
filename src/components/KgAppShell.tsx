@@ -143,37 +143,37 @@ export default function KgAppShell({ children }: KgAppShellProps) {
         </div>
       </header>
 
-      {/* 2. DESKTOP SIDEBAR (Sleek navy sidebar) */}
-      <aside className="hidden md:flex flex-col w-64 shrink-0 bg-[#062B49] text-white border-r border-[#0B3A5F] dark:bg-slate-950 dark:border-slate-900 h-screen sticky top-0 overflow-y-auto hide-scrollbar">
-        {/* Sidebar Header */}
-        <div className="px-5 py-6 border-b border-[#0B3A5F] dark:border-[#1E3F57] flex items-center gap-3.5 flex-shrink-0">
-          <div className="w-10 h-10 rounded-xl bg-white dark:bg-[#0E273C] flex items-center justify-center flex-shrink-0 shadow-sm border border-transparent dark:border-[#1E3F57]">
+      {/* 2. DESKTOP SIDEBAR (Sleek light / dark responsive sidebar) */}
+      <aside className="hidden md:flex flex-col w-64 shrink-0 bg-white dark:bg-[#0E273C] text-slate-800 dark:text-slate-100 border-r border-[#E8DED1] dark:border-[#1E3F57] h-screen sticky top-0 overflow-y-auto hide-scrollbar shadow-soft">
+        {/* Sidebar Header with glass mark */}
+        <div className="px-5 py-6 border-b border-[#E8DED1] dark:border-[#1E3F57] flex items-center gap-3.5 flex-shrink-0">
+          <div className="w-10 h-10 rounded-2xl bg-[#f3f6ff] dark:bg-[#122F48] flex items-center justify-center flex-shrink-0 shadow-sm border border-transparent dark:border-[#1E3F57]">
             <img src="/android-chrome-192x192.png?v=3" alt="Logo" className="w-7 h-7 object-contain" />
           </div>
           <div>
-            <h2 className="font-black text-sm tracking-wide uppercase text-white leading-tight">
+            <h2 className="font-black text-sm tracking-wide uppercase text-slate-800 dark:text-white leading-tight">
               King's Grill
             </h2>
-            <p className="text-[11px] font-bold text-[#A0ABC0] dark:text-slate-500">
+            <p className="text-[11px] font-bold text-[#64748b] dark:text-slate-500">
               Operations OS
             </p>
           </div>
         </div>
 
         {/* User profile card */}
-        <div className="mx-4 my-4 p-3.5 rounded-2xl bg-[#0B3A5F]/40 dark:bg-slate-900 border border-[#0B3A5F]/60 dark:border-[#1E3F57] flex items-center gap-3">
+        <div className="mx-4 my-4 p-3.5 rounded-2xl bg-[#f3f6ff] dark:bg-[#122F48] border border-[#E8DED1] dark:border-[#1E3F57] flex items-center gap-3 shadow-sm">
           {currentUser?.avatarUrl ? (
-            <img src={currentUser.avatarUrl} alt="" className="w-10 h-10 rounded-full object-cover border border-slate-550 dark:border-slate-700" />
+            <img src={currentUser.avatarUrl} alt="" className="w-10 h-10 rounded-full object-cover border border-slate-300 dark:border-slate-700" />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-[#E85D4A] text-white flex items-center justify-center font-bold text-sm flex-shrink-0">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#2563eb] to-[#7c3aed] text-white flex items-center justify-center font-bold text-sm flex-shrink-0">
               {currentUser?.fullname.charAt(0) || 'U'}
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <h3 className="font-bold text-white text-xs truncate leading-tight">
+            <h3 className="font-bold text-slate-800 dark:text-white text-xs truncate leading-tight">
               {currentUser?.fullname || 'Staff'}
             </h3>
-            <p className="text-[10px] font-bold text-[#A0ABC0] mt-0.5 truncate uppercase tracking-wider">
+            <p className="text-[10px] font-bold text-[#64748b] mt-0.5 truncate uppercase tracking-wider">
               {currentUser?.role === 'admin' ? '🛡️ Quản lý' : '👤 Nhân viên'}
             </p>
           </div>
@@ -183,7 +183,7 @@ export default function KgAppShell({ children }: KgAppShellProps) {
         <nav className="flex-1 px-3 py-2 space-y-5">
           {menuGroups.map((group, idx) => (
             <div key={idx} className="space-y-1">
-              <span className="px-3 text-[10px] font-bold text-[#A0ABC0] dark:text-slate-550 uppercase tracking-wider block">
+              <span className="px-3 text-[10px] font-extrabold text-[#64748b] dark:text-slate-550 uppercase tracking-wider block">
                 {group.label}
               </span>
               <div className="space-y-0.5">
@@ -194,13 +194,13 @@ export default function KgAppShell({ children }: KgAppShellProps) {
                     <button
                       key={item.id}
                       onClick={() => handleTabChange(item.id)}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all ${
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all ${
                         isActive
-                          ? 'bg-[#E85D4A] text-white font-bold shadow-sm'
-                          : 'text-[#F1F5F9]/80 dark:text-[#A0ABC0] hover:bg-[#0B3A5F] dark:hover:bg-[#122F48] border border-transparent'
+                          ? 'bg-gradient-to-r from-[#2563eb] to-[#7c3aed] text-white font-bold shadow-md scale-[1.02]'
+                          : 'text-[#64748b] dark:text-[#A0ABC0] hover:bg-[#f3f6ff] dark:hover:bg-[#122F48] border border-transparent'
                       }`}
                     >
-                      <Icon size={16} className={isActive ? 'text-white' : 'text-[#A0ABC0] dark:text-slate-500'} />
+                      <Icon size={16} className={isActive ? 'text-white' : 'text-[#64748b] dark:text-slate-500'} />
                       <span className="text-[13px]">{item.label}</span>
                     </button>
                   );
@@ -211,12 +211,12 @@ export default function KgAppShell({ children }: KgAppShellProps) {
         </nav>
 
         {/* Sidebar Footer */}
-        <div className="p-4 border-t border-[#0B3A5F] dark:border-slate-900 bg-[#0B3A5F]/20 dark:bg-slate-900/20 flex items-center justify-between">
+        <div className="p-4 border-t border-[#E8DED1] dark:border-[#1E3F57] bg-[#f7f9ff] dark:bg-[#122F48]/40 flex items-center justify-between">
           <div className="flex items-center space-x-1.5">
             <NotificationBell />
             <button
               onClick={() => store.toggleDarkMode()}
-              className="w-9 h-9 rounded-lg border border-[#0B3A5F] dark:border-slate-800 bg-white/10 hover:bg-white/20 text-[#A0ABC0] flex items-center justify-center active:scale-95 transition-all"
+              className="w-9 h-9 rounded-lg border border-[#E8DED1] dark:border-slate-800 bg-white dark:bg-[#0E273C] text-[#64748b] dark:text-[#A0ABC0] flex items-center justify-center active:scale-95 transition-all shadow-sm"
               title="Đổi giao diện"
             >
               {isDark ? <Sun size={15} /> : <Moon size={15} />}
@@ -224,7 +224,7 @@ export default function KgAppShell({ children }: KgAppShellProps) {
           </div>
           <button
             onClick={handleLogout}
-            className="w-9 h-9 rounded-lg bg-[#C94335]/20 hover:bg-[#C94335]/35 text-[#FFF0EE] flex items-center justify-center active:scale-95 transition-all"
+            className="w-9 h-9 rounded-lg bg-[#ef4444]/12 hover:bg-[#ef4444]/22 text-[#ef4444] flex items-center justify-center active:scale-95 transition-all"
             title="Đăng xuất"
           >
             <Power size={15} />
@@ -236,20 +236,20 @@ export default function KgAppShell({ children }: KgAppShellProps) {
       <main className="flex-1 flex flex-col min-w-0 h-screen md:overflow-y-auto overflow-x-hidden pb-[80px] md:pb-0">
         
         {/* Desktop breadcrumbs & status */}
-        <div className="hidden md:flex justify-between items-center px-6 py-4 border-b border-[#E8DED1] dark:border-[#1E3F57] bg-[#FBF7F0] dark:bg-[#0E273C] flex-shrink-0">
-          <div className="flex items-center space-x-2 text-xs font-bold text-[#6F7785] dark:text-[#A0ABC0] uppercase tracking-wider">
+        <div className="hidden md:flex justify-between items-center px-6 py-4 border-b border-[#E8DED1] dark:border-[#1E3F57] bg-white dark:bg-[#0E273C] flex-shrink-0">
+          <div className="flex items-center space-x-2 text-xs font-bold text-[#64748b] dark:text-[#A0ABC0] uppercase tracking-wider">
             <span>KG Staff OS</span>
             <span>/</span>
-            <span className="text-[#062B49] dark:text-[#E85D4A]">
+            <span className="text-[#2563eb] dark:text-[#7c3aed]">
               {bottomTabs.find(t => t.id === currentTab)?.label || 'Vận hành'}
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <div className="text-xs font-semibold text-[#6F7785] dark:text-[#A0ABC0] flex items-center gap-1.5">
-              <Clock size={13} className="text-[#062B49] dark:text-[#E85D4A]" />
+            <div className="text-xs font-semibold text-[#64748b] dark:text-[#A0ABC0] flex items-center gap-1.5">
+              <Clock size={13} className="text-[#2563eb] dark:text-[#7c3aed]" />
               <span>Ca hiện tại: <b>{store.shiftName}</b></span>
             </div>
-            <div className="w-1.5 h-1.5 bg-[#4F8A5B] rounded-full animate-ping" />
+            <div className="w-1.5 h-1.5 bg-[#10b981] rounded-full animate-ping" />
           </div>
         </div>
 
@@ -260,7 +260,7 @@ export default function KgAppShell({ children }: KgAppShellProps) {
       </main>
 
       {/* 4. MOBILE BOTTOM NAVIGATION */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-45 bg-white dark:bg-[#0E273C] border-t border-[#E8DED1] dark:border-[#1E3F57] flex justify-around items-center py-2 px-1 pb-safe-bottom shadow-lg">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-45 bg-white/80 dark:bg-[#0E273C]/80 backdrop-blur-md border-t border-[#E8DED1] dark:border-[#1E3F57] flex justify-around items-center py-2 px-1 pb-safe-bottom shadow-lg">
         {bottomTabs.map((tab) => {
           const isActive = currentTab === tab.id;
           const Icon = tab.icon;
@@ -268,20 +268,20 @@ export default function KgAppShell({ children }: KgAppShellProps) {
             <button
               key={tab.id}
               onClick={() => handleTabChange(tab.id)}
-              className="flex flex-col items-center justify-center w-16 py-1.5 transition-all text-[#6F7785] dark:text-[#A0ABC0]"
+              className="flex flex-col items-center justify-center w-16 py-1.5 transition-all text-[#64748b] dark:text-[#A0ABC0]"
             >
               <div
                 className={`w-10 h-7 rounded-xl flex items-center justify-center mb-1 transition-all ${
                   isActive
-                    ? 'bg-[#FFF0ED] dark:bg-[#1E3F57] text-[#E85D4A] scale-105'
+                    ? 'bg-[#f3f6ff] dark:bg-[#1E3F57] text-[#2563eb] dark:text-[#7c3aed] scale-105 shadow-inner'
                     : ''
                 }`}
               >
-                <Icon size={20} className={isActive ? 'text-[#E85D4A]' : ''} />
+                <Icon size={20} className={isActive ? 'text-[#2563eb] dark:text-[#7c3aed]' : ''} />
               </div>
               <span
                 className={`text-[9px] font-bold tracking-wide uppercase ${
-                  isActive ? 'text-[#E85D4A]' : 'opacity-80'
+                  isActive ? 'text-[#2563eb] dark:text-[#7c3aed]' : 'opacity-80'
                 }`}
               >
                 {tab.label}
@@ -293,7 +293,7 @@ export default function KgAppShell({ children }: KgAppShellProps) {
         {/* "More" button */}
         <button
           onClick={() => setIsMoreOpen(true)}
-          className="flex flex-col items-center justify-center w-16 py-1.5 transition-all text-[#6F7785] dark:text-[#A0ABC0]"
+          className="flex flex-col items-center justify-center w-16 py-1.5 transition-all text-[#64748b] dark:text-[#A0ABC0]"
         >
           <div className="w-10 h-7 rounded-xl flex items-center justify-center mb-1">
             <MoreHorizontal size={20} />

@@ -4,6 +4,8 @@ import { callApi } from '../services/api';
 import { speak, computeWeekInfo, getActiveShiftClass, getPreviewShiftClass, SHIFT_OPTIONS, DAY_NAMES, SHORT_DAY_NAMES, isRegistrationOpen, getAdminShiftClass, ADMIN_SHIFT_OPTIONS, generateMonthDates, MonthDateInfo, formatDateShort } from '../utils/helpers';
 import Swal from 'sweetalert2';
 import { CalendarCheck, Eye, AlertTriangle, Send, Lock, ExternalLink, Clock, RefreshCw, Pencil, CheckCheck, Inbox, LayoutGrid, CalendarRange, ChevronLeft, ChevronRight, Sparkles, X, Bot } from 'lucide-react';
+import { KgModuleHero } from '../components/KgDesignSystem';
+
 
 export default function Schedule() {
   const store = useAppStore();
@@ -504,41 +506,12 @@ ${aiInputText}
 
   return (
     <div className="p-4 animate-slide-up">
-      {/* Header Banner */}
-      <div className="soft3d-card !bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600 p-6 md:p-8 text-white relative overflow-hidden flex flex-col mb-6 border-opacity-30">
-        <div className="flex items-center justify-between relative z-10 w-full">
-          <div>
-            <div className="flex items-center space-x-3 mb-2">
-              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
-                <CalendarCheck size={20} className="text-white" />
-              </div>
-              <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">{isAdmin ? 'Sắp Xếp Ca Làm' : 'Đăng Ký Ca Làm'}</h2>
-            </div>
-            {!isAdmin && (
-              <p className="text-blue-100 font-medium opacity-90 text-sm md:text-base max-w-lg mb-3">
-                Tuần: {weekInfo.weekDisplay}
-              </p>
-            )}
-            {!isAdmin && (
-              <div className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold backdrop-blur-md border border-white/20 ${isOpen ? 'bg-green-500/30 text-green-100' : 'bg-red-500/30 text-red-100'}`}>
-                {isOpen ? <Clock size={12} className="mr-1.5" /> : <Lock size={12} className="mr-1.5" />}
-                {isTestApp ? 'Đã mở đăng ký (TestApp)' : regWindow.message}
-              </div>
-            )}
-            {isAdmin && (
-              <p className="text-blue-100 font-medium opacity-90 text-sm md:text-base max-w-lg">
-                Duyệt và sắp xếp ca làm việc.
-              </p>
-            )}
-          </div>
-          <div className="hidden md:block opacity-80 pl-4 relative z-10">
-            <CalendarCheck size={80} strokeWidth={1} />
-          </div>
-        </div>
-        {/* Background Decorations */}
-        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
-        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-blue-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
-      </div>
+      <KgModuleHero
+        moduleId="schedule"
+        title={isAdmin ? 'Sắp Xếp Ca Làm' : 'Đăng Ký Ca Làm'}
+        description={isAdmin ? 'Duyệt và sắp xếp ca làm việc cho toàn bộ nhân sự.' : `Đăng ký lịch làm ca tuần ${weekInfo.weekDisplay}.`}
+        eyebrow={isAdmin ? "Quản lý" : "Nhân sự"}
+      />
 
       {/* Toggle Mode & Time Navigation for Admin */}
         {isAdmin && (

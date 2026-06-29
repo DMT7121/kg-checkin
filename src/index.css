@@ -449,133 +449,238 @@ main [class*="border-dashed"] {
   }
 }
 
-/* Nova Ops redesign: a full-system visual reset for the HR operations app. */
+/* Neo Card Stack Redesign: A modern, premium light theme with blue-purple gradients and soft shadows. */
 :root {
-  --kg-bg: #eef2f6;
-  --kg-panel: #ffffff;
-  --kg-panel-2: #f8fafc;
-  --kg-sidebar: #101828;
-  --kg-sidebar-2: #182230;
-  --kg-line: #d7dde8;
-  --kg-text: #101828;
-  --kg-muted: #667085;
-  --kg-brand: #0e9384;
-  --kg-brand-2: #175cd3;
-  --kg-warn: #dc6803;
-  --kg-danger: #d92d20;
-  --kg-success: #039855;
+  /* Colors */
+  --color-primary: #2563eb;
+  --color-primary-2: #4f46e5;
+  --color-violet: #7c3aed;
+  --color-cyan: #06b6d4;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+
+  --bg-app: #f7f9ff;
+  --bg-surface: #ffffff;
+  --bg-soft: #f3f6ff;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --border-soft: rgba(148, 163, 184, 0.22);
+
+  /* Gradients */
+  --gradient-hero: linear-gradient(135deg, #1d4ed8 0%, #4f46e5 48%, #8b5cf6 100%);
+  --gradient-primary: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+  --gradient-soft: linear-gradient(135deg, rgba(37, 99, 235, 0.12), rgba(124, 58, 237, 0.12));
+
+  /* Radius */
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-2xl: 34px;
+
+  /* Shadow */
+  --shadow-card: 0 16px 40px rgba(15, 23, 42, 0.08);
+  --shadow-soft: 0 8px 24px rgba(15, 23, 42, 0.06);
+  --shadow-hero: 0 24px 60px rgba(79, 70, 229, 0.24);
+
+  /* Map old kg- variables to new tokens */
+  --kg-bg: var(--bg-app);
+  --kg-panel: var(--bg-surface);
+  --kg-panel-2: var(--bg-soft);
+  --kg-surface: var(--bg-surface);
+  --kg-surface-soft: var(--bg-soft);
+  --kg-sidebar: var(--bg-surface); /* light sidebar as requested */
+  --kg-sidebar-2: var(--bg-soft);
+  --kg-line: var(--border-soft);
+  --kg-border: var(--border-soft);
+  --kg-text: var(--text-main);
+  --kg-muted: var(--text-muted);
+  --kg-text-muted: var(--text-muted);
+  --kg-brand: var(--color-primary);
+  --kg-brand-2: var(--color-primary-2);
+  --kg-warn: var(--color-warning);
+  --kg-danger: var(--color-danger);
+  --kg-success: var(--color-success);
+
+  --primary: var(--color-primary);
+  --primary-strong: var(--color-primary-2);
+  --secondary: var(--color-violet);
+  --surface: var(--bg-surface);
+  --surface-muted: var(--bg-soft);
+  --line: var(--border-soft);
+  --ink: var(--text-main);
 }
 
 .dark {
-  --kg-bg: #080d18;
-  --kg-panel: #111827;
-  --kg-panel-2: #182230;
-  --kg-line: #344054;
-  --kg-text: #f8fafc;
-  --kg-muted: #98a2b3;
+  --bg-app: #080d18;
+  --bg-surface: #111827;
+  --bg-soft: #182230;
+  --text-main: #f8fafc;
+  --text-muted: #98a2b3;
+  --border-soft: rgba(148, 163, 184, 0.16);
+
+  --kg-bg: var(--bg-app);
+  --kg-panel: var(--bg-surface);
+  --kg-panel-2: var(--bg-soft);
+  --kg-surface: var(--bg-surface);
+  --kg-surface-soft: var(--bg-soft);
+  --kg-sidebar: var(--bg-surface);
+  --kg-sidebar-2: var(--bg-soft);
+  --kg-line: var(--border-soft);
+  --kg-border: var(--border-soft);
+  --kg-text: var(--text-main);
+  --kg-muted: var(--text-muted);
+  --kg-text-muted: var(--text-muted);
+  --kg-brand: var(--color-primary);
+  --kg-brand-2: var(--color-primary-2);
+  --kg-warn: var(--color-warning);
+  --kg-danger: var(--color-danger);
+  --kg-success: var(--color-success);
+
+  --primary: var(--color-primary);
+  --primary-strong: var(--color-primary-2);
+  --secondary: var(--color-violet);
+  --surface: var(--bg-surface);
+  --surface-muted: var(--bg-soft);
+  --line: var(--border-soft);
+  --ink: var(--text-main);
 }
 
 body {
   background: var(--kg-bg);
   color: var(--kg-text);
+  overflow-x: hidden;
 }
 
 .soft3d-bg {
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.72), rgba(238,242,246,0.96)),
-    linear-gradient(90deg, rgba(16,24,40,0.035) 1px, transparent 1px),
-    linear-gradient(180deg, rgba(16,24,40,0.03) 1px, transparent 1px) !important;
-  background-size: auto, 28px 28px, 28px 28px !important;
+    radial-gradient(circle at 10% 2%, rgba(37,116,255,.06), transparent 28%),
+    radial-gradient(circle at 92% 8%, rgba(168,88,255,.08), transparent 30%),
+    linear-gradient(180deg, var(--bg-app) 0%, var(--bg-app) 100%) !important;
 }
 
 .dark .soft3d-bg {
   background:
-    linear-gradient(180deg, rgba(8,13,24,0.92), rgba(8,13,24,0.98)),
-    linear-gradient(90deg, rgba(148,163,184,0.06) 1px, transparent 1px),
-    linear-gradient(180deg, rgba(148,163,184,0.045) 1px, transparent 1px) !important;
-  background-size: auto, 28px 28px, 28px 28px !important;
+    radial-gradient(circle at 10% 2%, rgba(37,116,255,.11), transparent 28%),
+    radial-gradient(circle at 92% 8%, rgba(168,88,255,.13), transparent 30%),
+    linear-gradient(180deg, var(--bg-app) 0%, var(--bg-app) 100%) !important;
 }
 
 .soft3d-card,
 .paint-layer {
   background: var(--kg-panel) !important;
   border: 1px solid var(--kg-line) !important;
-  border-radius: 8px !important;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-card) !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+/* Layered stacked card design */
+.neo-card-stack {
+  position: relative;
+}
+.neo-card-stack::before {
+  content: "";
+  position: absolute;
+  inset: 8px -8px -8px 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  background: var(--bg-soft);
+  opacity: 0.5;
+  z-index: -1;
+  pointer-events: none;
+  transition: all 0.25s ease;
 }
 
 .dark .soft3d-card,
 .dark .paint-layer {
   background: var(--kg-panel) !important;
   border-color: var(--kg-line) !important;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.26) !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3) !important;
 }
 
 .soft3d-card:hover {
-  border-color: rgba(14, 147, 132, 0.42) !important;
-  box-shadow: 0 10px 24px rgba(16, 24, 40, 0.08) !important;
+  border-color: rgba(37, 99, 235, 0.22) !important;
+  box-shadow: var(--shadow-card) !important;
+  transform: translateY(-2px);
 }
 
 .soft3d-btn,
 .soft3d-btn-primary {
-  border-radius: 8px !important;
+  border-radius: var(--radius-md) !important;
+  font-weight: 700;
+  transition: all 0.2s ease;
 }
 
 .soft3d-btn-primary {
-  background: linear-gradient(135deg, var(--kg-brand), var(--kg-brand-2)) !important;
-  box-shadow: 0 8px 18px rgba(14, 147, 132, 0.18) !important;
+  background: var(--gradient-primary) !important;
+  color: white !important;
+  border: none !important;
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.16) !important;
 }
 
-.rounded-xl,
-.rounded-2xl,
+.soft3d-btn-primary:hover {
+  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.26) !important;
+  transform: translateY(-1px);
+}
+
+.rounded-xl {
+  border-radius: var(--radius-md) !important;
+}
+.rounded-2xl {
+  border-radius: var(--radius-lg) !important;
+}
 .rounded-3xl {
-  border-radius: 8px !important;
+  border-radius: var(--radius-xl) !important;
 }
 
 .rounded-lg,
 .rounded-md,
 .rounded-sm {
-  border-radius: 6px !important;
+  border-radius: var(--radius-sm) !important;
 }
 
 header {
-  background: rgba(255,255,255,0.95) !important;
+  background: rgba(255, 255, 255, 0.8) !important;
+  backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--kg-line) !important;
-  box-shadow: 0 1px 2px rgba(16,24,40,0.04);
+  box-shadow: var(--shadow-soft);
 }
 
 .dark header {
-  background: rgba(17,24,39,0.95) !important;
+  background: rgba(17, 24, 39, 0.8) !important;
 }
 
 aside {
-  background:
-    linear-gradient(180deg, var(--kg-sidebar), var(--kg-sidebar-2)) !important;
-  border-right: 1px solid rgba(255,255,255,0.08) !important;
+  background: var(--kg-sidebar) !important;
+  border-right: 1px solid var(--kg-line) !important;
+  box-shadow: var(--shadow-soft);
 }
 
 aside h3,
 aside p,
 aside span,
 aside button {
-  color: rgba(255,255,255,0.86) !important;
+  color: var(--text-main) !important;
 }
 
 aside button:hover {
-  background: rgba(255,255,255,0.08) !important;
+  background: var(--bg-soft) !important;
 }
 
 aside button[class*="bg-teal-600"],
-aside button[class*="bg-teal-50"] {
-  background: rgba(14,147,132,0.22) !important;
+aside button[class*="bg-[#E85D4A]"] {
+  background: var(--gradient-primary) !important;
   color: #ffffff !important;
-  box-shadow: inset 3px 0 0 #2dd4bf !important;
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.2) !important;
 }
 
 aside [class*="border-slate"],
 aside [class*="bg-slate"] {
-  border-color: rgba(255,255,255,0.09) !important;
-  background: rgba(255,255,255,0.06) !important;
+  border-color: var(--kg-line) !important;
+  background: var(--bg-soft) !important;
 }
 
 main {
@@ -590,20 +695,16 @@ main .h-full > div {
 }
 
 .soft3d-card[class*="text-white"][class*="bg-gradient"] {
-  background:
-    linear-gradient(135deg, rgba(16,24,40,0.94), rgba(23,92,211,0.88)),
-    linear-gradient(90deg, rgba(255,255,255,0.12) 1px, transparent 1px),
-    linear-gradient(180deg, rgba(255,255,255,0.1) 1px, transparent 1px) !important;
-  background-size: auto, 24px 24px, 24px 24px !important;
-  border: 1px solid rgba(255,255,255,0.16) !important;
-  border-radius: 10px !important;
-  box-shadow: 0 18px 42px rgba(16, 24, 40, 0.18) !important;
+  background: var(--gradient-hero) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  border-radius: var(--radius-xl) !important;
+  box-shadow: var(--shadow-hero) !important;
 }
 
 .soft3d-card[class*="text-white"][class*="bg-gradient"] .rounded-xl,
 .soft3d-card[class*="text-white"][class*="bg-gradient"] .rounded-lg {
-  background: rgba(255,255,255,0.12) !important;
-  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255, 255, 255, 0.12) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14);
 }
 
 main h2 {
@@ -625,23 +726,32 @@ main textarea,
 .swal2-input,
 .swal2-textarea,
 .swal2-select {
-  border-radius: 8px !important;
+  border-radius: var(--radius-md) !important;
   border: 1px solid var(--kg-line) !important;
   background: var(--kg-panel) !important;
-  min-height: 42px;
+  min-height: 44px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02) !important;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+main input:focus,
+main select:focus,
+main textarea:focus {
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
 }
 
 main table {
   overflow: hidden;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
 }
 
 main th {
   background: var(--kg-panel-2);
   color: var(--kg-muted) !important;
   font-weight: 800 !important;
-  padding-top: 0.75rem !important;
-  padding-bottom: 0.75rem !important;
+  padding-top: 0.85rem !important;
+  padding-bottom: 0.85rem !important;
 }
 
 main td {
@@ -649,7 +759,7 @@ main td {
 }
 
 main tr:hover td {
-  background: rgba(14,147,132,0.045) !important;
+  background: rgba(37, 99, 235, 0.035) !important;
 }
 
 main .grid > .soft3d-card {
@@ -658,22 +768,22 @@ main .grid > .soft3d-card {
 
 main [class*="bg-green-100"],
 main [class*="bg-emerald-100"] {
-  background-color: rgba(3, 152, 85, 0.12) !important;
+  background-color: rgba(16, 185, 129, 0.12) !important;
 }
 
 main [class*="bg-blue-100"],
 main [class*="bg-ocean-100"] {
-  background-color: rgba(23, 92, 211, 0.12) !important;
+  background-color: rgba(37, 99, 235, 0.12) !important;
 }
 
 main [class*="bg-amber-100"],
 main [class*="bg-orange-100"] {
-  background-color: rgba(220, 104, 3, 0.13) !important;
+  background-color: rgba(245, 158, 11, 0.13) !important;
 }
 
 main [class*="bg-red-100"],
 main [class*="bg-rose-100"] {
-  background-color: rgba(217, 45, 32, 0.11) !important;
+  background-color: rgba(239, 68, 68, 0.11) !important;
 }
 
 main [class*="text-ocean"],
@@ -687,7 +797,7 @@ main [class*="bg-teal-600"] {
 }
 
 .swal2-popup {
-  border-radius: 10px !important;
+  border-radius: var(--radius-lg) !important;
   border-color: var(--kg-line) !important;
   box-shadow: 0 24px 60px rgba(16,24,40,0.24) !important;
 }
@@ -707,7 +817,7 @@ main [class*="bg-teal-600"] {
     display: grid;
     grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.85fr);
     align-items: start;
-    gap: 1rem;
+    gap: 1.25rem;
   }
 
   .dashboard-overview > * {
@@ -731,3 +841,4 @@ main [class*="bg-teal-600"] {
     grid-column: 1 / -1;
   }
 }
+

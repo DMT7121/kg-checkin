@@ -4,6 +4,8 @@ import { callApi } from '../services/api';
 import Swal from 'sweetalert2';
 import { ClipboardCheck, CheckCircle2, Circle, Filter, User, BadgeCheck, Clock, CheckSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { KgModuleHero } from '../components/KgDesignSystem';
+
 
 export default function Checklist() {
   const store = useAppStore();
@@ -105,26 +107,13 @@ export default function Checklist() {
   return (
     <div className="h-full flex flex-col soft3d-bg animate-fade-in relative pb-24">
       <div className="p-4 flex-none">
-        {/* Header Banner */}
-        <div className="soft3d-card !bg-gradient-to-r from-teal-500 via-emerald-600 to-green-700 p-6 md:p-8 text-white relative overflow-hidden flex items-center justify-between mb-6 shrink-0 border-opacity-30">
-          <div className="relative z-10">
-            <div className="flex items-center space-x-3 mb-2">
-              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
-                <CheckSquare size={20} className="text-white" />
-              </div>
-              <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Checklist Hằng Ngày</h2>
-            </div>
-            <p className="text-teal-100 font-medium opacity-90 text-sm md:text-base max-w-lg">
-              Nhiệm vụ phân công theo ca làm việc.
-            </p>
-          </div>
-          <div className="hidden md:block opacity-80 pl-4 relative z-10">
-            <ClipboardCheck size={80} strokeWidth={1} />
-          </div>
-          {/* Background Decorations */}
-          <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
-          <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-teal-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
-        </div>
+        <KgModuleHero
+          moduleId="checklist"
+          title="Checklist Hằng Ngày"
+          description="Xem và kiểm tra nhiệm vụ được phân công theo vị trí của bạn."
+          eyebrow="Nhiệm vụ"
+        />
+
 
         {/* Progress */}
         <div className="mb-6 soft3d-card p-4 w-full">
@@ -232,7 +221,7 @@ export default function Checklist() {
         <button
           onClick={handleSubmit}
           disabled={checkedIds.size === 0 || loading}
-          className="soft3d-card w-full !bg-gradient-to-r from-blue-600 to-indigo-600 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed text-white font-bold py-3.5 hover: transition transform active:scale-95 flex items-center justify-center border-opacity-30"
+          className="w-full bg-gradient-to-r from-[#2563eb] to-[#7c3aed] disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-2xl shadow-md hover:shadow-lg hover:-translate-y-0.5 transition transform active:scale-95 flex items-center justify-center border-none"
         >
           XÁC NHẬN HOÀN THÀNH ({checkedIds.size}/{filteredLists.length})
         </button>

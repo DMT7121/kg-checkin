@@ -5,6 +5,8 @@ import CalendarGrid from '../components/CalendarGrid';
 import { callApi } from '../services/api';
 import { CalendarClock, Clock, ListOrdered, Calendar, FileClock } from 'lucide-react';
 import Swal from 'sweetalert2';
+import { KgModuleHero } from '../components/KgDesignSystem';
+
 
 type ViewMode = 'HOURS' | 'TIMESTAMPS';
 
@@ -104,26 +106,12 @@ export default function Timesheet() {
 
   return (
     <div className="p-4 space-y-5 animate-slide-up pb-10">
-      {/* Header Banner */}
-      <div className="soft3d-card !bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-700 p-6 md:p-8 text-white relative overflow-hidden flex items-center justify-between mb-6 border-opacity-30">
-        <div className="relative z-10">
-          <div className="flex items-center space-x-3 mb-2">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
-              <CalendarClock size={20} className="text-white" />
-            </div>
-            <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Tổng Hợp Công</h2>
-          </div>
-          <p className="text-blue-100 font-medium opacity-90 text-sm md:text-base max-w-lg">
-            Tháng {month}/{year}
-          </p>
-        </div>
-        <div className="hidden md:block relative z-10 opacity-80">
-          <FileClock size={80} strokeWidth={1} />
-        </div>
-        {/* Background Decorations */}
-        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
-        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-blue-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
-      </div>
+      <KgModuleHero
+        moduleId="timesheet"
+        title="Tổng Hợp Công"
+        description={`Bảng công và thời gian làm việc chi tiết tháng ${month}/${year}`}
+        eyebrow="Báo cáo"
+      />
 
       <div className="soft3d-card p-5 rounded-2xl  ">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">

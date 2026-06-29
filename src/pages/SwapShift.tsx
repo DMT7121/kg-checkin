@@ -3,6 +3,8 @@ import { useAppStore } from '../store/useAppStore';
 import { DAY_NAMES, SHORT_DAY_NAMES, computeWeekInfo } from '../utils/helpers';
 import Swal from 'sweetalert2';
 import { ArrowLeftRight, Send, BellRing, Copy, User, Megaphone, Inbox, Clock, HandshakeIcon, LogOut } from 'lucide-react';
+import { KgModuleHero } from '../components/KgDesignSystem';
+
 
 export default function SwapShift() {
   const store = useAppStore();
@@ -167,26 +169,12 @@ export default function SwapShift() {
 
   return (
     <div className="p-4 animate-slide-up">
-      {/* Header Banner */}
-      <div className="soft3d-card !bg-gradient-to-r from-teal-500 via-emerald-500 to-green-600 p-6 md:p-8 text-white relative overflow-hidden flex items-center justify-between mb-6 border-opacity-30">
-        <div className="relative z-10">
-          <div className="flex items-center space-x-3 mb-2">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
-              <ArrowLeftRight size={20} className="text-white" />
-            </div>
-            <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Chợ Đổi Ca</h2>
-          </div>
-          <p className="text-teal-100 font-medium opacity-90 text-sm md:text-base max-w-lg">
-            Tìm người làm thay hoặc đổi ca nhanh chóng.
-          </p>
-        </div>
-        <div className="hidden md:block relative z-10 opacity-80">
-          <ArrowLeftRight size={80} strokeWidth={1} />
-        </div>
-        {/* Background Decorations */}
-        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
-        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-teal-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
-      </div>
+      <KgModuleHero
+        moduleId="swap"
+        title="Chợ Đổi Ca"
+        description="Tìm người làm thay hoặc đổi ca nhanh chóng."
+        eyebrow="Bảng tin"
+      />
 
       {/* Tabs Menu */}
       <div className="flex paint-layer p-1 rounded-2xl mb-6">
@@ -392,7 +380,7 @@ export default function SwapShift() {
             </div>
           )}
 
-          <button onClick={handleSwapRequest} className="soft3d-card w-full !bg-gradient-to-r from-teal-500 to-emerald-600 text-white font-bold py-4 hover: transition-all transform active:scale-95 flex items-center justify-center touch-manipulation border-opacity-30">
+          <button onClick={handleSwapRequest} className="w-full bg-gradient-to-r from-[#2563eb] to-[#7c3aed] text-white font-bold py-4 rounded-2xl shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all transform active:scale-95 flex items-center justify-center touch-manipulation border-none">
             {viewTab === 'leave' ? (
               <><LogOut size={18} className="mr-2" /> GỬI YÊU CẦU NGHỈ PHÉP</>
             ) : targetUsername === 'ALL' ? (

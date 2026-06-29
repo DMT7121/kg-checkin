@@ -3,6 +3,8 @@ import { Building2, Shield, Network, UserPlus, Save, CheckCircle2 } from 'lucide
 import Swal from 'sweetalert2';
 import { useAppStore } from '../../store/useAppStore';
 import { callApi } from '../../services/api';
+import { KgModuleHero } from '../../components/KgDesignSystem';
+
 
 export default function AdminOrg() {
   const { serverOrgConfig, currentUser, setServerOrgConfig } = useAppStore();
@@ -118,26 +120,13 @@ export default function AdminOrg() {
           <span className="mr-1">←</span> Quay lại Cài đặt chung
         </button>
       </div>
-      {/* Header Banner */}
-      <div className="soft3d-card !bg-gradient-to-r from-teal-600 via-emerald-600 to-green-700 p-6 md:p-8 text-white relative overflow-hidden flex items-center justify-between mb-6 border-opacity-30">
-        <div className="relative z-10">
-          <div className="flex items-center space-x-3 mb-2">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner">
-              <Building2 size={20} className="text-white" />
-            </div>
-            <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Tổ chức & Quyền</h2>
-          </div>
-          <p className="text-teal-100 font-medium opacity-90 text-sm md:text-base max-w-md">
-            Thiết lập doanh nghiệp, phòng ban và phân quyền.
-          </p>
-        </div>
-        <div className="hidden md:block relative z-10 opacity-80">
-          <Network size={80} strokeWidth={1} />
-        </div>
-        {/* Background Decorations */}
-        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
-        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-teal-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
-      </div>
+      <KgModuleHero
+        moduleId="admin-org"
+        title="Tổ chức & Quyền"
+        description="Thiết lập doanh nghiệp, chức vụ, phòng ban và quản lý phân quyền thành viên."
+        eyebrow="Cấu hình"
+      />
+
 
       {/* Company Info */}
       <div className="soft3d-card p-5 rounded-2xl  ">

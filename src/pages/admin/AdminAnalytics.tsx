@@ -3,6 +3,8 @@ import { useAppStore } from '../../store/useAppStore';
 import { callApi } from '../../services/api';
 import { BarChart3, Users, Clock, CheckCircle2, AlertTriangle, Trophy, GraduationCap, MessageSquare, RefreshCw, TrendingUp, TrendingDown, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { KgModuleHero } from '../../components/KgDesignSystem';
+
 
 interface AnalyticsData {
   checkinStats: { total: number; valid: number; invalid: number; late: number };
@@ -53,27 +55,13 @@ export default function AdminAnalytics() {
 
   return (
     <div className="p-4 space-y-4 animate-fade-in pb-20">
-      {/* Header */}
-      <div className="soft3d-card !bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 p-6 md:p-8 text-white relative overflow-hidden flex flex-col border-opacity-30">
-        <div className="flex items-center justify-between relative z-10 w-full">
-          <div>
-            <div className="flex items-center space-x-3 mb-2">
-              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
-                <BarChart3 size={20} className="text-white" />
-              </div>
-              <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Thống kê & Báo cáo</h2>
-            </div>
-            <p className="text-purple-100 font-medium opacity-90 text-sm md:text-base max-w-lg">
-              Tổng hợp dữ liệu 30 ngày gần nhất.
-            </p>
-          </div>
-          <div className="hidden md:block opacity-80 pl-4 relative z-10">
-            <TrendingUp size={80} strokeWidth={1} />
-          </div>
-        </div>
-        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
-        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-purple-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
-      </div>
+      <KgModuleHero
+        moduleId="admin"
+        title="Thống kê & Báo cáo"
+        description="Tổng hợp dữ liệu hoạt động, chấm công, checklist và lương thưởng 30 ngày gần nhất."
+        eyebrow="Quản lý"
+      />
+
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

@@ -3,6 +3,8 @@ import { MapPin, Clock, CalendarRange, Save, Crosshair, AlertCircle } from 'luci
 import Swal from 'sweetalert2';
 import { useAppStore } from '../../store/useAppStore';
 import { callApi } from '../../services/api';
+import { KgModuleHero } from '../../components/KgDesignSystem';
+
 
 export default function AdminShift() {
   const { serverGpsConfig, currentUser, setServerGpsConfig } = useAppStore();
@@ -109,26 +111,13 @@ export default function AdminShift() {
           <span className="mr-1">←</span> Quay lại Cài đặt chung
         </button>
       </div>
-      {/* Header Banner */}
-      <div className="soft3d-card !bg-gradient-to-r from-orange-600 via-amber-600 to-yellow-600 p-6 md:p-8 text-white relative overflow-hidden flex items-center justify-between mb-6 border-opacity-30">
-        <div className="relative z-10">
-          <div className="flex items-center space-x-3 mb-2">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner">
-              <Clock size={20} className="text-white" />
-            </div>
-            <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Ca làm & Chấm công</h2>
-          </div>
-          <p className="text-orange-100 font-medium opacity-90 text-sm md:text-base max-w-md">
-            Thiết lập tọa độ, bán kính và mã ca làm.
-          </p>
-        </div>
-        <div className="hidden md:block relative z-10 opacity-80">
-          <MapPin size={80} strokeWidth={1} />
-        </div>
-        {/* Background Decorations */}
-        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
-        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-orange-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
-      </div>
+      <KgModuleHero
+        moduleId="today"
+        title="Ca làm & Chấm công"
+        description="Thiết lập tọa độ định vị GPS nhà hàng, bán kính Check-in hợp lệ và quản lý các loại mã ca làm việc."
+        eyebrow="Cấu hình"
+      />
+
 
       {/* GPS Configuration */}
       <div className="soft3d-card p-5 rounded-2xl  ">

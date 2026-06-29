@@ -3,6 +3,8 @@ import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import { Banknote, FileSpreadsheet, ChevronRight, Calculator, DollarSign, Receipt, Settings2, Save, Plus, Trash2, Lock, Unlock, Users, Edit3, Check, X } from 'lucide-react';
 import Swal from 'sweetalert2';
+import { KgModuleHero } from '../components/KgDesignSystem';
+
 
 interface SalaryItem {
   username: string;
@@ -189,25 +191,13 @@ export default function Payroll() {
   if (isAdmin && !selectedUser) {
     return (
       <div className="p-4 space-y-5 animate-slide-up pb-10">
-        {/* Header Banner */}
-        <div className="soft3d-card !bg-gradient-to-r from-green-500 via-emerald-600 to-teal-700 p-6 md:p-8 text-white relative overflow-hidden flex items-center justify-between mb-2 border-opacity-30">
-          <div className="relative z-10">
-            <div className="flex items-center space-x-3 mb-2">
-              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
-                <DollarSign size={20} className="text-white" />
-              </div>
-              <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Bảng Lương Toàn Quán</h2>
-            </div>
-            <p className="text-green-100 font-medium opacity-90 text-sm md:text-base max-w-lg">
-              Quản lý lương thưởng của toàn bộ nhân viên.
-            </p>
-          </div>
-          <div className="hidden md:block relative z-10 opacity-80">
-            <Receipt size={80} strokeWidth={1} />
-          </div>
-          <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
-          <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-green-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
-        </div>
+        <KgModuleHero
+          moduleId="payroll"
+          title="Bảng Lương Toàn Quán"
+          description="Quản lý lương thưởng của toàn bộ nhân viên."
+          eyebrow="Tài chính"
+        />
+
 
         {/* Toggle Config */}
         <button onClick={() => setShowConfig(!showConfig)}
@@ -259,25 +249,13 @@ export default function Payroll() {
 
   return (
     <div className="p-4 space-y-5 animate-slide-up pb-10">
-      {/* Header Banner */}
-      <div className="soft3d-card !bg-gradient-to-r from-green-500 via-emerald-600 to-teal-700 p-6 md:p-8 text-white relative overflow-hidden flex items-center justify-between mb-6 border-opacity-30">
-        <div className="relative z-10">
-          <div className="flex items-center space-x-3 mb-2">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
-              <DollarSign size={20} className="text-white" />
-            </div>
-            <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Phiếu Lương</h2>
-          </div>
-          <p className="text-green-100 font-medium opacity-90 text-sm md:text-base max-w-lg">
-            Tháng này • {p.fullname}
-          </p>
-        </div>
-        <div className="hidden md:block relative z-10 opacity-80">
-          <Receipt size={80} strokeWidth={1} />
-        </div>
-        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/10 rounded-full blur-3xl mix-blend-overlay"></div>
-        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-green-400/30 rounded-full blur-2xl mix-blend-overlay"></div>
-      </div>
+      <KgModuleHero
+        moduleId="payroll"
+        title="Phiếu Lương"
+        description={`Phiếu lương chi tiết tháng này của ${p.fullname}.`}
+        eyebrow="Tài chính"
+      />
+
 
       <div className="soft3d-card p-6 rounded-2xl">
         <div className="flex flex-wrap justify-between items-center mb-6 pb-4 border-b border-gray-100 dark:border-gray-700 gap-2">
