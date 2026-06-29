@@ -412,7 +412,7 @@ export default function Guide() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setSelectedGuideId(null)}
-              className="inline-flex items-center gap-2 px-3 py-2 text-xs font-bold text-[#6F7785] dark:text-[#A0ABC0] hover:text-[#172033] dark:hover:text-white bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-xl transition-all active:scale-95"
+              className="inline-flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-slate-850 dark:hover:text-white bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl transition-all active:scale-95"
             >
               <ArrowLeft size={14} /> Quay lại danh sách
             </button>
@@ -420,14 +420,14 @@ export default function Guide() {
 
           <KgCard className="p-5 md:p-6 space-y-6">
             {/* Guide Header */}
-            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-[#E8DED1] dark:border-[#1E3F57] pb-5">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-5">
               <div className="flex items-center gap-3.5">
-                <div className="w-12 h-12 rounded-2xl bg-[#062B49]/5 dark:bg-[#E85D4A]/10 flex items-center justify-center text-[#062B49] dark:text-[#E85D4A] flex-shrink-0">
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-indigo-950/20 flex items-center justify-center text-blue-600 dark:text-indigo-400 flex-shrink-0">
                   <selectedGuide.icon size={24} />
                 </div>
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-lg md:text-xl font-extrabold text-[#172033] dark:text-white leading-tight">
+                    <h2 className="text-lg md:text-xl font-extrabold text-slate-850 dark:text-white leading-tight">
                       {selectedGuide.title}
                     </h2>
                     <KgStatusBadge variant={
@@ -440,7 +440,7 @@ export default function Guide() {
                       }
                     </KgStatusBadge>
                   </div>
-                  <p className="text-xs text-[#6F7785] dark:text-[#A0ABC0] mt-1">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                     Hướng dẫn chi tiết dành cho vai trò: {currentUser?.position || 'Nhân viên'}
                   </p>
                 </div>
@@ -462,26 +462,26 @@ export default function Guide() {
             {/* Guide Body */}
             <div className="space-y-5">
               <div className="space-y-2">
-                <h3 className="text-sm font-black uppercase tracking-wider text-[#062B49] dark:text-[#E85D4A]">
+                <h3 className="text-sm font-black uppercase tracking-wider text-blue-600 dark:text-indigo-400">
                   1. Giới thiệu phân hệ
                 </h3>
-                <p className="text-sm text-[#172033] dark:text-slate-200 leading-relaxed font-medium">
+                <p className="text-sm text-slate-850 dark:text-slate-200 leading-relaxed font-medium">
                   {selectedGuide.description}
                 </p>
               </div>
 
               <div className="space-y-3.5">
-                <h3 className="text-sm font-black uppercase tracking-wider text-[#062B49] dark:text-[#E85D4A]">
+                <h3 className="text-sm font-black uppercase tracking-wider text-blue-600 dark:text-indigo-400">
                   2. Quy trình & Các bước thực hiện
                 </h3>
-                <div className="relative border-l border-[#E8DED1] dark:border-[#1E3F57] ml-3.5 pl-5 space-y-5 py-1">
+                <div className="relative border-l border-slate-100 dark:border-slate-800 ml-3.5 pl-5 space-y-5 py-1">
                   {selectedGuide.steps.map((step, index) => (
                     <div key={index} className="relative">
                       {/* Step Number Dot */}
-                      <div className="absolute -left-[31px] top-0.5 w-6 h-6 rounded-full bg-[#062B49] dark:bg-[#E85D4A] text-white flex items-center justify-center text-xs font-bold shadow-sm">
+                      <div className="absolute -left-[31px] top-0.5 w-6 h-6 rounded-full bg-blue-600 dark:bg-indigo-500 text-white flex items-center justify-center text-xs font-bold shadow-sm">
                         {index + 1}
                       </div>
-                      <p className="text-xs md:text-sm text-[#172033] dark:text-slate-250 font-semibold leading-relaxed">
+                      <p className="text-xs md:text-sm text-slate-850 dark:text-slate-250 font-semibold leading-relaxed">
                         {step}
                       </p>
                     </div>
@@ -501,8 +501,8 @@ export default function Guide() {
             </div>
 
             {/* Mark as read footer */}
-            <div className="border-t border-[#E8DED1] dark:border-[#1E3F57] pt-5 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <p className="text-xs text-[#6F7785] dark:text-[#A0ABC0] font-medium text-center sm:text-left">
+            <div className="border-t border-slate-100 dark:border-slate-800 pt-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium text-center sm:text-left">
                 Đánh dấu hoàn thành giúp bạn kiểm soát nội dung đã học tập trên hệ thống.
               </p>
               <KgButton
@@ -527,24 +527,24 @@ export default function Guide() {
           />
 
           {/* Learning progress bar */}
-          <KgCard className="p-4 bg-gradient-to-r from-[#062B49]/5 to-transparent dark:from-[#E85D4A]/5 dark:to-transparent border-[#E8DED1] dark:border-[#1E3F57] flex flex-col sm:flex-row items-center justify-between gap-4">
+          <KgCard className="p-4 bg-gradient-to-r from-blue-500/5 to-transparent dark:from-indigo-500/5 dark:to-transparent border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="space-y-1 text-center sm:text-left">
-              <h3 className="text-sm font-extrabold text-[#172033] dark:text-white">
+              <h3 className="text-sm font-extrabold text-slate-850 dark:text-white">
                 Tiến trình tự học tập của bạn
               </h3>
-              <p className="text-xs text-[#6F7785] dark:text-[#A0ABC0]">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Đã hoàn thành <b>{totalRead}</b> trên tổng số <b>{totalAllowed}</b> chức năng được cấp quyền.
               </p>
             </div>
 
             <div className="w-full sm:w-64 space-y-2">
-              <div className="flex justify-between items-center text-xs font-bold text-[#6F7785] dark:text-[#A0ABC0]">
+              <div className="flex justify-between items-center text-xs font-bold text-slate-500 dark:text-slate-400">
                 <span>Tiến độ</span>
-                <span className="text-[#062B49] dark:text-[#E85D4A]">{displayPercent}%</span>
+                <span className="text-blue-600 dark:text-indigo-400">{displayPercent}%</span>
               </div>
-              <div className="w-full h-2.5 rounded-full bg-[#E8DED1] dark:bg-[#1E3F57] overflow-hidden">
+              <div className="w-full h-2.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-[#062B49] to-[#E85D4A] transition-all duration-500 ease-out"
+                  className="h-full rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 transition-all duration-500 ease-out"
                   style={{ width: `${displayPercent}%` }}
                 />
               </div>
@@ -569,8 +569,8 @@ export default function Guide() {
                 onClick={() => setSelectedCategory('all')}
                 className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 border ${
                   selectedCategory === 'all'
-                    ? 'bg-[#062B49] text-white border-[#062B49] dark:bg-[#E85D4A] dark:border-[#E85D4A]'
-                    : 'bg-white dark:bg-[#0E273C] text-[#6F7785] dark:text-[#A0ABC0] border-[#E8DED1] dark:border-[#1E3F57] hover:bg-[#FBF7F0] dark:hover:bg-[#122F48]'
+                    ? 'bg-blue-600 text-white border-blue-600 dark:bg-indigo-600 dark:border-indigo-600'
+                    : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40'
                 }`}
               >
                 Tất cả ({allowedGuides.length})
@@ -579,8 +579,8 @@ export default function Guide() {
                 onClick={() => setSelectedCategory('personal')}
                 className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 border ${
                   selectedCategory === 'personal'
-                    ? 'bg-[#062B49] text-white border-[#062B49] dark:bg-[#E85D4A] dark:border-[#E85D4A]'
-                    : 'bg-white dark:bg-[#0E273C] text-[#6F7785] dark:text-[#A0ABC0] border-[#E8DED1] dark:border-[#1E3F57] hover:bg-[#FBF7F0] dark:hover:bg-[#122F48]'
+                    ? 'bg-blue-600 text-white border-blue-600 dark:bg-indigo-600 dark:border-indigo-600'
+                    : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40'
                 }`}
               >
                 Cá nhân ({allowedGuides.filter(g => g.category === 'personal').length})
@@ -589,8 +589,8 @@ export default function Guide() {
                 onClick={() => setSelectedCategory('operation')}
                 className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 border ${
                   selectedCategory === 'operation'
-                    ? 'bg-[#062B49] text-white border-[#062B49] dark:bg-[#E85D4A] dark:border-[#E85D4A]'
-                    : 'bg-white dark:bg-[#0E273C] text-[#6F7785] dark:text-[#A0ABC0] border-[#E8DED1] dark:border-[#1E3F57] hover:bg-[#FBF7F0] dark:hover:bg-[#122F48]'
+                    ? 'bg-blue-600 text-white border-blue-600 dark:bg-indigo-600 dark:border-indigo-600'
+                    : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40'
                 }`}
               >
                 Vận hành ({allowedGuides.filter(g => g.category === 'operation').length})
@@ -600,8 +600,8 @@ export default function Guide() {
                   onClick={() => setSelectedCategory('admin')}
                   className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 border ${
                     selectedCategory === 'admin'
-                      ? 'bg-[#062B49] text-white border-[#062B49] dark:bg-[#E85D4A] dark:border-[#E85D4A]'
-                      : 'bg-white dark:bg-[#0E273C] text-[#6F7785] dark:text-[#A0ABC0] border-[#E8DED1] dark:border-[#1E3F57] hover:bg-[#FBF7F0] dark:hover:bg-[#122F48]'
+                      ? 'bg-blue-600 text-white border-blue-600 dark:bg-indigo-600 dark:border-indigo-600'
+                      : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40'
                   }`}
                 >
                   Quản lý ({allowedGuides.filter(g => g.category === 'admin').length})
@@ -620,20 +620,20 @@ export default function Guide() {
                   <KgCard
                     key={guide.id}
                     onClick={() => setSelectedGuideId(guide.id)}
-                    className="p-4 flex flex-col justify-between hover:shadow-md transition-all active:scale-[0.99] border-[#E8DED1] dark:border-[#1E3F57] relative overflow-hidden"
+                    className="p-4 flex flex-col justify-between hover:shadow-md transition-all active:scale-[0.99] border-slate-100 dark:border-slate-800 relative overflow-hidden"
                   >
                     <div className="space-y-3">
                       {/* Header in Card */}
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-[#062B49]/5 dark:bg-[#1E3F57] flex items-center justify-center text-[#062B49] dark:text-[#E85D4A] flex-shrink-0">
+                          <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-slate-800/40 flex items-center justify-center text-blue-600 dark:text-indigo-400 flex-shrink-0">
                             <GuideIcon size={18} />
                           </div>
                           <div>
-                            <h3 className="text-xs font-black text-[#172033] dark:text-white leading-tight">
+                            <h3 className="text-xs font-black text-slate-850 dark:text-white leading-tight">
                               {guide.title}
                             </h3>
-                            <span className="text-[10px] text-[#6F7785] dark:text-[#A0ABC0] font-bold">
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold">
                               Phân hệ: {getTabLabel(guide.id)}
                             </span>
                           </div>
@@ -653,20 +653,20 @@ export default function Guide() {
                       </div>
 
                       {/* Summary */}
-                      <p className="text-xs text-[#6F7785] dark:text-[#A0ABC0] leading-relaxed line-clamp-2">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-2">
                         {guide.summary}
                       </p>
                     </div>
 
                     {/* Bottom Action Hint */}
-                    <div className="flex items-center justify-between border-t border-[#E8DED1]/50 dark:border-[#1E3F57]/50 pt-3 mt-3">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#6F7785] dark:text-[#A0ABC0]">
+                    <div className="flex items-center justify-between border-t border-slate-100/50 dark:border-slate-800/50 pt-3 mt-3">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                         Thể loại: {
                           guide.category === 'admin' ? 'Quản trị' : 
                           guide.category === 'operation' ? 'Vận hành' : 'Cá nhân'
                         }
                       </span>
-                      <span className="text-xs font-bold text-[#062B49] dark:text-[#E85D4A] inline-flex items-center gap-1 hover:underline">
+                      <span className="text-xs font-bold text-blue-600 dark:text-indigo-400 inline-flex items-center gap-1 hover:underline">
                         Xem chi tiết <ChevronRight size={14} />
                       </span>
                     </div>
@@ -675,10 +675,10 @@ export default function Guide() {
               })}
             </div>
           ) : (
-            <div className="text-center py-12 bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-2xl">
-              <HelpCircle size={32} className="mx-auto text-[#9AA1AA] mb-2" />
-              <p className="text-sm font-bold text-[#172033] dark:text-white">Không tìm thấy hướng dẫn nào</p>
-              <p className="text-xs text-[#6F7785] dark:text-[#A0ABC0] mt-1">Vui lòng thử từ khoá tìm kiếm khác.</p>
+            <div className="text-center py-12 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl">
+              <HelpCircle size={32} className="mx-auto text-slate-400 mb-2" />
+              <p className="text-sm font-bold text-slate-850 dark:text-white">Không tìm thấy hướng dẫn nào</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Vui lòng thử từ khoá tìm kiếm khác.</p>
             </div>
           )}
         </div>

@@ -117,14 +117,14 @@ const prefetchModuleScreens = async () => {
 
 const ComingSoonPage = ({ title }: { title: string }) => (
   <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
-    <div className="w-20 h-20 rounded-2xl bg-[#FFF0ED] dark:bg-[#E85D4A]/10 flex items-center justify-center mb-5 shadow-sm">
-      <Briefcase size={32} className="text-[#E85D4A]" />
+    <div className="w-20 h-20 rounded-2xl bg-indigo-50 dark:bg-indigo-950/20 flex items-center justify-center mb-5 shadow-sm">
+      <Briefcase size={32} className="text-indigo-600 dark:text-indigo-400" />
     </div>
-    <h2 className="text-xl font-bold text-[#172033] dark:text-white mb-2">{title}</h2>
-    <p className="text-sm text-[#6F7785] dark:text-[#A0ABC0] max-w-xs">
+    <h2 className="text-xl font-bold text-slate-850 dark:text-white mb-2">{title}</h2>
+    <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs">
       Tính năng này đang được phát triển và sẽ sớm ra mắt trong các bản cập nhật tiếp theo.
     </p>
-    <div className="soft3d-card mt-6 px-5 py-2.5 rounded-full !bg-[#E85D4A] text-white text-xs font-bold tracking-wide border-none">
+    <div className="soft3d-card mt-6 px-5 py-2.5 rounded-full !bg-indigo-600 text-white text-xs font-bold tracking-wide border-none">
       COMING SOON
     </div>
   </div>
@@ -132,11 +132,11 @@ const ComingSoonPage = ({ title }: { title: string }) => (
 
 const AccessDeniedPage = ({ tabTitle }: { tabTitle: string }) => (
   <div className="flex flex-col items-center justify-center py-20 px-6 text-center animate-fade-in">
-    <div className="w-20 h-20 rounded-2xl bg-[#FFF0ED] dark:bg-[#E85D4A]/10 flex items-center justify-center mb-5 shadow-sm border border-[#E85D4A]/20">
-      <ShieldAlert size={36} className="text-[#E85D4A]" />
+    <div className="w-20 h-20 rounded-2xl bg-red-50 dark:bg-red-950/20 flex items-center justify-center mb-5 shadow-sm border border-red-200/50 dark:border-red-900/30">
+      <ShieldAlert size={36} className="text-red-500" />
     </div>
-    <h2 className="text-xl font-black text-[#062B49] dark:text-white mb-2">Không Có Quyền Truy Cập</h2>
-    <p className="text-sm text-[#6F7785] dark:text-[#A0ABC0] max-w-sm leading-relaxed">
+    <h2 className="text-xl font-black text-slate-850 dark:text-white mb-2">Không Có Quyền Truy Cập</h2>
+    <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm leading-relaxed">
       Vị trí làm việc hoặc phân quyền tài khoản của bạn hiện tại không được phép truy cập phân hệ <b>{tabTitle}</b>.
     </p>
     <p className="text-xs text-[#6F7785] dark:text-[#A0ABC0]/80 mt-2">
@@ -147,24 +147,24 @@ const AccessDeniedPage = ({ tabTitle }: { tabTitle: string }) => (
 
 const TabFallback = () => (
   <div className="p-4 md:p-6 space-y-4">
-    <div className="bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-3xl p-5 md:p-6 overflow-hidden">
+    <div className="bg-white dark:bg-[#111827] border border-[#e2e8f0]/60 dark:border-slate-850 rounded-3xl p-5 md:p-6 overflow-hidden">
       <div className="flex items-center justify-between gap-4 mb-5">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-[#062B49]/5 dark:bg-[#122F48] flex items-center justify-center">
-            <RefreshCw size={18} className="animate-spin text-[#062B49] dark:text-[#E85D4A]" />
+          <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-950/20 flex items-center justify-center">
+            <RefreshCw size={18} className="animate-spin text-blue-600 dark:text-indigo-400" />
           </div>
           <div>
-            <p className="text-sm font-extrabold text-[#172033] dark:text-white">Đang mở module</p>
-            <p className="text-xs text-[#6F7785] dark:text-[#A0ABC0]">Dữ liệu giao diện đang được tải nhanh...</p>
+            <p className="text-sm font-extrabold text-slate-850 dark:text-white">Đang mở module</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Dữ liệu giao diện đang được tải nhanh...</p>
           </div>
         </div>
         <div className="hidden sm:block h-2 w-28 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-          <div className="h-full w-1/2 rounded-full bg-[#062B49] dark:bg-[#E85D4A] animate-pulse" />
+          <div className="h-full w-1/2 rounded-full bg-blue-600 dark:bg-indigo-500 animate-pulse" />
         </div>
       </div>
       <div className="grid md:grid-cols-3 gap-3">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="h-24 rounded-lg border border-[#E8DED1] dark:border-[#1E3F57] bg-[#FBF7F0] dark:bg-[#122F48] p-3">
+          <div key={i} className="h-24 rounded-lg border border-[#e2e8f0]/60 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-3">
             <div className="h-3 w-20 rounded bg-slate-200 dark:bg-slate-700 animate-pulse mb-3" />
             <div className="h-6 w-16 rounded bg-slate-200 dark:bg-slate-700 animate-pulse" />
           </div>
@@ -172,7 +172,7 @@ const TabFallback = () => (
       </div>
       <div className="mt-4 space-y-2">
         {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="h-10 rounded-lg bg-[#FBF7F0] dark:bg-[#122F48] animate-pulse" />
+          <div key={i} className="h-10 rounded-lg bg-slate-50 dark:bg-slate-800/50 animate-pulse" />
         ))}
       </div>
     </div>
@@ -317,7 +317,7 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: any) => void })
           {/* Left side: Hero card & Actions */}
           <div className="lg:col-span-7 space-y-4">
             {/* Personal Hero Card */}
-            <div className="relative overflow-hidden rounded-3xl bg-[#062B49] p-6 text-white shadow-sm border border-[#0B3A5F]">
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-600 p-6 text-white shadow-sm border border-white/10">
               <div className="relative z-10 flex flex-col justify-between h-full space-y-6">
                 <div>
                   <div className="flex items-center space-x-2.5">
@@ -326,18 +326,18 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: any) => void })
                       Xin chào, {currentUser?.fullname.split(' ').pop()}!
                     </h2>
                   </div>
-                  <p className="text-[#A0ABC0] text-xs font-semibold mt-1">
+                  <p className="text-white/80 text-xs font-semibold mt-1">
                     Hôm nay • {store.currentTime}
                   </p>
                 </div>
 
-                <div className="flex items-center justify-between bg-white/5 backdrop-blur-sm rounded-2xl p-4 border border-white/10">
+                <div className="flex items-center justify-between bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/10">
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-[#A0ABC0]">Lịch làm hôm nay</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-white/70">Lịch làm hôm nay</p>
                     <p className="text-sm font-extrabold mt-0.5">{todayShift}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-[#A0ABC0]">Trạng thái</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-white/70">Trạng thái</p>
                     <KgStatusBadge variant={statusVariant} className="mt-1">
                       {statusText}
                     </KgStatusBadge>
@@ -345,7 +345,7 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: any) => void })
                 </div>
               </div>
               {/* Background circles */}
-              <div className="absolute right-[-10%] top-[-20%] w-60 h-60 bg-[#E85D4A]/10 rounded-full blur-3xl mix-blend-screen" />
+              <div className="absolute right-[-10%] top-[-20%] w-60 h-60 bg-white/10 rounded-full blur-3xl mix-blend-screen" />
               <div className="absolute left-[-20%] bottom-[-40%] w-60 h-60 bg-white/5 rounded-full blur-3xl mix-blend-screen" />
             </div>
 
@@ -372,66 +372,66 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: any) => void })
 
             {/* Card việc cần làm (To-Do List) */}
             <KgCard className="p-5">
-              <h3 className="text-sm font-black text-[#172033] dark:text-white uppercase tracking-wider mb-4 border-b border-[#E8DED1] dark:border-[#1E3F57] pb-2">
+              <h3 className="text-sm font-black text-slate-850 dark:text-white uppercase tracking-wider mb-4 border-b border-slate-100 dark:border-slate-800 pb-2">
                 Việc cần làm hôm nay
               </h3>
               <div className="space-y-3.5">
                 {/* Checklist item */}
                 {hasTabPermission('checklist', currentUser) && (
-                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#FBF7F0] dark:bg-[#122F48]/50 border border-[#E8DED1] dark:border-[#1E3F57]">
+                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
                     <div className="flex items-center space-x-3">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.todayChecklistDone ? 'bg-[#EEF7F0] text-[#4F8A5B]' : 'bg-[#FFF7E4] text-[#D8A23A]'}`}>
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.todayChecklistDone ? 'bg-emerald-50 text-emerald-650 dark:bg-emerald-950/20 dark:text-emerald-400' : 'bg-amber-50 text-amber-650 dark:bg-amber-950/20 dark:text-amber-400'}`}>
                         <ClipboardCheck size={16} />
                       </div>
                       <div>
-                        <p className="text-xs font-bold text-[#172033] dark:text-slate-200">Nộp checklist vận hành</p>
-                        <p className="text-[10px] text-[#6F7785] dark:text-[#A0ABC0] font-medium">Báo cáo hạng mục đầu/cuối ca</p>
+                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Nộp checklist vận hành</p>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Báo cáo hạng mục đầu/cuối ca</p>
                       </div>
                     </div>
                     {store.todayChecklistDone ? (
                       <KgStatusBadge variant="success">Đã nộp</KgStatusBadge>
                     ) : (
-                      <button onClick={() => onTabChange('checklist')} className="text-xs font-bold text-[#062B49] dark:text-[#E85D4A] hover:underline">Làm ngay →</button>
+                      <button onClick={() => onTabChange('checklist')} className="text-xs font-bold text-blue-600 dark:text-indigo-400 hover:underline">Làm ngay →</button>
                     )}
                   </div>
                 )}
 
                 {/* Handover item */}
                 {hasTabPermission('handover', currentUser) && (
-                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#FBF7F0] dark:bg-[#122F48]/50 border border-[#E8DED1] dark:border-[#1E3F57]">
+                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
                     <div className="flex items-center space-x-3">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.todayHandoverDone ? 'bg-[#EEF7F0] text-[#4F8A5B]' : 'bg-[#FFF0ED] text-[#E85D4A]'}`}>
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.todayHandoverDone ? 'bg-emerald-50 text-emerald-650 dark:bg-emerald-950/20 dark:text-emerald-400' : 'bg-red-50 text-red-650 dark:bg-red-950/20 dark:text-red-400'}`}>
                         <Repeat size={16} />
                       </div>
                       <div>
-                        <p className="text-xs font-bold text-[#172033] dark:text-slate-200">Ghi sổ bàn giao ca</p>
-                        <p className="text-[10px] text-[#6F7785] dark:text-[#A0ABC0] font-medium">Bàn giao doanh thu, sự cố, kho</p>
+                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Ghi sổ bàn giao ca</p>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Bàn giao doanh thu, sự cố, kho</p>
                       </div>
                     </div>
                     {store.todayHandoverDone ? (
                       <KgStatusBadge variant="success">Đã hoàn thành</KgStatusBadge>
                     ) : (
-                      <button onClick={() => onTabChange('handover')} className="text-xs font-bold text-[#062B49] dark:text-[#E85D4A] hover:underline">Ghi sổ →</button>
+                      <button onClick={() => onTabChange('handover')} className="text-xs font-bold text-blue-600 dark:text-indigo-400 hover:underline">Ghi sổ →</button>
                     )}
                   </div>
                 )}
 
                 {/* Register Schedule item */}
                 {hasTabPermission('schedule', currentUser) && (
-                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#FBF7F0] dark:bg-[#122F48]/50 border border-[#E8DED1] dark:border-[#1E3F57]">
+                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
                     <div className="flex items-center space-x-3">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.isScheduleRegistered ? 'bg-[#EEF7F0] text-[#4F8A5B]' : 'bg-[#FFF7E4] text-[#D8A23A]'}`}>
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.isScheduleRegistered ? 'bg-emerald-50 text-emerald-650 dark:bg-emerald-950/20 dark:text-emerald-400' : 'bg-amber-50 text-amber-650 dark:bg-amber-950/20 dark:text-amber-400'}`}>
                         <Calendar size={16} />
                       </div>
                       <div>
-                        <p className="text-xs font-bold text-[#172033] dark:text-slate-200">Đăng ký lịch tuần tới</p>
-                        <p className="text-[10px] text-[#6F7785] dark:text-[#A0ABC0] font-medium">Hạn đăng ký trước Chủ nhật hàng tuần</p>
+                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Đăng ký lịch tuần tới</p>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Hạn đăng ký trước Chủ nhật hàng tuần</p>
                       </div>
                     </div>
                     {store.isScheduleRegistered ? (
                       <KgStatusBadge variant="success">Đã đăng ký</KgStatusBadge>
                     ) : (
-                      <button onClick={() => onTabChange('schedule')} className="text-xs font-bold text-[#062B49] dark:text-[#E85D4A] hover:underline">Đăng ký →</button>
+                      <button onClick={() => onTabChange('schedule')} className="text-xs font-bold text-blue-600 dark:text-indigo-400 hover:underline">Đăng ký →</button>
                     )}
                   </div>
                 )}
@@ -443,15 +443,15 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: any) => void })
           <div className="lg:col-span-5 space-y-4">
             {/* Quick Actions Panel */}
             <KgCard className="p-4">
-              <h3 className="text-xs font-bold text-[#6F7785] uppercase tracking-wider mb-3">Lối tắt nhanh</h3>
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Lối tắt nhanh</h3>
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-3 lg:grid-cols-4 gap-2">
                 {[
-                  { icon: Newspaper, label: 'Bảng tin', tab: 'news' as any, color: 'text-[#062B49] bg-[#FFF0ED] dark:bg-[#1E3F57]/30' },
-                  { icon: UtensilsCrossed, label: 'Món hết', tab: 'soldout' as any, color: 'text-[#D8A23A] bg-[#FFF7E4] dark:bg-[#E2B24C]/10' },
-                  { icon: Award, label: 'King Coins', tab: 'reward' as any, color: 'text-[#E2B24C] bg-[#FFF8E7] dark:bg-[#E2B24C]/10' },
-                  { icon: Banknote, label: 'Phiếu lương', tab: 'payroll' as any, color: 'text-[#4F8A5B] bg-[#EEF7F0] dark:bg-[#5F9D6B]/10' },
-                  { icon: MessageSquareWarning, label: 'Góp ý', tab: 'feedback' as any, color: 'text-[#C94335] bg-[#FFF0EE] dark:bg-[#D8584B]/10' },
-                  { icon: Calendar, label: 'Lịch làm', tab: 'schedule' as any, color: 'text-[#3B82F6] bg-[#EFF6FF] dark:bg-[#3B82F6]/10' },
+                  { icon: Newspaper, label: 'Bảng tin', tab: 'news' as any, color: 'text-blue-650 bg-blue-50 dark:bg-blue-950/20' },
+                  { icon: UtensilsCrossed, label: 'Món hết', tab: 'soldout' as any, color: 'text-amber-650 bg-amber-50 dark:bg-amber-950/20' },
+                  { icon: Award, label: 'King Coins', tab: 'reward' as any, color: 'text-yellow-650 bg-yellow-50 dark:bg-yellow-950/20' },
+                  { icon: Banknote, label: 'Phiếu lương', tab: 'payroll' as any, color: 'text-emerald-650 bg-emerald-50 dark:bg-emerald-950/20' },
+                  { icon: MessageSquareWarning, label: 'Góp ý', tab: 'feedback' as any, color: 'text-red-650 bg-red-50 dark:bg-red-950/20' },
+                  { icon: Calendar, label: 'Lịch làm', tab: 'schedule' as any, color: 'text-indigo-650 bg-indigo-50 dark:bg-indigo-950/20' },
                 ].filter(act => hasTabPermission(act.tab, currentUser)).map((act, i) => (
                   <button
                     key={i}
@@ -461,7 +461,7 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: any) => void })
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm ${act.color}`}>
                       <act.icon size={18} />
                     </div>
-                    <span className="text-[10px] font-bold text-[#6F7785] dark:text-[#A0ABC0] truncate w-full">
+                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 truncate w-full">
                       {act.label}
                     </span>
                   </button>
@@ -471,9 +471,9 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: any) => void })
 
             {/* Personal Recent Activity Logs */}
             <KgCard className="p-4">
-              <div className="flex items-center justify-between mb-3 border-b border-[#E8DED1] dark:border-[#1E3F57] pb-2">
-                <h3 className="text-xs font-bold text-[#6F7785] uppercase tracking-wider">Lịch sử chấm công</h3>
-                <button onClick={() => onTabChange('history')} className="text-xs font-bold text-[#062B49] dark:text-[#E85D4A] hover:underline">
+              <div className="flex items-center justify-between mb-3 border-b border-slate-100 dark:border-slate-800 pb-2">
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Lịch sử chấm công</h3>
+                <button onClick={() => onTabChange('history')} className="text-xs font-bold text-blue-600 dark:text-indigo-400 hover:underline">
                   Xem tất cả
                 </button>
               </div>
@@ -482,14 +482,14 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: any) => void })
                   {recentLogs.map((log, i) => {
                     const isCheckin = log.type.includes('Vào ca') || log.type.includes('IN');
                     return (
-                      <div key={i} className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-[#122F48]/50 border border-[#E8DED1] dark:border-[#1E3F57]">
+                      <div key={i} className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800">
                         <div className="flex items-center space-x-2.5 min-w-0">
-                          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0 text-xs ${isCheckin ? 'bg-[#4F8A5B]' : 'bg-[#C94335]'}`}>
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0 text-xs ${isCheckin ? 'bg-emerald-550' : 'bg-red-550'}`}>
                             {isCheckin ? '→' : '←'}
                           </div>
                           <div className="min-w-0">
-                            <p className="text-xs font-bold text-[#172033] dark:text-slate-200 truncate">{log.type}</p>
-                            <p className="text-[10px] text-[#6F7785] dark:text-[#A0ABC0] font-medium truncate">{log.time}</p>
+                            <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{log.type}</p>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">{log.time}</p>
                           </div>
                         </div>
                         <KgStatusBadge variant={log.status?.includes('Hợp lệ') ? 'success' : 'error'}>
@@ -500,7 +500,7 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: any) => void })
                   })}
                 </div>
               ) : (
-                <div className="text-center py-4 text-xs text-[#6F7785] dark:text-slate-500">
+                <div className="text-center py-4 text-xs text-slate-400 dark:text-slate-500">
                   Chưa có hoạt động nào hôm nay
                 </div>
               )}
@@ -547,9 +547,9 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: any) => void })
               
               {/* Discrepancy details */}
               {(notArrived.length > 0 || lateArrived.length > 0) && (
-                <KgCard className="p-5 border-[#D8A23A]/30 dark:border-[#1E3F57]">
-                  <h3 className="text-sm font-black text-[#172033] dark:text-white uppercase tracking-wider mb-4 border-b border-[#E8DED1] dark:border-[#1E3F57] pb-2 flex items-center">
-                    <ShieldAlert size={16} className="text-[#D8A23A] mr-2 flex-shrink-0" />
+                <KgCard className="p-5 border-slate-100 dark:border-slate-800">
+                  <h3 className="text-sm font-black text-slate-850 dark:text-white uppercase tracking-wider mb-4 border-b border-slate-100 dark:border-slate-800 pb-2 flex items-center">
+                    <ShieldAlert size={16} className="text-amber-500 mr-2 flex-shrink-0" />
                     Cảnh báo vận hành hôm nay
                   </h3>
                   <div className="space-y-3.5">
@@ -557,7 +557,7 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: any) => void })
                       <KgAlertCard variant="warning" title="Nhân viên đi trễ" icon={Clock}>
                         <div className="flex flex-wrap gap-1.5 mt-1">
                           {lateArrived.map((emp, i) => (
-                            <span key={i} className="text-[10px] font-bold bg-white dark:bg-slate-900 border border-[#D8A23A]/30 dark:border-[#1E3F57] px-2 py-0.5 rounded-lg text-slate-700 dark:text-slate-300">
+                            <span key={i} className="text-[10px] font-bold bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-900/30 px-2 py-0.5 rounded-lg text-slate-700 dark:text-slate-300">
                               {emp.fullname}
                             </span>
                           ))}
@@ -568,7 +568,7 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: any) => void })
                       <KgAlertCard variant="error" title="Chưa thấy chấm công vào ca" icon={AlertCircle}>
                         <div className="flex flex-wrap gap-1.5 mt-1">
                           {notArrived.map((emp, i) => (
-                            <span key={i} className="text-[10px] font-bold bg-white dark:bg-slate-900 border border-[#C94335]/30 dark:border-[#1E3F57] px-2 py-0.5 rounded-lg text-slate-700 dark:text-slate-300">
+                            <span key={i} className="text-[10px] font-bold bg-white dark:bg-slate-900 border border-red-200 dark:border-red-900/30 px-2 py-0.5 rounded-lg text-slate-700 dark:text-slate-300">
                               {emp.fullname} ({emp.shift})
                             </span>
                           ))}
@@ -585,21 +585,21 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: any) => void })
                 <KgCard className="p-4 text-left hover:shadow-sm transition-all flex flex-col justify-between min-h-[140px]">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-2">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.todayChecklistDone ? 'bg-[#EEF7F0] text-[#4F8A5B]' : 'bg-[#FFF7E4] text-[#D8A23A]'}`}>
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.todayChecklistDone ? 'bg-emerald-50 text-emerald-650 dark:bg-emerald-950/20 dark:text-emerald-400' : 'bg-amber-50 text-amber-650 dark:bg-amber-950/20 dark:text-amber-400'}`}>
                         <ClipboardCheck size={16} />
                       </div>
-                      <span className="text-xs font-bold text-[#6F7785] dark:text-[#A0ABC0]">Checklist Vận Hành</span>
+                      <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Checklist Vận Hành</span>
                     </div>
                   </div>
                   <div>
-                    <p className="text-lg font-black text-[#172033] dark:text-white leading-tight">
+                    <p className="text-lg font-black text-slate-850 dark:text-white leading-tight">
                       {store.todayChecklistDone ? 'Tất cả đã nộp' : 'Đang chờ nộp'}
                     </p>
-                    <p className="text-[10px] text-[#6F7785] dark:text-[#A0ABC0] font-semibold mt-1">
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold mt-1">
                       Hạng mục việc làm ca sáng & tối
                     </p>
                   </div>
-                  <button onClick={() => onTabChange('checklist')} className="text-xs font-bold text-[#062B49] dark:text-[#E85D4A] hover:underline mt-3 text-left">
+                  <button onClick={() => onTabChange('checklist')} className="text-xs font-bold text-blue-600 dark:text-indigo-400 hover:underline mt-3 text-left">
                     Quản lý checklist →
                   </button>
                 </KgCard>
@@ -608,21 +608,21 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: any) => void })
                 <KgCard className="p-4 text-left hover:shadow-sm transition-all flex flex-col justify-between min-h-[140px]">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-2">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.todayHandoverDone ? 'bg-[#EEF7F0] text-[#4F8A5B]' : 'bg-[#FFF0ED] text-[#E85D4A]'}`}>
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.todayHandoverDone ? 'bg-emerald-50 text-emerald-650 dark:bg-emerald-950/20 dark:text-emerald-400' : 'bg-red-50 text-red-650 dark:bg-red-950/20 dark:text-red-400'}`}>
                         <Repeat size={16} />
                       </div>
-                      <span className="text-xs font-bold text-[#6F7785] dark:text-[#A0ABC0]">Sổ Bàn Giao Ca</span>
+                      <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Sổ Bàn Giao Ca</span>
                     </div>
                   </div>
                   <div>
-                    <p className="text-lg font-black text-[#172033] dark:text-white leading-tight">
+                    <p className="text-lg font-black text-slate-850 dark:text-white leading-tight">
                       {store.todayHandoverDone ? 'Đã ghi nhận' : 'Chưa ghi bàn giao'}
                     </p>
-                    <p className="text-[10px] text-[#6F7785] dark:text-[#A0ABC0] font-semibold mt-1">
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold mt-1">
                       Sổ tay theo dõi sự cố ca làm việc
                     </p>
                   </div>
-                  <button onClick={() => onTabChange('handover')} className="text-xs font-bold text-[#062B49] dark:text-[#E85D4A] hover:underline mt-3 text-left">
+                  <button onClick={() => onTabChange('handover')} className="text-xs font-bold text-blue-600 dark:text-indigo-400 hover:underline mt-3 text-left">
                     Xem sổ bàn giao →
                   </button>
                 </KgCard>
@@ -630,26 +630,26 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: any) => void })
 
               {/* Sold out items report */}
               <KgCard className="p-4">
-                <div className="flex items-center justify-between mb-3 border-b border-[#E8DED1] dark:border-[#1E3F57] pb-2">
+                <div className="flex items-center justify-between mb-3 border-b border-slate-100 dark:border-slate-800 pb-2">
                   <div className="flex items-center space-x-2">
-                    <UtensilsCrossed size={16} className="text-[#D8A23A]" />
-                    <h3 className="text-xs font-bold text-[#6F7785] uppercase tracking-wider">Món hết hôm nay</h3>
+                    <UtensilsCrossed size={16} className="text-amber-600 dark:text-amber-400" />
+                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Món hết hôm nay</h3>
                   </div>
-                  <button onClick={() => onTabChange('soldout')} className="text-xs font-bold text-[#062B49] dark:text-[#E85D4A] hover:underline">
+                  <button onClick={() => onTabChange('soldout')} className="text-xs font-bold text-blue-600 dark:text-indigo-400 hover:underline">
                     Xem thực đơn
                   </button>
                 </div>
                 {store.soldOutItems.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {store.soldOutItems.map((item) => (
-                      <div key={item.id} className="bg-[#FFF7E4] dark:bg-[#E2B24C]/10 border border-[#E8DED1] dark:border-[#1E3F57] rounded-xl px-3 py-1.5 flex items-center space-x-2 text-xs">
-                        <span className="font-extrabold text-[#D8A23A]">{item.itemName}</span>
-                        <span className="text-[10px] text-[#6F7785] dark:text-[#A0ABC0] font-medium">({item.reportedBy} lúc {item.reportedAt})</span>
+                      <div key={item.id} className="bg-amber-50 dark:bg-amber-950/15 border border-slate-100 dark:border-slate-800 rounded-xl px-3 py-1.5 flex items-center space-x-2 text-xs">
+                        <span className="font-extrabold text-amber-600 dark:text-amber-400">{item.itemName}</span>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">({item.reportedBy} lúc {item.reportedAt})</span>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-[#6F7785] italic py-2">Chưa báo món hết nào hôm nay</p>
+                  <p className="text-xs text-slate-500 italic py-2">Chưa báo món hết nào hôm nay</p>
                 )}
               </KgCard>
 
@@ -660,26 +660,26 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: any) => void })
               
               {/* Approvals Widget */}
               {hasPendingApprovals ? (
-                <KgCard className="p-4 border-[#FFF0ED] dark:border-[#E85D4A]/30 bg-[#FFF0ED]/20">
-                  <div className="flex items-center space-x-2 mb-3 border-b border-[#E8DED1] dark:border-[#1E3F57] pb-2">
-                    <BellRing size={16} className="text-[#E85D4A] animate-pulse" />
-                    <h3 className="text-xs font-bold text-[#172033] dark:text-white uppercase tracking-wider">Cần duyệt gấp</h3>
+                <KgCard className="p-4 border-red-100 dark:border-red-950/20 bg-red-50/30 dark:bg-red-950/10">
+                  <div className="flex items-center space-x-2 mb-3 border-b border-slate-100 dark:border-slate-800 pb-2">
+                    <BellRing size={16} className="text-red-500 animate-pulse" />
+                    <h3 className="text-xs font-bold text-slate-850 dark:text-white uppercase tracking-wider">Cần duyệt gấp</h3>
                   </div>
                   <div className="grid grid-cols-1 gap-2">
                     {pendingSwaps.length > 0 && (
-                      <button onClick={() => onTabChange('swap')} className="flex items-center justify-between p-3 rounded-xl bg-[#EEF7F0]/60 dark:bg-[#5F9D6B]/15 border border-[#EEF7F0]/80 text-[#4F8A5B] hover:bg-[#EEF7F0] transition-all text-xs font-bold">
+                      <button onClick={() => onTabChange('swap')} className="flex items-center justify-between p-3 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-100/50 dark:border-emerald-900/10 text-emerald-600 dark:text-emerald-450 hover:bg-emerald-100/30 transition-all text-xs font-bold">
                         <span>Đổi ca ({pendingSwaps.length})</span>
                         <span>Chi tiết →</span>
                       </button>
                     )}
                     {pendingLeaves.length > 0 && (
-                      <button onClick={() => onTabChange('swap')} className="flex items-center justify-between p-3 rounded-xl bg-[#FFF0ED]/60 dark:bg-[#E85D4A]/15 border border-[#FFF0ED]/80 text-[#E85D4A] hover:bg-[#FFF0ED] transition-all text-xs font-bold">
+                      <button onClick={() => onTabChange('swap')} className="flex items-center justify-between p-3 rounded-xl bg-red-50/60 dark:bg-red-950/20 border border-red-100/50 dark:border-red-900/10 text-red-650 dark:text-red-400 hover:bg-red-100/30 transition-all text-xs font-bold">
                         <span>Yêu cầu xin nghỉ ({pendingLeaves.length})</span>
                         <span>Chi tiết →</span>
                       </button>
                     )}
                     {pendingAdvances.length > 0 && (
-                      <button onClick={() => onTabChange('advance')} className="flex items-center justify-between p-3 rounded-xl bg-[#FFF7E4]/60 dark:bg-[#E2B24C]/15 border border-[#FFF7E4]/80 text-[#D8A23A] hover:bg-[#FFF7E4] transition-all text-xs font-bold">
+                      <button onClick={() => onTabChange('advance')} className="flex items-center justify-between p-3 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-100/50 dark:border-amber-900/10 text-amber-650 dark:text-amber-405 hover:bg-amber-100/30 transition-all text-xs font-bold">
                         <span>Ứng lương ({pendingAdvances.length})</span>
                         <span>Chi tiết →</span>
                       </button>
@@ -687,46 +687,46 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: any) => void })
                   </div>
                 </KgCard>
               ) : (
-                <KgCard className="p-4 text-center py-6 border-dashed border-[#E8DED1] dark:border-[#1E3F57]">
-                  <CheckCircle2 size={24} className="mx-auto mb-2 text-[#4F8A5B] opacity-80" />
-                  <p className="text-xs font-bold text-[#172033] dark:text-slate-200">Không có yêu cầu chờ duyệt</p>
-                  <p className="text-[10px] text-[#6F7785] mt-0.5">Tất cả ca làm, ứng lương đã được giải quyết gọn gàng!</p>
+                <KgCard className="p-4 text-center py-6 border-dashed border-slate-100 dark:border-slate-800">
+                  <CheckCircle2 size={24} className="mx-auto mb-2 text-emerald-500 opacity-80" />
+                  <p className="text-xs font-bold text-slate-850 dark:text-slate-200">Không có yêu cầu chờ duyệt</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">Tả cả ca làm, ứng lương đã được giải quyết gọn gàng!</p>
                 </KgCard>
               )}
 
               {/* Feedback awaiting reply */}
               {store.pendingFeedbackCount > 0 && (
-                <KgCard className="p-4 border-[#FFF0ED] dark:border-[#1E3F57] bg-[#FFF0ED]/20">
+                <KgCard className="p-4 border-red-100 dark:border-slate-800 bg-red-50/30 dark:bg-red-950/10">
                   <div className="flex justify-between items-center text-xs">
                     <div className="flex items-center space-x-2">
-                      <div className="w-8 h-8 rounded-lg bg-[#FFF0ED] dark:bg-[#E85D4A]/25 flex items-center justify-center text-[#E85D4A] font-bold relative">
+                      <div className="w-8 h-8 rounded-lg bg-red-50 dark:bg-red-950/25 flex items-center justify-center text-red-500 font-bold relative">
                         <MessageSquareWarning size={16} />
-                        <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#E85D4A] rounded-full text-white text-[8px] font-bold flex items-center justify-center">{store.pendingFeedbackCount}</span>
+                        <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-white text-[8px] font-bold flex items-center justify-center">{store.pendingFeedbackCount}</span>
                       </div>
                       <div>
-                        <p className="font-bold text-[#172033] dark:text-slate-200">Góp ý chưa xử lý</p>
-                        <p className="text-[10px] text-[#6F7785] mt-0.5">{store.pendingFeedbackCount} phản hồi cần trả lời</p>
+                        <p className="font-bold text-slate-850 dark:text-slate-200">Góp ý chưa xử lý</p>
+                        <p className="text-[10px] text-slate-500 mt-0.5">{store.pendingFeedbackCount} phản hồi cần trả lời</p>
                       </div>
                     </div>
-                    <button onClick={() => onTabChange('feedback')} className="text-[11px] font-bold text-[#E85D4A] hover:underline">Trả lời →</button>
+                    <button onClick={() => onTabChange('feedback')} className="text-[11px] font-bold text-red-500 hover:underline">Trả lời →</button>
                   </div>
                 </KgCard>
               )}
 
               {/* Admin quick shortcuts */}
               <KgCard className="p-4">
-                <h3 className="text-xs font-bold text-[#6F7785] uppercase tracking-wider mb-3">Phím tắt quản lý</h3>
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Phím tắt quản lý</h3>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { label: 'Phân ca', icon: CalendarRange, tab: 'schedule' as any, color: 'text-[#062B49] bg-[#062B49]/5' },
-                    { label: 'Bảng công', icon: CalendarClock, tab: 'timesheet' as any, color: 'text-[#D8A23A] bg-[#FFF7E4]' },
-                    { label: 'Bảng lương', icon: Banknote, tab: 'payroll' as any, color: 'text-[#4F8A5B] bg-[#EEF7F0]' },
-                    { label: 'Nhân sự', icon: Users, tab: 'hr_list' as any, color: 'text-[#E85D4A] bg-[#FFF0ED]' },
+                    { label: 'Phân ca', icon: CalendarRange, tab: 'schedule' as any, color: 'text-blue-600 bg-blue-50 dark:bg-blue-950/20' },
+                    { label: 'Bảng công', icon: CalendarClock, tab: 'timesheet' as any, color: 'text-amber-600 bg-amber-50 dark:bg-amber-950/20' },
+                    { label: 'Bảng lương', icon: Banknote, tab: 'payroll' as any, color: 'text-emerald-650 bg-emerald-50 dark:bg-emerald-950/20' },
+                    { label: 'Nhân sự', icon: Users, tab: 'hr_list' as any, color: 'text-red-500 bg-red-50 dark:bg-red-950/20' },
                   ].map((item, i) => (
                     <button
                       key={i}
                       onClick={() => onTabChange(item.tab)}
-                      className={`flex items-center gap-2 p-2.5 rounded-xl border border-[#E8DED1] dark:border-[#1E3F57] hover:bg-[#FBF7F0] dark:hover:bg-[#122F48] active:scale-[0.98] transition-all text-xs font-bold text-[#172033] dark:text-slate-350`}
+                      className={`flex items-center gap-2 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 active:scale-[0.98] transition-all text-xs font-bold text-slate-800 dark:text-slate-200`}
                     >
                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${item.color}`}>
                         <item.icon size={15} />

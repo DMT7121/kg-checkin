@@ -16,7 +16,8 @@ import {
   KgInput,
   KgStatusBadge,
   KgBottomSheet,
-  KgAlertCard
+  KgAlertCard,
+  Kg3dIllustration
 } from '../components/KgDesignSystem';
 
 interface QuizQuestion {
@@ -398,21 +399,22 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
         }
       `}</style>
       {/* Header Banner */}
-      <div className="soft3d-card bg-gradient-to-r from-[#062B49] via-[#0b3e66] to-[#062B49] p-5 md:p-6 text-white relative overflow-hidden flex flex-col border-none shadow-md">
-        <div className="flex items-center justify-between relative z-10 w-full">
-          <div>
-            <div className="flex items-center space-x-3 mb-1.5">
-              <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
-                <BookOpen size={20} className="text-[#E85D4A]" />
-              </div>
-              <h2 className="text-xl md:text-2xl font-black tracking-tight Truculenta text-white">Sổ Tay Vận Hành & Đào Tạo</h2>
-            </div>
-            <p className="text-[#E8DED1] font-semibold opacity-90 text-xs md:text-sm max-w-lg">
+      <section className="relative overflow-hidden p-6 md:p-8 text-white rounded-3xl border border-white/10 shadow-hero bg-gradient-hero mb-6">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-3.5 max-w-2xl">
+            <span className="inline-flex items-center gap-1.5 bg-white/12 border border-white/20 px-3 py-1 rounded-full text-[10px] font-black tracking-wider uppercase text-white shadow-inner">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+              Đào tạo SOP
+            </span>
+            <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold tracking-tight text-white leading-tight">
+              Sổ Tay Vận Hành & Đào Tạo
+            </h1>
+            <p className="text-sm md:text-base text-white/86 leading-relaxed font-medium max-w-lg">
               Tra cứu quy trình chuẩn (SOP), nội quy nhà hàng và làm bài kiểm tra nghiệp vụ tích lũy King Coins.
             </p>
           </div>
-          <div className="hidden md:block relative z-10 opacity-70 flex-shrink-0">
-            <GraduationCap size={64} strokeWidth={1.2} />
+          <div className="flex-shrink-0 flex items-center justify-center bg-white/5 border border-white/10 p-4 rounded-3xl backdrop-blur-md shadow-lg transform hover:rotate-2 transition-transform duration-300">
+            <Kg3dIllustration moduleId="training" />
           </div>
         </div>
 
@@ -420,9 +422,9 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
         <div className="flex gap-2.5 mt-5 relative z-10 border-t border-white/15 pt-4">
           <button
             onClick={() => setActiveTab('sop')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 ${
               activeTab === 'sop'
-                ? 'bg-white text-[#062B49] shadow-sm scale-105'
+                ? 'bg-white text-blue-600 shadow-sm scale-105'
                 : 'bg-white/10 text-white hover:bg-white/20'
             }`}
           >
@@ -430,25 +432,25 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
           </button>
           <button
             onClick={() => setActiveTab('quiz')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all relative ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 relative ${
               activeTab === 'quiz'
-                ? 'bg-white text-[#062B49] shadow-sm scale-105'
+                ? 'bg-white text-blue-600 shadow-sm scale-105'
                 : 'bg-white/10 text-white hover:bg-white/20'
             }`}
           >
             <UserCheck size={14} /> Kiểm tra năng lực
             {totalLessons > 0 && completedCount < totalLessons && (
               <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#E85D4A] opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#E85D4A]"></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
               </span>
             )}
           </button>
         </div>
 
-        <div className="absolute right-[-10%] top-[-20%] w-64 h-64 bg-white/5 rounded-full blur-3xl mix-blend-overlay"></div>
-        <div className="absolute left-[-5%] bottom-[-50%] w-48 h-48 bg-[#E85D4A]/10 rounded-full blur-2xl mix-blend-overlay"></div>
-      </div>
+        <div className="absolute right-[-10%] top-[-20%] w-72 h-72 bg-white/10 rounded-full blur-3xl mix-blend-overlay pointer-events-none" />
+        <div className="absolute left-[-5%] bottom-[-40%] w-60 h-60 bg-blue-500/20 rounded-full blur-2xl mix-blend-overlay pointer-events-none" />
+      </section>
 
       {/* Tab 1: Tra cứu SOP */}
       {activeTab === 'sop' && (
@@ -524,7 +526,7 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
                 <KgCard className="p-4 space-y-4">
                   {/* General Category Group */}
                   <div>
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#6F7785] dark:text-[#9AA1AA] border-b border-[#E8DED1] dark:border-[#1E3F57] pb-2 mb-2">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-[#9AA1AA] border-b border-slate-100 dark:border-slate-800 pb-2 mb-2">
                       Tiêu chuẩn chung
                     </h3>
                     <div className="space-y-1">
@@ -532,13 +534,13 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
                         <button
                           key={section.id}
                           onClick={() => setSelectedSection(section.id)}
-                          className={`w-full flex items-center p-2.5 rounded-xl text-left text-xs font-bold transition-all gap-2.5 ${
+                          className={`w-full flex items-center p-2.5 rounded-xl text-left text-xs font-bold transition-all gap-2.5 active:scale-95 ${
                             selectedSection === section.id
-                              ? 'bg-[#062B49] text-white'
-                              : 'text-gray-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                              ? 'bg-blue-600 text-white shadow-sm'
+                              : 'text-slate-700 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-800/40'
                           }`}
                         >
-                          <i className={`${section.icon} w-4 text-center flex-shrink-0 ${selectedSection === section.id ? 'text-[#E85D4A]' : 'text-[#6F7785]'}`} />
+                          <i className={`${section.icon} w-4 text-center flex-shrink-0 ${selectedSection === section.id ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`} />
                           <span className="truncate">{section.title}</span>
                         </button>
                       ))}
@@ -547,7 +549,7 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
 
                   {/* Department Category Group */}
                   <div>
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#6F7785] dark:text-[#9AA1AA] border-b border-[#E8DED1] dark:border-[#1E3F57] pb-2 mb-2">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-[#9AA1AA] border-b border-slate-100 dark:border-slate-800 pb-2 mb-2">
                       Quy trình bộ phận
                     </h3>
                     <div className="space-y-1">
@@ -555,13 +557,13 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
                         <button
                           key={section.id}
                           onClick={() => setSelectedSection(section.id)}
-                          className={`w-full flex items-center p-2.5 rounded-xl text-left text-xs font-bold transition-all gap-2.5 ${
+                          className={`w-full flex items-center p-2.5 rounded-xl text-left text-xs font-bold transition-all gap-2.5 active:scale-95 ${
                             selectedSection === section.id
-                              ? 'bg-[#062B49] text-white'
-                              : 'text-gray-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                              ? 'bg-blue-600 text-white shadow-sm'
+                              : 'text-slate-700 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-800/40'
                           }`}
                         >
-                          <i className={`${section.icon} w-4 text-center flex-shrink-0 ${selectedSection === section.id ? 'text-[#E85D4A]' : 'text-[#6F7785]'}`} />
+                          <i className={`${section.icon} w-4 text-center flex-shrink-0 ${selectedSection === section.id ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`} />
                           <span className="truncate">{section.title}</span>
                         </button>
                       ))}
@@ -575,8 +577,8 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
                 <div className="flex items-center gap-2 mb-1 px-1">
                   {activeSopSection && (
                     <>
-                      <i className={`${activeSopSection.icon} text-lg text-[#E85D4A]`} />
-                      <h3 className="text-base font-extrabold text-[#062B49] dark:text-white Truculenta">
+                      <i className={`${activeSopSection.icon} text-lg text-blue-600 dark:text-indigo-400`} />
+                      <h3 className="text-base font-extrabold text-slate-850 dark:text-white Truculenta">
                         {activeSopSection.title}
                       </h3>
                     </>
@@ -586,19 +588,19 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
                 {activeSopSection?.content.map((item, idx) => {
                   const isOpen = openAccordions[item.subtitle] ?? (idx === 0);
                   return (
-                    <KgCard key={idx} className="overflow-hidden p-0 border border-[#E8DED1] dark:border-[#1E3F57]">
+                    <KgCard key={idx} className="overflow-hidden p-0 border border-slate-100 dark:border-slate-800 animate-fade-in">
                       <button
                         onClick={() => toggleAccordion(item.subtitle)}
-                        className="w-full flex items-center justify-between p-4 bg-[#FBF7F0] dark:bg-[#122F48]/40 border-b border-[#E8DED1] dark:border-[#1E3F57] text-left"
+                        className="w-full flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 text-left"
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
-                          {item.icon && <i className={`${item.icon} text-sm text-[#062B49] dark:text-[#E85D4A] flex-shrink-0`} />}
-                          <h4 className="font-extrabold text-gray-800 dark:text-white text-sm truncate">{item.subtitle}</h4>
+                          {item.icon && <i className={`${item.icon} text-sm text-blue-600 dark:text-indigo-400 flex-shrink-0`} />}
+                          <h4 className="font-extrabold text-slate-800 dark:text-white text-sm truncate">{item.subtitle}</h4>
                         </div>
-                        {isOpen ? <ChevronUp size={16} className="text-[#6F7785]" /> : <ChevronDown size={16} className="text-[#6F7785]" />}
+                        {isOpen ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
                       </button>
                       {isOpen && (
-                        <div className="p-4 bg-white dark:bg-[#0E273C] text-sm text-gray-700 dark:text-gray-300 leading-relaxed font-medium sop-content-details">
+                        <div className="p-4 bg-white dark:bg-slate-900 text-sm text-slate-700 dark:text-slate-350 leading-relaxed font-medium sop-content-details">
                           <div dangerouslySetInnerHTML={{ __html: item.details }} />
                         </div>
                       )}
@@ -615,18 +617,18 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
       {activeTab === 'quiz' && (
         <div className="space-y-4">
           {/* Progress Overview */}
-          <KgCard className="p-4 shadow-sm border-[#E8DED1] dark:border-[#1E3F57]">
+          <KgCard className="p-4 shadow-sm border-slate-100 dark:border-slate-800">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-extrabold text-[#6F7785] dark:text-[#A0ABC0] uppercase tracking-wider">Tiến độ bài học kiểm tra</span>
-              <span className="text-sm font-black text-[#062B49] dark:text-[#E85D4A]">{completedCount}/{totalLessons} bài</span>
+              <span className="text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Tiến độ bài học kiểm tra</span>
+              <span className="text-sm font-black text-blue-600 dark:text-indigo-400">{completedCount}/{totalLessons} bài</span>
             </div>
             <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-3 overflow-hidden">
               <div
-                className="bg-gradient-to-r from-[#D8A23A] to-[#4F8A5B] h-full rounded-full transition-all duration-700"
+                className="bg-gradient-to-r from-amber-500 to-emerald-500 h-full rounded-full transition-all duration-700"
                 style={{ width: `${progressPct}%` }}
               />
             </div>
-            <p className="text-right text-[10px] text-gray-500 dark:text-[#A0ABC0] mt-1.5 font-bold">{progressPct}% Hoàn thành</p>
+            <p className="text-right text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 font-bold">{progressPct}% Hoàn thành</p>
           </KgCard>
 
           {/* Lessons List */}
@@ -635,9 +637,9 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
               <RefreshCw size={20} className="animate-spin mr-2" /> Đang tải bài học...
             </div>
           ) : lessons.length === 0 ? (
-            <KgCard className="p-8 text-center border-dashed border-[#E8DED1] dark:border-[#1E3F57]">
-              <GraduationCap size={40} className="mx-auto mb-3 text-gray-300 dark:text-gray-600" />
-              <p className="text-sm text-gray-500 font-bold">Chưa có bài học nào được cấu hình trên hệ thống.</p>
+            <KgCard className="p-8 text-center border-dashed border-slate-100 dark:border-slate-800">
+              <GraduationCap size={40} className="mx-auto mb-3 text-slate-300 dark:text-slate-600" />
+              <p className="text-sm text-slate-500 font-bold">Chưa có bài học nào được cấu hình trên hệ thống.</p>
             </KgCard>
           ) : (
             <div className="space-y-3">
@@ -668,14 +670,14 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
                       <div className="flex items-center min-w-0">
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center mr-3 flex-shrink-0 ${
                           isCompleted
-                            ? 'bg-[#EEF7F0] text-[#4F8A5B]'
-                            : 'bg-[#FFF7E4] text-[#D8A23A]'
+                            ? 'bg-emerald-50 text-emerald-650 dark:bg-emerald-950/20 dark:text-emerald-400'
+                            : 'bg-amber-50 text-amber-600 dark:bg-amber-950/20 dark:text-amber-400'
                         }`}>
                           {isCompleted ? <CheckCircle2 size={20} /> : <BookOpen size={20} />}
                         </div>
                         <div className="min-w-0">
-                          <h4 className="font-extrabold text-gray-800 dark:text-white text-sm truncate">{lesson.title}</h4>
-                          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+                          <h4 className="font-extrabold text-slate-800 dark:text-white text-sm truncate">{lesson.title}</h4>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
                             {isCompleted ? '✅ Đã hoàn thành' : `📝 ${lesson.quiz.length} câu hỏi • +${lesson.points} 🪙`}
                           </p>
                         </div>
@@ -699,14 +701,14 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
                               setQuizMode(lesson.id);
                               setAnswers({});
                             }}
-                            className="w-full bg-[#062B49] text-white"
+                            className="w-full bg-blue-600 hover:bg-blue-750 text-white"
                             icon={Award}
                           >
                             Làm bài kiểm tra (+{lesson.points} 🪙)
                           </KgButton>
                         )}
                         {isCompleted && (
-                          <div className="p-3 bg-[#EEF7F0] dark:bg-[#5F9D6B]/10 rounded-xl text-[#4F8A5B] dark:text-[#5F9D6B] text-xs font-bold text-center border border-[#EEF7F0] dark:border-[#5F9D6B]/20">
+                          <div className="p-3 bg-emerald-50 dark:bg-emerald-950/20 rounded-xl text-emerald-600 dark:text-emerald-400 text-xs font-bold text-center border border-emerald-100 dark:border-emerald-900/10">
                             ✓ Bạn đã hoàn thành bài này!
                           </div>
                         )}
@@ -718,11 +720,11 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
                       <motion.div
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
-                        className="px-4 pb-4 border-t border-orange-100 dark:border-orange-900/30 pt-4 bg-[#FFF7E4]/20 dark:bg-[#E2B24C]/5"
+                        className="px-4 pb-4 border-t border-amber-100 dark:border-amber-900/30 pt-4 bg-amber-50/20 dark:bg-amber-950/5"
                       >
                         <div className="flex items-center gap-2 mb-4">
-                          <Award size={18} className="text-[#D8A23A]" />
-                          <h4 className="font-extrabold text-gray-800 dark:text-white text-sm">Trắc nghiệm: {lesson.title}</h4>
+                          <Award size={18} className="text-amber-500" />
+                          <h4 className="font-extrabold text-slate-850 dark:text-white text-sm">Trắc nghiệm: {lesson.title}</h4>
                         </div>
 
                         <div className="space-y-5">
@@ -737,8 +739,8 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
                                     key={oIdx}
                                     className={`flex items-center p-3 border rounded-xl cursor-pointer transition-all ${
                                       answers[qIdx] === oIdx
-                                        ? 'border-[#D8A23A] bg-[#FFF7E4]/30 dark:bg-[#E2B24C]/15 dark:border-[#E2B24C]'
-                                        : 'border-gray-200 dark:border-gray-850 hover:border-gray-300'
+                                        ? 'border-amber-500 bg-amber-50/30 dark:bg-amber-950/15 dark:border-amber-600'
+                                        : 'border-gray-200 dark:border-gray-850 hover:border-gray-350'
                                     }`}
                                   >
                                     <input
@@ -746,9 +748,9 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
                                       name={`q${lesson.id}_${qIdx}`}
                                       checked={answers[qIdx] === oIdx}
                                       onChange={() => setAnswers(prev => ({ ...prev, [qIdx]: oIdx }))}
-                                      className="text-[#D8A23A] mr-3 focus:ring-[#D8A23A]"
+                                      className="text-amber-500 mr-3 focus:ring-amber-500 focus:ring-offset-0"
                                     />
-                                    <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">{opt}</span>
+                                    <span className="text-sm text-slate-700 dark:text-slate-350 font-medium">{opt}</span>
                                   </label>
                                 ))}
                               </div>
@@ -770,7 +772,7 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
                           <KgButton
                             onClick={() => handleSubmitQuiz(lesson)}
                             disabled={Object.keys(answers).length < lesson.quiz.length}
-                            className="flex-1 bg-[#D8A23A] border-[#D8A23A] text-white hover:bg-[#C28F2D]"
+                            className="flex-1 bg-amber-500 border-amber-500 text-white hover:bg-amber-600"
                           >
                             Nộp bài 🎯
                           </KgButton>
@@ -793,8 +795,8 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
       >
         <div className="flex flex-col h-[70vh] -mx-5 -my-4 overflow-hidden">
           {/* Header Description */}
-          <div className="px-5 py-2.5 bg-[#FBF7F0] dark:bg-[#122F48]/35 border-b border-[#E8DED1] dark:border-[#1E3F57] text-[10px] text-gray-500 dark:text-gray-400 font-bold flex items-center gap-1.5 flex-shrink-0">
-            <Bot size={13} className="text-[#E85D4A]" />
+          <div className="px-5 py-2.5 bg-slate-50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 text-[10px] text-slate-500 dark:text-slate-400 font-bold flex items-center gap-1.5 flex-shrink-0">
+            <Bot size={13} className="text-blue-600" />
             Hệ thống trả lời tự động dựa trên Sổ Tay Vận Hành & SOP nhà hàng.
           </div>
 
