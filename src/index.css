@@ -503,6 +503,14 @@ main [class*="border-dashed"] {
   --kg-danger: var(--color-danger);
   --kg-success: var(--color-success);
 
+  --kg-primary: var(--color-primary);
+  --kg-primary-hover: var(--color-primary-2);
+  --kg-accent: var(--color-violet);
+  --kg-accent-soft: rgba(124, 58, 237, 0.12);
+  --kg-success-soft: rgba(16, 185, 129, 0.12);
+  --kg-warning-soft: rgba(245, 158, 11, 0.12);
+  --kg-danger-soft: rgba(239, 68, 68, 0.12);
+
   --primary: var(--color-primary);
   --primary-strong: var(--color-primary-2);
   --secondary: var(--color-violet);
@@ -537,6 +545,14 @@ main [class*="border-dashed"] {
   --kg-warn: var(--color-warning);
   --kg-danger: var(--color-danger);
   --kg-success: var(--color-success);
+
+  --kg-primary: var(--color-primary);
+  --kg-primary-hover: var(--color-primary-2);
+  --kg-accent: var(--color-violet);
+  --kg-accent-soft: rgba(124, 58, 237, 0.15);
+  --kg-success-soft: rgba(16, 185, 129, 0.15);
+  --kg-warning-soft: rgba(245, 158, 11, 0.15);
+  --kg-danger-soft: rgba(239, 68, 68, 0.15);
 
   --primary: var(--color-primary);
   --primary-strong: var(--color-primary-2);
