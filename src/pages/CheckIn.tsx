@@ -261,6 +261,103 @@ export default function CheckIn() {
     }
   };
 
+  const drawWatermarkAndSave = (
+    canvas: HTMLCanvasElement,
+    ctx: CanvasRenderingContext2D,
+    exactTime: string,
+    addr: string
+  ) => {
+    const cardX = 24;
+    const cardHeight = 150;
+    const cardY = canvas.height - cardHeight - 24;
+    const cardWidth = canvas.width - (cardX * 2);
+    const radius = 20;
+
+    // Reset shadow
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+
+    // Draw Glassmorphic Card Background (Deep Slate with semi-transparency)
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+    
+    const drawRoundRect = (c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) => {
+      if (typeof c.roundRect === 'function') {
+        c.roundRect(x, y, w, h, r);
+      } else {
+        if (w < 2 * r) r = w / 2;
+        if (h < 2 * r) r = h / 2;
+        c.beginPath();
+        c.moveTo(x+r, y);
+        c.arcTo(x+w, y,   x+w, y+h, r);
+        c.arcTo(x+w, y+h, x,   y+h, r);
+        c.arcTo(x,   y+h, x,   y,   r);
+        c.arcTo(x,   y,   x+w, y,   r);
+        c.closePath();
+      }
+    };
+
+    ctx.beginPath();
+    drawRoundRect(ctx, cardX, cardY, cardWidth, cardHeight, radius);
+    ctx.fill();
+
+    // Subtle White/Border Outline
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    drawRoundRect(ctx, cardX, cardY, cardWidth, cardHeight, radius);
+    ctx.stroke();
+
+    // Content Padding
+    const padX = 24;
+    const contentX = cardX + padX;
+    
+    // Time & Date (Row 1)
+    const timeY = cardY + 46;
+    ctx.font = 'bold 28px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif';
+    ctx.fillStyle = '#FCD34D'; // Yellow/Gold
+    ctx.fillText('🕒  ' + exactTime, contentX, timeY);
+
+    // Location Address (Row 2 & 3 if wrapped)
+    ctx.font = '500 20px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif';
+    ctx.fillStyle = '#E2E8F0'; // Slate-200
+    
+    const displayAddr = '📍 ' + addr;
+    const maxTextWidth = cardWidth - (padX * 2);
+    
+    const wrapText = (context: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number) => {
+      const words = text.split(' ');
+      let line = '';
+      let currentY = y;
+      
+      for (let n = 0; n < words.length; n++) {
+        const testLine = line + words[n] + ' ';
+        const metrics = context.measureText(testLine);
+        const testWidth = metrics.width;
+        if (testWidth > maxWidth && n > 0) {
+          context.fillText(line, x, currentY);
+          line = words[n] + ' ';
+          currentY += lineHeight;
+        } else {
+          line = testLine;
+        }
+      }
+      context.fillText(line, x, currentY);
+    };
+
+    wrapText(ctx, displayAddr, contentX, cardY + 90, maxTextWidth, 28);
+    
+    // Save image with WebP (highly compressed but very sharp), fallback to JPEG
+    let dataUrl = canvas.toDataURL('image/webp', 0.8);
+    if (dataUrl.startsWith('data:image/png')) {
+      dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+    }
+    
+    store.setCapturedImage(dataUrl);
+    store.setCapturedTime(exactTime);
+  };
+
   const takePhoto = () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -271,7 +368,8 @@ export default function CheckIn() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const targetWidth = 480, targetHeight = 640;
+    // Upgraded resolution for sharpness: 720x960 (3:4 ratio)
+    const targetWidth = 720, targetHeight = 960;
     canvas.width = targetWidth; canvas.height = targetHeight;
     const vw = video.videoWidth, vh = video.videoHeight;
     const canvasRatio = targetWidth / targetHeight, videoRatio = vw / vh;
@@ -285,26 +383,9 @@ export default function CheckIn() {
     ctx.restore();
 
     const exactTime = currentTime + ':' + String(new Date().getSeconds()).padStart(2, '0');
-    
-    const gradient = ctx.createLinearGradient(0, targetHeight - 120, 0, targetHeight);
-    gradient.addColorStop(0, 'transparent');
-    gradient.addColorStop(1, 'rgba(0,0,0,0.8)');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, targetHeight - 120, targetWidth, 120);
-
-    ctx.font = 'bold 36px Arial'; 
-    ctx.fillStyle = '#FFD700'; ctx.shadowColor = 'black'; ctx.shadowBlur = 6;
-    ctx.fillText(exactTime, 30, targetHeight - 65); 
-    
     const addr = useAppStore.getState().gps.address || useAppStore.getState().gps.status || 'Chưa rõ vị trí';
-    ctx.font = 'bold 24px Arial';
-    ctx.fillStyle = '#FFFFFF'; ctx.shadowBlur = 4;
-    const displayAddr = addr.length > 60 ? addr.substring(0, 60) + '...' : addr;
-    ctx.fillText(displayAddr, 30, targetHeight - 25);
     
-    ctx.shadowBlur = 0;
-    store.setCapturedImage(canvas.toDataURL('image/jpeg', 0.6));
-    store.setCapturedTime(exactTime);
+    drawWatermarkAndSave(canvas, ctx, exactTime, addr);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -318,7 +399,9 @@ export default function CheckIn() {
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
-        const targetWidth = 480, targetHeight = 640;
+        
+        // Upgraded resolution for sharpness: 720x960 (3:4 ratio)
+        const targetWidth = 720, targetHeight = 960;
         canvas.width = targetWidth; canvas.height = targetHeight;
         const vw = img.width, vh = img.height;
         const canvasRatio = targetWidth / targetHeight, imgRatio = vw / vh;
@@ -328,26 +411,9 @@ export default function CheckIn() {
         ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
         
         const exactTime = currentTime + ':' + String(new Date().getSeconds()).padStart(2, '0');
-        
-        const gradient = ctx.createLinearGradient(0, targetHeight - 120, 0, targetHeight);
-        gradient.addColorStop(0, 'transparent');
-        gradient.addColorStop(1, 'rgba(0,0,0,0.8)');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, targetHeight - 120, targetWidth, 120);
-
-        ctx.font = 'bold 36px Arial'; 
-        ctx.fillStyle = '#FFD700'; ctx.shadowColor = 'black'; ctx.shadowBlur = 6;
-        ctx.fillText(exactTime, 30, targetHeight - 65); 
-        
         const addr = useAppStore.getState().gps.address || useAppStore.getState().gps.status || 'Chưa rõ vị trí';
-        ctx.font = 'bold 24px Arial';
-        ctx.fillStyle = '#FFFFFF'; ctx.shadowBlur = 4;
-        const displayAddr = addr.length > 60 ? addr.substring(0, 60) + '...' : addr;
-        ctx.fillText(displayAddr, 30, targetHeight - 25);
         
-        ctx.shadowBlur = 0;
-        store.setCapturedImage(canvas.toDataURL('image/jpeg', 0.6));
-        store.setCapturedTime(exactTime);
+        drawWatermarkAndSave(canvas, ctx, exactTime, addr);
       };
       img.src = event.target?.result as string;
     };
@@ -746,18 +812,17 @@ export default function CheckIn() {
 
         {/* Captured image display */}
         {capturedImage && (
-          <div className="absolute inset-0 bg-black z-30 flex flex-col items-center justify-center">
+          <div className="absolute inset-0 bg-black z-30 flex flex-col items-center justify-center animate-fade-in">
             <img src={capturedImage} className="w-full h-full object-cover" alt="Captured" />
-            <div className="absolute bottom-8 left-0 right-0 flex justify-center">
-              <KgButton
+            <div className="absolute top-4 right-4 z-40">
+              <button
+                type="button"
                 onClick={() => store.setCapturedImage(null)}
-                variant="secondary"
-                size="md"
-                icon={RotateCcw}
-                className="shadow-lg border border-white/20 bg-black/60 backdrop-blur-md text-white hover:bg-black/80"
+                className="flex items-center space-x-1.5 px-3.5 py-2 bg-black/60 hover:bg-black/80 text-white rounded-full border border-white/20 backdrop-blur-md shadow-md active:scale-95 transition-all text-xs font-bold pointer-events-auto"
               >
-                Chụp lại ảnh
-              </KgButton>
+                <RotateCcw size={13} />
+                <span>Chụp lại</span>
+              </button>
             </div>
           </div>
         )}
@@ -770,7 +835,7 @@ export default function CheckIn() {
           size="lg"
           disabled={!canSubmit}
           onClick={() => submitCheck('Vào ca')}
-          className="flex-col h-[76px] shadow-lg rounded-2xl"
+          className="h-14 shadow-lg rounded-2xl text-[15px] font-extrabold tracking-wider bg-gradient-to-r from-blue-600 to-indigo-650 hover:from-blue-700 hover:to-indigo-700 border-none active:scale-[0.97] transition-all"
           icon={LogIn}
         >
           VÀO CA
@@ -780,7 +845,7 @@ export default function CheckIn() {
           size="lg"
           disabled={!canSubmit}
           onClick={() => submitCheck('Ra ca')}
-          className="flex-col h-[76px] shadow-lg rounded-2xl"
+          className="h-14 shadow-lg rounded-2xl text-[15px] font-extrabold tracking-wider bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 border-none active:scale-[0.97] transition-all"
           icon={LogOut}
         >
           RA CA
