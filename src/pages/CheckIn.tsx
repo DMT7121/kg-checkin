@@ -3,13 +3,10 @@ import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import KalmanFilter from '../utils/kalman';
 import { getDist, speak, getCurrentTimeString, computeWeekInfo, KG_LAT, KG_LNG, KG_RADIUS_METERS } from '../utils/helpers';
-import { MapPin, RefreshCw, CameraOff, Camera, RotateCcw, LogIn, LogOut, UserCheck, AlertTriangle, Smile } from 'lucide-react';
+import { MapPin, RefreshCw, CameraOff, Camera, RotateCcw, LogIn, LogOut, UserCheck, AlertTriangle } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import {
-  KgCard,
   KgButton,
-  KgStatusBadge,
-  KgAlertCard,
   KgBottomSheet,
   KgConfirmSheet,
   KgTextarea,
@@ -18,7 +15,7 @@ import {
 
 export default function CheckIn() {
   const store = useAppStore();
-  const { currentUser, gps, capturedImage, currentTime, approvedShifts, serverGpsConfig } = store;
+  const { currentUser, gps, capturedImage, currentTime, approvedShifts } = store;
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -34,7 +31,9 @@ export default function CheckIn() {
 
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState(false);
+  const [cameraErrorMessage, setCameraErrorMessage] = useState('');
   const [isFaceModelLoaded, setIsFaceModelLoaded] = useState(false);
+  const [faceModelUnavailable, setFaceModelUnavailable] = useState(false);
   const [isFaceDetected, setIsFaceDetected] = useState(false);
   const faceApiRef = useRef<any>(null);
 
@@ -94,13 +93,14 @@ export default function CheckIn() {
     const lat = (isFastStart || acc < 30) ? rawLat : filteredLat;
     const lng = (isFastStart || acc < 30) ? rawLng : filteredLng;
 
-    const targetLat = serverGpsConfig?.lat ?? KG_LAT;
-    const targetLng = serverGpsConfig?.lng ?? KG_LNG;
+    const latestGpsConfig = useAppStore.getState().serverGpsConfig;
+    const targetLat = latestGpsConfig?.lat ?? KG_LAT;
+    const targetLng = latestGpsConfig?.lng ?? KG_LNG;
     
     const dist = getDist(lat, lng, targetLat, targetLng) * 1000;
     const isTestApp = useAppStore.getState().currentUser?.username === 'testapp';
 
-    const targetRadius = serverGpsConfig?.radius ?? KG_RADIUS_METERS;
+    const targetRadius = latestGpsConfig?.radius ?? KG_RADIUS_METERS;
     
     if (dist <= targetRadius || isTestApp) {
       store.setGps({ lat, lng, isValid: true, status: isTestApp ? 'Vị trí Test (Bypass)' : 'Vị trí Chính xác', message: `Khoảng cách: ${Math.round(dist)}m (±${Math.round(acc)}m)` });
@@ -113,34 +113,63 @@ export default function CheckIn() {
     if (!isFastStart && acc < 20) { store.setGps({ status: 'GPS Ổn định (High Acc)' }); }
   }, [store]);
 
+  const handleGpsError = useCallback((err: GeolocationPositionError) => {
+    if (err.code === err.PERMISSION_DENIED) {
+      store.setGps({
+        isValid: false,
+        status: 'Chưa được cấp quyền vị trí',
+        message: 'Bật quyền Vị trí cho trình duyệt rồi nhấn “Thử lại”.'
+      });
+      return;
+    }
+    if (err.code === err.TIMEOUT) {
+      store.setGps({
+        isValid: false,
+        status: 'Chưa nhận được vị trí',
+        message: 'Ra khu vực thoáng hơn rồi thử lại.'
+      });
+      return;
+    }
+    store.setGps({
+      isValid: false,
+      status: 'Không thể xác định vị trí',
+      message: 'Kiểm tra GPS và kết nối mạng rồi thử lại.'
+    });
+  }, [store]);
+
   const startGpsWatch = useCallback(() => {
     if (watchIdRef.current !== null) return;
-    store.setGps({ status: 'Đang bắt vệ tinh (Nhanh)...', message: 'Vui lòng đợi...' });
-    if (!navigator.geolocation) { store.setGps({ status: 'Không hỗ trợ GPS' }); return; }
+    store.setGps({ isValid: false, status: 'Đang xác định vị trí...', message: 'Vui lòng đợi trong giây lát.' });
+    if (!navigator.geolocation) {
+      store.setGps({ status: 'Thiết bị không hỗ trợ định vị', message: 'Hãy dùng điện thoại có GPS.' });
+      return;
+    }
 
     navigator.geolocation.getCurrentPosition(
       (pos) => handleGpsSuccess(pos, true),
-      () => {}, { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+      handleGpsError,
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 15000 }
     );
 
     watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => handleGpsSuccess(pos, false),
-      (err) => {
-        if (err.code === 1) store.setGps({ status: 'Bị chặn quyền GPS', message: 'Cấp quyền định vị trong Cài đặt.' });
-        else store.setGps({ status: 'Sóng yếu, di chuyển...' });
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      handleGpsError,
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 15000 }
     );
 
     if (gpsTimeoutRef.current) clearTimeout(gpsTimeoutRef.current);
     gpsTimeoutRef.current = setTimeout(() => {
       const g = useAppStore.getState().gps;
-      if (!g.isValid && g.status !== 'Bị chặn quyền GPS') {
-        store.setGps({ status: 'GPS chậm, đang thử lại...' });
-        navigator.geolocation.getCurrentPosition((p) => handleGpsSuccess(p, true), () => {}, { enableHighAccuracy: false });
+      if (!g.isValid && g.status !== 'Chưa được cấp quyền vị trí') {
+        store.setGps({ status: 'Đang thử lại vị trí...', message: 'Có thể mất thêm vài giây.' });
+        navigator.geolocation.getCurrentPosition(
+          (p) => handleGpsSuccess(p, true),
+          handleGpsError,
+          { enableHighAccuracy: false, timeout: 10000, maximumAge: 30000 }
+        );
       }
-    }, 5000);
-  }, [handleGpsSuccess]);
+    }, 13000);
+  }, [handleGpsError, handleGpsSuccess, store]);
 
   const restartGps = () => {
     if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
@@ -171,9 +200,19 @@ export default function CheckIn() {
     if (isStartingCameraRef.current) return;
     isStartingCameraRef.current = true;
     setCameraError(false);
+    setCameraErrorMessage('');
     
     try {
-      if (!window.isSecureContext && location.hostname !== 'localhost') { setCameraError(true); return; }
+      if (!window.isSecureContext && location.hostname !== 'localhost') {
+        setCameraErrorMessage('Camera chỉ hoạt động trên kết nối HTTPS an toàn.');
+        setCameraError(true);
+        return;
+      }
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setCameraErrorMessage('Trình duyệt này không hỗ trợ mở camera trực tiếp.');
+        setCameraError(true);
+        return;
+      }
 
       const constraintsList = [{ video: { facingMode: 'user' as const } }, { video: { facingMode: 'environment' as const } }, { video: true }];
 
@@ -202,9 +241,20 @@ export default function CheckIn() {
           
           isStartingCameraRef.current = false;
           return;
-        } catch { }
+        } catch (error) {
+          const cameraException = error as DOMException;
+          if (cameraException?.name === 'NotAllowedError' || cameraException?.name === 'SecurityError') {
+            setCameraErrorMessage('Quyền camera đang bị tắt. Hãy cấp quyền rồi thử lại.');
+            break;
+          }
+          if (cameraException?.name === 'NotFoundError') {
+            setCameraErrorMessage('Không tìm thấy camera trên thiết bị.');
+            break;
+          }
+        }
       }
       setCameraError(true);
+      setCameraErrorMessage((message) => message || 'Không thể mở camera. Bạn vẫn có thể dùng máy ảnh hệ thống.');
       speak('Không thể mở máy ảnh. Vui lòng kiểm tra quyền truy cập.');
     } finally {
       isStartingCameraRef.current = false;
@@ -214,7 +264,10 @@ export default function CheckIn() {
   const takePhoto = () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    if (!video || !canvas) return;
+    if (!video || !canvas || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !video.videoWidth || !video.videoHeight) {
+      setCameraErrorMessage('Camera chưa sẵn sàng. Vui lòng chờ một chút rồi thử lại.');
+      return;
+    }
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
@@ -299,11 +352,12 @@ export default function CheckIn() {
       img.src = event.target?.result as string;
     };
     reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   // Submit flow triggers
   const submitCheck = async (type: string) => {
-    if (!capturedImage || !gps.isValid || !gps.lat) return;
+    if (!capturedImage || !gps.isValid || gps.lat === null || gps.lng === null) return;
 
     // Anti-spam 1min check
     const now = Date.now();
@@ -317,7 +371,6 @@ export default function CheckIn() {
     }
 
     // Late check-in warning
-    let isLate = false;
     let lateMinsInfo = 0;
     let shiftString = '';
     if (type === 'Vào ca' && approvedShifts) {
@@ -331,7 +384,6 @@ export default function CheckIn() {
           const shiftTotal = parseInt(parts[0]) * 60 + parseInt(parts[1]);
           const currentTotal = todayDate.getHours() * 60 + todayDate.getMinutes();
           if (currentTotal > shiftTotal) {
-            isLate = true;
             lateMinsInfo = currentTotal - shiftTotal;
             speak(`Cảnh báo, bạn đang vào ca trễ ${lateMinsInfo} phút.`);
             
@@ -353,7 +405,13 @@ export default function CheckIn() {
   // Real execution call
   const executeCheck = async (type: string, isLate: boolean, lateMinsInfo: number, shiftString: string) => {
     const actualTime = store.capturedTime || currentTime;
-    const tempLog = { fullname: currentUser!.fullname, type, time: actualTime, status: 'Đang đồng bộ...', image: capturedImage };
+    const tempLog = {
+      fullname: currentUser!.fullname,
+      type,
+      time: actualTime,
+      status: 'Đang đồng bộ...',
+      image: capturedImage || undefined
+    };
     
     store.prependLog(tempLog);
     if (type === 'Vào ca') store.setStats({ ...store.stats, totalCheckIn: store.stats.totalCheckIn + 1 });
@@ -468,7 +526,7 @@ export default function CheckIn() {
   const handleSurveySubmit = async () => {
     if (surveyEmotion === null) return;
     setSurveySubmitting(true);
-    const res = await callApi('SUBMIT_SURVEY', {
+    await callApi('SUBMIT_SURVEY', {
       username: currentUser!.username,
       fullname: currentUser!.fullname,
       emotion: surveyEmotion,
@@ -494,6 +552,7 @@ export default function CheckIn() {
         setIsFaceModelLoaded(true);
       } catch (e) {
         console.error('Face API model load error:', e);
+        setFaceModelUnavailable(true);
       }
     };
     loadModels();
@@ -509,7 +568,7 @@ export default function CheckIn() {
 
   // AI bounding box detection loop
   useEffect(() => {
-    let interval: any;
+    let interval: ReturnType<typeof setInterval> | undefined;
     if (cameraActive && isFaceModelLoaded && videoRef.current && overlayCanvasRef.current) {
       const video = videoRef.current;
       const canvas = overlayCanvasRef.current;
@@ -545,7 +604,7 @@ export default function CheckIn() {
                 if (resizedDetections.length > 1) {
                   ctx.strokeStyle = '#ef4444';
                   ctx.lineWidth = 4;
-                  resizedDetections.forEach((det: any) => {
+                  resizedDetections.forEach((det: { box: { x: number; y: number; width: number; height: number } }) => {
                     const box = det.box;
                     ctx.strokeRect(box.x, box.y, box.width, box.height);
                   });
@@ -554,22 +613,29 @@ export default function CheckIn() {
               ctx.restore();
             }
           }
-        } catch (e) { }
+        } catch {
+          // Keep the camera usable even if a detection frame fails.
+        }
       }, 300);
     }
     return () => clearInterval(interval);
   }, [cameraActive, isFaceModelLoaded]);
 
-  const canSubmit = !!(capturedImage && gps.isValid && gps.lat);
+  const canSubmit = !!(capturedImage && gps.isValid && gps.lat !== null && gps.lng !== null);
 
   return (
     <div className="space-y-4 animate-fade-in pb-10">
       
       {/* Header Banner */}
-      <KgModuleHero id="checkin" title="Chấm công GPS" subtitle="Chụp ảnh minh chứng tại nhà hàng để hoàn thành chấm công." />
+      <KgModuleHero
+        moduleId="checkin"
+        title="Chấm công GPS"
+        description="Chụp ảnh minh chứng tại nhà hàng để hoàn thành chấm công."
+        features={['Xác thực vị trí', 'Ảnh có thời gian']}
+      />
 
       {/* GPS Status Card */}
-      <div className="bg-white dark:bg-[#111827] p-5 rounded-3xl relative overflow-hidden border border-slate-100 dark:border-slate-800 text-slate-800 dark:text-white shadow-sm">
+      <div className="bg-[var(--kg-surface)] p-5 rounded-3xl relative overflow-hidden border border-[var(--kg-border)] text-[var(--kg-text)] shadow-sm">
         <div className="absolute -right-4 -top-4 opacity-5 text-8xl transform rotate-12 text-blue-600/10"><MapPin size={100} /></div>
         <div className="flex items-start space-x-4 relative z-10">
           <div className="bg-blue-50 dark:bg-blue-950/20 p-3 rounded-2xl relative flex-shrink-0 text-blue-600 dark:text-indigo-400">
@@ -577,8 +643,8 @@ export default function CheckIn() {
             {gps.status.includes('Đang') && <div className="gps-ping absolute inset-0" />}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Vị trí hiện tại</p>
-            <h3 className="font-extrabold text-sm md:text-base mt-0.5 leading-tight break-words text-slate-800 dark:text-white">
+            <p className="text-[10px] font-bold text-[var(--kg-text-muted)] uppercase tracking-wider">Vị trí hiện tại</p>
+            <h3 className="font-extrabold text-sm md:text-base mt-0.5 leading-tight break-words text-[var(--kg-text)] pr-20">
               {gps.address ? gps.address : gps.status}
             </h3>
             <div className={`mt-2 inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold ${gps.isValid ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400' : 'bg-red-50 text-red-650 dark:bg-red-950/20 dark:text-red-400'}`}>
@@ -588,7 +654,7 @@ export default function CheckIn() {
         </div>
         <button
           onClick={restartGps}
-          className="absolute top-4 right-4 text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-full transition font-bold flex items-center min-h-[44px] touch-manipulation shadow-sm"
+            className="absolute top-4 right-4 text-xs bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white px-3 py-1.5 rounded-full transition font-bold flex items-center min-h-[44px] touch-manipulation shadow-sm"
         >
           <RefreshCw size={14} className={`mr-1.5 ${gps.status.includes('Đang') ? 'animate-spin' : ''}`} />
           Làm mới
@@ -605,8 +671,8 @@ export default function CheckIn() {
         {cameraError && !capturedImage && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 text-white p-6 text-center z-50">
             <CameraOff size={44} className="mb-4 text-slate-500" />
-            <p className="mb-2 text-sm font-black">Camera WebRTC bị chặn</p>
-            <p className="mb-6 text-xs text-slate-500 leading-normal max-w-[200px]">Hãy dùng máy ảnh hệ thống điện thoại để chụp ảnh checkin.</p>
+            <p className="mb-2 text-sm font-black">Chưa thể mở camera</p>
+            <p className="mb-6 text-xs text-slate-300 leading-normal max-w-[240px]">{cameraErrorMessage || 'Hãy dùng máy ảnh hệ thống điện thoại để chụp ảnh chấm công.'}</p>
             <input type="file" ref={fileInputRef} accept="image/*" capture="user" className="hidden" onChange={handleFileUpload} />
             <KgButton onClick={() => fileInputRef.current?.click()} variant="primary" size="md" icon={Camera} className="w-full max-w-[200px]">
               Chụp ảnh minh chứng
@@ -628,13 +694,17 @@ export default function CheckIn() {
         {/* AI Face Detection Overlays */}
         {!cameraError && !capturedImage && cameraActive && (
           <div className="absolute inset-x-4 top-14 z-30 pointer-events-none flex justify-center">
-            {!isFaceModelLoaded ? (
+            {!isFaceModelLoaded && !faceModelUnavailable ? (
               <span className="bg-black/70 text-white text-xs px-3.5 py-1.5 rounded-full backdrop-blur-sm flex items-center shadow-md font-semibold gap-1.5">
                 <RefreshCw size={13} className="animate-spin" /> Đang tải AI...
               </span>
+            ) : faceModelUnavailable ? (
+              <span className="bg-amber-600/90 text-white text-xs px-3.5 py-1.5 rounded-full backdrop-blur-sm flex items-center shadow-md font-bold gap-1.5">
+                Camera sẵn sàng • nhận diện khuôn mặt ngoại tuyến
+              </span>
             ) : !isFaceDetected ? (
-              <span className="bg-red-500/80 text-white text-xs px-3.5 py-1.5 rounded-full backdrop-blur-sm flex items-center shadow-md font-bold gap-1.5 animate-pulse">
-                ⚠️ Căn chỉnh 1 khuôn mặt giữa khung hình
+              <span className="bg-amber-600/90 text-white text-xs px-3.5 py-1.5 rounded-full backdrop-blur-sm flex items-center shadow-md font-bold gap-1.5">
+                Căn 1 khuôn mặt giữa khung hình
               </span>
             ) : (
               <span className="bg-green-600/90 text-white text-xs px-3.5 py-1.5 rounded-full backdrop-blur-sm flex items-center shadow-md font-bold gap-1.5">
@@ -658,12 +728,12 @@ export default function CheckIn() {
             {cameraActive ? (
               <button
                 onClick={takePhoto}
-                disabled={!isFaceDetected}
-                className={`group relative touch-manipulation transition-all duration-300 ${!isFaceDetected ? 'opacity-30 scale-90 grayscale pointer-events-none' : 'scale-100 active:scale-95'}`}
+                aria-label="Chụp ảnh chấm công"
+                className="group relative touch-manipulation transition-all duration-300 scale-100 active:scale-95"
               >
                 <div className="absolute inset-0 bg-white rounded-full opacity-35 scale-110" />
                 <div className="w-16 h-16 bg-transparent border-4 border-white rounded-full flex items-center justify-center shadow-lg">
-                  <div className={`w-11 h-11 rounded-full transition-all ${!isFaceDetected ? 'bg-slate-400' : 'bg-green-500 group-hover:scale-105'}`} />
+                  <div className={`w-11 h-11 rounded-full transition-all ${isFaceDetected ? 'bg-green-500' : 'bg-white'} group-hover:scale-105`} />
                 </div>
               </button>
             ) : (
@@ -756,8 +826,8 @@ export default function CheckIn() {
           }`}>
             <UserCheck size={24} />
           </div>
-          <h4 className="text-base font-extrabold text-slate-805 dark:text-white">{feedbackTitle}</h4>
-          <p className="text-xs text-slate-550 dark:text-slate-400 whitespace-pre-line leading-relaxed">
+          <h4 className="text-base font-extrabold text-slate-800 dark:text-white">{feedbackTitle}</h4>
+          <p className="text-xs text-slate-600 dark:text-slate-400 whitespace-pre-line leading-relaxed">
             {feedbackMessage}
           </p>
           <KgButton variant="secondary" size="md" className="w-full" onClick={() => setFeedbackSheetOpen(false)}>
@@ -769,7 +839,7 @@ export default function CheckIn() {
       {/* Pulse survey bottom sheet */}
       <KgBottomSheet isOpen={surveyOpen} onClose={() => setSurveyOpen(false)} title="Khảo sát sức khỏe đầu ca">
         <div className="space-y-4 py-2 text-left">
-          <p className="text-xs font-bold text-slate-450 dark:text-slate-500 uppercase tracking-wider pl-1">
+          <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider pl-1">
             Hôm nay bạn cảm thấy thế nào trước khi bắt đầu ca?
           </p>
           
@@ -787,7 +857,7 @@ export default function CheckIn() {
                 className={`flex flex-col items-center justify-center p-3 rounded-2xl border active:scale-95 transition-all gap-1.5 ${
                   surveyEmotion === item.val
                     ? 'border-teal-500 bg-teal-50/50 dark:bg-teal-950/30 text-teal-650'
-                    : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 text-slate-650 hover:bg-slate-100'
+                    : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
                 }`}
               >
                 <span className="text-2xl leading-none">{item.emoji}</span>

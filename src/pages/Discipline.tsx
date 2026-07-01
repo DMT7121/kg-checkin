@@ -113,7 +113,7 @@ export default function Discipline() {
   return (
     <div className="p-4 space-y-5 animate-slide-up pb-10">
       <KgModuleHero
-        moduleId="soldout"
+        moduleId="discipline"
         title="Vi phạm & Kỷ luật"
         description="Theo dõi lịch sử khen thưởng và kỷ luật của nhân sự."
         eyebrow="Nội quy"

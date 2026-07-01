@@ -17,7 +17,7 @@ import {
   KgStatusBadge,
   KgBottomSheet,
   KgAlertCard,
-  Kg3dIllustration
+  KgModuleHero
 } from '../components/KgDesignSystem';
 
 interface QuizQuestion {
@@ -48,6 +48,16 @@ interface ChatMessage {
 }
 
 export default function Training() {
+  useEffect(() => {
+    const stylesheetId = 'kg-font-awesome';
+    if (document.getElementById(stylesheetId)) return;
+    const stylesheet = document.createElement('link');
+    stylesheet.id = stylesheetId;
+    stylesheet.rel = 'stylesheet';
+    stylesheet.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css';
+    document.head.appendChild(stylesheet);
+  }, []);
+
   const store = useAppStore();
   const { currentUser } = store;
   const [lessons, setLessons] = useState<Lesson[]>([]);
@@ -399,33 +409,22 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
         }
       `}</style>
       {/* Header Banner */}
-      <section className="relative overflow-hidden p-6 md:p-8 text-white rounded-3xl border border-white/10 shadow-hero bg-gradient-hero mb-6">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-3.5 max-w-2xl">
-            <span className="inline-flex items-center gap-1.5 bg-white/12 border border-white/20 px-3 py-1 rounded-full text-[10px] font-black tracking-wider uppercase text-white shadow-inner">
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-              Đào tạo SOP
-            </span>
-            <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold tracking-tight text-white leading-tight">
-              Sổ Tay Vận Hành & Đào Tạo
-            </h1>
-            <p className="text-sm md:text-base text-white/86 leading-relaxed font-medium max-w-lg">
-              Tra cứu quy trình chuẩn (SOP), nội quy nhà hàng và làm bài kiểm tra nghiệp vụ tích lũy King Coins.
-            </p>
-          </div>
-          <div className="flex-shrink-0 flex items-center justify-center bg-white/5 border border-white/10 p-4 rounded-3xl backdrop-blur-md shadow-lg transform hover:rotate-2 transition-transform duration-300">
-            <Kg3dIllustration moduleId="training" />
-          </div>
-        </div>
+      <KgModuleHero
+        moduleId="training"
+        eyebrow="Đào tạo SOP"
+        title="Sổ Tay Vận Hành & Đào Tạo"
+        description="Tra cứu quy trình chuẩn (SOP), nội quy nhà hàng và làm bài kiểm tra nghiệp vụ tích lũy King Coins."
+        features={[`${completedCount}/${totalLessons} bài hoàn thành`]}
+      />
 
-        {/* Tab Buttons */}
-        <div className="flex gap-2.5 mt-5 relative z-10 border-t border-white/15 pt-4">
+      {/* Tab Buttons */}
+      <div className="flex gap-2.5 mb-6 p-2 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-sm">
           <button
             onClick={() => setActiveTab('sop')}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 ${
               activeTab === 'sop'
-                ? 'bg-white text-blue-600 shadow-sm scale-105'
-                : 'bg-white/10 text-white hover:bg-white/20'
+                ? 'bg-[var(--kg-primary)] text-white shadow-sm'
+                : 'text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)]'
             }`}
           >
             <BookMarked size={14} /> Tra cứu SOP
@@ -434,8 +433,8 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
             onClick={() => setActiveTab('quiz')}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 relative ${
               activeTab === 'quiz'
-                ? 'bg-white text-blue-600 shadow-sm scale-105'
-                : 'bg-white/10 text-white hover:bg-white/20'
+                ? 'bg-[var(--kg-primary)] text-white shadow-sm'
+                : 'text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)]'
             }`}
           >
             <UserCheck size={14} /> Kiểm tra năng lực
@@ -446,11 +445,7 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
               </span>
             )}
           </button>
-        </div>
-
-        <div className="absolute right-[-10%] top-[-20%] w-72 h-72 bg-white/10 rounded-full blur-3xl mix-blend-overlay pointer-events-none" />
-        <div className="absolute left-[-5%] bottom-[-40%] w-60 h-60 bg-blue-500/20 rounded-full blur-2xl mix-blend-overlay pointer-events-none" />
-      </section>
+      </div>
 
       {/* Tab 1: Tra cứu SOP */}
       {activeTab === 'sop' && (

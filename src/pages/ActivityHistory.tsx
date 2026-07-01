@@ -60,7 +60,7 @@ export default function ActivityHistory() {
   return (
     <div className="p-4 space-y-5 animate-slide-up pb-10">
       <KgModuleHero
-        moduleId="timesheet"
+        moduleId="history"
         title="Lịch sử Hoạt động"
         description="Theo dõi chi tiết lịch sử vào ca, ra ca và ghi nhận trạng thái chấm công của nhân sự."
         eyebrow="Nhật ký"

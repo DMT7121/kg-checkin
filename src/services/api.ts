@@ -1,9 +1,8 @@
 // ============================================
 // api.ts - GAS API Service
 // ============================================
-import Swal from 'sweetalert2';
-
-const inFlightBackgroundCalls = new Map<string, Promise<any>>();
+const inFlightReadCalls = new Map<string, Promise<any>>();
+const responseCache = new Map<string, { expiresAt: number; value: any }>();
 
 // Get GAS URL dynamically so we can update it without rebuilds
 export const getGasUrl = () => {
@@ -39,19 +38,27 @@ export async function callApi(
     onLoadingEnd?: () => void;
     timeoutMs?: number;
     maxAttempts?: number;
+    cacheTtlMs?: number;
   }
 ): Promise<any> {
   const bg = options?.background ?? false;
+  const isReadAction = action.startsWith('GET_') || action === 'GEOCODE';
+  const bodyStr = JSON.stringify({ action, ...payload });
+  const requestKey = `${getGasUrl()}|${bodyStr}`;
+  const canUseCache = isReadAction && payload.forceRefresh !== true && options?.cacheTtlMs !== 0;
+
+  if (canUseCache) {
+    const cached = responseCache.get(requestKey);
+    if (cached && cached.expiresAt > Date.now()) return cached.value;
+    if (cached) responseCache.delete(requestKey);
+  }
+
+  if (isReadAction && inFlightReadCalls.has(requestKey)) {
+    return inFlightReadCalls.get(requestKey);
+  }
 
   if (!bg) {
     options?.onLoadingStart?.();
-  }
-
-  const bodyStr = JSON.stringify({ action, ...payload });
-  const requestKey = `${getGasUrl()}|${bodyStr}`;
-
-  if (bg && inFlightBackgroundCalls.has(requestKey)) {
-    return inFlightBackgroundCalls.get(requestKey);
   }
 
   const requestPromise = (async () => {
@@ -90,6 +97,15 @@ export async function callApi(
       // Log failed API calls for debugging
       if (!result.ok) {
         console.warn(`[API] ${action} failed:`, result.message);
+      } else if (canUseCache) {
+        const defaultTtl = action === 'GET_DATA'
+          ? 5 * 60_000
+          : (action === 'GET_NOTIFICATIONS' || action === 'GET_POSTS' ? 30_000 : 2 * 60_000);
+        const ttl = options?.cacheTtlMs ?? defaultTtl;
+        responseCache.set(requestKey, { expiresAt: Date.now() + ttl, value: result });
+      } else if (!isReadAction) {
+        // A successful mutation can invalidate any cached read model.
+        responseCache.clear();
       }
       
       return result;
@@ -102,6 +118,7 @@ export async function callApi(
       if (!bg) {
         options?.onLoadingEnd?.();
         console.error('[API] Error:', error);
+        const { default: Swal } = await import('sweetalert2');
         Swal.fire('Lỗi mạng', 'Mất kết nối server. Vui lòng thử lại.', 'error');
       }
       return null;
@@ -109,10 +126,14 @@ export async function callApi(
   }
   })();
 
-  if (bg) {
-    inFlightBackgroundCalls.set(requestKey, requestPromise);
-    requestPromise.finally(() => inFlightBackgroundCalls.delete(requestKey));
+  if (isReadAction) {
+    inFlightReadCalls.set(requestKey, requestPromise);
+    requestPromise.finally(() => inFlightReadCalls.delete(requestKey));
   }
 
   return requestPromise;
+}
+
+export function clearApiCache(): void {
+  responseCache.clear();
 }

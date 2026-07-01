@@ -2,14 +2,14 @@ import { lazy, Suspense, useEffect } from 'react';
 import { useAppStore } from './store/useAppStore';
 import { isInAppBrowser, computeWeekInfo, getCurrentTimeString } from './utils/helpers';
 import { refreshAppData, restoreFromCache } from './utils/refreshData';
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
 import LoadingScreen from './components/LoadingScreen';
 import ZaloWarning from './components/ZaloWarning';
 import ImagePreview from './components/ImagePreview';
 import AppErrorBoundary from './components/AppErrorBoundary';
 
 const AIAssistant = lazy(() => import('./components/AIAssistant'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Login = lazy(() => import('./pages/Login'));
 
 export default function App() {
   const store = useAppStore();
@@ -24,10 +24,12 @@ export default function App() {
       localStorage.removeItem('kg_gas_url');
     }
 
-    // Auto dark mode based on time of day
+    // Respect the user's saved theme. Only use time/system preference on first visit.
     const hour = new Date().getHours();
     const isNight = hour < 6 || hour >= 17;
-    store.setDark(isNight);
+    const savedTheme = localStorage.getItem('kg_theme');
+    const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
+    store.setDark(savedTheme ? savedTheme === 'dark' : (isNight || prefersDark));
     store.setShiftName(isNight ? 'Ca Tối' : 'Ca Sáng');
 
     // Clock - updates every 10 seconds (display shows HH:MM only), also checks for shift change
@@ -39,7 +41,6 @@ export default function App() {
       const currentShift = useAppStore.getState().shiftName;
       if (currentShift !== newShift) {
         store.setShiftName(newShift);
-        store.setDark(newShift === 'Ca Tối');
       }
     }, 10000);
 
@@ -91,7 +92,7 @@ export default function App() {
           localStorage.setItem('kg_session_time', Date.now().toString());
 
           // Fetch fresh data in background (Phase 7: centralized)
-          refreshAppData(true);
+          refreshAppData();
         }
       } catch {
         localStorage.removeItem('kg_user');
@@ -138,7 +139,22 @@ export default function App() {
           </div>
         }
       >
-        {currentUser ? <Dashboard /> : <Login />}
+        {currentUser ? (
+          <Suspense fallback={
+            <div className="min-h-screen bg-[var(--kg-bg)] p-5 md:p-8">
+              <div className="mx-auto max-w-7xl space-y-4 animate-pulse">
+                <div className="h-16 rounded-2xl bg-[var(--kg-surface)] border border-[var(--kg-border)]" />
+                <div className="h-48 rounded-3xl bg-[var(--kg-surface)] border border-[var(--kg-border)]" />
+              </div>
+            </div>
+          }>
+            <Dashboard />
+          </Suspense>
+        ) : (
+          <Suspense fallback={<div className="min-h-screen bg-[var(--kg-bg)]" />}>
+            <Login />
+          </Suspense>
+        )}
       </AppErrorBoundary>
     </div>
   );

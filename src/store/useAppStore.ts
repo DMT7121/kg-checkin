@@ -227,8 +227,12 @@ interface AppState {
   isAdminUnlocked: boolean;
   groqKeysInput: string;
   groqKeys: GroqKey[];
+  aiPrompts: AIPrompt[];
   adminSchedules: AdminScheduleEntry[];
   originalAdminSchedules: AdminScheduleEntry[];
+  monthSchedules: unknown;
+  selectedMonth: number;
+  selectedYear: number;
 
   // Chatbot
   chatHistory: { role: string; content: string }[];
@@ -279,8 +283,8 @@ interface AppState {
   setAiPrompts: (prompts: AIPrompt[]) => void;
   setGroqKeys: (keys: GroqKey[]) => void;
   setAdminSchedules: (v: AdminScheduleEntry[]) => void;
-  setOriginalAdminSchedules: (schedules: any[]) => void;
-  setMonthSchedules: (schedules: any) => void;
+  setOriginalAdminSchedules: (schedules: AdminScheduleEntry[]) => void;
+  setMonthSchedules: (schedules: unknown) => void;
   setSelectedMonth: (month: number) => void;
   setSelectedYear: (year: number) => void;
   setPreviewOpen: (v: boolean) => void;
@@ -307,10 +311,24 @@ interface AppState {
   logout: () => void;
 }
 
+const restoreInitialUser = (): User | null => {
+  try {
+    const savedUser = localStorage.getItem('kg_user');
+    const sessionTime = Number(localStorage.getItem('kg_session_time') || 0);
+    if (!savedUser || !sessionTime) return null;
+    const isRemembered = localStorage.getItem('kg_remember') === 'true';
+    const sessionDuration = isRemembered ? 30 * 24 * 60 * 60 * 1000 : 30 * 60 * 1000;
+    if (Date.now() - sessionTime > sessionDuration) return null;
+    return JSON.parse(savedUser) as User;
+  } catch {
+    return null;
+  }
+};
+
 export const useAppStore = create<AppState>((set) => ({
   // Auth
-  currentUser: null,
-  rememberMe: false,
+  currentUser: restoreInitialUser(),
+  rememberMe: localStorage.getItem('kg_remember') === 'true',
 
   // UI
   isDark: false,
@@ -421,6 +439,7 @@ export const useAppStore = create<AppState>((set) => ({
       const newDark = !s.isDark;
       if (newDark) document.documentElement.classList.add('dark');
       else document.documentElement.classList.remove('dark');
+      localStorage.setItem('kg_theme', newDark ? 'dark' : 'light');
       return { isDark: newDark };
     }),
   setLoading: (loading, loadingText) =>

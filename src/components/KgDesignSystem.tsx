@@ -1,6 +1,12 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, AlertCircle, CheckCircle2, AlertTriangle, Info, RefreshCw, Wifi, WifiOff } from 'lucide-react';
+import {
+  X, AlertCircle, CheckCircle2, AlertTriangle, Info, RefreshCw, Wifi, WifiOff,
+  LayoutDashboard, MapPin, CalendarDays, Users, ArrowLeftRight, Clock, History,
+  DollarSign, Trophy, ClipboardCheck, Repeat, Newspaper, UtensilsCrossed,
+  ShieldAlert, MessageSquareWarning, GraduationCap, BookOpen, Building2,
+  KeyRound, CalendarRange, BarChart3, Sparkles
+} from 'lucide-react';
 
 // ============================================
 // Layout Components
@@ -42,7 +48,7 @@ export function KgPageHeader({
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
       <div className="flex items-center gap-3">
         {Icon && (
-          <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-slate-800/40 flex items-center justify-center text-blue-600 dark:text-indigo-400 flex-shrink-0">
+          <div className="kg-section-icon w-10 h-10 rounded-xl bg-blue-50 dark:bg-slate-800/40 flex items-center justify-center text-blue-600 dark:text-indigo-400 flex-shrink-0">
             <Icon size={20} />
           </div>
         )}
@@ -82,12 +88,12 @@ export function KgCard({
   return (
     <div
       onClick={onClick}
-      className={`bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-3xl p-4 md:p-5 transition-all duration-200 min-w-0 ${
+      className={`kg-card bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-3xl p-4 md:p-5 transition-all duration-200 min-w-0 ${
         stacked ? 'neo-card-stack' : ''
       } ${
         onClick ? 'cursor-pointer select-none active:scale-[0.99] touch-manipulation' : ''
       } ${
-        hoverable || onClick ? 'hover:border-[#2563eb] dark:hover:border-[#7c3aed] hover:shadow-card hover:-translate-y-0.5' : ''
+        hoverable || onClick ? 'hover:border-[var(--kg-primary)] hover:shadow-card hover:-translate-y-0.5' : ''
       } ${className}`}
     >
       {children}
@@ -126,13 +132,13 @@ export function KgButton({
   };
 
   const variantStyles = {
-    primary: 'bg-gradient-to-r from-[#2563eb] to-[#7c3aed] text-white border-none shadow-md hover:shadow-lg hover:-translate-y-0.5',
+    primary: 'bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white border border-[var(--kg-primary)] shadow-md hover:shadow-lg hover:-translate-y-0.5',
     secondary:
       'bg-white dark:bg-[#0E273C] text-[#0f172a] dark:text-[#f8fafc] border border-[#E8DED1] dark:border-[#1E3F57] hover:bg-[#f3f6ff] dark:hover:bg-[#182230]',
     danger:
-      'bg-gradient-to-r from-[#ef4444] to-[#c22d2d] text-white border-none shadow-md hover:shadow-lg hover:-translate-y-0.5',
+      'bg-[var(--kg-danger)] hover:brightness-95 text-white border border-[var(--kg-danger)] shadow-md hover:shadow-lg hover:-translate-y-0.5',
     warning:
-      'bg-gradient-to-r from-[#f59e0b] to-[#d97706] text-white border-none shadow-md hover:shadow-lg hover:-translate-y-0.5',
+      'bg-[var(--kg-warning)] hover:brightness-95 text-white border border-[var(--kg-warning)] shadow-md hover:shadow-lg hover:-translate-y-0.5',
     ghost:
       'bg-transparent border-none text-[#64748b] dark:text-[#98a2b3] hover:bg-[#f3f6ff] dark:hover:bg-[#182230] shadow-none'
   };
@@ -170,7 +176,7 @@ export function KgIconButton({
   title?: string;
 }) {
   const variantStyles = {
-    primary: 'bg-gradient-to-r from-[#2563eb] to-[#7c3aed] text-white border-none shadow-md',
+    primary: 'bg-[var(--kg-primary)] text-white border border-[var(--kg-primary)] shadow-md',
     secondary:
       'bg-white dark:bg-[#0E273C] text-[#0f172a] dark:text-[#f8fafc] border border-[#E8DED1] dark:border-[#1E3F57] hover:bg-[#f3f6ff] dark:hover:bg-[#182230]',
     danger:
@@ -340,7 +346,11 @@ export function KgMetricCard({
   };
 
   return (
-    <KgCard onClick={onClick} className={`flex items-center justify-between p-4 ${className}`} hoverable={!!onClick}>
+    <KgCard
+      onClick={onClick}
+      className={`kg-metric-card kg-metric-${variant} flex items-center justify-between p-4 ${className}`}
+      hoverable={!!onClick}
+    >
       <div className="space-y-1 min-w-0">
         <span className="text-[11px] text-[#64748b] dark:text-[#98a2b3] font-bold uppercase tracking-wider block truncate">
           {title}
@@ -422,6 +432,11 @@ export function KgEmptyState({
   icon?: React.ComponentType<any>;
   action?: { label: string; onClick: () => void } | React.ReactNode;
 }) {
+  const actionConfig =
+    action && !React.isValidElement(action) && typeof action === 'object' && 'label' in action
+      ? action
+      : null;
+
   return (
     <div className="flex flex-col items-center justify-center text-center p-6 py-10 bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] border-dashed rounded-3xl">
       {Icon && (
@@ -437,12 +452,11 @@ export function KgEmptyState({
         <div className="mt-4">
           {React.isValidElement(action) ? (
             action
-          ) : (
-            // @ts-ignore
-            <KgButton size="sm" onClick={action.onClick}>
-              {action.label}
+          ) : actionConfig ? (
+            <KgButton size="sm" onClick={actionConfig.onClick}>
+              {actionConfig.label}
             </KgButton>
-          )}
+          ) : null}
         </div>
       )}
     </div>
@@ -719,27 +733,63 @@ export function KgActionSheet({
     onClick: () => void;
     color?: string;
     adminOnly?: boolean;
+    group?: string;
+    active?: boolean;
+    onPrefetch?: () => void;
   }[];
 }) {
+  const groupedActions = actions.reduce<Array<{ label: string; items: typeof actions }>>((groups, action) => {
+    const groupLabel = action.group || 'Tính năng khác';
+    const existingGroup = groups.find((group) => group.label === groupLabel);
+    if (existingGroup) existingGroup.items.push(action);
+    else groups.push({ label: groupLabel, items: [action] });
+    return groups;
+  }, []);
+
   return (
     <KgBottomSheet isOpen={isOpen} onClose={onClose} title={title}>
-      <div className="grid grid-cols-3 gap-2.5 py-1">
-        {actions.map((act, i) => (
-          <button
-            key={i}
-            onClick={() => {
-              act.onClick();
-              onClose();
-            }}
-            className="flex flex-col items-center justify-center p-3 rounded-xl hover:bg-white dark:hover:bg-[#0E273C] active:scale-95 transition-all text-[#6F7785] dark:text-white gap-1.5"
-          >
-            <div className="w-11 h-11 rounded-xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 flex items-center justify-center shadow-sm text-blue-600 dark:text-indigo-400">
-              <act.icon size={20} />
+      <div className="space-y-5 py-1">
+        {groupedActions.map((group) => (
+          <section key={group.label} className="kg-action-group">
+            <div className="flex items-center gap-2 px-1 mb-2.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--kg-accent)] shadow-[0_0_8px_rgba(204,96,73,0.45)]" />
+              <h4 className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--kg-text-muted)]">
+                {group.label}
+              </h4>
+              <span className="h-px flex-1 bg-[var(--kg-border)]" />
             </div>
-            <span className="text-[10px] font-bold text-center leading-tight tracking-wide uppercase break-words w-full">
-              {act.label}
-            </span>
-          </button>
+            <div className="grid grid-cols-3 gap-2">
+              {group.items.map((act) => (
+                <button
+                  key={`${group.label}-${act.label}`}
+                  onClick={() => {
+                    act.onClick();
+                    onClose();
+                  }}
+                  onPointerEnter={act.onPrefetch}
+                  onFocus={act.onPrefetch}
+                  onTouchStart={act.onPrefetch}
+                  aria-current={act.active ? 'page' : undefined}
+                  className={`kg-action-tile flex flex-col items-center justify-center p-3 rounded-2xl active:scale-95 transition-all gap-2 min-h-[96px] ${
+                    act.active
+                      ? 'kg-action-tile--active text-white'
+                      : 'text-[var(--kg-text-muted)] hover:bg-white dark:hover:bg-[#0E273C]'
+                  }`}
+                >
+                  <div className={`w-11 h-11 rounded-xl border flex items-center justify-center shadow-sm ${
+                    act.active
+                      ? 'kg-action-icon--active'
+                      : 'kg-section-icon bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800'
+                  }`}>
+                    <act.icon size={20} />
+                  </div>
+                  <span className="text-[10px] font-extrabold text-center leading-tight tracking-wide uppercase break-words w-full">
+                    {act.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
         ))}
       </div>
     </KgBottomSheet>
@@ -750,7 +800,8 @@ export function KgActionSheet({
 // 3D Glassmorphism Illustrations
 // ============================================
 
-export function Kg3dIllustration({ moduleId }: { moduleId: string }) {
+/** @deprecated Kept temporarily for compatibility with older custom illustrations. */
+export function LegacyKg3dIllustration({ moduleId }: { moduleId: string }) {
   const normId = moduleId.toLowerCase().replace(/[-_]/g, '');
 
   const defs = (
@@ -1029,6 +1080,63 @@ export function Kg3dIllustration({ moduleId }: { moduleId: string }) {
   }
 }
 
+const HERO_ICON_MAP = {
+  today: { icon: LayoutDashboard, accent: '#38bdf8', glow: 'rgba(56, 189, 248, 0.34)' },
+  dashboard: { icon: LayoutDashboard, accent: '#38bdf8', glow: 'rgba(56, 189, 248, 0.34)' },
+  checkin: { icon: MapPin, accent: '#fb7185', glow: 'rgba(251, 113, 133, 0.34)' },
+  schedule: { icon: CalendarDays, accent: '#fbbf24', glow: 'rgba(251, 191, 36, 0.32)' },
+  roster: { icon: Users, accent: '#2dd4bf', glow: 'rgba(45, 212, 191, 0.32)' },
+  swap: { icon: ArrowLeftRight, accent: '#a78bfa', glow: 'rgba(167, 139, 250, 0.34)' },
+  timesheet: { icon: Clock, accent: '#818cf8', glow: 'rgba(129, 140, 248, 0.34)' },
+  history: { icon: History, accent: '#60a5fa', glow: 'rgba(96, 165, 250, 0.34)' },
+  payroll: { icon: DollarSign, accent: '#34d399', glow: 'rgba(52, 211, 153, 0.32)' },
+  adminpayroll: { icon: DollarSign, accent: '#34d399', glow: 'rgba(52, 211, 153, 0.32)' },
+  advance: { icon: DollarSign, accent: '#22d3ee', glow: 'rgba(34, 211, 238, 0.32)' },
+  reward: { icon: Trophy, accent: '#fbbf24', glow: 'rgba(251, 191, 36, 0.34)' },
+  checklist: { icon: ClipboardCheck, accent: '#2dd4bf', glow: 'rgba(45, 212, 191, 0.32)' },
+  handover: { icon: Repeat, accent: '#38bdf8', glow: 'rgba(56, 189, 248, 0.32)' },
+  news: { icon: Newspaper, accent: '#60a5fa', glow: 'rgba(96, 165, 250, 0.32)' },
+  soldout: { icon: UtensilsCrossed, accent: '#fb7185', glow: 'rgba(251, 113, 133, 0.32)' },
+  discipline: { icon: ShieldAlert, accent: '#fb7185', glow: 'rgba(251, 113, 133, 0.34)' },
+  feedback: { icon: MessageSquareWarning, accent: '#f472b6', glow: 'rgba(244, 114, 182, 0.32)' },
+  training: { icon: GraduationCap, accent: '#a78bfa', glow: 'rgba(167, 139, 250, 0.34)' },
+  guide: { icon: BookOpen, accent: '#38bdf8', glow: 'rgba(56, 189, 248, 0.32)' },
+  admin: { icon: Building2, accent: '#a78bfa', glow: 'rgba(167, 139, 250, 0.34)' },
+  hrlist: { icon: Users, accent: '#2dd4bf', glow: 'rgba(45, 212, 191, 0.32)' },
+  adminorg: { icon: KeyRound, accent: '#fbbf24', glow: 'rgba(251, 191, 36, 0.32)' },
+  adminshift: { icon: CalendarRange, accent: '#60a5fa', glow: 'rgba(96, 165, 250, 0.32)' },
+  analytics: { icon: BarChart3, accent: '#34d399', glow: 'rgba(52, 211, 153, 0.32)' }
+} as const;
+
+export function Kg3dIllustration({ moduleId }: { moduleId: string }) {
+  const normId = moduleId.toLowerCase().replace(/[-_]/g, '');
+  const config = HERO_ICON_MAP[normId as keyof typeof HERO_ICON_MAP] || {
+    icon: Sparkles,
+    accent: '#38bdf8',
+    glow: 'rgba(56, 189, 248, 0.32)'
+  };
+  const Icon = config.icon;
+
+  return (
+    <div
+      className="kg-hero-visual"
+      style={{ '--hero-icon-accent': config.accent, '--hero-icon-glow': config.glow } as React.CSSProperties}
+      aria-hidden="true"
+    >
+      <div className="kg-hero-visual__orbit" />
+      <div className="kg-hero-visual__core">
+        <div className="kg-hero-visual__shine" />
+        <Icon className="kg-hero-visual__icon" strokeWidth={1.8} />
+      </div>
+      <div className="kg-hero-visual__badge">
+        <Sparkles size={15} strokeWidth={2.2} />
+      </div>
+      <span className="kg-hero-visual__dot kg-hero-visual__dot--one" />
+      <span className="kg-hero-visual__dot kg-hero-visual__dot--two" />
+    </div>
+  );
+}
+
 export function KgModuleHero({
   moduleId,
   title,
@@ -1043,23 +1151,23 @@ export function KgModuleHero({
   features?: string[];
 }) {
   return (
-    <section className="relative overflow-hidden p-6 md:p-8 text-white rounded-3xl border border-white/10 shadow-hero bg-gradient-hero mb-6">
-      <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="space-y-3.5 max-w-2xl">
-          <span className="inline-flex items-center gap-1.5 bg-white/12 border border-white/20 px-3 py-1 rounded-full text-[10px] font-black tracking-wider uppercase text-white shadow-inner">
+    <section className="kg-module-hero relative overflow-hidden p-6 md:p-8 text-white rounded-3xl border border-white/10 shadow-hero bg-gradient-hero mb-6">
+      <div className="kg-module-hero__layout relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="kg-module-hero__copy space-y-3.5 max-w-2xl">
+          <span className="kg-module-hero__eyebrow inline-flex items-center gap-1.5 bg-white/12 border border-white/20 px-3 py-1 rounded-full text-[10px] font-black tracking-wider uppercase text-white shadow-inner">
             <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
             {eyebrow}
           </span>
-          <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold tracking-tight text-white leading-tight">
+          <h1 className="kg-module-hero__title text-2xl md:text-3xl lg:text-4xl font-extrabold tracking-tight text-white leading-tight">
             {title}
           </h1>
           {description && (
-            <p className="text-sm md:text-base text-white/86 leading-relaxed font-medium max-w-lg">
+            <p className="kg-module-hero__description text-sm md:text-base text-white/86 leading-relaxed font-medium max-w-lg">
               {description}
             </p>
           )}
           {features.length > 0 && (
-            <div className="flex flex-wrap gap-2 pt-2">
+            <div className="kg-module-hero__features flex flex-wrap gap-2 pt-2">
               {features.map((feat, idx) => (
                 <div key={idx} className="inline-flex items-center gap-1.5 bg-white/10 border border-white/10 px-3 py-1.5 rounded-xl text-xs font-bold text-white backdrop-blur-sm shadow-sm">
                   <span className="text-cyan-300">✦</span>
@@ -1069,7 +1177,7 @@ export function KgModuleHero({
             </div>
           )}
         </div>
-        <div className="flex-shrink-0 flex items-center justify-center bg-white/5 border border-white/10 p-4 rounded-3xl backdrop-blur-md shadow-lg transform hover:rotate-2 transition-transform duration-300">
+        <div className="kg-module-hero__visual flex-shrink-0 flex items-center justify-center bg-white/5 border border-white/10 p-4 rounded-3xl backdrop-blur-md shadow-lg transform hover:rotate-2 transition-transform duration-300">
           <Kg3dIllustration moduleId={moduleId} />
         </div>
       </div>
@@ -1079,4 +1187,3 @@ export function KgModuleHero({
     </section>
   );
 }
-

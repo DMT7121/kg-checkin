@@ -150,7 +150,7 @@ export default function AdminPayroll() {
         </button>
       </div>
       <KgModuleHero
-        moduleId="payroll"
+        moduleId="admin-payroll"
         title="Lương & Phúc lợi"
         description="Thiết lập công thức tính lương động, cấu hình ứng lương, phụ cấp và các khoản khấu trừ."
         eyebrow="Cấu hình"

@@ -1,11 +1,13 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
-import { computeWeekInfo, DAY_NAMES, SHORT_DAY_NAMES, getAdminShiftClass, generateMonthDates, MonthDateInfo, formatDateShort } from '../utils/helpers';
-import { CalendarDays, RefreshCw, Info, Calendar, ChevronLeft, ChevronRight, LayoutGrid, CalendarRange, Filter, ShieldAlert } from 'lucide-react';
+import { computeWeekInfo, SHORT_DAY_NAMES, getAdminShiftClass, generateMonthDates, formatDateShort } from '../utils/helpers';
+import type { MonthDateInfo } from '../utils/helpers';
+import { RefreshCw, Info, Calendar, ChevronLeft, ChevronRight, LayoutGrid, CalendarRange, Filter, ShieldAlert } from 'lucide-react';
 import CalendarGrid from '../components/CalendarGrid';
 import Swal from 'sweetalert2';
 import { KgModuleHero } from '../components/KgDesignSystem';
+import { getCalendarDayMeta } from '../utils/calendarHighlights';
 
 
 export default function Roster() {
@@ -16,6 +18,10 @@ export default function Roster() {
   
   // Calculate week info and month info based on currentDate
   const weekInfo = useMemo(() => computeWeekInfo(currentDate, false), [currentDate]);
+  const weekDayMeta = useMemo(
+    () => weekInfo.weekDatesKeys.map((dateKey) => getCalendarDayMeta(dateKey)),
+    [weekInfo.weekDatesKeys]
+  );
   
   const selectedMonth = currentDate.getMonth() + 1;
   const selectedYear = currentDate.getFullYear();
@@ -187,7 +193,11 @@ export default function Roster() {
               {SHORT_DAY_NAMES.map((d, idx) => {
                 const isUnderstaffed = dailyWaitstaffCounts[idx] < 3;
                 return (
-                <th key={d} className="px-1 py-3 text-center border-r border-gray-200 dark:border-gray-700 last:border-r-0 relative">
+                <th
+                  key={d}
+                  className={`px-1 py-3 text-center border-r border-gray-200 dark:border-gray-700 last:border-r-0 relative ${weekDayMeta[idx].className}`}
+                  title={weekDayMeta[idx].label || undefined}
+                >
                   <div className="font-bold text-[13px]">{weekInfo.weekDates[idx]}</div>
                   <div className="text-[10px] font-normal opacity-70 mt-0.5">{d}</div>
                   {isUnderstaffed && (
@@ -213,7 +223,11 @@ export default function Roster() {
                 {emp.shifts.map((shift: string, dayIdx: number) => {
                   const isOff = shift === 'OFF' || !shift;
                   return (
-                    <td key={dayIdx} className="px-1 py-2 border-r border-gray-100 dark:border-gray-700/50 last:border-r-0 text-center">
+                    <td
+                      key={dayIdx}
+                      className={`px-1 py-2 border-r border-gray-100 dark:border-gray-700/50 last:border-r-0 text-center ${weekDayMeta[dayIdx].className}`}
+                      title={weekDayMeta[dayIdx].label || undefined}
+                    >
                       <div className={`inline-flex items-center justify-center text-[10px] font-bold w-full max-w-[60px] py-1.5 rounded-lg ${getAdminShiftClass(shift)}`}>
                         {isOff ? 'OFF' : shift}
                       </div>
@@ -351,6 +365,12 @@ export default function Roster() {
             </div>
             <button onClick={() => viewMode === 'week' ? changeWeek(1) : changeMonth(1)} className="p-1.5 hover:bg-white dark:hover:bg-gray-800 hover: rounded-lg transition-all text-gray-600 dark:text-gray-400"><ChevronRight size={18} /></button>
           </div>
+        </div>
+
+        <div className="calendar-highlight-legend mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-[10px] font-bold text-[var(--kg-text-muted)]">
+          <span className="inline-flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-full bg-red-500" /> Lễ/Tết Việt Nam</span>
+          <span className="inline-flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-full bg-[#cc6049]" /> Cao điểm F&amp;B</span>
+          <span className="inline-flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-full bg-amber-400" /> T6 · T7 · CN</span>
         </div>
         
 

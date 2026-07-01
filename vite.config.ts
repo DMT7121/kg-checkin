@@ -8,11 +8,22 @@ export default defineConfig({
     emptyOutDir: false,
     rollupOptions: {
       output: {
-        manualChunks: {
-          react: ['react', 'react-dom'],
-          motion: ['framer-motion'],
-          ui: ['lucide-react', 'sweetalert2'],
-          vision: ['face-api.js'],
+        manualChunks(id) {
+          const path = id.replaceAll('\\', '/');
+          if (
+            path.includes('/node_modules/react/') ||
+            path.includes('/node_modules/react-dom/') ||
+            path.includes('/node_modules/scheduler/')
+          ) return 'react';
+          if (
+            path.includes('/node_modules/framer-motion/') ||
+            path.includes('/node_modules/motion-dom/') ||
+            path.includes('/node_modules/motion-utils/')
+          ) return 'motion';
+          if (path.includes('/node_modules/lucide-react/')) return 'icons';
+          if (path.includes('/node_modules/sweetalert2/')) return 'alerts';
+          if (path.includes('/node_modules/canvas-confetti/')) return 'confetti';
+          if (path.includes('/node_modules/face-api.js/')) return 'vision';
         },
       },
     },

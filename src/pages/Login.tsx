@@ -181,15 +181,15 @@ export default function Login() {
   };
 
   return (
-    <div className="flex-1 flex flex-col justify-center p-4 sm:p-6 min-h-screen bg-[#f7f9ff] dark:bg-[#080d18] font-sans">
+    <div className="login-shell flex-1 flex flex-col justify-center p-4 sm:p-6 min-h-screen bg-[#f7f9ff] dark:bg-[#080d18] font-sans">
       <div className="relative z-10 w-full max-w-5xl mx-auto grid lg:grid-cols-[0.95fr_1.05fr] gap-6 lg:gap-10 items-center">
         {/* Logo and Intro */}
         <div className="text-center lg:text-left animate-fade-in space-y-4">
-          <div className="inline-flex rounded-3xl bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] p-4 shadow-soft">
+          <div className="login-logo-card inline-flex rounded-3xl bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] p-4 shadow-soft">
             <img src="/LOGO.png?v=3" alt="King's Grill Logo" className="w-[120px] h-auto object-contain" />
           </div>
           <p 
-            className="text-[#2563eb] dark:text-[#7c3aed] font-extrabold text-xs tracking-wider uppercase cursor-pointer"
+            className="text-[var(--kg-primary)] dark:text-[var(--kg-accent)] font-extrabold text-xs tracking-wider uppercase cursor-pointer"
             onClick={() => {
               const newCount = clickCount + 1;
               setClickCount(newCount);
@@ -201,10 +201,10 @@ export default function Login() {
           >
             KING'S GRILL STAFF OS
           </p>
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-[#0f172a] dark:text-white leading-tight">
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-[var(--kg-text)] leading-tight">
             Vận hành tinh gọn & Chấm công thông minh
           </h1>
-          <p className="text-sm text-[#64748b] dark:text-[#98a2b3] max-w-md mx-auto lg:mx-0">
+          <p className="text-sm text-[var(--kg-text-muted)] max-w-md mx-auto lg:mx-0 leading-relaxed">
             Hệ điều hành nội bộ giúp nhân viên và quản lý nhà hàng quản lý ca trực, checklist công việc, bàn giao ca và theo dõi công lương chính xác.
           </p>
         </div>
@@ -213,7 +213,7 @@ export default function Login() {
         <div className="w-full">
           {/* LOGIN FORM */}
           {mode === 'login' && (
-            <div className="bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-3xl p-6 sm:p-8 shadow-card neo-card-stack">
+            <div className="login-card bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-3xl p-6 sm:p-8 shadow-card neo-card-stack">
               <h3 className="text-xl font-bold mb-6 text-[#0f172a] dark:text-white">Đăng nhập tài khoản</h3>
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="relative group">
@@ -271,7 +271,7 @@ export default function Login() {
                   <button 
                     type="button" 
                     onClick={() => setMode('forgot')} 
-                    className="text-xs font-bold text-[#7c3aed] hover:underline"
+                    className="text-xs font-bold text-[var(--kg-accent)] hover:underline"
                   >
                     Quên mật khẩu?
                   </button>
@@ -279,7 +279,7 @@ export default function Login() {
 
                 <button 
                   type="submit" 
-                  className="w-full bg-gradient-to-r from-[#2563eb] to-[#7c3aed] text-white font-bold py-3.5 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 text-sm shadow-md hover:shadow-lg hover:-translate-y-0.5 min-h-[44px]"
+                  className="login-primary w-full bg-gradient-to-r from-[#2563eb] to-[#7c3aed] text-white font-bold py-3.5 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 text-sm shadow-md hover:shadow-lg hover:-translate-y-0.5 min-h-[44px]"
                 >
                   Đăng nhập <ArrowRight size={15} />
                 </button>
@@ -289,7 +289,7 @@ export default function Login() {
                 <button 
                   type="button" 
                   onClick={() => setMode('register')} 
-                  className="text-xs font-bold text-[#2563eb] dark:text-[#7c3aed] hover:underline"
+                  className="text-xs font-bold text-[var(--kg-primary)] dark:text-[var(--kg-accent)] hover:underline"
                 >
                   Đăng ký nhân sự mới
                 </button>
@@ -298,7 +298,7 @@ export default function Login() {
           )}
 
           {mode === 'register' && (
-            <div className="bg-white dark:bg-[#0E273C] border border-blue-100 dark:border-blue-900/30 rounded-3xl p-6 sm:p-8 shadow-xl shadow-blue-500/5">
+            <div className="login-card bg-white dark:bg-[#0E273C] border border-blue-100 dark:border-blue-900/30 rounded-3xl p-6 sm:p-8 shadow-xl shadow-blue-500/5">
               <div className="mb-6">
                 <h3 className="text-xl font-bold text-[#0f172a] dark:text-white">Đăng ký nhân sự mới</h3>
                 <p className="text-xs text-[#64748b] dark:text-[#98a2b3] mt-1">Đăng ký tài khoản để quản lý công việc và chấm công</p>
@@ -374,7 +374,7 @@ export default function Login() {
 
                 <button 
                   type="submit" 
-                  className="w-full bg-gradient-to-r from-[#2563eb] to-[#7c3aed] text-white font-bold py-3 rounded-xl transition-all duration-200 text-xs shadow-md hover:shadow-lg hover:-translate-y-0.5 min-h-[44px]"
+                  className="login-primary w-full bg-gradient-to-r from-[#2563eb] to-[#7c3aed] text-white font-bold py-3 rounded-xl transition-all duration-200 text-xs shadow-md hover:shadow-lg hover:-translate-y-0.5 min-h-[44px]"
                 >
                   Hoàn tất đăng ký
                 </button>
@@ -391,7 +391,7 @@ export default function Login() {
 
           {/* FORGOT PASSWORD FORM */}
           {mode === 'forgot' && (
-            <div className="bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-3xl p-6 sm:p-8 shadow-card neo-card-stack">
+            <div className="login-card bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-3xl p-6 sm:p-8 shadow-card neo-card-stack">
               <div className="mb-6 text-center">
                 <div className="w-12 h-12 rounded-full bg-[#FFF0ED] dark:bg-[#ef4444]/10 flex items-center justify-center mx-auto mb-3 text-[#ef4444]">
                   <KeyRound size={20} />
@@ -418,7 +418,7 @@ export default function Login() {
                     </div>
                     <button 
                       type="submit" 
-                      className="w-full bg-gradient-to-r from-[#2563eb] to-[#7c3aed] text-white font-bold py-3.5 rounded-xl transition-all duration-200 text-sm shadow-md hover:shadow-lg hover:-translate-y-0.5 min-h-[44px]"
+                      className="login-primary w-full bg-gradient-to-r from-[#2563eb] to-[#7c3aed] text-white font-bold py-3.5 rounded-xl transition-all duration-200 text-sm shadow-md hover:shadow-lg hover:-translate-y-0.5 min-h-[44px]"
                     >
                       Gửi mã OTP
                     </button>

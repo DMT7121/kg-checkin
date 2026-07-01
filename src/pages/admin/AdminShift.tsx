@@ -112,7 +112,7 @@ export default function AdminShift() {
         </button>
       </div>
       <KgModuleHero
-        moduleId="today"
+        moduleId="admin-shift"
         title="Ca làm & Chấm công"
         description="Thiết lập tọa độ định vị GPS nhà hàng, bán kính Check-in hợp lệ và quản lý các loại mã ca làm việc."
         eyebrow="Cấu hình"

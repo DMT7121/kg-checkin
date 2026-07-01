@@ -92,7 +92,7 @@ export default function Reward() {
     <div className="p-4 space-y-4 animate-fade-in pb-20">
       
       <KgModuleHero
-        moduleId="payroll"
+        moduleId="reward"
         title="King Coins"
         description="Tích điểm từ mọi hoạt động chấm công, checklist công việc, bàn giao ca."
         eyebrow="Phần thưởng"

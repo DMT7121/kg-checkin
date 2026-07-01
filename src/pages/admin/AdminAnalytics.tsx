@@ -56,7 +56,7 @@ export default function AdminAnalytics() {
   return (
     <div className="p-4 space-y-4 animate-fade-in pb-20">
       <KgModuleHero
-        moduleId="admin"
+        moduleId="analytics"
         title="Thống kê & Báo cáo"
         description="Tổng hợp dữ liệu hoạt động, chấm công, checklist và lương thưởng 30 ngày gần nhất."
         eyebrow="Quản lý"

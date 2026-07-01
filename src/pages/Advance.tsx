@@ -104,7 +104,7 @@ export default function Advance() {
   return (
     <div className="p-4 space-y-5 animate-slide-up pb-10">
       <KgModuleHero
-        moduleId="payroll"
+        moduleId="advance"
         title="Tạm ứng Lương"
         description="Quản lý và đề xuất tạm ứng lương hàng tháng."
         eyebrow="Tài chính"

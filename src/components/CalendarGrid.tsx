@@ -1,5 +1,7 @@
 import React from 'react';
-import { MonthDateInfo, SHORT_DAY_NAMES } from '../utils/helpers';
+import { SHORT_DAY_NAMES } from '../utils/helpers';
+import type { MonthDateInfo } from '../utils/helpers';
+import { getCalendarDayMeta } from '../utils/calendarHighlights';
 
 interface CalendarGridProps {
   monthDates: MonthDateInfo[];
@@ -23,7 +25,7 @@ export default function CalendarGrid({ monthDates, renderCell }: CalendarGridPro
       {/* Header Mon-Sun */}
       <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-2">
         {SHORT_DAY_NAMES.map((shortDay, idx) => (
-          <div key={shortDay} className={`text-center py-2 text-[11px] sm:text-xs font-bold uppercase tracking-wider rounded-lg ${idx >= 5 ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}>
+          <div key={shortDay} className={`text-center py-2 text-[11px] sm:text-xs font-bold uppercase tracking-wider rounded-lg ${idx >= 4 ? 'calendar-day--weekend' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}>
             <span>{shortDay}</span>
           </div>
         ))}
@@ -35,23 +37,23 @@ export default function CalendarGrid({ monthDates, renderCell }: CalendarGridPro
         {monthDates.map((mDate) => {
           // Check if it's today
           const isToday = new Date().toDateString() === mDate.date.toDateString();
+          const dayMeta = getCalendarDayMeta(mDate.dateKey);
           
           return (
             <div 
               key={mDate.dateKey} 
-              className={`min-h-[80px] sm:min-h-[100px] flex flex-col p-1 sm:p-2 rounded-xl border transition-all ${
+              title={dayMeta.label || undefined}
+              className={`calendar-month-day min-h-[80px] sm:min-h-[100px] flex flex-col p-1 sm:p-2 rounded-xl border transition-all ${dayMeta.className} ${
                 isToday 
                   ? 'border-indigo-400 bg-indigo-50/80 dark:bg-indigo-900/30 dark:border-indigo-600 ' 
-                  : mDate.isWeekend 
-                    ? 'border-orange-100 bg-orange-50/30 dark:border-gray-700 dark:bg-gray-800/50' 
-                    : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 '
+                  : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 '
               }`}
             >
               <div className="flex justify-between items-start mb-1 sm:mb-2">
                 <span className={`text-xs sm:text-sm font-bold w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-full ${
                   isToday 
                     ? 'bg-indigo-600 text-white shadow-md' 
-                    : mDate.isWeekend 
+                    : dayMeta.isWeekend
                       ? 'text-orange-600 dark:text-orange-400' 
                       : 'text-gray-700 dark:text-gray-300'
                 }`}>

@@ -146,7 +146,7 @@ export default function HrList() {
       </div>
 
       <KgModuleHero
-        moduleId="admin"
+        moduleId="hr-list"
         title="Hồ Sơ Nhân Sự"
         description="Quản lý thông tin cá nhân, cập nhật chức vụ, phân quyền và khôi phục mật khẩu tài khoản nhân viên."
         eyebrow="Nhân sự"

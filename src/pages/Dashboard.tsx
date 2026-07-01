@@ -95,23 +95,25 @@ const Guide = lazyWithRetry(moduleLoaders.guide);
 
 const prefetchedModules = new Set<string>();
 
-const prefetchModule = (tab: string) => {
+const prefetchModule = (tab: string): Promise<unknown> => {
   const loader = moduleLoaders[tab as keyof typeof moduleLoaders];
-  if (!loader || prefetchedModules.has(tab)) return;
+  if (!loader || prefetchedModules.has(tab)) return Promise.resolve();
   prefetchedModules.add(tab);
-  loader().catch(() => prefetchedModules.delete(tab));
+  const request = loader();
+  request.catch(() => prefetchedModules.delete(tab));
+  return request;
 };
 
-const prefetchModuleScreens = async () => {
-  const queue = [
-    'checkin', 'schedule', 'checklist', 'handover', 'news', 'soldout',
-    'swap', 'roster', 'history', 'timesheet', 'advance', 'payroll',
-    'discipline', 'reward', 'training', 'feedback', 'admin', 'hr_list',
-    'admin_shift', 'admin_org', 'admin_payroll', 'admin_checklist', 'admin_analytics', 'guide',
-  ];
-  for (const tab of queue) {
-    prefetchModule(tab);
-    await wait(140);
+const prefetchModuleScreens = async (isAdmin: boolean, isSlowConnection: boolean) => {
+  const queue = isAdmin
+    ? ['schedule', 'admin_shift', 'hr_list', 'timesheet', 'payroll', 'checklist']
+    : ['checkin', 'schedule', 'payroll', 'history', 'checklist', 'handover'];
+  const allowedQueue = isSlowConnection ? queue.slice(0, 2) : queue;
+
+  await Promise.all(allowedQueue.slice(0, 3).map(async (tab) => prefetchModule(tab)));
+  if (allowedQueue.length > 3) {
+    await wait(700);
+    allowedQueue.slice(3).forEach(prefetchModule);
   }
 };
 
@@ -750,14 +752,19 @@ export default function Dashboard() {
   const { currentTab, currentUser } = store;
 
   useEffect(() => {
-    const run = () => prefetchModuleScreens();
-    if ('requestIdleCallback' in window) {
-      const id = window.requestIdleCallback(run, { timeout: 2500 });
+    const connection = (navigator as Navigator & {
+      connection?: { saveData?: boolean; effectiveType?: string };
+    }).connection;
+    const isSlowConnection = !!connection?.saveData || connection?.effectiveType === '2g';
+    const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'tester';
+    const run = () => prefetchModuleScreens(isAdmin, isSlowConnection);
+    if (typeof window.requestIdleCallback === 'function') {
+      const id = window.requestIdleCallback(run, { timeout: 3000 });
       return () => window.cancelIdleCallback?.(id);
     }
-    const timer = window.setTimeout(run, 1200);
-    return () => window.clearTimeout(timer);
-  }, []);
+    const timer = setTimeout(run, 1800);
+    return () => clearTimeout(timer);
+  }, [currentUser?.role]);
 
   const handleTabChange = (tab: any) => {
     prefetchModule(tab);
@@ -771,7 +778,7 @@ export default function Dashboard() {
   const hasAccess = hasTabPermission(currentTab, currentUser);
 
   return (
-    <KgAppShell>
+    <KgAppShell onPrefetch={prefetchModule}>
       <AnimatePresence mode="popLayout">
         <motion.div
           key={currentTab}

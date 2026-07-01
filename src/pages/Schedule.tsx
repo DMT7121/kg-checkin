@@ -1,11 +1,19 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
-import { speak, computeWeekInfo, getActiveShiftClass, getPreviewShiftClass, SHIFT_OPTIONS, DAY_NAMES, SHORT_DAY_NAMES, isRegistrationOpen, getAdminShiftClass, ADMIN_SHIFT_OPTIONS, generateMonthDates, MonthDateInfo, formatDateShort } from '../utils/helpers';
+import { speak, computeWeekInfo, getActiveShiftClass, getPreviewShiftClass, SHIFT_OPTIONS, SHORT_DAY_NAMES, isRegistrationOpen, getAdminShiftClass, ADMIN_SHIFT_OPTIONS, generateMonthDates, formatDateShort } from '../utils/helpers';
+import type { MonthDateInfo } from '../utils/helpers';
 import Swal from 'sweetalert2';
 import { CalendarCheck, Eye, AlertTriangle, Send, Lock, ExternalLink, Clock, RefreshCw, Pencil, CheckCheck, Inbox, LayoutGrid, CalendarRange, ChevronLeft, ChevronRight, Sparkles, X, Bot } from 'lucide-react';
 import { KgModuleHero } from '../components/KgDesignSystem';
+import { getCalendarDayMeta } from '../utils/calendarHighlights';
 
+const formatMobileShift = (shift: string) => {
+  const timeMatch = shift.match(/^(\d{1,2}):(\d{2})$/);
+  if (!timeMatch) return shift || '—';
+  const [, hour, minute] = timeMatch;
+  return minute === '00' ? `${Number(hour)}H` : `${Number(hour)}H${minute}`;
+};
 
 export default function Schedule() {
   const store = useAppStore();
@@ -23,6 +31,10 @@ export default function Schedule() {
   });
   
   const weekInfo = useMemo(() => computeWeekInfo(currentDate, false), [currentDate]);
+  const weekDayMeta = useMemo(
+    () => weekInfo.weekDatesKeys.map((dateKey) => getCalendarDayMeta(dateKey)),
+    [weekInfo.weekDatesKeys]
+  );
   
   // Calculate week info and month info based on currentDate for Admin navigation
   const selectedMonth = currentDate.getMonth() + 1;
@@ -272,7 +284,11 @@ export default function Schedule() {
   const renderShiftGrid = (getShift: (i: number) => string) => (
     <div className="grid grid-cols-7 gap-1">
       {SHORT_DAY_NAMES.map((shortDayName, i) => (
-        <div key={i} className="flex flex-col items-center">
+        <div
+          key={i}
+          className={`calendar-preview-day flex flex-col items-center rounded-lg px-0.5 py-1 ${weekDayMeta[i].className}`}
+          title={weekDayMeta[i].label || undefined}
+        >
           <span className="text-[11px] font-bold text-gray-800 dark:text-gray-200">
             {weekInfo.weekDates[i]}
           </span>
@@ -540,6 +556,12 @@ ${aiInputText}
             </div>
           </div>
         )}
+
+        <div className="calendar-highlight-legend mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-[10px] font-bold text-[var(--kg-text-muted)]">
+          <span className="inline-flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-full bg-red-500" /> Lễ/Tết Việt Nam</span>
+          <span className="inline-flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-full bg-[#cc6049]" /> Cao điểm F&amp;B</span>
+          <span className="inline-flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-full bg-amber-400" /> T6 · T7 · CN</span>
+        </div>
         
 
 
@@ -555,28 +577,33 @@ ${aiInputText}
             </button>
           </div>
 
-          <div className="md:hidden mb-3 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-800 flex items-start space-x-3 text-amber-700 dark:text-amber-400">
+          <div className="md:hidden mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 flex items-start space-x-3 text-blue-700 dark:text-blue-300">
             <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" />
             <div className="text-sm font-medium">
-              📱 Bạn đang dùng điện thoại, hãy <strong>xoay ngang màn hình</strong> để xem bảng phân ca dễ dàng và rõ ràng hơn nhé!
+              Lịch tuần đã được thu gọn đủ 7 ngày. Chạm vào từng ô để điều chỉnh ca làm.
             </div>
           </div>
 
           {viewMode === 'week' ? (
             adminSchedules.length > 0 ? (
             <>
-              <div className="overflow-x-auto w-full soft3d-bg rounded-xl border border-gray-200 dark:border-gray-700 mb-4 pb-20 custom-scrollbar">
-                <table className="w-full text-sm text-left whitespace-nowrap">
+              <div className="schedule-week-table-wrap overflow-hidden md:overflow-x-auto w-full soft3d-bg rounded-xl border border-gray-200 dark:border-gray-700 mb-4 pb-4 md:pb-20 custom-scrollbar">
+                <table className="schedule-week-table w-full text-sm text-left md:whitespace-nowrap">
                   <thead className="text-xs text-gray-700 dark:text-gray-300 uppercase bg-gray-200 dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700">
                     <tr>
-                      <th className="px-4 py-3 sticky left-0 bg-gray-200 dark:bg-gray-800 z-20 font-bold border-r dark:border-gray-700">Nhân Viên</th>
+                      <th className="schedule-employee-header px-4 py-3 md:sticky md:left-0 bg-gray-200 dark:bg-gray-800 z-20 font-bold border-r dark:border-gray-700">Nhân Viên</th>
                       {SHORT_DAY_NAMES.map((d, idx) => (
-                        <th key={d} className="px-2 py-3 text-center border-r dark:border-gray-700">
-                          <div className="font-bold text-[13px]">{weekInfo.weekDates[idx]}</div>
+                        <th
+                          key={d}
+                          className={`schedule-day-header px-2 py-3 text-center border-r dark:border-gray-700 ${weekDayMeta[idx].className}`}
+                          title={weekDayMeta[idx].label || undefined}
+                        >
+                          <div className="hidden md:block font-bold text-[13px]">{weekInfo.weekDates[idx]}</div>
+                          <div className="md:hidden font-bold text-[11px]">{weekInfo.weekDates[idx]?.split('/')[0]}</div>
                           <div className="text-[10px] font-normal opacity-70 mt-0.5">{d}</div>
                         </th>
                       ))}
-                      <th className="px-4 py-3">Ghi chú</th>
+                      <th className="hidden md:table-cell px-4 py-3">Ghi chú</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -586,11 +613,11 @@ ${aiInputText}
                       
                       return (
                       <tr key={empIdx} className="soft3d-card border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                        <td className="px-4 py-3 sticky left-0 soft3d-card z-10 font-medium text-gray-900 dark:text-white shadow-[1px_0_0_0_rgba(0,0,0,0.05)] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.05)] border-r dark:border-gray-700 group cursor-help">
-                          <div className="flex items-center">
-                            <span>{emp.fullname}</span>
+                        <td className="schedule-employee-cell px-4 py-3 md:sticky md:left-0 soft3d-card z-10 font-medium text-gray-900 dark:text-white shadow-[1px_0_0_0_rgba(0,0,0,0.05)] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.05)] border-r dark:border-gray-700 group cursor-help">
+                          <div className="flex items-center min-w-0">
+                            <span className="schedule-employee-name" title={emp.fullname}>{emp.fullname}</span>
                             {hasRegistered && (
-                              <div className="ml-2 w-2 h-2 rounded-full bg-green-500" title="Đã đăng ký ca"></div>
+                              <div className="ml-1.5 w-2 h-2 rounded-full bg-green-500 flex-shrink-0" title="Đã đăng ký ca"></div>
                             )}
                           </div>
                           {/* Tooltip */}
@@ -613,16 +640,33 @@ ${aiInputText}
                             : (hasNote ? emp.shiftNotes[dayIdx] : '');
                             
                           return (
-                            <td key={dayIdx} className="px-1 py-2 relative border-r dark:border-gray-700">
+                            <td
+                              key={dayIdx}
+                              className={`schedule-shift-cell px-1 py-2 relative border-r dark:border-gray-700 ${weekDayMeta[dayIdx].className}`}
+                              title={weekDayMeta[dayIdx].label || tooltipText || undefined}
+                            >
                               {isChanged && <div className="absolute top-0 right-0 w-2 h-2 bg-orange-500 rounded-full animate-pulse" title="Đã thay đổi"></div>}
                               {!isChanged && hasNote && <div className="absolute top-0 right-0 w-2 h-2 bg-indigo-500 rounded-full" title={tooltipText}></div>}
                               <div className="relative" title={tooltipText}>
                                 <select value={shift || ''} onChange={(e) => updateAdminShift(empIdx, dayIdx, e.target.value)}
+                                  aria-label={`${emp.fullname} - ${SHORT_DAY_NAMES[dayIdx]}`}
+                                  className={`schedule-shift-select schedule-shift-select--mobile md:hidden text-[10px] font-bold rounded-lg border focus:outline-none w-full cursor-pointer appearance-none text-center transition-all ${
+                                    isChanged
+                                      ? 'border-orange-500 ring-1 ring-orange-200 dark:ring-orange-900/50 shadow-md ' + getAdminShiftClass(shift)
+                                      : 'border-gray-200 dark:border-gray-600 focus:ring-1 focus:ring-indigo-500 ' + getAdminShiftClass(shift)
+                                  }`}>
+                                  <option value="">—</option>
+                                  {ADMIN_SHIFT_OPTIONS.map((opt) => (
+                                    <option key={opt} value={opt} className="bg-white text-gray-800">{formatMobileShift(opt)}</option>
+                                  ))}
+                                </select>
+                                <select value={shift || ''} onChange={(e) => updateAdminShift(empIdx, dayIdx, e.target.value)}
+                                  aria-label={`${emp.fullname} - ${SHORT_DAY_NAMES[dayIdx]}`}
                                   className={`text-xs font-bold rounded-lg border focus:outline-none p-1.5 w-full cursor-pointer appearance-none text-center transition-all ${
                                     isChanged 
                                       ? 'border-orange-500 ring-2 ring-orange-200 dark:ring-orange-900/50 shadow-md ' + getAdminShiftClass(shift)
                                       : 'border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-indigo-500 ' + getAdminShiftClass(shift)
-                                  }`}>
+                                  } hidden md:block`}>
                                   <option value="">(Trống)</option>
                                   {ADMIN_SHIFT_OPTIONS.map((opt) => (
                                     <option key={opt} value={opt} className="bg-white text-gray-800">{opt}</option>
@@ -632,7 +676,7 @@ ${aiInputText}
                             </td>
                           );
                         })}
-                        <td className="px-4 py-3 text-xs text-red-500 max-w-[200px] truncate" title={emp.reason || emp.note || ''}>
+                        <td className="hidden md:table-cell px-4 py-3 text-xs text-red-500 max-w-[200px] truncate" title={emp.reason || emp.note || ''}>
                           {!emp.hasApproved ? emp.reason : <span className="text-gray-500 font-medium italic">{emp.note}</span>}
                         </td>
                       </tr>
@@ -674,12 +718,19 @@ ${aiInputText}
                     <thead className="text-[10px] text-gray-500 dark:text-gray-400 uppercase bg-gray-200 dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700">
                       <tr>
                         <th className="px-3 py-3 sticky left-0 bg-gray-200 dark:bg-gray-800 z-20 font-bold border-r dark:border-gray-700">Nhân Viên</th>
-                        {monthDates.map((mDate) => (
-                          <th key={mDate.dateKey} className={`px-1 py-2 text-center border-r dark:border-gray-700 min-w-[70px] ${mDate.isWeekend ? 'bg-gray-300/50 dark:bg-gray-700/50' : ''}`}>
-                            <div className="font-bold text-gray-700 dark:text-gray-300 text-[13px]">{formatDateShort(mDate.date)}</div>
-                            <div className="text-[10px] font-normal opacity-70 mt-0.5">{SHORT_DAY_NAMES[mDate.dayIndex]}</div>
-                          </th>
-                        ))}
+                        {monthDates.map((mDate) => {
+                          const dayMeta = getCalendarDayMeta(mDate.dateKey);
+                          return (
+                            <th
+                              key={mDate.dateKey}
+                              className={`px-1 py-2 text-center border-r dark:border-gray-700 min-w-[70px] ${dayMeta.className}`}
+                              title={dayMeta.label || undefined}
+                            >
+                              <div className="font-bold text-gray-700 dark:text-gray-300 text-[13px]">{formatDateShort(mDate.date)}</div>
+                              <div className="text-[10px] font-normal opacity-70 mt-0.5">{SHORT_DAY_NAMES[mDate.dayIndex]}</div>
+                            </th>
+                          );
+                        })}
                       </tr>
                     </thead>
                     <tbody>
@@ -691,8 +742,13 @@ ${aiInputText}
                           {monthDates.map((mDate, dayIdx) => {
                             const shift = empMonthMap[emp.fullname]?.[`${mDate.weekLabel}_${mDate.dayIndex}`] || '';
                             const isOff = shift === 'OFF' || !shift;
+                            const dayMeta = getCalendarDayMeta(mDate.dateKey);
                             return (
-                              <td key={dayIdx} className={`px-1 py-1 relative border-r dark:border-gray-700 ${mDate.isWeekend ? 'paint-layer/80' : ''}`}>
+                              <td
+                                key={dayIdx}
+                                className={`px-1 py-1 relative border-r dark:border-gray-700 ${dayMeta.className}`}
+                                title={dayMeta.label || undefined}
+                              >
                                 <div className="relative">
                                   <select value={shift} onChange={(e) => updateSingleMonthShift(emp.fullname, mDate, e.target.value)}
                                     className={`text-[10px] font-bold rounded-lg border focus:outline-none p-1 w-full cursor-pointer appearance-none text-center transition-all ${
@@ -880,11 +936,23 @@ ${aiInputText}
               const key = weekInfo.weekDatesKeys[index];
               const currentShift = shiftData[key] || 'OFF';
               return (
-                <div key={index} className="soft3d-card p-4 rounded-2xl   transition hover:shadow-md">
+                <div
+                  key={index}
+                  className={`calendar-registration-day soft3d-card p-4 rounded-2xl transition hover:shadow-md ${weekDayMeta[index].className}`}
+                  title={weekDayMeta[index].label || undefined}
+                >
                   <div className="flex justify-between items-center mb-3">
                     <span className={`font-bold ${index >= 4 && currentShift === 'OFF' ? 'text-red-500' : 'text-gray-800 dark:text-white'}`}>
                       {weekInfo.weekDates[index]} <span className="text-sm text-gray-500 dark:text-gray-400 font-medium ml-1">({shortDayName})</span>
-                      {index >= 4 && <span className="ml-2 text-xs px-1.5 py-0.5 bg-red-100 text-red-600 rounded">Cuối tuần</span>}
+                      {weekDayMeta[index].kind !== 'normal' && (
+                        <span className="calendar-day-label ml-2 text-xs px-1.5 py-0.5 rounded">
+                          {weekDayMeta[index].kind === 'holiday'
+                            ? 'Lễ/Tết'
+                            : weekDayMeta[index].kind === 'fnb'
+                              ? 'Cao điểm F&B'
+                              : 'Cuối tuần'}
+                        </span>
+                      )}
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-2">
