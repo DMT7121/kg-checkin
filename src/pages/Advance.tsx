@@ -6,10 +6,10 @@ import { KgModuleHero } from '../components/KgDesignSystem';
 
 import { BadgeDollarSign, Send, History, CheckCheck, XCircle, Clock, Banknote, Wallet } from 'lucide-react';
 
-export default function Advance() {
+export default function Advance({ mode = 'user' }: { mode?: 'user' | 'admin' }) {
   const store = useAppStore();
   const { currentUser, advances } = store;
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'tester';
+  const isManagerView = mode === 'admin' && (currentUser?.role === 'admin' || currentUser?.role === 'tester');
   
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
@@ -111,7 +111,7 @@ export default function Advance() {
       />
 
 
-      {!isAdmin && (
+      {!isManagerView && (
         <form onSubmit={handleSubmit} className="soft3d-card p-5 rounded-2xl  ">
           <h3 className="font-bold flex items-center text-gray-800 dark:text-white mb-4 border-b dark:border-gray-700 pb-2">
             <Send size={18} className="mr-2 text-green-600" /> Tạo yêu cầu mới
@@ -154,7 +154,7 @@ export default function Advance() {
       {/* History */}
       <div className="soft3d-card p-5 rounded-2xl  ">
         <h3 className="font-bold flex items-center text-gray-800 dark:text-white mb-4 border-b dark:border-gray-700 pb-2">
-          <History size={18} className="mr-2 text-ocean-600" /> {isAdmin ? 'Danh sách yêu cầu ứng lương' : 'Lịch sử ứng lương của bạn'}
+          <History size={18} className="mr-2 text-ocean-600" /> {isManagerView ? 'Danh sách yêu cầu ứng lương' : 'Lịch sử ứng lương của bạn'}
         </h3>
         
         {advances.length === 0 ? (
@@ -172,7 +172,7 @@ export default function Advance() {
                 <div key={adv.id} className={`p-4 rounded-xl border ${isPending ? 'bg-orange-50 dark:bg-orange-900/10 border-orange-100 dark:border-orange-800' : isApproved ? 'bg-green-50 dark:bg-green-900/10 border-green-100 dark:border-green-800' : 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-800'}`}>
                   <div className="flex justify-between items-start mb-2">
                     <div>
-                      {isAdmin && <p className="font-bold text-gray-800 dark:text-gray-200">{adv.fullname}</p>}
+                      {isManagerView && <p className="font-bold text-gray-800 dark:text-gray-200">{adv.fullname}</p>}
                       <p className="font-extrabold text-lg text-gray-800 dark:text-gray-200">{adv.amount.toLocaleString('vi-VN')} đ</p>
                       <p className="text-xs text-gray-500 mt-0.5">{new Date(adv.createdAt).toLocaleString('vi-VN')}</p>
                     </div>
@@ -185,7 +185,7 @@ export default function Advance() {
                     <span className="font-medium text-gray-500">Lý do:</span> {adv.reason}
                   </p>
                   
-                  {isAdmin && isPending && (
+                  {isManagerView && isPending && (
                     <div className="flex space-x-2 mt-3 pt-3 border-t border-orange-200 dark:border-orange-800/50">
                       <button onClick={() => handleApprove(adv.id, 'APPROVE')} className="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-2 rounded-lg text-sm transition ">
                         Chấp thuận

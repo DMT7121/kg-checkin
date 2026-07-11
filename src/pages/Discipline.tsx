@@ -6,10 +6,10 @@ import { Award, Plus, Trash2, ArrowUpRight, ArrowDownRight, Search, AlertOctagon
 import { KgModuleHero } from '../components/KgDesignSystem';
 
 
-export default function Discipline() {
+export default function Discipline({ mode = 'user' }: { mode?: 'user' | 'admin' }) {
   const store = useAppStore();
   const { currentUser, bonusPenalties, users } = store;
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'tester';
+  const isManagerView = mode === 'admin' && (currentUser?.role === 'admin' || currentUser?.role === 'tester');
   
   const [type, setType] = useState<'BONUS' | 'PENALTY'>('BONUS');
   const [targetUsername, setTargetUsername] = useState('');
@@ -120,7 +120,7 @@ export default function Discipline() {
       />
 
 
-      {isAdmin && (
+      {isManagerView && (
         <form onSubmit={handleSubmit} className="soft3d-card p-5 rounded-2xl  ">
           <h3 className="font-bold flex items-center text-gray-800 dark:text-white mb-4 border-b dark:border-gray-700 pb-2">
             <Plus size={18} className="mr-2 text-indigo-600" /> Thêm bản ghi mới
@@ -190,7 +190,7 @@ export default function Discipline() {
       {/* History */}
       <div className="soft3d-card p-5 rounded-2xl  ">
         <h3 className="font-bold flex items-center text-gray-800 dark:text-white mb-4 border-b dark:border-gray-700 pb-2">
-          <Search size={18} className="mr-2 text-ocean-600" /> {isAdmin ? 'Lịch sử khen thưởng / kỷ luật' : 'Lịch sử của bạn'}
+          <Search size={18} className="mr-2 text-ocean-600" /> {isManagerView ? 'Lịch sử khen thưởng / kỷ luật' : 'Lịch sử của bạn'}
         </h3>
         
         {bonusPenalties.length === 0 ? (
@@ -207,13 +207,13 @@ export default function Discipline() {
                 <div key={record.id} className={`p-4 rounded-xl border ${isBonus ? 'bg-green-50 dark:bg-green-900/10 border-green-100 dark:border-green-800' : 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-800'}`}>
                   <div className="flex justify-between items-start mb-2">
                     <div>
-                      {isAdmin && <p className="font-bold text-gray-800 dark:text-gray-200">{record.targetFullname}</p>}
+                      {isManagerView && <p className="font-bold text-gray-800 dark:text-gray-200">{record.targetFullname}</p>}
                       <p className={`font-extrabold text-lg ${isBonus ? 'text-green-600' : 'text-red-600'}`}>
                         {isBonus ? '+' : '-'}{record.amount.toLocaleString('vi-VN')} đ
                       </p>
                       <p className="text-xs text-gray-500 mt-0.5">{new Date(record.createdAt).toLocaleString('vi-VN')}</p>
                     </div>
-                    {isAdmin && (
+                    {isManagerView && (
                       <button 
                         onClick={() => handleDelete(record.id)}
                         className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition"

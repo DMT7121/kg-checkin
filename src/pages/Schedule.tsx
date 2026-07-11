@@ -20,10 +20,10 @@ const formatMobileShift = (shift: string) => {
   return minute === '00' ? `${Number(hour)}H` : `${Number(hour)}H${minute}`;
 };
 
-export default function Schedule() {
+export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' }) {
   const store = useAppStore();
   const { currentUser, isScheduleRegistered, shiftData, offReason, approvedShifts, registeredShifts, adminSchedules, originalAdminSchedules } = store;
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'tester';
+  const isManagerView = mode === 'admin' && (currentUser?.role === 'admin' || currentUser?.role === 'tester');
 
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
   const [aiModalOpen, setAiModalOpen] = useState(false);
@@ -90,10 +90,10 @@ export default function Schedule() {
   };
 
   useEffect(() => {
-    if (isAdmin && viewMode === 'month') {
+    if (isManagerView && viewMode === 'month') {
       loadMonthSchedules();
     }
-  }, [isAdmin, viewMode, selectedMonth, selectedYear]);
+  }, [isManagerView, viewMode, selectedMonth, selectedYear]);
 
   const updateSingleMonthShift = async (empFullname: string, mDate: MonthDateInfo, value: string) => {
     // Optimistic Update
@@ -171,14 +171,14 @@ export default function Schedule() {
   }, [weekInfo.weekDatesKeys]);
 
   useEffect(() => {
-    if (isAdmin && viewMode === 'week') {
+    if (isManagerView && viewMode === 'week') {
       loadAdminSchedules();
     }
-  }, [isAdmin, viewMode, weekInfo.weekLabel]);
+  }, [isManagerView, viewMode, weekInfo.weekLabel]);
 
   // Auto-check approval when pending (every 2 minutes)
   useEffect(() => {
-    if (scheduleStatus !== 'pending' || !currentUser || isAdmin) return;
+    if (scheduleStatus !== 'pending' || !currentUser || isManagerView) return;
     const timer = setInterval(() => {
       callApi('GET_DATA', {
         username: currentUser.username,
@@ -196,7 +196,7 @@ export default function Schedule() {
       });
     }, 120000);
     return () => clearInterval(timer);
-  }, [scheduleStatus, currentUser, isAdmin]);
+  }, [scheduleStatus, currentUser, isManagerView]);
 
   const handleShiftChange = (key: string, value: string) => {
     if (!isOpen) return;
@@ -546,13 +546,13 @@ ${aiInputText}
     <div className="p-4 animate-slide-up">
       <KgModuleHero
         moduleId="schedule"
-        title={isAdmin ? 'Sắp Xếp Ca Làm' : 'Đăng Ký Ca Làm'}
-        description={isAdmin ? 'Duyệt và sắp xếp ca làm việc cho toàn bộ nhân sự.' : `Đăng ký lịch làm ca tuần ${weekInfo.weekDisplay}.`}
-        eyebrow={isAdmin ? "Quản lý" : "Nhân sự"}
+        title={isManagerView ? 'Sắp Xếp Ca Làm' : 'Đăng Ký Ca Làm'}
+        description={isManagerView ? 'Duyệt và sắp xếp ca làm việc cho toàn bộ nhân sự.' : `Đăng ký lịch làm ca tuần ${weekInfo.weekDisplay}.`}
+        eyebrow={isManagerView ? "Quản lý" : "Nhân sự"}
       />
 
       {/* Toggle Mode & Time Navigation for Admin */}
-        {isAdmin && (
+        {isManagerView && (
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 relative z-10 gap-3 w-full soft3d-card p-2 rounded-2xl  ">
             <div className="flex items-center space-x-1">
               <button 
@@ -587,7 +587,7 @@ ${aiInputText}
         
 
 
-      {isAdmin ? (
+      {isManagerView ? (
         // ================= ADMIN VIEW =================
         <div className="soft3d-card p-5 rounded-2xl   animate-fade-in">
           <div className="flex justify-between items-center mb-4 border-b dark:border-gray-700 pb-2">

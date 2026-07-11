@@ -9,15 +9,15 @@ import { useAppStore } from '../store/useAppStore';
 const formatMoney = (amount: number) => `${Math.round(amount).toLocaleString('vi-VN')} đ`;
 const formatHours = (hours: number) => `${hours.toFixed(2)} giờ`;
 
-export default function Payroll() {
+export default function Payroll({ mode = 'user' }: { mode?: 'user' | 'admin' }) {
   const currentUser = useAppStore(state => state.currentUser);
   const payrollData = useAppStore(state => state.payrollData);
   const setLoading = useAppStore(state => state.setLoading);
   const setPayrollData = useAppStore(state => state.setPayrollData);
   const setCurrentTab = useAppStore(state => state.setCurrentTab);
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'tester';
+  const isManagerView = mode === 'admin' && (currentUser?.role === 'admin' || currentUser?.role === 'tester');
   const [selectedUser, setSelectedUser] = useState<string | null>(
-    isAdmin ? null : currentUser?.username || null,
+    isManagerView ? null : currentUser?.username || null,
   );
 
   useEffect(() => {
@@ -31,7 +31,7 @@ export default function Payroll() {
       setLoading(false);
       if (res?.ok) {
         setPayrollData(res.data.payroll || []);
-        if (!isAdmin && res.data.payroll?.length) {
+        if (!isManagerView && res.data.payroll?.length) {
           setSelectedUser(res.data.payroll[0].username);
         }
       } else {
@@ -39,11 +39,11 @@ export default function Payroll() {
       }
     };
     loadPayroll();
-  }, [currentUser, isAdmin, setLoading, setPayrollData]);
+  }, [currentUser, isManagerView, setLoading, setPayrollData]);
 
   if (!currentUser) return null;
 
-  if (isAdmin && !selectedUser) {
+  if (isManagerView && !selectedUser) {
     return (
       <div className="p-4 space-y-5 animate-slide-up pb-10">
         <KgModuleHero
@@ -122,7 +122,7 @@ export default function Payroll() {
         eyebrow="Tài chính"
       />
 
-      {!isAdmin && <EmployeeSalaryCard currentUser={currentUser} />}
+      {!isManagerView && <EmployeeSalaryCard currentUser={currentUser} />}
 
       {payroll ? (
         <div className="soft3d-card p-6 rounded-2xl">
@@ -133,7 +133,7 @@ export default function Payroll() {
             </h3>
             <button
               type="button"
-              onClick={() => (isAdmin ? setSelectedUser(null) : setCurrentTab('dashboard'))}
+              onClick={() => (isManagerView ? setSelectedUser(null) : setCurrentTab('dashboard'))}
               className="flex items-center text-sm text-gray-500 hover:text-emerald-600 font-medium"
             >
               <ChevronRight size={16} className="rotate-180 mr-1" />
