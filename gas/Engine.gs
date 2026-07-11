@@ -2271,7 +2271,86 @@ function _operationTaskLogs() {
 
 function handleGetOperationsConfig(payload) {
   var config = _readOperationsConfig().config;
-  var logs = _operationTaskLogs();
+  
+  // 1. Dynamic zones synchronized with Checklist AREA_CODES
+  config.zones = [
+    { id: "A", name: "Khu A", description: "Khu vực trực sảnh A", color: "#0e7490" },
+    { id: "B", name: "Khu B", description: "Khu vực sảnh B", color: "#7c3aed" },
+    { id: "C", name: "Khu C", description: "Khu vực sảnh C", color: "#059669" },
+    { id: "D&E", name: "Khu D&E", description: "Khu vực sảnh D&E", color: "#ea580c" }
+  ];
+
+  // 2. Dynamic tasks synchronized with Checklist definitions
+  var checklistGroups = [];
+  try {
+    checklistGroups = ChecklistService.loadChecklistFromSheet();
+  } catch (e) {
+    Logger.log("Error loading checklist: " + e.toString());
+  }
+  
+  var checklistTasks = [];
+  config.zones.forEach(function(zone) {
+    checklistGroups.forEach(function(group) {
+      group.items.forEach(function(item) {
+        checklistTasks.push({
+          id: "TASK_" + zone.id + "_" + item.id,
+          zoneId: zone.id,
+          title: item.title,
+          description: item.text,
+          priority: item.phase.indexOf("QUAN TRỌNG") >= 0 || item.section.indexOf("Quan trọng") >= 0 ? "critical" : "normal",
+          frequency: group.shift + " - " + group.phase
+        });
+      });
+    });
+  });
+  config.tasks = checklistTasks;
+
+  // 3. Dynamic task logs constructed from checklist progress (02_LUU_TRU_TIEN_DO)
+  var datesSet = {};
+  config.assignments.forEach(function(a) {
+    if (a.date) datesSet[a.date] = true;
+  });
+  // Also include today
+  var today = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, "yyyy-MM-dd");
+  datesSet[today] = true;
+  
+  var dates = Object.keys(datesSet);
+  var logs = [];
+  try {
+    dates.forEach(function(dateStr) {
+      var states = ChecklistService.getChecklistStates(dateStr);
+      Object.keys(states).forEach(function(area) {
+        var state = states[area];
+        if (state && state.items) {
+          Object.keys(state.items).forEach(function(itemId) {
+            var itemState = state.items[itemId];
+            if (itemState && itemState.checked) {
+              // Find the assignment for this date and area
+              var matchingAssignment = config.assignments.find(function(a) {
+                return a.date === dateStr && a.zoneId === area;
+              });
+              var assignmentId = matchingAssignment ? matchingAssignment.id : "MANUAL_" + dateStr + "_" + area;
+              
+              logs.push({
+                id: assignmentId + "_TASK_" + area + "_" + itemId + "_" + (itemState.by || "system"),
+                date: dateStr,
+                assignmentId: assignmentId,
+                taskId: "TASK_" + area + "_" + itemId,
+                username: itemState.by || "system",
+                fullname: itemState.by || "Hệ thống",
+                completedAt: itemState.at ? Utilities.formatDate(new Date(itemState.at), CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm:ss') : "",
+                status: "Completed",
+                note: itemState.note || ""
+              });
+            }
+          });
+        }
+      });
+    });
+  } catch (e) {
+    Logger.log("Error building checklist dynamic logs: " + e.toString());
+  }
+
   if (payload.role === 'admin') {
     return jsonResponse(true, { config: config, taskLogs: logs });
   }
@@ -2385,46 +2464,64 @@ function handleToggleOperationTask(payload) {
     || members.indexOf(payload.username) >= 0;
   if (!isAllowed) return jsonResponse(false, 'Bạn không thuộc nhóm được phân công');
 
-  var taskBelongsToZone = config.tasks.some(function(task) {
-    return task.id === payload.taskId && task.zoneId === assignment.zoneId;
-  });
-  if (!taskBelongsToZone) return jsonResponse(false, 'Công việc không thuộc khu trực này');
-
-  var sheet = _getOperationTaskLogSheet();
-  var values = sheet.getDataRange().getValues();
-  var existingRow = 0;
-  for (var r = 1; r < values.length; r++) {
-    if (
-      values[r][1].toString() === payload.date.toString()
-      && values[r][2].toString() === payload.assignmentId.toString()
-      && values[r][3].toString() === payload.taskId.toString()
-      && values[r][4].toString() === payload.username.toString()
-    ) {
-      existingRow = r + 1;
-      break;
-    }
+  var taskIdParts = payload.taskId.split("_");
+  if (taskIdParts[0] !== "TASK") {
+    return jsonResponse(false, 'Mã công việc không hợp lệ');
   }
-
-  if (payload.completed === false) {
-    if (existingRow) sheet.deleteRow(existingRow);
-    return jsonResponse(true, { completed: false });
+  var area = taskIdParts[1];
+  var checklistItemId = taskIdParts.slice(2).join("_");
+  
+  if (area !== assignment.zoneId) {
+    return jsonResponse(false, 'Công việc không thuộc khu trực này');
   }
 
   var timestamp = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm:ss');
-  var row = [
-    existingRow ? values[existingRow - 1][0] : 'OPT_' + new Date().getTime(),
-    payload.date.toString(),
-    payload.assignmentId.toString(),
-    payload.taskId.toString(),
-    payload.username.toString(),
-    payload.fullname ? payload.fullname.toString() : '',
-    timestamp,
-    'Completed',
-    payload.note ? payload.note.toString() : ''
-  ];
-  if (existingRow) sheet.getRange(existingRow, 1, 1, 9).setValues([row]);
-  else sheet.appendRow(row);
-  return jsonResponse(true, { completed: true, completedAt: timestamp });
+  var isoTimestamp = new Date().toISOString();
+  
+  try {
+    var dateStr = payload.date; // "yyyy-MM-dd"
+    var currentStates = ChecklistService.getChecklistStates(dateStr);
+    var state = currentStates[area] || { participants: [], items: {}, supply: {}, signatures: {} };
+    
+    var items = state.items || {};
+    if (payload.completed) {
+      items[checklistItemId] = {
+        checked: true,
+        by: payload.fullname || payload.username,
+        at: isoTimestamp
+      };
+      
+      var participants = state.participants || [];
+      var hasUser = participants.some(function(p) { return p.name === (payload.fullname || payload.username); });
+      if (!hasUser) {
+        participants.push({
+          key: "user_" + new Date().getTime() + "_" + Math.random().toString(36).slice(2, 5),
+          name: payload.fullname || payload.username,
+          joinedAt: isoTimestamp
+        });
+        state.participants = participants;
+      }
+    } else {
+      if (items[checklistItemId]) {
+        delete items[checklistItemId];
+      }
+    }
+    state.items = items;
+    
+    ChecklistService.saveChecklistState(
+      dateStr,
+      area,
+      state.participants,
+      state.items,
+      state.supply,
+      state.signatures
+    );
+    
+    return jsonResponse(true, { completed: payload.completed, completedAt: timestamp });
+  } catch (err) {
+    Logger.log("Error in handleToggleOperationTask sync: " + err.toString());
+    return jsonResponse(false, 'Không thể cập nhật tiến độ: ' + err.message);
+  }
 }
 
 // ----------------------------------------------------

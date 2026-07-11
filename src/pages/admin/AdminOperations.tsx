@@ -759,9 +759,7 @@ export default function AdminOperations() {
               <div className="soft3d-card rounded-2xl p-4">
                 <div className="flex items-center justify-between">
                   <h3 className="font-extrabold text-slate-800 dark:text-white">Khu trực</h3>
-                  <button type="button" onClick={createZone} className="rounded-lg bg-violet-50 p-2 text-violet-700 dark:bg-violet-950/30">
-                    <Plus size={17} />
-                  </button>
+                  <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-full font-black">ĐỒNG BỘ</span>
                 </div>
                 <div className="mt-3 space-y-2">
                   {config.zones.map(zone => (
@@ -790,15 +788,7 @@ export default function AdminOperations() {
                     <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 pb-4 dark:border-slate-700">
                       <div>
                         <h3 className="text-xl font-black text-slate-900 dark:text-white">{selectedZone.name}</h3>
-                        <p className="mt-1 text-xs text-slate-500">{selectedZone.description || 'Chưa có mô tả khu trực'}</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <button type="button" onClick={createTask} className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white">
-                          <Plus size={14} /> Thêm việc
-                        </button>
-                        <button type="button" onClick={() => removeZone(selectedZone)} className="rounded-lg p-2 text-rose-500 hover:bg-rose-50">
-                          <Trash2 size={17} />
-                        </button>
+                        <p className="mt-1 text-xs text-slate-500">Khu trực và checklist công việc được đồng bộ tự động từ danh mục Checklist.</p>
                       </div>
                     </div>
                     <div className="mt-4 space-y-2.5">
@@ -814,22 +804,15 @@ export default function AdminOperations() {
                             <p className="mt-1 text-xs leading-5 text-slate-500">{task.description || 'Không có mô tả'}</p>
                             <p className="mt-1 text-[10px] font-bold uppercase text-slate-400">{task.frequency}</p>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => patchConfig(current => ({
-                              ...current,
-                              tasks: current.tasks.filter(item => item.id !== task.id),
-                            }))}
-                            className="rounded-lg p-2 text-slate-400 hover:text-rose-500"
-                          >
-                            <Trash2 size={15} />
-                          </button>
+                          <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-500 px-2.5 py-1 rounded-lg font-bold">
+                            ĐỒNG BỘ
+                          </span>
                         </div>
                       ))}
                       {!zoneTasks.length && (
-                        <button type="button" onClick={createTask} className="w-full rounded-xl border border-dashed border-violet-300 py-10 text-sm font-bold text-violet-700">
-                          + Thêm checklist công việc đầu tiên
-                        </button>
+                        <div className="py-12 text-center text-xs font-bold text-slate-400">
+                          Khu trực này chưa có checklist công việc trong hệ thống.
+                        </div>
                       )}
                     </div>
                   </>
