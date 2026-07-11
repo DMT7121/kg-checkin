@@ -292,9 +292,29 @@ function getUI() {
   }
 }
 
-// =====================================================================================
-// 3. MENU & TRIGGER HỆ THỐNG
-// =====================================================================================
+/**
+ * Tự động làm sạch cache khi Admin chỉnh sửa trực tiếp trên Google Sheets
+ */
+function onEdit(e) {
+  try {
+    var sheetName = e.range.getSheet().getName();
+    if (sheetName === "JSON_CACHE") return;
+
+    if (sheetName === CONFIG.SHEET_USERS) {
+      JsonCacheService.invalidateAllCache();
+    } else if (sheetName === CONFIG.SHEET_LOGS) {
+      JsonCacheService.invalidateAdminCache();
+      JsonCacheService.invalidateUserCache();
+    } else if (sheetName === CONFIG.SHEET_CONFIG || sheetName === "AI_PROMPTS" || sheetName === "Posts") {
+      JsonCacheService.invalidateGlobalCache();
+    } else if (sheetName.indexOf("Tháng") === 0) {
+      JsonCacheService.invalidateUserCache();
+      JsonCacheService.invalidateAdminCache();
+    }
+  } catch(err) {
+    Logger.log("onEdit trigger error: " + err.toString());
+  }
+}
 
 /**
  * Tạo menu khi mở Google Sheets

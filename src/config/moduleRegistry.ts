@@ -11,6 +11,8 @@ import {
   Network,
   UserRound,
   UsersRound,
+  Trophy,
+  ClipboardCheck,
 } from 'lucide-react';
 import type { TabId } from '../types/navigation';
 
@@ -29,12 +31,12 @@ export interface NavigationModule {
 export const navigationModules: NavigationModule[] = [
   { id: 'dashboard', label: 'Hôm nay', group: 'Cá nhân', icon: LayoutDashboard, bottom: true },
   { id: 'checkin', label: 'Chấm công', group: 'Cá nhân', icon: Camera, bottom: true },
-  { id: 'attendance', label: 'Chấm công & Bảng công', shortLabel: 'Công', group: 'Cá nhân', icon: Activity },
-  { id: 'workforce', label: 'Lịch & Ca làm', shortLabel: 'Lịch ca', group: 'Cá nhân', icon: CalendarDays, bottom: true },
-  { id: 'income', label: 'Thu nhập & Ghi nhận', shortLabel: 'Thu nhập', group: 'Cá nhân', icon: Banknote, bottom: true },
+  { id: 'attendance', label: 'Công & Lương', shortLabel: 'Công & Lương', group: 'Cá nhân', icon: Activity },
+  { id: 'workforce', label: 'Lịch Làm Việc', shortLabel: 'Lịch Làm Việc', group: 'Cá nhân', icon: CalendarDays, bottom: true },
+  { id: 'income', label: 'Thi đua & Kỷ luật', shortLabel: 'Thi đua', group: 'Cá nhân', icon: Trophy, bottom: true },
   { id: 'profile', label: 'Hồ sơ của tôi', group: 'Cá nhân', icon: UserRound },
-  { id: 'work', label: 'Công việc & Điều phối', shortLabel: 'Công việc', group: 'Vận hành', icon: Network },
-  { id: 'communications', label: 'Truyền thông vận hành', shortLabel: 'Bảng tin', group: 'Vận hành', icon: MessagesSquare },
+  { id: 'work', label: 'Vận Hành Nhà Hàng', shortLabel: 'Vận hành', group: 'Vận hành', icon: ClipboardCheck },
+  { id: 'communications', label: 'Bảng tin & Góp ý', shortLabel: 'Bảng tin', group: 'Vận hành', icon: MessagesSquare },
   { id: 'knowledge', label: 'Kiến thức & Đào tạo', shortLabel: 'Kiến thức', group: 'Vận hành', icon: BookOpen },
   { id: 'admin_people', label: 'Nhân sự & Tổ chức', group: 'Quản lý & Cấu hình', icon: UsersRound, adminOnly: true },
   { id: 'admin_workforce', label: 'Ca làm & Chấm công', group: 'Quản lý & Cấu hình', icon: CalendarDays, adminOnly: true },

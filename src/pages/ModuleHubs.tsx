@@ -117,9 +117,10 @@ function ModuleHub({ tabs, initialTab }: { tabs: HubTab[]; initialTab?: string }
 
 export function AttendanceHub() {
   return <ModuleHub tabs={[
-    { id: 'checkin', label: 'Chấm công', icon: Activity, component: CheckIn },
-    { id: 'history', label: 'Lịch sử', icon: History, component: ActivityHistory },
+    { id: 'payroll', label: 'Phiếu lương', shortLabel: 'Phiếu lương', icon: Banknote, component: Payroll },
     { id: 'timesheet', label: 'Bảng công', icon: Clock3, component: Timesheet },
+    { id: 'history', label: 'Lịch sử', icon: History, component: ActivityHistory },
+    { id: 'advance', label: 'Ứng lương', shortLabel: 'Ứng lương', icon: HandCoins, component: Advance },
   ]} />;
 }
 
@@ -136,13 +137,12 @@ export function WorkHub() {
     { id: 'checklist', label: 'Checklist phân khu', shortLabel: 'Checklist', icon: ClipboardCheck, component: Checklist },
     { id: 'operations', label: 'Phân công trực', shortLabel: 'Phân công', icon: Network, component: Operations },
     { id: 'handover', label: 'Bàn giao', shortLabel: 'Bàn giao', icon: Repeat2, component: Handover },
+    { id: 'soldout', label: 'Món hết', shortLabel: 'Món hết', icon: UtensilsCrossed, component: SoldOut },
   ]} />;
 }
 
 export function IncomeHub() {
   return <ModuleHub tabs={[
-    { id: 'payroll', label: 'Phiếu lương', shortLabel: 'Phiếu lương', icon: Banknote, component: Payroll },
-    { id: 'advance', label: 'Ứng lương', shortLabel: 'Ứng lương', icon: HandCoins, component: Advance },
     { id: 'reward', label: 'Ghi nhận', shortLabel: 'Ghi nhận', icon: Trophy, component: Reward },
     { id: 'discipline', label: 'Kỷ luật', shortLabel: 'Kỷ luật', icon: ShieldAlert, component: Discipline },
   ]} />;
@@ -151,7 +151,6 @@ export function IncomeHub() {
 export function CommunicationsHub() {
   return <ModuleHub tabs={[
     { id: 'news', label: 'Bảng tin', shortLabel: 'Bảng tin', icon: Newspaper, component: NewsFeed },
-    { id: 'soldout', label: 'Món hết', shortLabel: 'Món hết', icon: UtensilsCrossed, component: SoldOut },
     { id: 'feedback', label: 'Góp ý', shortLabel: 'Góp ý', icon: MessageSquareText, component: Feedback },
   ]} />;
 }

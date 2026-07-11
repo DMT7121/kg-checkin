@@ -25,11 +25,17 @@ function invalidateGetDataCache(username) {
     if (username) {
       var prefix = 'GD_' + username.substring(0, 10);
       cache.removeAll([prefix + '_A', prefix + '_U']);
+      JsonCacheService.invalidateUserCache(username);
     } else {
       // Can't enumerate keys, so just remove common patterns
       cache.removeAll(['GD_ALL']);
+      JsonCacheService.invalidateAllCache();
     }
-  } catch(e) {}
+    // Admin cache contains all logs and user records, invalidate it too
+    JsonCacheService.invalidateAdminCache();
+  } catch(e) {
+    Logger.log("invalidateGetDataCache error: " + e.toString());
+  }
 }
 
 function processSelectedSheetEnhanced(selectedSheetName, x2DaysStr, x3DaysStr) {
