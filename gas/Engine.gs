@@ -2336,6 +2336,72 @@ function handleGetOperationsConfig(payload) {
   });
   config.tasks = checklistTasks;
 
+  // 3. Dynamic Auto-rotation projection for future dates (30 days)
+  var assignments = config.assignments.slice();
+  if (assignments.length > 0) {
+    var datesWithAssignments = {};
+    assignments.forEach(function(a) {
+      if (a.date) datesWithAssignments[a.date] = true;
+    });
+    
+    var sortedDates = Object.keys(datesWithAssignments).sort();
+    var latestExplicitDateStr = sortedDates[sortedDates.length - 1];
+    
+    var todayStr = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, "yyyy-MM-dd");
+    var targetLimitDate = new Date();
+    targetLimitDate.setDate(targetLimitDate.getDate() + 30);
+    var targetLimitStr = Utilities.formatDate(targetLimitDate, CONFIG.TIMEZONE, "yyyy-MM-dd");
+    
+    var maxDateStr = latestExplicitDateStr > targetLimitStr ? latestExplicitDateStr : targetLimitStr;
+    
+    var parts = latestExplicitDateStr.split('-');
+    var yr = parseInt(parts[0], 10);
+    var mo = parseInt(parts[1], 10) - 1;
+    var dy = parseInt(parts[2], 10);
+    
+    var currentProjDate = new Date(yr, mo, dy);
+    var limitDate = new Date(maxDateStr.split('-')[0], maxDateStr.split('-')[1] - 1, maxDateStr.split('-')[2]);
+    
+    var rotation = ['A', 'B', 'C', 'D&E'];
+    
+    while (currentProjDate < limitDate) {
+      currentProjDate.setDate(currentProjDate.getDate() + 1);
+      var currentDateStr = Utilities.formatDate(currentProjDate, CONFIG.TIMEZONE, "yyyy-MM-dd");
+      
+      var hasExplicitOnDate = assignments.some(function(a) {
+        return a.date === currentDateStr && !a.isVirtual;
+      });
+      if (hasExplicitOnDate) continue;
+      
+      config.teams.forEach(function(team) {
+        var prevAssignments = assignments
+          .filter(function(a) { return a.teamId === team.id && a.date < currentDateStr; })
+          .sort(function(a, b) { return b.date.localeCompare(a.date); });
+          
+        if (prevAssignments.length > 0) {
+          var prev = prevAssignments[0];
+          var lastZoneId = prev.zoneId;
+          var lastIdx = rotation.indexOf(lastZoneId);
+          if (lastIdx !== -1) {
+            var nextIdx = (lastIdx + 1) % rotation.length;
+            var nextZoneId = rotation[nextIdx];
+            
+            assignments.push({
+              id: 'VIRTUAL_' + team.id + '_' + currentDateStr,
+              date: currentDateStr,
+              teamId: team.id,
+              zoneId: nextZoneId,
+              shift: prev.shift || 'Cả ngày',
+              note: 'Luân chuyển tự động',
+              isVirtual: true
+            });
+          }
+        }
+      });
+    }
+    config.assignments = assignments;
+  }
+
   // Resolve shifts for all members assigned in config.assignments
   var schedulesCache = {};
   config.assignments.forEach(function(a) {

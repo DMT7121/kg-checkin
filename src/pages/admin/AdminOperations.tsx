@@ -1087,16 +1087,22 @@ export default function AdminOperations() {
                             {zone?.name || 'Khu đã xóa'} · {completedTasks}/{totalTasks} việc
                           </p>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => patchConfig(current => ({
-                            ...current,
-                            assignments: current.assignments.filter(item => item.id !== assignment.id),
-                          }))}
-                          className="justify-self-end rounded-lg p-2 text-slate-400 hover:text-rose-500"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        {assignment.isVirtual ? (
+                          <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase text-violet-750 dark:text-violet-400 bg-violet-100 dark:bg-violet-950/30 px-2.5 py-1 rounded-lg justify-self-end">
+                            ✨ Tự động
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => patchConfig(current => ({
+                              ...current,
+                              assignments: current.assignments.filter(item => item.id !== assignment.id),
+                            }))}
+                            className="justify-self-end rounded-lg p-2 text-slate-400 hover:text-rose-500"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
                       </div>
                     );
                   })}

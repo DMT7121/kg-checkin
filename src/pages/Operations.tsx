@@ -285,6 +285,11 @@ export default function Operations() {
                                 Hôm nay
                               </span>
                             )}
+                            {assignment.isVirtual && (
+                              <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-black uppercase text-violet-750 dark:bg-violet-950/30 dark:text-violet-400">
+                                ✨ Tự động
+                              </span>
+                            )}
                           </div>
                           <p className="mt-1 text-xs text-slate-500">
                             {formatOperationDate(assignment.date)} · {assignment.shift}

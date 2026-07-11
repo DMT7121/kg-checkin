@@ -32,6 +32,8 @@ export interface OperationAssignment {
   zoneId: string;
   shift: string;
   note: string;
+  isVirtual?: boolean;
+  memberShifts?: Record<string, string>;
 }
 
 export interface OperationEvaluation {
