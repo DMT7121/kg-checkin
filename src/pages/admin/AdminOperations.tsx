@@ -445,11 +445,27 @@ export default function AdminOperations() {
     return set;
   }, [config.teams, selectedTeamId]);
 
-  const filteredTeamEmployees = useMemo(() => {
+  const filteredAvailableEmployees = useMemo(() => {
     return employees.filter(employee => {
-      if (assignedOnOtherTeams.has(employee.username)) {
-        return false;
+      const inOtherTeam = assignedOnOtherTeams.has(employee.username);
+      if (inOtherTeam) return false;
+      
+      if (memberSearchQuery.trim()) {
+        const query = memberSearchQuery.toLowerCase().trim();
+        const nameMatch = employee.fullname.toLowerCase().includes(query);
+        const posMatch = (employee.position || '').toLowerCase().includes(query);
+        const userMatch = employee.username.toLowerCase().includes(query);
+        return nameMatch || posMatch || userMatch;
       }
+      return true;
+    });
+  }, [employees, assignedOnOtherTeams, memberSearchQuery]);
+
+  const filteredOtherTeamEmployees = useMemo(() => {
+    return employees.filter(employee => {
+      const inOtherTeam = assignedOnOtherTeams.has(employee.username);
+      if (!inOtherTeam) return false;
+      
       if (memberSearchQuery.trim()) {
         const query = memberSearchQuery.toLowerCase().trim();
         const nameMatch = employee.fullname.toLowerCase().includes(query);
@@ -711,7 +727,7 @@ export default function AdminOperations() {
                         className="mb-3 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                       />
                       <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                        {filteredTeamEmployees.map(employee => {
+                        {filteredAvailableEmployees.map(employee => {
                           const checked = selectedTeam.memberUsernames.includes(employee.username);
                           const evaluation = config.evaluations.find(item => item.username === employee.username);
                           return (
@@ -742,6 +758,39 @@ export default function AdminOperations() {
                           );
                         })}
                       </div>
+
+                      {filteredOtherTeamEmployees.length > 0 && (
+                        <div className="mt-6 border-t border-slate-200 dark:border-slate-700 pt-4">
+                          <p className="text-[11px] font-bold uppercase text-slate-400 mb-2">Thành viên đã ở nhóm khác (Nhấp để chuyển sang nhóm này)</p>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {filteredOtherTeamEmployees.map(employee => {
+                              const evaluation = config.evaluations.find(item => item.username === employee.username);
+                              const otherTeam = config.teams.find(t => t.id !== selectedTeamId && t.memberUsernames.includes(employee.username));
+                              return (
+                                <button
+                                  type="button"
+                                  key={employee.username}
+                                  onClick={() => toggleMember(selectedTeam.id, employee.username)}
+                                  className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 p-3 text-left transition opacity-65 hover:opacity-100 hover:border-cyan-300"
+                                >
+                                  <span className="flex h-5 w-5 items-center justify-center rounded-md border border-slate-300 bg-white" />
+                                  <span className="min-w-0 flex-1">
+                                    <span className="block truncate text-xs font-extrabold text-slate-600 dark:text-slate-300">
+                                      {employee.fullname}
+                                    </span>
+                                    <span className="block truncate text-[10px] text-slate-400">
+                                      {employee.position || 'Nhân viên'} · {operationScore(evaluation).toFixed(1)}/5
+                                    </span>
+                                    <span className="mt-0.5 inline-block text-[9px] font-bold text-cyan-750 dark:text-cyan-400">
+                                      Đang ở: {otherTeam?.name || 'Nhóm khác'}
+                                    </span>
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </>
                 ) : (
