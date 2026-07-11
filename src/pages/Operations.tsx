@@ -311,10 +311,107 @@ export default function Operations() {
                           Lưu ý: {assignment.note}
                         </p>
                       )}
-                      <div className="space-y-2.5">
-                        {tasks.map(task => {
+                      
+                      {(() => {
+                        const memberShifts = assignment.memberShifts || {};
+                        const myShift = memberShifts[currentUser.username] || 'OFF';
+
+                        const matchesShiftText = (taskStr: string, timeStr: string) => {
+                          const text = taskStr.toLowerCase();
+                          if (timeStr === '15:00') {
+                            return text.includes('15h') || text.includes('15:00') || text.includes('đầu ca');
+                          }
+                          if (timeStr === '17:00') {
+                            return text.includes('17h') || text.includes('17:00');
+                          }
+                          if (timeStr === '18:00') {
+                            return text.includes('cuối ca') || text.includes('18h') || text.includes('18:00') || text.includes('cuối');
+                          }
+                          return false;
+                        };
+
+                        const activeMembersByShift: Record<string, string[]> = { '15:00': [], '17:00': [], '18:00': [] };
+                        const allActiveMembers: string[] = [];
+                        
+                        Object.keys(memberShifts).forEach(username => {
+                          const shiftVal = memberShifts[username];
+                          if (shiftVal && shiftVal !== 'OFF') {
+                            allActiveMembers.push(username);
+                            if (activeMembersByShift[shiftVal]) {
+                              activeMembersByShift[shiftVal].push(username);
+                            }
+                          }
+                        });
+                        
+                        allActiveMembers.sort();
+                        Object.keys(activeMembersByShift).forEach(k => activeMembersByShift[k].sort());
+
+                        const tasks15: typeof tasks = [];
+                        const tasks17: typeof tasks = [];
+                        const tasks18: typeof tasks = [];
+                        const generalTasks: typeof tasks = [];
+
+                        tasks.forEach(task => {
+                          const text = `${task.title} ${task.description} ${task.frequency}`;
+                          if (matchesShiftText(text, '15:00')) {
+                            tasks15.push(task);
+                          } else if (matchesShiftText(text, '17:00')) {
+                            tasks17.push(task);
+                          } else if (matchesShiftText(text, '18:00')) {
+                            tasks18.push(task);
+                          } else {
+                            generalTasks.push(task);
+                          }
+                        });
+
+                        const myTasks: typeof tasks = [];
+                        const teammateTasks: typeof tasks = [];
+                        const unassignedTasks: typeof tasks = [];
+
+                        const distribute = (taskList: typeof tasks, shiftKey: string) => {
+                          const shiftMembers = activeMembersByShift[shiftKey] || [];
+                          taskList.forEach((task, idx) => {
+                            if (shiftMembers.length === 0) {
+                              unassignedTasks.push(task);
+                            } else {
+                              const assignedUsername = shiftMembers[idx % shiftMembers.length];
+                              if (assignedUsername === currentUser.username) {
+                                myTasks.push(task);
+                              } else {
+                                const assigneeUser = directoryUsers.find(u => u.username === assignedUsername);
+                                const copy = { ...task } as any;
+                                copy.assignedToName = assigneeUser ? assigneeUser.fullname : assignedUsername;
+                                teammateTasks.push(copy);
+                              }
+                            }
+                          });
+                        };
+
+                        distribute(tasks15, '15:00');
+                        distribute(tasks17, '17:00');
+                        distribute(tasks18, '18:00');
+
+                        generalTasks.forEach((task, idx) => {
+                          if (allActiveMembers.length === 0) {
+                            unassignedTasks.push(task);
+                          } else {
+                            const assignedUsername = allActiveMembers[idx % allActiveMembers.length];
+                            if (assignedUsername === currentUser.username) {
+                              myTasks.push(task);
+                            } else {
+                              const assigneeUser = directoryUsers.find(u => u.username === assignedUsername);
+                              const copy = { ...task } as any;
+                              copy.assignedToName = assigneeUser ? assigneeUser.fullname : assignedUsername;
+                              teammateTasks.push(copy);
+                            }
+                          }
+                        });
+
+                        const renderTaskItem = (task: any, isTeammate: boolean) => {
                           const completed = completedIds.has(task.id);
                           const updating = updatingTaskId === `${assignment.id}_${task.id}`;
+                          const assigneeName = task.assignedToName;
+                          
                           return (
                             <button
                               type="button"
@@ -324,7 +421,9 @@ export default function Operations() {
                               className={`flex w-full items-start gap-3 rounded-xl border p-3.5 text-left transition ${
                                 completed
                                   ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/20'
-                                  : 'border-slate-200 hover:border-cyan-300 dark:border-slate-700'
+                                  : isTeammate 
+                                    ? 'border-slate-100 bg-slate-50/50 opacity-70 hover:opacity-100 hover:border-cyan-200 dark:border-slate-800'
+                                    : 'border-slate-200 hover:border-cyan-300 dark:border-slate-700'
                               }`}
                             >
                               <span className={`mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg ${
@@ -343,19 +442,68 @@ export default function Operations() {
                                   {task.title}
                                 </span>
                                 <span className="mt-1 block text-xs leading-5 text-slate-500">{task.description}</span>
-                                <span className="mt-1 block text-[10px] font-bold uppercase text-slate-400">
-                                  {task.frequency}
-                                </span>
+                                <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                                  <span className="inline-block text-[9px] font-bold uppercase text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
+                                    {task.frequency}
+                                  </span>
+                                  {isTeammate && assigneeName && (
+                                    <span className="inline-block text-[9px] font-black text-violet-750 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 px-2 py-0.5 rounded-full">
+                                      Phụ trách: {assigneeName}
+                                    </span>
+                                  )}
+                                </div>
                               </span>
                             </button>
                           );
-                        })}
-                        {!tasks.length && (
-                          <div className="py-8 text-center text-xs font-bold text-slate-400">
-                            Khu trực này chưa có checklist công việc.
+                        };
+
+                        if (!tasks.length) {
+                          return (
+                            <div className="py-8 text-center text-xs font-bold text-slate-400">
+                              Khu trực này chưa có checklist công việc.
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div className="space-y-5">
+                            {/* Section 1: My Tasks */}
+                            <div>
+                              <div className="flex items-center gap-1.5 mb-2.5">
+                                <span className="h-2 w-2 rounded-full bg-cyan-500 animate-pulse" />
+                                <p className="text-[10px] font-extrabold uppercase text-cyan-600 dark:text-cyan-400">🎯 Việc được giao cho bạn ({myTasks.length}) · Ca {myShift === 'OFF' ? 'Chưa rõ' : myShift}</p>
+                              </div>
+                              {myTasks.length > 0 ? (
+                                <div className="space-y-2">
+                                  {myTasks.map(t => renderTaskItem(t, false))}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-slate-400 italic bg-slate-50 dark:bg-slate-800/40 rounded-xl p-3 text-center border border-dashed border-slate-200 dark:border-slate-700">Bạn không có công việc riêng trong ca trực này</p>
+                              )}
+                            </div>
+
+                            {/* Section 2: Teammate Tasks */}
+                            {teammateTasks.length > 0 && (
+                              <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
+                                <p className="text-[10px] font-extrabold uppercase text-slate-400 mb-2.5">👥 Việc của đồng đội ({teammateTasks.length})</p>
+                                <div className="space-y-2">
+                                  {teammateTasks.map(t => renderTaskItem(t, true))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Section 3: General/Unassigned Tasks */}
+                            {unassignedTasks.length > 0 && (
+                              <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
+                                <p className="text-[10px] font-extrabold uppercase text-slate-400 mb-2.5">📋 Công việc chung & Khác ({unassignedTasks.length})</p>
+                                <div className="space-y-2">
+                                  {unassignedTasks.map(t => renderTaskItem(t, false))}
+                                </div>
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
+                        );
+                      })()}
                     </div>
                   )}
                 </article>

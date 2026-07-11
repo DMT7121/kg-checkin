@@ -505,6 +505,75 @@ export default function AdminOperations() {
     });
   }, [employees, evalSearchQuery]);
 
+  const getSuggestedZoneId = (teamId: string, dateStr: string) => {
+    if (!teamId || !dateStr) return '';
+    const prevAssignments = config.assignments
+      .filter(a => a.teamId === teamId && a.date < dateStr)
+      .sort((a, b) => b.date.localeCompare(a.date));
+    
+    if (prevAssignments.length === 0) {
+      return 'A';
+    }
+    
+    const lastZoneId = prevAssignments[0].zoneId;
+    const rotation = ['A', 'B', 'C', 'D&E'];
+    const lastIdx = rotation.indexOf(lastZoneId);
+    if (lastIdx === -1) return 'A';
+    
+    const nextIdx = (lastIdx + 1) % rotation.length;
+    return rotation[nextIdx];
+  };
+
+  useEffect(() => {
+    if (assignmentDraft.teamId && assignmentDraft.date) {
+      const suggested = getSuggestedZoneId(assignmentDraft.teamId, assignmentDraft.date);
+      if (suggested && suggested !== assignmentDraft.zoneId) {
+        setAssignmentDraft(current => ({ ...current, zoneId: suggested }));
+      }
+    }
+  }, [assignmentDraft.teamId, assignmentDraft.date, config.assignments]);
+
+  const autoRotateAllAssignments = () => {
+    if (!assignmentDraft.date) {
+      Swal.fire('Chú ý', 'Vui lòng chọn ngày trước.', 'warning');
+      return;
+    }
+    
+    const newAssignments: OperationAssignment[] = [];
+    config.teams.forEach(team => {
+      const isAssigned = config.assignments.some(a => (
+        a.date === assignmentDraft.date
+        && a.teamId === team.id
+        && a.shift === assignmentDraft.shift
+      ));
+      if (isAssigned) return;
+      
+      const suggestedZone = getSuggestedZoneId(team.id, assignmentDraft.date);
+      if (suggestedZone) {
+        newAssignments.push({
+          id: newId('ASSIGN'),
+          date: assignmentDraft.date,
+          teamId: team.id,
+          zoneId: suggestedZone,
+          shift: assignmentDraft.shift,
+          note: 'Xoay ca tự động'
+        });
+      }
+    });
+    
+    if (newAssignments.length === 0) {
+      Swal.fire('Thông báo', 'Tất cả các nhóm đã được phân công trong ca này.', 'info');
+      return;
+    }
+    
+    patchConfig(current => ({
+      ...current,
+      assignments: [...current.assignments, ...newAssignments]
+    }));
+    
+    Swal.fire('Thành công', `Đã tự động xếp khu trực cho ${newAssignments.length} nhóm theo quy tắc xoay vòng ca.`, 'success');
+  };
+
   const teamMetrics = config.teams.map(team => {
     const scores = team.memberUsernames.map(username => (
       operationScore(config.evaluations.find(item => item.username === username))
@@ -932,8 +1001,20 @@ export default function AdminOperations() {
           {section === 'assignments' && (
             <div className="space-y-4">
               <div className="soft3d-card rounded-2xl p-5">
-                <h3 className="font-extrabold text-slate-800 dark:text-white">Tạo phân công theo ngày</h3>
-                <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
+                  <div>
+                    <h3 className="font-extrabold text-slate-800 dark:text-white">Tạo phân công theo ngày</h3>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Xoay vòng khu trực tự động A ➔ B ➔ C ➔ D&E</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={autoRotateAllAssignments}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition"
+                  >
+                    <Sparkles size={14} /> Tự động xoay ca tất cả các nhóm
+                  </button>
+                </div>
+                <div className="mt-2 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
                   <input
                     type="date"
                     value={assignmentDraft.date}

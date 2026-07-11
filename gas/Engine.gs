@@ -2269,6 +2269,37 @@ function _operationTaskLogs() {
   return logs;
 }
 
+function _getWeekInfoFromDateStr(dateStr) {
+  var parts = dateStr.split('-');
+  var year = parseInt(parts[0], 10);
+  var month = parseInt(parts[1], 10) - 1;
+  var day = parseInt(parts[2], 10);
+  
+  var d = new Date(year, month, day);
+  var dayOfWeek = d.getDay();
+  var diff = d.getDate() - dayOfWeek + (dayOfWeek == 0 ? -6 : 1);
+  var monday = new Date(year, month, diff);
+  
+  var sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  
+  function format(date) {
+    var dd = String(date.getDate()).padStart(2, '0');
+    var mm = String(date.getMonth() + 1).padStart(2, '0');
+    return dd + '/' + mm;
+  }
+  
+  var weekLabel = format(monday) + ' - ' + format(sunday);
+  var monthSheet = "Tháng " + String(monday.getMonth() + 1).padStart(2, '0') + "/" + monday.getFullYear();
+  var dayIndex = (dayOfWeek == 0 ? 6 : dayOfWeek - 1);
+  
+  return {
+    weekLabel: weekLabel,
+    monthSheet: monthSheet,
+    dayIndex: dayIndex
+  };
+}
+
 function handleGetOperationsConfig(payload) {
   var config = _readOperationsConfig().config;
   
@@ -2304,6 +2335,43 @@ function handleGetOperationsConfig(payload) {
     });
   });
   config.tasks = checklistTasks;
+
+  // Resolve shifts for all members assigned in config.assignments
+  var schedulesCache = {};
+  config.assignments.forEach(function(a) {
+    if (!a.date) return;
+    var info = _getWeekInfoFromDateStr(a.date);
+    var cacheKey = info.monthSheet + "|" + info.weekLabel;
+    if (!schedulesCache[cacheKey]) {
+      var weekSched = [];
+      try {
+        weekSched = getSingleWeekSchedules(info.monthSheet, info.weekLabel);
+      } catch (err) {
+        Logger.log("Error fetching schedules for " + cacheKey + ": " + err.toString());
+      }
+      schedulesCache[cacheKey] = {
+        schedules: weekSched,
+        info: info
+      };
+    }
+    
+    var team = config.teams.find(function(t) { return t.id === a.teamId; });
+    var memberUsernames = team && team.memberUsernames ? team.memberUsernames : [];
+    
+    var shiftsMap = {};
+    memberUsernames.forEach(function(username) {
+      var profile = getEmploymentProfileByUsername(username);
+      var fullname = profile ? profile.fullname : username;
+      
+      var cached = schedulesCache[cacheKey];
+      var empSched = cached.schedules.find(function(s) {
+        return s.fullname.toLowerCase() === fullname.toLowerCase();
+      });
+      var shiftVal = (empSched && empSched.shifts) ? empSched.shifts[cached.info.dayIndex] : 'OFF';
+      shiftsMap[username] = shiftVal || 'OFF';
+    });
+    a.memberShifts = shiftsMap;
+  });
 
   // 3. Dynamic task logs constructed from checklist progress (02_LUU_TRU_TIEN_DO)
   var datesSet = {};
