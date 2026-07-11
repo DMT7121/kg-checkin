@@ -11,7 +11,7 @@ import {
   ClipboardCheck, Repeat, CalendarDays, History, BellRing,
   CalendarClock, Banknote, BadgeDollarSign, Award,
   Users, KeyRound, CalendarRange, DollarSign, Building2,
-  RefreshCw, CheckCircle2, UserCheck, AlertCircle, Info, Briefcase
+  RefreshCw, CheckCircle2, UserCheck, AlertCircle, Info
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import AppErrorBoundary from '../components/AppErrorBoundary';
@@ -23,6 +23,8 @@ import {
   KgMetricCard,
   KgAlertCard
 } from '../components/KgDesignSystem';
+import { moduleLoaders } from '../config/moduleRegistry';
+import type { TabId } from '../types/navigation';
 
 const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
@@ -41,33 +43,17 @@ function lazyWithRetry<T extends { default: React.ComponentType<any> }>(loader: 
   });
 }
 
-const moduleLoaders = {
-  checkin: () => import('./CheckIn'),
-  schedule: () => import('./Schedule'),
-  history: () => import('./ActivityHistory'),
-  swap: () => import('./SwapShift'),
-  news: () => import('./NewsFeed'),
-  training: () => import('./Training'),
-  soldout: () => import('./SoldOut'),
-  roster: () => import('./Roster'),
-  checklist: () => import('./Checklist'),
-  handover: () => import('./Handover'),
-  feedback: () => import('./Feedback'),
-  admin: () => import('./Admin'),
-  hr_list: () => import('./admin/HrList'),
-  admin_shift: () => import('./admin/AdminShift'),
-  admin_org: () => import('./admin/AdminOrg'),
-  admin_payroll: () => import('./admin/AdminPayroll'),
-  admin_checklist: () => import('./admin/AdminChecklistConfig'),
-  admin_analytics: () => import('./admin/AdminAnalytics'),
-  advance: () => import('./Advance'),
-  discipline: () => import('./Discipline'),
-  payroll: () => import('./Payroll'),
-  reward: () => import('./Reward'),
-  timesheet: () => import('./Timesheet'),
-  guide: () => import('./Guide'),
-} as const;
-
+const AttendanceHub = lazyWithRetry(moduleLoaders.attendance);
+const WorkforceHub = lazyWithRetry(moduleLoaders.workforce);
+const WorkHub = lazyWithRetry(moduleLoaders.work);
+const IncomeHub = lazyWithRetry(moduleLoaders.income);
+const CommunicationsHub = lazyWithRetry(moduleLoaders.communications);
+const KnowledgeHub = lazyWithRetry(moduleLoaders.knowledge);
+const AdminPeopleHub = lazyWithRetry(moduleLoaders.admin_people);
+const AdminWorkforceHub = lazyWithRetry(moduleLoaders.admin_workforce);
+const AdminWorkHub = lazyWithRetry(moduleLoaders.admin_work);
+const AdminIncomeHub = lazyWithRetry(moduleLoaders.admin_income);
+const AdminSystemHub = lazyWithRetry(moduleLoaders.admin_system);
 const CheckIn = lazyWithRetry(moduleLoaders.checkin);
 const Schedule = lazyWithRetry(moduleLoaders.schedule);
 const ActivityHistory = lazyWithRetry(moduleLoaders.history);
@@ -77,11 +63,13 @@ const Training = lazyWithRetry(moduleLoaders.training);
 const SoldOut = lazyWithRetry(moduleLoaders.soldout);
 const Roster = lazyWithRetry(moduleLoaders.roster);
 const Checklist = lazyWithRetry(moduleLoaders.checklist);
+const Operations = lazyWithRetry(moduleLoaders.operations);
 const Handover = lazyWithRetry(moduleLoaders.handover);
 const Feedback = lazyWithRetry(moduleLoaders.feedback);
 const Admin = lazyWithRetry(moduleLoaders.admin);
 const HrList = lazyWithRetry(moduleLoaders.hr_list);
 const AdminShift = lazyWithRetry(moduleLoaders.admin_shift);
+const AdminOperations = lazyWithRetry(moduleLoaders.admin_operations);
 const AdminOrg = lazyWithRetry(moduleLoaders.admin_org);
 const AdminPayroll = lazyWithRetry(moduleLoaders.admin_payroll);
 const AdminChecklistConfig = lazyWithRetry(moduleLoaders.admin_checklist);
@@ -92,6 +80,7 @@ const Payroll = lazyWithRetry(moduleLoaders.payroll);
 const Reward = lazyWithRetry(moduleLoaders.reward);
 const Timesheet = lazyWithRetry(moduleLoaders.timesheet);
 const Guide = lazyWithRetry(moduleLoaders.guide);
+const Profile = lazyWithRetry(moduleLoaders.profile);
 
 const prefetchedModules = new Set<string>();
 
@@ -106,8 +95,8 @@ const prefetchModule = (tab: string): Promise<unknown> => {
 
 const prefetchModuleScreens = async (isAdmin: boolean, isSlowConnection: boolean) => {
   const queue = isAdmin
-    ? ['schedule', 'admin_shift', 'hr_list', 'timesheet', 'payroll', 'checklist']
-    : ['checkin', 'schedule', 'payroll', 'history', 'checklist', 'handover'];
+    ? ['admin_people', 'admin_workforce', 'admin_work', 'admin_income', 'admin_system']
+    : ['checkin', 'workforce', 'income', 'work', 'attendance'];
   const allowedQueue = isSlowConnection ? queue.slice(0, 2) : queue;
 
   await Promise.all(allowedQueue.slice(0, 3).map(async (tab) => prefetchModule(tab)));
@@ -116,21 +105,6 @@ const prefetchModuleScreens = async (isAdmin: boolean, isSlowConnection: boolean
     allowedQueue.slice(3).forEach(prefetchModule);
   }
 };
-
-const ComingSoonPage = ({ title }: { title: string }) => (
-  <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
-    <div className="w-20 h-20 rounded-2xl bg-indigo-50 dark:bg-indigo-950/20 flex items-center justify-center mb-5 shadow-sm">
-      <Briefcase size={32} className="text-indigo-600 dark:text-indigo-400" />
-    </div>
-    <h2 className="text-xl font-bold text-slate-850 dark:text-white mb-2">{title}</h2>
-    <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs">
-      Tính năng này đang được phát triển và sẽ sớm ra mắt trong các bản cập nhật tiếp theo.
-    </p>
-    <div className="soft3d-card mt-6 px-5 py-2.5 rounded-full !bg-indigo-600 text-white text-xs font-bold tracking-wide border-none">
-      COMING SOON
-    </div>
-  </div>
-);
 
 const AccessDeniedPage = ({ tabTitle }: { tabTitle: string }) => (
   <div className="flex flex-col items-center justify-center py-20 px-6 text-center animate-fade-in">
@@ -200,7 +174,7 @@ const ModuleRecoverFallback = () => (
   </div>
 );
 
-const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: any) => void }) => {
+const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void }) => {
   const store = useAppStore();
   const { currentUser } = store;
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'tester';
@@ -766,11 +740,39 @@ export default function Dashboard() {
     return () => clearTimeout(timer);
   }, [currentUser?.role]);
 
-  const handleTabChange = (tab: any) => {
-    prefetchModule(tab);
-    store.setCurrentTab(tab);
+  const handleTabChange = (tab: TabId) => {
+    const aliases: Partial<Record<TabId, TabId>> = {
+      schedule: 'workforce',
+      roster: 'workforce',
+      swap: 'workforce',
+      history: 'attendance',
+      timesheet: 'attendance',
+      payroll: 'income',
+      advance: 'income',
+      reward: 'income',
+      discipline: 'income',
+      checklist: 'work',
+      operations: 'work',
+      handover: 'work',
+      news: 'communications',
+      soldout: 'communications',
+      feedback: 'communications',
+      training: 'knowledge',
+      guide: 'knowledge',
+      hr_list: 'admin_people',
+      admin_org: 'admin_people',
+      admin_shift: 'admin_workforce',
+      admin_operations: 'admin_work',
+      admin_checklist: 'admin_work',
+      admin_payroll: 'admin_income',
+      admin_analytics: 'admin_system',
+      admin: 'admin_system',
+    };
+    const destination = aliases[tab] || tab;
+    prefetchModule(destination);
+    store.setCurrentTab(destination);
     window.scrollTo({ top: 0, behavior: 'instant' });
-    if (tab === 'history' || tab === 'admin' || tab === 'dashboard') {
+    if (destination === 'attendance' || destination === 'admin_system' || destination === 'dashboard') {
       refreshAppData();
     }
   };
@@ -794,13 +796,25 @@ export default function Dashboard() {
                 <AccessDeniedPage tabTitle={getTabLabel(currentTab)} />
               ) : (
                 <>
-                  {currentTab === 'dashboard' && <DashboardOverview onTabChange={handleTabChange} />}
+                   {currentTab === 'dashboard' && <DashboardOverview onTabChange={handleTabChange} />}
+                   {currentTab === 'attendance' && <AttendanceHub />}
+                   {currentTab === 'workforce' && <WorkforceHub />}
+                   {currentTab === 'work' && <WorkHub />}
+                   {currentTab === 'income' && <IncomeHub />}
+                   {currentTab === 'communications' && <CommunicationsHub />}
+                   {currentTab === 'knowledge' && <KnowledgeHub />}
+                   {currentTab === 'admin_people' && <AdminPeopleHub />}
+                   {currentTab === 'admin_workforce' && <AdminWorkforceHub />}
+                   {currentTab === 'admin_work' && <AdminWorkHub />}
+                   {currentTab === 'admin_income' && <AdminIncomeHub />}
+                   {currentTab === 'admin_system' && <AdminSystemHub />}
                   {currentTab === 'checkin' && <CheckIn />}
                   {currentTab === 'schedule' && <Schedule />}
                   {currentTab === 'swap' && <SwapShift />}
                   {currentTab === 'roster' && <Roster />}
-                  {currentTab === 'profile' && <ComingSoonPage title="Hồ sơ cá nhân" />}
-                  {currentTab === 'checklist' && <Checklist />}
+                   {currentTab === 'profile' && <Profile />}
+                   {currentTab === 'checklist' && <Checklist />}
+                   {currentTab === 'operations' && <Operations />}
                   {currentTab === 'handover' && <Handover />}
                   {currentTab === 'feedback' && <Feedback />}
                   {currentTab === 'news' && <NewsFeed />}
@@ -813,7 +827,8 @@ export default function Dashboard() {
                   {currentTab === 'timesheet' && <Timesheet />}
                   {currentTab === 'history' && <ActivityHistory />}
                   {currentTab === 'admin' && <Admin />}
-                  {currentTab === 'admin_shift' && <AdminShift />}
+                   {currentTab === 'admin_shift' && <AdminShift />}
+                   {currentTab === 'admin_operations' && <AdminOperations />}
                   {currentTab === 'admin_org' && <AdminOrg />}
                   {currentTab === 'admin_payroll' && <AdminPayroll />}
                   {currentTab === 'admin_checklist' && <AdminChecklistConfig />}

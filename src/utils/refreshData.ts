@@ -182,6 +182,14 @@ async function performRefresh(force: boolean): Promise<void> {
 
   if (res?.ok) {
     hydrateStore(res.data);
+    if (res.data.employmentProfile) {
+      const latestUser = useAppStore.getState().currentUser;
+      if (latestUser) {
+        const refreshedUser = { ...latestUser, ...res.data.employmentProfile };
+        useAppStore.getState().setCurrentUser(refreshedUser);
+        localStorage.setItem('kg_user', JSON.stringify(refreshedUser));
+      }
+    }
     persistToCache(res.data);
   }
 }

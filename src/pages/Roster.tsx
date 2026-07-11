@@ -8,6 +8,10 @@ import CalendarGrid from '../components/CalendarGrid';
 import Swal from 'sweetalert2';
 import { KgModuleHero } from '../components/KgDesignSystem';
 import { getCalendarDayMeta } from '../utils/calendarHighlights';
+import { isWorkEligible } from '../utils/employment';
+import SmartPersonName from '../components/SmartPersonName';
+import MonthDayVisibility from '../components/MonthDayVisibility';
+import { useMonthDayVisibility } from '../hooks/useMonthDayVisibility';
 
 
 export default function Roster() {
@@ -26,6 +30,11 @@ export default function Roster() {
   const selectedMonth = currentDate.getMonth() + 1;
   const selectedYear = currentDate.getFullYear();
   const monthDates = useMemo(() => generateMonthDates(selectedMonth, selectedYear), [selectedMonth, selectedYear]);
+  const {
+    visibleKeys: visibleMonthDateKeys,
+    visibleDates: visibleMonthDates,
+    updateVisibleKeys: setVisibleMonthDateKeys,
+  } = useMonthDayVisibility('kg_roster_visible_days', monthDates);
   
   const [monthData, setMonthData] = useState<any[]>([]); // To hold data from GET_MONTH_SCHEDULES
 
@@ -68,7 +77,7 @@ export default function Roster() {
 
   // Build the matrix for the current view
   // Merge store.users with monthData to ensure all active employees are shown
-  const activeUsers = store.users && store.users.length > 0 ? store.users : [];
+  const activeUsers = store.users && store.users.length > 0 ? store.users.filter(isWorkEligible) : [];
   
   const uniqueRoles = useMemo(() => {
     const roles = new Set<string>();
@@ -213,9 +222,7 @@ export default function Roster() {
             {rosterToRender.map((emp, empIdx) => (
               <tr key={empIdx} className={`soft3d-card border-b dark:border-gray-700 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 transition-colors ${emp.username === store.currentUser?.username ? 'bg-indigo-50/30 dark:bg-indigo-900/20' : ''}`}>
                 <td className="px-3 py-3 sticky left-0 soft3d-card z-10 shadow-[1px_0_0_0_rgba(0,0,0,0.05)] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.05)] border-r border-gray-200 dark:border-gray-700">
-                  <div className="font-bold text-gray-800 dark:text-gray-200 truncate max-w-[100px] text-xs">
-                    {emp.fullname}
-                  </div>
+                  <SmartPersonName fullname={emp.fullname} className="max-w-[150px] text-xs font-bold text-gray-800 dark:text-gray-200" />
                   {emp.username === store.currentUser?.username && (
                     <div className="text-[9px] font-bold text-indigo-500 uppercase tracking-wider mt-0.5">Bạn</div>
                   )}
@@ -284,12 +291,19 @@ export default function Roster() {
     });
 
     return (
-      <div className="overflow-x-auto w-full soft3d-bg rounded-xl border border-gray-200 dark:border-gray-700 pb-10 custom-scrollbar">
+      <div className="space-y-3">
+        <MonthDayVisibility
+          monthDates={monthDates}
+          visibleKeys={visibleMonthDateKeys}
+          onChange={setVisibleMonthDateKeys}
+        />
+        <div className="overflow-x-auto w-full soft3d-bg rounded-xl border border-gray-200 dark:border-gray-700 pb-10 custom-scrollbar">
         <table className="w-full text-sm text-left whitespace-nowrap">
           <thead className="text-[10px] text-gray-500 dark:text-gray-400 uppercase paint-layer/80 border-b border-gray-200 dark:border-gray-700">
             <tr>
               <th className="px-3 py-3 sticky left-0 paint-layer z-20 font-bold border-r border-gray-200 dark:border-gray-700 shadow-[1px_0_0_0_rgba(0,0,0,0.05)]">Nhân Viên</th>
-              {monthDates.map((mDate, idx) => {
+              {visibleMonthDates.map((mDate) => {
+                const idx = monthDates.findIndex(date => date.dateKey === mDate.dateKey);
                 const isUnderstaffed = dailyWaitstaffCounts[idx] < 3;
                 return (
                 <th key={mDate.dateKey} className={`px-1 py-2 text-center border-r border-gray-200 dark:border-gray-700 min-w-[50px] relative ${mDate.isWeekend ? 'bg-gray-200 dark:bg-gray-700/50' : ''}`}>
@@ -308,15 +322,14 @@ export default function Roster() {
             {rosterToRender.map((emp, empIdx) => (
               <tr key={empIdx} className={`soft3d-card border-b dark:border-gray-700 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 transition-colors ${emp.username === store.currentUser?.username ? 'bg-indigo-50/30 dark:bg-indigo-900/20' : ''}`}>
                 <td className="px-3 py-3 sticky left-0 soft3d-card z-10 shadow-[1px_0_0_0_rgba(0,0,0,0.05)] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.05)] border-r border-gray-200 dark:border-gray-700">
-                  <div className="font-bold text-gray-800 dark:text-gray-200 truncate max-w-[100px] text-xs">
-                    {emp.fullname}
-                  </div>
+                  <SmartPersonName fullname={emp.fullname} className="max-w-[150px] text-xs font-bold text-gray-800 dark:text-gray-200" />
                 </td>
-                {emp.shifts.map((shift: string, dayIdx: number) => {
-                  const mDate = monthDates[dayIdx];
+                {visibleMonthDates.map((mDate) => {
+                  const dayIdx = monthDates.findIndex(date => date.dateKey === mDate.dateKey);
+                  const shift = emp.shifts[dayIdx] || '';
                   const isOff = shift === 'OFF' || !shift;
                   return (
-                    <td key={dayIdx} className={`px-1 py-1 border-r border-gray-100 dark:border-gray-700/50 text-center ${mDate.isWeekend ? 'paint-layer/80' : ''}`}>
+                    <td key={mDate.dateKey} className={`px-1 py-1 border-r border-gray-100 dark:border-gray-700/50 text-center ${mDate.isWeekend ? 'paint-layer/80' : ''}`}>
                       <div className={`inline-flex items-center justify-center text-[9px] font-bold w-full py-1 rounded-md ${getAdminShiftClass(shift)}`}>
                         {isOff ? 'OFF' : shift}
                       </div>
@@ -327,6 +340,7 @@ export default function Roster() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     );
   };

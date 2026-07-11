@@ -6,6 +6,7 @@ import { sha256, ADMIN_PIN_HASH, MASTER_PIN_HASH, escapeHtml, checkRateLimit, re
 import Swal from 'sweetalert2';
 import { Lock, Key, CalendarCheck, RefreshCw, Inbox, CheckCheck, Wand2, Cpu, CloudUpload, Eye, Loader2, Users, KeyRound, ArrowLeftRight, ExternalLink, Plus, Trash2, Edit2, Check, X, ShieldAlert } from 'lucide-react';
 import { AIPrompt } from '../store/useAppStore';
+import { KgModuleHero } from '../components/KgDesignSystem';
 
 export default function Admin() {
   const store = useAppStore();
@@ -102,6 +103,13 @@ export default function Admin() {
 
   return (
     <div className="p-4 space-y-4 animate-slide-up pb-10">
+      <KgModuleHero
+        moduleId="admin"
+        title="AI & Tích Hợp"
+        description="Quản lý khóa API, trợ lý AI và các cấu hình tự động hóa dùng chung trong hệ thống."
+        eyebrow="Hệ thống"
+      />
+
       {/* Groq AI Keys */}
 
 

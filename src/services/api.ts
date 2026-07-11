@@ -7,13 +7,15 @@ const responseCache = new Map<string, { expiresAt: number; value: any }>();
 // Get GAS URL dynamically so we can update it without rebuilds
 export const getGasUrl = () => {
   const stored = localStorage.getItem('kg_gas_url');
-  const newUrl = 'https://script.google.com/macros/s/AKfycbyQ4Y5cQ0BCHBlmzftWq0dPVP2qNgc-PaYMklh44raSX4hDOCIyFi0bV-G6QdUbb-3D/exec';
+  const fallbackUrl = import.meta.env.PROD
+    ? '/api'
+    : 'https://script.google.com/macros/s/AKfycbyQ4Y5cQ0BCHBlmzftWq0dPVP2qNgc-PaYMklh44raSX4hDOCIyFi0bV-G6QdUbb-3D/exec';
   
-  if (stored && stored.trim() !== newUrl) {
+  if (stored && stored.trim() !== fallbackUrl && stored.trim() !== 'https://script.google.com/macros/s/AKfycbyQ4Y5cQ0BCHBlmzftWq0dPVP2qNgc-PaYMklh44raSX4hDOCIyFi0bV-G6QdUbb-3D/exec') {
     localStorage.removeItem('kg_gas_url');
-    return newUrl;
+    return fallbackUrl;
   }
-  return stored || import.meta.env.VITE_GAS_URL || newUrl;
+  return stored || import.meta.env.VITE_GAS_URL || fallbackUrl;
 };
 
 export const setGasUrl = (url: string) => {
@@ -48,9 +50,30 @@ export async function callApi(
   const canUseCache = isReadAction && payload.forceRefresh !== true && options?.cacheTtlMs !== 0;
 
   if (canUseCache) {
-    const cached = responseCache.get(requestKey);
+    let cached = responseCache.get(requestKey);
+    if (!cached) {
+      try {
+        const storedStr = sessionStorage.getItem(`api_cache:${requestKey}`);
+        if (storedStr) {
+          const parsed = JSON.parse(storedStr);
+          if (parsed && parsed.expiresAt > Date.now()) {
+            responseCache.set(requestKey, parsed);
+            cached = parsed;
+          } else {
+            sessionStorage.removeItem(`api_cache:${requestKey}`);
+          }
+        }
+      } catch (e) {
+        console.warn('[API Cache] read error:', e);
+      }
+    }
     if (cached && cached.expiresAt > Date.now()) return cached.value;
-    if (cached) responseCache.delete(requestKey);
+    if (cached) {
+      responseCache.delete(requestKey);
+      try {
+        sessionStorage.removeItem(`api_cache:${requestKey}`);
+      } catch {}
+    }
   }
 
   if (isReadAction && inFlightReadCalls.has(requestKey)) {
@@ -102,10 +125,28 @@ export async function callApi(
           ? 5 * 60_000
           : (action === 'GET_NOTIFICATIONS' || action === 'GET_POSTS' ? 30_000 : 2 * 60_000);
         const ttl = options?.cacheTtlMs ?? defaultTtl;
-        responseCache.set(requestKey, { expiresAt: Date.now() + ttl, value: result });
+        const cacheEntry = { expiresAt: Date.now() + ttl, value: result };
+        responseCache.set(requestKey, cacheEntry);
+        try {
+          sessionStorage.setItem(`api_cache:${requestKey}`, JSON.stringify(cacheEntry));
+        } catch (e) {
+          console.warn('[API Cache] write error:', e);
+        }
       } else if (!isReadAction) {
         // A successful mutation can invalidate any cached read model.
         responseCache.clear();
+        try {
+          const keysToRemove: string[] = [];
+          for (let i = 0; i < sessionStorage.length; i++) {
+            const key = sessionStorage.key(i);
+            if (key && key.startsWith('api_cache:')) {
+              keysToRemove.push(key);
+            }
+          }
+          keysToRemove.forEach(k => sessionStorage.removeItem(k));
+        } catch (e) {
+          console.warn('[API Cache] clear error:', e);
+        }
       }
       
       return result;
@@ -136,4 +177,16 @@ export async function callApi(
 
 export function clearApiCache(): void {
   responseCache.clear();
+  try {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && key.startsWith('api_cache:')) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(k => sessionStorage.removeItem(k));
+  } catch (e) {
+    console.warn('[API Cache] clear error:', e);
+  }
 }

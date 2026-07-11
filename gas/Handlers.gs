@@ -14,7 +14,11 @@ function handleLogin(payload) {
       fullname: 'TESTAPP',
       email: 'ngaiviettenem@gmail.com', // Cập nhật theo yêu cầu
       role: 'tester',
-      isTester: true
+      isTester: true,
+      position: 'Tester',
+      employmentStatus: 'active',
+      statusUntil: '',
+      statusReason: ''
     });
   }
   
@@ -24,7 +28,11 @@ function handleLogin(payload) {
       username: 'ADMIN',
       fullname: 'SUPER ADMIN',
       email: 'admin@kingsgrill.com',
-      role: 'admin'
+      role: 'admin',
+      position: 'Quản lý',
+      employmentStatus: 'active',
+      statusUntil: '',
+      statusReason: ''
     });
   }
   
@@ -37,12 +45,18 @@ function handleLogin(payload) {
     var row = data[i];
     // Col 0: Username, Col 1: Password, Col 2: FullName, Col 3: DOB, Col 4: Email, Col 5: Role
     if (row[0].toString().toLowerCase() === payload.username.toLowerCase() && row[1].toString() === payload.password) {
+      var employmentProfile = getEmploymentProfileByUsername(row[0].toString());
       return jsonResponse(true, {
         username: row[0],
         fullname: row[2],
         email: row[4] || '',
         role: row[5] ? row[5].toString() : (row[0].toString().toLowerCase() === 'admin' ? 'admin' : 'user'),
-        position: row[6] ? row[6].toString() : 'Phục vụ'
+        position: row[6] ? row[6].toString() : 'Phục vụ',
+        avatarUrl: row[7] ? row[7].toString() : '',
+        employmentStatus: employmentProfile ? employmentProfile.employmentStatus : normalizeEmploymentStatus(row[8]),
+        statusUntil: employmentProfile ? employmentProfile.statusUntil : (row[9] ? row[9].toString() : ''),
+        statusReason: employmentProfile ? employmentProfile.statusReason : (row[10] ? row[10].toString() : ''),
+        statusUpdatedAt: employmentProfile ? employmentProfile.statusUpdatedAt : (row[11] ? row[11].toString() : '')
       });
     }
   }
@@ -453,6 +467,10 @@ function parseDateTimeString(str) {
 // Col D: VỊ TRÍ | Col E: XÁC MINH | Col F: KHOẢNG CÁCH | Col G: LINK HÌNH ẢNH | Col H: DATA JSON
 
 function handleCheckInOut(payload) {
+  if (payload.username && !canEmployeeWork(payload.username)) {
+    var blockedProfile = getEmploymentProfileByUsername(payload.username);
+    return jsonResponse(false, 'Không thể chấm công khi trạng thái là ' + (blockedProfile ? blockedProfile.employmentStatus : 'không hoạt động'));
+  }
   var ss = getSS();
   var sheet = ss.getSheetByName(CONFIG.SHEET_LOGS);
   if (!sheet) return jsonResponse(false, 'Không tìm thấy sheet chấm công');
@@ -1536,11 +1554,30 @@ function handleGetData(payload) {
         var ud = usersSheet.getDataRange().getValues();
         var users = [];
         for (var j = 1; j < ud.length; j++) {
-          users.push({ username: ud[j][0] ? ud[j][0].toString() : '', fullname: ud[j][2] ? ud[j][2].toString() : '', dob: ud[j][3] ? ud[j][3].toString() : '', email: ud[j][4] ? ud[j][4].toString() : '', role: ud[j][5] ? ud[j][5].toString() : 'user', position: ud[j][6] ? ud[j][6].toString() : 'Phục vụ', avatarUrl: ud[j][7] ? ud[j][7].toString() : '' });
+          users.push({
+            username: ud[j][0] ? ud[j][0].toString() : '',
+            fullname: ud[j][2] ? ud[j][2].toString() : '',
+            dob: ud[j][3] ? ud[j][3].toString() : '',
+            email: ud[j][4] ? ud[j][4].toString() : '',
+            role: ud[j][5] ? ud[j][5].toString() : 'user',
+            position: ud[j][6] ? ud[j][6].toString() : 'Phục vụ',
+            avatarUrl: ud[j][7] ? ud[j][7].toString() : '',
+            employmentStatus: normalizeEmploymentStatus(ud[j][8]),
+            statusUntil: ud[j][9] ? ud[j][9].toString() : '',
+            statusReason: ud[j][10] ? ud[j][10].toString() : '',
+            statusUpdatedAt: ud[j][11] ? ud[j][11].toString() : ''
+          });
         }
         result.users = users;
       }
     } catch(e) {}
+  }
+
+  // === EMPLOYMENT PROFILE — current user ===
+  try {
+    if (payload.username) result.employmentProfile = getEmploymentProfileByUsername(payload.username);
+  } catch (employmentError) {
+    Logger.log('Employment profile error: ' + employmentError.message);
   }
   
   // === API KEYS ===
@@ -1711,6 +1748,137 @@ function handleGetData(payload) {
   } catch(ce) {}
   
   return jsonResponse(true, result);
+}
+
+var EMPLOYMENT_STATUS = {
+  ACTIVE: 'active',
+  LEAVE: 'leave',
+  RESIGNED: 'resigned',
+  SUSPENDED: 'suspended'
+};
+
+function normalizeEmploymentStatus(value) {
+  var status = value ? value.toString().toLowerCase() : EMPLOYMENT_STATUS.ACTIVE;
+  return [
+    EMPLOYMENT_STATUS.ACTIVE,
+    EMPLOYMENT_STATUS.LEAVE,
+    EMPLOYMENT_STATUS.RESIGNED,
+    EMPLOYMENT_STATUS.SUSPENDED
+  ].indexOf(status) >= 0 ? status : EMPLOYMENT_STATUS.ACTIVE;
+}
+
+function getEmploymentProfileByUsername(username) {
+  if (!username) return null;
+  var sheet = getSS().getSheetByName(CONFIG.SHEET_USERS);
+  if (!sheet) return null;
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0] && data[i][0].toString().toLowerCase() === username.toString().toLowerCase()) {
+      var status = normalizeEmploymentStatus(data[i][8]);
+      var statusUntil = data[i][9] ? data[i][9].toString() : '';
+      var statusReason = data[i][10] ? data[i][10].toString() : '';
+      if (status === EMPLOYMENT_STATUS.SUSPENDED && statusUntil) {
+        var untilDate = new Date(statusUntil + 'T23:59:59');
+        if (!isNaN(untilDate.getTime()) && untilDate.getTime() < new Date().getTime()) {
+          status = EMPLOYMENT_STATUS.ACTIVE;
+          sheet.getRange(i + 1, 9, 1, 4).setValues([[
+            EMPLOYMENT_STATUS.ACTIVE,
+            '',
+            'Tự động kích hoạt lại sau thời hạn đình chỉ',
+            Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm:ss')
+          ]]);
+          statusUntil = '';
+          statusReason = 'Tự động kích hoạt lại sau thời hạn đình chỉ';
+        }
+      }
+      return {
+        username: data[i][0] ? data[i][0].toString() : '',
+        fullname: data[i][2] ? data[i][2].toString() : '',
+        email: data[i][4] ? data[i][4].toString() : '',
+        role: data[i][5] ? data[i][5].toString() : 'user',
+        position: data[i][6] ? data[i][6].toString() : 'Phục vụ',
+        avatarUrl: data[i][7] ? data[i][7].toString() : '',
+        employmentStatus: status,
+        statusUntil: statusUntil,
+        statusReason: statusReason,
+        statusUpdatedAt: data[i][11] ? data[i][11].toString() : ''
+      };
+    }
+  }
+  if (username.toString().toUpperCase() === 'ADMIN') {
+    return {
+      username: 'ADMIN',
+      fullname: 'SUPER ADMIN',
+      email: 'admin@kingsgrill.com',
+      role: 'admin',
+      position: 'Quản lý',
+      avatarUrl: '',
+      employmentStatus: EMPLOYMENT_STATUS.ACTIVE,
+      statusUntil: '',
+      statusReason: '',
+      statusUpdatedAt: ''
+    };
+  }
+  return null;
+}
+
+function canEmployeeWork(username) {
+  var profile = getEmploymentProfileByUsername(username);
+  return !profile || profile.employmentStatus === EMPLOYMENT_STATUS.ACTIVE;
+}
+
+function handleGetEmploymentProfile(payload) {
+  var targetUsername = payload.role === 'admin' && payload.targetUsername
+    ? payload.targetUsername
+    : payload.username;
+  var profile = getEmploymentProfileByUsername(targetUsername);
+  if (!profile) return jsonResponse(false, 'Không tìm thấy hồ sơ nhân sự');
+  return jsonResponse(true, { profile: profile });
+}
+
+function handleUpdateEmploymentStatus(payload) {
+  if (payload.role !== 'admin') return jsonResponse(false, 'Chỉ admin được cập nhật trạng thái nhân sự');
+  if (!payload.targetUsername) return jsonResponse(false, 'Thiếu tài khoản nhân sự');
+  var status = normalizeEmploymentStatus(payload.employmentStatus);
+  var statusUntil = payload.statusUntil ? payload.statusUntil.toString() : '';
+  var reason = payload.statusReason ? payload.statusReason.toString().trim() : '';
+  if (status === EMPLOYMENT_STATUS.SUSPENDED && !statusUntil) {
+    return jsonResponse(false, 'Đình chỉ cần có ngày kết thúc');
+  }
+  if (status !== EMPLOYMENT_STATUS.ACTIVE && !reason) {
+    return jsonResponse(false, 'Vui lòng nhập lý do thay đổi trạng thái');
+  }
+
+  var sheet = getSS().getSheetByName(CONFIG.SHEET_USERS);
+  if (!sheet) return jsonResponse(false, 'Không tìm thấy DB Users');
+  var headers = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), 12)).getValues()[0];
+  var desiredHeaders = ['EmploymentStatus', 'StatusUntil', 'StatusReason', 'StatusUpdatedAt'];
+  for (var h = 0; h < desiredHeaders.length; h++) {
+    if (!headers[8 + h]) sheet.getRange(1, 9 + h).setValue(desiredHeaders[h]);
+  }
+
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0] && data[i][0].toString().toLowerCase() === payload.targetUsername.toString().toLowerCase()) {
+      var timestamp = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm:ss');
+      sheet.getRange(i + 1, 9, 1, 4).setValues([[
+        status,
+        status === EMPLOYMENT_STATUS.SUSPENDED || status === EMPLOYMENT_STATUS.LEAVE ? statusUntil : '',
+        status === EMPLOYMENT_STATUS.ACTIVE ? '' : reason,
+        timestamp
+      ]]);
+      try {
+        var cache = CacheService.getScriptCache();
+        cache.remove('GD_' + (payload.username || '').substring(0, 10) + '_A');
+        cache.remove('GD_' + payload.targetUsername.substring(0, 10) + '_U');
+      } catch (cacheErr) {}
+      return jsonResponse(true, {
+        profile: getEmploymentProfileByUsername(payload.targetUsername),
+        message: 'Đã cập nhật trạng thái nhân sự'
+      });
+    }
+  }
+  return jsonResponse(false, 'Không tìm thấy nhân sự');
 }
 
 
@@ -1942,6 +2110,9 @@ function getWeekRowRange(sheet, weekHeaderRow) {
 }
 
 function handleRegisterShift(payload) {
+  if (payload.username && !canEmployeeWork(payload.username)) {
+    return jsonResponse(false, 'Trạng thái nhân sự hiện tại không được đăng ký ca');
+  }
   var monthSheet = payload.monthSheet;
   var weekLabel = payload.weekLabel;
   

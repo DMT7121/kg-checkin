@@ -4,6 +4,7 @@ import { useAppStore } from '../store/useAppStore';
 import { fetchWithRetry } from '../utils/helpers';
 import { callApi } from '../services/api';
 import Swal from 'sweetalert2';
+import { sopData } from '../pages/sopData';
 
 interface Message {
   id: string;
@@ -13,21 +14,22 @@ interface Message {
 
 export default function AIAssistant() {
   const store = useAppStore();
-  const { groqKeys, currentUser, logs, shiftData, checklistItems, adminSchedules, chatHistory, aiPrompts, payrollData, checklistLogs, approvedShifts, shiftName } = store;
+  const { groqKeys, currentUser, logs, shiftData, checklistItems, adminSchedules, chatHistory, aiPrompts, payrollData, checklistLogs, approvedShifts, shiftName, isAiOpen, setAiOpen } = store;
   
-  const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'welcome',
       role: 'assistant',
-      content: "Chào bạn! Mình là Trợ lý AI của King's Grill. Mình có thể giúp bạn kiểm tra lịch làm việc, hướng dẫn các hạng mục Checklist, hỗ trợ đào tạo nghiệp vụ và trả lời các câu hỏi về quán. Mình có thể giúp gì cho bạn hôm nay?"
+      content: "Chào bạn! Mình là King's Grill AI Assistant. Mình có thể giúp bạn kiểm tra lịch làm việc, hướng dẫn Checklist, tra cứu quy trình vận hành (SOP) và trả lời các câu hỏi về nhà hàng. Mình có thể giúp gì cho bạn hôm nay?"
     }
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const historyLoaded = useRef(false);
+
+  const useGeminiFallback = groqKeys.length === 0;
 
   // Auto load history
   useEffect(() => {
@@ -49,9 +51,33 @@ export default function AIAssistant() {
     }
   }, [messages, isTyping]);
 
-  const generateSystemPrompt = () => {
+  const findRelevantSopContext = (query: string) => {
+    if (!query) return '';
+    const queryLower = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    let context = '';
+    let matchCount = 0;
+    const MAX_MATCHES = 3;
+
+    sopData.forEach(section => {
+      section.content.forEach(item => {
+        const detailsText = item.details.replace(/<[^>]+>/g, ' ').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const subtitleText = item.subtitle.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+        if (subtitleText.toLowerCase().includes(queryLower) || detailsText.toLowerCase().includes(queryLower)) {
+          if (matchCount < MAX_MATCHES) {
+            context += `\n\n---Bối cảnh từ mục: ${section.title} - ${item.subtitle}---\n${item.details.replace(/<[^>]+>/g, ' ')}\n---Kết thúc bối cảnh---`;
+            matchCount++;
+          }
+        }
+      });
+    });
+
+    return context;
+  };
+
+  const generateSystemPrompt = (userQuery?: string) => {
     const today = new Date().toLocaleDateString('vi-VN');
-    let prompt = `Bạn là Trợ lý AI chuyên nghiệp của nhà hàng King's Grill. Hôm nay là ngày ${today}, đang là ${shiftName}.
+    let prompt = `Bạn là King's Grill AI Assistant - Trợ lý AI chuyên nghiệp của nhà hàng King's Grill. Hôm nay là ngày ${today}, đang là ${shiftName}.
 Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || 'Ẩn danh'}, vai trò: ${currentUser?.role || 'Nhân viên'}, chức vụ: ${currentUser?.position || 'Phục vụ'}) trong công việc.
 
 [NGỮ CẢNH DỮ LIỆU HIỆN TẠI TỪ HỆ THỐNG HR]
@@ -119,13 +145,6 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
       prompt += `- Checklist: Chưa có dữ liệu bộ nhớ đệm (Hãy hướng dẫn người dùng tự mở tab Checklist để đồng bộ).\n`;
     }
 
-    prompt += `
-[HƯỚNG DẪN TRẢ LỜI]
-- Bạn có khả năng phân tích lịch làm, đọc công việc checklist, và đào tạo nghiệp vụ.
-- Nếu người dùng yêu cầu "tạo bộ checklist", hãy liệt kê dưới dạng danh sách chuyên nghiệp (bullet points).
-- Luôn trả lời bằng tiếng Việt, thân thiện, ngắn gọn, súc tích (không quá dài dòng), có thể dùng emoji để thân thiện hơn.
-- KHÔNG BỊA ĐẶT DỮ LIỆU nếu không có trong ngữ cảnh.`;
-
     // Add active Custom AI Prompts
     if (aiPrompts && aiPrompts.length > 0) {
       const activePrompts = aiPrompts.filter(p => p.isActive);
@@ -137,52 +156,109 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
       }
     }
 
+    // Add SOP Context if query is about operations
+    if (userQuery) {
+      const sopContext = findRelevantSopContext(userQuery);
+      if (sopContext) {
+        prompt += `\n\n[BỐI CẢNH QUY TRÌNH/SOP TỪ SỔ TAY VẬN HÀNH]\n${sopContext}\n`;
+      }
+    }
+
+    prompt += `
+[HƯỚNG DẪN TRẢ LỜI]
+- Bạn có khả năng phân tích lịch làm, đọc công việc checklist, quy trình vận hành SOP và đào tạo nghiệp vụ.
+- Nếu bối cảnh [BỐI CẢNH QUY TRÌNH/SOP TỪ SỔ TAY VẬN HÀNH] được cung cấp, hãy ưu tiên dùng thông tin đó để trả lời câu hỏi chuyên môn của nhân viên.
+- Nếu người dùng yêu cầu "tạo bộ checklist", hãy liệt kê dưới dạng danh sách chuyên nghiệp (bullet points).
+- Luôn trả lời bằng tiếng Việt, thân thiện, ngắn gọn, súc tích (không quá dài dòng), có thể dùng emoji để thân thiện hơn.
+- KHÔNG BỊA ĐẶT DỮ LIỆU nếu không có trong ngữ cảnh.`;
+
     return prompt;
   };
 
   const handleSend = async () => {
     if (!input.trim()) return;
 
-    if (groqKeys.length === 0) {
-      Swal.fire('Cảnh báo', 'Hệ thống chưa được nạp Groq API Key. Vui lòng liên hệ Admin!', 'warning');
-      return;
-    }
-
     const userMessage: Message = { id: Date.now().toString(), role: 'user', content: input.trim() };
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsTyping(true);
 
+    const systemPrompt = generateSystemPrompt(userMessage.content);
+
     try {
-      const selectedKey = groqKeys[Math.floor(Math.random() * groqKeys.length)];
-      const apiKey = selectedKey ? selectedKey.key : null;
-      if (!apiKey) throw new Error('No API key available');
+      let aiText = '';
 
-      const systemPrompt = generateSystemPrompt();
+      if (useGeminiFallback) {
+        // Fallback to Gemini 2.5 Flash using hardcoded API key
+        const apiKey = "AIzaSyBimS3f8NyESLsYS8bgwThM9scpl5_2WvI";
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
 
-      // Chỉ gửi 5 tin nhắn gần nhất + system prompt để tiết kiệm token
-      const apiMessages = [
-        { role: 'system', content: systemPrompt },
-        ...messages.slice(-5).map(m => ({ role: m.role, content: m.content })),
-        { role: 'user', content: userMessage.content }
-      ];
+        // Map roles to gemini model format
+        const chatContents = [
+          ...messages.slice(-5).map(m => ({
+            role: m.role === 'user' ? 'user' : 'model',
+            parts: [{ text: m.content }]
+          })),
+          {
+            role: 'user',
+            parts: [{ text: userMessage.content }]
+          }
+        ];
 
-      const result = await fetchWithRetry('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          messages: apiMessages,
-          temperature: 0.6,
-          max_tokens: 1024
-        })
-      });
+        const payload = {
+          contents: chatContents,
+          systemInstruction: {
+            parts: [{ text: systemPrompt }]
+          },
+          generationConfig: {
+            temperature: 0.6,
+            topP: 0.9,
+          }
+        };
 
-      const aiText = result.choices?.[0]?.message?.content || 'Xin lỗi, mình đang gặp sự cố khi xử lý dữ liệu. Bạn thử lại nhé!';
-      
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          throw new Error('Gemini API request failed');
+        }
+
+        const result = await response.json();
+        const candidate = result.candidates?.[0];
+        aiText = candidate?.content?.parts?.[0]?.text || 'Xin lỗi, mình gặp sự cố khi tải câu trả lời từ máy chủ Gemini.';
+
+      } else {
+        // Use configured Groq keys
+        const selectedKey = groqKeys[Math.floor(Math.random() * groqKeys.length)];
+        const apiKey = selectedKey ? selectedKey.key : null;
+        if (!apiKey) throw new Error('No Groq API key available');
+
+        const apiMessages = [
+          { role: 'system', content: systemPrompt },
+          ...messages.slice(-5).map(m => ({ role: m.role, content: m.content })),
+          { role: 'user', content: userMessage.content }
+        ];
+
+        const result = await fetchWithRetry('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`
+          },
+          body: JSON.stringify({
+            model: 'llama-3.3-70b-versatile',
+            messages: apiMessages,
+            temperature: 0.6,
+            max_tokens: 1024
+          })
+        });
+
+        aiText = result.choices?.[0]?.message?.content || 'Xin lỗi, mình đang gặp sự cố khi xử lý dữ liệu. Bạn thử lại nhé!';
+      }
+
       const assistantMessage: Message = {
         id: Date.now().toString(),
         role: 'assistant',
@@ -230,9 +306,9 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
   return (
     <>
       {/* Floating Button */}
-      {!isOpen && (
+      {!isAiOpen && (
         <button
-          onClick={() => setIsOpen(true)}
+          onClick={() => setAiOpen(true)}
           className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-tr from-violet-600 to-indigo-600 rounded-full shadow-2xl flex items-center justify-center text-white hover:scale-110 transition-transform z-[9999] animate-bounce hover:animate-none border-2 border-white/20"
         >
           <Sparkles size={24} />
@@ -243,7 +319,7 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
       )}
 
       {/* Chat Window */}
-      {isOpen && (
+      {isAiOpen && (
         <div 
           className={`fixed right-0 md:right-6 bottom-0 md:bottom-6 soft3d-bg shadow-2xl z-[9999] flex flex-col transition-all duration-300 ease-in-out border border-gray-200 dark:border-gray-800 ${
             isExpanded 
@@ -258,15 +334,18 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
                 <Bot size={22} />
               </div>
               <div>
-                <h3 className="font-bold text-sm">Trợ lý AI King&apos;s Grill</h3>
-                <p className="text-[10px] text-indigo-100 flex items-center"><span className="w-1.5 h-1.5 bg-green-400 rounded-full mr-1.5 animate-pulse"></span> Sẵn sàng ({groqKeys.length} Keys)</p>
+                <h3 className="font-bold text-sm">King&apos;s Grill AI Assistant</h3>
+                <p className="text-[10px] text-indigo-100 flex items-center">
+                  <span className="w-1.5 h-1.5 bg-green-400 rounded-full mr-1.5 animate-pulse"></span>
+                  {useGeminiFallback ? 'Sẵn sàng (Gemini)' : `Sẵn sàng (${groqKeys.length} Groq Keys)`}
+                </p>
               </div>
             </div>
             <div className="flex items-center space-x-1">
               <button onClick={() => setIsExpanded(!isExpanded)} className="p-2 hover:bg-white/20 rounded-full transition hidden md:block">
                 {isExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
               </button>
-              <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition">
+              <button onClick={() => setAiOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition">
                 <X size={20} />
               </button>
             </div>
@@ -274,10 +353,10 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/50 dark:bg-gray-900/50">
-            {groqKeys.length === 0 && (
-              <div className="bg-orange-50 border border-orange-200 text-orange-800 rounded-lg p-3 text-xs flex items-start space-x-2">
-                <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
-                <p>Hệ thống chưa có Groq API Key nào! Hãy nhờ Quản lý vào mục "Cấu hình hệ thống" để nạp bộ Key mới dùng được tính năng này nhé.</p>
+            {useGeminiFallback && (
+              <div className="bg-blue-50/55 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 text-blue-700 dark:text-blue-300 rounded-xl p-3 text-[11px] flex items-start space-x-2">
+                <Sparkles size={14} className="mt-0.5 flex-shrink-0 text-indigo-500" />
+                <p>Trợ lý đang chạy ở chế độ dự phòng bằng Gemini. Liên hệ Admin nạp Groq API Key nếu muốn tăng độ nhạy phản hồi.</p>
               </div>
             )}
 
@@ -320,7 +399,7 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
                     handleSend();
                   }
                 }}
-                placeholder="Hỏi AI về lịch làm, checklist, hướng dẫn nghiệp vụ..."
+                placeholder="Hỏi AI về lịch làm, checklist, quy trình SOP..."
                 className="flex-1 max-h-32 min-h-[44px] paint-layer border-transparent focus:border-indigo-500 focus:bg-white dark:focus:bg-gray-900 rounded-xl px-4 py-3 text-sm resize-none transition-all dark:text-white"
                 rows={1}
                 disabled={isTyping}
@@ -334,7 +413,7 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
               </button>
             </div>
             <div className="text-center mt-2">
-              <span className="text-[9px] text-gray-400 font-medium">Powered by Llama 3.3 70B & Groq LPU™</span>
+              <span className="text-[9px] text-gray-400 font-medium">Powered by Llama 3.3 70B & Groq LPU™ / Gemini 2.5 Flash</span>
             </div>
           </div>
         </div>

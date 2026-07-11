@@ -1065,6 +1065,9 @@ function handleGetChecklists() {
 }
 
 function handleSubmitChecklist(payload) {
+  if (payload.username && !canEmployeeWork(payload.username)) {
+    return jsonResponse(false, 'Trạng thái nhân sự hiện tại không được thực hiện checklist');
+  }
   var ss = getSS();
   var sheet = ss.getSheetByName("ChecklistLogs");
   if (!sheet) {
@@ -1098,6 +1101,9 @@ function handleSubmitChecklist(payload) {
 // ==========================================
 
 function handleSubmitHandover(payload) {
+  if (payload.username && !canEmployeeWork(payload.username)) {
+    return jsonResponse(false, 'Trạng thái nhân sự hiện tại không được bàn giao ca');
+  }
   var ss = getSS();
   var sheet = ss.getSheetByName("Handovers");
   if (!sheet) {
@@ -1623,6 +1629,280 @@ function handleUpdateSalaryConfig(payload) {
   return jsonResponse(true, 'Cập nhật bảng lương cá nhân thành công');
 }
 
+// ----------------------------------------------------
+// CẤU HÌNH LƯƠNG THEO THÁNG (JSON)
+// ----------------------------------------------------
+
+var MONTHLY_SALARY_SHEET = 'SalaryMonthlyConfig';
+var SALARY_ADJUSTMENT_SHEET = 'SalaryAdjustmentRequests';
+
+function _salaryMonthKey(value) {
+  var raw = value ? value.toString().trim() : '';
+  if (/^\d{4}-(0[1-9]|1[0-2])$/.test(raw)) return raw;
+  return Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'yyyy-MM');
+}
+
+function _getMonthlySalarySheet() {
+  var ss = getSS();
+  var sheet = ss.getSheetByName(MONTHLY_SALARY_SHEET);
+  if (!sheet) {
+    sheet = ss.insertSheet(MONTHLY_SALARY_SHEET);
+    sheet.appendRow(['Month', 'ConfigJSON', 'UpdatedAt', 'UpdatedBy']);
+    sheet.setFrozenRows(1);
+    sheet.setColumnWidth(1, 110);
+    sheet.setColumnWidth(2, 640);
+    sheet.setColumnWidth(3, 170);
+    sheet.setColumnWidth(4, 160);
+  }
+  return sheet;
+}
+
+function _getSalaryAdjustmentSheet() {
+  var ss = getSS();
+  var sheet = ss.getSheetByName(SALARY_ADJUSTMENT_SHEET);
+  if (!sheet) {
+    sheet = ss.insertSheet(SALARY_ADJUSTMENT_SHEET);
+    sheet.appendRow([
+      'ID', 'CreatedAt', 'Month', 'Username', 'Fullname',
+      'CurrentType', 'CurrentAmount', 'ProposedType', 'ProposedAmount',
+      'Reason', 'Status', 'AdminReply', 'UpdatedAt'
+    ]);
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function _normalizeMonthlySalaryItem(item) {
+  var payType = item && item.payType === 'daily' ? 'daily' : 'hourly';
+  var amount = Math.max(0, Number(item && item.amount) || 0);
+  return {
+    username: item && item.username ? item.username.toString().trim() : '',
+    fullname: item && item.fullname ? item.fullname.toString().trim() : '',
+    payType: payType,
+    amount: amount,
+    standardDays: 30
+  };
+}
+
+function _readMonthlySalaryConfig(month) {
+  var monthKey = _salaryMonthKey(month);
+  var sheet = _getMonthlySalarySheet();
+  var values = sheet.getDataRange().getValues();
+  for (var i = 1; i < values.length; i++) {
+    if (values[i][0] && values[i][0].toString() === monthKey) {
+      try {
+        var parsed = JSON.parse(values[i][1] || '{}');
+        parsed.month = monthKey;
+        parsed.standardDays = 30;
+        parsed.items = Array.isArray(parsed.items)
+          ? parsed.items.map(_normalizeMonthlySalaryItem).filter(function(item) { return item.username; })
+          : [];
+        return { row: i + 1, config: parsed };
+      } catch (err) {
+        return { row: i + 1, config: { version: 1, month: monthKey, standardDays: 30, items: [] } };
+      }
+    }
+  }
+  return { row: 0, config: { version: 1, month: monthKey, standardDays: 30, items: [] } };
+}
+
+function _writeMonthlySalaryConfig(month, items, updatedBy) {
+  var monthKey = _salaryMonthKey(month);
+  var normalized = (items || []).map(_normalizeMonthlySalaryItem).filter(function(item) {
+    return item.username;
+  });
+  var seen = {};
+  normalized = normalized.filter(function(item) {
+    if (seen[item.username]) return false;
+    seen[item.username] = true;
+    return true;
+  });
+
+  var record = _readMonthlySalaryConfig(monthKey);
+  var config = {
+    version: 1,
+    month: monthKey,
+    standardDays: 30,
+    items: normalized
+  };
+  var row = [
+    monthKey,
+    JSON.stringify(config),
+    Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm:ss'),
+    updatedBy || 'admin'
+  ];
+  var sheet = _getMonthlySalarySheet();
+  if (record.row) sheet.getRange(record.row, 1, 1, 4).setValues([row]);
+  else sheet.appendRow(row);
+  return config;
+}
+
+function _monthlySalaryMonths() {
+  var values = _getMonthlySalarySheet().getDataRange().getValues();
+  var months = [];
+  for (var i = 1; i < values.length; i++) {
+    var value = values[i][0] ? values[i][0].toString() : '';
+    if (/^\d{4}-(0[1-9]|1[0-2])$/.test(value)) months.push(value);
+  }
+  return months.sort().reverse();
+}
+
+function handleGetMonthlySalaryConfig(payload) {
+  var monthKey = _salaryMonthKey(payload.month);
+  var record = _readMonthlySalaryConfig(monthKey);
+  var isAdmin = payload.role === 'admin';
+  var config = record.config;
+
+  if (!isAdmin) {
+    if (!payload.username) return jsonResponse(false, 'Thiếu tài khoản nhân viên');
+    config = {
+      version: config.version,
+      month: config.month,
+      standardDays: 30,
+      items: config.items.filter(function(item) {
+        return item.username === payload.username.toString();
+      })
+    };
+  }
+
+  return jsonResponse(true, {
+    config: config,
+    availableMonths: isAdmin ? _monthlySalaryMonths() : []
+  });
+}
+
+function handleUpdateMonthlySalaryConfig(payload) {
+  if (payload.role !== 'admin') return jsonResponse(false, 'Chỉ quản trị viên được cấu hình mức lương');
+  if (!Array.isArray(payload.items)) return jsonResponse(false, 'Danh sách mức lương không hợp lệ');
+  var config = _writeMonthlySalaryConfig(payload.month, payload.items, payload.username || 'admin');
+  return jsonResponse(true, { config: config, message: 'Đã lưu bảng lương tháng ' + config.month });
+}
+
+function handleCopyMonthlySalaryConfig(payload) {
+  if (payload.role !== 'admin') return jsonResponse(false, 'Chỉ quản trị viên được sao chép bảng lương');
+  var sourceMonth = _salaryMonthKey(payload.sourceMonth);
+  var targetMonth = _salaryMonthKey(payload.targetMonth);
+  if (sourceMonth === targetMonth) return jsonResponse(false, 'Tháng nguồn và tháng đích phải khác nhau');
+  var source = _readMonthlySalaryConfig(sourceMonth).config;
+  if (!source.items.length) return jsonResponse(false, 'Tháng nguồn chưa có dữ liệu lương');
+  var config = _writeMonthlySalaryConfig(targetMonth, source.items, payload.username || 'admin');
+  return jsonResponse(true, { config: config, message: 'Đã sao chép bảng lương từ ' + sourceMonth });
+}
+
+function _salaryAdjustmentRows(payload) {
+  var values = _getSalaryAdjustmentSheet().getDataRange().getValues();
+  var isAdmin = payload.role === 'admin';
+  var result = [];
+  for (var i = 1; i < values.length; i++) {
+    if (!values[i][0]) continue;
+    if (!isAdmin && values[i][3].toString() !== (payload.username || '').toString()) continue;
+    result.push({
+      id: values[i][0].toString(),
+      createdAt: values[i][1] ? values[i][1].toString() : '',
+      month: values[i][2] ? values[i][2].toString() : '',
+      username: values[i][3] ? values[i][3].toString() : '',
+      fullname: values[i][4] ? values[i][4].toString() : '',
+      currentType: values[i][5] === 'daily' ? 'daily' : 'hourly',
+      currentAmount: Number(values[i][6]) || 0,
+      proposedType: values[i][7] === 'daily' ? 'daily' : 'hourly',
+      proposedAmount: Number(values[i][8]) || 0,
+      reason: values[i][9] ? values[i][9].toString() : '',
+      status: values[i][10] ? values[i][10].toString() : 'Pending',
+      adminReply: values[i][11] ? values[i][11].toString() : '',
+      updatedAt: values[i][12] ? values[i][12].toString() : ''
+    });
+  }
+  return result.reverse();
+}
+
+function handleGetSalaryAdjustments(payload) {
+  if (payload.role !== 'admin' && !payload.username) return jsonResponse(false, 'Thiếu tài khoản');
+  return jsonResponse(true, { requests: _salaryAdjustmentRows(payload) });
+}
+
+function handleSubmitSalaryAdjustment(payload) {
+  if (!payload.username || payload.role === 'admin') {
+    return jsonResponse(false, 'Yêu cầu chỉ dành cho nhân viên');
+  }
+  var monthKey = _salaryMonthKey(payload.month);
+  var proposedType = payload.proposedType === 'daily' ? 'daily' : 'hourly';
+  var proposedAmount = Math.max(0, Number(payload.proposedAmount) || 0);
+  var reason = payload.reason ? payload.reason.toString().trim() : '';
+  if (!proposedAmount || !reason) return jsonResponse(false, 'Vui lòng nhập mức lương đề xuất và lý do');
+
+  var config = _readMonthlySalaryConfig(monthKey).config;
+  var current = null;
+  for (var i = 0; i < config.items.length; i++) {
+    if (config.items[i].username === payload.username.toString()) {
+      current = config.items[i];
+      break;
+    }
+  }
+  var now = new Date();
+  var timestamp = Utilities.formatDate(now, CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm:ss');
+  _getSalaryAdjustmentSheet().appendRow([
+    'SAL_' + now.getTime(),
+    timestamp,
+    monthKey,
+    payload.username.toString(),
+    payload.fullname ? payload.fullname.toString() : (current ? current.fullname : ''),
+    current ? current.payType : '',
+    current ? current.amount : 0,
+    proposedType,
+    proposedAmount,
+    reason,
+    'Pending',
+    '',
+    timestamp
+  ]);
+  return jsonResponse(true, 'Đã gửi đề nghị điều chỉnh lương tới quản trị viên');
+}
+
+function handleReviewSalaryAdjustment(payload) {
+  if (payload.role !== 'admin') return jsonResponse(false, 'Chỉ quản trị viên được xử lý đề nghị');
+  var status = payload.status === 'Approved' ? 'Approved' : 'Rejected';
+  var sheet = _getSalaryAdjustmentSheet();
+  var values = sheet.getDataRange().getValues();
+  for (var i = 1; i < values.length; i++) {
+    if (values[i][0] && values[i][0].toString() === (payload.requestId || '').toString()) {
+      var updatedAt = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm:ss');
+      sheet.getRange(i + 1, 11, 1, 3).setValues([[
+        status,
+        payload.adminReply ? payload.adminReply.toString().trim() : '',
+        updatedAt
+      ]]);
+
+      if (status === 'Approved') {
+        var monthKey = _salaryMonthKey(values[i][2]);
+        var config = _readMonthlySalaryConfig(monthKey).config;
+        var found = false;
+        for (var j = 0; j < config.items.length; j++) {
+          if (config.items[j].username === values[i][3].toString()) {
+            config.items[j].payType = values[i][7] === 'daily' ? 'daily' : 'hourly';
+            config.items[j].amount = Number(values[i][8]) || 0;
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          config.items.push({
+            username: values[i][3].toString(),
+            fullname: values[i][4] ? values[i][4].toString() : '',
+            payType: values[i][7] === 'daily' ? 'daily' : 'hourly',
+            amount: Number(values[i][8]) || 0,
+            standardDays: 30
+          });
+        }
+        _writeMonthlySalaryConfig(monthKey, config.items, payload.username || 'admin');
+      }
+      return jsonResponse(true, status === 'Approved'
+        ? 'Đã duyệt và cập nhật mức lương'
+        : 'Đã từ chối đề nghị');
+    }
+  }
+  return jsonResponse(false, 'Không tìm thấy đề nghị');
+}
+
 function handleGetPayroll(payload) {
   var ss = getSS();
   var isAdmin = payload.role === 'admin' || payload.role === 'tester';
@@ -1633,9 +1913,10 @@ function handleGetPayroll(payload) {
   
   var rangesToFetch = [];
   if (sheetNames.indexOf("SalaryConfig") >= 0) rangesToFetch.push("SalaryConfig!A:C");
+  if (sheetNames.indexOf(MONTHLY_SALARY_SHEET) >= 0) rangesToFetch.push(MONTHLY_SALARY_SHEET + "!A:D");
   if (sheetNames.indexOf("Advances") >= 0) rangesToFetch.push("Advances!A:G");
   if (sheetNames.indexOf("BonusPenalty") >= 0) rangesToFetch.push("BonusPenalty!A:F");
-  if (sheetNames.indexOf(CONFIG.SHEET_USERS) >= 0) rangesToFetch.push(CONFIG.SHEET_USERS + "!A:F");
+  if (sheetNames.indexOf(CONFIG.SHEET_USERS) >= 0) rangesToFetch.push(CONFIG.SHEET_USERS + "!A:L");
   
   var now = new Date();
   var mm = String(now.getMonth() + 1).padStart(2, '0');
@@ -1680,6 +1961,7 @@ function handleGetPayroll(payload) {
   }
 
   var configData = batchData["SalaryConfig"] || [];
+  var monthlyConfigData = batchData[MONTHLY_SALARY_SHEET] || [];
   var advanceData = batchData["Advances"] || [];
   var bpData = batchData["BonusPenalty"] || [];
   var usersData = batchData[CONFIG.SHEET_USERS] || [];
@@ -1690,6 +1972,10 @@ function handleGetPayroll(payload) {
   if (configData.length === 0) {
     var configSheet = ss.getSheetByName("SalaryConfig");
     if (configSheet) configData = configSheet.getDataRange().getValues();
+  }
+  if (monthlyConfigData.length === 0) {
+    var monthlyConfigSheet = ss.getSheetByName(MONTHLY_SALARY_SHEET);
+    if (monthlyConfigSheet) monthlyConfigData = monthlyConfigSheet.getDataRange().getValues();
   }
   if (advanceData.length === 0) {
     var advanceSheet = ss.getSheetByName("Advances");
@@ -1719,6 +2005,24 @@ function handleGetPayroll(payload) {
       baseSalaries[configData[i][0]] = Number(configData[i][2]) || 20000;
     }
   }
+
+  // Ưu tiên cấu hình JSON đúng tháng; dữ liệu SalaryConfig cũ vẫn là fallback.
+  var salaryMonthKey = yyyy + '-' + mm;
+  var monthlySalaries = {};
+  for (var mc = 1; mc < monthlyConfigData.length; mc++) {
+    if (!monthlyConfigData[mc][0] || monthlyConfigData[mc][0].toString() !== salaryMonthKey) continue;
+    try {
+      var monthlyJson = JSON.parse(monthlyConfigData[mc][1] || '{}');
+      var monthlyItems = Array.isArray(monthlyJson.items) ? monthlyJson.items : [];
+      for (var mi = 0; mi < monthlyItems.length; mi++) {
+        var normalizedSalary = _normalizeMonthlySalaryItem(monthlyItems[mi]);
+        if (normalizedSalary.username) monthlySalaries[normalizedSalary.username] = normalizedSalary;
+      }
+    } catch (monthlyErr) {
+      Logger.log('Monthly salary JSON error: ' + monthlyErr.message);
+    }
+    break;
+  }
   
   // 2. Get Advances (Approved only)
   var advances = {};
@@ -1747,6 +2051,7 @@ function handleGetPayroll(payload) {
   
   // 4. LẤY TỔNG GIỜ LÀM
   var hoursWorked = {};
+  var daysWorked = {};
   
   if (hasSummary && summaryData.length > 0) {
     for (var r = 0; r < summaryData.length; r++) {
@@ -1758,6 +2063,7 @@ function handleGetPayroll(payload) {
       var gioTheoCa = parseFloat(row[9]) || 0;
       if (gioTangCa > 0 || gioTheoCa > 0) {
         hoursWorked[empName] = (hoursWorked[empName] || 0) + gioTangCa + gioTheoCa;
+        daysWorked[empName] = (daysWorked[empName] || 0) + 1;
       }
     }
   } else if (logsData.length > 0) {
@@ -1780,6 +2086,8 @@ function handleGetPayroll(payload) {
       }
       
       if (!time || isNaN(time)) continue;
+      var logDate = new Date(time);
+      if (logDate.getFullYear() !== yyyy || logDate.getMonth() + 1 !== Number(mm)) continue;
       if (!userLogs[fullname]) userLogs[fullname] = [];
       userLogs[fullname].push({ type: type, time: time });
     }
@@ -1788,10 +2096,12 @@ function handleGetPayroll(payload) {
       var logs = userLogs[fullname].sort(function(a, b) { return a.time - b.time; });
       var totalMs = 0;
       var lastIn = 0;
+      var workedDateKeys = {};
       
       for (var j = 0; j < logs.length; j++) {
         if (logs[j].type.indexOf('VÀO') >= 0 || logs[j].type === 'IN') {
           lastIn = logs[j].time;
+          workedDateKeys[Utilities.formatDate(new Date(logs[j].time), CONFIG.TIMEZONE, 'yyyy-MM-dd')] = true;
         } else if ((logs[j].type.indexOf('RA') >= 0 || logs[j].type === 'OUT') && lastIn > 0) {
           var diff = logs[j].time - lastIn;
           if (diff > 0 && diff < 14 * 60 * 60 * 1000) {
@@ -1801,20 +2111,28 @@ function handleGetPayroll(payload) {
         }
       }
       hoursWorked[fullname] = totalMs / (1000 * 60 * 60);
+      daysWorked[fullname] = Object.keys(workedDateKeys).length;
     }
   }
   var payroll = [];
   
   for (var i = 1; i < usersData.length; i++) {
     if (!usersData[i][0]) continue;
+    if (normalizeEmploymentStatus(usersData[i][8]) === EMPLOYMENT_STATUS.RESIGNED) continue;
     var uName = usersData[i][0].toString();
     var fName = usersData[i][2].toString();
     
     if (!isAdmin && uName !== payload.username) continue;
     
     var hours = hoursWorked[fName] || 0;
-    var base = baseSalaries[uName] || 20000;
-    var totalBase = hours * base;
+    var workedDays = daysWorked[fName] || 0;
+    var monthlySalary = monthlySalaries[uName] || null;
+    var payType = monthlySalary ? monthlySalary.payType : 'hourly';
+    var salaryAmount = monthlySalary ? monthlySalary.amount : (baseSalaries[uName] || 20000);
+    var base = payType === 'hourly' ? salaryAmount : 0;
+    var totalBase = payType === 'daily'
+      ? (salaryAmount / 30) * workedDays
+      : hours * salaryAmount;
     var adv = advances[uName] || 0;
     var bon = bonuses[uName] || 0;
     var pen = penalties[uName] || 0;
@@ -1825,6 +2143,10 @@ function handleGetPayroll(payload) {
       username: uName,
       fullname: fName,
       baseSalaryPerHour: base,
+      payType: payType,
+      salaryAmount: salaryAmount,
+      standardDays: 30,
+      workedDays: workedDays,
       totalHours: hours,
       totalBaseSalary: totalBase,
       advances: adv,
@@ -1835,6 +2157,274 @@ function handleGetPayroll(payload) {
   }
   
   return jsonResponse(true, { payroll: payroll });
+}
+
+// ----------------------------------------------------
+// PHÂN CÔNG VẬN HÀNH
+// ----------------------------------------------------
+
+var OPERATIONS_CONFIG_SHEET = 'OperationsConfig';
+var OPERATIONS_TASK_LOG_SHEET = 'OperationTaskLogs';
+
+function _defaultOperationsConfig() {
+  return {
+    version: 1,
+    teams: [],
+    zones: [],
+    tasks: [],
+    assignments: [],
+    evaluations: []
+  };
+}
+
+function _getOperationsConfigSheet() {
+  var ss = getSS();
+  var sheet = ss.getSheetByName(OPERATIONS_CONFIG_SHEET);
+  if (!sheet) {
+    sheet = ss.insertSheet(OPERATIONS_CONFIG_SHEET);
+    sheet.appendRow(['Key', 'ConfigJSON', 'UpdatedAt', 'UpdatedBy']);
+    sheet.appendRow(['MASTER', JSON.stringify(_defaultOperationsConfig()), '', 'system']);
+    sheet.setFrozenRows(1);
+    sheet.setColumnWidth(1, 110);
+    sheet.setColumnWidth(2, 720);
+    sheet.setColumnWidth(3, 170);
+    sheet.setColumnWidth(4, 150);
+  }
+  return sheet;
+}
+
+function _getOperationTaskLogSheet() {
+  var ss = getSS();
+  var sheet = ss.getSheetByName(OPERATIONS_TASK_LOG_SHEET);
+  if (!sheet) {
+    sheet = ss.insertSheet(OPERATIONS_TASK_LOG_SHEET);
+    sheet.appendRow([
+      'ID', 'Date', 'AssignmentID', 'TaskID', 'Username',
+      'Fullname', 'CompletedAt', 'Status', 'Note'
+    ]);
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function _normalizeOperationsConfig(value) {
+  var config = value || {};
+  return {
+    version: 1,
+    teams: Array.isArray(config.teams) ? config.teams : [],
+    zones: Array.isArray(config.zones) ? config.zones : [],
+    tasks: Array.isArray(config.tasks) ? config.tasks : [],
+    assignments: Array.isArray(config.assignments) ? config.assignments : [],
+    evaluations: Array.isArray(config.evaluations) ? config.evaluations : []
+  };
+}
+
+function _readOperationsConfig() {
+  var sheet = _getOperationsConfigSheet();
+  var values = sheet.getDataRange().getValues();
+  for (var i = 1; i < values.length; i++) {
+    if (values[i][0] && values[i][0].toString() === 'MASTER') {
+      try {
+        return { row: i + 1, config: _normalizeOperationsConfig(JSON.parse(values[i][1] || '{}')) };
+      } catch (err) {
+        return { row: i + 1, config: _defaultOperationsConfig() };
+      }
+    }
+  }
+  return { row: 0, config: _defaultOperationsConfig() };
+}
+
+function _writeOperationsConfig(config, updatedBy) {
+  var normalized = _normalizeOperationsConfig(config);
+  var record = _readOperationsConfig();
+  var row = [
+    'MASTER',
+    JSON.stringify(normalized),
+    Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm:ss'),
+    updatedBy || 'admin'
+  ];
+  var sheet = _getOperationsConfigSheet();
+  if (record.row) sheet.getRange(record.row, 1, 1, 4).setValues([row]);
+  else sheet.appendRow(row);
+  return normalized;
+}
+
+function _operationTaskLogs() {
+  var values = _getOperationTaskLogSheet().getDataRange().getValues();
+  var logs = [];
+  for (var i = 1; i < values.length; i++) {
+    if (!values[i][0]) continue;
+    logs.push({
+      id: values[i][0].toString(),
+      date: values[i][1] ? values[i][1].toString() : '',
+      assignmentId: values[i][2] ? values[i][2].toString() : '',
+      taskId: values[i][3] ? values[i][3].toString() : '',
+      username: values[i][4] ? values[i][4].toString() : '',
+      fullname: values[i][5] ? values[i][5].toString() : '',
+      completedAt: values[i][6] ? values[i][6].toString() : '',
+      status: values[i][7] ? values[i][7].toString() : 'Completed',
+      note: values[i][8] ? values[i][8].toString() : ''
+    });
+  }
+  return logs;
+}
+
+function handleGetOperationsConfig(payload) {
+  var config = _readOperationsConfig().config;
+  var logs = _operationTaskLogs();
+  if (payload.role === 'admin') {
+    return jsonResponse(true, { config: config, taskLogs: logs });
+  }
+  if (!payload.username) return jsonResponse(false, 'Thiếu tài khoản nhân viên');
+  var employmentProfile = getEmploymentProfileByUsername(payload.username);
+  if (employmentProfile && employmentProfile.employmentStatus !== EMPLOYMENT_STATUS.ACTIVE) {
+    return jsonResponse(true, {
+      config: _defaultOperationsConfig(),
+      taskLogs: [],
+      employmentProfile: employmentProfile
+    });
+  }
+
+  var username = payload.username.toString();
+  var myTeams = config.teams.filter(function(team) {
+    var members = Array.isArray(team.memberUsernames) ? team.memberUsernames : [];
+    return team.leaderUsername === username || members.indexOf(username) >= 0;
+  });
+  var teamIds = myTeams.map(function(team) { return team.id; });
+  var myAssignments = config.assignments.filter(function(assignment) {
+    return teamIds.indexOf(assignment.teamId) >= 0;
+  });
+  var zoneIds = myAssignments.map(function(assignment) { return assignment.zoneId; });
+  var myZones = config.zones.filter(function(zone) { return zoneIds.indexOf(zone.id) >= 0; });
+  var myTasks = config.tasks.filter(function(task) { return zoneIds.indexOf(task.zoneId) >= 0; });
+  var assignmentIds = myAssignments.map(function(assignment) { return assignment.id; });
+  var myLogs = logs.filter(function(log) {
+    return log.username === username && assignmentIds.indexOf(log.assignmentId) >= 0;
+  });
+  var myEvaluation = config.evaluations.filter(function(item) { return item.username === username; });
+  var memberUsernames = [];
+  myTeams.forEach(function(team) {
+    (team.memberUsernames || []).forEach(function(memberUsername) {
+      if (memberUsernames.indexOf(memberUsername) < 0) memberUsernames.push(memberUsername);
+    });
+  });
+  var members = [];
+  var usersSheet = getSS().getSheetByName(CONFIG.SHEET_USERS);
+  if (usersSheet) {
+    var userRows = usersSheet.getDataRange().getValues();
+    for (var ur = 1; ur < userRows.length; ur++) {
+      if (!userRows[ur][0] || memberUsernames.indexOf(userRows[ur][0].toString()) < 0) continue;
+      members.push({
+        username: userRows[ur][0].toString(),
+        fullname: userRows[ur][2] ? userRows[ur][2].toString() : '',
+        email: userRows[ur][4] ? userRows[ur][4].toString() : '',
+        role: userRows[ur][5] ? userRows[ur][5].toString() : 'user',
+        position: userRows[ur][6] ? userRows[ur][6].toString() : 'Phục vụ',
+        avatarUrl: userRows[ur][7] ? userRows[ur][7].toString() : ''
+      });
+    }
+  }
+
+  return jsonResponse(true, {
+    config: {
+      version: 1,
+      teams: myTeams,
+      zones: myZones,
+      tasks: myTasks,
+      assignments: myAssignments,
+      evaluations: myEvaluation
+    },
+    taskLogs: myLogs,
+    employmentProfile: employmentProfile,
+    members: members
+  });
+}
+
+function handleUpdateOperationsConfig(payload) {
+  if (payload.role !== 'admin') return jsonResponse(false, 'Chỉ quản trị viên được cấu hình phân công');
+  if (!payload.config) return jsonResponse(false, 'Dữ liệu phân công không hợp lệ');
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    var config = _writeOperationsConfig(payload.config, payload.username || 'admin');
+    return jsonResponse(true, { config: config, message: 'Đã cập nhật cấu hình phân công vận hành' });
+  } catch (err) {
+    return jsonResponse(false, 'Không thể lưu cấu hình: ' + err.message);
+  } finally {
+    try { lock.releaseLock(); } catch (ignore) {}
+  }
+}
+
+function handleToggleOperationTask(payload) {
+  if (!payload.username || !payload.assignmentId || !payload.taskId || !payload.date) {
+    return jsonResponse(false, 'Thiếu thông tin công việc');
+  }
+  if (payload.role !== 'admin' && !canEmployeeWork(payload.username)) {
+    return jsonResponse(false, 'Trạng thái nhân sự hiện tại không được thực hiện công việc');
+  }
+  var config = _readOperationsConfig().config;
+  var assignment = null;
+  for (var i = 0; i < config.assignments.length; i++) {
+    if (config.assignments[i].id === payload.assignmentId) {
+      assignment = config.assignments[i];
+      break;
+    }
+  }
+  if (!assignment) return jsonResponse(false, 'Không tìm thấy phân công');
+
+  var team = null;
+  for (var t = 0; t < config.teams.length; t++) {
+    if (config.teams[t].id === assignment.teamId) {
+      team = config.teams[t];
+      break;
+    }
+  }
+  var members = team && Array.isArray(team.memberUsernames) ? team.memberUsernames : [];
+  var isAllowed = payload.role === 'admin'
+    || (team && team.leaderUsername === payload.username)
+    || members.indexOf(payload.username) >= 0;
+  if (!isAllowed) return jsonResponse(false, 'Bạn không thuộc nhóm được phân công');
+
+  var taskBelongsToZone = config.tasks.some(function(task) {
+    return task.id === payload.taskId && task.zoneId === assignment.zoneId;
+  });
+  if (!taskBelongsToZone) return jsonResponse(false, 'Công việc không thuộc khu trực này');
+
+  var sheet = _getOperationTaskLogSheet();
+  var values = sheet.getDataRange().getValues();
+  var existingRow = 0;
+  for (var r = 1; r < values.length; r++) {
+    if (
+      values[r][1].toString() === payload.date.toString()
+      && values[r][2].toString() === payload.assignmentId.toString()
+      && values[r][3].toString() === payload.taskId.toString()
+      && values[r][4].toString() === payload.username.toString()
+    ) {
+      existingRow = r + 1;
+      break;
+    }
+  }
+
+  if (payload.completed === false) {
+    if (existingRow) sheet.deleteRow(existingRow);
+    return jsonResponse(true, { completed: false });
+  }
+
+  var timestamp = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm:ss');
+  var row = [
+    existingRow ? values[existingRow - 1][0] : 'OPT_' + new Date().getTime(),
+    payload.date.toString(),
+    payload.assignmentId.toString(),
+    payload.taskId.toString(),
+    payload.username.toString(),
+    payload.fullname ? payload.fullname.toString() : '',
+    timestamp,
+    'Completed',
+    payload.note ? payload.note.toString() : ''
+  ];
+  if (existingRow) sheet.getRange(existingRow, 1, 1, 9).setValues([row]);
+  else sheet.appendRow(row);
+  return jsonResponse(true, { completed: true, completedAt: timestamp });
 }
 
 // ----------------------------------------------------

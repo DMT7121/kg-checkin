@@ -100,6 +100,12 @@ function doPost(e) {
         return handleGetChecklists(payload);
       case 'SUBMIT_CHECKLIST':
         return handleSubmitChecklist(payload);
+      case 'GET_OPS_CHECKLIST_INIT':
+        return handleGetOpsChecklistInit(payload);
+      case 'SAVE_OPS_CHECKLIST_STATE':
+        return handleSaveOpsChecklistState(payload);
+      case 'SAVE_OPS_CHECKLIST_CONFIG':
+        return handleSaveOpsChecklistConfig(payload);
 
       // --- HANDOVER & INCIDENT ---
       case 'SUBMIT_HANDOVER':
@@ -128,6 +134,10 @@ function doPost(e) {
         return handleUpdateUserRole(payload);
       case 'UPDATE_USER_POSITION':
         return handleUpdateUserPosition(payload);
+      case 'UPDATE_EMPLOYMENT_STATUS':
+        return handleUpdateEmploymentStatus(payload);
+      case 'GET_EMPLOYMENT_PROFILE':
+        return handleGetEmploymentProfile(payload);
 
       // --- SWAP SHIFTS (CHỢ ĐỔI CA) ---
       case 'GET_SWAP_REQUESTS':
@@ -158,8 +168,26 @@ function doPost(e) {
         return handleGetSalaryConfig(payload);
       case 'UPDATE_SALARY_CONFIG':
         return handleUpdateSalaryConfig(payload);
+      case 'GET_MONTHLY_SALARY_CONFIG':
+        return handleGetMonthlySalaryConfig(payload);
+      case 'UPDATE_MONTHLY_SALARY_CONFIG':
+        return handleUpdateMonthlySalaryConfig(payload);
+      case 'COPY_MONTHLY_SALARY_CONFIG':
+        return handleCopyMonthlySalaryConfig(payload);
+      case 'GET_SALARY_ADJUSTMENTS':
+        return handleGetSalaryAdjustments(payload);
+      case 'SUBMIT_SALARY_ADJUSTMENT':
+        return handleSubmitSalaryAdjustment(payload);
+      case 'REVIEW_SALARY_ADJUSTMENT':
+        return handleReviewSalaryAdjustment(payload);
       case 'GET_PAYROLL':
         return handleGetPayroll(payload);
+      case 'GET_OPERATIONS_CONFIG':
+        return handleGetOperationsConfig(payload);
+      case 'UPDATE_OPERATIONS_CONFIG':
+        return handleUpdateOperationsConfig(payload);
+      case 'TOGGLE_OPERATION_TASK':
+        return handleToggleOperationTask(payload);
       case 'GET_TIMESHEET':
         return handleGetTimesheet(payload);
       case 'UPLOAD_IMAGE':

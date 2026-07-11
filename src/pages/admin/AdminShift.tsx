@@ -107,7 +107,7 @@ export default function AdminShift() {
   return (
     <div className="p-4 space-y-4 animate-slide-up pb-10">
       <div className="flex mb-2">
-        <button onClick={() => useAppStore.getState().setCurrentTab('admin')} className="flex items-center text-xs font-bold text-gray-500 hover:text-ocean-600 transition-colors">
+        <button onClick={() => useAppStore.getState().setCurrentTab('admin_workforce')} className="flex items-center text-xs font-bold text-gray-500 hover:text-ocean-600 transition-colors">
           <span className="mr-1">←</span> Quay lại Cài đặt chung
         </button>
       </div>

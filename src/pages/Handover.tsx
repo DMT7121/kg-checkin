@@ -5,6 +5,8 @@ import Swal from 'sweetalert2';
 import { Repeat, AlertTriangle, FileText, Banknote, ShieldAlert, BadgeCheck, CheckCircle2, ArrowRightLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { KgModuleHero } from '../components/KgDesignSystem';
+import EmploymentStatusNotice from '../components/EmploymentStatusNotice';
+import { isWorkEligible } from '../utils/employment';
 
 
 export default function Handover() {
@@ -108,6 +110,10 @@ export default function Handover() {
       store.setLoading(false);
     }
   };
+
+  if (currentUser && !isWorkEligible(currentUser)) {
+    return <EmploymentStatusNotice user={currentUser} actionLabel="thực hiện bàn giao ca" />;
+  }
 
   return (
     <div className="h-full flex flex-col soft3d-bg animate-fade-in relative pb-6">

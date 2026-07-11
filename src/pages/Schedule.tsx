@@ -7,6 +7,11 @@ import Swal from 'sweetalert2';
 import { CalendarCheck, Eye, AlertTriangle, Send, Lock, ExternalLink, Clock, RefreshCw, Pencil, CheckCheck, Inbox, LayoutGrid, CalendarRange, ChevronLeft, ChevronRight, Sparkles, X, Bot } from 'lucide-react';
 import { KgModuleHero } from '../components/KgDesignSystem';
 import { getCalendarDayMeta } from '../utils/calendarHighlights';
+import { isWorkEligible } from '../utils/employment';
+import EmploymentStatusNotice from '../components/EmploymentStatusNotice';
+import SmartPersonName from '../components/SmartPersonName';
+import MonthDayVisibility from '../components/MonthDayVisibility';
+import { useMonthDayVisibility } from '../hooks/useMonthDayVisibility';
 
 const formatMobileShift = (shift: string) => {
   const timeMatch = shift.match(/^(\d{1,2}):(\d{2})$/);
@@ -40,6 +45,11 @@ export default function Schedule() {
   const selectedMonth = currentDate.getMonth() + 1;
   const selectedYear = currentDate.getFullYear();
   const monthDates: MonthDateInfo[] = useMemo(() => generateMonthDates(selectedMonth, selectedYear), [selectedYear, selectedMonth]);
+  const {
+    visibleKeys: visibleMonthDateKeys,
+    visibleDates: visibleMonthDates,
+    updateVisibleKeys: setVisibleMonthDateKeys,
+  } = useMonthDayVisibility('kg_schedule_visible_days', monthDates);
   
   const [monthData, setMonthData] = useState<any[]>([]);
 
@@ -125,7 +135,7 @@ export default function Schedule() {
   };
 
   // Add users mapping logic for Month View
-  const users = store.users && store.users.length > 0 ? store.users : [];
+  const users = store.users && store.users.length > 0 ? store.users.filter(isWorkEligible) : [];
 
 
   const [hasWeekendOff, setHasWeekendOff] = useState(false);
@@ -310,7 +320,7 @@ export default function Schedule() {
     store.setLoading(false);
     if (res?.ok) {
       const parsedSchedules = Array.isArray(res.data) ? res.data : (res.data.schedules || []);
-      const cleanSchedules = parsedSchedules.map((emp: any) => {
+      let cleanSchedules = parsedSchedules.map((emp: any) => {
         const shifts: string[] = [];
         const shiftNotes: string[] = emp.shiftNotes || Array(7).fill('');
         (emp.shifts || []).forEach((s: string, idx: number) => {
@@ -338,7 +348,15 @@ export default function Schedule() {
       });
       
       // Bổ sung những nhân viên chưa có trong danh sách (do chưa đăng ký và chưa được thêm trên Sheet)
-      const users = store.users && store.users.length > 0 ? store.users : [];
+      const users = store.users && store.users.length > 0 ? store.users.filter(isWorkEligible) : [];
+      if (users.length > 0) {
+        const eligibleUsernames = new Set(users.map(user => user.username.toLowerCase()));
+        const eligibleNames = new Set(users.map(user => user.fullname.toLowerCase()));
+        cleanSchedules = cleanSchedules.filter((schedule: any) => (
+          (schedule.username && eligibleUsernames.has(schedule.username.toString().toLowerCase()))
+          || eligibleNames.has(schedule.fullname.toString().toLowerCase())
+        ));
+      }
       users.forEach(u => {
         if (!cleanSchedules.find(s => s.fullname === u.fullname)) {
           cleanSchedules.push({
@@ -520,6 +538,10 @@ ${aiInputText}
     }
   };
 
+  if (currentUser && !isWorkEligible(currentUser)) {
+    return <EmploymentStatusNotice user={currentUser} actionLabel="đăng ký hoặc cập nhật lịch làm" />;
+  }
+
   return (
     <div className="p-4 animate-slide-up">
       <KgModuleHero
@@ -615,7 +637,7 @@ ${aiInputText}
                       <tr key={empIdx} className="soft3d-card border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
                         <td className="schedule-employee-cell px-4 py-3 md:sticky md:left-0 soft3d-card z-10 font-medium text-gray-900 dark:text-white shadow-[1px_0_0_0_rgba(0,0,0,0.05)] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.05)] border-r dark:border-gray-700 group cursor-help">
                           <div className="flex items-center min-w-0">
-                            <span className="schedule-employee-name" title={emp.fullname}>{emp.fullname}</span>
+                            <SmartPersonName fullname={emp.fullname} className="schedule-employee-name max-w-[150px]" />
                             {hasRegistered && (
                               <div className="ml-1.5 w-2 h-2 rounded-full bg-green-500 flex-shrink-0" title="Đã đăng ký ca"></div>
                             )}
@@ -701,7 +723,13 @@ ${aiInputText}
             )
           ) : (
             monthData && monthData.length > 0 ? (
-            <div className="overflow-x-auto w-full soft3d-bg rounded-xl border border-gray-200 dark:border-gray-700 mb-4 pb-20 custom-scrollbar">
+            <div className="space-y-3">
+              <MonthDayVisibility
+                monthDates={monthDates}
+                visibleKeys={visibleMonthDateKeys}
+                onChange={setVisibleMonthDateKeys}
+              />
+              <div className="overflow-x-auto w-full soft3d-bg rounded-xl border border-gray-200 dark:border-gray-700 mb-4 pb-20 custom-scrollbar">
               {(() => {
                 const empMonthMap: Record<string, Record<string, string>> = {};
                 monthData?.forEach(week => {
@@ -718,7 +746,7 @@ ${aiInputText}
                     <thead className="text-[10px] text-gray-500 dark:text-gray-400 uppercase bg-gray-200 dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700">
                       <tr>
                         <th className="px-3 py-3 sticky left-0 bg-gray-200 dark:bg-gray-800 z-20 font-bold border-r dark:border-gray-700">Nhân Viên</th>
-                        {monthDates.map((mDate) => {
+                        {visibleMonthDates.map((mDate) => {
                           const dayMeta = getCalendarDayMeta(mDate.dateKey);
                           return (
                             <th
@@ -737,15 +765,15 @@ ${aiInputText}
                       {users.map((emp, empIdx) => (
                         <tr key={empIdx} className="soft3d-card border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
                           <td className="px-3 py-3 sticky left-0 soft3d-card z-10 font-bold text-gray-800 dark:text-gray-200 shadow-[1px_0_0_0_rgba(0,0,0,0.05)] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.05)] border-r dark:border-gray-700 text-xs">
-                            {emp.fullname}
+                            <SmartPersonName fullname={emp.fullname} className="max-w-[150px] font-bold" />
                           </td>
-                          {monthDates.map((mDate, dayIdx) => {
+                          {visibleMonthDates.map((mDate) => {
                             const shift = empMonthMap[emp.fullname]?.[`${mDate.weekLabel}_${mDate.dayIndex}`] || '';
                             const isOff = shift === 'OFF' || !shift;
                             const dayMeta = getCalendarDayMeta(mDate.dateKey);
                             return (
                               <td
-                                key={dayIdx}
+                                key={mDate.dateKey}
                                 className={`px-1 py-1 relative border-r dark:border-gray-700 ${dayMeta.className}`}
                                 title={dayMeta.label || undefined}
                               >
@@ -769,6 +797,7 @@ ${aiInputText}
                   </table>
                 );
               })()}
+              </div>
             </div>
             ) : (
               <div className="text-center py-6 text-gray-400 soft3d-bg rounded-xl border border-dashed border-gray-200 dark:border-gray-700">

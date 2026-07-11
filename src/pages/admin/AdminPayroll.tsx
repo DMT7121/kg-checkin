@@ -4,10 +4,11 @@ import Swal from 'sweetalert2';
 import { useAppStore } from '../../store/useAppStore';
 import { callApi } from '../../services/api';
 import { KgModuleHero } from '../../components/KgDesignSystem';
+import MonthlySalaryManager from '../../components/MonthlySalaryManager';
 
 
 export default function AdminPayroll() {
-  const { serverPayrollConfig, currentUser, setServerPayrollConfig } = useAppStore();
+  const { serverPayrollConfig, currentUser, users, setServerPayrollConfig } = useAppStore();
   const setCurrentTab = useAppStore(s => s.setCurrentTab);
   const [formulaLocked, setFormulaLocked] = useState(true);
   const [advanceLimit, setAdvanceLimit] = useState('50');
@@ -145,7 +146,7 @@ export default function AdminPayroll() {
   return (
     <div className="p-4 space-y-4 animate-slide-up pb-10">
       <div className="flex mb-2 -mt-2">
-        <button onClick={() => setCurrentTab('admin')} className="flex items-center text-xs font-bold text-gray-500 hover:text-ocean-600 transition-colors">
+        <button onClick={() => setCurrentTab('admin_income')} className="flex items-center text-xs font-bold text-gray-500 hover:text-ocean-600 transition-colors">
           <span className="mr-1">←</span> Quay lại Cài đặt chung
         </button>
       </div>
@@ -156,6 +157,9 @@ export default function AdminPayroll() {
         eyebrow="Cấu hình"
       />
 
+      {currentUser?.role === 'admin' && (
+        <MonthlySalaryManager currentUser={currentUser} users={users} />
+      )}
 
       {/* Dynamic Formula Builder */}
       <div className="soft3d-card p-5 rounded-2xl  ">

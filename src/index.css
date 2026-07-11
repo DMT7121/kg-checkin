@@ -519,22 +519,22 @@ main [class*="border-dashed"] {
 }
 
 .dark {
-  --color-primary: #2563eb;
-  --color-primary-2: #4f46e5;
-  --color-violet: #8b5cf6;
-  --color-cyan: #06b6d4;
-  --color-success: #10b981;
-  --color-warning: #f59e0b;
-  --color-danger: #ef4444;
-  --gradient-hero: linear-gradient(135deg, #1d4ed8 0%, #4f46e5 48%, #7c3aed 100%);
-  --gradient-primary: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+  --color-primary: #147985;
+  --color-primary-2: #1f8f8a;
+  --color-violet: #ef7865;
+  --color-cyan: #4ac4cf;
+  --color-success: #4fc08a;
+  --color-warning: #e7ad4f;
+  --color-danger: #eb6b5f;
+  --gradient-hero: linear-gradient(132deg, #071f33 0%, #0d5360 60%, #713b43 118%);
+  --gradient-primary: linear-gradient(135deg, #0e6875 0%, #287e7a 100%);
 
-  --bg-app: #080d18;
-  --bg-surface: #111827;
-  --bg-soft: #182230;
+  --bg-app: #071723;
+  --bg-surface: #0d2433;
+  --bg-soft: #143244;
   --text-main: #f8fafc;
-  --text-muted: #98a2b3;
-  --border-soft: rgba(148, 163, 184, 0.16);
+  --text-muted: #a8b6c4;
+  --border-soft: rgba(125, 181, 194, 0.18);
 
   --kg-bg: var(--bg-app);
   --kg-panel: var(--bg-surface);
@@ -1442,5 +1442,178 @@ main [class*="bg-teal-600"] {
 
   .dashboard-overview > .soft3d-card:last-child {
     grid-column: 1 / -1;
+  }
+}
+
+/* =========================================================
+   KG UI CONSISTENCY LAYER
+   One visual contract shared by every module and hub.
+   ========================================================= */
+:root {
+  --kg-control-height: 44px;
+  --kg-card-radius: var(--radius-lg);
+  --kg-control-radius: var(--radius-md);
+  --kg-focus-ring: 0 0 0 3px rgba(45, 119, 128, 0.16);
+  --kg-card-shadow: 0 12px 30px rgba(61, 45, 29, 0.085);
+}
+
+.dark {
+  --kg-focus-ring: 0 0 0 3px rgba(74, 196, 207, 0.18);
+  --kg-card-shadow: 0 16px 38px rgba(0, 0, 0, 0.28);
+}
+
+.kg-app-main {
+  background:
+    radial-gradient(circle at 4% 0%, color-mix(in srgb, var(--kg-accent) 7%, transparent), transparent 24rem),
+    var(--kg-bg);
+}
+
+.kg-app-main .soft3d-card,
+.kg-app-main .kg-card,
+.kg-app-main .paint-layer {
+  border-radius: var(--kg-card-radius) !important;
+  border-color: var(--kg-border) !important;
+  box-shadow: var(--kg-card-shadow) !important;
+}
+
+.kg-app-main .paint-layer {
+  background: var(--kg-surface-soft) !important;
+  box-shadow: none !important;
+}
+
+.kg-app-main .soft3d-card:hover,
+.kg-app-main .kg-card:hover {
+  border-color: color-mix(in srgb, var(--kg-primary) 34%, var(--kg-border)) !important;
+}
+
+.kg-app-main .kg-module-hero {
+  border-radius: clamp(1.25rem, 3vw, 1.75rem) !important;
+  background: var(--gradient-hero) !important;
+  box-shadow: var(--shadow-hero) !important;
+}
+
+.kg-app-main .kg-module-hero__title,
+.kg-app-main .kg-module-hero__description,
+.kg-app-main .kg-module-hero__eyebrow {
+  color: #fff !important;
+}
+
+.kg-app-main input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.kg-app-main select,
+.kg-app-main textarea {
+  min-height: var(--kg-control-height);
+  border-radius: var(--kg-control-radius) !important;
+  border: 1px solid var(--kg-border) !important;
+  background: var(--kg-surface) !important;
+  color: var(--kg-text) !important;
+  font: inherit;
+}
+
+.kg-app-main textarea {
+  min-height: 88px;
+}
+
+.kg-app-main input:focus,
+.kg-app-main select:focus,
+.kg-app-main textarea:focus {
+  border-color: var(--color-cyan) !important;
+  box-shadow: var(--kg-focus-ring) !important;
+  outline: none !important;
+}
+
+.kg-app-main input::placeholder,
+.kg-app-main textarea::placeholder {
+  color: var(--kg-text-soft);
+  opacity: 0.9;
+}
+
+.dark .kg-app-main input[type="date"],
+.dark .kg-app-main input[type="month"],
+.dark .kg-app-main input[type="time"],
+.dark .kg-app-main select {
+  color-scheme: dark;
+}
+
+.kg-app-main button:focus-visible,
+.kg-app-main a:focus-visible {
+  outline: none;
+  box-shadow: var(--kg-focus-ring);
+}
+
+.kg-app-main button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.kg-app-main button:disabled {
+  cursor: not-allowed;
+  filter: saturate(0.72);
+}
+
+.kg-app-main table {
+  border: 1px solid var(--kg-border);
+  border-radius: var(--kg-card-radius);
+}
+
+.kg-app-main th {
+  background: var(--kg-surface-soft) !important;
+  color: var(--kg-text-muted) !important;
+}
+
+.kg-app-main td {
+  background: var(--kg-surface) !important;
+  color: var(--kg-text);
+  border-color: var(--kg-border) !important;
+}
+
+.kg-module-tabs-wrap {
+  border-color: transparent !important;
+}
+
+.kg-module-tabs {
+  border-color: var(--kg-border) !important;
+  background: color-mix(in srgb, var(--kg-surface) 94%, transparent) !important;
+  box-shadow: var(--shadow-soft) !important;
+}
+
+.kg-module-tab {
+  min-height: 42px;
+}
+
+.kg-module-tab:not([class*="bg-cyan-700"]):hover {
+  color: var(--kg-primary);
+}
+
+.dark .kg-module-tab:not([class*="bg-cyan-700"]):hover {
+  color: var(--color-cyan);
+}
+
+@media (max-width: 767px) {
+  .kg-app-main .kg-module-hero {
+    margin-bottom: 1rem !important;
+    padding: 1.25rem !important;
+  }
+
+  .kg-app-main .kg-module-hero__layout {
+    gap: 1rem !important;
+  }
+
+  .kg-app-main .kg-module-hero__title {
+    font-size: 1.75rem !important;
+  }
+
+  .kg-module-tabs-wrap {
+    margin-inline: -0.25rem;
+    padding-inline: 0.25rem !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kg-app-main *,
+  .kg-app-main *::before,
+  .kg-app-main *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }

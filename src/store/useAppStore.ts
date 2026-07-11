@@ -2,6 +2,8 @@
 // useAppStore.ts - Complete app state (100% from original)
 // ============================================
 import { create } from 'zustand';
+import type { TabId } from '../types/navigation';
+import { clearApiCache } from '../services/api';
 
 export interface User {
   username: string;
@@ -11,6 +13,10 @@ export interface User {
   role?: string;
   position?: string;
   avatarUrl?: string;
+  employmentStatus?: 'active' | 'leave' | 'resigned' | 'suspended';
+  statusUntil?: string;
+  statusReason?: string;
+  statusUpdatedAt?: string;
 }
 
 export interface Comment {
@@ -76,6 +82,10 @@ export interface PayrollRecord {
   username: string;
   fullname: string;
   baseSalaryPerHour: number;
+  payType?: 'hourly' | 'daily';
+  salaryAmount?: number;
+  standardDays?: number;
+  workedDays?: number;
   totalHours: number;
   totalBaseSalary: number;
   advances: number;
@@ -171,9 +181,10 @@ interface AppState {
   loading: boolean;
   loadingText: string;
   isUpdating: boolean;
-  currentTab: 'dashboard' | 'news' | 'soldout' | 'feedback' | 'training' | 'checkin' | 'checklist' | 'handover' | 'schedule' | 'swap' | 'roster' | 'history' | 'timesheet' | 'advance' | 'payroll' | 'discipline' | 'reward' | 'admin' | 'hr_list' | 'admin_org' | 'admin_shift' | 'admin_payroll' | 'admin_checklist' | 'admin_analytics' | 'profile' | 'guide';
+  currentTab: TabId;
   shiftName: string;
   currentTime: string;
+  isAiOpen: boolean;
 
   // Camera
   capturedImage: string | null;
@@ -264,6 +275,7 @@ interface AppState {
   setCurrentTab: (tab: AppState['currentTab']) => void;
   setShiftName: (v: string) => void;
   setCurrentTime: (v: string) => void;
+  setAiOpen: (v: boolean) => void;
   setCapturedImage: (v: string | null) => void;
   setCapturedTime: (v: string | null) => void;
   setGps: (gps: Partial<AppState['gps']>) => void;
@@ -338,6 +350,7 @@ export const useAppStore = create<AppState>((set) => ({
   currentTab: 'dashboard',
   shiftName: '',
   currentTime: '',
+  isAiOpen: false,
 
   // Camera
   capturedImage: null,
@@ -448,6 +461,7 @@ export const useAppStore = create<AppState>((set) => ({
   setCurrentTab: (currentTab) => set({ currentTab }),
   setShiftName: (shiftName) => set({ shiftName }),
   setCurrentTime: (currentTime) => set({ currentTime }),
+  setAiOpen: (isAiOpen) => set({ isAiOpen }),
   setCapturedImage: (capturedImage) => set({ capturedImage }),
   setCapturedTime: (capturedTime) => set({ capturedTime }),
   setGps: (partial) => set((s) => ({ gps: { ...s.gps, ...partial } })),
@@ -488,6 +502,7 @@ export const useAppStore = create<AppState>((set) => ({
 
   setLastFetchTime: (t) => set({ lastFetchTime: t }),
   logout: () => {
+    clearApiCache();
     localStorage.removeItem('kg_user');
     localStorage.removeItem('kg_session_time');
     localStorage.removeItem('kg_registered_shifts');

@@ -5,7 +5,7 @@ import {
   LayoutDashboard, MapPin, CalendarDays, Users, ArrowLeftRight, Clock, History,
   DollarSign, Trophy, ClipboardCheck, Repeat, Newspaper, UtensilsCrossed,
   ShieldAlert, MessageSquareWarning, GraduationCap, BookOpen, Building2,
-  KeyRound, CalendarRange, BarChart3, Sparkles
+  KeyRound, CalendarRange, BarChart3, Sparkles, Network
 } from 'lucide-react';
 
 // ============================================
@@ -88,7 +88,7 @@ export function KgCard({
   return (
     <div
       onClick={onClick}
-      className={`kg-card bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-3xl p-4 md:p-5 transition-all duration-200 min-w-0 ${
+      className={`kg-card bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-[var(--radius-lg)] p-4 md:p-5 transition-all duration-200 min-w-0 ${
         stacked ? 'neo-card-stack' : ''
       } ${
         onClick ? 'cursor-pointer select-none active:scale-[0.99] touch-manipulation' : ''
@@ -134,13 +134,13 @@ export function KgButton({
   const variantStyles = {
     primary: 'bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white border border-[var(--kg-primary)] shadow-md hover:shadow-lg hover:-translate-y-0.5',
     secondary:
-      'bg-white dark:bg-[#0E273C] text-[#0f172a] dark:text-[#f8fafc] border border-[#E8DED1] dark:border-[#1E3F57] hover:bg-[#f3f6ff] dark:hover:bg-[#182230]',
+      'bg-[var(--kg-surface)] text-[var(--kg-text)] border border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]',
     danger:
       'bg-[var(--kg-danger)] hover:brightness-95 text-white border border-[var(--kg-danger)] shadow-md hover:shadow-lg hover:-translate-y-0.5',
     warning:
       'bg-[var(--kg-warning)] hover:brightness-95 text-white border border-[var(--kg-warning)] shadow-md hover:shadow-lg hover:-translate-y-0.5',
     ghost:
-      'bg-transparent border-none text-[#64748b] dark:text-[#98a2b3] hover:bg-[#f3f6ff] dark:hover:bg-[#182230] shadow-none'
+      'bg-transparent border-none text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)] shadow-none'
   };
 
   return (
@@ -178,10 +178,10 @@ export function KgIconButton({
   const variantStyles = {
     primary: 'bg-[var(--kg-primary)] text-white border border-[var(--kg-primary)] shadow-md',
     secondary:
-      'bg-white dark:bg-[#0E273C] text-[#0f172a] dark:text-[#f8fafc] border border-[#E8DED1] dark:border-[#1E3F57] hover:bg-[#f3f6ff] dark:hover:bg-[#182230]',
+      'bg-[var(--kg-surface)] text-[var(--kg-text)] border border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]',
     danger:
-      'bg-[#FFF0EE] dark:bg-[#ef4444]/15 text-[#ef4444] hover:bg-[#FFE0DC] border border-[#FFF0EE] dark:border-[#ef4444]/30',
-    ghost: 'bg-transparent text-[#64748b] dark:text-[#98a2b3] hover:bg-[#f3f6ff] dark:hover:bg-[#182230]'
+      'bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] hover:brightness-95 border border-[var(--kg-danger)]/20',
+    ghost: 'bg-transparent text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)]'
   };
 
   return (
@@ -301,15 +301,15 @@ export function KgStatusBadge({
 }) {
   const styles = {
     success:
-      'bg-[#EEF7F0] text-[#10b981] border border-[#EEF7F0] dark:bg-[#10b981]/15 dark:text-[#10b981] dark:border-[#10b981]/30',
+      'bg-[var(--kg-success-soft)] text-[var(--kg-success)] border border-[var(--kg-success)]/20',
     warning:
-      'bg-[#FFF7E4] text-[#f59e0b] border border-[#FFF7E4] dark:bg-[#f59e0b]/15 dark:text-[#f59e0b] dark:border-[#f59e0b]/30',
+      'bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] border border-[var(--kg-warning)]/20',
     error:
-      'bg-[#FFF0EE] text-[#ef4444] border border-[#FFF0EE] dark:bg-[#ef4444]/15 dark:text-[#ef4444] dark:border-[#ef4444]/30',
+      'bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] border border-[var(--kg-danger)]/20',
     info:
-      'bg-[#FFF0ED] text-[#2563eb] border border-[#FFF0ED] dark:bg-[#2563eb]/15 dark:text-[#2563eb] dark:border-[#2563eb]/30',
+      'bg-[var(--kg-accent-soft)] text-[var(--kg-primary)] dark:text-[var(--color-cyan)] border border-[var(--kg-primary)]/20',
     neutral:
-      'bg-[#FBF7F0] text-[#64748b] border border-[#E8DED1] dark:bg-[#122F48] dark:text-[#98a2b3] dark:border-[#1E3F57]'
+      'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)]'
   };
 
   return (
@@ -339,10 +339,10 @@ export function KgMetricCard({
   onClick?: () => void;
 }) {
   const iconStyles = {
-    success: 'bg-[#EEF7F0] text-[#10b981] dark:bg-[#10b981]/15',
-    warning: 'bg-[#FFF7E4] text-[#f59e0b] dark:bg-[#f59e0b]/15',
-    error: 'bg-[#FFF0EE] text-[#ef4444] dark:bg-[#ef4444]/15',
-    info: 'bg-[#FFF0ED] text-[#2563eb] dark:bg-[#2563eb]/15'
+    success: 'bg-[var(--kg-success-soft)] text-[var(--kg-success)]',
+    warning: 'bg-[var(--kg-warning-soft)] text-[var(--kg-warning)]',
+    error: 'bg-[var(--kg-danger-soft)] text-[var(--kg-danger)]',
+    info: 'bg-[var(--kg-accent-soft)] text-[var(--kg-primary)] dark:text-[var(--color-cyan)]'
   };
 
   return (
@@ -352,14 +352,14 @@ export function KgMetricCard({
       hoverable={!!onClick}
     >
       <div className="space-y-1 min-w-0">
-        <span className="text-[11px] text-[#64748b] dark:text-[#98a2b3] font-bold uppercase tracking-wider block truncate">
+        <span className="text-[11px] text-[var(--kg-text-muted)] font-bold uppercase tracking-wider block truncate">
           {title}
         </span>
-        <p className="text-xl md:text-2xl font-black text-[#0f172a] dark:text-white tracking-tight truncate">
+        <p className="text-xl md:text-2xl font-black text-[var(--kg-text)] tracking-tight truncate">
           {value}
         </p>
         {subtext && (
-          <p className="text-[10px] text-[#9AA1AA] dark:text-[#718096] font-bold truncate">
+          <p className="text-[10px] text-[var(--kg-text-soft)] font-bold truncate">
             {subtext}
           </p>
         )}
@@ -386,13 +386,13 @@ export function KgAlertCard({
 }) {
   const styles = {
     success:
-      'bg-[#EEF7F0] border border-[#EEF7F0]/30 text-[#10b981] dark:bg-[#10b981]/15 dark:text-[#10b981]',
+      'bg-[var(--kg-success-soft)] border border-[var(--kg-success)]/20 text-[var(--kg-success)]',
     warning:
-      'bg-[#FFF7E4] border border-[#FFF7E4]/30 text-[#f59e0b] dark:bg-[#f59e0b]/15 dark:text-[#f59e0b]',
+      'bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/20 text-[var(--kg-warning)]',
     error:
-      'bg-[#FFF0EE] border border-[#FFF0EE]/30 text-[#ef4444] dark:bg-[#ef4444]/15 dark:text-[#ef4444]',
+      'bg-[var(--kg-danger-soft)] border border-[var(--kg-danger)]/20 text-[var(--kg-danger)]',
     info:
-      'bg-[#FFF0ED] border border-[#FFF0ED]/30 text-[#2563eb] dark:bg-[#2563eb]/15 dark:text-[#2563eb]'
+      'bg-[var(--kg-accent-soft)] border border-[var(--kg-primary)]/20 text-[var(--kg-primary)] dark:text-[var(--color-cyan)]'
   };
 
   const icons = {
@@ -1050,6 +1050,8 @@ export function LegacyKg3dIllustration({ moduleId }: { moduleId: string }) {
         </svg>
       );
 
+    case 'operations':
+    case 'adminoperations':
     case 'adminorg':
       return (
         <svg viewBox="0 0 100 100" className={containerClass}>
@@ -1105,6 +1107,8 @@ const HERO_ICON_MAP = {
   hrlist: { icon: Users, accent: '#2dd4bf', glow: 'rgba(45, 212, 191, 0.32)' },
   adminorg: { icon: KeyRound, accent: '#fbbf24', glow: 'rgba(251, 191, 36, 0.32)' },
   adminshift: { icon: CalendarRange, accent: '#60a5fa', glow: 'rgba(96, 165, 250, 0.32)' },
+  operations: { icon: Network, accent: '#22d3ee', glow: 'rgba(34, 211, 238, 0.32)' },
+  adminoperations: { icon: Network, accent: '#2dd4bf', glow: 'rgba(45, 212, 191, 0.34)' },
   analytics: { icon: BarChart3, accent: '#34d399', glow: 'rgba(52, 211, 153, 0.32)' }
 } as const;
 
@@ -1155,7 +1159,7 @@ export function KgModuleHero({
       <div className="kg-module-hero__layout relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="kg-module-hero__copy space-y-3.5 max-w-2xl">
           <span className="kg-module-hero__eyebrow inline-flex items-center gap-1.5 bg-white/12 border border-white/20 px-3 py-1 rounded-full text-[10px] font-black tracking-wider uppercase text-white shadow-inner">
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-cyan)] animate-pulse" />
             {eyebrow}
           </span>
           <h1 className="kg-module-hero__title text-2xl md:text-3xl lg:text-4xl font-extrabold tracking-tight text-white leading-tight">
@@ -1170,7 +1174,7 @@ export function KgModuleHero({
             <div className="kg-module-hero__features flex flex-wrap gap-2 pt-2">
               {features.map((feat, idx) => (
                 <div key={idx} className="inline-flex items-center gap-1.5 bg-white/10 border border-white/10 px-3 py-1.5 rounded-xl text-xs font-bold text-white backdrop-blur-sm shadow-sm">
-                  <span className="text-cyan-300">✦</span>
+                  <span className="text-[var(--color-cyan)]">✦</span>
                   {feat}
                 </div>
               ))}
@@ -1183,7 +1187,7 @@ export function KgModuleHero({
       </div>
       {/* Background Orbs */}
       <div className="absolute right-[-10%] top-[-20%] w-72 h-72 bg-white/10 rounded-full blur-3xl mix-blend-overlay pointer-events-none" />
-      <div className="absolute left-[-5%] bottom-[-40%] w-60 h-60 bg-blue-500/20 rounded-full blur-2xl mix-blend-overlay pointer-events-none" />
+      <div className="absolute left-[-5%] bottom-[-40%] w-60 h-60 bg-[var(--kg-accent)]/20 rounded-full blur-2xl mix-blend-overlay pointer-events-none" />
     </section>
   );
 }

@@ -1,17 +1,11 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import {
-  Sun, Moon, Power, Camera, Calendar, Clock,
-  LayoutDashboard, Newspaper, UtensilsCrossed, MessageSquareWarning,
-  ClipboardCheck, Repeat, ArrowLeftRight, CalendarDays, History,
-  CalendarClock, Users, KeyRound, CalendarRange, DollarSign, Building2,
-  MoreHorizontal, BookOpen
-} from 'lucide-react';
+import { Sun, Moon, Power, Clock, MoreHorizontal } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 import { KgActionSheet } from './KgDesignSystem';
-import { hasTabPermission } from '../utils/permissions';
-
-type TabId = ReturnType<typeof useAppStore.getState>['currentTab'];
+import { getTabLabel, hasTabPermission } from '../utils/permissions';
+import { navigationModules, type NavigationGroup } from '../config/moduleRegistry';
+import type { TabId } from '../types/navigation';
 
 interface KgAppShellProps {
   children: React.ReactNode;
@@ -32,80 +26,21 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
-  // Bottom navigation tabs (dynamically filtered by permission)
-  const bottomTabs = [
-    { id: 'dashboard' as TabId, label: 'Hôm nay', icon: LayoutDashboard },
-    { id: 'checkin' as TabId, label: 'Chấm công', icon: Camera },
-    { id: 'schedule' as TabId, label: 'Lịch làm', icon: Calendar },
-    { id: 'payroll' as TabId, label: 'Công lương', icon: DollarSign },
-  ].filter(tab => hasTabPermission(tab.id, currentUser));
-
-  // Actions for bottom tab "More" action sheet (dynamically filtered by permission)
-  const moreActions = [
-    { id: 'history' as TabId, group: 'Cá nhân', label: 'Lịch sử', icon: History, onClick: () => handleTabChange('history') },
-    { id: 'profile' as TabId, group: 'Cá nhân', label: 'Hồ sơ', icon: Users, onClick: () => handleTabChange('profile') },
-    { id: 'news' as TabId, group: 'Vận hành', label: 'Bảng tin', icon: Newspaper, onClick: () => handleTabChange('news') },
-    { id: 'soldout' as TabId, group: 'Vận hành', label: 'Món hết', icon: UtensilsCrossed, onClick: () => handleTabChange('soldout') },
-    { id: 'checklist' as TabId, group: 'Vận hành', label: 'Checklist', icon: ClipboardCheck, onClick: () => handleTabChange('checklist') },
-    { id: 'handover' as TabId, group: 'Vận hành', label: 'Bàn giao ca', icon: Repeat, onClick: () => handleTabChange('handover') },
-    { id: 'swap' as TabId, group: 'Vận hành', label: 'Đổi ca', icon: ArrowLeftRight, onClick: () => handleTabChange('swap') },
-    { id: 'roster' as TabId, group: 'Vận hành', label: 'Lịch tổng', icon: CalendarDays, onClick: () => handleTabChange('roster') },
-    { id: 'training' as TabId, group: 'Vận hành', label: 'Đào tạo', icon: CalendarClock, onClick: () => handleTabChange('training') },
-    { id: 'feedback' as TabId, group: 'Vận hành', label: 'Góp ý', icon: MessageSquareWarning, onClick: () => handleTabChange('feedback') },
-    { id: 'admin' as TabId, group: 'Quản lý & Cấu hình', label: 'Cấu hình AI', icon: Building2, onClick: () => handleTabChange('admin') },
-    { id: 'hr_list' as TabId, group: 'Quản lý & Cấu hình', label: 'Nhân sự', icon: Users, onClick: () => handleTabChange('hr_list') },
-    { id: 'admin_org' as TabId, group: 'Quản lý & Cấu hình', label: 'Tổ chức & Quyền', icon: KeyRound, onClick: () => handleTabChange('admin_org') },
-    { id: 'admin_shift' as TabId, group: 'Quản lý & Cấu hình', label: 'Phân ca', icon: CalendarRange, onClick: () => handleTabChange('admin_shift') },
-    { id: 'admin_payroll' as TabId, group: 'Quản lý & Cấu hình', label: 'Cấu hình lương', icon: DollarSign, onClick: () => handleTabChange('admin_payroll') },
-    { id: 'admin_checklist' as TabId, group: 'Quản lý & Cấu hình', label: 'Cấu hình checklist', icon: ClipboardCheck, onClick: () => handleTabChange('admin_checklist') },
-    { id: 'admin_analytics' as TabId, group: 'Quản lý & Cấu hình', label: 'Báo cáo', icon: Building2, onClick: () => handleTabChange('admin_analytics') },
-    { id: 'guide' as TabId, group: 'Hỗ trợ', label: 'Hướng dẫn', icon: BookOpen, onClick: () => handleTabChange('guide') },
-  ].filter(action => hasTabPermission(action.id, currentUser));
-
-  // Sidebar navigation menu groups for Desktop (dynamically filtered by permission)
-  const menuGroups = [
-    {
-      label: 'Cá nhân',
-      items: [
-        { id: 'dashboard' as TabId, label: 'Hôm nay', icon: LayoutDashboard },
-        { id: 'checkin' as TabId, label: 'Chấm công', icon: Camera },
-        { id: 'schedule' as TabId, label: 'Lịch đăng ký', icon: Calendar },
-        { id: 'payroll' as TabId, label: 'Phiếu lương', icon: DollarSign },
-        { id: 'history' as TabId, label: 'Lịch sử chấm công', icon: History },
-      ].filter(item => hasTabPermission(item.id, currentUser))
-    },
-    {
-      label: 'Vận hành',
-      items: [
-        { id: 'checklist' as TabId, label: 'Checklist việc', icon: ClipboardCheck },
-        { id: 'handover' as TabId, label: 'Bàn giao ca', icon: Repeat },
-        { id: 'swap' as TabId, label: 'Đổi ca', icon: ArrowLeftRight },
-        { id: 'roster' as TabId, label: 'Lịch tổng', icon: CalendarDays },
-        { id: 'news' as TabId, label: 'Bảng tin', icon: Newspaper },
-        { id: 'soldout' as TabId, label: 'Món hết', icon: UtensilsCrossed },
-        { id: 'feedback' as TabId, label: 'Góp ý', icon: MessageSquareWarning },
-        { id: 'training' as TabId, label: 'Đào tạo', icon: CalendarClock },
-      ].filter(item => hasTabPermission(item.id, currentUser))
-    },
-    {
-      label: 'Quản lý & Cấu hình',
-      items: [
-        { id: 'admin' as TabId, label: 'Cấu hình AI', icon: Building2 },
-        { id: 'hr_list' as TabId, label: 'Danh sách nhân sự', icon: Users },
-        { id: 'admin_org' as TabId, label: 'Tổ chức & Quyền', icon: KeyRound },
-        { id: 'admin_shift' as TabId, label: 'Cấu hình phân ca', icon: CalendarRange },
-        { id: 'admin_payroll' as TabId, label: 'Cấu hình lương thưởng', icon: DollarSign },
-        { id: 'admin_checklist' as TabId, label: 'Cấu hình checklist', icon: ClipboardCheck },
-        { id: 'admin_analytics' as TabId, label: 'Thống kê & Báo cáo', icon: Building2 },
-      ].filter(item => hasTabPermission(item.id, currentUser))
-    },
-    {
-      label: 'Hỗ trợ',
-      items: [
-        { id: 'guide' as TabId, label: 'Hướng dẫn sử dụng', icon: BookOpen },
-      ].filter(item => hasTabPermission(item.id, currentUser))
-    }
-  ].filter(group => group.items.length > 0);
+  const allowedModules = navigationModules.filter(module => hasTabPermission(module.id, currentUser));
+  const bottomTabs = allowedModules.filter(module => module.bottom);
+  const moreActions = allowedModules
+    .filter(module => !module.bottom)
+    .map(module => ({
+      ...module,
+      onClick: () => handleTabChange(module.id),
+    }));
+  const groupOrder: NavigationGroup[] = ['Cá nhân', 'Vận hành', 'Quản lý & Cấu hình'];
+  const menuGroups = groupOrder
+    .map(label => ({
+      label,
+      items: allowedModules.filter(module => module.group === label),
+    }))
+    .filter(group => group.items.length > 0);
 
   return (
     <div className="w-full min-h-screen flex flex-col md:flex-row bg-[var(--kg-bg)] text-[var(--kg-text)] transition-colors duration-200">
@@ -235,7 +170,7 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
       </aside>
 
       {/* 3. MAIN CONTENT */}
-      <main className="flex-1 flex flex-col min-w-0 h-screen md:overflow-y-auto overflow-x-hidden pb-[80px] md:pb-0">
+      <main className="kg-app-main flex-1 flex flex-col min-w-0 h-screen md:overflow-y-auto overflow-x-hidden pb-[80px] md:pb-0">
         
         {/* Desktop breadcrumbs & status */}
         <div className="hidden md:flex justify-between items-center px-6 py-4 border-b border-[var(--kg-border)] bg-[var(--kg-surface)] flex-shrink-0">
@@ -243,7 +178,7 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
             <span>KG Staff OS</span>
             <span>/</span>
             <span className="text-[var(--kg-primary)] dark:text-[var(--kg-accent)]">
-              {bottomTabs.find(t => t.id === currentTab)?.label || 'Vận hành'}
+              {allowedModules.find(module => module.id === currentTab)?.label || getTabLabel(currentTab)}
             </span>
           </div>
           <div className="flex items-center gap-3">
@@ -289,7 +224,7 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
                   isActive ? 'text-[var(--kg-primary)] dark:text-[var(--kg-accent)]' : 'opacity-80'
                 }`}
               >
-                {tab.label}
+                {tab.shortLabel || tab.label}
               </span>
             </button>
           );

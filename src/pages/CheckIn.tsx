@@ -12,6 +12,8 @@ import {
   KgTextarea,
   KgModuleHero
 } from '../components/KgDesignSystem';
+import { isWorkEligible } from '../utils/employment';
+import EmploymentStatusNotice from '../components/EmploymentStatusNotice';
 
 export default function CheckIn() {
   const store = useAppStore();
@@ -688,6 +690,10 @@ export default function CheckIn() {
   }, [cameraActive, isFaceModelLoaded]);
 
   const canSubmit = !!(capturedImage && gps.isValid && gps.lat !== null && gps.lng !== null);
+
+  if (currentUser && !isWorkEligible(currentUser)) {
+    return <EmploymentStatusNotice user={currentUser} actionLabel="chấm công tại nhà hàng" />;
+  }
 
   return (
     <div className="space-y-4 animate-fade-in pb-10">

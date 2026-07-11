@@ -1,22 +1,28 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import {
   GraduationCap, BookOpen, Award, CheckCircle2,
   RefreshCw, ChevronRight, Search, Sparkles, Send,
-  HelpCircle, Bot, BookMarked, UserCheck, ChevronDown, ChevronUp
+  HelpCircle, Bot, BookMarked, UserCheck, ChevronDown, ChevronUp,
+  X, Zap, ShieldAlert, ListFilter, Eye, FileText
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import confetti from 'canvas-confetti';
-import { motion, AnimatePresence } from 'framer-motion';
-import { sopData, SopSection, SopContentItem } from './sopData';
+import { motion } from 'framer-motion';
+import { sopData } from './sopData';
+import {
+  isCriticalSop,
+  plainSopText,
+  searchSops,
+  sectionMatchesScope,
+  type SopScope
+} from '../utils/sopSearch';
 import {
   KgCard,
   KgButton,
   KgInput,
-  KgStatusBadge,
   KgBottomSheet,
-  KgAlertCard,
   KgModuleHero
 } from '../components/KgDesignSystem';
 
@@ -47,6 +53,24 @@ interface ChatMessage {
   content: string;
 }
 
+const QUICK_SOP_QUERIES = [
+  { label: 'Khách phàn nàn', query: 'khách phàn nàn', icon: 'fa-solid fa-face-frown' },
+  { label: 'Món hết', query: 'hết món sold out', icon: 'fa-solid fa-bowl-food' },
+  { label: 'Thanh toán lỗi', query: 'thanh toán lỗi hóa đơn', icon: 'fa-solid fa-receipt' },
+  { label: 'Đổ vỡ', query: 'đổ vỡ ly chén', icon: 'fa-solid fa-wine-glass-empty' },
+  { label: 'PCCC', query: 'PCCC cháy', icon: 'fa-solid fa-fire-extinguisher' },
+  { label: 'Vệ sinh ATTP', query: 'vệ sinh an toàn thực phẩm', icon: 'fa-solid fa-shield-virus' },
+  { label: 'Bàn giao ca', query: 'bàn giao ca', icon: 'fa-solid fa-right-left' },
+];
+
+const SOP_SCOPES: { id: SopScope; label: string }[] = [
+  { id: 'all', label: 'Tất cả' },
+  { id: 'recommended', label: 'Dành cho bạn' },
+  { id: 'critical', label: 'Quan trọng' },
+  { id: 'general', label: 'Tiêu chuẩn chung' },
+  { id: 'department', label: 'Theo bộ phận' },
+];
+
 export default function Training() {
   useEffect(() => {
     const stylesheetId = 'kg-font-awesome';
@@ -73,20 +97,12 @@ export default function Training() {
   // SOP State
   const [selectedSection, setSelectedSection] = useState<string>('welcome');
   const [searchTerm, setSearchTerm] = useState('');
+  const [sopScope, setSopScope] = useState<SopScope>('all');
+  const [sopViewMode, setSopViewMode] = useState<'quick' | 'full'>('quick');
   const [openAccordions, setOpenAccordions] = useState<Record<string, boolean>>({});
+  const [isMobileCategoryOpen, setIsMobileCategoryOpen] = useState(false);
 
-  // Chatbot State
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [chatInput, setChatInput] = useState('');
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
-    {
-      id: 'welcome',
-      role: 'assistant',
-      content: '<strong>Chào bạn,</strong><br><br>Tôi là Trợ Lý Vận Hành AI của King\'s Grill. Tôi có thể giúp bạn giải đáp mọi thắc mắc về Sổ Tay Vận Hành, Quy Trình Bộ Phận hoặc Nội Quy Nhà Hàng.<br><br><strong>Bạn có cần hỗ trợ gì thêm không?</strong>'
-    }
-  ]);
-  const [isSending, setIsSending] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+
 
   // Fetch training lessons
   useEffect(() => {
@@ -110,12 +126,7 @@ export default function Training() {
     fetchData();
   }, [currentUser]);
 
-  // Auto scroll chat to bottom
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [chatMessages, isSending]);
+
 
   const totalLessons = lessons.length;
   const completedCount = [...completedIds].filter(id => lessons.some(l => l.id === id)).length;
@@ -172,171 +183,46 @@ export default function Training() {
     }));
   };
 
-  // Filter SOP content by search term
-  const getSearchResults = () => {
-    if (!searchTerm.trim()) return [];
-    const queryLower = searchTerm.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    const results: { sectionTitle: string; sectionId: string; item: SopContentItem }[] = [];
+  const searchResults = useMemo(
+    () => searchSops(sopData, searchTerm, sopScope, currentUser?.position),
+    [searchTerm, sopScope, currentUser?.position]
+  );
 
-    sopData.forEach(section => {
-      section.content.forEach(item => {
-        const detailsText = item.details.replace(/<[^>]+>/g, ' ').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        const subtitleText = item.subtitle.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const visibleSopSections = useMemo(
+    () => sopData.filter(section => sectionMatchesScope(section, sopScope, currentUser?.position)),
+    [sopScope, currentUser?.position]
+  );
 
-        if (subtitleText.toLowerCase().includes(queryLower) || detailsText.toLowerCase().includes(queryLower)) {
-          results.push({
-            sectionTitle: section.title,
-            sectionId: section.id,
-            item
-          });
-        }
-      });
-    });
-    return results;
-  };
-
-  const searchResults = getSearchResults();
-
-  // Chat helper: Search context
-  const findRelevantSopContext = (query: string) => {
-    const queryLower = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    let context = '';
-    let matchCount = 0;
-    const MAX_MATCHES = 3;
-
-    sopData.forEach(section => {
-      section.content.forEach(item => {
-        const detailsText = item.details.replace(/<[^>]+>/g, ' ').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        const subtitleText = item.subtitle.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-
-        if (subtitleText.toLowerCase().includes(queryLower) || detailsText.toLowerCase().includes(queryLower)) {
-          if (matchCount < MAX_MATCHES) {
-            context += `\n\n---Bối cảnh từ mục: ${section.title} - ${item.subtitle}---\n${item.details.replace(/<[^>]+>/g, ' ')}\n---Kết thúc bối cảnh---`;
-            matchCount++;
-          }
-        }
-      });
-    });
-
-    if (context === '') {
-      return 'Không tìm thấy bối cảnh cụ thể nào.';
+  useEffect(() => {
+    if (visibleSopSections.length > 0 && !visibleSopSections.some(section => section.id === selectedSection)) {
+      setSelectedSection(visibleSopSections[0].id);
     }
-    return context;
-  };
-
-  // Chat helper: Send query to Gemini
-  const handleSendChat = async () => {
-    if (!chatInput.trim() || isSending) return;
-
-    const userQuery = chatInput.trim();
-    const newUserMsg: ChatMessage = {
-      id: Date.now().toString() + '_user',
-      role: 'user',
-      content: userQuery
-    };
-
-    setChatMessages(prev => [...prev, newUserMsg]);
-    setChatInput('');
-    setIsSending(true);
-
-    const relevantContext = findRelevantSopContext(userQuery);
-    let systemPrompt = '';
-    let promptForAPI = '';
-    let temperature = 0.2;
-
-    if (relevantContext.startsWith('Không tìm thấy bối cảnh cụ thể nào.')) {
-      systemPrompt = `Bạn là Trợ Lý Vận Hành AI của nhà hàng King's Grill.
-Một nhân viên vừa hỏi bạn một câu mà không có trong Sổ Tay Vận Hành.
-Nhiệm vụ của bạn là:
-1.  **Phân loại câu hỏi:**
-    * **Loại A (Nghiêm túc):** Câu hỏi có liên quan đến công việc, ngành nhà hàng, quy trình F&B, dịch vụ khách hàng?
-    * **Loại B (Ngoài lề):** Câu hỏi hoàn toàn ngoài lề (thời tiết, kể chuyện cười, bóng đá)?
-2.  **Hành động (Quan trọng):**
-    * **Nếu là Loại A (Nghiêm túc):**
-        * (1) Phải trả lời chuyên nghiệp, hữu ích, đúng trọng tâm.
-        * (2) **SAU ĐÓ (Bắt buộc):** Thêm một đường kẻ ngang (dùng thẻ '<hr>').
-        * (3) **SAU ĐÓ (Bắt buộc):** Thêm một bình luận dí dỏm, vui nhộn *liên quan đến câu trả lời chuyên môn* ở trên (có thể bắt đầu bằng "Nói vui là...", "Nói đơn giản là...", v.v.).
-    * **Nếu là Loại B (Ngoài lề):**
-        * Chỉ cần trả lời một cách dí dỏm, vui nhộn. (Không cần <hr>).
-3.  **Cấu trúc BẮT BUỘC (cho cả hai loại):**
-    * **Lời chào:** Bắt đầu bằng "<strong>Chào bạn,</strong>"
-    * **Phần trả lời chính:** (Nội dung trả lời theo phong cách A+funny hoặc B).
-    * **Lời chào kết:** Kết thúc bằng "<strong>Bạn có cần hỗ trợ gì thêm không?</strong>"`;
-      promptForAPI = userQuery;
-      temperature = 0.7;
-    } else {
-      systemPrompt = `Bạn là Trợ Lý Vận Hành AI của nhà hàng King's Grill. Chỉ được trả lời dựa trên nội dung "Bối cảnh" được cung cấp. Luôn trả lời bằng Tiếng Việt.
-                  
-Cấu trúc câu trả lời của bạn BẮT BUỘC phải bao gồm 4 phần RÕ RÀNG:
-1.  **Lời chào:** Bắt đầu bằng "<strong>Chào bạn,</strong>"
-2.  **Phần trả lời chuyên môn:** Trả lời thẳng vào câu hỏi của người dùng, dựa trên bối cảnh. Trình bày rõ ràng, dễ hiểu.
-3.  **Góc nhìn vui vẻ (BẮT BUỘC):** Thêm một đường kẻ ngang (dùng thẻ '<hr>'), theo sau là một bình luận dí dỏm, vui nhộn *liên quan đến câu trả lời chuyên môn* ở trên để giúp nhân viên dễ nhớ.
-4.  **Lời chào kết:** Kết thúc bằng "<strong>Bạn có cần hỗ trợ gì thêm không?</strong>"
-
-Nếu "Bối cảnh" báo là không tìm thấy, hãy trả lời EXACTLY: "<strong>Chào bạn,</strong><br><br>Rất tiếc, tôi không tìm thấy thông tin chính xác về nội dung này trong Sổ Tay Vận Hành.<br><br><hr><br>*Nói cách khác là... "em bó tay" với câu này trong sổ tay rồi! Bạn thử hỏi Quản lý xem sao.*<br><br><strong>Bạn có cần hỗ trợ gì thêm không?</strong>"`;
-
-      promptForAPI = `Dựa vào bối cảnh sau đây:
-${relevantContext}
-
-Hãy trả lời câu hỏi này: "${userQuery}"`;
-      temperature = 0.4;
-    }
-
-    const apiKey = "AIzaSyBimS3f8NyESLsYS8bgwThM9scpl5_2WvI";
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-
-    const payload = {
-      contents: [{ parts: [{ text: promptForAPI }] }],
-      systemInstruction: {
-        parts: [{ text: systemPrompt }]
-      },
-      generationConfig: {
-        temperature: temperature,
-        topP: 0.9,
-      }
-    };
-
-    try {
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) {
-        throw new Error('API request failed');
-      }
-
-      const result = await response.json();
-      const candidate = result.candidates?.[0];
-      let aiText = "<strong>Chào bạn,</strong><br><br>Có lỗi xảy ra khi đang xử lý. Bạn thử lại sau nhé.<br><br><strong>Bạn có cần hỗ trợ gì thêm không?</strong>";
-
-      if (candidate && candidate.content?.parts?.[0]?.text) {
-        aiText = candidate.content.parts[0].text;
-      }
-
-      setChatMessages(prev => [...prev, {
-        id: Date.now().toString() + '_ai',
-        role: 'assistant',
-        content: aiText
-      }]);
-
-    } catch (e) {
-      console.error(e);
-      setChatMessages(prev => [...prev, {
-        id: Date.now().toString() + '_ai',
-        role: 'assistant',
-        content: "<strong>Chào bạn,</strong><br><br>Xin lỗi, đã có lỗi kết nối với trợ lý AI. Vui lòng kiểm tra mạng và thử lại sau.<br><br><strong>Bạn có cần hỗ trợ gì thêm không?</strong>"
-      }]);
-    } finally {
-      setIsSending(false);
-    }
-  };
+  }, [selectedSection, visibleSopSections]);
 
   // Pre-load active section content
-  const activeSopSection = sopData.find(s => s.id === selectedSection);
-  const generalSops = sopData.filter(s => s.group === 'general');
-  const departmentSops = sopData.filter(s => s.group === 'department');
+  const activeSopSection = visibleSopSections.find(s => s.id === selectedSection) || visibleSopSections[0];
+  const activeSopItems = activeSopSection?.content.filter(
+    item => sopScope !== 'critical' || isCriticalSop(activeSopSection, item)
+  ) || [];
+  const generalSops = visibleSopSections.filter(s => s.group === 'general');
+  const departmentSops = visibleSopSections.filter(s => s.group === 'department');
+
+  const getQuickSopList = (html: string): string[] => {
+    const liMatches = html.match(/<li[^>]*>([\s\S]*?)<\/li>/gi);
+    if (liMatches && liMatches.length > 0) {
+      return liMatches
+        .slice(0, 3)
+        .map(li => {
+          let clean = li.replace(/<[^>]+>/g, '').trim();
+          clean = clean.replace(/\s+/g, ' ');
+          return clean;
+        })
+        .filter(Boolean);
+    }
+    const cleanHtml = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    const sentences = cleanHtml.split(/[.!?]+/).map(s => s.trim()).filter(Boolean);
+    return sentences.slice(0, 2);
+  };
 
   return (
     <div className="p-4 animate-slide-up pb-12 space-y-4 max-w-7xl mx-auto w-full">
@@ -454,22 +340,106 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
           <div className="flex flex-col sm:flex-row gap-3 w-full items-stretch sm:items-center">
             <div className="relative flex-1 min-w-0">
               <KgInput
-                placeholder="Tìm quy trình, nội quy, nhiệm vụ..."
+                placeholder="Tìm tình huống, quy trình hoặc nhiệm vụ..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 icon={Search}
                 className="w-full"
               />
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg inline-flex items-center justify-center text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)]"
+                  aria-label="Xóa nội dung tìm kiếm"
+                >
+                  <X size={15} />
+                </button>
+              )}
             </div>
             <KgButton
               variant="primary"
-              onClick={() => setIsChatOpen(true)}
+              onClick={() => store.setAiOpen(true)}
               icon={Sparkles}
               className="bg-gradient-to-r from-violet-600 to-indigo-600 border-none text-white hover:from-violet-700 hover:to-indigo-700 h-[44px]"
             >
-              Trợ lý Bếp Lò AI
+              King&apos;s Grill AI Assistant
             </KgButton>
           </div>
+
+          <KgCard className="p-3 md:p-4 space-y-4 bg-gradient-to-br from-white to-blue-50/60 dark:from-[var(--kg-surface)] dark:to-blue-950/20">
+            <div>
+              <div className="flex items-center gap-2 mb-2.5">
+                <Zap size={15} className="text-amber-500" />
+                <h3 className="text-xs font-extrabold uppercase tracking-wider text-[var(--kg-text)]">
+                  Tra cứu nhanh theo tình huống
+                </h3>
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+                {QUICK_SOP_QUERIES.map(item => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={() => {
+                      setSearchTerm(item.query);
+                      setSopScope('all');
+                    }}
+                    className={`flex-shrink-0 inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-bold transition-all active:scale-95 ${
+                      searchTerm === item.query
+                        ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)] shadow-md'
+                        : 'bg-[var(--kg-surface)] text-[var(--kg-text)] border-[var(--kg-border)] hover:border-[var(--kg-primary)]'
+                    }`}
+                  >
+                    <i className={item.icon} />
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col md:flex-row md:items-center gap-3 md:justify-between pt-3 border-t border-[var(--kg-border)]">
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--kg-text-muted)] flex-shrink-0 pr-1">
+                  <ListFilter size={13} /> Lọc:
+                </span>
+                {SOP_SCOPES.map(scope => (
+                  <button
+                    key={scope.id}
+                    type="button"
+                    onClick={() => setSopScope(scope.id)}
+                    className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[11px] font-bold border transition-colors ${
+                      sopScope === scope.id
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-[var(--kg-surface)] text-[var(--kg-text-muted)] border-[var(--kg-border)] hover:text-[var(--kg-text)]'
+                    }`}
+                  >
+                    {scope.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="inline-flex p-1 rounded-xl bg-[var(--kg-surface-soft)] self-start md:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setSopViewMode('quick')}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold ${
+                    sopViewMode === 'quick' ? 'bg-[var(--kg-surface)] text-blue-600 shadow-sm' : 'text-[var(--kg-text-muted)]'
+                  }`}
+                >
+                  <Eye size={13} /> Xem nhanh
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSopViewMode('full')}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold ${
+                    sopViewMode === 'full' ? 'bg-[var(--kg-surface)] text-blue-600 shadow-sm' : 'text-[var(--kg-text-muted)]'
+                  }`}
+                >
+                  <FileText size={13} /> Đầy đủ
+                </button>
+              </div>
+            </div>
+          </KgCard>
 
           {/* SOP Explorer Layout */}
           {searchTerm.trim() ? (
@@ -482,28 +452,50 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
                 <KgCard className="p-8 text-center">
                   <HelpCircle size={40} className="mx-auto mb-3 text-gray-300 dark:text-gray-600" />
                   <p className="text-sm font-bold text-gray-800 dark:text-white">Không tìm thấy kết quả nào</p>
-                  <p className="text-xs text-gray-500 mt-1">Hãy thử tìm từ khóa khác hoặc bấm Trợ lý Bếp Lò AI để hỏi nhanh nhé.</p>
+                  <p className="text-xs text-gray-500 mt-1">Hãy thử tìm từ khóa khác hoặc bấm King's Grill AI Assistant để hỏi nhanh nhé.</p>
                 </KgCard>
               ) : (
                 <div className="grid grid-cols-1 gap-3">
-                  {searchResults.map(({ sectionTitle, sectionId, item }, idx) => {
-                    const isOpen = openAccordions[item.subtitle] ?? true;
+                  {searchResults.map(({ sectionTitle, sectionId, item, excerpt, isCritical, matchedTerms }) => {
+                    const resultKey = `${sectionId}:${item.subtitle}`;
+                    const isOpen = sopViewMode === 'full' || (openAccordions[resultKey] ?? false);
                     return (
-                      <KgCard key={idx} className="overflow-hidden p-0 border border-slate-100 dark:border-slate-800">
+                      <KgCard key={resultKey} className="overflow-hidden p-0 border border-slate-100 dark:border-slate-800">
                         <button
-                          onClick={() => toggleAccordion(item.subtitle)}
-                          className="w-full flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 text-left"
+                          onClick={() => toggleAccordion(resultKey)}
+                          className="w-full flex items-start justify-between gap-3 p-4 bg-slate-50 dark:bg-slate-800/40 text-left"
                         >
-                          <div className="min-w-0">
-                            <span className="text-[10px] uppercase font-bold text-blue-600 dark:text-indigo-400 tracking-wider block mb-0.5">
-                              {sectionTitle}
-                            </span>
-                            <h4 className="font-extrabold text-slate-800 dark:text-white text-sm truncate">{item.subtitle}</h4>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center flex-wrap gap-1.5 mb-1">
+                              <span className="text-[10px] uppercase font-bold text-blue-600 dark:text-indigo-400 tracking-wider">
+                                {sectionTitle}
+                              </span>
+                              {isCritical && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-red-50 dark:bg-red-950/30 px-2 py-0.5 text-[9px] font-extrabold uppercase text-red-600 dark:text-red-300">
+                                  <ShieldAlert size={10} /> Quan trọng
+                                </span>
+                              )}
+                            </div>
+                            <h4 className="font-extrabold text-slate-800 dark:text-white text-sm leading-snug">{item.subtitle}</h4>
+                            {!isOpen && (
+                              <p className="mt-2 text-xs leading-relaxed text-[var(--kg-text-muted)] line-clamp-3">
+                                {excerpt}
+                              </p>
+                            )}
+                            {matchedTerms.length > 0 && !isOpen && (
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {matchedTerms.slice(0, 4).map(term => (
+                                  <span key={term} className="rounded-md bg-blue-50 dark:bg-blue-950/30 px-1.5 py-0.5 text-[9px] font-bold text-blue-600 dark:text-blue-300">
+                                    {term}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
-                          {isOpen ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+                          {isOpen ? <ChevronUp size={16} className="text-slate-400 mt-1" /> : <ChevronDown size={16} className="text-slate-400 mt-1" />}
                         </button>
                         {isOpen && (
-                          <div className="p-4 bg-white dark:bg-slate-900 text-sm text-slate-700 dark:text-slate-350 leading-relaxed font-medium sop-content-details">
+                          <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-medium sop-content-details">
                             <div dangerouslySetInnerHTML={{ __html: item.details }} />
                           </div>
                         )}
@@ -515,9 +507,28 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
             </div>
           ) : (
             /* Regular Categories View */
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-              {/* Left Column: Category selector list */}
-              <div className="lg:col-span-4 space-y-4">
+            <div className="space-y-4">
+              {/* Mobile Category Selector */}
+              <div className="block lg:hidden w-full">
+                <button
+                  type="button"
+                  onClick={() => setIsMobileCategoryOpen(true)}
+                  className="w-full flex items-center justify-between p-3.5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-sm active:scale-[0.99] transition-all font-bold text-sm text-slate-850 dark:text-white"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {activeSopSection && <i className={`${activeSopSection.icon} text-blue-600 dark:text-indigo-400 text-sm flex-shrink-0`} />}
+                    <span className="truncate">{activeSopSection?.title || 'Chọn danh mục quy trình'}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500 flex-shrink-0">
+                    <span>Thay đổi</span>
+                    <ChevronDown size={14} />
+                  </div>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                {/* Left Column: Category selector list */}
+                <div className="hidden lg:block lg:col-span-4 space-y-4">
                 <KgCard className="p-4 space-y-4">
                   {/* General Category Group */}
                   <div>
@@ -532,7 +543,7 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
                           className={`w-full flex items-center p-2.5 rounded-xl text-left text-xs font-bold transition-all gap-2.5 active:scale-95 ${
                             selectedSection === section.id
                               ? 'bg-blue-600 text-white shadow-sm'
-                              : 'text-slate-700 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                              : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/40'
                           }`}
                         >
                           <i className={`${section.icon} w-4 text-center flex-shrink-0 ${selectedSection === section.id ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`} />
@@ -555,7 +566,7 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
                           className={`w-full flex items-center p-2.5 rounded-xl text-left text-xs font-bold transition-all gap-2.5 active:scale-95 ${
                             selectedSection === section.id
                               ? 'bg-blue-600 text-white shadow-sm'
-                              : 'text-slate-700 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                              : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/40'
                           }`}
                         >
                           <i className={`${section.icon} w-4 text-center flex-shrink-0 ${selectedSection === section.id ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`} />
@@ -580,8 +591,8 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
                   )}
                 </div>
 
-                {activeSopSection?.content.map((item, idx) => {
-                  const isOpen = openAccordions[item.subtitle] ?? (idx === 0);
+                {activeSopItems.map((item, idx) => {
+                  const isOpen = sopViewMode === 'full' || (openAccordions[item.subtitle] ?? (idx === 0));
                   return (
                     <KgCard key={idx} className="overflow-hidden p-0 border border-slate-100 dark:border-slate-800 animate-fade-in">
                       <button
@@ -595,15 +606,36 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
                         {isOpen ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
                       </button>
                       {isOpen && (
-                        <div className="p-4 bg-white dark:bg-slate-900 text-sm text-slate-700 dark:text-slate-350 leading-relaxed font-medium sop-content-details">
+                        <div className="p-4 bg-white dark:bg-slate-900 text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-medium sop-content-details">
                           <div dangerouslySetInnerHTML={{ __html: item.details }} />
                         </div>
+                      )}
+                      {!isOpen && sopViewMode === 'quick' && (
+                        <button
+                          type="button"
+                          onClick={() => toggleAccordion(item.subtitle)}
+                          className="w-full px-5 py-3 text-left bg-slate-50/50 dark:bg-slate-800/25 border-t border-slate-100 dark:border-slate-800/50 hover:bg-slate-100/50 dark:hover:bg-slate-800/40 transition-colors"
+                        >
+                          <div className="space-y-1">
+                            {getQuickSopList(item.details).map((text, idx) => (
+                              <div key={idx} className="flex items-start gap-2 text-xs font-semibold text-slate-650 dark:text-[#9AA1AA] leading-relaxed">
+                                <span className="text-blue-500 dark:text-indigo-400 select-none flex-shrink-0">•</span>
+                                <span className="line-clamp-1">{text}</span>
+                              </div>
+                            ))}
+                            <div className="flex items-center gap-1 text-[10px] text-blue-600 dark:text-indigo-400 font-extrabold mt-1.5 hover:underline">
+                              <span>Xem đầy đủ</span>
+                              <ChevronDown size={11} className="animate-pulse" />
+                            </div>
+                          </div>
+                        </button>
                       )}
                     </KgCard>
                   );
                 })}
               </div>
             </div>
+          </div>
           )}
         </div>
       )}
@@ -745,7 +777,7 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
                                       onChange={() => setAnswers(prev => ({ ...prev, [qIdx]: oIdx }))}
                                       className="text-amber-500 mr-3 focus:ring-amber-500 focus:ring-offset-0"
                                     />
-                                    <span className="text-sm text-slate-700 dark:text-slate-350 font-medium">{opt}</span>
+                                    <span className="text-sm text-slate-700 dark:text-slate-300 font-medium">{opt}</span>
                                   </label>
                                 ))}
                               </div>
@@ -782,66 +814,64 @@ Hãy trả lời câu hỏi này: "${userQuery}"`;
         </div>
       )}
 
-      {/* Tab 1 Chatbot Bottom Sheet (Trợ lý Bếp Lò AI) */}
+
+      {/* Mobile Category Selector Bottom Sheet */}
       <KgBottomSheet
-        isOpen={isChatOpen}
-        onClose={() => setIsChatOpen(false)}
-        title="Trợ lý Bếp Lò AI"
+        isOpen={isMobileCategoryOpen}
+        onClose={() => setIsMobileCategoryOpen(false)}
+        title="Danh mục quy trình (SOP)"
       >
-        <div className="flex flex-col h-[70vh] -mx-5 -my-4 overflow-hidden">
-          {/* Header Description */}
-          <div className="px-5 py-2.5 bg-slate-50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 text-[10px] text-slate-500 dark:text-slate-400 font-bold flex items-center gap-1.5 flex-shrink-0">
-            <Bot size={13} className="text-blue-600" />
-            Hệ thống trả lời tự động dựa trên Sổ Tay Vận Hành & SOP nhà hàng.
+        <div className="space-y-4 py-2">
+          {/* General Category Group */}
+          <div>
+            <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-[#9AA1AA] border-b border-slate-100 dark:border-slate-800 pb-2 mb-2">
+              Tiêu chuẩn chung
+            </h4>
+            <div className="grid grid-cols-1 gap-1.5">
+              {generalSops.map(section => (
+                <button
+                  key={section.id}
+                  onClick={() => {
+                    setSelectedSection(section.id);
+                    setIsMobileCategoryOpen(false);
+                  }}
+                  className={`w-full flex items-center p-3 rounded-xl text-left text-xs font-bold transition-all gap-3 active:scale-98 ${
+                    selectedSection === section.id
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-105 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                  }`}
+                >
+                  <i className={`${section.icon} w-5 text-center flex-shrink-0 ${selectedSection === section.id ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`} />
+                  <span className="truncate">{section.title}</span>
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* Message List */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50 dark:bg-slate-900/10 min-h-0">
-            {chatMessages.map((msg) => (
-              <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-xs leading-relaxed font-semibold shadow-sm ${
-                  msg.role === 'user'
-                    ? 'bg-blue-600 text-white rounded-tr-sm'
-                    : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-100 dark:border-slate-800 rounded-tl-sm chat-bubble-content'
-                }`}>
-                  <div dangerouslySetInnerHTML={{ __html: msg.content.replace(/\n/g, '<br>') }} />
-                </div>
-              </div>
-            ))}
-            {isSending && (
-              <div className="flex justify-start">
-                <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-2xl rounded-tl-sm px-4 py-3 flex items-center space-x-2 text-xs font-bold text-slate-500">
-                  <RefreshCw size={13} className="animate-spin text-blue-600 dark:text-indigo-400" />
-                  <span>AI đang tra sổ tay...</span>
-                </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Chat Input */}
-          <div className="p-3 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex-shrink-0 flex items-center gap-2">
-            <textarea
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendChat();
-                }
-              }}
-              placeholder="Quy trình xử lý món sai? Mất vé xe xử lý thế nào?..."
-              className="flex-1 max-h-20 min-h-[40px] border border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-indigo-500 rounded-xl px-3.5 py-2.5 text-xs font-semibold resize-none focus:outline-none transition-all dark:bg-slate-900 dark:text-white"
-              rows={1}
-              disabled={isSending}
-            />
-            <button
-              onClick={handleSendChat}
-              disabled={!chatInput.trim() || isSending}
-              className="w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center hover:bg-blue-700 active:scale-95 transition disabled:opacity-50 flex-shrink-0"
-            >
-              <Send size={15} />
-            </button>
+          {/* Department Category Group */}
+          <div className="pt-2">
+            <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-[#9AA1AA] border-b border-slate-100 dark:border-slate-800 pb-2 mb-2">
+              Quy trình bộ phận
+            </h4>
+            <div className="grid grid-cols-1 gap-1.5">
+              {departmentSops.map(section => (
+                <button
+                  key={section.id}
+                  onClick={() => {
+                    setSelectedSection(section.id);
+                    setIsMobileCategoryOpen(false);
+                  }}
+                  className={`w-full flex items-center p-3 rounded-xl text-left text-xs font-bold transition-all gap-3 active:scale-98 ${
+                    selectedSection === section.id
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-105 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                  }`}
+                >
+                  <i className={`${section.icon} w-5 text-center flex-shrink-0 ${selectedSection === section.id ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`} />
+                  <span className="truncate">{section.title}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </KgBottomSheet>

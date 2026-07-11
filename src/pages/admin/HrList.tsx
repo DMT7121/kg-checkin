@@ -2,9 +2,10 @@ import { useState, useMemo, useRef } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { callApi } from '../../services/api';
 import Swal from 'sweetalert2';
-import { Users, KeyRound, Loader2, ShieldCheck, Mail, Briefcase, UserCog, Search, Calendar, ChevronDown, ChevronUp, X, Camera } from 'lucide-react';
+import { KeyRound, Loader2, Mail, Briefcase, UserCog, Search, Calendar, ChevronDown, ChevronUp, X, Camera, Activity, PauseCircle, Ban, UserX } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { KgModuleHero } from '../../components/KgDesignSystem';
+import { employmentStatuses, getEmploymentStatusMeta, normalizeEmploymentStatus, type EmploymentStatus } from '../../utils/employment';
 
 
 export default function HrList() {
@@ -14,6 +15,7 @@ export default function HrList() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPosition, setFilterPosition] = useState('all');
   const [filterRole, setFilterRole] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -32,9 +34,10 @@ export default function HrList() {
       const matchSearch = !q || u.fullname.toLowerCase().includes(q) || u.username.toLowerCase().includes(q) || (u.email && u.email.toLowerCase().includes(q));
       const matchPos = filterPosition === 'all' || (u.position || 'Phục vụ') === filterPosition;
       const matchRole = filterRole === 'all' || (u.role || 'user') === filterRole;
-      return matchSearch && matchPos && matchRole;
+      const matchStatus = filterStatus === 'all' || normalizeEmploymentStatus(u.employmentStatus) === filterStatus;
+      return matchSearch && matchPos && matchRole && matchStatus;
     });
-  }, [users, searchQuery, filterPosition, filterRole]);
+  }, [users, searchQuery, filterPosition, filterRole, filterStatus]);
 
   const stats = useMemo(() => {
     const adminCount = users.filter(u => u.role === 'admin' || u.role === 'tester').length;
@@ -42,7 +45,11 @@ export default function HrList() {
     users.forEach(u => { const p = u.position || 'Phục vụ'; positionCounts[p] = (positionCounts[p] || 0) + 1; });
     const topPosition = Object.entries(positionCounts).sort((a, b) => b[1] - a[1])[0];
     const noEmail = users.filter(u => !u.email).length;
-    return { total: users.length, adminCount, topPosition, noEmail };
+    const active = users.filter(u => normalizeEmploymentStatus(u.employmentStatus) === 'active').length;
+    const leave = users.filter(u => normalizeEmploymentStatus(u.employmentStatus) === 'leave').length;
+    const suspended = users.filter(u => normalizeEmploymentStatus(u.employmentStatus) === 'suspended').length;
+    const resigned = users.filter(u => normalizeEmploymentStatus(u.employmentStatus) === 'resigned').length;
+    return { total: users.length, adminCount, topPosition, noEmail, active, leave, suspended, resigned };
   }, [users]);
 
   // === Avatar Upload ===
@@ -70,7 +77,7 @@ export default function HrList() {
       } else {
         Swal.fire('Lỗi', res?.message || 'Không thể upload ảnh', 'error');
       }
-    } catch (err) {
+    } catch {
       Swal.fire('Lỗi', 'Upload ảnh thất bại', 'error');
     }
     setUploadingAvatar(null);
@@ -118,6 +125,68 @@ export default function HrList() {
     } else Swal.fire('Lỗi', res?.message || 'Không thể cập nhật', 'error');
   };
 
+  const handleUpdateEmploymentStatus = async (user: typeof users[number]) => {
+    if (currentUser?.role !== 'admin') {
+      Swal.fire('Không có quyền', 'Chỉ admin được thay đổi trạng thái hoạt động.', 'warning');
+      return;
+    }
+    const currentStatus = normalizeEmploymentStatus(user.employmentStatus);
+    const { value, isConfirmed } = await Swal.fire({
+      title: `Trạng thái của ${user.fullname}`,
+      html: `
+        <label style="display:block;text-align:left;font-size:12px;font-weight:700;margin:8px 2px 4px">Trạng thái hoạt động</label>
+        <select id="employment-status" class="swal2-select" style="width:100%;margin:0">
+          ${employmentStatuses.map(item => `<option value="${item.value}" ${item.value === currentStatus ? 'selected' : ''}>${item.label}</option>`).join('')}
+        </select>
+        <label style="display:block;text-align:left;font-size:12px;font-weight:700;margin:14px 2px 4px">Ngày kết thúc (bắt buộc khi đình chỉ)</label>
+        <input id="status-until" class="swal2-input" type="date" value="${user.statusUntil || ''}" style="width:100%;margin:0">
+        <label style="display:block;text-align:left;font-size:12px;font-weight:700;margin:14px 2px 4px">Lý do / ghi chú</label>
+        <textarea id="status-reason" class="swal2-textarea" maxlength="500" placeholder="Nêu lý do tạm nghỉ, đình chỉ hoặc nghỉ việc..." style="width:100%;margin:0">${user.statusReason || ''}</textarea>
+      `,
+      showCancelButton: true,
+      confirmButtonText: 'Cập nhật trạng thái',
+      cancelButtonText: 'Hủy',
+      confirmButtonColor: '#0e7490',
+      preConfirm: () => {
+        const employmentStatus = (document.getElementById('employment-status') as HTMLSelectElement).value as EmploymentStatus;
+        const statusUntil = (document.getElementById('status-until') as HTMLInputElement).value;
+        const statusReason = (document.getElementById('status-reason') as HTMLTextAreaElement).value.trim();
+        if (employmentStatus === 'suspended' && !statusUntil) {
+          Swal.showValidationMessage('Đình chỉ cần có ngày kết thúc');
+          return false;
+        }
+        if (employmentStatus !== 'active' && !statusReason) {
+          Swal.showValidationMessage('Vui lòng nhập lý do thay đổi trạng thái');
+          return false;
+        }
+        return { employmentStatus, statusUntil, statusReason };
+      },
+    });
+    if (!isConfirmed || !value) return;
+    setUpdatingUser(user.username);
+    const res = await callApi('UPDATE_EMPLOYMENT_STATUS', {
+      role: currentUser.role,
+      username: currentUser.username,
+      targetUsername: user.username,
+      ...value,
+    });
+    setUpdatingUser(null);
+    if (!res?.ok) {
+      Swal.fire('Không thể cập nhật', res?.message || 'Vui lòng thử lại.', 'error');
+      return;
+    }
+    store.setUsers(users.map(item => (
+      item.username === user.username ? { ...item, ...res.data.profile } : item
+    )));
+    Swal.fire({
+      icon: 'success',
+      title: 'Đã cập nhật trạng thái',
+      text: `${user.fullname}: ${getEmploymentStatusMeta(value.employmentStatus).label}`,
+      timer: 1800,
+      showConfirmButton: false,
+    });
+  };
+
   const getRoleBadge = (role: string) => {
     switch (role) {
       case 'admin': return { label: 'Admin', cls: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800/50' };
@@ -140,7 +209,7 @@ export default function HrList() {
 
       {/* Back button */}
       <div className="flex -mt-2 mb-1">
-        <button onClick={() => store.setCurrentTab('admin')} className="flex items-center text-xs font-bold text-gray-500 hover:text-ocean-600 transition-colors">
+        <button onClick={() => store.setCurrentTab('admin_people')} className="flex items-center text-xs font-bold text-gray-500 hover:text-ocean-600 transition-colors">
           <span className="mr-1">←</span> Quay lại Cài đặt chung
         </button>
       </div>
@@ -148,7 +217,7 @@ export default function HrList() {
       <KgModuleHero
         moduleId="hr-list"
         title="Hồ Sơ Nhân Sự"
-        description="Quản lý thông tin cá nhân, cập nhật chức vụ, phân quyền và khôi phục mật khẩu tài khoản nhân viên."
+        description="Quản lý trạng thái hoạt động, chức vụ, phân quyền và toàn bộ vòng đời hồ sơ nhân sự."
         eyebrow="Nhân sự"
       />
 
@@ -156,13 +225,13 @@ export default function HrList() {
       {/* Stat Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: 'Tổng nhân viên', value: stats.total, icon: '👥', bg: 'bg-blue-50 dark:bg-blue-900/20' },
-          { label: 'Admin / Tester', value: stats.adminCount, icon: '🛡️', bg: 'bg-red-50 dark:bg-red-900/20' },
-          { label: stats.topPosition ? stats.topPosition[0] : '—', value: stats.topPosition ? stats.topPosition[1] : 0, icon: '🏷️', bg: 'bg-amber-50 dark:bg-amber-900/20' },
-          { label: 'Chưa gán email', value: stats.noEmail, icon: '✉️', bg: 'bg-gray-50 dark:bg-gray-900/20' },
+          { label: 'Đang làm việc', value: stats.active, icon: '●', bg: 'bg-emerald-50 dark:bg-emerald-900/20', iconCls: 'text-emerald-500' },
+          { label: 'Tạm nghỉ', value: stats.leave, icon: '●', bg: 'bg-amber-50 dark:bg-amber-900/20', iconCls: 'text-amber-500' },
+          { label: 'Đình chỉ', value: stats.suspended, icon: '●', bg: 'bg-rose-50 dark:bg-rose-900/20', iconCls: 'text-rose-500' },
+          { label: 'Đã nghỉ việc', value: stats.resigned, icon: '●', bg: 'bg-slate-100 dark:bg-slate-900/40', iconCls: 'text-slate-400' },
         ].map((s, i) => (
           <motion.div key={i} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }} className={`soft3d-card p-3 ${s.bg}`}>
-            <span className="text-lg">{s.icon}</span>
+            <span className={`text-lg ${s.iconCls}`}>{s.icon}</span>
             <p className="text-xl font-black text-gray-800 dark:text-white mt-1">{s.value}</p>
             <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{s.label}</p>
           </motion.div>
@@ -187,12 +256,16 @@ export default function HrList() {
               <option value="all">Tất cả quyền</option>
               {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
             </select>
+            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5 text-sm font-medium outline-none cursor-pointer min-w-0 flex-1 md:flex-none">
+              <option value="all">Tất cả trạng thái</option>
+              {employmentStatuses.map(status => <option key={status.value} value={status.value}>{status.label}</option>)}
+            </select>
           </div>
         </div>
-        {(searchQuery || filterPosition !== 'all' || filterRole !== 'all') && (
+        {(searchQuery || filterPosition !== 'all' || filterRole !== 'all' || filterStatus !== 'all') && (
           <p className="text-[11px] text-gray-500 mt-2 ml-1 font-medium">
             Hiển thị {filteredUsers.length} / {users.length} nhân viên
-            <button onClick={() => { setSearchQuery(''); setFilterPosition('all'); setFilterRole('all'); }} className="ml-2 text-ocean-600 hover:underline font-bold">Xóa lọc</button>
+            <button onClick={() => { setSearchQuery(''); setFilterPosition('all'); setFilterRole('all'); setFilterStatus('all'); }} className="ml-2 text-ocean-600 hover:underline font-bold">Xóa lọc</button>
           </p>
         )}
       </div>
@@ -203,6 +276,7 @@ export default function HrList() {
           {filteredUsers.map((user, idx) => {
             const isProcessing = updatingUser === user.username;
             const badge = getRoleBadge(user.role || 'user');
+            const statusMeta = getEmploymentStatusMeta(user.employmentStatus);
             const avatarColor = getAvatarColor(user.fullname);
             const isExpanded = expandedUser === user.username;
             const isUploading = uploadingAvatar === user.username;
@@ -234,7 +308,10 @@ export default function HrList() {
                         <h4 className="font-bold text-gray-800 dark:text-gray-100 text-[15px] leading-tight">{user.fullname}</h4>
                         <p className="text-[11px] text-gray-400 dark:text-gray-500 font-mono mt-0.5">@{user.username}</p>
                       </div>
-                      <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-lg border flex-shrink-0 ${badge.cls}`}>{badge.label}</span>
+                      <div className="flex flex-shrink-0 flex-col items-end gap-1">
+                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-lg border ${statusMeta.badgeClass}`}>{statusMeta.shortLabel}</span>
+                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-lg border ${badge.cls}`}>{badge.label}</span>
+                      </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-[11px] text-gray-500 dark:text-gray-400">
                       <span className="inline-flex items-center gap-1 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-md font-semibold">
@@ -256,6 +333,31 @@ export default function HrList() {
                   {isExpanded && (
                     <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
                       <div className="px-4 pb-4 pt-1 border-t border-gray-100 dark:border-gray-800">
+                        <div className={`mt-3 rounded-xl border p-3 ${statusMeta.badgeClass}`}>
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div className="flex min-w-0 gap-2.5">
+                              {statusMeta.value === 'active' && <Activity size={18} className="mt-0.5 flex-shrink-0" />}
+                              {statusMeta.value === 'leave' && <PauseCircle size={18} className="mt-0.5 flex-shrink-0" />}
+                              {statusMeta.value === 'suspended' && <Ban size={18} className="mt-0.5 flex-shrink-0" />}
+                              {statusMeta.value === 'resigned' && <UserX size={18} className="mt-0.5 flex-shrink-0" />}
+                              <div className="min-w-0">
+                                <p className="text-xs font-black uppercase">{statusMeta.label}</p>
+                                <p className="mt-1 text-[11px] leading-4 opacity-80">{statusMeta.description}</p>
+                                {user.statusUntil && <p className="mt-1 text-[10px] font-bold">Đến ngày: {user.statusUntil}</p>}
+                                {user.statusReason && <p className="mt-1 text-[10px] italic">Lý do: {user.statusReason}</p>}
+                              </div>
+                            </div>
+                            {currentUser?.role === 'admin' && (
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateEmploymentStatus(user)}
+                                className="rounded-lg bg-white/75 px-3 py-2 text-[11px] font-extrabold shadow-sm hover:bg-white dark:bg-slate-900/60"
+                              >
+                                Đổi trạng thái
+                              </button>
+                            )}
+                          </div>
+                        </div>
                         <div className="flex flex-col sm:flex-row gap-3 mt-3">
                           <div className="flex-1">
                             <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1 ml-0.5 flex items-center gap-1"><Briefcase size={9} /> Chức vụ</label>
@@ -291,7 +393,7 @@ export default function HrList() {
           <div className="soft3d-card p-8 text-center">
             <Search size={32} className="mx-auto mb-3 text-gray-300" />
             <p className="text-sm text-gray-500 font-medium">Không tìm thấy nhân viên nào</p>
-            <button onClick={() => { setSearchQuery(''); setFilterPosition('all'); setFilterRole('all'); }} className="text-xs text-ocean-600 font-bold mt-2 hover:underline">Xóa bộ lọc</button>
+            <button onClick={() => { setSearchQuery(''); setFilterPosition('all'); setFilterRole('all'); setFilterStatus('all'); }} className="text-xs text-ocean-600 font-bold mt-2 hover:underline">Xóa bộ lọc</button>
           </div>
         )}
       </div>

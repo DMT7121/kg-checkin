@@ -3,34 +3,9 @@
 // ============================================
 
 import { User } from '../store/useAppStore';
-
-export type TabId =
-  | 'dashboard'
-  | 'news'
-  | 'soldout'
-  | 'feedback'
-  | 'training'
-  | 'checkin'
-  | 'checklist'
-  | 'handover'
-  | 'schedule'
-  | 'swap'
-  | 'roster'
-  | 'history'
-  | 'timesheet'
-  | 'advance'
-  | 'payroll'
-  | 'discipline'
-  | 'reward'
-  | 'admin'
-  | 'hr_list'
-  | 'admin_org'
-  | 'admin_shift'
-  | 'admin_payroll'
-  | 'admin_checklist'
-  | 'admin_analytics'
-  | 'profile'
-  | 'guide';
+import type { TabId } from '../types/navigation';
+import { moduleLabel, navigationModules } from '../config/moduleRegistry';
+export type { TabId } from '../types/navigation';
 
 /**
  * Check if a user with a given role and position has permission to access a specific tab/module.
@@ -47,11 +22,14 @@ export function hasTabPermission(tabId: TabId, user: User | null): boolean {
 
   const role = user.role || 'user';
   const position = user.position || 'Phục vụ';
+  const registryModule = navigationModules.find(module => module.id === tabId);
 
   // 1. Admin and Tester bypass all restrictions
   if (role === 'admin' || role === 'tester') {
     return true;
   }
+
+  if (registryModule?.adminOnly) return false;
 
   // 2. Admin/Management tabs (Admin and Tester only)
   const adminTabs: TabId[] = [
@@ -59,6 +37,7 @@ export function hasTabPermission(tabId: TabId, user: User | null): boolean {
     'hr_list',
     'admin_org',
     'admin_shift',
+    'admin_operations',
     'admin_payroll',
     'admin_checklist',
     'admin_analytics'
@@ -98,8 +77,9 @@ export function hasTabPermission(tabId: TabId, user: User | null): boolean {
  * Get display label for a tab/module
  */
 export function getTabLabel(tabId: TabId): string {
-  const labels: Record<TabId, string> = {
-    dashboard: 'Hôm nay',
+  const registeredLabel = moduleLabel(tabId);
+  if (registeredLabel !== tabId) return registeredLabel;
+  const labels: Partial<Record<TabId, string>> = {
     news: 'Bảng tin',
     soldout: 'Món hết',
     feedback: 'Góp ý',
@@ -107,6 +87,7 @@ export function getTabLabel(tabId: TabId): string {
     checkin: 'Chấm công',
     checklist: 'Checklist việc',
     handover: 'Bàn giao ca',
+    operations: 'Phân công trực',
     schedule: 'Lịch đăng ký',
     swap: 'Đổi ca',
     roster: 'Lịch tổng',
@@ -120,6 +101,7 @@ export function getTabLabel(tabId: TabId): string {
     hr_list: 'Danh sách nhân sự',
     admin_org: 'Tổ chức & Quyền',
     admin_shift: 'Phân ca',
+    admin_operations: 'Phân công vận hành',
     admin_payroll: 'Cấu hình lương',
     admin_checklist: 'Cấu hình checklist',
     admin_analytics: 'Thống kê & Báo cáo',
