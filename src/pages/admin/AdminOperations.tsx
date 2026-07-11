@@ -80,7 +80,7 @@ export default function AdminOperations() {
         username: currentUser.username,
         forceRefresh: true,
       },
-      { background: true, cacheTtlMs: 0 },
+      { background: true, cacheTtlMs: 0, timeoutMs: 35000 },
     );
     if (res?.ok) {
       const next = res.data.config || emptyOperationsConfig();

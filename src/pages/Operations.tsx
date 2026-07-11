@@ -53,7 +53,7 @@ export default function Operations() {
         username: user.username,
         forceRefresh: true,
       },
-      { background: true, cacheTtlMs: 0 },
+      { background: true, cacheTtlMs: 0, timeoutMs: 35000 },
     );
     if (res?.ok) {
       if (res.data.employmentProfile) {
