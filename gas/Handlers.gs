@@ -4,6 +4,17 @@
 
 // 1. User Authentication
 function handleLogin(payload) {
+  // Auto-migrate headers if not already migrated
+  try {
+    var ss = getSS();
+    var usersSheet = ss.getSheetByName(CONFIG.SHEET_USERS);
+    if (usersSheet && usersSheet.getRange(2, 1).getValue().toString().trim() !== 'Username') {
+      migrateDataHeadersQuietly(usersSheet);
+    }
+  } catch (e) {
+    Logger.log('Header migration error: ' + e.toString());
+  }
+
   if (!payload || !payload.username || !payload.password) {
     return jsonResponse(false, 'Thiếu thông tin đăng nhập');
   }
@@ -41,7 +52,7 @@ function handleLogin(payload) {
   if (!sheet) return jsonResponse(false, 'Không tìm thấy sheet người dùng');
   
   var data = sheet.getDataRange().getValues();
-  for (var i = 1; i < data.length; i++) {
+  for (var i = 2; i < data.length; i++) {
     var row = data[i];
     // Col 0: Username, Col 1: Password, Col 2: FullName, Col 3: DOB, Col 4: Email, Col 5: Role
     if (row[0].toString().toLowerCase() === payload.username.toLowerCase() && row[1].toString() === payload.password) {
@@ -69,7 +80,7 @@ function handleRegister(payload) {
   if (!sheet) return jsonResponse(false, 'Không tìm thấy sheet người dùng');
   
   var data = sheet.getDataRange().getValues();
-  for (var i = 1; i < data.length; i++) {
+  for (var i = 2; i < data.length; i++) {
     if (data[i][0].toString().toLowerCase() === payload.username.toLowerCase()) {
       return jsonResponse(false, 'Username đã tồn tại');
     }
@@ -199,7 +210,7 @@ function handleRequestOTP(payload) {
   var foundEmail = false;
   
   // Find if email exists in Col 4
-  for (var i = 1; i < data.length; i++) {
+  for (var i = 2; i < data.length; i++) {
     if (data[i][4] && data[i][4].toString().toLowerCase() === payload.email.toLowerCase()) {
       foundEmail = true;
       break;
@@ -267,7 +278,7 @@ function handleResetPassword(payload) {
   var usersSheet = ss.getSheetByName(CONFIG.SHEET_USERS);
   var usersData = usersSheet.getDataRange().getValues();
   var updated = false;
-  for (var j = 1; j < usersData.length; j++) {
+  for (var j = 2; j < usersData.length; j++) {
     if (usersData[j][4] && usersData[j][4].toString().toLowerCase() === payload.email.toLowerCase()) {
       usersSheet.getRange(j + 1, 2).setValue(payload.newPassword); // Col B is password (index 1 + 1)
       updated = true;
@@ -293,7 +304,7 @@ function handleForceResetPassword(payload) {
   var updated = false;
   var defaultPass = "Kg123456";
   
-  for (var j = 1; j < usersData.length; j++) {
+  for (var j = 2; j < usersData.length; j++) {
     if (usersData[j][0].toString().toLowerCase() === payload.targetUsername.toLowerCase()) {
       usersSheet.getRange(j + 1, 2).setValue(defaultPass); // Reset col 2
       updated = true;
@@ -319,7 +330,7 @@ function handleUpdateUserRole(payload) {
   var usersData = usersSheet.getDataRange().getValues();
   var updated = false;
   
-  for (var j = 1; j < usersData.length; j++) {
+  for (var j = 2; j < usersData.length; j++) {
     if (usersData[j][0].toString().toLowerCase() === payload.targetUsername.toLowerCase()) {
       usersSheet.getRange(j + 1, 6).setValue(payload.newRole); // Col 5 (F) is index 5, so column 6
       updated = true;
@@ -345,7 +356,7 @@ function handleUpdateUserPosition(payload) {
   var usersData = usersSheet.getDataRange().getValues();
   var updated = false;
   
-  for (var j = 1; j < usersData.length; j++) {
+  for (var j = 2; j < usersData.length; j++) {
     if (usersData[j][0].toString().toLowerCase() === payload.targetUsername.toLowerCase()) {
       usersSheet.getRange(j + 1, 7).setValue(payload.newPosition); // Col G is index 6, so column 7
       updated = true;
@@ -1553,7 +1564,7 @@ function handleGetData(payload) {
       if (usersSheet) {
         var ud = usersSheet.getDataRange().getValues();
         var users = [];
-        for (var j = 1; j < ud.length; j++) {
+        for (var j = 2; j < ud.length; j++) {
           users.push({
             username: ud[j][0] ? ud[j][0].toString() : '',
             fullname: ud[j][2] ? ud[j][2].toString() : '',
@@ -1772,7 +1783,7 @@ function getEmploymentProfileByUsername(username) {
   var sheet = getSS().getSheetByName(CONFIG.SHEET_USERS);
   if (!sheet) return null;
   var data = sheet.getDataRange().getValues();
-  for (var i = 1; i < data.length; i++) {
+  for (var i = 2; i < data.length; i++) {
     if (data[i][0] && data[i][0].toString().toLowerCase() === username.toString().toLowerCase()) {
       var status = normalizeEmploymentStatus(data[i][8]);
       var statusUntil = data[i][9] ? data[i][9].toString() : '';
@@ -1851,14 +1862,18 @@ function handleUpdateEmploymentStatus(payload) {
 
   var sheet = getSS().getSheetByName(CONFIG.SHEET_USERS);
   if (!sheet) return jsonResponse(false, 'Không tìm thấy DB Users');
-  var headers = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), 12)).getValues()[0];
+  var headers = sheet.getRange(2, 1, 1, Math.max(sheet.getLastColumn(), 12)).getValues()[0];
   var desiredHeaders = ['EmploymentStatus', 'StatusUntil', 'StatusReason', 'StatusUpdatedAt'];
+  var vnHeaders = ['Trạng thái nhân sự', 'Đến ngày', 'Lý do', 'Cập nhật lúc'];
   for (var h = 0; h < desiredHeaders.length; h++) {
-    if (!headers[8 + h]) sheet.getRange(1, 9 + h).setValue(desiredHeaders[h]);
+    if (!headers[8 + h]) {
+      sheet.getRange(2, 9 + h).setValue(desiredHeaders[h]);
+      sheet.getRange(1, 9 + h).setValue(vnHeaders[h]);
+    }
   }
 
   var data = sheet.getDataRange().getValues();
-  for (var i = 1; i < data.length; i++) {
+  for (var i = 2; i < data.length; i++) {
     if (data[i][0] && data[i][0].toString().toLowerCase() === payload.targetUsername.toString().toLowerCase()) {
       var timestamp = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm:ss');
       sheet.getRange(i + 1, 9, 1, 4).setValues([[
@@ -2815,7 +2830,7 @@ function handleUploadAvatar(payload) {
     var sheet = ss.getSheetByName(CONFIG.SHEET_USERS);
     if (sheet) {
       var data = sheet.getDataRange().getValues();
-      for (var i = 1; i < data.length; i++) {
+      for (var i = 2; i < data.length; i++) {
         if (data[i][0] && data[i][0].toString().toLowerCase() === payload.username.toLowerCase()) {
           sheet.getRange(i + 1, 8).setValue(imageUrl);
           break;

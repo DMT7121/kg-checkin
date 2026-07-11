@@ -307,6 +307,7 @@ function onOpen() {
       .addItem('⚡️ Bắt Đầu Tổng Hợp (Nhanh)', 'showSheetSelectionDialog')
       .addItem('✨ Làm đẹp Format Sheet Chấm Công', 'formatEntireCheckInSheet')
       .addItem('⚙️ Thiết Lập Tự Động Hóa', 'setupAutomation')
+      .addItem('🔄 Cấu hình tiêu đề DATA 2 dòng', 'migrateDataHeaders')
       .addToUi();
   }
   // Nếu không có UI context (chạy từ editor/trigger), bỏ qua im lặng
@@ -325,6 +326,7 @@ function createMenu() {
     .addItem('⚡️ Bắt Đầu Tổng Hợp (Nhanh)', 'showSheetSelectionDialog')
     .addItem('✨ Làm đẹp Format Sheet Chấm Công', 'formatEntireCheckInSheet')
     .addItem('⚙️ Thiết Lập Tự Động Hóa', 'setupAutomation')
+    .addItem('🔄 Cấu hình tiêu đề DATA 2 dòng', 'migrateDataHeaders')
     .addToUi();
   getSS().toast('✅ Menu đã được tạo thành công!', 'Thông Báo', 3);
 }
@@ -1305,5 +1307,58 @@ function showSheetSelectionDialog() {
     ui.showModalDialog(htmlOutput, 'KING\'S GRILL - Bảng Điều Khiển Tổng Hợp');
   } catch (e) {
     throw new Error('Lỗi hiển thị giao diện: ' + e.message);
+  }
+}
+
+// =====================================================================================
+// 6. TIÊU ĐỀ DATA 2 DÒNG (VIETNAMESE & TECHNICAL)
+// =====================================================================================
+
+function migrateDataHeadersQuietly(sheet) {
+  var values = sheet.getRange(1, 1, 2, 1).getValues();
+  var r2c1 = values[1][0] ? values[1][0].toString().trim() : '';
+  
+  if (r2c1 !== 'Username') {
+    sheet.insertRowAfter(1);
+  }
+  
+  var vnHeaders = ["Tên đăng nhập", "Mật khẩu", "Họ và tên", "Ngày sinh", "Email", "Quyền hạn", "Chức vụ", "Ảnh đại diện", "Trạng thái nhân sự", "Đến ngày", "Lý do", "Cập nhật lúc"];
+  var enHeaders = ["Username", "Password", "FullName", "DOB", "Email", "Role", "Position", "AvatarUrl", "EmploymentStatus", "StatusUntil", "StatusReason", "StatusUpdatedAt"];
+  
+  sheet.getRange(1, 1, 1, vnHeaders.length).setValues([vnHeaders]);
+  sheet.getRange(2, 1, 1, enHeaders.length).setValues([enHeaders]);
+  
+  sheet.getRange(1, 1, 1, vnHeaders.length)
+    .setBackground('#1e293b')
+    .setFontColor('#ffffff')
+    .setFontWeight('bold')
+    .setFontSize(11)
+    .setHorizontalAlignment('center')
+    .setVerticalAlignment('middle');
+    
+  sheet.getRange(2, 1, 1, enHeaders.length)
+    .setBackground('#f1f5f9')
+    .setFontColor('#64748b')
+    .setFontWeight('bold')
+    .setFontStyle('italic')
+    .setFontSize(9)
+    .setHorizontalAlignment('center')
+    .setVerticalAlignment('middle');
+    
+  sheet.setFrozenRows(2);
+}
+
+function migrateDataHeaders() {
+  var ss = getSS();
+  var sheet = ss.getSheetByName(CONFIG.SHEET_USERS);
+  if (!sheet) {
+    var ui = getUI();
+    if (ui) ui.alert('Không tìm thấy sheet DATA');
+    return;
+  }
+  migrateDataHeadersQuietly(sheet);
+  var ui = getUI();
+  if (ui) {
+    ui.alert('Thành công', 'Đã chuyển đổi tiêu đề sheet DATA sang cấu trúc 2 dòng: Tiếng Việt ở trên và Thuật ngữ ở dưới.', ui.ButtonSet.OK);
   }
 }

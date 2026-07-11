@@ -2116,7 +2116,7 @@ function handleGetPayroll(payload) {
   }
   var payroll = [];
   
-  for (var i = 1; i < usersData.length; i++) {
+  for (var i = 2; i < usersData.length; i++) {
     if (!usersData[i][0]) continue;
     if (normalizeEmploymentStatus(usersData[i][8]) === EMPLOYMENT_STATUS.RESIGNED) continue;
     var uName = usersData[i][0].toString();
@@ -2312,7 +2312,7 @@ function handleGetOperationsConfig(payload) {
   var usersSheet = getSS().getSheetByName(CONFIG.SHEET_USERS);
   if (usersSheet) {
     var userRows = usersSheet.getDataRange().getValues();
-    for (var ur = 1; ur < userRows.length; ur++) {
+    for (var ur = 2; ur < userRows.length; ur++) {
       if (!userRows[ur][0] || memberUsernames.indexOf(userRows[ur][0].toString()) < 0) continue;
       members.push({
         username: userRows[ur][0].toString(),
@@ -2872,7 +2872,7 @@ function handleGetAnalytics(payload) {
     var clSheet = ss.getSheetByName('ChecklistLogs');
     var usersSheet = ss.getSheetByName(CONFIG.SHEET_USERS);
     if (clSheet && usersSheet) {
-      var totalUsers = Math.max(1, usersSheet.getLastRow() - 1);
+      var totalUsers = Math.max(1, usersSheet.getLastRow() - 2);
       var clData = clSheet.getDataRange().getValues();
       var todaySubmitters = new Set();
       for (var ci = 1; ci < clData.length; ci++) {
