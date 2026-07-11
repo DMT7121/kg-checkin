@@ -52,6 +52,8 @@ export default function AdminOperations() {
   const [section, setSection] = useState<Section>('overview');
   const [selectedTeamId, setSelectedTeamId] = useState('');
   const [selectedZoneId, setSelectedZoneId] = useState('');
+  const [memberSearchQuery, setMemberSearchQuery] = useState('');
+  const [evalSearchQuery, setEvalSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -100,6 +102,10 @@ export default function AdminOperations() {
     const timer = window.setTimeout(loadData, 0);
     return () => window.clearTimeout(timer);
   }, [loadData]);
+
+  useEffect(() => {
+    setMemberSearchQuery('');
+  }, [selectedTeamId]);
 
   const patchConfig = (updater: (current: OperationsConfig) => OperationsConfig) => {
     setConfig(current => updater(current));
@@ -429,6 +435,43 @@ export default function AdminOperations() {
     .sort((a, b) => a.date.localeCompare(b.date))
     .filter(item => item.date >= todayIso());
 
+  const assignedOnOtherTeams = useMemo(() => {
+    const set = new Set<string>();
+    config.teams.forEach(team => {
+      if (team.id !== selectedTeamId) {
+        team.memberUsernames.forEach(username => set.add(username));
+      }
+    });
+    return set;
+  }, [config.teams, selectedTeamId]);
+
+  const filteredTeamEmployees = useMemo(() => {
+    return employees.filter(employee => {
+      if (assignedOnOtherTeams.has(employee.username)) {
+        return false;
+      }
+      if (memberSearchQuery.trim()) {
+        const query = memberSearchQuery.toLowerCase().trim();
+        const nameMatch = employee.fullname.toLowerCase().includes(query);
+        const posMatch = (employee.position || '').toLowerCase().includes(query);
+        const userMatch = employee.username.toLowerCase().includes(query);
+        return nameMatch || posMatch || userMatch;
+      }
+      return true;
+    });
+  }, [employees, assignedOnOtherTeams, memberSearchQuery]);
+
+  const filteredEvalEmployees = useMemo(() => {
+    if (!evalSearchQuery.trim()) return employees;
+    const query = evalSearchQuery.toLowerCase().trim();
+    return employees.filter(employee => {
+      const nameMatch = employee.fullname.toLowerCase().includes(query);
+      const posMatch = (employee.position || '').toLowerCase().includes(query);
+      const userMatch = employee.username.toLowerCase().includes(query);
+      return nameMatch || posMatch || userMatch;
+    });
+  }, [employees, evalSearchQuery]);
+
   const teamMetrics = config.teams.map(team => {
     const scores = team.memberUsernames.map(username => (
       operationScore(config.evaluations.find(item => item.username === username))
@@ -650,7 +693,7 @@ export default function AdminOperations() {
                         className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                       >
                         <option value="">Chưa chọn nhóm trưởng</option>
-                        {employees.map(employee => (
+                        {employees.filter(employee => !assignedOnOtherTeams.has(employee.username) || employee.username === selectedTeam.leaderUsername).map(employee => (
                           <option key={employee.username} value={employee.username}>
                             {employee.fullname} · {employee.position || 'Nhân viên'}
                           </option>
@@ -659,9 +702,16 @@ export default function AdminOperations() {
                     </label>
 
                     <div className="mt-5">
-                      <p className="text-[11px] font-bold uppercase text-slate-500">Thành viên nhóm</p>
+                      <p className="text-[11px] font-bold uppercase text-slate-500 mb-2">Thành viên nhóm</p>
+                      <input
+                        type="text"
+                        placeholder="Tìm nhân viên theo tên hoặc bộ phận..."
+                        value={memberSearchQuery}
+                        onChange={e => setMemberSearchQuery(e.target.value)}
+                        className="mb-3 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                      />
                       <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                        {employees.map(employee => {
+                        {filteredTeamEmployees.map(employee => {
                           const checked = selectedTeam.memberUsernames.includes(employee.username);
                           const evaluation = config.evaluations.find(item => item.username === employee.username);
                           return (
@@ -898,12 +948,21 @@ export default function AdminOperations() {
                   <h3 className="font-extrabold text-slate-800 dark:text-white">Đánh giá & xếp loại nhân sự</h3>
                   <p className="mt-1 text-xs text-slate-500">Thang điểm 1–5 được dùng khi tự động cân bằng nhóm.</p>
                 </div>
-                <button type="button" onClick={autoBalanceTeams} className="inline-flex items-center gap-2 rounded-xl bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700 dark:bg-violet-950/30 dark:text-violet-300">
-                  <Sparkles size={15} /> Xếp đội theo điểm
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="Tìm nhân viên..."
+                    value={evalSearchQuery}
+                    onChange={e => setEvalSearchQuery(e.target.value)}
+                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  />
+                  <button type="button" onClick={autoBalanceTeams} className="inline-flex items-center gap-2 rounded-xl bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700 dark:bg-violet-950/30 dark:text-violet-300">
+                    <Sparkles size={15} /> Xếp đội theo điểm
+                  </button>
+                </div>
               </div>
               <div className="mt-5 space-y-3">
-                {[...employees]
+                {[...filteredEvalEmployees]
                   .sort((a, b) => {
                     const aScore = operationScore(config.evaluations.find(item => item.username === a.username));
                     const bScore = operationScore(config.evaluations.find(item => item.username === b.username));
