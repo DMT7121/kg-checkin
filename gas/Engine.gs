@@ -2303,6 +2303,22 @@ function _getWeekInfoFromDateStr(dateStr) {
 function handleGetOperationsConfig(payload) {
   var config = _readOperationsConfig().config;
   
+  var usernameToFullname = {};
+  try {
+    var usersSheet = getSS().getSheetByName(CONFIG.SHEET_USERS);
+    if (usersSheet) {
+      var usersData = usersSheet.getDataRange().getValues();
+      for (var i = 2; i < usersData.length; i++) {
+        var uName = usersData[i][0] ? usersData[i][0].toString().toLowerCase() : '';
+        if (uName) {
+          usernameToFullname[uName] = usersData[i][1] ? usersData[i][1].toString() : '';
+        }
+      }
+    }
+  } catch (e) {
+    Logger.log("Error caching user names: " + e.toString());
+  }
+
   // 1. Dynamic zones synchronized with Checklist AREA_CODES
   config.zones = [
     { id: "A", name: "Khu A", description: "Khu vực trực sảnh A", color: "#0e7490" },
@@ -2344,23 +2360,35 @@ function handleGetOperationsConfig(payload) {
       if (a.date) datesWithAssignments[a.date] = true;
     });
     
-    var sortedDates = Object.keys(datesWithAssignments).sort();
-    var latestExplicitDateStr = sortedDates[sortedDates.length - 1];
+    var sortedDates = Object.keys(datesWithAssignments).filter(function(d) {
+      return d && d.indexOf('-') > 0;
+    }).sort();
     
-    var todayStr = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, "yyyy-MM-dd");
-    var targetLimitDate = new Date();
-    targetLimitDate.setDate(targetLimitDate.getDate() + 30);
-    var targetLimitStr = Utilities.formatDate(targetLimitDate, CONFIG.TIMEZONE, "yyyy-MM-dd");
-    
-    var maxDateStr = latestExplicitDateStr > targetLimitStr ? latestExplicitDateStr : targetLimitStr;
-    
-    var parts = latestExplicitDateStr.split('-');
-    var yr = parseInt(parts[0], 10);
-    var mo = parseInt(parts[1], 10) - 1;
-    var dy = parseInt(parts[2], 10);
-    
-    var currentProjDate = new Date(yr, mo, dy);
-    var limitDate = new Date(maxDateStr.split('-')[0], maxDateStr.split('-')[1] - 1, maxDateStr.split('-')[2]);
+    if (sortedDates.length > 0) {
+      var latestExplicitDateStr = sortedDates[sortedDates.length - 1];
+      
+      var todayStr = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, "yyyy-MM-dd");
+      var targetLimitDate = new Date();
+      targetLimitDate.setDate(targetLimitDate.getDate() + 30);
+      var targetLimitStr = Utilities.formatDate(targetLimitDate, CONFIG.TIMEZONE, "yyyy-MM-dd");
+      
+      var maxDateStr = latestExplicitDateStr > targetLimitStr ? latestExplicitDateStr : targetLimitStr;
+      
+      var parts = latestExplicitDateStr.split('-');
+      var yr = parseInt(parts[0], 10);
+      var mo = parseInt(parts[1], 10) - 1;
+      var dy = parseInt(parts[2], 10);
+      
+      var currentProjDate = new Date(yr, mo, dy);
+      
+      var maxParts = maxDateStr.split('-');
+      var limitDate = new Date(parseInt(maxParts[0], 10), parseInt(maxParts[1], 10) - 1, parseInt(maxParts[2], 10));
+      
+      var maxLimitDate = new Date();
+      maxLimitDate.setDate(maxLimitDate.getDate() + 30);
+      if (limitDate > maxLimitDate) {
+        limitDate = maxLimitDate;
+      }
     
     var rotation = ['A', 'B', 'C', 'D&E'];
     
@@ -2400,7 +2428,7 @@ function handleGetOperationsConfig(payload) {
       });
     }
     config.assignments = assignments;
-  }
+  } }
 
   // Resolve shifts for all members assigned in config.assignments
   var schedulesCache = {};
@@ -2426,8 +2454,7 @@ function handleGetOperationsConfig(payload) {
     
     var shiftsMap = {};
     memberUsernames.forEach(function(username) {
-      var profile = getEmploymentProfileByUsername(username);
-      var fullname = profile ? profile.fullname : username;
+      var fullname = usernameToFullname[username.toLowerCase()] || username;
       
       var cached = schedulesCache[cacheKey];
       var empSched = cached.schedules.find(function(s) {
