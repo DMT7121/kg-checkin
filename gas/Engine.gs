@@ -2297,7 +2297,7 @@ function handleGetOperationsConfig(payload) {
           zoneId: zone.id,
           title: item.title,
           description: item.text,
-          priority: item.phase.indexOf("QUAN TRỌNG") >= 0 || item.section.indexOf("Quan trọng") >= 0 ? "critical" : "normal",
+          priority: (group.phase || "").indexOf("QUAN TRỌNG") >= 0 || (group.section || "").indexOf("Quan trọng") >= 0 ? "critical" : "normal",
           frequency: group.shift + " - " + group.phase
         });
       });
