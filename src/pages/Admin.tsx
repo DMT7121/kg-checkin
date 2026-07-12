@@ -13,14 +13,14 @@ export default function Admin() {
   const { isAdminUnlocked, adminSchedules, originalAdminSchedules, groqKeysInput, groqKeys, aiPrompts, logs, users, isUpdating, swapRequests } = store;
   const weekInfo = computeWeekInfo();
   
-  const [localPrompts, setLocalPrompts] = useState<AIPrompt[]>([]);
+  const [prevAiPrompts, setPrevAiPrompts] = useState<AIPrompt[]>(aiPrompts || []);
+  const [localPrompts, setLocalPrompts] = useState<AIPrompt[]>(aiPrompts || []);
   const [editingPromptId, setEditingPromptId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (aiPrompts) {
-      setLocalPrompts(aiPrompts);
-    }
-  }, [aiPrompts]);
+  if (aiPrompts !== prevAiPrompts) {
+    setPrevAiPrompts(aiPrompts || []);
+    setLocalPrompts(aiPrompts || []);
+  }
 
   // Auto-populate groqKeysInput if empty
   useEffect(() => {

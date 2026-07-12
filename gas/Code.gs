@@ -354,26 +354,198 @@ function createMenu() {
 /**
  * Thiết lập tự động hóa chạy hàng ngày
  */
-function setupAutomation() {
+function getAutomationSettings() {
   try {
+    var stored = PropertiesService.getDocumentProperties().getProperty("AUTOMATION_SETTINGS");
+    return stored ? JSON.parse(stored) : { hour: 1, emails: CONFIG.EMAILS.join(', '), lastRunStatus: "Chưa chạy lần nào" };
+  } catch (e) {
+    return { hour: 1, emails: CONFIG.EMAILS.join(', '), lastRunStatus: "Chưa chạy lần nào" };
+  }
+}
+
+function saveAutomationSettings(settings) {
+  try {
+    PropertiesService.getDocumentProperties().setProperty("AUTOMATION_SETTINGS", JSON.stringify(settings));
+    
+    // Cấu hình lại Trigger chạy tự động
     var triggers = ScriptApp.getProjectTriggers();
     triggers.forEach(function(trigger) {
       if (trigger.getHandlerFunction() === 'autoProcessDaily') {
         ScriptApp.deleteTrigger(trigger);
       }
     });
-
+    
+    var hour = Number(settings.hour);
+    if (isNaN(hour)) hour = 1;
     ScriptApp.newTrigger('autoProcessDaily')
       .timeBased()
       .everyDays(1)
-      .atHour(1)
+      .atHour(hour)
       .create();
-
-    Logger.log('✅ Đã thiết lập tự động chạy hàng ngày lúc 01:00!');
-    try { getSS().toast('✅ Đã thiết lập tự động chạy hàng ngày lúc 01:00!', 'Tự Động Hóa', 5); } catch(e) {}
+      
+    return true;
   } catch (e) {
-    Logger.log('❌ Lỗi thiết lập: ' + e.message);
-    try { getSS().toast('❌ Lỗi thiết lập: ' + e.message, 'Lỗi', 5); } catch(e2) {}
+    throw new Error("Lỗi lưu tự động hóa: " + e.message);
+  }
+}
+
+function logAutomationStatus(statusText) {
+  try {
+    var settings = getAutomationSettings();
+    settings.lastRunStatus = statusText;
+    PropertiesService.getDocumentProperties().setProperty("AUTOMATION_SETTINGS", JSON.stringify(settings));
+  } catch (e) {
+    Logger.log("Lỗi logAutomationStatus: " + e.toString());
+  }
+}
+
+function setupAutomation() {
+  try {
+    var ui = getUI();
+    if (!ui) {
+      Logger.log('setupAutomation: Hàm này chỉ hoạt động khi mở từ Google Sheets.');
+      return;
+    }
+    
+    var settings = getAutomationSettings();
+    
+    // Tạo option HTML cho Dropdown giờ chạy
+    var hourOptionsHtml = '';
+    for (var h = 0; h < 24; h++) {
+      var isSelected = (settings.hour === h) ? ' selected' : '';
+      var displayHour = String(h).padStart(2, '0') + ':00';
+      hourOptionsHtml += '<option value="' + h + '"' + isSelected + '>' + displayHour + '</option>';
+    }
+    
+    var htmlContent = '<!DOCTYPE html>'
+      + '<html lang="vi">'
+      + '<head>'
+      + '<base target="_top">'
+      + '<meta charset="UTF-8">'
+      + '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
+      + '<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">'
+      + '<style>'
+      + "@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');"
+      
+      // CSS Variables
+      + ':root {'
+      + '  --bg-deep: #06080f;'
+      + '  --bg-surface: rgba(12,17,29,0.92);'
+      + '  --bg-card: rgba(15,23,42,0.75);'
+      + '  --glass: rgba(99,102,241,0.06);'
+      + '  --glass-border: rgba(99,102,241,0.12);'
+      + '  --accent: #818cf8;'
+      + '  --accent-bright: #a5b4fc;'
+      + '  --accent-rose: #fb7185;'
+      + '  --accent-emerald: #34d399;'
+      + '  --text-1: #f1f5f9;'
+      + '  --text-2: #94a3b8;'
+      + '  --text-3: #475569;'
+      + '  --radius-md: 14px;'
+      + '  --radius-lg: 20px;'
+      + '}'
+      
+      + '*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }'
+      + 'body {'
+      + "  font-family: 'Inter', sans-serif;"
+      + '  background: var(--bg-deep);'
+      + '  color: var(--text-1);'
+      + '  overflow: hidden;'
+      + '  padding: 20px;'
+      + '}'
+      
+      // Cards - Glassmorphism
+      + '.card {'
+      + '  background: var(--bg-card); border: 1px solid var(--glass-border);'
+      + '  border-radius: var(--radius-lg); padding: 22px; margin-bottom: 16px;'
+      + '  backdrop-filter: blur(16px);'
+      + '}'
+      
+      + '.card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }'
+      + '.card-icon { width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: rgba(99,102,241,0.12); color: var(--accent); }'
+      + '.card-title { font-size: 12px; font-weight: 700; color: var(--text-2); text-transform: uppercase; letter-spacing: 1px; }'
+      
+      // Forms
+      + '.form-group { margin-bottom: 16px; }'
+      + '.form-label { font-size: 12px; font-weight: 600; color: var(--text-2); display: block; margin-bottom: 8px; }'
+      + '.custom-select, .input-field {'
+      + '  width: 100%; padding: 12px 16px;'
+      + '  border-radius: var(--radius-md); border: 1px solid var(--glass-border);'
+      + '  background: rgba(15,23,42,0.6); color: var(--text-1);'
+      + '  font-size: 14px; font-weight: 500;'
+      + '}'
+      + '.custom-select:focus, .input-field:focus { outline: none; border-color: var(--accent); }'
+      
+      + '.btn-save {'
+      + '  width: 100%; padding: 14px; border-radius: var(--radius-md); border: none;'
+      + '  background: linear-gradient(135deg, #6366f1, #8b5cf6);'
+      + '  color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;'
+      + '}'
+      + '.btn-save:hover { opacity: 0.9; }'
+      
+      // Status text
+      + '.log-box {'
+      + '  background: rgba(15,23,42,0.4); border-radius: var(--radius-md); padding: 14px;'
+      + '  font-size: 13px; font-family: monospace; border: 1px solid var(--glass-border); color: var(--text-2); word-break: break-all;'
+      + '}'
+      
+      + '</style>'
+      + '</head>'
+      + '<body>'
+      
+      + '<div class="card">'
+      + '  <div class="card-header"><div class="card-icon"><i class="fas fa-clock"></i></div><div class="card-title">Cấu hình thời gian chạy</div></div>'
+      + '  <div class="form-group">'
+      + '    <label class="form-label">Chọn giờ chạy hàng ngày (Daily):</label>'
+      + '    <select id="hourSelect" class="custom-select">' + hourOptionsHtml + '</select>'
+      + '  </div>'
+      + '</div>'
+      
+      + '<div class="card">'
+      + '  <div class="card-header"><div class="card-icon"><i class="fas fa-envelope"></i></div><div class="card-title">Danh sách Email nhận báo cáo</div></div>'
+      + '  <div class="form-group">'
+      + '    <label class="form-label">Các email (phân tách bằng dấu phẩy):</label>'
+      + '    <input type="text" id="emailsInput" class="input-field" value="' + settings.emails + '">'
+      + '  </div>'
+      + '</div>'
+      
+      + '<div class="card">'
+      + '  <div class="card-header"><div class="card-icon"><i class="fas fa-history"></i></div><div class="card-title">Trạng thái chạy tự động gần nhất</div></div>'
+      + '  <div class="log-box" id="lastRunStatus">' + settings.lastRunStatus + '</div>'
+      + '</div>'
+      
+      + '<button class="btn-save" id="saveBtn" onclick="saveSettings()"><i class="fas fa-save"></i> LƯU THIẾT LẬP</button>'
+      
+      + '<script>'
+      + 'function saveSettings() {'
+      + '  var hour = document.getElementById("hourSelect").value;'
+      + '  var emails = document.getElementById("emailsInput").value.trim();'
+      + '  var btn = document.getElementById("saveBtn");'
+      + '  btn.disabled = true; btn.innerHTML = "<i class=\'fas fa-spinner fa-spin\'></i> Đang lưu...";'
+      
+      + '  google.script.run'
+      + '    .withSuccessHandler(function() {'
+      + '      btn.innerHTML = "<i class=\'fas fa-check\'></i> ĐÃ LƯU THÀNH CÔNG!";'
+      + '      btn.style.background = "#10b981";'
+      + '      setTimeout(function() { google.script.host.close(); }, 1500);'
+      + '    })'
+      + '    .withFailureHandler(function(err) {'
+      + '      alert("Lỗi: " + err.message);'
+      + '      btn.disabled = false; btn.innerHTML = "<i class=\'fas fa-save\'></i> LƯU THIẾT LẬP";'
+      + '    })'
+      + '    .saveAutomationSettings({ hour: parseInt(hour), emails: emails, lastRunStatus: document.getElementById("lastRunStatus").textContent });'
+      + '}'
+      + '</script>'
+      + '</body>'
+      + '</html>';
+      
+    var htmlOutput = HtmlService.createHtmlOutput(htmlContent)
+      .setWidth(500)
+      .setHeight(650);
+      
+    ui.showModalDialog(htmlOutput, 'Cấu hình tự động hóa tổng hợp');
+  } catch (e) {
+    throw new Error('Lỗi hiển thị giao diện tự động hóa: ' + e.message);
   }
 }
 
@@ -403,8 +575,12 @@ function autoProcessDaily() {
     sendReportEmail(ss);
 
     Logger.log('✅ Hoàn thành tự động tổng hợp.');
+    var formattedTime = Utilities.formatDate(new Date(), CONFIG.TIMEZONE || 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm:ss');
+    logAutomationStatus("Thành công lúc " + formattedTime);
   } catch (e) {
     Logger.log('Loi autoProcessDaily: ' + e.message);
+    var formattedTime = Utilities.formatDate(new Date(), CONFIG.TIMEZONE || 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm:ss');
+    logAutomationStatus("Thất bại lúc " + formattedTime + ": " + e.message);
     try {
       var formattedTime = Utilities.formatDate(
         new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss'
@@ -656,7 +832,18 @@ function sendReportEmail(ss) {
     if (sheetPreviewBlob) emailOptions.inlineImages = { sheetPreview: sheetPreviewBlob };
     if (pdfBlob) emailOptions.attachments = [pdfBlob];
 
-    REPORT_EMAILS.forEach(function(email) {
+    var activeEmails = CONFIG.EMAILS;
+    try {
+      var settings = getAutomationSettings();
+      if (settings && settings.emails) {
+        var parsedEmails = settings.emails.split(',').map(function(e) { return e.trim(); }).filter(function(e) { return e.indexOf('@') > 0; });
+        if (parsedEmails.length > 0) {
+          activeEmails = parsedEmails;
+        }
+      }
+    } catch(eSettings) {}
+
+    activeEmails.forEach(function(email) {
       MailApp.sendEmail(
         email,
         '[KING\'s GRILL] Bao cao tong hop cham cong - ' + formattedDate,
@@ -665,7 +852,7 @@ function sendReportEmail(ss) {
       );
     });
 
-    Logger.log('Da gui email bao cao den ' + REPORT_EMAILS.join(', '));
+    Logger.log('Da gui email bao cao den ' + activeEmails.join(', '));
   } catch (e) {
     Logger.log('Loi gui email: ' + e.message);
   }
@@ -727,30 +914,34 @@ function removeSpecialDayTag(day, type) {
 }
 
 // =====================================================================================
-// 5. GIAO DIỆN NGƯỜI DÙNG (HTML/CSS) - ĐÃ NÂNG CẤP
-// =====================================================================================
-
-
-// =====================================================================================
-// 5. GIAO DIEN NGUOI DUNG (HTML/CSS) - ULTRA PREMIUM v4.0
+// 5. GIAO DIỆN NGƯỜI DÙNG (HTML/CSS) - ULTRA PREMIUM v4.0
 // =====================================================================================
 
 function showSheetSelectionDialog() {
   try {
     var ui = getUI();
     if (!ui) {
-      Logger.log('showSheetSelectionDialog: Ham nay chi hoat dong khi mo tu Google Sheets.');
+      Logger.log('showSheetSelectionDialog: Hàm này chỉ hoạt động khi mở từ Google Sheets.');
       return;
     }
     var ss = getSS();
     var sheets = ss.getSheets();
-    var optionsHtml = '<option value="">-- Chon sheet --</option>';
+    
+    // Tự động nhận dạng sheet của tháng hiện hành
+    var dateObj = new Date();
+    var curMonth = String(dateObj.getMonth() + 1).padStart(2, '0');
+    var curYear = dateObj.getFullYear();
+    var defaultSheetName = "Tháng " + curMonth + "/" + curYear;
+    
+    var optionsHtml = '<option value="">-- Chọn sheet --</option>';
     sheets.forEach(function(s) {
       var name = s.getName();
-      if (name !== 'DATA' && name.indexOf('API_KEYS') < 0) {
-        optionsHtml += '<option value="' + name.replace(/"/g, '&quot;') + '">' + name + '</option>';
+      if (name !== 'DATA' && name.indexOf('API_KEYS') < 0 && name.indexOf('JSON_') < 0) {
+        var isSelected = (name === defaultSheetName) ? ' selected' : '';
+        optionsHtml += '<option value="' + name.replace(/"/g, '&quot;') + '"' + isSelected + '>' + name + '</option>';
       }
     });
+    
     var storedTags = getStoredSpecialDaysTags();
     var currentYear = new Date().getFullYear();
 
@@ -982,31 +1173,8 @@ function showSheetSelectionDialog() {
       + '.custom-select:hover { border-color: rgba(99,102,241,0.3); }'
       + '.custom-select option { background: #0f172a; color: #f1f5f9; padding: 8px; }'
 
-      // Input row
-      + '.input-group { display: flex; gap: 8px; align-items: stretch; }'
-      + '.input-field {'
-      + '  flex: 1; padding: 12px 16px; border-radius: var(--radius-sm);'
-      + '  border: 1px solid var(--glass-border); background: rgba(15,23,42,0.6);'
-      + '  color: var(--text-1); font-size: 14px; font-weight: 500;'
-      + "  font-family: 'Inter', sans-serif;"
-      + '  transition: all 0.25s;'
-      + '}'
-      + '.input-field:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,102,241,0.12); }'
-      + '.input-field::placeholder { color: var(--text-3); }'
-      + '.type-select { width: 88px !important; padding: 10px 28px 10px 12px !important; font-size: 13px !important; }'
-
-      // Add button
-      + '.btn-add {'
-      + '  width: 44px; min-width: 44px; height: 44px; border-radius: var(--radius-sm); border: none;'
-      + '  background: linear-gradient(135deg, var(--accent), var(--accent-2));'
-      + '  color: #fff; font-size: 16px; cursor: pointer;'
-      + '  display: flex; align-items: center; justify-content: center;'
-      + '  transition: all 0.25s; flex-shrink: 0;'
-      + '  box-shadow: 0 4px 16px rgba(99,102,241,0.25);'
-      + '}'
-      + '.btn-add:hover { transform: translateY(-2px) scale(1.05); box-shadow: 0 6px 24px rgba(99,102,241,0.4); }'
-      + '.btn-add:active { transform: scale(0.95); }'
-      + '.btn-add:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; box-shadow: none; }'
+      // Calendar style
+      + '.cal-day:hover { transform: scale(1.08); border-color: var(--accent) !important; }'
 
       // Tags - Redesigned
       + '.tags-panel {'
@@ -1165,23 +1333,26 @@ function showSheetSelectionDialog() {
 
       // Card 2 - Special Days
       + '<div class="card">'
-      + '  <div class="card-header"><div class="card-icon cyan"><i class="fas fa-calendar-star"></i></div><div class="card-title">Ngày Đặc Biệt</div></div>'
-      + '  <div class="input-group">'
-      + '    <input type="text" id="newDay" class="input-field" placeholder="DD/MM" maxlength="5">'
-      + '    <select id="dayType" class="custom-select type-select">'
-      + '      <option value="x2">x2</option>'
-      + '      <option value="x3">x3</option>'
-      + '    </select>'
-      + '    <button type="button" class="btn-add" id="addBtn" onclick="addDay()"><i class="fas fa-plus"></i></button>'
+      + '  <div class="card-header"><div class="card-icon cyan"><i class="fas fa-calendar-alt"></i></div><div class="card-title">Lịch Ngày Đặc Biệt</div></div>'
+      + '  <div class="calendar-nav" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">'
+      + '    <button type="button" class="btn-cal" onclick="changeMonth(-1)" style="background:rgba(99,102,241,0.1); border:1px solid var(--glass-border); color:var(--text-1); padding:5px 12px; border-radius:8px; cursor:pointer;"><i class="fas fa-chevron-left"></i></button>'
+      + '    <span id="calendarMonthLabel" style="font-weight:700; color:var(--accent-bright); font-size:14px;">Tháng --/----</span>'
+      + '    <button type="button" class="btn-cal" onclick="changeMonth(1)" style="background:rgba(99,102,241,0.1); border:1px solid var(--glass-border); color:var(--text-1); padding:5px 12px; border-radius:8px; cursor:pointer;"><i class="fas fa-chevron-right"></i></button>'
+      + '  </div>'
+      + '  <div class="calendar-grid" id="calendarGrid" style="display:grid; grid-template-columns:repeat(7, 1fr); gap:6px; margin-bottom:16px;"></div>'
+      + '  <div class="legend" style="display:flex; gap:12px; font-size:11px; margin-bottom:16px; justify-content:center; color:var(--text-2); font-weight:600;">'
+      + '    <div style="display:flex; align-items:center; gap:4px;"><span style="width:12px; height:12px; border-radius:3px; background:rgba(99,102,241,0.03); border:1px solid var(--glass-border); display:inline-block;"></span> Thường</div>'
+      + '    <div style="display:flex; align-items:center; gap:4px;"><span style="width:12px; height:12px; border-radius:3px; background:linear-gradient(135deg, #d97706, #f59e0b); display:inline-block;"></span> Ngày x2</div>'
+      + '    <div style="display:flex; align-items:center; gap:4px;"><span style="width:12px; height:12px; border-radius:3px; background:linear-gradient(135deg, #7c3aed, #a855f7); display:inline-block;"></span> Ngày x3</div>'
       + '  </div>'
       + '  <div class="tags-panel">'
       + '    <div class="tags-row">'
-      + '      <div class="tags-head amber"><i class="fas fa-fire"></i> x2 - Tăng Ca / Cuối Tuần</div>'
+      + '      <div class="tags-head amber"><i class="fas fa-fire"></i> Danh sách Ngày x2</div>'
       + '      <div class="tags-flex" id="x2Tags"></div>'
       + '    </div>'
       + '    <div class="tags-sep"></div>'
       + '    <div class="tags-row">'
-      + '      <div class="tags-head purple"><i class="fas fa-gem"></i> x3 - Lễ / Tết</div>'
+      + '      <div class="tags-head purple"><i class="fas fa-gem"></i> Danh sách Ngày x3</div>'
       + '      <div class="tags-flex" id="x3Tags"></div>'
       + '    </div>'
       + '  </div>'
@@ -1224,9 +1395,93 @@ function showSheetSelectionDialog() {
       + '}'
       + 'tickClock(); setInterval(tickClock, 1000);'
 
-      // Tags logic
+      // Calendar Variables & Render logic
+      + 'var calDate = new Date(); calDate.setDate(1);'
       + 'var currentTags = ' + JSON.stringify(storedTags) + ';'
-      + 'updateTagsDisplay(currentTags);'
+
+      + 'function renderCalendar(){'
+      + '  var grid = document.getElementById("calendarGrid");'
+      + '  grid.innerHTML = "";'
+      + '  var weekdays = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];'
+      + '  weekdays.forEach(function(wd) {'
+      + '    var h = document.createElement("div");'
+      + '    h.textContent = wd;'
+      + '    h.style.textAlign = "center";'
+      + '    h.style.fontWeight = "700";'
+      + '    h.style.fontSize = "10px";'
+      + '    h.style.color = "var(--text-3)";'
+      + '    h.style.padding = "4px 0";'
+      + '    grid.appendChild(h);'
+      + '  });'
+      + '  var firstDayIndex = calDate.getDay();'
+      + '  var startOffset = (firstDayIndex === 0) ? 6 : firstDayIndex - 1;'
+      + '  for (var i = 0; i < startOffset; i++) {'
+      + '    var blank = document.createElement("div");'
+      + '    blank.style.height = "34px";'
+      + '    grid.appendChild(blank);'
+      + '  }'
+      + '  var totalDays = new Date(calDate.getFullYear(), calDate.getMonth() + 1, 0).getDate();'
+      + '  for (var day = 1; day <= totalDays; day++) {'
+      + '    var cell = document.createElement("button");'
+      + '    cell.type = "button";'
+      + '    cell.className = "cal-day";'
+      + '    cell.textContent = day;'
+      + '    cell.style.height = "34px";'
+      + '    cell.style.border = "1px solid var(--glass-border)";'
+      + '    cell.style.borderRadius = "8px";'
+      + '    cell.style.cursor = "pointer";'
+      + '    cell.style.fontWeight = "600";'
+      + '    cell.style.fontSize = "12px";'
+      + '    cell.style.transition = "all 0.2s";'
+      + '    var dayStr = String(day).padStart(2, "0") + "/" + String(calDate.getMonth() + 1).padStart(2, "0");'
+      + '    if (currentTags.x2Days.indexOf(dayStr) >= 0) {'
+      + '      cell.style.background = "linear-gradient(135deg, #d97706, #f59e0b)";'
+      + '      cell.style.color = "#fff";'
+      + '      cell.setAttribute("data-state", "x2");'
+      + '    } else if (currentTags.x3Days.indexOf(dayStr) >= 0) {'
+      + '      cell.style.background = "linear-gradient(135deg, #7c3aed, #a855f7)";'
+      + '      cell.style.color = "#fff";'
+      + '      cell.setAttribute("data-state", "x3");'
+      + '    } else {'
+      + '      cell.style.background = "rgba(99,102,241,0.03)";'
+      + '      cell.style.color = "var(--text-1)";'
+      + '      cell.setAttribute("data-state", "normal");'
+      + '    }'
+      + '    (function(dStr, cEl) {'
+      + '      cEl.addEventListener("click", function() {'
+      + '        var state = cEl.getAttribute("data-state");'
+      + '        if (state === "normal") {'
+      + '          currentTags.x2Days.push(dStr);'
+      + '          cEl.setAttribute("data-state", "x2");'
+      + '          cEl.style.background = "linear-gradient(135deg, #d97706, #f59e0b)";'
+      + '          cEl.style.color = "#fff";'
+      + '        } else if (state === "x2") {'
+      + '          currentTags.x2Days = currentTags.x2Days.filter(function(d) { return d !== dStr; });'
+      + '          currentTags.x3Days.push(dStr);'
+      + '          cEl.setAttribute("data-state", "x3");'
+      + '          cEl.style.background = "linear-gradient(135deg, #7c3aed, #a855f7)";'
+      + '          cEl.style.color = "#fff";'
+      + '        } else {'
+      + '          currentTags.x3Days = currentTags.x3Days.filter(function(d) { return d !== dStr; });'
+      + '          cEl.setAttribute("data-state", "normal");'
+      + '          cEl.style.background = "rgba(99,102,241,0.03)";'
+      + '          cEl.style.color = "var(--text-1)";'
+      + '        }'
+      + '        currentTags.x2Days.sort();'
+      + '        currentTags.x3Days.sort();'
+      + '        updateTagsDisplay(currentTags);'
+      + '      });'
+      + '    })(dayStr, cell);'
+      + '    grid.appendChild(cell);'
+      + '  }'
+      + '  var monthNames = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"];'
+      + '  document.getElementById("calendarMonthLabel").textContent = "Tháng " + monthNames[calDate.getMonth()] + "/" + calDate.getFullYear();'
+      + '}'
+
+      + 'function changeMonth(dir) {'
+      + '  calDate.setMonth(calDate.getMonth() + dir);'
+      + '  renderCalendar();'
+      + '}'
 
       + 'function activateStep(n){'
       + '  for(var i=1;i<=3;i++){'
@@ -1235,37 +1490,17 @@ function showSheetSelectionDialog() {
       + '  }'
       + '}'
 
-      // Auto-format DD/MM
-      + 'document.getElementById("newDay").addEventListener("input", function(e){'
-      + '  var v=e.target.value.replace(/[^0-9]/g,"");'
-      + '  if(v.length>=2) v=v.substring(0,2)+"/"+v.substring(2,4);'
-      + '  e.target.value=v;'
-      + '});'
-      + 'document.getElementById("newDay").addEventListener("keypress", function(e){ if(e.key==="Enter") addDay(); });'
-      + 'document.getElementById("newDay").addEventListener("focus", function(){ activateStep(2); });'
-
-      + 'function addDay(){'
-      + '  var inp=document.getElementById("newDay"), type=document.getElementById("dayType").value, day=inp.value.trim();'
-      + '  if(!day.match(/^\\d{2}\\/\\d{2}$/)) return showToast("Định dạng ngày phải là DD/MM","error");'
-      + '  if(currentTags.x2Days.indexOf(day)>=0||currentTags.x3Days.indexOf(day)>=0) return showToast("Ngày này đã tồn tại","warning");'
-      + '  var btn=document.getElementById("addBtn"), orig=btn.innerHTML;'
-      + '  btn.disabled=true; btn.innerHTML=\'<div class="spin"></div>\';'
-      + '  google.script.run'
-      + '    .withSuccessHandler(function(res){ updateTagsDisplay(res); inp.value=""; showToast("Đã thêm ngày thành công","success"); btn.disabled=false; btn.innerHTML=orig; })'
-      + '    .withFailureHandler(function(err){ showToast("Lỗi: "+err.message,"error"); btn.disabled=false; btn.innerHTML=orig; })'
-      + '    .addSpecialDayTag(day,type);'
-      + '}'
-
       + 'function removeDay(day,type){'
-      + '  google.script.run'
-      + '    .withSuccessHandler(function(res){ updateTagsDisplay(res); showToast("Đã xóa ngày","success"); })'
-      + '    .removeSpecialDayTag(day,type);'
+      + '  if(type==="x2") currentTags.x2Days = currentTags.x2Days.filter(function(d){ return d !== day; });'
+      + '  else if(type==="x3") currentTags.x3Days = currentTags.x3Days.filter(function(d){ return d !== day; });'
+      + '  updateTagsDisplay(currentTags);'
       + '}'
 
       + 'function updateTagsDisplay(tags){'
       + '  currentTags=tags;'
       + '  renderTags(tags.x2Days,"x2Tags","x2");'
       + '  renderTags(tags.x3Days,"x3Tags","x3");'
+      + '  renderCalendar();'
       + '}'
 
       + 'function renderTags(list,elId,type){'
@@ -1287,27 +1522,36 @@ function showSheetSelectionDialog() {
       + '  document.getElementById("statusLine").className="status-line running";'
       + '  var x2=currentTags.x2Days.join("\\n"), x3=currentTags.x3Days.join("\\n");'
       + '  google.script.run'
-      + '    .withSuccessHandler(function(){'
-      + '      document.querySelector(".prog-fill").style.width="100%";'
-      + '      btn.innerHTML=\'<i class="fas fa-check-circle"></i> HOÀN TẤT!\';'
-      + '      btn.style.background="linear-gradient(135deg,#059669,#10b981)";'
-      + '      btn.style.boxShadow="0 4px 24px rgba(16,185,129,0.4)";'
-      + '      document.getElementById("statusLine").textContent="Tổng hợp hoàn tất thành công!";'
-      + '      document.getElementById("statusLine").className="status-line done";'
-      + '      showToast("Tổng hợp hoàn tất thành công!","success");'
-      + '      setTimeout(function(){ google.script.host.close(); }, 2500);'
+      + '    .withSuccessHandler(function() {'
+      + '      google.script.run'
+      + '        .withSuccessHandler(function(){'
+      + '          document.querySelector(".prog-fill").style.width="100%";'
+      + '          btn.innerHTML=\'<i class="fas fa-check-circle"></i> HOÀN TẤT!\';'
+      + '          btn.style.background="linear-gradient(135deg,#059669,#10b981)";'
+      + '          btn.style.boxShadow="0 4px 24px rgba(16,185,129,0.4)";'
+      + '          document.getElementById("statusLine").textContent="Tổng hợp hoàn tất thành công!";'
+      + '          document.getElementById("statusLine").className="status-line done";'
+      + '          showToast("Tổng hợp hoàn tất thành công!","success");'
+      + '          setTimeout(function(){ google.script.host.close(); }, 2500);'
+      + '        })'
+      + '        .withFailureHandler(function(err){'
+      + '          showToast("Lỗi: "+err.message,"error");'
+      + '          btn.disabled=false;'
+      + '          btn.innerHTML=\'<i class="fas fa-bolt"></i> BẮT ĐẦU TỔNG HỢP\';'
+      + '          btn.style.background=""; btn.style.boxShadow="";'
+      + '          document.getElementById("progTrack").classList.remove("on");'
+      + '          document.querySelector(".prog-fill").style.width="0";'
+      + '          document.getElementById("statusLine").textContent="";'
+      + '          document.getElementById("statusLine").className="status-line";'
+      + '        })'
+      + '        .processSelectedSheetEnhanced(sheet,x2,x3);'
       + '    })'
-      + '    .withFailureHandler(function(err){'
-      + '      showToast("Lỗi: "+err.message,"error");'
+      + '    .withFailureHandler(function(err) {'
+      + '      showToast("Lỗi lưu cấu hình: " + err.message, "error");'
       + '      btn.disabled=false;'
       + '      btn.innerHTML=\'<i class="fas fa-bolt"></i> BẮT ĐẦU TỔNG HỢP\';'
-      + '      btn.style.background=""; btn.style.boxShadow="";'
-      + '      document.getElementById("progTrack").classList.remove("on");'
-      + '      document.querySelector(".prog-fill").style.width="0";'
-      + '      document.getElementById("statusLine").textContent="";'
-      + '      document.getElementById("statusLine").className="status-line";'
       + '    })'
-      + '    .processSelectedSheetEnhanced(sheet,x2,x3);'
+      + '    .saveSpecialDaysTags(currentTags.x2Days, currentTags.x3Days);'
       + '}'
 
       + 'function showToast(msg,type){'

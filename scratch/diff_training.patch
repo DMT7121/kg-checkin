@@ -1,0 +1,445 @@
+﻿diff --git a/src/pages/Training.tsx b/src/pages/Training.tsx
+index 1858a58..8e9e6a2 100644
+--- a/src/pages/Training.tsx
++++ b/src/pages/Training.tsx
+@@ -5,12 +5,13 @@ import {
+   GraduationCap, BookOpen, Award, CheckCircle2,
+   RefreshCw, ChevronRight, Search, Sparkles, Send,
+   HelpCircle, Bot, BookMarked, UserCheck, ChevronDown, ChevronUp,
+-  X, Zap, ShieldAlert, ListFilter, Eye, FileText
++  X, Zap, ShieldAlert, ListFilter, Eye, FileText, Tablet
+ } from 'lucide-react';
+ import Swal from 'sweetalert2';
+ import confetti from 'canvas-confetti';
+ import { motion } from 'framer-motion';
+ import { sopData } from './sopData';
++import { cukcukData } from './cukcukData';
+ import {
+   isCriticalSop,
+   plainSopText,
+@@ -91,8 +92,8 @@ export default function Training() {
+   const [answers, setAnswers] = useState<Record<number, number>>({});
+   const [loading, setLoading] = useState(true);
+ 
+-  // Tabs: 'sop' (Sß╗ò tay vß║¡n h├ánh) or 'quiz' (B├ái hß╗ìc & ─É├áo tß║ío)
+-  const [activeTab, setActiveTab] = useState<'sop' | 'quiz'>('sop');
++  // Tabs: 'sop' (Sß╗ò tay vß║¡n h├ánh) or 'quiz' (B├ái hß╗ìc & ─É├áo tß║ío) or 'cukcuk' (H╞░ß╗¢ng dß║½n CUKCUK)
++  const [activeTab, setActiveTab] = useState<'sop' | 'quiz' | 'cukcuk'>('sop');
+ 
+   // SOP State
+   const [selectedSection, setSelectedSection] = useState<string>('welcome');
+@@ -102,6 +103,162 @@ export default function Training() {
+   const [openAccordions, setOpenAccordions] = useState<Record<string, boolean>>({});
+   const [isMobileCategoryOpen, setIsMobileCategoryOpen] = useState(false);
+ 
++  // CUKCUK State
++  const [cukcukSearch, setCukcukSearch] = useState('');
++  const [activeCukcukIndex, setActiveCukcukIndex] = useState<number | null>(null);
++  const [zoomScale, setZoomScale] = useState(1);
++  const [zoomPos, setZoomPos] = useState({ x: 0, y: 0 });
++  const [isDraggingZoom, setIsDraggingZoom] = useState(false);
++  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
++  const [touchStartDist, setTouchStartDist] = useState<number | null>(null);
++  const [touchStartScale, setTouchStartScale] = useState<number>(1);
++  const [lastTouchTime, setLastTouchTime] = useState<number>(0);
++
++  const resetZoom = () => {
++    setZoomScale(1);
++    setZoomPos({ x: 0, y: 0 });
++  };
++
++  const zoomIn = () => {
++    setZoomScale(prev => Math.min(prev + 0.25, 4));
++  };
++  const zoomOut = () => {
++    setZoomScale(prev => Math.max(prev - 0.25, 0.75));
++  };
++
++  const handleMouseDown = (e: React.MouseEvent) => {
++    if (zoomScale <= 1) return;
++    setIsDraggingZoom(true);
++    setDragStart({ x: e.clientX - zoomPos.x, y: e.clientY - zoomPos.y });
++  };
++
++  const handleMouseMove = (e: React.MouseEvent) => {
++    if (!isDraggingZoom || zoomScale <= 1) return;
++    setZoomPos({
++      x: e.clientX - dragStart.x,
++      y: e.clientY - dragStart.y
++    });
++  };
++
++  const handleMouseUp = () => {
++    setIsDraggingZoom(false);
++  };
++
++  const handleWheel = (e: React.WheelEvent) => {
++    const zoomIntensity = 0.15;
++    const delta = e.deltaY < 0 ? 1 : -1;
++    setZoomScale(prev => Math.max(0.75, Math.min(prev + delta * zoomIntensity, 4)));
++  };
++
++  const getTouchDistance = (e: React.TouchEvent) => {
++    if (e.touches.length < 2) return 0;
++    const t1 = e.touches[0];
++    const t2 = e.touches[1];
++    return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
++  };
++
++  const handleTouchStart = (e: React.TouchEvent) => {
++    const now = Date.now();
++    
++    // Check for double-tap zoom
++    if (e.touches.length === 1) {
++      if (now - lastTouchTime < 300) {
++        e.preventDefault();
++        handleDoubleClick();
++        setLastTouchTime(0); // Reset lastTouchTime
++        return;
++      }
++      setLastTouchTime(now);
++
++      // single touch starts panning if scale is > 1
++      if (zoomScale > 1) {
++        setIsDraggingZoom(true);
++        const touch = e.touches[0];
++        setDragStart({ x: touch.clientX - zoomPos.x, y: touch.clientY - zoomPos.y });
++      }
++    } else if (e.touches.length === 2) {
++      // Two-finger touch starts pinch zoom
++      const dist = getTouchDistance(e);
++      setTouchStartDist(dist);
++      setTouchStartScale(zoomScale);
++      setIsDraggingZoom(false);
++    }
++  };
++
++  const handleTouchMove = (e: React.TouchEvent) => {
++    if (e.touches.length === 2 && touchStartDist !== null) {
++      e.preventDefault();
++      const currentDist = getTouchDistance(e);
++      if (currentDist > 0) {
++        const scaleRatio = currentDist / touchStartDist;
++        const newScale = Math.max(0.75, Math.min(touchStartScale * scaleRatio, 4));
++        setZoomScale(newScale);
++      }
++    } else if (e.touches.length === 1 && isDraggingZoom && zoomScale > 1) {
++      e.preventDefault();
++      const touch = e.touches[0];
++      setZoomPos({
++        x: touch.clientX - dragStart.x,
++        y: touch.clientY - dragStart.y
++      });
++    }
++  };
++
++  const handleTouchEnd = () => {
++    setIsDraggingZoom(false);
++    setTouchStartDist(null);
++  };
++
++  const handleDoubleClick = () => {
++    if (zoomScale > 1) {
++      resetZoom();
++    } else {
++      setZoomScale(2);
++      setZoomPos({ x: 0, y: 0 });
++    }
++  };
++
++  // Keyboard events inside lightbox
++  useEffect(() => {
++    if (activeCukcukIndex === null) return;
++
++    const handleKeyDown = (e: KeyboardEvent) => {
++      if (e.key === 'Escape') {
++        setActiveCukcukIndex(null);
++      } else if (e.key === 'ArrowLeft') {
++        if (activeCukcukIndex > 0) {
++          setActiveCukcukIndex(activeCukcukIndex - 1);
++        }
++      } else if (e.key === 'ArrowRight') {
++        if (activeCukcukIndex < cukcukData.length - 1) {
++          setActiveCukcukIndex(activeCukcukIndex + 1);
++        }
++      }
++    };
++
++    window.addEventListener('keydown', handleKeyDown);
++    return () => {
++      window.removeEventListener('keydown', handleKeyDown);
++    };
++  }, [activeCukcukIndex]);
++
++  // Reset zoom whenever active step changes
++  useEffect(() => {
++    resetZoom();
++  }, [activeCukcukIndex]);
++
++  // Filter cukcuk steps
++  const filteredCukcukSteps = useMemo(() => {
++    const term = cukcukSearch.trim().toLowerCase();
++    if (!term) return cukcukData;
++    return cukcukData.filter(
++      item =>
++        item.title.toLowerCase().includes(term) ||
++        item.description.toLowerCase().includes(term) ||
++        `b╞░ß╗¢c ${item.step}`.includes(term)
++    );
++  }, [cukcukSearch]);
++
+ 
+ 
+   // Fetch training lessons
+@@ -331,6 +488,16 @@ export default function Training() {
+               </span>
+             )}
+           </button>
++          <button
++            onClick={() => setActiveTab('cukcuk')}
++            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 ${
++              activeTab === 'cukcuk'
++                ? 'bg-[var(--kg-primary)] text-white shadow-sm'
++                : 'text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)]'
++            }`}
++          >
++            <Tablet size={14} /> H╞░ß╗¢ng dß║½n CUKCUK
++          </button>
+       </div>
+ 
+       {/* Tab 1: Tra cß╗⌐u SOP */}
+@@ -814,6 +981,100 @@ export default function Training() {
+         </div>
+       )}
+ 
++      {/* Tab 3: H╞░ß╗¢ng dß║½n CUKCUK */}
++      {activeTab === 'cukcuk' && (
++        <div className="space-y-4">
++          {/* Controls: Search */}
++          <div className="relative w-full">
++            <KgInput
++              placeholder="T├¼m kiß║┐m b╞░ß╗¢c h╞░ß╗¢ng dß║½n (v├¡ dß╗Ñ: ─æ─âng nhß║¡p, hß╗ºy m├│n, chuyß╗ân b├án...)"
++              value={cukcukSearch}
++              onChange={(e) => setCukcukSearch(e.target.value)}
++              icon={Search}
++              className="w-full"
++            />
++            {cukcukSearch && (
++              <button
++                type="button"
++                onClick={() => setCukcukSearch('')}
++                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 z-10"
++              >
++                <X size={16} />
++              </button>
++            )}
++          </div>
++
++          {filteredCukcukSteps.length === 0 ? (
++            <KgCard className="p-8 text-center border-dashed border-slate-100 dark:border-slate-800">
++              <HelpCircle size={40} className="mx-auto mb-3 text-slate-300 dark:text-slate-600" />
++              <p className="text-sm text-slate-500 font-bold">Kh├┤ng t├¼m thß║Ñy b╞░ß╗¢c h╞░ß╗¢ng dß║½n n├áo khß╗¢p vß╗¢i tß╗½ kh├│a.</p>
++            </KgCard>
++          ) : (
++            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
++              {filteredCukcukSteps.map((stepItem) => {
++                const originalIndex = cukcukData.findIndex(item => item.step === stepItem.step);
++
++                return (
++                  <motion.div
++                    key={stepItem.step}
++                    className="soft3d-card flex flex-col justify-between overflow-hidden border border-slate-100 dark:border-slate-800/80 bg-[var(--kg-surface)] hover:shadow-md transition-all duration-300 group"
++                    initial={{ opacity: 0, y: 10 }}
++                    animate={{ opacity: 1, y: 0 }}
++                    transition={{ duration: 0.2 }}
++                  >
++                    {/* Header */}
++                    <div className="p-4 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/20">
++                      <span className="text-[11px] font-black tracking-wider uppercase px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600 dark:bg-blue-955/35 dark:text-blue-400">
++                        B╞░ß╗¢c {stepItem.step < 10 ? `0${stepItem.step}` : stepItem.step}
++                      </span>
++                      <h4 className="font-extrabold text-slate-850 dark:text-white text-xs truncate max-w-[180px]">
++                        {stepItem.title}
++                      </h4>
++                    </div>
++
++                    {/* Image Area */}
++                    <div
++                      onClick={() => {
++                        setActiveCukcukIndex(originalIndex);
++                      }}
++                      className="relative overflow-hidden cursor-zoom-in bg-slate-100 dark:bg-slate-950 flex items-center justify-center border-b border-slate-100 dark:border-slate-800/80 aspect-video"
++                    >
++                      <img
++                        src={stepItem.image}
++                        alt={stepItem.title}
++                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
++                        loading="lazy"
++                      />
++                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
++                        <span className="bg-white/90 dark:bg-slate-900/90 text-slate-850 dark:text-white text-[11px] font-bold px-3 py-1.5 rounded-xl shadow-md flex items-center gap-1.5 backdrop-blur-sm">
++                          <Eye size={12} /> Xem ß║únh r├╡ n├⌐t
++                        </span>
++                      </div>
++                    </div>
++
++                    {/* Description */}
++                    <div className="p-4 flex-1 flex flex-col justify-between">
++                      <p className="text-xs text-slate-650 dark:text-slate-350 leading-relaxed font-semibold mb-4 min-h-[48px]">
++                        {stepItem.description}
++                      </p>
++                      <button
++                        type="button"
++                        onClick={() => {
++                          setActiveCukcukIndex(originalIndex);
++                        }}
++                        className="w-full py-2.5 text-center text-xs font-black text-blue-600 dark:text-blue-400 bg-blue-50/50 hover:bg-blue-50 dark:bg-blue-955/20 dark:hover:bg-blue-955/35 rounded-xl transition-all duration-200"
++                      >
++                        Ph├│ng to chi tiß║┐t
++                      </button>
++                    </div>
++                  </motion.div>
++                );
++              })}
++            </div>
++          )}
++        </div>
++      )}
++
+ 
+       {/* Mobile Category Selector Bottom Sheet */}
+       <KgBottomSheet
+@@ -875,6 +1136,133 @@ export default function Training() {
+           </div>
+         </div>
+       </KgBottomSheet>
++
++      {/* Lightbox Zoom Modal */}
++      {activeCukcukIndex !== null && (
++        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/95 backdrop-blur-sm select-none">
++          {/* Header Controls */}
++          <div className="absolute top-0 inset-x-0 p-4 flex items-center justify-between bg-gradient-to-b from-black/80 to-black/0 text-white z-10">
++            <div className="flex flex-col">
++              <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">
++                H╞░ß╗¢ng dß║½n sß╗¡ dß╗Ñng CUKCUK ΓÇó B╞░ß╗¢c {activeCukcukIndex + 1}/{cukcukData.length}
++              </span>
++              <h3 className="text-sm font-black text-white">
++                {cukcukData[activeCukcukIndex].title}
++              </h3>
++            </div>
++            
++            {/* Zoom Percent indicator */}
++            <div className="flex items-center gap-2">
++              <span className="text-xs font-black bg-slate-800 px-2.5 py-1 rounded-lg text-slate-300">
++                {Math.round(zoomScale * 100)}%
++              </span>
++              <button
++                type="button"
++                onClick={() => {
++                  setActiveCukcukIndex(null);
++                }}
++                className="p-2 bg-slate-850 hover:bg-slate-700 active:scale-95 rounded-xl transition-all"
++                title="─É├│ng (Esc)"
++              >
++                <X size={20} />
++              </button>
++            </div>
++          </div>
++
++          {/* Image Container with Panning/Zooming */}
++          <div 
++            className="w-full h-full flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing p-4 select-none touch-none"
++            onMouseDown={handleMouseDown}
++            onMouseMove={handleMouseMove}
++            onMouseUp={handleMouseUp}
++            onMouseLeave={handleMouseUp}
++            onTouchStart={handleTouchStart}
++            onTouchMove={handleTouchMove}
++            onTouchEnd={handleTouchEnd}
++            onWheel={handleWheel}
++          >
++            <div
++              className="transition-transform duration-75 ease-out select-none"
++              style={{
++                transform: `translate(${zoomPos.x}px, ${zoomPos.y}px) scale(${zoomScale})`,
++              }}
++              onDoubleClick={handleDoubleClick}
++            >
++              <img
++                src={cukcukData[activeCukcukIndex].image}
++                alt={cukcukData[activeCukcukIndex].title}
++                className="max-h-[80vh] max-w-[95vw] md:max-h-[85vh] md:max-w-[85vw] object-contain pointer-events-none rounded shadow-2xl border border-white/10"
++              />
++            </div>
++          </div>
++
++          {/* Floating Action Bar */}
++          <div className="absolute bottom-6 flex flex-col items-center gap-3 w-full max-w-lg px-6 z-10">
++            {/* Description Text */}
++            <div className="bg-slate-900/90 text-slate-100 text-xs font-semibold p-4 rounded-2xl shadow-xl border border-slate-800/80 text-center backdrop-blur-md max-h-[120px] overflow-y-auto w-full leading-relaxed">
++              {cukcukData[activeCukcukIndex].description}
++            </div>
++
++            {/* Controls */}
++            <div className="flex items-center justify-between w-full bg-slate-900/85 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-slate-800/80 shadow-2xl">
++              <button
++                type="button"
++                disabled={activeCukcukIndex === 0}
++                onClick={() => {
++                  if (activeCukcukIndex > 0) {
++                    setActiveCukcukIndex(activeCukcukIndex - 1);
++                  }
++                }}
++                className="p-2 bg-slate-850 hover:bg-slate-800 disabled:opacity-40 disabled:pointer-events-none active:scale-95 rounded-xl transition-all text-white"
++                title="B╞░ß╗¢c tr╞░ß╗¢c"
++              >
++                <ChevronRight size={18} className="rotate-180" />
++              </button>
++
++              <div className="flex items-center gap-2.5">
++                <button
++                  type="button"
++                  onClick={zoomOut}
++                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs flex items-center gap-1 active:scale-95 transition-all"
++                  title="Thu nhß╗Å"
++                >
++                  <span className="text-sm font-black">-</span> Thu nhß╗Å
++                </button>
++                <button
++                  type="button"
++                  onClick={resetZoom}
++                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs active:scale-95 transition-all"
++                  title="─Éß║╖t lß║íi zoom"
++                >
++                  Reset
++                </button>
++                <button
++                  type="button"
++                  onClick={zoomIn}
++                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs flex items-center gap-1 active:scale-95 transition-all"
++                  title="Ph├│ng to"
++                >
++                  <span className="text-sm font-black">+</span> Ph├│ng to
++                </button>
++              </div>
++
++              <button
++                type="button"
++                disabled={activeCukcukIndex === cukcukData.length - 1}
++                onClick={() => {
++                  if (activeCukcukIndex < cukcukData.length - 1) {
++                    setActiveCukcukIndex(activeCukcukIndex + 1);
++                  }
++                }}
++                className="p-2 bg-slate-850 hover:bg-slate-800 disabled:opacity-40 disabled:pointer-events-none active:scale-95 rounded-xl transition-all text-white"
++                title="B╞░ß╗¢c sau"
++              >
++                <ChevronRight size={18} />
++              </button>
++            </div>
++          </div>
++        </div>
++      )}
+     </div>
+   );
+ }

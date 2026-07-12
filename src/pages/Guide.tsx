@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { hasTabPermission, getTabLabel, TabId } from '../utils/permissions';
 import {
@@ -29,19 +29,15 @@ export default function Guide() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'personal' | 'operation' | 'admin'>('all');
   const [selectedGuideId, setSelectedGuideId] = useState<TabId | null>(null);
-  const [readGuides, setReadGuides] = useState<string[]>([]);
-
-  // Load read guides from localStorage on mount
-  useEffect(() => {
+  const [readGuides, setReadGuides] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('kg_read_guides');
-      if (saved) {
-        setReadGuides(JSON.parse(saved));
-      }
+      return saved ? JSON.parse(saved) : [];
     } catch (e) {
       console.error('Error loading read guides', e);
+      return [];
     }
-  }, []);
+  });
 
   // Save read state
   const toggleReadStatus = (id: string) => {

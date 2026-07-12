@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { Bell, Check, CheckCheck, Info, AlertTriangle, CheckCircle2, ArrowRight, X } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Bell, CheckCheck, Info, AlertTriangle, CheckCircle2, ArrowRight, X } from 'lucide-react';
 import { callApi } from '../services/api';
 import { useAppStore } from '../store/useAppStore';
 
@@ -24,7 +24,7 @@ export default function NotificationBell() {
   const [hasFetched, setHasFetched] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     if (!currentUser) return;
     const res = await callApi('GET_NOTIFICATIONS', { username: currentUser.username }, { background: true });
     if (res?.ok) {
@@ -32,18 +32,13 @@ export default function NotificationBell() {
       setUnreadCount(res.data.unreadCount || 0);
       setHasFetched(true);
     }
-  };
+  }, [currentUser]);
 
   // Phase B: Only poll every 2 minutes (down from 60s), and lazy-fetch on open
   useEffect(() => {
     const interval = setInterval(fetchNotifications, 120000);
     return () => clearInterval(interval);
-  }, [currentUser?.username]);
-
-  // Fetch full list only when dropdown opens for first time
-  useEffect(() => {
-    if (isOpen && !hasFetched) fetchNotifications();
-  }, [isOpen]);
+  }, [currentUser?.username, fetchNotifications]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -79,7 +74,13 @@ export default function NotificationBell() {
     <div ref={dropdownRef} className="relative">
       {/* Bell Button */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          const nextOpen = !isOpen;
+          setIsOpen(nextOpen);
+          if (nextOpen && !hasFetched) {
+            fetchNotifications();
+          }
+        }}
         className="relative p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
       >
         <Bell size={22} className="text-gray-600 dark:text-gray-300" />

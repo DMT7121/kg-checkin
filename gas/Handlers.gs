@@ -1016,15 +1016,61 @@ function formatEntireCheckInSheet() {
     }
   }
   
-  // 2. Chạy khối lệnh format định dạng (batch set properties)
-  rangeObj.setBackgrounds(backgrounds);
-  rangeObj.setHorizontalAlignments(aligns);
-  rangeObj.setVerticalAlignments(vAligns);
-  rangeObj.setFontWeights(fontWeights);
-  rangeObj.setFontColors(fontColors);
-  rangeObj.setFontFamilies(fonts);
-  rangeObj.setFontSizes(fontSizes);
-  rangeObj.setWraps(wraps);
+  // 2. Chạy khối lệnh format định dạng (batch set properties) qua Sheets API v4 siêu tốc ⚡
+  try {
+    var sheetId = sheet.getSheetId();
+    var rows = [];
+    
+    for (var r = 0; r < rowsNum; r++) {
+      var rowValues = [];
+      for (var c = 0; c < 8; c++) {
+        var bgHex = backgrounds[r][c];
+        var fontColorHex = fontColors[r][c];
+        
+        rowValues.push({
+          userEnteredFormat: {
+            backgroundColor: hexToRgb(bgHex),
+            textFormat: {
+              bold: fontWeights[r][c] === 'bold',
+              fontFamily: fonts[r][c],
+              fontSize: fontSizes[r][c],
+              foregroundColor: hexToRgb(fontColorHex)
+            },
+            horizontalAlignment: aligns[r][c].toUpperCase(),
+            verticalAlignment: vAligns[r][c].toUpperCase() === 'MIDDLE' ? 'MIDDLE' : 'CENTER',
+            wrapStrategy: wraps[r][c] ? 'WRAP' : 'CLIP'
+          }
+        });
+      }
+      rows.push({ values: rowValues });
+    }
+    
+    var request = {
+      updateCells: {
+        range: {
+          sheetId: sheetId,
+          startRowIndex: 1, // Dòng 2 (0-indexed)
+          endRowIndex: lastRow,
+          startColumnIndex: 0,
+          endColumnIndex: 8
+        },
+        rows: rows,
+        fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,wrapStrategy)'
+      }
+    };
+    
+    Sheets.Spreadsheets.batchUpdate({ requests: [request] }, CONFIG.SPREADSHEET_ID);
+  } catch (errFormat) {
+    Logger.log('Sheets API v4 format failed, falling back to SpreadsheetApp: ' + errFormat.toString());
+    rangeObj.setBackgrounds(backgrounds);
+    rangeObj.setHorizontalAlignments(aligns);
+    rangeObj.setVerticalAlignments(vAligns);
+    rangeObj.setFontWeights(fontWeights);
+    rangeObj.setFontColors(fontColors);
+    rangeObj.setFontFamilies(fonts);
+    rangeObj.setFontSizes(fontSizes);
+    rangeObj.setWraps(wraps);
+  }
   
   // Set lưới (Border) tiêu chuẩn, rõ ràng, hiển thị chuẩn Grid Excel/Sheets
   rangeObj.setBorder(true, true, true, true, true, true, '#cbd5e1', SpreadsheetApp.BorderStyle.SOLID);
@@ -2697,4 +2743,16 @@ function handleUploadImage(payload) {
   } catch (e) {
     return jsonResponse(false, 'Lỗi upload ảnh: ' + e.message);
   }
+}
+
+function hexToRgb(hex) {
+  if (!hex) return { red: 1.0, green: 1.0, blue: 1.0 };
+  hex = hex.toString().replace('#', '');
+  if (hex.length === 3) {
+    hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+  }
+  var r = parseInt(hex.substring(0, 2), 16) / 255;
+  var g = parseInt(hex.substring(2, 4), 16) / 255;
+  var b = parseInt(hex.substring(4, 6), 16) / 255;
+  return { red: isNaN(r) ? 1.0 : r, green: isNaN(g) ? 1.0 : g, blue: isNaN(b) ? 1.0 : b };
 }

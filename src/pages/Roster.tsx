@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import { computeWeekInfo, SHORT_DAY_NAMES, getAdminShiftClass, generateMonthDates, formatDateShort } from '../utils/helpers';
@@ -38,7 +38,7 @@ export default function Roster() {
   
   const [monthData, setMonthData] = useState<any[]>([]); // To hold data from GET_MONTH_SCHEDULES
 
-  const loadSchedules = async () => {
+  const loadSchedules = useCallback(async () => {
     store.setLoading(true, `Đang tải lịch Tháng ${selectedMonth}...`);
     const requestsMap = new Map<string, string>();
     monthDates.forEach(mDate => {
@@ -57,11 +57,14 @@ export default function Roster() {
     } else {
       Swal.fire('Lỗi', 'Không thể tải lịch làm việc', 'error');
     }
-  };
+  }, [selectedMonth, selectedYear, monthDates, store]);
 
   useEffect(() => {
-    loadSchedules();
-  }, [selectedMonth, selectedYear]);
+    const timer = setTimeout(() => {
+      loadSchedules();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [loadSchedules]);
 
   const changeWeek = (offset: number) => {
     const d = new Date(currentDate);

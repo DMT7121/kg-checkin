@@ -51,8 +51,14 @@ export default function AdminOperations() {
   const [taskLogs, setTaskLogs] = useState<OperationTaskLog[]>([]);
   const [section, setSection] = useState<Section>('overview');
   const [selectedTeamId, setSelectedTeamId] = useState('');
+  const [prevSelectedTeamId, setPrevSelectedTeamId] = useState('');
   const [selectedZoneId, setSelectedZoneId] = useState('');
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
+
+  if (selectedTeamId !== prevSelectedTeamId) {
+    setPrevSelectedTeamId(selectedTeamId);
+    setMemberSearchQuery('');
+  }
   const [evalSearchQuery, setEvalSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -103,9 +109,7 @@ export default function AdminOperations() {
     return () => window.clearTimeout(timer);
   }, [loadData]);
 
-  useEffect(() => {
-    setMemberSearchQuery('');
-  }, [selectedTeamId]);
+
 
   const patchConfig = (updater: (current: OperationsConfig) => OperationsConfig) => {
     setConfig(current => updater(current));
@@ -505,7 +509,7 @@ export default function AdminOperations() {
     });
   }, [employees, evalSearchQuery]);
 
-  const getSuggestedZoneId = (teamId: string, dateStr: string) => {
+  const getSuggestedZoneId = useCallback((teamId: string, dateStr: string) => {
     if (!teamId || !dateStr) return '';
     const prevAssignments = config.assignments
       .filter(a => a.teamId === teamId && a.date < dateStr)
@@ -522,16 +526,19 @@ export default function AdminOperations() {
     
     const nextIdx = (lastIdx + 1) % rotation.length;
     return rotation[nextIdx];
-  };
+  }, [config.assignments]);
 
   useEffect(() => {
     if (assignmentDraft.teamId && assignmentDraft.date) {
       const suggested = getSuggestedZoneId(assignmentDraft.teamId, assignmentDraft.date);
       if (suggested && suggested !== assignmentDraft.zoneId) {
-        setAssignmentDraft(current => ({ ...current, zoneId: suggested }));
+        const timer = setTimeout(() => {
+          setAssignmentDraft(current => ({ ...current, zoneId: suggested }));
+        }, 0);
+        return () => clearTimeout(timer);
       }
     }
-  }, [assignmentDraft.teamId, assignmentDraft.date, config.assignments]);
+  }, [assignmentDraft.teamId, assignmentDraft.date, assignmentDraft.zoneId, getSuggestedZoneId]);
 
   const autoRotateAllAssignments = () => {
     if (!assignmentDraft.date) {
