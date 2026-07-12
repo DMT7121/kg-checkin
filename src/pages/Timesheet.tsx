@@ -21,10 +21,6 @@ export default function Timesheet() {
   const [mobileDetailView, setMobileDetailView] = useState<DetailMobileView>('LIST');
   const [onlyShowWorkdays, setOnlyShowWorkdays] = useState<boolean>(true);
 
-  useEffect(() => {
-    loadTimesheet();
-  }, []);
-
   const loadTimesheet = async () => {
     store.setLoading(true, 'Đang tải bảng chấm công...');
     const res = await callApi('GET_TIMESHEET', {
@@ -38,6 +34,10 @@ export default function Timesheet() {
       Swal.fire('Lỗi', res?.message || 'Không thể tải bảng tổng hợp công', 'error');
     }
   };
+
+  useEffect(() => {
+    loadTimesheet();
+  }, []);
 
   if (!timesheetData || !timesheetData.year) {
     return (

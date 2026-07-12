@@ -14,10 +14,6 @@ export default function Advance({ mode = 'user' }: { mode?: 'user' | 'admin' }) 
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
 
-  useEffect(() => {
-    loadAdvances();
-  }, []);
-
   const loadAdvances = async () => {
     const res = await callApi('GET_ADVANCES', {
       username: currentUser?.username,
@@ -27,6 +23,10 @@ export default function Advance({ mode = 'user' }: { mode?: 'user' | 'admin' }) 
       store.setAdvances(res.data);
     }
   };
+
+  useEffect(() => {
+    loadAdvances();
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

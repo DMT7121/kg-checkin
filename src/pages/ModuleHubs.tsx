@@ -57,6 +57,15 @@ const AdminPayroll = lazy(() => import('./admin/AdminPayroll'));
 const Admin = lazy(() => import('./Admin'));
 const AdminAnalytics = lazy(() => import('./admin/AdminAnalytics'));
 
+const UserPayroll = () => <Payroll mode="user" />;
+const PayrollAdmin = () => <Payroll mode="admin" />;
+const UserAdvance = () => <Advance mode="user" />;
+const AdminAdvance = () => <Advance mode="admin" />;
+const UserSchedule = () => <Schedule mode="user" />;
+const AdminSchedule = () => <Schedule mode="admin" />;
+const UserDiscipline = () => <Discipline mode="user" />;
+const AdminDiscipline = () => <Discipline mode="admin" />;
+
 interface HubTab {
   id: string;
   label: string;
@@ -117,16 +126,16 @@ function ModuleHub({ tabs, initialTab }: { tabs: HubTab[]; initialTab?: string }
 
 export function AttendanceHub() {
   return <ModuleHub tabs={[
-    { id: 'payroll', label: 'Phiếu lương', shortLabel: 'Phiếu lương', icon: Banknote, component: () => <Payroll mode="user" /> },
+    { id: 'payroll', label: 'Phiếu lương', shortLabel: 'Phiếu lương', icon: Banknote, component: UserPayroll },
     { id: 'timesheet', label: 'Bảng công', icon: Clock3, component: Timesheet },
     { id: 'history', label: 'Lịch sử', icon: History, component: ActivityHistory },
-    { id: 'advance', label: 'Ứng lương', shortLabel: 'Ứng lương', icon: HandCoins, component: () => <Advance mode="user" /> },
+    { id: 'advance', label: 'Ứng lương', shortLabel: 'Ứng lương', icon: HandCoins, component: UserAdvance },
   ]} />;
 }
 
 export function WorkforceHub() {
   return <ModuleHub tabs={[
-    { id: 'schedule', label: 'Lịch của tôi', shortLabel: 'Lịch tôi', icon: CalendarDays, component: () => <Schedule mode="user" /> },
+    { id: 'schedule', label: 'Lịch của tôi', shortLabel: 'Lịch tôi', icon: CalendarDays, component: UserSchedule },
     { id: 'roster', label: 'Lịch tổng', shortLabel: 'Lịch tổng', icon: CalendarRange, component: Roster },
     { id: 'swap', label: 'Đổi ca', shortLabel: 'Đổi ca', icon: Repeat2, component: SwapShift },
   ]} />;
@@ -144,7 +153,7 @@ export function WorkHub() {
 export function IncomeHub() {
   return <ModuleHub tabs={[
     { id: 'reward', label: 'Ghi nhận', shortLabel: 'Ghi nhận', icon: Trophy, component: Reward },
-    { id: 'discipline', label: 'Kỷ luật', shortLabel: 'Kỷ luật', icon: ShieldAlert, component: () => <Discipline mode="user" /> },
+    { id: 'discipline', label: 'Kỷ luật', shortLabel: 'Kỷ luật', icon: ShieldAlert, component: UserDiscipline },
   ]} />;
 }
 
@@ -171,7 +180,7 @@ export function AdminPeopleHub() {
 
 export function AdminWorkforceHub() {
   return <ModuleHub tabs={[
-    { id: 'schedule', label: 'Xếp lịch', shortLabel: 'Xếp lịch', icon: CalendarRange, component: () => <Schedule mode="admin" /> },
+    { id: 'schedule', label: 'Xếp lịch', shortLabel: 'Xếp lịch', icon: CalendarRange, component: AdminSchedule },
     { id: 'settings', label: 'Ca & GPS', shortLabel: 'Ca & GPS', icon: MapPinned, component: AdminShift },
   ]} />;
 }
@@ -186,9 +195,9 @@ export function AdminWorkHub() {
 export function AdminIncomeHub() {
   return <ModuleHub tabs={[
     { id: 'config', label: 'Cấu hình lương', shortLabel: 'Cấu hình', icon: Settings2, component: AdminPayroll },
-    { id: 'payroll', label: 'Bảng lương', shortLabel: 'Bảng lương', icon: Banknote, component: () => <Payroll mode="admin" /> },
-    { id: 'advance', label: 'Ứng lương', shortLabel: 'Ứng lương', icon: HandCoins, component: () => <Advance mode="admin" /> },
-    { id: 'discipline', label: 'Kỷ luật', shortLabel: 'Kỷ luật', icon: ShieldAlert, component: () => <Discipline mode="admin" /> },
+    { id: 'payroll', label: 'Bảng lương', shortLabel: 'Bảng lương', icon: Banknote, component: PayrollAdmin },
+    { id: 'advance', label: 'Ứng lương', shortLabel: 'Ứng lương', icon: HandCoins, component: AdminAdvance },
+    { id: 'discipline', label: 'Kỷ luật', shortLabel: 'Kỷ luật', icon: ShieldAlert, component: AdminDiscipline },
   ]} />;
 }
 

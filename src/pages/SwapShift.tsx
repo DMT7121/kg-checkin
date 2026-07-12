@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
+import { callApi } from '../services/api';
 import { DAY_NAMES, SHORT_DAY_NAMES, computeWeekInfo } from '../utils/helpers';
 import Swal from 'sweetalert2';
 import { ArrowLeftRight, Send, BellRing, Copy, User, Megaphone, Inbox, Clock, HandshakeIcon, LogOut } from 'lucide-react';
@@ -16,6 +17,16 @@ export default function SwapShift() {
   const [targetUsername, setTargetUsername] = useState<string>('ALL');
   const [reason, setReason] = useState<string>('');
 
+  const loadSwapRequests = async () => {
+    const res = await callApi('GET_SWAP_REQUESTS', {
+      username: currentUser?.username,
+      role: currentUser?.role
+    });
+    if (res?.ok) {
+      store.setSwapRequests(res.data);
+    }
+  };
+
   useEffect(() => {
     if (viewTab === 'board') {
       store.setHasNewSwaps(false);
@@ -29,16 +40,6 @@ export default function SwapShift() {
     }
     loadSwapRequests();
   }, []);
-
-  const loadSwapRequests = async () => {
-    const res = await callApi('GET_SWAP_REQUESTS', {
-      username: currentUser?.username,
-      role: currentUser?.role
-    });
-    if (res?.ok) {
-      store.setSwapRequests(res.data);
-    }
-  };
 
   const handleSwapRequest = () => {
     if (selectedDayIndex === null) {

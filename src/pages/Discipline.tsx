@@ -16,10 +16,6 @@ export default function Discipline({ mode = 'user' }: { mode?: 'user' | 'admin' 
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
 
-  useEffect(() => {
-    loadRecords();
-  }, []);
-
   const loadRecords = async () => {
     const res = await callApi('GET_BONUS_PENALTY', {
       username: currentUser?.username,
@@ -29,6 +25,10 @@ export default function Discipline({ mode = 'user' }: { mode?: 'user' | 'admin' 
       store.setBonusPenalties(res.data);
     }
   };
+
+  useEffect(() => {
+    loadRecords();
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
