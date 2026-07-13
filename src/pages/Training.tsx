@@ -107,6 +107,9 @@ export default function Training() {
   const [touchStartDist, setTouchStartDist] = useState<number | null>(null);
   const [touchStartScale, setTouchStartScale] = useState<number>(1);
   const [lastTouchTime, setLastTouchTime] = useState<number>(0);
+  const [swipeStartX, setSwipeStartX] = useState<number | null>(null);
+  const [swipeStartY, setSwipeStartY] = useState<number | null>(null);
+  const [showDescription, setShowDescription] = useState(false);
 
   const resetZoom = () => {
     setZoomScale(1);
@@ -164,11 +167,15 @@ export default function Training() {
       }
       setLastTouchTime(now);
 
+      const touch = e.touches[0];
       // single touch starts panning if scale is > 1
       if (zoomScale > 1) {
         setIsDraggingZoom(true);
-        const touch = e.touches[0];
         setDragStart({ x: touch.clientX - zoomPos.x, y: touch.clientY - zoomPos.y });
+      } else {
+        // Record starting touch coordinates for swiping
+        setSwipeStartX(touch.clientX);
+        setSwipeStartY(touch.clientY);
       }
     } else if (e.touches.length === 2) {
       // Two-finger touch starts pinch zoom
@@ -188,19 +195,53 @@ export default function Training() {
         const newScale = Math.max(0.75, Math.min(touchStartScale * scaleRatio, 4));
         setZoomScale(newScale);
       }
-    } else if (e.touches.length === 1 && isDraggingZoom && zoomScale > 1) {
-      e.preventDefault();
-      const touch = e.touches[0];
-      setZoomPos({
-        x: touch.clientX - dragStart.x,
-        y: touch.clientY - dragStart.y
-      });
+    } else if (e.touches.length === 1) {
+      if (isDraggingZoom && zoomScale > 1) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        setZoomPos({
+          x: touch.clientX - dragStart.x,
+          y: touch.clientY - dragStart.y
+        });
+      } else if (zoomScale === 1 && swipeStartX !== null && swipeStartY !== null) {
+        const touch = e.touches[0];
+        const diffX = touch.clientX - swipeStartX;
+        const diffY = touch.clientY - swipeStartY;
+        if (Math.abs(diffX) > Math.abs(diffY)) {
+          // Prevent scroll if swiping horizontally
+          if (e.cancelable) e.preventDefault();
+        }
+      }
     }
   };
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = (e: React.TouchEvent) => {
     setIsDraggingZoom(false);
     setTouchStartDist(null);
+
+    // Handle swiping
+    if (zoomScale === 1 && swipeStartX !== null && swipeStartY !== null && e.changedTouches.length > 0) {
+      const touch = e.changedTouches[0];
+      const diffX = touch.clientX - swipeStartX;
+      const diffY = touch.clientY - swipeStartY;
+
+      // Threshold for swipe: 60px
+      if (Math.abs(diffX) > 60 && Math.abs(diffX) > Math.abs(diffY)) {
+        if (diffX < 0) {
+          // Swiped left -> Next step
+          if (activeCukcukIndex !== null && activeCukcukIndex < cukcukData.length - 1) {
+            setActiveCukcukIndex(activeCukcukIndex + 1);
+          }
+        } else {
+          // Swiped right -> Previous step
+          if (activeCukcukIndex !== null && activeCukcukIndex > 0) {
+            setActiveCukcukIndex(activeCukcukIndex - 1);
+          }
+        }
+      }
+    }
+    setSwipeStartX(null);
+    setSwipeStartY(null);
   };
 
   const handleDoubleClick = () => {
@@ -236,9 +277,10 @@ export default function Training() {
     };
   }, [activeCukcukIndex]);
 
-  // Reset zoom whenever active step changes
+  // Reset zoom and description whenever active step changes
   useEffect(() => {
     resetZoom();
+    setShowDescription(false);
   }, [activeCukcukIndex]);
 
   // Filter cukcuk steps
@@ -1133,7 +1175,7 @@ export default function Training() {
 
       {/* Lightbox Zoom Modal */}
       {activeCukcukIndex !== null && createPortal(
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/95 backdrop-blur-sm select-none">
+        <div id="cukcuk-lightbox" className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/95 backdrop-blur-sm select-none">
           {/* Header Controls */}
           <div className="absolute top-0 inset-x-0 p-4 flex items-center justify-between bg-gradient-to-b from-black/80 to-black/0 text-white z-10">
             <div className="flex flex-col">
@@ -1193,9 +1235,29 @@ export default function Training() {
           {/* Floating Action Bar */}
           <div className="absolute bottom-6 flex flex-col items-center gap-3 w-full max-w-lg px-6 z-10">
             {/* Description Text */}
-            <div className="bg-slate-900/90 text-slate-100 text-xs font-semibold p-4 rounded-2xl shadow-xl border border-slate-800/80 text-center backdrop-blur-md max-h-[120px] overflow-y-auto w-full leading-relaxed">
-              {cukcukData[activeCukcukIndex].description}
-            </div>
+            {!showDescription ? (
+              <button
+                type="button"
+                onClick={() => setShowDescription(true)}
+                className="bg-slate-900/90 hover:bg-slate-850 text-slate-200 text-xs font-bold px-4 py-2.5 rounded-xl shadow-md border border-slate-800 flex items-center gap-2 backdrop-blur-sm transition-all active:scale-95 animate-fade-in"
+              >
+                <BookOpen size={14} className="text-blue-400" />
+                Đọc hướng dẫn, mô tả
+              </button>
+            ) : (
+              <div className="bg-slate-900/90 text-slate-100 text-xs font-semibold p-4 rounded-2xl shadow-xl border border-slate-800/80 backdrop-blur-md w-full leading-relaxed relative flex flex-col items-center animate-slide-up">
+                <div className="max-h-[120px] overflow-y-auto w-full text-center mb-1">
+                  {cukcukData[activeCukcukIndex].description}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowDescription(false)}
+                  className="text-[10px] text-slate-400 hover:text-white font-bold flex items-center gap-1 mt-1 hover:underline"
+                >
+                  <ChevronDown size={12} /> Thu gọn
+                </button>
+              </div>
+            )}
 
             {/* Controls */}
             <div className="flex items-center justify-between w-full bg-slate-900/85 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-slate-800/80 shadow-2xl">
