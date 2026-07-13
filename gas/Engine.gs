@@ -2871,24 +2871,31 @@ function _getTrainingContentSheet() {
       ]), 50, true, now]);
   }
 
-  // Ensure CUKCUK training lesson is present
+  // Ensure CUKCUK training lesson is present and correct
   var data = sheet.getDataRange().getValues();
-  var hasCukcuk = false;
+  var cukcukRowIndex = -1;
   for (var i = 1; i < data.length; i++) {
     if (data[i][0] === 'TR_4') {
-      hasCukcuk = true;
+      cukcukRowIndex = i + 1; // 1-indexed row number
       break;
     }
   }
-  if (!hasCukcuk) {
-    sheet.appendRow(['TR_4', 'Quy trình sử dụng phần mềm CUKCUK', 'lesson',
-      '1. Đăng nhập offline: Chọn Kết nối offline, nhập địa chỉ máy chủ 192.168.0.191:42016 (hoặc quét tìm kiếm máy chủ LAN bằng nút kính lúp), điền Tên đăng nhập và Mật khẩu cá nhân.\n2. Bắt đầu tạo mới một order bàn bằng nút dấu "+" lớn màu xanh dương ở góc dưới cùng bên phải.\n3. Tra cứu nhanh: Có thể lọc theo "Order của tôi" hoặc "Tất cả order". Khi tìm món, gõ viết tắt các chữ cái đầu của tên món (Ví dụ: "cgct" để tìm món "Con gà cục tác lá chanh").\n4. Các thao tác chính trong Bill: Điều chỉnh số lượng món bằng nút "+" / "-", nhấn Gửi chế biến (mũ đầu bếp) để gửi lệnh in xuống bếp/bar, nhấn Lưu nháp (đĩa mềm) hoặc tùy chọn Khách hàng, Ghi chú cho bếp.',
-      JSON.stringify([
-        { q: 'Địa chỉ máy chủ mặc định để kết nối offline CUKCUK tại nhà hàng là gì?', options: ['192.168.0.1:80', '192.168.0.191:42016', '127.0.0.1:3000', '192.168.1.100:8080'], answer: 1 },
-        { q: 'Khi quán đông khách, mẹo gõ tìm kiếm món ăn nhanh trên CUKCUK là gì?', options: ['Gõ đầy đủ không dấu', 'Gõ mã vạch của món', 'Gõ viết tắt các chữ cái đầu của tên món (VD: cgct)', 'Gõ tên nhóm danh mục'], answer: 2 },
-        { q: 'Biểu tượng hình "Mũ đầu bếp" trong giao diện Chi tiết Order dùng để làm gì?', options: ['Lưu nháp order', 'Yêu cầu thanh toán hóa đơn', 'Gửi lệnh chế biến món xuống quầy Bếp/Bar', 'Thay đổi hình thức phục vụ'], answer: 2 },
-        { q: 'Để chỉnh sửa hình thức phục vụ (Tại bàn, Mang về, Tự giao), bạn chọn dropdown ở góc nào?', options: ['Góc trên cùng bên phải (3 chấm dọc)', 'Góc dưới cùng bên phải (nút cộng)', 'Góc trên cùng bên trái', 'Không thể điều chỉnh'], answer: 2 }
-      ]), 100, true, now]);
+
+  var cukcukContent = '1. Đăng nhập offline: Chọn tab "Kết nối offline". Nếu không nhớ địa chỉ IP máy chủ, bấm vào nút hình kính lúp bên cạnh để hệ thống tự động quét tìm máy chủ trong mạng Wifi nội bộ (LAN), sau đó chọn máy chủ ADMIN-PC và đăng nhập bằng tài khoản cá nhân.\n2. Bắt đầu tạo mới một order bàn bằng nút dấu "+" lớn màu xanh dương ở góc dưới cùng bên phải.\n3. Tra cứu nhanh: Có thể lọc theo "Order của tôi" hoặc "Tất cả order". Khi tìm món, gõ viết tắt các chữ cái đầu của tên món (Ví dụ: "cgct" để tìm món "Con gà cục tác lá chanh").\n4. Các thao tác chính trong Bill: Điều chỉnh số lượng món bằng nút "+" / "-", nhấn Gửi chế biến (mũ đầu bếp) để gửi lệnh in xuống bếp/bar, nhấn Lưu nháp (đĩa mềm) hoặc tùy chọn Khách hàng, Ghi chú cho bếp.';
+  
+  var cukcukQuiz = JSON.stringify([
+    { q: 'Khi địa chỉ IP máy chủ thay đổi hoặc không hiển thị, làm thế nào để kết nối máy chủ CUKCUK nhanh nhất?', options: ['Nhập thủ công địa chỉ IP ngẫu nhiên', 'Bấm vào biểu tượng kính lúp để hệ thống tự động quét tìm máy chủ trong mạng Wifi nội bộ (LAN)', 'Tắt và bật lại ứng dụng liên tục', 'Rút phích cắm điện của bộ định tuyến Wifi'], answer: 1 },
+    { q: 'Khi quán đông khách, mẹo gõ tìm kiếm món ăn nhanh trên CUKCUK là gì?', options: ['Gõ đầy đủ không dấu', 'Gõ mã vạch của món', 'Gõ viết tắt các chữ cái đầu của tên món (VD: cgct)', 'Gõ tên nhóm danh mục'], answer: 2 },
+    { q: 'Biểu tượng hình "Mũ đầu bếp" trong giao diện Chi tiết Order dùng để làm gì?', options: ['Lưu nháp order', 'Yêu cầu thanh toán hóa đơn', 'Gửi lệnh chế biến món xuống quầy Bếp/Bar', 'Thay đổi hình thức phục vụ'], answer: 2 },
+    { q: 'Để chỉnh sửa hình thức phục vụ (Tại bàn, Mang về, Tự giao), bạn chọn dropdown ở góc nào?', options: ['Góc trên cùng bên phải (3 chấm dọc)', 'Góc dưới cùng bên phải (nút cộng)', 'Góc trên cùng bên trái', 'Không thể điều chỉnh'], answer: 2 }
+  ]);
+
+  if (cukcukRowIndex === -1) {
+    sheet.appendRow(['TR_4', 'Quy trình sử dụng phần mềm CUKCUK', 'lesson', cukcukContent, cukcukQuiz, 100, true, now]);
+  } else {
+    // Update the existing row to correct the questions and description
+    sheet.getRange(cukcukRowIndex, 4).setValue(cukcukContent); // Content (Column D)
+    sheet.getRange(cukcukRowIndex, 5).setValue(cukcukQuiz);    // QuizJSON (Column E)
   }
 
   return sheet;
