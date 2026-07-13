@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import {
@@ -1131,7 +1132,7 @@ export default function Training() {
       </KgBottomSheet>
 
       {/* Lightbox Zoom Modal */}
-      {activeCukcukIndex !== null && (
+      {activeCukcukIndex !== null && createPortal(
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/95 backdrop-blur-sm select-none">
           {/* Header Controls */}
           <div className="absolute top-0 inset-x-0 p-4 flex items-center justify-between bg-gradient-to-b from-black/80 to-black/0 text-white z-10">
@@ -1254,7 +1255,8 @@ export default function Training() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
