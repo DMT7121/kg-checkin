@@ -172,7 +172,7 @@ var JsonCacheService = (function() {
     addRange("Handovers", "A1:E");
     addRange("KING_COINS", "A1:G");
     addRange("NOTIFICATIONS", "A1:G");
-    addRange("TRAINING_CONTENT", "A1:D");
+    addRange("TRAINING_CONTENT", "A1:H");
     addRange("TRAINING_PROGRESS", "A1:D");
     if (monthSheet) {
       addRange(monthSheet, "A1:K");

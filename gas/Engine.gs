@@ -2846,11 +2846,11 @@ function handleGetUserCoins(payload) {
 function _getTrainingContentSheet() {
   var ss = getSS();
   var sheet = ss.getSheetByName('TRAINING_CONTENT');
+  var now = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'dd/MM/yyyy');
   if (!sheet) {
     sheet = ss.insertSheet('TRAINING_CONTENT');
     sheet.appendRow(['ID', 'Title', 'Type', 'Content', 'QuizJSON', 'Points', 'IsActive', 'CreatedAt']);
     // Seed initial lessons
-    var now = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'dd/MM/yyyy');
     sheet.appendRow(['TR_1', 'Menu Đồ Uống Mùa Hè', 'lesson', 
       '1. Trà Đào Cam Sả: 40ml syrup đào, 2 lát cam, 1 nhánh sả, 100ml trà xanh.\n2. Trà Vải Hoa Hồng: 30ml syrup vải, nụ hoa hồng khô, 100ml trà oolong.\n3. Cà phê Muối: 30ml espresso, 20ml sữa đặc, 30ml kem mặn.',
       JSON.stringify([
@@ -2870,6 +2870,27 @@ function _getTrainingContentSheet() {
         { q: 'Nhiệt độ tủ lạnh phải duy trì dưới bao nhiêu độ?', options: ['0°C', '3°C', '5°C', '8°C'], answer: 2 }
       ]), 50, true, now]);
   }
+
+  // Ensure CUKCUK training lesson is present
+  var data = sheet.getDataRange().getValues();
+  var hasCukcuk = false;
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0] === 'TR_4') {
+      hasCukcuk = true;
+      break;
+    }
+  }
+  if (!hasCukcuk) {
+    sheet.appendRow(['TR_4', 'Quy trình sử dụng phần mềm CUKCUK', 'lesson',
+      '1. Đăng nhập offline: Chọn Kết nối offline, nhập địa chỉ máy chủ 192.168.0.191:42016 (hoặc quét tìm kiếm máy chủ LAN bằng nút kính lúp), điền Tên đăng nhập và Mật khẩu cá nhân.\n2. Bắt đầu tạo mới một order bàn bằng nút dấu "+" lớn màu xanh dương ở góc dưới cùng bên phải.\n3. Tra cứu nhanh: Có thể lọc theo "Order của tôi" hoặc "Tất cả order". Khi tìm món, gõ viết tắt các chữ cái đầu của tên món (Ví dụ: "cgct" để tìm món "Con gà cục tác lá chanh").\n4. Các thao tác chính trong Bill: Điều chỉnh số lượng món bằng nút "+" / "-", nhấn Gửi chế biến (mũ đầu bếp) để gửi lệnh in xuống bếp/bar, nhấn Lưu nháp (đĩa mềm) hoặc tùy chọn Khách hàng, Ghi chú cho bếp.',
+      JSON.stringify([
+        { q: 'Địa chỉ máy chủ mặc định để kết nối offline CUKCUK tại nhà hàng là gì?', options: ['192.168.0.1:80', '192.168.0.191:42016', '127.0.0.1:3000', '192.168.1.100:8080'], answer: 1 },
+        { q: 'Khi quán đông khách, mẹo gõ tìm kiếm món ăn nhanh trên CUKCUK là gì?', options: ['Gõ đầy đủ không dấu', 'Gõ mã vạch của món', 'Gõ viết tắt các chữ cái đầu của tên món (VD: cgct)', 'Gõ tên nhóm danh mục'], answer: 2 },
+        { q: 'Biểu tượng hình "Mũ đầu bếp" trong giao diện Chi tiết Order dùng để làm gì?', options: ['Lưu nháp order', 'Yêu cầu thanh toán hóa đơn', 'Gửi lệnh chế biến món xuống quầy Bếp/Bar', 'Thay đổi hình thức phục vụ'], answer: 2 },
+        { q: 'Để chỉnh sửa hình thức phục vụ (Tại bàn, Mang về, Tự giao), bạn chọn dropdown ở góc nào?', options: ['Góc trên cùng bên phải (3 chấm dọc)', 'Góc dưới cùng bên phải (nút cộng)', 'Góc trên cùng bên trái', 'Không thể điều chỉnh'], answer: 2 }
+      ]), 100, true, now]);
+  }
+
   return sheet;
 }
 
