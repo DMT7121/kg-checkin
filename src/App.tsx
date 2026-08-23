@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from 'react';
 import { useAppStore } from './store/useAppStore';
 import { isInAppBrowser, computeWeekInfo, getCurrentTimeString } from './utils/helpers';
 import { refreshAppData, restoreFromCache } from './utils/refreshData';
+import { initOfflineQueueSync } from './utils/offlineQueue';
 import LoadingScreen from './components/LoadingScreen';
 import ZaloWarning from './components/ZaloWarning';
 import ImagePreview from './components/ImagePreview';
@@ -100,12 +101,16 @@ export default function App() {
       }
     }
 
+    // Offline Queue & Resilient Sync init
+    const cleanupQueue = initOfflineQueueSync();
+
     // Phase 7: Background refresh every 5 minutes (stale check inside)
     const refreshInterval = setInterval(() => refreshAppData(), 5 * 60 * 1000);
 
     return () => {
       clearInterval(timer);
       clearInterval(refreshInterval);
+      cleanupQueue();
     };
   }, []);
 

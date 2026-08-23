@@ -21,6 +21,15 @@ export async function sha256(text: string): Promise<string> {
 export const ADMIN_PIN_HASH = '9fc7d2573162923a909a04340bdcd59b435b93ddaf6318117ec3a3013e20d142';
 export const MASTER_PIN_HASH = '9ca8cf2cdf177498cdcb49d96416243362f33b2b3976758fc09fc119a653138a';
 
+export const PASSWORD_SALT = 'kg_salt_2026';
+
+/**
+ * Hash password with SHA-256 and salt for secure authentication
+ */
+export async function hashPassword(password: string): Promise<string> {
+  return sha256(password + ':' + PASSWORD_SALT);
+}
+
 /**
  * Escape HTML to prevent XSS
  * Used before injecting AI responses into Swal.fire({ html: ... })

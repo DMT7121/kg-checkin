@@ -5,6 +5,7 @@ import { speak, computeWeekInfo } from '../utils/helpers';
 import Swal from 'sweetalert2';
 import { User, Lock, Eye, EyeOff, ChevronLeft, ArrowRight, Mail, Phone, Calendar, BadgeCheck, KeyRound } from 'lucide-react';
 import { triggerDeveloperMode } from '../utils/githubApi';
+import { hashPassword } from '../utils/security';
 
 export default function Login() {
   const store = useAppStore();
@@ -25,7 +26,15 @@ export default function Login() {
     store.setLoading(true, 'Đang kết nối Server...');
 
     const payload = bioCreds || loginForm;
-    const res = await callApi('LOGIN', payload);
+    let passwordHash = '';
+    try {
+      passwordHash = await hashPassword(payload.password);
+    } catch { /* ignore */ }
+
+    const res = await callApi('LOGIN', {
+      ...payload,
+      passwordHash: passwordHash || undefined
+    });
     store.setLoading(false);
 
     if (res?.ok) {
@@ -106,7 +115,15 @@ export default function Login() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     store.setLoading(true, 'Đang gửi thông tin...');
-    const res = await callApi('REGISTER', registerForm);
+    let passwordHash = '';
+    try {
+      passwordHash = await hashPassword(registerForm.password);
+    } catch { /* ignore */ }
+
+    const res = await callApi('REGISTER', {
+      ...registerForm,
+      passwordHash: passwordHash || undefined
+    });
     store.setLoading(false);
 
     if (res?.ok) {
@@ -147,10 +164,16 @@ export default function Login() {
         return;
       }
       store.setLoading(true, 'Đang đặt lại mật khẩu...');
+      let passwordHash = '';
+      try {
+        passwordHash = await hashPassword(resetForm.newPassword);
+      } catch { /* ignore */ }
+
       const res = await callApi('RESET_PASSWORD', { 
         email: forgotForm.email,
         otp: resetForm.otp,
-        newPassword: resetForm.newPassword
+        newPassword: resetForm.newPassword,
+        passwordHash: passwordHash || undefined
       });
       store.setLoading(false);
       

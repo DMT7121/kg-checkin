@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import { Sun, Moon, Power, Clock, MoreHorizontal } from 'lucide-react';
+import { Sun, Moon, Power, Clock, MoreHorizontal, GraduationCap, Sparkles } from 'lucide-react';
 import NotificationBell from './NotificationBell';
+import NewbieGuideModal from './NewbieGuideModal';
 import { KgActionSheet } from './KgDesignSystem';
 import { getTabLabel, hasTabPermission } from '../utils/permissions';
 import { navigationModules, type NavigationGroup } from '../config/moduleRegistry';
@@ -16,6 +17,8 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
   const store = useAppStore();
   const { currentUser, isDark, currentTab } = store;
   const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
+
   const handleLogout = () => {
     store.logout();
     document.documentElement.classList.remove('dark');
@@ -34,6 +37,21 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
       ...module,
       onClick: () => handleTabChange(module.id),
     }));
+
+  const allMoreActions = [
+    {
+      id: 'guide_modal_action' as any,
+      label: 'Hướng dẫn cho người mới',
+      icon: GraduationCap,
+      group: 'Vận hành' as const,
+      onClick: () => {
+        setIsMoreOpen(false);
+        setIsGuideOpen(true);
+      }
+    },
+    ...moreActions,
+  ];
+
   const groupOrder: NavigationGroup[] = ['Cá nhân', 'Vận hành', 'Quản lý & Cấu hình'];
   const menuGroups = groupOrder
     .map(label => ({
@@ -61,16 +79,29 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
           </div>
         </div>
         <div className="flex items-center space-x-1.5">
+          <button
+            type="button"
+            onClick={() => setIsGuideOpen(true)}
+            className="w-10 h-10 rounded-xl border border-blue-500/20 bg-blue-50/50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 flex items-center justify-center active:scale-95 transition-all shadow-xs"
+            title="Hướng dẫn cho người mới"
+            aria-label="Hướng dẫn cho người mới"
+          >
+            <GraduationCap size={18} />
+          </button>
           <NotificationBell />
           <button
+            type="button"
             onClick={() => store.toggleDarkMode()}
             className="w-10 h-10 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex items-center justify-center text-[var(--kg-text-muted)] active:scale-95 transition-all"
+            aria-label="Chuyển chế độ sáng/tối"
           >
             {isDark ? <Sun size={17} /> : <Moon size={17} />}
           </button>
           <button
+            type="button"
             onClick={handleLogout}
             className="w-10 h-10 rounded-xl bg-[#FFF0EE] dark:bg-[#C94335]/15 text-[#C94335] flex items-center justify-center active:scale-95 transition-all"
+            aria-label="Đăng xuất"
           >
             <Power size={17} />
           </button>
@@ -95,7 +126,7 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
         </div>
 
         {/* User profile card */}
-        <div className="mx-4 my-4 p-3.5 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex items-center gap-3 shadow-sm">
+        <div className="mx-4 my-3 p-3.5 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex items-center gap-3 shadow-sm">
           {currentUser?.avatarUrl ? (
             <img src={currentUser.avatarUrl} alt="" className="w-10 h-10 rounded-full object-cover border border-slate-300 dark:border-slate-700" />
           ) : (
@@ -111,6 +142,27 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
               {currentUser?.role === 'admin' ? '🛡️ Quản lý' : '👤 Nhân viên'}
             </p>
           </div>
+        </div>
+
+        {/* Quick Newbie Banner in Sidebar */}
+        <div className="mx-4 mb-2">
+          <button
+            type="button"
+            onClick={() => setIsGuideOpen(true)}
+            className="w-full p-3 rounded-2xl bg-gradient-to-r from-blue-600/10 via-indigo-600/10 to-violet-600/10 border border-blue-500/20 dark:border-indigo-900/30 text-left hover:border-blue-500/40 transition-all active:scale-98 group flex items-center gap-2.5"
+          >
+            <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-xs flex-shrink-0 group-hover:scale-105 transition-transform">
+              <GraduationCap size={16} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-black text-blue-600 dark:text-indigo-400 truncate">
+                Hướng dẫn người mới
+              </p>
+              <p className="text-[10px] text-[var(--kg-text-muted)] truncate font-semibold">
+                Quy trình & Tiêu chuẩn đạt
+              </p>
+            </div>
+          </button>
         </div>
 
         {/* Navigation list */}
@@ -150,8 +202,17 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
         {/* Sidebar Footer */}
         <div className="p-4 border-t border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex items-center justify-between">
           <div className="flex items-center space-x-1.5">
+            <button
+              type="button"
+              onClick={() => setIsGuideOpen(true)}
+              className="w-9 h-9 rounded-lg border border-blue-500/20 bg-blue-50/50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 flex items-center justify-center active:scale-95 transition-all shadow-xs"
+              title="Hướng dẫn cho người mới"
+            >
+              <GraduationCap size={16} />
+            </button>
             <NotificationBell />
             <button
+              type="button"
               onClick={() => store.toggleDarkMode()}
               className="w-9 h-9 rounded-lg border border-[var(--kg-border)] bg-[var(--kg-surface)] text-[var(--kg-text-muted)] flex items-center justify-center active:scale-95 transition-all shadow-sm"
               title="Đổi giao diện"
@@ -160,6 +221,7 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
             </button>
           </div>
           <button
+            type="button"
             onClick={handleLogout}
             className="w-9 h-9 rounded-lg bg-[#ef4444]/12 hover:bg-[#ef4444]/22 text-[#ef4444] flex items-center justify-center active:scale-95 transition-all"
             title="Đăng xuất"
@@ -182,6 +244,14 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
             </span>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setIsGuideOpen(true)}
+              className="px-3 py-1.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-indigo-400 text-xs font-bold flex items-center gap-1.5 hover:bg-blue-500/20 transition-all active:scale-95"
+            >
+              <Sparkles size={13} />
+              <span>Hướng dẫn người mới</span>
+            </button>
             <div className="text-xs font-semibold text-[var(--kg-text-muted)] flex items-center gap-1.5">
               <Clock size={13} className="text-[var(--kg-primary)] dark:text-[var(--kg-accent)]" />
               <span>Ca hiện tại: <b>{store.shiftName}</b></span>
@@ -249,12 +319,20 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
         isOpen={isMoreOpen}
         onClose={() => setIsMoreOpen(false)}
         title="Tính năng mở rộng"
-        actions={moreActions.map((action) => ({
+        actions={allMoreActions.map((action) => ({
           ...action,
           active: currentTab === action.id,
           onPrefetch: () => onPrefetch?.(action.id),
         }))}
       />
+
+      {/* Global Newbie Guide Modal */}
+      <NewbieGuideModal
+        isOpen={isGuideOpen}
+        onClose={() => setIsGuideOpen(false)}
+        onNavigateTab={handleTabChange}
+      />
     </div>
   );
 }
+

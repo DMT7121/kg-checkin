@@ -14,6 +14,7 @@ import {
 } from '../components/KgDesignSystem';
 import { isWorkEligible } from '../utils/employment';
 import EmploymentStatusNotice from '../components/EmploymentStatusNotice';
+import { enqueueTask } from '../utils/offlineQueue';
 
 export default function CheckIn() {
   const store = useAppStore();
@@ -550,11 +551,11 @@ export default function CheckIn() {
           }, { background: true });
           
           if (payloadImage) {
-            callApi('UPLOAD_CHECKIN_IMAGE', {
+            enqueueTask('UPLOAD_CHECKIN_IMAGE', {
               fullname: currentUser!.fullname,
               timeISO: res.data.timeISO,
               image: payloadImage
-            }, { background: true });
+            }, { priority: 'high', maxAttempts: 5 });
           }
         }
 

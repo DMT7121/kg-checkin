@@ -7,8 +7,9 @@ import {
   ClipboardCheck, Repeat, ArrowLeftRight, CalendarDays, Newspaper,
   UtensilsCrossed, MessageSquareWarning, CalendarClock, Award,
   Building2, Users, KeyRound, CalendarRange, Banknote, ShieldAlert,
-  ArrowLeft, CheckCircle2
+  ArrowLeft, CheckCircle2, GraduationCap, Sparkles
 } from 'lucide-react';
+import NewbieGuideModal from '../components/NewbieGuideModal';
 import { KgPage, KgPageHeader, KgCard, KgInput, KgButton, KgStatusBadge, KgAlertCard } from '../components/KgDesignSystem';
 
 interface GuideItem {
@@ -29,6 +30,7 @@ export default function Guide() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'personal' | 'operation' | 'admin'>('all');
   const [selectedGuideId, setSelectedGuideId] = useState<TabId | null>(null);
+  const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
   const [readGuides, setReadGuides] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('kg_read_guides');
@@ -522,6 +524,30 @@ export default function Guide() {
             icon={BookOpen}
           />
 
+          {/* Quick Onboarding Launcher Banner */}
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-600/10 via-indigo-600/10 to-violet-600/10 border border-blue-500/20 dark:border-indigo-900/30 flex flex-col sm:flex-row items-center justify-between gap-3.5 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm flex-shrink-0 shadow-md">
+                <GraduationCap size={20} />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-[var(--kg-text)]">
+                  Cẩm Nang Nhập Môn & Tiêu Chuẩn Đạt Cho Người Mới
+                </h3>
+                <p className="text-xs text-[var(--kg-text-muted)] font-medium mt-0.5">
+                  Tóm tắt 5 bước thao tác hàng ngày, quy trình chấm công, xếp lịch và bảng tiêu chuẩn thành công.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsGuideModalOpen(true)}
+              className="w-full sm:w-auto px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black shadow-md active:scale-95 transition-all flex items-center justify-center gap-1.5 flex-shrink-0"
+            >
+              <Sparkles size={14} /> Mở Cẩm Nang Nhanh
+            </button>
+          </div>
+
           {/* Learning progress bar */}
           <KgCard className="p-4 bg-gradient-to-r from-blue-500/5 to-transparent dark:from-indigo-500/5 dark:to-transparent border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="space-y-1 text-center sm:text-left">
@@ -679,6 +705,12 @@ export default function Guide() {
           )}
         </div>
       )}
+
+      {/* Newbie Guide Modal */}
+      <NewbieGuideModal
+        isOpen={isGuideModalOpen}
+        onClose={() => setIsGuideModalOpen(false)}
+      />
     </KgPage>
   );
 }

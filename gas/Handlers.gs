@@ -2,6 +2,56 @@
 // HANDLERS.GS - CORE BACKEND LOGIC
 // ============================================
 
+var PASSWORD_SALT = "kg_salt_2026";
+
+/**
+ * Computes salted SHA-256 password hash
+ */
+function computePasswordHash(password) {
+  if (!password) return "";
+  try {
+    var raw = password.toString() + ":" + PASSWORD_SALT;
+    var signature = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, raw, Utilities.Charset.UTF_8);
+    var hex = "";
+    for (var i = 0; i < signature.length; i++) {
+      var byteVal = signature[i];
+      if (byteVal < 0) byteVal += 256;
+      var byteHex = byteVal.toString(16);
+      if (byteHex.length === 1) byteHex = "0" + byteHex;
+      hex += byteHex;
+    }
+    return hex;
+  } catch (e) {
+    Logger.log("Hash compute error: " + e.toString());
+    return password.toString();
+  }
+}
+
+/**
+ * Checks if a username has admin privileges
+ */
+function isAdminUser(username) {
+  if (!username) return false;
+  var uname = username.toString().trim().toUpperCase();
+  if (uname === "ADMIN") return true;
+  try {
+    var ss = getSS();
+    var sheet = ss.getSheetByName(CONFIG.SHEET_USERS);
+    if (!sheet) return false;
+    var data = sheet.getDataRange().getValues();
+    for (var i = 2; i < data.length; i++) {
+      if (data[i][0] && data[i][0].toString().trim().toUpperCase() === uname) {
+        var role = data[i][5] ? data[i][5].toString().toLowerCase() : "";
+        return role === "admin";
+      }
+    }
+  } catch (e) {
+    Logger.log("isAdminUser error: " + e.toString());
+    return false;
+  }
+  return false;
+}
+
 // 1. User Authentication
 function handleLogin(payload) {
   // Auto-migrate headers if not already migrated
@@ -51,24 +101,41 @@ function handleLogin(payload) {
   var sheet = ss.getSheetByName(CONFIG.SHEET_USERS);
   if (!sheet) return jsonResponse(false, 'Không tìm thấy sheet người dùng');
   
+  var inputPassword = payload.password.toString();
+  var inputHash = payload.passwordHash || computePasswordHash(inputPassword);
+
   var data = sheet.getDataRange().getValues();
   for (var i = 2; i < data.length; i++) {
     var row = data[i];
     // Col 0: Username, Col 1: Password, Col 2: FullName, Col 3: DOB, Col 4: Email, Col 5: Role
-    if (row[0].toString().toLowerCase() === payload.username.toLowerCase() && row[1].toString() === payload.password) {
-      var employmentProfile = getEmploymentProfileByUsername(row[0].toString());
-      return jsonResponse(true, {
-        username: row[0],
-        fullname: row[2],
-        email: row[4] || '',
-        role: row[5] ? row[5].toString() : (row[0].toString().toLowerCase() === 'admin' ? 'admin' : 'user'),
-        position: row[6] ? row[6].toString() : 'Phục vụ',
-        avatarUrl: row[7] ? row[7].toString() : '',
-        employmentStatus: employmentProfile ? employmentProfile.employmentStatus : normalizeEmploymentStatus(row[8]),
-        statusUntil: employmentProfile ? employmentProfile.statusUntil : (row[9] ? row[9].toString() : ''),
-        statusReason: employmentProfile ? employmentProfile.statusReason : (row[10] ? row[10].toString() : ''),
-        statusUpdatedAt: employmentProfile ? employmentProfile.statusUpdatedAt : (row[11] ? row[11].toString() : '')
-      });
+    if (row[0].toString().toLowerCase() === payload.username.toLowerCase()) {
+      var storedPass = row[1] ? row[1].toString() : '';
+      var isMatched = (storedPass === inputPassword) || (storedPass === inputHash) || (computePasswordHash(storedPass) === inputHash);
+
+      if (isMatched) {
+        // Auto-upgrade legacy plaintext password to secure hash in background
+        if (storedPass === inputPassword && storedPass.length < 50) {
+          try {
+            sheet.getRange(i + 1, 2).setValue(inputHash);
+          } catch (e) {
+            Logger.log('Auto password hash upgrade error: ' + e.toString());
+          }
+        }
+
+        var employmentProfile = getEmploymentProfileByUsername(row[0].toString());
+        return jsonResponse(true, {
+          username: row[0],
+          fullname: row[2],
+          email: row[4] || '',
+          role: row[5] ? row[5].toString() : (row[0].toString().toLowerCase() === 'admin' ? 'admin' : 'user'),
+          position: row[6] ? row[6].toString() : 'Phục vụ',
+          avatarUrl: row[7] ? row[7].toString() : '',
+          employmentStatus: employmentProfile ? employmentProfile.employmentStatus : normalizeEmploymentStatus(row[8]),
+          statusUntil: employmentProfile ? employmentProfile.statusUntil : (row[9] ? row[9].toString() : ''),
+          statusReason: employmentProfile ? employmentProfile.statusReason : (row[10] ? row[10].toString() : ''),
+          statusUpdatedAt: employmentProfile ? employmentProfile.statusUpdatedAt : (row[11] ? row[11].toString() : '')
+        });
+      }
     }
   }
   return jsonResponse(false, 'Sai username hoặc password');
@@ -86,7 +153,8 @@ function handleRegister(payload) {
     }
   }
   
-  sheet.appendRow([payload.username, payload.password, payload.fullname, payload.dob || '', payload.email, 'user', 'Phục vụ']);
+  var hashedPassword = computePasswordHash(payload.password);
+  sheet.appendRow([payload.username, hashedPassword, payload.fullname, payload.dob || '', payload.email, 'user', 'Phục vụ']);
   return jsonResponse(true, 'Đăng ký thành công');
 }
 
@@ -278,9 +346,10 @@ function handleResetPassword(payload) {
   var usersSheet = ss.getSheetByName(CONFIG.SHEET_USERS);
   var usersData = usersSheet.getDataRange().getValues();
   var updated = false;
+  var hashedNewPassword = computePasswordHash(payload.newPassword);
   for (var j = 2; j < usersData.length; j++) {
     if (usersData[j][4] && usersData[j][4].toString().toLowerCase() === payload.email.toLowerCase()) {
-      usersSheet.getRange(j + 1, 2).setValue(payload.newPassword); // Col B is password (index 1 + 1)
+      usersSheet.getRange(j + 1, 2).setValue(hashedNewPassword); // Col B is password (index 1 + 1)
       updated = true;
       break;
     }
@@ -296,6 +365,10 @@ function handleResetPassword(payload) {
 function handleForceResetPassword(payload) {
   if (!payload || !payload.targetUsername) return jsonResponse(false, 'Thiếu targetUsername');
   
+  if (payload.adminUsername && !isAdminUser(payload.adminUsername)) {
+    return jsonResponse(false, 'Chỉ Quản trị viên mới có quyền thực hiện thao tác này');
+  }
+
   var ss = getSS();
   var usersSheet = ss.getSheetByName(CONFIG.SHEET_USERS);
   if (!usersSheet) return jsonResponse(false, 'Không tìm thấy DB Users');
@@ -303,10 +376,11 @@ function handleForceResetPassword(payload) {
   var usersData = usersSheet.getDataRange().getValues();
   var updated = false;
   var defaultPass = "Kg123456";
+  var hashedDefaultPass = computePasswordHash(defaultPass);
   
   for (var j = 2; j < usersData.length; j++) {
     if (usersData[j][0].toString().toLowerCase() === payload.targetUsername.toLowerCase()) {
-      usersSheet.getRange(j + 1, 2).setValue(defaultPass); // Reset col 2
+      usersSheet.getRange(j + 1, 2).setValue(hashedDefaultPass); // Reset col 2
       updated = true;
       break;
     }

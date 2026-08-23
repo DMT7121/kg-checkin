@@ -11,11 +11,12 @@ import {
   ClipboardCheck, Repeat, CalendarDays, History, BellRing,
   CalendarClock, Banknote, BadgeDollarSign, Award,
   Users, KeyRound, CalendarRange, DollarSign, Building2,
-  RefreshCw, CheckCircle2, UserCheck, AlertCircle, Info
+  RefreshCw, CheckCircle2, UserCheck, AlertCircle, Info, ArrowRight
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import AppErrorBoundary from '../components/AppErrorBoundary';
 import KgAppShell from '../components/KgAppShell';
+import NewbieGuideModal from '../components/NewbieGuideModal';
 import {
   KgCard,
   KgButton,
@@ -180,6 +181,21 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'tester';
   const { stats, logs, approvedShifts } = store;
   const recentLogs = logs.filter(l => l.fullname === currentUser?.fullname).slice(0, 3);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
+
+  // Auto show onboarding modal for first-time users
+  useEffect(() => {
+    if (currentUser?.username) {
+      const isCompleted = localStorage.getItem(`kg_onboarding_completed_${currentUser.username}`);
+      const isNever = localStorage.getItem(`kg_onboarding_never_${currentUser.username}`);
+      if (!isCompleted && !isNever) {
+        const timer = setTimeout(() => {
+          setIsGuideOpen(true);
+        }, 600);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [currentUser?.username]);
 
   // Determine today's shift
   const todayDay = new Date().getDay();
@@ -323,6 +339,30 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
               {/* Background circles */}
               <div className="absolute right-[-10%] top-[-20%] w-60 h-60 bg-white/10 rounded-full blur-3xl mix-blend-screen" />
               <div className="absolute left-[-20%] bottom-[-40%] w-60 h-60 bg-white/5 rounded-full blur-3xl mix-blend-screen" />
+            </div>
+
+            {/* Quick Newbie Guide Banner */}
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-600/10 via-indigo-600/10 to-violet-600/10 border border-blue-500/20 dark:border-indigo-900/30 flex items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-xs flex-shrink-0 shadow-xs">
+                  🎓
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-black text-blue-600 dark:text-indigo-400 truncate">
+                    Cẩm nang nhân sự mới
+                  </p>
+                  <p className="text-[10px] text-[var(--kg-text-muted)] font-semibold truncate">
+                    Quy trình chấm công, xếp lịch & mốc tiêu chuẩn đạt
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsGuideOpen(true)}
+                className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black shadow-xs active:scale-95 transition-all flex-shrink-0 flex items-center gap-1"
+              >
+                <span>Xem ngay</span> <ArrowRight size={13} />
+              </button>
             </div>
 
             {/* Big Action Button */}
@@ -717,6 +757,13 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
           </div>
         </div>
       )}
+
+      {/* Newbie Guide Modal */}
+      <NewbieGuideModal
+        isOpen={isGuideOpen}
+        onClose={() => setIsGuideOpen(false)}
+        onNavigateTab={onTabChange}
+      />
     </div>
   );
 };

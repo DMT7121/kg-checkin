@@ -36,47 +36,60 @@ export default function SoldOut() {
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newItemName.trim()) return;
+    const itemName = newItemName.trim();
+    if (!itemName) return;
 
-    store.setUpdating(true);
-    store.setLoading(true, 'Đang ghi nhận...');
+    // Optimistic item
+    const tempId = `temp_${Date.now()}`;
+    const optimisticItem = {
+      id: tempId,
+      itemName,
+      reportedBy: currentUser?.fullname || 'Nhân viên',
+      reportedAt: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+    };
+
+    const previousItems = [...soldOutItems];
+    store.setSoldOutItems([optimisticItem, ...previousItems]);
+    setNewItemName('');
+    setIsAdding(false);
+
     try {
       const res = await callApi('ADD_SOLDOUT', {
-        itemName: newItemName.trim(),
+        itemName,
         reportedBy: currentUser?.fullname || 'Nhân viên'
-      });
+      }, { background: true });
+      
       if (res?.ok) {
-        setNewItemName('');
-        setIsAdding(false);
         fetchSoldOut();
       } else {
-        alert(res?.message || 'Có lỗi xảy ra');
+        // Rollback on failure
+        store.setSoldOutItems(previousItems);
+        alert(res?.message || 'Không thể ghi nhận món hết');
       }
-    } catch (err) {
-      alert('Không thể kết nối máy chủ');
-    } finally {
-      store.setUpdating(false);
-      store.setLoading(false);
+    } catch {
+      store.setSoldOutItems(previousItems);
+      alert('Lỗi kết nối máy chủ, đã hoàn tác');
     }
   };
 
   const handleRemove = async (id: string, itemName: string) => {
     if (!confirm(`Xác nhận món "${itemName}" ĐÃ CÓ LẠI?`)) return;
     
-    store.setUpdating(true);
-    store.setLoading(true, 'Đang cập nhật...');
+    const previousItems = [...soldOutItems];
+    // Optimistically filter out
+    store.setSoldOutItems(soldOutItems.filter(item => item.id !== id));
+
     try {
-      const res = await callApi('REMOVE_SOLDOUT', { id });
+      const res = await callApi('REMOVE_SOLDOUT', { id }, { background: true });
       if (res?.ok) {
         fetchSoldOut();
       } else {
-        alert(res?.message || 'Có lỗi xảy ra');
+        store.setSoldOutItems(previousItems);
+        alert(res?.message || 'Không thể cập nhật món');
       }
-    } catch (err) {
-      alert('Không thể kết nối máy chủ');
-    } finally {
-      store.setUpdating(false);
-      store.setLoading(false);
+    } catch {
+      store.setSoldOutItems(previousItems);
+      alert('Lỗi kết nối máy chủ, đã hoàn tác');
     }
   };
 
