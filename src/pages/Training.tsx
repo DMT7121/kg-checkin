@@ -497,23 +497,25 @@ export default function Training() {
       />
 
       {/* Tab Buttons */}
-      <div className="flex gap-2.5 mb-6 p-2 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-sm">
+      <div className="flex gap-2 overflow-x-auto hide-scrollbar mb-6 p-1.5 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-xs">
           <button
+            type="button"
             onClick={() => setActiveTab('sop')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 ${
+            className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-black whitespace-nowrap transition-all active:scale-95 flex-shrink-0 ${
               activeTab === 'sop'
-                ? 'bg-[var(--kg-primary)] text-white shadow-sm'
-                : 'text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)]'
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm'
+                : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)]'
             }`}
           >
             <BookMarked size={14} /> Tra cứu SOP
           </button>
           <button
+            type="button"
             onClick={() => setActiveTab('quiz')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 relative ${
+            className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-black whitespace-nowrap transition-all active:scale-95 relative flex-shrink-0 ${
               activeTab === 'quiz'
-                ? 'bg-[var(--kg-primary)] text-white shadow-sm'
-                : 'text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)]'
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm'
+                : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)]'
             }`}
           >
             <UserCheck size={14} /> Kiểm tra năng lực
@@ -525,11 +527,12 @@ export default function Training() {
             )}
           </button>
           <button
+            type="button"
             onClick={() => setActiveTab('cukcuk')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 ${
+            className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-black whitespace-nowrap transition-all active:scale-95 flex-shrink-0 ${
               activeTab === 'cukcuk'
-                ? 'bg-[var(--kg-primary)] text-white shadow-sm'
-                : 'text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)]'
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm'
+                : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)]'
             }`}
           >
             <Tablet size={14} /> Hướng dẫn CUKCUK

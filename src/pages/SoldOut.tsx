@@ -98,35 +98,35 @@ export default function SoldOut() {
   );
 
   return (
-    <div className="flex flex-col h-full soft3d-bg pb-20">
-      <div className="p-4 animate-slide-up">
-        <KgModuleHero
-          moduleId="soldout"
-          title="Món Hết (86)"
-          description="Cập nhật tình trạng nguyên liệu, món hết để đồng bộ với thu ngân và phục vụ."
-          eyebrow="Vận hành"
-        />
+    <div className="flex flex-col h-full space-y-4 pb-16 animate-fade-in">
+      <KgModuleHero
+        moduleId="soldout"
+        title="Món Hết & Nguyên Liệu (86)"
+        description="Cập nhật nhanh tình trạng món ăn, thức uống tạm hết để phục vụ order chuẩn xác."
+        eyebrow="Vận hành"
+        features={['Đồng bộ tức thì', 'Tự động báo Dashboard', 'Dễ dàng khôi phục']}
+      />
 
-        {/* Toolbar */}
-        <div className="flex flex-wrap items-center gap-3 w-full mb-2">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Tìm món đang hết..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full soft3d-card border border-gray-200 dark:border-gray-700 rounded-xl py-2.5 pl-10 pr-4 text-sm text-gray-800 dark:text-white focus:ring-2 focus:ring-red-500 transition outline-none "
-            />
-          </div>
-          <button
-            onClick={() => setIsAdding(!isAdding)}
-            className="flex items-center space-x-1 bg-gradient-to-r from-[#2563eb] to-[#7c3aed] text-white px-4 py-2.5 rounded-xl font-bold text-sm transition whitespace-nowrap shadow-sm hover:shadow-md active:scale-95 border-none"
-          >
-            <Plus size={18} className="mr-1" />
-            <span>Báo hết</span>
-          </button>
+      {/* Toolbar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+        <div className="relative flex-1">
+          <Search size={16} className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-[var(--kg-text-muted)]" />
+          <input
+            type="text"
+            placeholder="Tìm kiếm món đang hết..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl py-2.5 pl-10 pr-4 text-xs sm:text-sm text-[var(--kg-text)] focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition outline-none shadow-xs"
+          />
         </div>
+        <button
+          type="button"
+          onClick={() => setIsAdding(!isAdding)}
+          className="inline-flex items-center justify-center gap-1.5 bg-gradient-to-r from-rose-500 to-amber-600 text-white px-4 py-2.5 rounded-2xl font-black text-xs sm:text-sm shadow-md active:scale-95 transition-all"
+        >
+          <Plus size={16} />
+          <span>Báo món hết</span>
+        </button>
       </div>
 
       {/* Add Form Dropdown */}
@@ -136,26 +136,37 @@ export default function SoldOut() {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden soft3d-card border-b border-gray-100 dark:border-gray-700 "
+            className="overflow-hidden bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-sm p-4 space-y-3"
           >
-            <form onSubmit={handleAdd} className="p-4">
-              <p className="text-sm text-gray-600 dark:text-gray-300 font-medium mb-2">Nhập tên món vừa hết nguyên liệu:</p>
-              <div className="flex space-x-2">
+            <form onSubmit={handleAdd} className="space-y-3">
+              <p className="text-xs font-black text-[var(--kg-text)]">
+                Nhập tên món ăn / thức uống vừa hết nguyên liệu:
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   type="text"
                   autoFocus
-                  placeholder="VD: Trà đào cam sả..."
+                  placeholder="VD: Trà đào cam sả, Bò nướng tảng..."
                   value={newItemName}
                   onChange={(e) => setNewItemName(e.target.value)}
-                  className="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  className="flex-1 bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 text-[var(--kg-text)]"
                 />
-                <button
-                  type="submit"
-                  disabled={!newItemName.trim() || store.isUpdating}
-                  className="bg-gray-800 hover:bg-gray-900 disabled:bg-gray-400 dark:bg-white dark:hover:bg-gray-200 dark:disabled:bg-gray-600 dark:text-gray-900 text-white px-4 py-2 rounded-lg text-sm font-bold transition  whitespace-nowrap"
-                >
-                  Xác nhận
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="submit"
+                    disabled={!newItemName.trim() || store.isUpdating}
+                    className="flex-1 sm:flex-initial bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white px-5 py-2.5 rounded-xl text-xs font-black transition active:scale-95 shadow-xs"
+                  >
+                    Xác nhận báo hết
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsAdding(false)}
+                    className="px-3 py-2.5 rounded-xl border border-[var(--kg-border)] text-xs font-bold text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)]"
+                  >
+                    Huỷ
+                  </button>
+                </div>
               </div>
             </form>
           </motion.div>
@@ -163,51 +174,60 @@ export default function SoldOut() {
       </AnimatePresence>
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 min-h-[250px]">
         {loading ? (
-          <div className="flex flex-col items-center justify-center h-40 space-y-3">
-            <div className="w-8 h-8 border-4 border-gray-200 border-t-red-500 rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-500">Đang tải dữ liệu...</p>
+          <div className="flex flex-col items-center justify-center h-48 space-y-3">
+            <div className="w-8 h-8 border-3 border-rose-500/20 border-t-rose-500 rounded-full animate-spin"></div>
+            <p className="text-xs font-bold text-[var(--kg-text-muted)]">Đang tải danh sách món...</p>
           </div>
         ) : filteredItems.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-40 text-center opacity-70">
-            <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mb-3">
-              <CheckCircle2 size={32} className="text-green-500" />
+          <div className="flex flex-col items-center justify-center p-8 text-center rounded-2xl bg-[var(--kg-surface)] border border-dashed border-[var(--kg-border)]">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center mb-3">
+              <CheckCircle2 size={28} />
             </div>
-            <p className="text-gray-600 dark:text-gray-400 font-medium">Hiện tại không có món nào hết.</p>
-            <p className="text-xs text-gray-500 mt-1">Đầy đủ nguyên liệu sẵn sàng phục vụ!</p>
+            <h3 className="text-sm font-black text-[var(--kg-text)]">Hiện tại không có món nào báo hết</h3>
+            <p className="text-xs text-[var(--kg-text-muted)] mt-1 font-medium">Tất cả nguyên liệu thực đơn sẵn sàng phục vụ khách hàng!</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <AnimatePresence>
               {filteredItems.map((item) => (
                 <motion.div
                   key={item.id}
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95 }}
-                  className="soft3d-card p-3  border border-red-100 dark:border-red-900/30 flex flex-col relative overflow-hidden"
+                  className="bg-[var(--kg-surface)] border border-rose-500/20 dark:border-rose-900/30 rounded-2xl p-3.5 flex flex-col justify-between relative overflow-hidden shadow-xs hover:border-rose-500/40 transition-all group"
                 >
                   {/* Decorative stripe */}
-                  <div className="absolute top-0 left-0 bottom-0 w-1 bg-red-500"></div>
+                  <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-rose-500"></div>
                   
-                  <div className="flex justify-between items-start pl-2">
-                    <div className="flex-1 pr-2">
-                      <h3 className="font-bold text-gray-800 dark:text-white text-base leading-tight mb-1">{item.itemName}</h3>
-                      <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 mt-2 space-x-3">
-                        <span className="flex items-center"><Clock size={12} className="mr-1" /> {item.reportedAt}</span>
-                        <span className="font-medium bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded text-[10px]">
-                          Báo bởi: {item.reportedBy}
+                  <div className="flex justify-between items-start pl-2 gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-rose-500 flex-shrink-0 animate-ping" />
+                        <h3 className="font-black text-[var(--kg-text)] text-sm leading-tight truncate">
+                          {item.itemName}
+                        </h3>
+                      </div>
+                      <div className="flex flex-wrap items-center text-[11px] text-[var(--kg-text-muted)] mt-2 gap-2 font-medium">
+                        <span className="flex items-center gap-1">
+                          <Clock size={11} /> {item.reportedAt}
+                        </span>
+                        <span>•</span>
+                        <span className="bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] px-2 py-0.5 rounded-lg text-[10px] font-bold">
+                          {item.reportedBy}
                         </span>
                       </div>
                     </div>
                     
                     <button
+                      type="button"
                       onClick={() => handleRemove(item.id, item.itemName)}
-                      className="w-8 h-8 rounded-full bg-green-50 text-green-600 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400 dark:hover:bg-green-900/40 flex items-center justify-center transition flex-shrink-0"
+                      className="w-9 h-9 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center transition-all active:scale-90 flex-shrink-0 border border-emerald-500/20 shadow-xs"
                       title="Đã có hàng lại"
                     >
-                      <CheckCircle2 size={16} />
+                      <CheckCircle2 size={18} />
                     </button>
                   </div>
                 </motion.div>

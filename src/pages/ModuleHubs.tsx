@@ -93,8 +93,8 @@ function ModuleHub({ tabs, initialTab }: { tabs: HubTab[]; initialTab?: string }
 
   return (
     <div className="kg-module-hub min-h-full">
-      <div className="kg-module-tabs-wrap relative md:sticky md:top-0 z-30 border-b border-[var(--kg-border)] bg-[var(--kg-bg)]/92 px-3 py-2 backdrop-blur-xl">
-        <div className="kg-module-tabs mx-auto flex max-w-7xl gap-1 overflow-x-auto rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-bg)]/92 p-1.5 shadow-sm hide-scrollbar">
+      <div className="kg-module-tabs-wrap sticky top-0 z-30 border-b border-[var(--kg-border)] bg-[var(--kg-bg)]/95 px-2.5 sm:px-4 py-2 backdrop-blur-xl transition-colors">
+        <div className="kg-module-tabs mx-auto flex max-w-7xl gap-1.5 overflow-x-auto rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface)]/80 p-1.5 shadow-xs hide-scrollbar">
           {allowedTabs.map(tab => {
             const Icon = tab.icon;
             const selected = tab.id === active.id;
@@ -103,15 +103,15 @@ function ModuleHub({ tabs, initialTab }: { tabs: HubTab[]; initialTab?: string }
                 type="button"
                 key={tab.id}
                 onClick={() => setActiveId(tab.id)}
-                className={`kg-module-tab inline-flex min-w-max flex-1 items-center justify-center gap-1 md:gap-1.5 rounded-xl px-2.5 py-2 md:px-3 md:py-2.5 text-[11px] md:text-xs font-extrabold transition ${
+                className={`kg-module-tab inline-flex min-w-max flex-1 items-center justify-center gap-1.5 rounded-xl px-3.5 py-2.5 text-xs font-black transition-all active:scale-95 ${
                   selected
-                    ? 'bg-cyan-700 text-white shadow-md'
-                    : 'text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)]'
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm'
+                    : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)]'
                 }`}
               >
-                <Icon size={14} className="flex-shrink-0" />
-                <span className="hidden md:inline">{tab.label}</span>
-                <span className="inline md:hidden">{tab.shortLabel || tab.label}</span>
+                <Icon size={15} className="flex-shrink-0" />
+                <span className="hidden sm:inline">{tab.label}</span>
+                <span className="inline sm:hidden">{tab.shortLabel || tab.label}</span>
               </button>
             );
           })}

@@ -99,45 +99,45 @@ export default function Reward() {
       />
 
       {/* Points Card */}
-      <div className="bg-gradient-to-r from-[#2563eb] to-[#7c3aed] text-white rounded-3xl p-6 border border-white/10 flex items-center justify-between relative z-10 w-full shadow-lg mb-6">
+      <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white rounded-2xl md:rounded-3xl p-5 md:p-6 border border-white/15 flex items-center justify-between relative z-10 w-full shadow-lg mb-4">
         <div>
-          <p className="text-xs text-white/80 font-bold mb-1.5 uppercase tracking-wider">King Coins khả dụng</p>
+          <p className="text-[10px] sm:text-xs text-white/80 font-black mb-1 uppercase tracking-wider">King Coins khả dụng</p>
           <div className="flex items-end gap-2">
-            <span className="text-4xl font-black leading-none">{loading ? '...' : totalPoints}</span>
-            <span className="text-lg font-bold text-yellow-200 mb-1">🪙</span>
+            <span className="text-3xl sm:text-4xl font-black leading-none">{loading ? '...' : totalPoints}</span>
+            <span className="text-base sm:text-lg font-bold text-yellow-200 mb-0.5">🪙</span>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="bg-white/12 rounded-2xl px-4 py-2 text-center border border-white/10 shadow-inner">
-            <p className="text-[10px] text-white/70 font-bold uppercase tracking-wider">Hạng</p>
-            <p className="text-xl font-black">{loading ? '-' : myRank}</p>
+        <div className="flex items-center gap-2.5">
+          <div className="bg-white/15 rounded-2xl px-3.5 py-1.5 sm:px-4 sm:py-2 text-center border border-white/10 shadow-inner">
+            <p className="text-[9px] sm:text-[10px] text-white/75 font-black uppercase tracking-wider">Hạng</p>
+            <p className="text-lg sm:text-xl font-black leading-tight">{loading ? '-' : myRank}</p>
           </div>
           <button 
+            type="button"
             onClick={() => setActiveTab('shop')}
-            className="bg-white text-blue-600 hover:bg-blue-50 font-extrabold px-5 py-3 rounded-2xl text-sm shadow-md active:scale-95 transition-all"
+            className="bg-white text-orange-600 hover:bg-orange-50 font-black px-4 py-2.5 sm:px-5 sm:py-3 rounded-2xl text-xs sm:text-sm shadow-md active:scale-95 transition-all"
           >
             Đổi quà
           </button>
         </div>
       </div>
 
-
       {/* Points Source Guide */}
-      <div className="soft3d-card p-3.5">
-        <div className="flex items-center gap-2 mb-2.5">
+      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-3.5 shadow-xs">
+        <div className="flex items-center gap-2 mb-2">
           <Sparkles size={14} className="text-amber-500" />
-          <span className="text-xs font-bold text-gray-700 dark:text-gray-200">Cách tích điểm</span>
+          <span className="text-xs font-black text-[var(--kg-text)]">Cơ chế tích điểm thi đua</span>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5">
           {[
             { label: 'Đúng giờ', pts: '+5', icon: '📍' },
             { label: 'Checklist', pts: '+10', icon: '📋' },
             { label: 'Bàn giao', pts: '+15', icon: '🔄' },
-            { label: 'Thưởng', pts: '+20', icon: '⭐' },
+            { label: 'Thưởng nóng', pts: '+20', icon: '⭐' },
             { label: 'Đi trễ', pts: '-10', icon: '⏰' },
-            { label: 'Phạt', pts: '-15', icon: '⚠️' },
+            { label: 'Phạt lỗi', pts: '-15', icon: '⚠️' },
           ].map((item, i) => (
-            <div key={i} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold ${item.pts.startsWith('+') ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'}`}>
+            <div key={i} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] font-black ${item.pts.startsWith('+') ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-200/40 dark:border-emerald-900/30' : 'bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400 border border-rose-200/40 dark:border-rose-900/30'}`}>
               <span>{item.icon}</span>
               <span>{item.label}</span>
               <span className="font-black">{item.pts}</span>
@@ -147,7 +147,7 @@ export default function Reward() {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex space-x-2 paint-layer p-1.5 rounded-2xl">
+      <div className="flex bg-[var(--kg-surface)] border border-[var(--kg-border)] p-1 rounded-2xl shadow-xs">
         {[
           { id: 'wallet', label: 'Lịch sử', icon: History },
           { id: 'leaderboard', label: 'Bảng vàng', icon: Trophy },
@@ -155,14 +155,15 @@ export default function Reward() {
         ].map((tab) => (
           <button
             key={tab.id}
+            type="button"
             onClick={() => setActiveTab(tab.id as any)}
-            className={`flex-1 flex items-center justify-center space-x-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
+            className={`flex-1 flex items-center justify-center space-x-1.5 py-2.5 rounded-xl text-xs sm:text-sm transition-all active:scale-95 ${
               activeTab === tab.id 
-                ? 'bg-white dark:bg-gray-700 text-ocean-600 dark:text-ocean-400 shadow-sm' 
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm font-black' 
+                : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
             }`}
           >
-            <tab.icon size={16} />
+            <tab.icon size={15} />
             <span>{tab.label}</span>
           </button>
         ))}

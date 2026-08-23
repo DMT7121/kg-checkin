@@ -307,7 +307,12 @@ export default function AdminPayroll() {
       </div>
       
       {/* Save Global Config */}
-      <button onClick={handleSavePayrollConfig} disabled={isSaving || formulaLocked} className={`w-full font-bold py-3.5 rounded-xl shadow-lg transition flex items-center justify-center mt-6 ${isSaving || formulaLocked ? 'bg-ocean-400 text-white cursor-not-allowed opacity-70' : 'bg-ocean-600 hover:bg-ocean-700 text-white'}`}>
+      <button 
+        type="button"
+        onClick={handleSavePayrollConfig} 
+        disabled={isSaving || formulaLocked} 
+        className={`w-full font-black py-4 rounded-2xl shadow-md transition-all transform active:scale-95 flex items-center justify-center mt-6 text-xs sm:text-sm uppercase tracking-wider ${isSaving || formulaLocked ? 'bg-gray-400 text-white cursor-not-allowed opacity-60' : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white'}`}
+      >
         {isSaving ? (
           <><span className="animate-spin mr-2">⏳</span> Đang lưu...</>
         ) : (

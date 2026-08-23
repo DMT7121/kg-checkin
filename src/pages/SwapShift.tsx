@@ -178,16 +178,40 @@ export default function SwapShift() {
       />
 
       {/* Tabs Menu */}
-      <div className="flex paint-layer p-1 rounded-2xl mb-6">
-        <button onClick={() => setViewTab('board')} className={`flex-1 flex items-center justify-center py-3 rounded-xl font-bold text-[11px] sm:text-sm transition-all ${viewTab === 'board' ? 'bg-white dark:bg-gray-700 text-teal-600 dark:text-teal-400 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>
-          <Megaphone size={16} className="mr-1.5" /> Bảng tin
-          {store.hasNewSwaps && viewTab !== 'board' && <span className="w-2 h-2 rounded-full bg-red-500 ml-2 animate-ping" />}
+      <div className="flex bg-[var(--kg-surface)] border border-[var(--kg-border)] p-1 rounded-2xl mb-6 shadow-xs">
+        <button 
+          type="button"
+          onClick={() => setViewTab('board')} 
+          className={`flex-1 flex items-center justify-center py-2.5 rounded-xl text-xs sm:text-sm transition-all active:scale-95 ${
+            viewTab === 'board' 
+              ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm font-black' 
+              : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
+          }`}
+        >
+          <Megaphone size={15} className="mr-1.5" /> Bảng tin
+          {store.hasNewSwaps && viewTab !== 'board' && <span className="w-2 h-2 rounded-full bg-red-500 ml-1.5 animate-ping" />}
         </button>
-        <button onClick={() => setViewTab('post')} className={`flex-1 flex items-center justify-center py-3 rounded-xl font-bold text-[11px] sm:text-sm transition-all ${viewTab === 'post' ? 'bg-white dark:bg-gray-700 text-teal-600 dark:text-teal-400 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>
-          <Send size={16} className="mr-1.5" /> Tìm người thay
+        <button 
+          type="button"
+          onClick={() => setViewTab('post')} 
+          className={`flex-1 flex items-center justify-center py-2.5 rounded-xl text-xs sm:text-sm transition-all active:scale-95 ${
+            viewTab === 'post' 
+              ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm font-black' 
+              : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
+          }`}
+        >
+          <Send size={15} className="mr-1.5" /> Tìm người thay
         </button>
-        <button onClick={() => setViewTab('leave')} className={`flex-1 flex items-center justify-center py-3 rounded-xl font-bold text-[11px] sm:text-sm transition-all ${viewTab === 'leave' ? 'bg-white dark:bg-gray-700 text-teal-600 dark:text-teal-400 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>
-          <LogOut size={16} className="mr-1.5" /> Xin nghỉ phép
+        <button 
+          type="button"
+          onClick={() => setViewTab('leave')} 
+          className={`flex-1 flex items-center justify-center py-2.5 rounded-xl text-xs sm:text-sm transition-all active:scale-95 ${
+            viewTab === 'leave' 
+              ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm font-black' 
+              : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
+          }`}
+        >
+          <LogOut size={15} className="mr-1.5" /> Xin nghỉ phép
         </button>
       </div>
 

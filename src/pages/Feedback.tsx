@@ -124,58 +124,59 @@ export default function Feedback() {
   const displayFeedbacks = feedbacks;
 
   return (
-    <div className="h-full flex flex-col soft3d-bg animate-fade-in relative pb-6">
-      <div className="p-4 flex-none">
-        <KgModuleHero
-          moduleId="feedback"
-          title="Góp ý & Khiếu nại"
-          description="Lắng nghe ý kiến đóng góp, thắc mắc từ nhân sự để cải thiện môi trường làm việc."
-          eyebrow="Khảo sát"
-        />
+    <div className="h-full flex flex-col space-y-4 pb-16 animate-fade-in">
+      <KgModuleHero
+        moduleId="feedback"
+        title="Góp Ý & Khiếu Nại"
+        description="Lắng nghe ý kiến đóng góp, đề xuất và thắc mắc của nhân sự với bảo mật tuyệt đối."
+        eyebrow="Khảo sát"
+        features={['Tuỳ chọn ẩn danh 100%', 'Gửi thẳng Quản lý', 'Theo dõi phản hồi']}
+      />
 
-      </div>
-
-      <div className="px-4 relative z-20 flex-1 flex flex-col overflow-hidden space-y-4">
+      <div className="relative z-20 flex-1 flex flex-col space-y-4">
         
         {/* User Submit Form (Hide for Admin unless Admin wants to submit) */}
         {!isAdmin && (
-          <div className="soft3d-card p-5 shrink-0">
-            <h3 className="font-bold text-gray-800 dark:text-white mb-3 text-sm flex items-center">
-              <Send size={16} className="mr-2 text-purple-500" /> Gửi phản hồi mới
+          <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 sm:p-5 shadow-xs shrink-0 space-y-3">
+            <h3 className="font-black text-[var(--kg-text)] text-xs sm:text-sm flex items-center">
+              <Send size={15} className="mr-2 text-indigo-500" /> Gửi phản hồi / kiến nghị mới
             </h3>
             <form onSubmit={handleSubmit} className="space-y-3">
               <select 
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full soft3d-bg/50 border border-gray-200 dark:border-gray-700 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 text-gray-800 dark:text-white text-sm"
+                className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-[var(--kg-text)] text-xs sm:text-sm font-medium"
               >
-                <option>Góp ý hệ thống</option>
-                <option>Khiếu nại lương/ca</option>
-                <option>Thái độ đồng nghiệp</option>
+                <option>Góp ý cải tiến quy trình</option>
+                <option>Khiếu nại ca làm / lương thưởng</option>
+                <option>Cơ sở vật chất / công cụ làm việc</option>
                 <option>Khác</option>
               </select>
 
               <textarea 
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                placeholder="Nội dung chi tiết..."
+                placeholder="Nhập nội dung chi tiết..."
                 rows={3}
-                className="w-full soft3d-bg/50 border border-gray-200 dark:border-gray-700 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 text-gray-800 dark:text-white text-sm"
-              ></textarea>
+                className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-[var(--kg-text)] text-xs sm:text-sm"
+              />
 
-              <div className="flex items-center justify-between mt-2">
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <div className={`w-10 h-6 flex items-center bg-gray-300 dark:bg-gray-600 rounded-full p-1 transition-colors duration-300 ease-in-out ${isAnonymous ? 'bg-purple-500' : ''}`}>
-                    <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ease-in-out ${isAnonymous ? 'translate-x-4' : ''}`}></div>
+              <div className="flex items-center justify-between pt-1">
+                <label className="flex items-center space-x-2 cursor-pointer select-none">
+                  <div className={`w-9 h-5 flex items-center bg-gray-300 dark:bg-gray-700 rounded-full p-0.5 transition-colors duration-300 ${isAnonymous ? '!bg-indigo-600' : ''}`}>
+                    <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${isAnonymous ? 'translate-x-4' : ''}`}></div>
                   </div>
                   <input type="checkbox" className="hidden" checked={isAnonymous} onChange={() => setIsAnonymous(!isAnonymous)} />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center">
-                    <EyeOff size={14} className="mr-1" /> Ẩn danh
+                  <span className="text-xs font-bold text-[var(--kg-text)] flex items-center">
+                    <EyeOff size={13} className="mr-1 text-[var(--kg-text-muted)]" /> Ẩn danh
                   </span>
                 </label>
 
-                <button type="submit" className="bg-purple-600 text-white font-semibold py-2 px-6 rounded-xl shadow-md hover:bg-purple-700 transition active:scale-95 text-sm">
-                  Gửi đi
+                <button 
+                  type="submit" 
+                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black py-2.5 px-5 rounded-xl shadow-md transition-all active:scale-95 text-xs sm:text-sm"
+                >
+                  Gửi phản hồi
                 </button>
               </div>
             </form>
@@ -183,50 +184,50 @@ export default function Feedback() {
         )}
 
         {/* Feedback List */}
-        <div className="flex-1 overflow-y-auto pb-6 no-scrollbar space-y-3">
-          <h3 className="font-bold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider ml-1">Lịch sử phản hồi</h3>
+        <div className="flex-1 overflow-y-auto no-scrollbar space-y-3">
+          <h3 className="font-black text-[var(--kg-text-muted)] text-[11px] uppercase tracking-wider pl-1">Lịch sử phản hồi</h3>
           
           {loading ? (
-            <div className="flex justify-center py-4"><div className="animate-spin h-6 w-6 border-b-2 border-purple-500 rounded-full"></div></div>
+            <div className="flex justify-center py-6"><div className="animate-spin h-6 w-6 border-2 border-indigo-500 border-t-transparent rounded-full"></div></div>
           ) : displayFeedbacks.length === 0 ? (
-            <div className="text-center py-8 soft3d-card ">
-              <AlertCircle size={32} className="mx-auto text-gray-300 dark:text-gray-600 mb-2" />
-              <p className="text-sm text-gray-500">Chưa có phản hồi nào</p>
+            <div className="text-center py-8 bg-[var(--kg-surface)] border border-dashed border-[var(--kg-border)] rounded-2xl">
+              <AlertCircle size={28} className="mx-auto text-[var(--kg-text-muted)] opacity-40 mb-2" />
+              <p className="text-xs font-bold text-[var(--kg-text-muted)]">Chưa có phản hồi nào</p>
             </div>
           ) : (
             <AnimatePresence>
               {displayFeedbacks.map((fb, idx) => (
                 <motion.div 
                   key={fb.id}
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.05 }}
-                  className="soft3d-card p-4"
+                  transition={{ delay: idx * 0.04 }}
+                  className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 shadow-xs space-y-2.5"
                 >
-                  <div className="flex justify-between items-start mb-2">
+                  <div className="flex justify-between items-start">
                     <div className="flex items-center space-x-2">
-                      <div className={`p-1.5 rounded-full ${fb.isAnonymous ? 'bg-gray-100 text-gray-500 dark:bg-gray-700' : 'bg-blue-100 text-blue-600 dark:bg-blue-900/40'}`}>
+                      <div className={`p-1.5 rounded-xl ${fb.isAnonymous ? 'bg-gray-100 text-gray-500 dark:bg-gray-800' : 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40'}`}>
                         {fb.isAnonymous ? <EyeOff size={14} /> : <User size={14} />}
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-gray-800 dark:text-white">
+                        <p className="text-xs sm:text-sm font-black text-[var(--kg-text)]">
                           {fb.isAnonymous ? 'Người dùng ẩn danh' : fb.fullname}
                         </p>
-                        <p className="text-[10px] text-gray-400 flex items-center mt-0.5">
+                        <p className="text-[10px] text-[var(--kg-text-muted)] flex items-center mt-0.5 font-medium">
                           <Clock size={10} className="mr-1" /> {fb.date}
                         </p>
                       </div>
                     </div>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${fb.status === 'Reviewed' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400'}`}>
-                      {fb.status === 'Reviewed' ? 'Đã xem xét' : 'Chờ xử lý'}
+                    <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border ${fb.status === 'Reviewed' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/30' : 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 border-amber-200 dark:border-amber-900/30'}`}>
+                      {fb.status === 'Reviewed' ? 'Đã xem xét' : 'Chờ phản hồi'}
                     </span>
                   </div>
                   
-                  <span className="inline-block bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-[10px] font-semibold px-2 py-0.5 rounded mb-2">
+                  <span className="inline-block bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] text-[10px] font-black px-2.5 py-0.5 rounded-lg">
                     {fb.category}
                   </span>
                   
-                  <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{fb.content}</p>
+                  <p className="text-xs sm:text-sm text-[var(--kg-text)] font-medium leading-relaxed whitespace-pre-wrap">{fb.content}</p>
 
                   {/* Admin Reply Section */}
                   {fb.adminReply ? (

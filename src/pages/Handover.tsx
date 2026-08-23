@@ -116,41 +116,41 @@ export default function Handover() {
   }
 
   return (
-    <div className="h-full flex flex-col soft3d-bg animate-fade-in relative pb-6">
-      <div className="p-4 flex-none">
-        <KgModuleHero
-          moduleId="handover"
-          title="Bàn giao Ca"
-          description="Chuyển giao quỹ tiền mặt và báo cáo sự cố ca trực."
-          eyebrow="Vận hành"
-        />
-
-      </div>
+    <div className="h-full flex flex-col space-y-4 pb-16 animate-fade-in">
+      <KgModuleHero
+        moduleId="handover"
+        title="Sổ Bàn Giao Ca & Két Tiền"
+        description="Chuyển giao trách nhiệm quỹ tiền mặt và báo cáo sự cố vận hành ca trực."
+        eyebrow="Vận hành"
+        features={['Bàn giao tiền mặt', 'Báo cáo sự cố tức thì', 'Lưu nhật ký điện tử']}
+      />
 
       {/* Content wrapper */}
-      <div className="px-4 relative z-20 flex-1 flex flex-col">
+      <div className="relative z-20 flex-1 flex flex-col space-y-4">
         
         {/* Custom Tabs */}
-        <div className="soft3d-card p-1 rounded-2xl   flex mb-5">
+        <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-1 rounded-2xl flex gap-1 shadow-xs">
           <button 
+            type="button"
             onClick={() => setActiveTab('handover')}
-            className={`flex-1 flex items-center justify-center py-2.5 rounded-xl text-sm font-semibold transition-all ${
+            className={`flex-1 flex items-center justify-center py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all active:scale-95 ${
               activeTab === 'handover' 
-                ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 ' 
-                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm' 
+                : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
             }`}
           >
-            <Banknote size={16} className="mr-2" /> Bàn giao quỹ
+            <Banknote size={16} className="mr-1.5" /> Bàn giao quỹ
           </button>
           <button 
+            type="button"
             onClick={() => setActiveTab('incident')}
-            className={`flex-1 flex items-center justify-center py-2.5 rounded-xl text-sm font-semibold transition-all ${
+            className={`flex-1 flex items-center justify-center py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all active:scale-95 ${
               activeTab === 'incident' 
-                ? 'bg-red-50 text-red-700 dark:bg-red-900/40 dark:text-red-400 ' 
-                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                ? 'bg-gradient-to-r from-rose-500 to-red-600 text-white shadow-sm' 
+                : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
             }`}
           >
-            <ShieldAlert size={16} className="mr-2" /> Báo cáo sự cố
+            <ShieldAlert size={16} className="mr-1.5" /> Báo cáo sự cố
           </button>
         </div>
 
@@ -159,28 +159,28 @@ export default function Handover() {
             {activeTab === 'handover' && (
               <motion.div
                 key="handover"
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 10 }}
-                transition={{ duration: 0.2 }}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.15 }}
               >
-                <div className="soft3d-card p-5">
-                  <div className="flex items-center mb-4 pb-4 border-b border-gray-100 dark:border-gray-700">
-                    <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mr-3 shrink-0">
-                      <Banknote size={20} className="text-blue-600 dark:text-blue-400" />
+                <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
+                  <div className="flex items-center gap-3 pb-3 border-b border-[var(--kg-border)]">
+                    <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                      <Banknote size={20} />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-800 dark:text-white">Bàn giao tiền mặt</h3>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Khai báo số tiền lẻ thối cuối ca</p>
+                      <h3 className="font-black text-sm sm:text-base text-[var(--kg-text)]">Bàn giao tiền mặt két</h3>
+                      <p className="text-xs text-[var(--kg-text-muted)] font-medium">Khai báo số tiền lẻ thối thực tế cuối ca</p>
                     </div>
                   </div>
 
                   <form onSubmit={submitHandover} className="space-y-4">
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Số tiền mặt thực tế (VNĐ) *</label>
+                      <label className="block text-xs font-black text-[var(--kg-text)] mb-1.5">Số tiền mặt thực tế (VNĐ) *</label>
                       <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                          <span className="text-gray-500 font-bold">đ</span>
+                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[var(--kg-text-muted)] font-bold text-xs">
+                          VNĐ
                         </div>
                         <input 
                           type="text" 
@@ -188,29 +188,32 @@ export default function Handover() {
                           value={cashAmount}
                           onChange={handleCashChange}
                           placeholder="VD: 500.000"
-                          className="w-full soft3d-bg/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-10 pr-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-gray-800 dark:text-white font-semibold tracking-wide"
+                          className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl pl-12 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-[var(--kg-text)] font-extrabold text-sm sm:text-base tracking-wide"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Ghi chú thêm</label>
+                      <label className="block text-xs font-black text-[var(--kg-text)] mb-1.5">Ghi chú thêm</label>
                       <div className="relative">
-                        <div className="absolute top-3 left-3 flex items-start pointer-events-none">
-                          <FileText size={18} className="text-gray-400" />
+                        <div className="absolute top-3 left-3 flex items-start pointer-events-none text-[var(--kg-text-muted)]">
+                          <FileText size={16} />
                         </div>
                         <textarea 
                           value={handoverNote}
                           onChange={(e) => setHandoverNote(e.target.value)}
                           placeholder="Ghi chú về tiền dư/thiếu, hóa đơn nợ..."
                           rows={3}
-                          className="w-full soft3d-bg/50 border border-gray-200 dark:border-gray-700 rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-gray-800 dark:text-white text-sm"
-                        ></textarea>
+                          className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl pl-9 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-[var(--kg-text)] text-xs sm:text-sm"
+                        />
                       </div>
                     </div>
 
-                    <button type="submit" className="w-full mt-2 bg-gradient-to-r from-[#2563eb] to-[#7c3aed] text-white font-bold py-3.5 rounded-xl shadow-md hover:shadow-lg hover:-translate-y-0.5 transition transform active:scale-95 flex items-center justify-center border-none">
-                      <CheckCircle2 size={18} className="mr-2" /> XÁC NHẬN BÀN GIAO
+                    <button 
+                      type="submit" 
+                      className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black py-3.5 rounded-2xl shadow-md transition-all transform active:scale-95 flex items-center justify-center text-xs sm:text-sm uppercase tracking-wider"
+                    >
+                      <CheckCircle2 size={18} className="mr-1.5" /> XÁC NHẬN BÀN GIAO CA
                     </button>
                   </form>
                 </div>
@@ -220,55 +223,59 @@ export default function Handover() {
             {activeTab === 'incident' && (
               <motion.div
                 key="incident"
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -10 }}
-                transition={{ duration: 0.2 }}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.15 }}
               >
-                <div className="soft3d-card p-5  border border-red-100 dark:border-red-900/20">
-                  <div className="flex items-center mb-4 pb-4 border-b border-gray-100 dark:border-gray-700">
-                    <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mr-3 shrink-0">
-                      <AlertTriangle size={20} className="text-red-600 dark:text-red-400" />
+                <div className="bg-[var(--kg-surface)] border border-rose-500/20 dark:border-rose-900/30 rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
+                  <div className="flex items-center gap-3 pb-3 border-b border-[var(--kg-border)]">
+                    <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                      <AlertTriangle size={20} />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-800 dark:text-white">Báo cáo sự cố</h3>
-                      <p className="text-xs text-red-500 dark:text-red-400 font-medium">Báo cho Quản lý biết ngay lập tức</p>
+                      <h3 className="font-black text-sm sm:text-base text-[var(--kg-text)]">Báo cáo sự cố ca trực</h3>
+                      <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">Báo cho Quản lý biết ngay lập tức</p>
                     </div>
                   </div>
 
                   <form onSubmit={submitIncident} className="space-y-4">
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Phân loại sự cố *</label>
+                      <label className="block text-xs font-black text-[var(--kg-text)] mb-1.5">Phân loại sự cố *</label>
                       <div className="grid grid-cols-2 gap-2">
                         {['Thiết bị hỏng', 'Khách phàn nàn', 'Thiếu nguyên liệu', 'Khác'].map(cat => (
-                          <div 
+                          <button 
+                            type="button"
                             key={cat}
                             onClick={() => setIncidentCategory(cat)}
-                            className={`p-3 rounded-xl border cursor-pointer text-center transition-all ${
+                            className={`p-2.5 rounded-xl border text-center transition-all text-xs font-black active:scale-95 ${
                               incidentCategory === cat 
-                                ? 'border-red-500 bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400 font-semibold' 
-                                : 'border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-gray-900/50 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                                ? 'border-rose-500 bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400 shadow-xs' 
+                                : 'border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] hover:bg-[var(--kg-border)]/40'
                             }`}
                           >
-                            <span className="text-sm">{cat}</span>
-                          </div>
+                            <span>{cat}</span>
+                          </button>
                         ))}
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Mô tả chi tiết *</label>
+                      <label className="block text-xs font-black text-[var(--kg-text)] mb-1.5">Mô tả chi tiết *</label>
                       <textarea 
                         value={incidentDesc}
                         onChange={(e) => setIncidentDesc(e.target.value)}
-                        placeholder="Mô tả cụ thể sự cố (Ví dụ: Máy lạnh khu A bị chảy nước...)"
+                        placeholder="Mô tả cụ thể sự cố (Ví dụ: Máy lạnh khu A bị chảy nước, bàn 5 phàn nàn món chậm...)"
                         rows={4}
-                        className="w-full soft3d-bg/50 border border-gray-200 dark:border-gray-700 rounded-xl p-4 focus:outline-none focus:ring-2 focus:ring-red-500/50 text-gray-800 dark:text-white text-sm"
-                      ></textarea>
+                        className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-rose-500/50 text-[var(--kg-text)] text-xs sm:text-sm"
+                      />
                     </div>
 
-                    <button type="submit" className="w-full mt-2 bg-gradient-to-r from-[#ef4444] to-[#dc2626] text-white font-bold py-3.5 rounded-xl shadow-md hover:shadow-lg hover:-translate-y-0.5 transition transform active:scale-95 flex items-center justify-center border-none">
-                      <ShieldAlert size={18} className="mr-2" /> GỬI BÁO CÁO NGAY
+                    <button 
+                      type="submit" 
+                      className="w-full bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white font-black py-3.5 rounded-2xl shadow-md transition-all transform active:scale-95 flex items-center justify-center text-xs sm:text-sm uppercase tracking-wider"
+                    >
+                      <ShieldAlert size={18} className="mr-1.5" /> GỬI BÁO CÁO SỰ CỐ NGAY
                     </button>
                   </form>
                 </div>

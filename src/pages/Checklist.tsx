@@ -599,7 +599,7 @@ export default function Checklist() {
       </div>
 
       {/* 4 Area Completeness Board */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {AREA_CODES.map(area => {
           const doneCount = flatItems.filter(item => isItemCompleteForArea(area, item)).length;
           const totalCount = flatItems.length;

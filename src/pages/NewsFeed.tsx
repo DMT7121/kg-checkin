@@ -166,133 +166,143 @@ export default function NewsFeed() {
 
       {/* Admin Post Box */}
       {currentUser?.role === 'admin' && (
-        <div className="soft3d-card  border border-indigo-100 dark:border-indigo-900/50 overflow-hidden mb-6 p-4">
-          <h3 className="font-bold text-gray-800 dark:text-white mb-3 flex items-center text-sm">
-            <Edit3 size={16} className="mr-2 text-indigo-500" /> Tạo thông báo mới
+        <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl overflow-hidden mb-6 p-4 sm:p-5 shadow-xs space-y-3">
+          <h3 className="font-black text-[var(--kg-text)] flex items-center text-xs sm:text-sm">
+            <Edit3 size={16} className="mr-2 text-indigo-500" /> Tạo thông báo mới cho toàn quán
           </h3>
           <textarea
             value={newPostContent}
             onChange={(e) => setNewPostContent(e.target.value)}
             rows={3}
-            placeholder="Bạn muốn thông báo điều gì cho toàn bộ quán?"
-            className="w-full soft3d-bg border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-800 dark:text-white resize-none mb-3"
+            placeholder="Bạn muốn thông báo điều gì cho toàn bộ nhân sự?"
+            className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-[var(--kg-text)] resize-none"
           />
 
           {/* Image Preview */}
           {newPostImagePreview && (
-            <div className="relative w-32 h-32 mb-3 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+            <div className="relative w-32 h-32 rounded-xl overflow-hidden border border-[var(--kg-border)]">
               <img src={newPostImagePreview} alt="Preview" className="w-full h-full object-cover" />
               <button 
+                type="button"
                 onClick={() => setNewPostImagePreview(null)}
-                className="absolute top-1 right-1 bg-black/50 text-white rounded-full p-1 hover:bg-black/70 transition"
+                className="absolute top-1.5 right-1.5 bg-black/60 text-white rounded-full p-1 hover:bg-black/80 transition"
               >
-                <X size={14} />
+                <X size={13} />
               </button>
               {uploadingImage && (
-                <div className="absolute inset-0 bg-white/50 dark:bg-black/50 flex items-center justify-center">
-                  <Loader2 size={20} className="animate-spin text-indigo-600" />
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                  <Loader2 size={20} className="animate-spin text-white" />
                 </div>
               )}
             </div>
           )}
 
-          <div className="flex justify-between items-center mt-1">
-            <label className="cursor-pointer text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 p-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-full transition">
+          <div className="flex justify-between items-center pt-1">
+            <label className="cursor-pointer text-indigo-500 hover:text-indigo-600 p-2 hover:bg-[var(--kg-surface-soft)] rounded-xl transition">
               <input type="file" accept="image/*" className="hidden" onChange={handleImageSelect} disabled={uploadingImage} />
               <ImageIcon size={20} />
             </label>
             <button 
+              type="button"
               onClick={handleAddPost}
               disabled={isPosting || uploadingImage || (!newPostContent.trim() && !newPostImagePreview)}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-xl transition flex items-center disabled:opacity-50"
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black py-2.5 px-5 rounded-xl transition-all shadow-md active:scale-95 flex items-center text-xs sm:text-sm disabled:opacity-50"
             >
-              {isPosting ? <Loader2 size={16} className="animate-spin mr-2" /> : <Send size={16} className="mr-2" />}
-              Đăng bài
+              {isPosting ? <Loader2 size={15} className="animate-spin mr-1.5" /> : <Send size={15} className="mr-1.5" />}
+              Đăng tin
             </button>
           </div>
         </div>
       )}
 
       {loading && posts.length === 0 ? (
-        <div className="flex justify-center items-center py-10">
+        <div className="flex justify-center items-center py-12">
           <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {posts.map(post => {
             const hasLiked = post.likes.includes(currentUser?.username || 'Guest');
             
             return (
-              <div key={post.id} className="soft3d-card overflow-hidden animate-fade-in">
+              <div key={post.id} className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl overflow-hidden shadow-xs animate-fade-in">
                 {/* Author */}
-                <div className="p-4 flex items-center justify-between">
+                <div className="p-3.5 sm:p-4 flex items-center justify-between">
                   <div className="flex items-center">
-                    <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 flex items-center justify-center font-bold text-lg mr-3  border border-indigo-200 dark:border-indigo-800">
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black text-sm sm:text-base mr-3 border border-indigo-500/20 shrink-0">
                       {post.author.charAt(0)}
                     </div>
                     <div>
-                      <h4 className="font-bold text-gray-800 dark:text-white text-sm flex items-center">
+                      <h4 className="font-black text-[var(--kg-text)] text-xs sm:text-sm flex items-center">
                         {post.author} 
-                        {(post.author === 'Admin' || post.role === 'Admin') && <span className="ml-2 bg-red-100 text-red-600 text-[9px] px-2 py-0.5 rounded-full font-extrabold">ADMIN</span>}
-                        {post.role === 'System' && <span className="ml-2 bg-blue-100 text-blue-600 text-[9px] px-2 py-0.5 rounded-full font-extrabold">SYSTEM</span>}
+                        {(post.author === 'Admin' || post.role === 'Admin') && <span className="ml-2 bg-rose-500/10 text-rose-600 dark:text-rose-400 text-[9px] px-2 py-0.5 rounded-full font-black border border-rose-500/20">ADMIN</span>}
+                        {post.role === 'System' && <span className="ml-2 bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[9px] px-2 py-0.5 rounded-full font-black border border-blue-500/20">SYSTEM</span>}
                       </h4>
-                      <p className="text-[10px] text-gray-500">{post.time || 'Gần đây'}</p>
+                      <p className="text-[10px] text-[var(--kg-text-muted)] font-medium mt-0.5">{post.time || 'Gần đây'}</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Content */}
-                <div className="px-4 pb-3">
-                  <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line">
+                <div className="px-3.5 sm:px-4 pb-3">
+                  <p className="text-xs sm:text-sm text-[var(--kg-text)] leading-relaxed whitespace-pre-line font-medium">
                     {post.content}
                   </p>
                 </div>
 
                 {/* Image */}
                 {post.image && (
-                  <div className="w-full h-48 soft3d-bg">
+                  <div className="w-full max-h-72 bg-[var(--kg-surface-soft)] overflow-hidden">
                     <img src={post.image} alt="Post cover" className="w-full h-full object-cover" />
                   </div>
                 )}
 
                 {/* Stats */}
-                <div className="px-4 py-2 flex justify-between text-[11px] text-gray-500 font-medium">
+                <div className="px-3.5 sm:px-4 py-2 flex justify-between text-[11px] text-[var(--kg-text-muted)] font-medium border-t border-[var(--kg-border)]/50">
                   <div className="flex items-center space-x-3 w-full">
-                    <div className="flex items-center cursor-help" title={post.likes.length > 0 ? `Được thích bởi: ${post.likes.join(', ')}` : ''}>
-                      <Heart size={12} className="mr-1 text-pink-500 fill-current" /> 
-                      <span className="mr-1">{post.likes.length}</span>
+                    <div className="flex items-center cursor-help">
+                      <Heart size={13} className="mr-1 text-rose-500 fill-current" /> 
+                      <span className="mr-1 font-bold">{post.likes.length}</span>
                       {post.likes.length > 0 && (
                         <span className="text-[10px] opacity-70 truncate max-w-[120px]">
                           ({post.likes.length <= 2 ? post.likes.join(', ') : `${post.likes[0]} và ${post.likes.length - 1} người khác`})
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center ml-auto cursor-pointer hover:text-blue-500" onClick={() => setActiveCommentPostId(activeCommentPostId === post.id ? null : post.id)}>
-                      <MessageSquare size={12} className="mr-1 text-blue-500" /> {post.comments.length} bình luận
+                    <div className="flex items-center ml-auto cursor-pointer hover:text-blue-500 font-bold" onClick={() => setActiveCommentPostId(activeCommentPostId === post.id ? null : post.id)}>
+                      <MessageSquare size={13} className="mr-1 text-blue-500" /> {post.comments.length} bình luận
                     </div>
                   </div>
                 </div>
 
                 {/* Actions */}
-                <div className="flex px-2 py-1.5 border-y border-gray-100 dark:border-gray-700">
-                  <button onClick={() => toggleLike(post.id)} className={`flex-1 flex justify-center items-center py-2 text-xs font-bold rounded-xl transition-all ${hasLiked ? 'text-pink-500 bg-pink-50 dark:bg-pink-900/20' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
-                    <Heart size={16} className={`mr-1.5 ${hasLiked ? 'fill-current' : ''}`} /> {hasLiked ? 'Đã thích' : 'Thích'}
+                <div className="flex px-2 py-1 border-t border-[var(--kg-border)]">
+                  <button 
+                    type="button"
+                    onClick={() => toggleLike(post.id)} 
+                    className={`flex-1 flex justify-center items-center py-2 text-xs font-black rounded-xl transition-all active:scale-95 ${hasLiked ? 'text-rose-500 bg-rose-500/10' : 'text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)]'}`}
+                  >
+                    <Heart size={15} className={`mr-1.5 ${hasLiked ? 'fill-current' : ''}`} /> {hasLiked ? 'Đã thích' : 'Thích'}
                   </button>
-                  <button onClick={() => setActiveCommentPostId(activeCommentPostId === post.id ? null : post.id)} className={`flex-1 flex justify-center items-center py-2 text-xs font-bold rounded-xl transition-all ${activeCommentPostId === post.id ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
-                    <MessageSquare size={16} className="mr-1.5" /> Bình luận
+                  <button 
+                    type="button"
+                    onClick={() => setActiveCommentPostId(activeCommentPostId === post.id ? null : post.id)} 
+                    className={`flex-1 flex justify-center items-center py-2 text-xs font-black rounded-xl transition-all active:scale-95 ${activeCommentPostId === post.id ? 'text-blue-600 bg-blue-500/10' : 'text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)]'}`}
+                  >
+                    <MessageSquare size={15} className="mr-1.5" /> Bình luận
                   </button>
                 </div>
 
                 {/* Latest Comment Preview (if not expanded) */}
                 {activeCommentPostId !== post.id && post.comments.length > 0 && (
-                  <div className="px-4 py-3 bg-gray-50/50 dark:bg-gray-800/30 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors" onClick={() => setActiveCommentPostId(post.id)}>
+                  <div className="px-3.5 sm:px-4 py-2.5 bg-[var(--kg-surface-soft)]/50 cursor-pointer hover:bg-[var(--kg-surface-soft)] transition-colors border-t border-[var(--kg-border)]" onClick={() => setActiveCommentPostId(post.id)}>
                     <div className="flex space-x-2">
-                      <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 flex-shrink-0 flex items-center justify-center text-[10px] font-bold text-gray-600 dark:text-gray-300">
+                      <div className="w-5 h-5 rounded-full bg-[var(--kg-border)] flex-shrink-0 flex items-center justify-center text-[9px] font-black text-[var(--kg-text)]">
                         {post.comments[post.comments.length - 1].author.charAt(0)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs text-gray-700 dark:text-gray-300 truncate">
-                          <span className="font-bold text-gray-800 dark:text-gray-200 mr-1.5">{post.comments[post.comments.length - 1].author}</span>
+                        <p className="text-[11px] text-[var(--kg-text)] truncate">
+                          <span className="font-bold mr-1">{post.comments[post.comments.length - 1].author}:</span>
                           {post.comments[post.comments.length - 1].content}
                         </p>
                       </div>
@@ -302,28 +312,28 @@ export default function NewsFeed() {
 
                 {/* Comments Section */}
                 {activeCommentPostId === post.id && (
-                  <div className="paint-layer/50 p-4 animate-fade-in">
-                    <div className="space-y-4 mb-4 max-h-[250px] overflow-y-auto hide-scrollbar pr-1">
+                  <div className="bg-[var(--kg-surface-soft)]/40 p-3.5 sm:p-4 border-t border-[var(--kg-border)] space-y-3 animate-fade-in">
+                    <div className="space-y-3 max-h-[250px] overflow-y-auto hide-scrollbar pr-1">
                       {post.comments.map(comment => (
                         <div key={comment.id} className="flex space-x-2">
-                          <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex-shrink-0 flex items-center justify-center text-xs font-bold text-gray-600 dark:text-gray-300">
+                          <div className="w-7 h-7 rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-border)] flex-shrink-0 flex items-center justify-center text-xs font-black text-[var(--kg-text)]">
                             {comment.author.charAt(0)}
                           </div>
-                          <div className="flex-1 bg-white dark:bg-gray-700 rounded-2xl rounded-tl-none p-3  ">
-                            <h5 className="text-xs font-bold text-gray-800 dark:text-white mb-0.5">{comment.author}</h5>
-                            <p className="text-sm text-gray-700 dark:text-gray-200">{comment.content}</p>
-                            <p className="text-[9px] text-gray-400 mt-1">{comment.time}</p>
+                          <div className="flex-1 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl rounded-tl-none p-2.5 shadow-2xs">
+                            <h5 className="text-[11px] font-black text-[var(--kg-text)] mb-0.5">{comment.author}</h5>
+                            <p className="text-xs text-[var(--kg-text)] font-medium leading-relaxed">{comment.content}</p>
+                            <p className="text-[9px] text-[var(--kg-text-muted)] mt-1">{comment.time}</p>
                           </div>
                         </div>
                       ))}
                       {post.comments.length === 0 && (
-                        <p className="text-xs text-center text-gray-500 py-2">Chưa có bình luận nào. Hãy là người đầu tiên!</p>
+                        <p className="text-xs text-center text-[var(--kg-text-muted)] py-2 font-medium">Chưa có bình luận nào. Hãy là người đầu tiên!</p>
                       )}
                     </div>
                     
                     {/* Add Comment Input */}
-                    <div className="flex items-center space-x-2 mt-2">
-                      <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex-shrink-0 flex items-center justify-center text-indigo-600 text-xs font-bold">
+                    <div className="flex items-center space-x-2 pt-1">
+                      <div className="w-7 h-7 rounded-lg bg-indigo-500/10 flex-shrink-0 flex items-center justify-center text-indigo-600 text-xs font-black">
                         {currentUser?.fullname.charAt(0) || 'U'}
                       </div>
                       <div className="flex-1 relative">
@@ -333,14 +343,15 @@ export default function NewsFeed() {
                           onChange={(e) => setCommentInput(e.target.value)}
                           onKeyDown={(e) => e.key === 'Enter' && handleAddComment(post.id)}
                           placeholder="Viết bình luận..." 
-                          className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full pl-4 pr-10 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-800 dark:text-white"
+                          className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-full pl-3.5 pr-9 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 text-[var(--kg-text)]"
                         />
                         <button 
+                          type="button"
                           onClick={() => handleAddComment(post.id)}
                           disabled={!commentInput.trim()}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center bg-indigo-500 text-white rounded-full hover:bg-indigo-600 transition-colors disabled:opacity-50 disabled:bg-gray-400"
+                          className="absolute right-1.5 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center bg-indigo-600 text-white rounded-full hover:bg-indigo-700 transition-colors disabled:opacity-50"
                         >
-                          <Send size={12} className="ml-0.5" />
+                          <Send size={11} className="ml-0.5" />
                         </button>
                       </div>
                     </div>

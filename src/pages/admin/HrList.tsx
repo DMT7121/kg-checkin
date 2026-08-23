@@ -247,16 +247,16 @@ export default function HrList() {
               className="w-full pl-9 pr-8 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-medium focus:ring-2 focus:ring-ocean-500 focus:border-ocean-500 outline-none transition-shadow" />
             {searchQuery && <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"><X size={14} /></button>}
           </div>
-          <div className="flex gap-2">
-            <select value={filterPosition} onChange={e => setFilterPosition(e.target.value)} className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5 text-sm font-medium outline-none cursor-pointer min-w-0 flex-1 md:flex-none">
+          <div className="grid grid-cols-1 sm:grid-cols-3 md:flex gap-2">
+            <select value={filterPosition} onChange={e => setFilterPosition(e.target.value)} className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5 text-xs sm:text-sm font-medium outline-none cursor-pointer w-full md:w-auto">
               <option value="all">Tất cả bộ phận</option>
               {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
-            <select value={filterRole} onChange={e => setFilterRole(e.target.value)} className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5 text-sm font-medium outline-none cursor-pointer min-w-0 flex-1 md:flex-none">
+            <select value={filterRole} onChange={e => setFilterRole(e.target.value)} className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5 text-xs sm:text-sm font-medium outline-none cursor-pointer w-full md:w-auto">
               <option value="all">Tất cả quyền</option>
               {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
             </select>
-            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5 text-sm font-medium outline-none cursor-pointer min-w-0 flex-1 md:flex-none">
+            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5 text-xs sm:text-sm font-medium outline-none cursor-pointer w-full md:w-auto">
               <option value="all">Tất cả trạng thái</option>
               {employmentStatuses.map(status => <option key={status.value} value={status.value}>{status.label}</option>)}
             </select>

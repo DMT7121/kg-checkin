@@ -986,8 +986,12 @@ ${aiInputText}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {SHIFT_OPTIONS.map((shift) => (
-                      <button key={shift} onClick={() => handleShiftChange(key, shift)}
-                        className={`px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all transform active:scale-95 touch-manipulation min-h-[36px] ${currentShift === shift ? getActiveShiftClass(shift) : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>
+                      <button 
+                        key={shift} 
+                        type="button"
+                        onClick={() => handleShiftChange(key, shift)}
+                        className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition-all transform active:scale-95 touch-manipulation min-h-[40px] flex items-center justify-center ${currentShift === shift ? getActiveShiftClass(shift) : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] hover:bg-[var(--kg-border)]/50'}`}
+                      >
                         {shift}
                       </button>
                     ))}
@@ -999,41 +1003,50 @@ ${aiInputText}
 
           {/* Warning + reason input */}
           {(hasWeekendOff || hasConsecutiveOffs) && (
-            <div className="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 rounded-r-2xl mb-6 animate-fade-in">
+            <div className="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 rounded-r-2xl mb-6 animate-fade-in shadow-xs">
               <div className="flex items-start">
                 <AlertTriangle size={20} className="text-red-500 mt-1 mr-3 flex-shrink-0" />
                 <div>
                   <h4 className="font-bold text-red-700 dark:text-red-400 text-sm mb-1">Quy định nộp lịch</h4>
-                  <ul className="text-xs text-red-600 dark:text-red-300 list-disc list-inside mb-3 space-y-1 ml-2">
+                  <ul className="text-xs text-red-600 dark:text-red-300 list-disc list-inside mb-3 space-y-1 ml-2 font-medium">
                     {hasConsecutiveOffs && <li>Bạn đang chọn OFF từ 2 ngày liên tiếp trở lên.</li>}
                     {hasWeekendOff && <li>Bạn đang chọn OFF vào ngày cuối tuần (T6, T7 hoặc CN).</li>}
                   </ul>
                   <p className="text-xs font-medium text-red-700 dark:text-red-400 mb-3">
                     Vui lòng nhập lý do bên dưới VÀ gửi hình ảnh minh chứng vào nhóm Zalo lịch làm: <br />
-                    <a href="https://zalo.me/g/zkowlm391" target="_blank" rel="noreferrer" className="inline-flex items-center text-blue-600 bg-blue-100 px-2 py-1 rounded mt-1 hover:underline">
-                      <ExternalLink size={12} className="mr-1" /> Bấm để mở nhóm Zalo
+                    <a href="https://zalo.me/g/zkowlm391" target="_blank" rel="noreferrer" className="inline-flex items-center text-blue-600 bg-blue-100 dark:bg-blue-900/40 dark:text-blue-300 px-2.5 py-1 rounded-lg mt-1 hover:underline font-bold">
+                      <ExternalLink size={12} className="mr-1" /> Mở nhóm Zalo lịch làm
                     </a>
                   </p>
-                  <textarea value={offReason} onChange={(e) => store.setOffReason(e.target.value)}
-                    className="w-full soft3d-card border border-red-200 dark:border-red-800 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 text-gray-800 dark:text-gray-200" rows={3} placeholder="Nhập lý do xin nghỉ cụ thể..." />
+                  <textarea 
+                    value={offReason} 
+                    onChange={(e) => store.setOffReason(e.target.value)}
+                    className="w-full bg-[var(--kg-surface)] border border-red-200 dark:border-red-800 rounded-xl p-3 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-red-500 text-[var(--kg-text)]" 
+                    rows={3} 
+                    placeholder="Nhập lý do xin nghỉ cụ thể..." 
+                  />
                 </div>
               </div>
             </div>
           )}
 
           {/* Submit */}
-          <button onClick={submitRegistration} className="soft3d-card w-full !bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold py-4 hover: transition-all transform active:scale-95 flex items-center justify-center touch-manipulation border border-green-400 border-opacity-30">
+          <button 
+            type="button"
+            onClick={submitRegistration} 
+            className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black py-4 rounded-2xl shadow-md transition-all transform active:scale-95 flex items-center justify-center touch-manipulation text-sm sm:text-base tracking-wide uppercase"
+          >
             {isScheduleRegistered ? (
-              <><RefreshCw size={20} className="mr-2" /> CẬP NHẬT LỊCH ĐĂNG KÝ</>
+              <><RefreshCw size={18} className="mr-2" /> CẬP NHẬT LỊCH ĐĂNG KÝ</>
             ) : (
-              <><Send size={20} className="mr-2" /> GỬI LỊCH ĐĂNG KÝ</>
+              <><Send size={18} className="mr-2" /> GỬI LỊCH ĐĂNG KÝ</>
             )}
           </button>
           
-          <p className="text-center text-[10px] text-gray-400 mt-3">
+          <p className="text-center text-[11px] font-semibold text-[var(--kg-text-muted)] mt-3">
             {isScheduleRegistered
               ? 'Bạn có thể cập nhật lịch không giới hạn trong thời gian mở đăng ký.'
-              : 'Hạn đăng ký: 17:00 Thứ Bảy hàng tuần.'}
+              : 'Hạn đăng ký: Trước 23:59 Chủ Nhật hàng tuần.'}
           </p>
         </>
       )}
