@@ -329,13 +329,13 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
         <button
           type="button"
           onClick={() => setAiOpen(true)}
-          className={`fixed bottom-24 md:bottom-6 right-4 md:right-6 w-12 h-12 md:w-14 md:h-14 bg-gradient-to-tr from-violet-600 to-indigo-600 rounded-full shadow-2xl flex items-center justify-center text-white hover:scale-105 active:scale-95 transition-transform ${isLightboxOpen ? 'z-40' : 'z-[90]'} border-2 border-white/20`}
+          className={`fixed bottom-20 md:bottom-6 right-3.5 md:right-6 w-11 h-11 md:w-14 md:h-14 bg-gradient-to-tr from-violet-600 to-indigo-600 rounded-full shadow-xl flex items-center justify-center text-white hover:scale-105 active:scale-95 transition-transform ${isLightboxOpen ? 'z-40' : 'z-[90]'} border-2 border-white/20`}
           title="Trợ lý AI King's Grill"
         >
-          <Sparkles size={22} />
+          <Sparkles size={20} />
           {/* Notification Dot */}
-          <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-red-500 border-2 border-white rounded-full animate-ping"></span>
-          <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-red-500 border-2 border-white rounded-full"></span>
+          <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 border-2 border-white rounded-full animate-ping"></span>
+          <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 border-2 border-white rounded-full"></span>
         </button>
       )}
 

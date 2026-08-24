@@ -267,7 +267,7 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
       </main>
 
       {/* 4. MOBILE BOTTOM NAVIGATION */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[var(--kg-surface)] backdrop-blur-md border-t border-[var(--kg-border)] flex justify-around items-center py-2 px-1 pb-safe-bottom shadow-lg">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[var(--kg-surface)]/95 backdrop-blur-xl border-t border-[var(--kg-border)] flex justify-around items-center py-2 px-1 pb-safe-bottom shadow-2xl">
         {bottomTabs.map((tab) => {
           const isActive = currentTab === tab.id;
           const Icon = tab.icon;
@@ -278,20 +278,25 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
               onPointerEnter={() => onPrefetch?.(tab.id)}
               onFocus={() => onPrefetch?.(tab.id)}
               onTouchStart={() => onPrefetch?.(tab.id)}
-              className="flex flex-col items-center justify-center w-16 py-1.5 transition-all text-[var(--kg-text-muted)]"
+              className="relative flex flex-col items-center justify-center w-16 py-1 transition-all"
             >
+              {/* Top Active Glow Indicator Bar */}
+              {isActive && (
+                <span className="absolute -top-2 w-8 h-1 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 shadow-[0_0_10px_rgba(59,130,246,0.9)] animate-pulse" />
+              )}
+              
               <div
-                className={`w-10 h-7 rounded-xl flex items-center justify-center mb-1 transition-all ${
+                className={`w-11 h-7.5 rounded-xl flex items-center justify-center mb-1 transition-all ${
                   isActive
-                    ? 'bg-[var(--kg-surface-soft)] text-[var(--kg-primary)] dark:text-[var(--kg-accent)] scale-105 shadow-inner'
-                    : ''
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/30 scale-105 ring-2 ring-blue-500/20'
+                    : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
                 }`}
               >
-                <Icon size={20} className={isActive ? 'text-[var(--kg-primary)] dark:text-[var(--kg-accent)]' : ''} />
+                <Icon size={19} className={isActive ? 'text-white' : ''} />
               </div>
               <span
-                className={`text-[9px] font-bold tracking-wide uppercase ${
-                  isActive ? 'text-[var(--kg-primary)] dark:text-[var(--kg-accent)]' : 'opacity-80'
+                className={`text-[9.5px] tracking-wider uppercase transition-all ${
+                  isActive ? 'font-black text-blue-600 dark:text-indigo-400 scale-105' : 'font-bold text-[var(--kg-text-muted)] opacity-70'
                 }`}
               >
                 {tab.shortLabel || tab.label}
@@ -300,18 +305,37 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
           );
         })}
 
-        {/* "More" button */}
-        <button
-          onClick={() => setIsMoreOpen(true)}
-          className="flex flex-col items-center justify-center w-16 py-1.5 transition-all text-[var(--kg-text-muted)]"
-        >
-          <div className="w-10 h-7 rounded-xl flex items-center justify-center mb-1">
-            <MoreHorizontal size={20} />
-          </div>
-          <span className="text-[9px] font-bold tracking-wide uppercase opacity-80">
-            Thêm
-          </span>
-        </button>
+        {/* "More" button with smart active detection */}
+        {(() => {
+          const isMoreActionActive = allMoreActions.some(action => currentTab === action.id);
+          return (
+            <button
+              type="button"
+              onClick={() => setIsMoreOpen(true)}
+              className="relative flex flex-col items-center justify-center w-16 py-1 transition-all"
+            >
+              {isMoreActionActive && (
+                <span className="absolute -top-2 w-8 h-1 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 shadow-[0_0_10px_rgba(59,130,246,0.9)] animate-pulse" />
+              )}
+              <div
+                className={`w-11 h-7.5 rounded-xl flex items-center justify-center mb-1 transition-all ${
+                  isMoreActionActive
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/30 scale-105 ring-2 ring-blue-500/20'
+                    : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
+                }`}
+              >
+                <MoreHorizontal size={19} className={isMoreActionActive ? 'text-white' : ''} />
+              </div>
+              <span
+                className={`text-[9.5px] tracking-wider uppercase transition-all ${
+                  isMoreActionActive ? 'font-black text-blue-600 dark:text-indigo-400 scale-105' : 'font-bold text-[var(--kg-text-muted)] opacity-70'
+                }`}
+              >
+                Thêm
+              </span>
+            </button>
+          );
+        })()}
       </nav>
 
       {/* More action sheet */}
