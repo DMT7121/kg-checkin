@@ -59,13 +59,13 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
-  const tabs: { key: GuideTabKey; label: string; icon: React.ComponentType<any>; badge?: string }[] = [
-    { key: 'start', label: 'Khởi đầu nhanh', icon: Sparkles, badge: '5 bước' },
-    { key: 'checkin', label: 'Chấm công Face ID', icon: Camera },
-    { key: 'schedule', label: 'Đăng ký lịch làm', icon: Calendar },
-    { key: 'checklist', label: 'Checklist & Bàn giao', icon: ClipboardCheck },
-    { key: 'payroll', label: 'Lương & Điểm thưởng', icon: Banknote },
-    { key: 'criteria', label: 'Bảng tiêu chuẩn ĐẠT', icon: CheckCircle2, badge: 'Quan trọng' },
+  const tabs: { key: GuideTabKey; label: string; shortLabel: string; icon: React.ComponentType<any>; badge?: string }[] = [
+    { key: 'start', label: 'Khởi đầu nhanh', shortLabel: '5 Bước đầu', icon: Sparkles, badge: '5 bước' },
+    { key: 'checkin', label: 'Chấm công Face ID', shortLabel: 'Chấm công', icon: Camera },
+    { key: 'schedule', label: 'Đăng ký lịch làm', shortLabel: 'Xếp lịch', icon: Calendar },
+    { key: 'checklist', label: 'Checklist & Bàn giao', shortLabel: 'Checklist', icon: ClipboardCheck },
+    { key: 'payroll', label: 'Lương & Điểm thưởng', shortLabel: 'Lương & Thưởng', icon: Banknote },
+    { key: 'criteria', label: 'Tiêu chuẩn ĐẠT', shortLabel: 'Tiêu chuẩn ĐẠT', icon: CheckCircle2, badge: 'ĐẠT / LỖI' },
   ];
 
   return (
@@ -111,33 +111,42 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
         </div>
 
         {/* Tab Navigation Row */}
-        <div className="flex items-center gap-1.5 px-4 py-2.5 border-b border-[var(--kg-border)] bg-[var(--kg-surface-soft)]/60 overflow-x-auto hide-scrollbar flex-shrink-0">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.key;
-            return (
-              <button
-                type="button"
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap active:scale-95 ${
-                  isActive
-                    ? 'bg-blue-600 text-white shadow-md'
-                    : 'text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface)] hover:text-[var(--kg-text)] border border-transparent'
-                }`}
-              >
-                <Icon size={14} />
-                <span>{tab.label}</span>
-                {tab.badge && (
-                  <span className={`text-[9px] px-1.5 py-0.2 rounded-md font-bold uppercase ${
-                    isActive ? 'bg-white/25 text-white' : 'bg-blue-500/10 text-blue-600 dark:text-indigo-400'
-                  }`}>
-                    {tab.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+        <div className="relative flex-shrink-0 border-b border-[var(--kg-border)] bg-[var(--kg-surface-soft)]/80">
+          <div className="flex items-center gap-2 px-3 sm:px-4 py-2.5 overflow-x-auto hide-scrollbar">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.key;
+              return (
+                <button
+                  type="button"
+                  key={tab.key}
+                  onClick={(e) => {
+                    setActiveTab(tab.key);
+                    e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                  }}
+                  className={`relative flex items-center gap-2 px-3.5 py-2.5 rounded-2xl text-xs font-black transition-all duration-200 whitespace-nowrap active:scale-95 flex-shrink-0 select-none ${
+                    isActive
+                      ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 text-white shadow-lg shadow-blue-500/35 ring-2 ring-blue-400/50 scale-[1.02]'
+                      : 'bg-[var(--kg-surface)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] hover:text-[var(--kg-text)] hover:border-blue-500/30 opacity-80'
+                  }`}
+                >
+                  <Icon size={15} className={`flex-shrink-0 ${isActive ? 'text-white' : 'opacity-80'}`} />
+                  <span className="hidden sm:inline">{tab.label}</span>
+                  <span className="inline sm:hidden">{tab.shortLabel}</span>
+                  {tab.badge && (
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-extrabold uppercase ${
+                      isActive ? 'bg-white/20 text-white' : 'bg-blue-500/10 text-blue-600 dark:text-indigo-400 border border-blue-500/20'
+                    }`}>
+                      {tab.badge}
+                    </span>
+                  )}
+                  {isActive && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_6px_white] animate-pulse flex-shrink-0" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Tab Content Body (Scrollable) */}
