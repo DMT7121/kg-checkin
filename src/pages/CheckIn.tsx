@@ -106,14 +106,14 @@ export default function CheckIn() {
     const targetRadius = latestGpsConfig?.radius ?? KG_RADIUS_METERS;
     
     if (dist <= targetRadius || isTestApp) {
-      store.setGps({ lat, lng, isValid: true, status: isTestApp ? 'Vị trí Test (Bypass)' : 'Vị trí Chính xác', message: `Khoảng cách: ${Math.round(dist)}m (±${Math.round(acc)}m)` });
+      store.setGps({ lat, lng, isValid: true, status: isTestApp ? 'Vị trí Test (Bypass)' : 'Vị trí Chính xác', message: `Khoảng cách: ${Math.round(dist)}m / ${targetRadius}m - Hợp lệ` });
       if (prevGpsValidRef.current !== true) { speak('Vị trí đã hợp lệ, sẵn sàng chấm công'); prevGpsValidRef.current = true; }
     } else {
-      store.setGps({ lat, lng, isValid: false, status: 'Vị trí quá xa', message: `Cách: ${Math.round(dist)}m (Cho phép ${targetRadius}m)` });
+      store.setGps({ lat, lng, isValid: false, status: 'Vị trí quá xa', message: `Khoảng cách: ${Math.round(dist)}m / ${targetRadius}m - Quá bán kính` });
       if (prevGpsValidRef.current !== false && prevGpsValidRef.current !== null) { speak('Vị trí không hợp lệ, vui lòng di chuyển lại gần'); prevGpsValidRef.current = false; }
       else if (prevGpsValidRef.current === null) { prevGpsValidRef.current = false; }
     }
-    if (!isFastStart && acc < 20) { store.setGps({ status: 'GPS Ổn định (High Acc)' }); }
+    if (!isFastStart && acc < 20) { store.setGps({ status: 'GPS Ổn định (Độ chính xác cao)' }); }
   }, [store]);
 
   const handleGpsError = useCallback((err: GeolocationPositionError) => {

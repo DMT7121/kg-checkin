@@ -966,27 +966,32 @@ export default function Training() {
                               <p className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
                                 Câu {qIdx + 1}: {q.q}
                               </p>
-                              <div className="space-y-2">
-                                {q.options.map((opt, oIdx) => (
-                                  <label
-                                    key={oIdx}
-                                    className={`flex items-center p-3 border rounded-xl cursor-pointer transition-all ${
-                                      answers[qIdx] === oIdx
-                                        ? 'border-amber-500 bg-amber-50/30 dark:bg-amber-950/15 dark:border-amber-600'
-                                        : 'border-gray-200 dark:border-gray-850 hover:border-gray-350'
-                                    }`}
-                                  >
-                                    <input
-                                      type="radio"
-                                      name={`q${lesson.id}_${qIdx}`}
-                                      checked={answers[qIdx] === oIdx}
-                                      onChange={() => setAnswers(prev => ({ ...prev, [qIdx]: oIdx }))}
-                                      className="text-amber-500 mr-3 focus:ring-amber-500 focus:ring-offset-0"
-                                    />
-                                    <span className="text-sm text-slate-700 dark:text-slate-300 font-medium">{opt}</span>
-                                  </label>
-                                ))}
-                              </div>
+                                <div className="space-y-2.5">
+                                  {q.options.map((opt, oIdx) => {
+                                    const isSelected = answers[qIdx] === oIdx;
+                                    return (
+                                      <label
+                                        key={oIdx}
+                                        className={`flex items-center p-3.5 border-2 rounded-2xl cursor-pointer transition-all active:scale-[0.99] select-none ${
+                                          isSelected
+                                            ? 'border-amber-500 bg-amber-50/50 dark:bg-amber-950/30 dark:border-amber-500 shadow-xs'
+                                            : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700'
+                                        }`}
+                                      >
+                                        <input
+                                          type="radio"
+                                          name={`q${lesson.id}_${qIdx}`}
+                                          checked={isSelected}
+                                          onChange={() => setAnswers(prev => ({ ...prev, [qIdx]: oIdx }))}
+                                          className="text-amber-500 mr-3 w-4 h-4 focus:ring-amber-500 focus:ring-offset-0"
+                                        />
+                                        <span className={`text-xs sm:text-sm leading-relaxed ${isSelected ? 'text-amber-900 dark:text-amber-200 font-black' : 'text-slate-700 dark:text-slate-300 font-semibold'}`}>
+                                          {opt}
+                                        </span>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
                             </div>
                           ))}
                         </div>

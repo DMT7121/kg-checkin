@@ -557,7 +557,7 @@ export default function Checklist() {
   }
 
   return (
-    <div className="p-4 space-y-6 max-w-7xl mx-auto pb-24">
+    <div className="p-4 space-y-6 max-w-7xl mx-auto pb-28">
       <KgModuleHero
         moduleId="checklist"
         title="Checklist Vận Hành Theo Khu Vực"
@@ -997,17 +997,18 @@ export default function Checklist() {
 
       {/* Floating Sync bar for Batch mode */}
       {saveMode === 'batch' && selectedArea && hasPendingChanges && (
-        <div className="fixed bottom-4 left-4 right-4 md:left-64 md:right-4 z-40 bg-white/90 dark:bg-gray-900/90 backdrop-blur border border-blue-200 dark:border-blue-800 p-4 rounded-2xl flex items-center justify-between shadow-lg animate-slide-up">
-          <div className="flex items-center space-x-2">
-            <span className="flex w-2.5 h-2.5 bg-amber-500 rounded-full animate-ping" />
-            <span className="text-xs font-bold text-gray-700 dark:text-gray-200">
-              Có các thay đổi chưa được đồng bộ lên Google Sheets.
+        <div className="fixed bottom-20 md:bottom-6 left-4 right-4 md:left-64 md:right-6 z-40 bg-white/95 dark:bg-gray-900/95 backdrop-blur border border-blue-200 dark:border-blue-800 p-3.5 sm:p-4 rounded-2xl flex items-center justify-between shadow-xl animate-slide-up">
+          <div className="flex items-center space-x-2 min-w-0 pr-2">
+            <span className="flex w-2.5 h-2.5 bg-amber-500 rounded-full animate-ping flex-shrink-0" />
+            <span className="text-xs font-bold text-gray-700 dark:text-gray-200 truncate">
+              Có thay đổi chưa đồng bộ lên Google Sheets.
             </span>
           </div>
           <button 
+            type="button"
             onClick={handleSyncAllPending}
             disabled={isSaving}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold px-5 py-2 rounded-xl text-xs transition-transform active:scale-95 shadow-md flex items-center space-x-1.5"
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black px-4 sm:px-5 py-2.5 rounded-xl text-xs transition-transform active:scale-95 shadow-md flex items-center space-x-1.5 flex-shrink-0"
           >
             <RefreshCw size={14} className={isSaving ? 'animate-spin' : ''} />
             <span>Đồng bộ ngay</span>

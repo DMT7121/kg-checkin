@@ -394,61 +394,87 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
               <div className="space-y-3.5">
                 {/* Checklist item */}
                 {hasTabPermission('checklist', currentUser) && (
-                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.todayChecklistDone ? 'bg-emerald-50 text-emerald-650 dark:bg-emerald-950/20 dark:text-emerald-400' : 'bg-amber-50 text-amber-650 dark:bg-amber-950/20 dark:text-amber-400'}`}>
-                        <ClipboardCheck size={16} />
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 gap-2.5">
+                    <div className="flex items-center space-x-3 min-w-0">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${store.todayChecklistDone ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400 border border-emerald-200/50' : 'bg-amber-50 text-amber-600 dark:bg-amber-950/20 dark:text-amber-400 border border-amber-200/50'}`}>
+                        <ClipboardCheck size={18} />
                       </div>
-                      <div>
-                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Nộp checklist vận hành</p>
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Báo cáo hạng mục đầu/cuối ca</p>
+                      <div className="min-w-0">
+                        <p className="text-xs font-black text-slate-800 dark:text-slate-200 truncate">Checklist Vận Hành Hôm Nay</p>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">
+                          {store.todayChecklistDone ? '100% hoàn thành tất cả hạng mục ca' : 'Chưa hoàn thành đầy đủ hạng mục'}
+                        </p>
                       </div>
                     </div>
-                    {store.todayChecklistDone ? (
-                      <KgStatusBadge variant="success">Đã nộp</KgStatusBadge>
-                    ) : (
-                      <button onClick={() => onTabChange('checklist')} className="text-xs font-bold text-blue-600 dark:text-indigo-400 hover:underline">Làm ngay →</button>
-                    )}
+                    <div className="flex items-center justify-between sm:justify-end gap-2 pl-12 sm:pl-0">
+                      {store.todayChecklistDone ? (
+                        <KgStatusBadge variant="success">✓ Đã nộp</KgStatusBadge>
+                      ) : (
+                        <button 
+                          type="button"
+                          onClick={() => onTabChange('checklist')} 
+                          className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black shadow-xs active:scale-95 transition-all flex items-center gap-1"
+                        >
+                          Làm Checklist ngay →
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
 
                 {/* Handover item */}
                 {hasTabPermission('handover', currentUser) && (
-                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.todayHandoverDone ? 'bg-emerald-50 text-emerald-650 dark:bg-emerald-950/20 dark:text-emerald-400' : 'bg-red-50 text-red-650 dark:bg-red-950/20 dark:text-red-400'}`}>
-                        <Repeat size={16} />
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 gap-2.5">
+                    <div className="flex items-center space-x-3 min-w-0">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${store.todayHandoverDone ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400 border border-emerald-200/50' : 'bg-rose-50 text-rose-600 dark:bg-rose-950/20 dark:text-rose-400 border border-rose-200/50'}`}>
+                        <Repeat size={18} />
                       </div>
-                      <div>
-                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Ghi sổ bàn giao ca</p>
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Bàn giao doanh thu, sự cố, kho</p>
+                      <div className="min-w-0">
+                        <p className="text-xs font-black text-slate-800 dark:text-slate-200 truncate">Sổ Bàn Giao Ca</p>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">Bàn giao quỹ tiền mặt, tồn kho, sự cố</p>
                       </div>
                     </div>
-                    {store.todayHandoverDone ? (
-                      <KgStatusBadge variant="success">Đã hoàn thành</KgStatusBadge>
-                    ) : (
-                      <button onClick={() => onTabChange('handover')} className="text-xs font-bold text-blue-600 dark:text-indigo-400 hover:underline">Ghi sổ →</button>
-                    )}
+                    <div className="flex items-center justify-between sm:justify-end gap-2 pl-12 sm:pl-0">
+                      {store.todayHandoverDone ? (
+                        <KgStatusBadge variant="success">✓ Hoàn thành</KgStatusBadge>
+                      ) : (
+                        <button 
+                          type="button"
+                          onClick={() => onTabChange('handover')} 
+                          className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black shadow-xs active:scale-95 transition-all flex items-center gap-1"
+                        >
+                          Ghi sổ ngay →
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
 
                 {/* Register Schedule item */}
                 {hasTabPermission('schedule', currentUser) && (
-                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.isScheduleRegistered ? 'bg-emerald-50 text-emerald-650 dark:bg-emerald-950/20 dark:text-emerald-400' : 'bg-amber-50 text-amber-650 dark:bg-amber-950/20 dark:text-amber-400'}`}>
-                        <Calendar size={16} />
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 gap-2.5">
+                    <div className="flex items-center space-x-3 min-w-0">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${store.isScheduleRegistered ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400 border border-emerald-200/50' : 'bg-amber-50 text-amber-600 dark:bg-amber-950/20 dark:text-amber-400 border border-amber-200/50'}`}>
+                        <Calendar size={18} />
                       </div>
-                      <div>
-                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Đăng ký lịch tuần tới</p>
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Hạn đăng ký trước Chủ nhật hàng tuần</p>
+                      <div className="min-w-0">
+                        <p className="text-xs font-black text-slate-800 dark:text-slate-200 truncate">Đăng Ký Lịch Tuần Tới</p>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">Đăng ký trước 23h59 Chủ nhật hàng tuần</p>
                       </div>
                     </div>
-                    {store.isScheduleRegistered ? (
-                      <KgStatusBadge variant="success">Đã đăng ký</KgStatusBadge>
-                    ) : (
-                      <button onClick={() => onTabChange('schedule')} className="text-xs font-bold text-blue-600 dark:text-indigo-400 hover:underline">Đăng ký →</button>
-                    )}
+                    <div className="flex items-center justify-between sm:justify-end gap-2 pl-12 sm:pl-0">
+                      {store.isScheduleRegistered ? (
+                        <KgStatusBadge variant="success">✓ Đã đăng ký</KgStatusBadge>
+                      ) : (
+                        <button 
+                          type="button"
+                          onClick={() => onTabChange('schedule')} 
+                          className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black shadow-xs active:scale-95 transition-all flex items-center gap-1"
+                        >
+                          Đăng ký ngay →
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
