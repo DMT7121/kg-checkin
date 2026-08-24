@@ -690,6 +690,57 @@ export default function CheckIn() {
     return () => clearInterval(interval);
   }, [cameraActive, isFaceModelLoaded]);
 
+  const handleAdminCalibrateGps = async () => {
+    if (!currentUser || (currentUser.role !== 'admin' && currentUser.username !== 'ADMIN')) return;
+    if (!gps.lat || !gps.lng) {
+      setFeedbackTitle('Chưa có tọa độ');
+      setFeedbackMessage('Vui lòng đợi GPS lấy vị trí thiết bị rồi thử lại.');
+      setFeedbackType('warning');
+      setFeedbackSheetOpen(true);
+      return;
+    }
+    store.setLoading(true, 'Đang lưu vị trí gốc nhà hàng (25m)...');
+    try {
+      const res = await callApi('UPDATE_GPS_CONFIG', {
+        role: currentUser.role || 'admin',
+        lat: gps.lat,
+        lng: gps.lng,
+        radius: 25
+      });
+      store.setLoading(false);
+      if (res?.ok) {
+        store.setServerGpsConfig({
+          lat: gps.lat,
+          lng: gps.lng,
+          radius: 25
+        });
+        store.setGps({
+          ...gps,
+          isValid: true,
+          status: 'Vị trí Chính xác',
+          message: 'Khoảng cách: 0m / 25m - Hợp lệ'
+        });
+        speak('Đã lưu vị trí gốc nhà hàng. Vị trí hợp lệ.');
+        confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
+        setFeedbackTitle('Cập nhật thành công!');
+        setFeedbackMessage('Đã đặt vị trí hiện tại làm tọa độ chuẩn của Nhà Hàng (Bán kính 25m). Toàn bộ nhân sự tại quán sẽ chấm công chuẩn xác 100%!');
+        setFeedbackType('success');
+        setFeedbackSheetOpen(true);
+      } else {
+        setFeedbackTitle('Lỗi cập nhật');
+        setFeedbackMessage(res?.message || 'Không thể lưu tọa độ lên máy chủ.');
+        setFeedbackType('warning');
+        setFeedbackSheetOpen(true);
+      }
+    } catch (err: any) {
+      store.setLoading(false);
+      setFeedbackTitle('Lỗi hệ thống');
+      setFeedbackMessage(err.message || 'Có lỗi xảy ra khi lưu GPS.');
+      setFeedbackType('warning');
+      setFeedbackSheetOpen(true);
+    }
+  };
+
   const canSubmit = !!(capturedImage && gps.isValid && gps.lat !== null && gps.lng !== null);
 
   if (currentUser && !isWorkEligible(currentUser)) {
@@ -735,6 +786,27 @@ export default function CheckIn() {
             Làm mới
           </button>
         </div>
+
+        {/* Admin Quick Fix Calibrate Banner */}
+        {((currentUser?.role === 'admin' || currentUser?.username === 'ADMIN') && !gps.isValid && gps.lat !== null) && (
+          <div className="mt-3.5 pt-3 border-t border-[var(--kg-border)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 bg-blue-500/10 p-3 rounded-2xl border border-blue-500/20">
+            <div className="text-xs">
+              <p className="font-black text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                <span>🎯</span> <b>Quản lý:</b> Bạn đang đứng tại nhà hàng?
+              </p>
+              <p className="text-[11px] text-[var(--kg-text-muted)] mt-0.5 font-medium">
+                Nhấn nút bên cạnh để đặt tọa độ hiện tại làm vị trí gốc chuẩn (Bán kính 25m).
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleAdminCalibrateGps}
+              className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-xs font-black shadow-md transition active:scale-95 whitespace-nowrap flex-shrink-0"
+            >
+              Đặt làm vị trí gốc (25m)
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Camera Viewport */}

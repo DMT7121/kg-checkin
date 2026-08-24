@@ -29,6 +29,43 @@ export default function AdminShift() {
     }
   }, [serverGpsConfig]);
 
+  const [isLocating, setIsLocating] = useState(false);
+
+  const handleGetLiveLocation = () => {
+    if (!navigator.geolocation) {
+      Swal.fire('Lỗi', 'Trình duyệt không hỗ trợ định vị GPS.', 'error');
+      return;
+    }
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setIsLocating(false);
+        const lat = pos.coords.latitude.toFixed(7);
+        const lng = pos.coords.longitude.toFixed(7);
+        const acc = Math.round(pos.coords.accuracy);
+        setKgLat(lat);
+        setKgLng(lng);
+        setKgRadius('25');
+        Swal.fire({
+          icon: 'success',
+          title: 'Đã nhận diện tọa độ!',
+          html: `
+            <p class="text-sm"><b>Vĩ độ:</b> ${lat}</p>
+            <p class="text-sm"><b>Kinh độ:</b> ${lng}</p>
+            <p class="text-xs text-gray-500 mt-2">Độ chính xác GPS: ±${acc}m | Bán kính: 25m</p>
+            <p class="text-xs text-blue-600 font-bold mt-2">Hãy nhấn nút <b>"Lưu Cấu Hình GPS"</b> bên dưới để áp dụng ngay!</p>
+          `,
+          confirmButtonColor: '#2563eb'
+        });
+      },
+      (err) => {
+        setIsLocating(false);
+        Swal.fire('Lỗi GPS', 'Không thể lấy vị trí hiện tại: ' + err.message + '. Vui lòng bật quyền Vị trí cho trình duyệt.', 'error');
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
   const handleSaveGPS = async () => {
     if (!currentUser) return;
     setIsSaving(true);
@@ -55,8 +92,8 @@ export default function AdminShift() {
         Swal.fire({
           icon: 'success',
           title: 'Đã lưu cấu hình GPS',
-          text: 'Vị trí này sẽ được sử dụng cho chấm công của nhân sự.',
-          confirmButtonColor: '#006994'
+          text: `Đã cập nhật vị trí gốc nhà hàng (Bán kính ${kgRadius}m) thành công!`,
+          confirmButtonColor: '#2563eb'
         });
       } else {
         throw new Error(data.message || 'Lỗi không xác định');
@@ -118,41 +155,58 @@ export default function AdminShift() {
         eyebrow="Cấu hình"
       />
 
-
       {/* GPS Configuration */}
-      <div className="soft3d-card p-5 rounded-2xl  ">
-        <h3 className="font-bold mb-4 border-b dark:border-gray-700 pb-2 flex items-center text-gray-800 dark:text-white">
-          <MapPin size={18} className="mr-2 text-ocean-600" /> Tọa độ GPS Nhà hàng
-        </h3>
+      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-5 rounded-2xl shadow-sm">
+        <div className="flex items-center justify-between border-b border-[var(--kg-border)] pb-3 mb-4">
+          <h3 className="font-black flex items-center text-sm sm:text-base text-[var(--kg-text)]">
+            <MapPin size={18} className="mr-2 text-blue-600" /> Tọa độ GPS Nhà hàng
+          </h3>
+          <button
+            type="button"
+            onClick={handleGetLiveLocation}
+            disabled={isLocating}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 rounded-xl text-xs font-black transition-all active:scale-95"
+          >
+            <Crosshair size={14} className={isLocating ? 'animate-spin' : ''} />
+            {isLocating ? 'Đang lấy vị trí...' : 'Lấy GPS tại đây'}
+          </button>
+        </div>
         
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-gray-500 mb-1">Vĩ độ (Latitude)</label>
-              <input type="text" value={kgLat} onChange={e => setKgLat(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500 dark:bg-gray-900 dark:border-gray-700 dark:text-white" />
+              <label className="block text-xs font-black text-[var(--kg-text-muted)] mb-1">Vĩ độ (Latitude)</label>
+              <input type="text" value={kgLat} onChange={e => setKgLat(e.target.value)} className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs font-bold text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             <div>
-              <label className="block text-xs font-bold text-gray-500 mb-1">Kinh độ (Longitude)</label>
-              <input type="text" value={kgLng} onChange={e => setKgLng(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500 dark:bg-gray-900 dark:border-gray-700 dark:text-white" />
+              <label className="block text-xs font-black text-[var(--kg-text-muted)] mb-1">Kinh độ (Longitude)</label>
+              <input type="text" value={kgLng} onChange={e => setKgLng(e.target.value)} className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs font-bold text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-gray-500 mb-1">Bán kính hợp lệ (Meters)</label>
-            <div className="flex flex-wrap items-center gap-2">
-              <input type="number" value={kgRadius} onChange={e => setKgRadius(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500 dark:bg-gray-900 dark:border-gray-700 dark:text-white" />
-              <button className="bg-gray-100 text-gray-600 px-3 py-2 rounded-lg text-sm font-bold whitespace-nowrap hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300">
-                <Crosshair size={16} />
+            <label className="block text-xs font-black text-[var(--kg-text-muted)] mb-1">Bán kính hợp lệ (Meters) - Chuẩn: 25m</label>
+            <div className="flex items-center gap-2">
+              <input type="number" value={kgRadius} onChange={e => setKgRadius(e.target.value)} className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs font-bold text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <button
+                type="button"
+                onClick={handleGetLiveLocation}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2.5 rounded-xl text-xs font-black whitespace-nowrap shadow-sm active:scale-95 transition-all flex items-center gap-1"
+                title="Lấy tọa độ hiện tại của thiết bị"
+              >
+                <Crosshair size={16} /> Lấy GPS
               </button>
             </div>
-            <p className="text-[10px] text-gray-400 mt-1">Gợi ý: Đứng tại quán và ấn biểu tượng ngắm để lấy tọa độ hiện tại.</p>
+            <p className="text-[11px] text-[var(--kg-text-muted)] mt-1.5 font-medium">
+              💡 <b>Khuyến nghị:</b> Đứng tại nhà hàng, nhấn <b>"Lấy GPS"</b> và bấm <b>"Lưu Cấu Hình GPS"</b> để hệ thống tự động chuẩn hóa vị trí gốc 25m.
+            </p>
           </div>
 
-          <button onClick={handleSaveGPS} disabled={isSaving} className={`w-full font-bold py-2.5 rounded-lg text-sm transition flex items-center justify-center ${isSaving ? 'bg-ocean-400 text-white cursor-not-allowed' : 'bg-ocean-600 hover:bg-ocean-700 text-white'}`}>
+          <button onClick={handleSaveGPS} disabled={isSaving} className={`w-full font-black py-3 rounded-xl text-xs sm:text-sm transition flex items-center justify-center shadow-md active:scale-95 ${isSaving ? 'bg-blue-400 text-white cursor-not-allowed' : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white'}`}>
             {isSaving ? (
-              <><span className="animate-spin mr-2">⏳</span> Đang lưu...</>
+              <><span className="animate-spin mr-2">⏳</span> Đang lưu cấu hình...</>
             ) : (
-              <><Save size={16} className="mr-2" /> Lưu Cấu Hình GPS</>
+              <><Save size={16} className="mr-2" /> Lưu Cấu Hình GPS (Bán kính {kgRadius}m)</>
             )}
           </button>
         </div>
