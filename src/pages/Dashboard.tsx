@@ -17,6 +17,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import AppErrorBoundary from '../components/AppErrorBoundary';
 import KgAppShell from '../components/KgAppShell';
 import NewbieGuideModal from '../components/NewbieGuideModal';
+import MissedCheckInModal from '../components/MissedCheckInModal';
 import {
   KgCard,
   KgButton,
@@ -182,6 +183,21 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
   const { stats, logs, approvedShifts } = store;
   const recentLogs = logs.filter(l => l.fullname === currentUser?.fullname).slice(0, 3);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const [isMissedModalOpen, setIsMissedModalOpen] = useState(false);
+  const [pendingMissedClaims, setPendingMissedClaims] = useState<any[]>([]);
+
+  const loadDashboardPendingClaims = () => {
+    if (!currentUser?.username) return;
+    callApi('GET_MISSED_CHECKINS', { username: currentUser.username, role: currentUser.role }, { background: true }).then((res) => {
+      if (res?.ok && Array.isArray(res.data)) {
+        setPendingMissedClaims(res.data.filter((c: any) => c.status === 'Pending'));
+      }
+    });
+  };
+
+  useEffect(() => {
+    loadDashboardPendingClaims();
+  }, [currentUser?.username]);
 
   // Auto show onboarding modal for first-time users
   useEffect(() => {
@@ -364,6 +380,31 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
                 <span>Xem ngay</span> <ArrowRight size={13} />
               </button>
             </div>
+
+            {/* Pending Missed Claims Warning Card on Dashboard */}
+            {pendingMissedClaims.length > 0 && (
+              <div 
+                onClick={() => setIsMissedModalOpen(true)}
+                className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/15 to-orange-500/15 border-2 border-amber-500/40 cursor-pointer hover:bg-amber-500/20 transition-all flex items-start justify-between gap-3 shadow-xs animate-slide-up"
+              >
+                <div className="flex items-start gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black flex-shrink-0 shadow-sm mt-0.5">
+                    ⚠️
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-black text-amber-700 dark:text-amber-300 flex items-center gap-1">
+                      Bạn có {pendingMissedClaims.length} yêu cầu bổ sung công đang CHỜ DUYỆT!
+                    </p>
+                    <p className="text-[10.5px] text-[var(--kg-text-muted)] mt-0.5 font-medium leading-tight">
+                      Gần nhất: <b>{pendingMissedClaims[0].date}</b> ({pendingMissedClaims[0].type} - {pendingMissedClaims[0].time}). Nhấn để xem & nhắc Quản lý trên nhóm Zalo.
+                    </p>
+                  </div>
+                </div>
+                <span className="text-xs font-bold text-amber-600 dark:text-amber-400 whitespace-nowrap self-center">
+                  Chi tiết →
+                </span>
+              </div>
+            )}
 
             {/* Big Action Button */}
             {isOff ? (
@@ -790,6 +831,18 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
         onClose={() => setIsGuideOpen(false)}
         onNavigateTab={onTabChange}
       />
+
+      {/* Missed Check-in Modal */}
+      {isMissedModalOpen && (
+        <MissedCheckInModal
+          isOpen={isMissedModalOpen}
+          onClose={() => {
+            setIsMissedModalOpen(false);
+            loadDashboardPendingClaims();
+          }}
+          onSuccess={loadDashboardPendingClaims}
+        />
+      )}
     </div>
   );
 };

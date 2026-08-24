@@ -139,6 +139,16 @@ function doPost(e) {
       case 'GET_EMPLOYMENT_PROFILE':
         return handleGetEmploymentProfile(payload);
 
+      // --- MISSED CHECK-INS (BÁO BỔ SUNG CÔNG) ---
+      case 'SUBMIT_MISSED_CHECKIN':
+        return handleSubmitMissedCheckin(payload);
+      case 'GET_MISSED_CHECKINS':
+        return handleGetMissedCheckins(payload);
+      case 'APPROVE_MISSED_CHECKIN':
+        return handleApproveMissedCheckin(payload);
+      case 'REJECT_MISSED_CHECKIN':
+        return handleRejectMissedCheckin(payload);
+
       // --- SWAP SHIFTS (CHỢ ĐỔI CA) ---
       case 'GET_SWAP_REQUESTS':
         return handleGetSwapRequests(payload);

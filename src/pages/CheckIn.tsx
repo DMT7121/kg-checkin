@@ -3,7 +3,7 @@ import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import KalmanFilter from '../utils/kalman';
 import { getDist, speak, getCurrentTimeString, computeWeekInfo, KG_LAT, KG_LNG, KG_RADIUS_METERS } from '../utils/helpers';
-import { MapPin, RefreshCw, CameraOff, Camera, RotateCcw, LogIn, LogOut, UserCheck, AlertTriangle } from 'lucide-react';
+import { MapPin, RefreshCw, CameraOff, Camera, RotateCcw, LogIn, LogOut, UserCheck, AlertTriangle, Clock } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import {
   KgButton,
@@ -15,10 +15,13 @@ import {
 import { isWorkEligible } from '../utils/employment';
 import EmploymentStatusNotice from '../components/EmploymentStatusNotice';
 import { enqueueTask } from '../utils/offlineQueue';
+import MissedCheckInModal from '../components/MissedCheckInModal';
 
 export default function CheckIn() {
   const store = useAppStore();
   const { currentUser, gps, capturedImage, currentTime, approvedShifts } = store;
+
+  const [missedModalOpen, setMissedModalOpen] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -933,6 +936,26 @@ export default function CheckIn() {
           RA CA
         </KgButton>
       </div>
+
+      {/* Missed Checkin Helper Button */}
+      <div className="text-center pt-1 max-w-sm mx-auto">
+        <button
+          type="button"
+          onClick={() => setMissedModalOpen(true)}
+          className="w-full py-2.5 px-4 rounded-xl bg-[var(--kg-surface)] hover:bg-[var(--kg-surface-soft)] text-[var(--kg-text)] border border-[var(--kg-border)] text-xs font-black shadow-xs transition active:scale-95 flex items-center justify-center gap-2"
+        >
+          <Clock size={15} className="text-amber-500" />
+          <span>Gặp sự cố không chấm được? Gửi báo bổ sung công →</span>
+        </button>
+      </div>
+
+      {/* Missed Check-in Claim Modal */}
+      {missedModalOpen && (
+        <MissedCheckInModal
+          isOpen={missedModalOpen}
+          onClose={() => setMissedModalOpen(false)}
+        />
+      )}
 
       {/* Spam Warning bottom sheet */}
       <KgBottomSheet isOpen={spamWarningOpen} onClose={() => setSpamWarningOpen(false)} title="Cảnh báo Spam">

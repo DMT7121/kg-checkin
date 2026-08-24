@@ -2830,3 +2830,235 @@ function hexToRgb(hex) {
   var b = parseInt(hex.substring(4, 6), 16) / 255;
   return { red: isNaN(r) ? 1.0 : r, green: isNaN(g) ? 1.0 : g, blue: isNaN(b) ? 1.0 : b };
 }
+
+// =====================================================================================
+// MISSED CHECK-IN HANDLERS (BÁO BỔ SUNG LƯỢT CHẤM CÔNG)
+// =====================================================================================
+
+function getMissedCheckinsSheet() {
+  var ss = getSS();
+  var sheet = ss.getSheetByName('📝 BỔ SUNG CÔNG');
+  if (!sheet) {
+    sheet = ss.getSheetByName('MISSED_CHECKINS');
+  }
+  if (!sheet) {
+    sheet = ss.insertSheet('📝 BỔ SUNG CÔNG');
+    var headers = ['ID', 'Timestamp', 'Username', 'Họ và tên', 'Ngày', 'Giờ', 'Loại', 'Ca làm', 'Lý do', 'Link ảnh minh chứng', 'Trạng thái', 'Người duyệt', 'Thời gian duyệt', 'Ghi chú'];
+    sheet.appendRow(headers);
+    sheet.getRange('A1:N1').setBackground('#1e293b').setFontColor('#ffffff').setFontWeight('bold');
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function handleSubmitMissedCheckin(payload) {
+  try {
+    if (!payload.username) return jsonResponse(false, 'Thiếu thông tin người dùng.');
+    if (!payload.date || !payload.time || !payload.type) return jsonResponse(false, 'Vui lòng điền đầy đủ Ngày, Giờ và Loại chấm công.');
+
+    var sheet = getMissedCheckinsSheet();
+    var id = 'MC_' + new Date().getTime();
+    var now = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm:ss');
+    
+    var imageUrl = payload.image || '';
+    if (payload.imageBase64) {
+      try {
+        var base64Data = payload.imageBase64;
+        var mimeType = 'image/jpeg';
+        if (base64Data.indexOf('data:') === 0) {
+          var parts = base64Data.split(';base64,');
+          mimeType = parts[0].replace('data:', '');
+          base64Data = parts[1];
+        }
+        var decoded = Utilities.base64Decode(base64Data);
+        var blob = Utilities.newBlob(decoded, mimeType, 'MissedCheckIn_' + id + '.jpg');
+        var folder = DriveApp.getFolderById(CONFIG.FOLDER_ID);
+        var file = folder.createFile(blob);
+        try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) {}
+        imageUrl = file.getUrl();
+      } catch (uploadErr) {
+        Logger.log('Lỗi upload ảnh bổ sung công: ' + uploadErr.message);
+      }
+    }
+
+    var newRow = [
+      id,
+      now,
+      payload.username,
+      payload.fullname || payload.username,
+      payload.date,
+      payload.time,
+      payload.type,
+      payload.shift || '',
+      payload.reason || '',
+      imageUrl,
+      'Pending',
+      '',
+      '',
+      payload.note || ''
+    ];
+
+    sheet.appendRow(newRow);
+
+    return jsonResponse(true, {
+      id: id,
+      status: 'Pending',
+      message: 'Đã gửi đơn báo bổ sung công thành công. Vui lòng gửi thông tin vào nhóm Zalo để Quản lý duyệt sớm.'
+    });
+  } catch (e) {
+    return jsonResponse(false, 'Lỗi gửi đơn: ' + e.message);
+  }
+}
+
+function handleGetMissedCheckins(payload) {
+  try {
+    var sheet = getMissedCheckinsSheet();
+    var data = sheet.getDataRange().getValues();
+    if (data.length <= 1) return jsonResponse(true, []);
+
+    var claims = [];
+    var isAdmin = payload.role === 'admin' || payload.username === 'ADMIN' || payload.role === 'tester';
+
+    for (var i = 1; i < data.length; i++) {
+      var row = data[i];
+      if (!row[0]) continue;
+      var username = row[2];
+      if (!isAdmin && username !== payload.username) continue;
+
+      claims.push({
+        id: row[0].toString(),
+        createdAt: row[1] ? row[1].toString() : '',
+        username: row[2] ? row[2].toString() : '',
+        fullname: row[3] ? row[3].toString() : '',
+        date: row[4] ? row[4].toString() : '',
+        time: row[5] ? row[5].toString() : '',
+        type: row[6] ? row[6].toString() : 'Vào ca',
+        shift: row[7] ? row[7].toString() : '',
+        reason: row[8] ? row[8].toString() : '',
+        proofImage: row[9] ? row[9].toString() : '',
+        status: row[10] ? row[10].toString() : 'Pending',
+        approvedBy: row[11] ? row[11].toString() : '',
+        approvedAt: row[12] ? row[12].toString() : '',
+        note: row[13] ? row[13].toString() : '',
+        rowIndex: i + 1
+      });
+    }
+
+    claims.reverse();
+    return jsonResponse(true, claims);
+  } catch (e) {
+    return jsonResponse(false, 'Lỗi lấy danh sách đơn: ' + e.message);
+  }
+}
+
+function handleApproveMissedCheckin(payload) {
+  try {
+    if (!payload.id) return jsonResponse(false, 'Thiếu mã đơn ID.');
+    var adminUser = payload.adminUsername || payload.username || 'ADMIN';
+    var sheet = getMissedCheckinsSheet();
+    var data = sheet.getDataRange().getValues();
+    var targetRowIndex = -1;
+    var claim = null;
+
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][0] && data[i][0].toString() === payload.id.toString()) {
+        targetRowIndex = i + 1;
+        claim = {
+          id: data[i][0].toString(),
+          username: data[i][2].toString(),
+          fullname: data[i][3].toString(),
+          date: data[i][4].toString(),
+          time: data[i][5].toString(),
+          type: data[i][6].toString(),
+          shift: data[i][7].toString(),
+          reason: data[i][8].toString(),
+          proofImage: data[i][9].toString(),
+          note: data[i][13] ? data[i][13].toString() : ''
+        };
+        break;
+      }
+    }
+
+    if (targetRowIndex === -1 || !claim) return jsonResponse(false, 'Không tìm thấy đơn báo bổ sung.');
+
+    var now = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm:ss');
+    sheet.getRange(targetRowIndex, 11, 1, 3).setValues([['Approved', adminUser, now]]);
+
+    // INSERT INTO SHEET CHECKIN (CONFIG.SHEET_LOGS)
+    var ss = getSS();
+    var logSheet = ss.getSheetByName(CONFIG.SHEET_LOGS);
+    if (logSheet) {
+      var fullTimeStr = claim.date + ' ' + (claim.time.length === 5 ? claim.time + ':00' : claim.time);
+      var noteText = 'Báo chấm công bổ sung - Đã duyệt (Admin: ' + adminUser + ' - Đơn #' + claim.id + ')';
+      var dataJson = JSON.stringify({
+        hoVaTen: claim.fullname,
+        loaiChamCong: claim.type,
+        thoiGian: fullTimeStr,
+        viTri: "Nhà hàng King's Grill (Giải trình bổ sung)",
+        xacMinh: "Hợp lệ",
+        khoangCach: "Giải trình",
+        linkAnh: claim.proofImage || '',
+        caLam: claim.shift || '',
+        ghiChu: noteText,
+        claimId: claim.id,
+        approvedBy: adminUser,
+        approvedAt: now,
+        isMissedCheckInClaim: true
+      });
+
+      var newLog = [
+        claim.fullname,
+        claim.type,
+        "'" + fullTimeStr,
+        "Nhà hàng King's Grill (Giải trình)",
+        "Hợp lệ",
+        "Giải trình",
+        claim.proofImage || '',
+        dataJson
+      ];
+
+      var lock = LockService.getScriptLock();
+      try {
+        lock.waitLock(15000);
+        logSheet.insertRowBefore(2);
+        logSheet.getRange(2, 1, 1, 8).setValues([newLog]);
+        formatCheckInRow(logSheet, 2, true, claim.proofImage || '');
+      } catch (lockErr) {
+        logSheet.appendRow(newLog);
+      } finally {
+        try { lock.releaseLock(); } catch(e) {}
+      }
+    }
+
+    return jsonResponse(true, { message: 'Đã duyệt đơn và tự động chèn vào Bảng chấm công!' });
+  } catch (e) {
+    return jsonResponse(false, 'Lỗi duyệt đơn: ' + e.message);
+  }
+}
+
+function handleRejectMissedCheckin(payload) {
+  try {
+    if (!payload.id) return jsonResponse(false, 'Thiếu mã đơn ID.');
+    var adminUser = payload.adminUsername || payload.username || 'ADMIN';
+    var sheet = getMissedCheckinsSheet();
+    var data = sheet.getDataRange().getValues();
+    var targetRowIndex = -1;
+
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][0] && data[i][0].toString() === payload.id.toString()) {
+        targetRowIndex = i + 1;
+        break;
+      }
+    }
+
+    if (targetRowIndex === -1) return jsonResponse(false, 'Không tìm thấy đơn báo bổ sung.');
+
+    var now = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm:ss');
+    var reason = payload.reason || 'Không đủ minh chứng';
+    sheet.getRange(targetRowIndex, 11, 1, 4).setValues([['Rejected', adminUser, now, reason]]);
+
+    return jsonResponse(true, { message: 'Đã từ chối đơn báo bổ sung công.' });
+  } catch (e) {
+    return jsonResponse(false, 'Lỗi từ chối đơn: ' + e.message);
+  }
+}

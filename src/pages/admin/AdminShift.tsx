@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Clock, CalendarRange, Save, Crosshair, AlertCircle } from 'lucide-react';
+import { MapPin, Clock, CalendarRange, Save, Crosshair, AlertCircle, ShieldCheck } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { useAppStore } from '../../store/useAppStore';
 import { callApi } from '../../services/api';
 import { KgModuleHero } from '../../components/KgDesignSystem';
+import MissedCheckInModal from '../../components/MissedCheckInModal';
 
 
 export default function AdminShift() {
   const { serverGpsConfig, currentUser, setServerGpsConfig } = useAppStore();
+  const [isMissedModalOpen, setIsMissedModalOpen] = useState(false);
   const [kgLat, setKgLat] = useState('10.9760826');
   const [kgLng, setKgLng] = useState('106.6646541');
   const [kgRadius, setKgRadius] = useState('25');
@@ -258,6 +260,38 @@ export default function AdminShift() {
           </div>
         </div>
       </div>
+      
+      {/* Missed Check-ins Approval Quick Card */}
+      <div className="bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-600/10 border-2 border-amber-500/30 p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-black shadow-md flex-shrink-0">
+            <ShieldCheck size={22} />
+          </div>
+          <div>
+            <h4 className="text-xs sm:text-sm font-black text-[var(--kg-text)]">
+              Duyệt Đơn Bổ Sung Chấm Công (Báo Miss Công)
+            </h4>
+            <p className="text-[11px] text-[var(--kg-text-muted)] mt-0.5 font-medium">
+              Kiểm tra các đơn giải trình của nhân viên bị lỗi mạng, hết pin, quên bấm máy và tự động ghi nhận vào Bảng công.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsMissedModalOpen(true)}
+          className="w-full sm:w-auto px-4 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 text-white rounded-xl text-xs font-black shadow-md transition active:scale-95 whitespace-nowrap flex-shrink-0"
+        >
+          Mở hàng chờ duyệt →
+        </button>
+      </div>
+
+      {/* Missed Check-in Modal */}
+      {isMissedModalOpen && (
+        <MissedCheckInModal
+          isOpen={isMissedModalOpen}
+          onClose={() => setIsMissedModalOpen(false)}
+        />
+      )}
     </div>
   );
 }
