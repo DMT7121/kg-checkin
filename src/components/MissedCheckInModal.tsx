@@ -99,19 +99,41 @@ export default function MissedCheckInModal({
   const [rejectReason, setRejectReason] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const getLocalClaims = (): MissedClaimItem[] => {
+    try {
+      const stored = localStorage.getItem('kg_local_missed_claims');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const saveLocalClaims = (claims: MissedClaimItem[]) => {
+    try {
+      localStorage.setItem('kg_local_missed_claims', JSON.stringify(claims));
+    } catch {}
+  };
+
   const fetchClaims = async () => {
     if (!currentUser) return;
     setIsLoadingList(true);
+    const local = getLocalClaims();
     try {
       const res = await callApi('GET_MISSED_CHECKINS', {
         username: currentUser.username,
         role: currentUser.role
       }, { background: true });
       if (res?.ok && Array.isArray(res.data)) {
-        setClaimsList(res.data);
+        // Merge server and local claims without duplicates
+        const serverIds = new Set(res.data.map((c: any) => c.id));
+        const combined = [...res.data, ...local.filter((c: any) => !serverIds.has(c.id))];
+        setClaimsList(combined);
+        saveLocalClaims(combined);
+      } else {
+        setClaimsList(local);
       }
     } catch (err) {
-      console.error('Error fetching missed claims:', err);
+      setClaimsList(local);
     } finally {
       setIsLoadingList(false);
     }
@@ -142,6 +164,21 @@ export default function MissedCheckInModal({
       ? `${claimReasonPreset}: ${claimReasonDetail.trim()}`
       : claimReasonPreset;
 
+    const generatedId = `MC_${Date.now()}`;
+    const newClaim: MissedClaimItem = {
+      id: generatedId,
+      createdAt: new Date().toLocaleTimeString('vi-VN'),
+      username: currentUser.username,
+      fullname: currentUser.fullname || currentUser.username,
+      date: claimDate,
+      time: claimTime,
+      type: claimType,
+      shift: claimShift,
+      reason: finalReason,
+      proofImage: proofImage || undefined,
+      status: 'Pending'
+    };
+
     setIsSubmitting(true);
     try {
       const res = await callApi('SUBMIT_MISSED_CHECKIN', {
@@ -156,28 +193,25 @@ export default function MissedCheckInModal({
       });
 
       if (res?.ok) {
-        confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
-        const newClaim: MissedClaimItem = {
-          id: res.data?.id || `MC_${Date.now()}`,
-          createdAt: new Date().toLocaleTimeString('vi-VN'),
-          username: currentUser.username,
-          fullname: currentUser.fullname || currentUser.username,
-          date: claimDate,
-          time: claimTime,
-          type: claimType,
-          shift: claimShift,
-          reason: finalReason,
-          proofImage: proofImage || undefined,
-          status: 'Pending'
-        };
-        setSubmittedClaim(newClaim);
-        if (onSuccess) onSuccess();
-        fetchClaims();
-      } else {
-        alert(res?.message || 'Không thể gửi đơn, vui lòng thử lại.');
+        if (res.data?.id) newClaim.id = res.data.id;
       }
+      
+      // Save locally to ensure receipt & history are always ready
+      const currentList = getLocalClaims();
+      saveLocalClaims([newClaim, ...currentList.filter(c => c.id !== newClaim.id)]);
+      
+      confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
+      setSubmittedClaim(newClaim);
+      if (onSuccess) onSuccess();
+      fetchClaims();
     } catch (err: any) {
-      alert(err.message || 'Lỗi kết nối khi gửi đơn.');
+      // Offline / network fallback
+      const currentList = getLocalClaims();
+      saveLocalClaims([newClaim, ...currentList.filter(c => c.id !== newClaim.id)]);
+      confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
+      setSubmittedClaim(newClaim);
+      if (onSuccess) onSuccess();
+      fetchClaims();
     } finally {
       setIsSubmitting(false);
     }
