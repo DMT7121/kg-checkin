@@ -609,20 +609,20 @@ ${aiInputText}
           {viewMode === 'week' ? (
             adminSchedules.length > 0 ? (
             <>
-              <div className="schedule-week-table-wrap overflow-hidden md:overflow-x-auto w-full soft3d-bg rounded-xl border border-gray-200 dark:border-gray-700 mb-4 pb-4 md:pb-20 custom-scrollbar">
-                <table className="schedule-week-table w-full text-sm text-left md:whitespace-nowrap">
-                  <thead className="text-xs text-gray-700 dark:text-gray-300 uppercase bg-gray-200 dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700">
+              <div className="schedule-week-table-wrap overflow-x-auto w-full bg-[var(--kg-surface)] rounded-2xl border border-[var(--kg-border)] mb-4 pb-4 md:pb-16 custom-scrollbar">
+                <table className="schedule-week-table w-full text-xs sm:text-sm text-left md:whitespace-nowrap">
+                  <thead className="text-[10px] sm:text-xs text-[var(--kg-text-muted)] uppercase bg-[var(--kg-surface-soft)] border-b border-[var(--kg-border)]">
                     <tr>
-                      <th className="schedule-employee-header px-4 py-3 md:sticky md:left-0 bg-gray-200 dark:bg-gray-800 z-20 font-bold border-r dark:border-gray-700">Nhân Viên</th>
+                      <th className="schedule-employee-header px-3.5 py-3 md:sticky md:left-0 bg-[var(--kg-surface-soft)] z-20 font-black border-r border-[var(--kg-border)]">Nhân Viên</th>
                       {SHORT_DAY_NAMES.map((d, idx) => (
                         <th
                           key={d}
-                          className={`schedule-day-header px-2 py-3 text-center border-r dark:border-gray-700 ${weekDayMeta[idx].className}`}
+                          className={`schedule-day-header px-2 py-3 text-center border-r border-[var(--kg-border)] ${weekDayMeta[idx].className}`}
                           title={weekDayMeta[idx].label || undefined}
                         >
-                          <div className="hidden md:block font-bold text-[13px]">{weekInfo.weekDates[idx]}</div>
-                          <div className="md:hidden font-bold text-[11px]">{weekInfo.weekDates[idx]?.split('/')[0]}</div>
-                          <div className="text-[10px] font-normal opacity-70 mt-0.5">{d}</div>
+                          <div className="hidden md:block font-black text-[13px]">{weekInfo.weekDates[idx]}</div>
+                          <div className="md:hidden font-black text-[11px]">{weekInfo.weekDates[idx]?.split('/')[0]}</div>
+                          <div className="text-[9px] font-bold opacity-75 mt-0.5">{d}</div>
                         </th>
                       ))}
                       <th className="hidden md:table-cell px-4 py-3">Ghi chú</th>
@@ -634,8 +634,8 @@ ${aiInputText}
                       const hasRegistered = emp.isRegistered;
                       
                       return (
-                      <tr key={empIdx} className="soft3d-card border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                        <td className="schedule-employee-cell px-4 py-3 md:sticky md:left-0 soft3d-card z-10 font-medium text-gray-900 dark:text-white shadow-[1px_0_0_0_rgba(0,0,0,0.05)] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.05)] border-r dark:border-gray-700 group cursor-help">
+                      <tr key={empIdx} className="border-b border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]/50 transition-colors">
+                        <td className="schedule-employee-cell px-3.5 py-2.5 md:sticky md:left-0 bg-[var(--kg-surface)] z-10 font-bold text-[var(--kg-text)] shadow-[1px_0_0_0_rgba(0,0,0,0.05)] border-r border-[var(--kg-border)] group cursor-help">
                           <div className="flex items-center min-w-0">
                             <SmartPersonName fullname={emp.fullname} className="schedule-employee-name max-w-[150px]" />
                             {hasRegistered && (

@@ -708,30 +708,33 @@ export default function CheckIn() {
       />
 
       {/* GPS Status Card */}
-      <div className="bg-[var(--kg-surface)] p-5 rounded-3xl relative overflow-hidden border border-[var(--kg-border)] text-[var(--kg-text)] shadow-sm">
-        <div className="absolute -right-4 -top-4 opacity-5 text-8xl transform rotate-12 text-blue-600/10"><MapPin size={100} /></div>
-        <div className="flex items-start space-x-4 relative z-10">
-          <div className="bg-blue-50 dark:bg-blue-950/20 p-3 rounded-2xl relative flex-shrink-0 text-blue-600 dark:text-indigo-400">
-            <MapPin className="relative z-10" size={24} />
-            {gps.status.includes('Đang') && <div className="gps-ping absolute inset-0" />}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-bold text-[var(--kg-text-muted)] uppercase tracking-wider">Vị trí hiện tại</p>
-            <h3 className="font-extrabold text-sm md:text-base mt-0.5 leading-tight break-words text-[var(--kg-text)] pr-20">
-              {gps.address ? gps.address : gps.status}
-            </h3>
-            <div className={`mt-2 inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold ${gps.isValid ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400' : 'bg-red-50 text-red-650 dark:bg-red-950/20 dark:text-red-400'}`}>
-              <span className="truncate">{gps.message}</span>
+      <div className="bg-[var(--kg-surface)] p-4 sm:p-5 rounded-2xl md:rounded-3xl relative overflow-hidden border border-[var(--kg-border)] text-[var(--kg-text)] shadow-xs">
+        <div className="absolute -right-4 -top-4 opacity-5 text-8xl transform rotate-12 text-blue-600/10 pointer-events-none"><MapPin size={100} /></div>
+        <div className="flex items-start justify-between gap-3 relative z-10">
+          <div className="flex items-start space-x-3.5 min-w-0">
+            <div className="bg-blue-500/10 p-3 rounded-2xl relative flex-shrink-0 text-blue-600 dark:text-blue-400">
+              <MapPin className="relative z-10" size={22} />
+              {gps.status.includes('Đang') && <div className="gps-ping absolute inset-0 rounded-2xl" />}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-black text-[var(--kg-text-muted)] uppercase tracking-wider">Định vị GPS Nhà hàng</p>
+              <h3 className="font-black text-xs sm:text-sm mt-0.5 leading-tight break-words text-[var(--kg-text)] pr-2">
+                {gps.address ? gps.address : gps.status}
+              </h3>
+              <div className={`mt-2 inline-flex items-center px-2.5 py-1 rounded-xl text-xs font-black border ${gps.isValid ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'}`}>
+                <span className="truncate">{gps.message}</span>
+              </div>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={restartGps}
+            className="text-xs bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-3.5 py-2 rounded-xl transition font-black flex items-center min-h-[38px] touch-manipulation shadow-xs active:scale-95 flex-shrink-0"
+          >
+            <RefreshCw size={13} className={`mr-1.5 ${gps.status.includes('Đang') ? 'animate-spin' : ''}`} />
+            Làm mới
+          </button>
         </div>
-        <button
-          onClick={restartGps}
-            className="absolute top-4 right-4 text-xs bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white px-3 py-1.5 rounded-full transition font-bold flex items-center min-h-[44px] touch-manipulation shadow-sm"
-        >
-          <RefreshCw size={14} className={`mr-1.5 ${gps.status.includes('Đang') ? 'animate-spin' : ''}`} />
-          Làm mới
-        </button>
       </div>
 
       {/* Camera Viewport */}

@@ -197,57 +197,59 @@ export default function Roster() {
   };
 
   return (
-      <div className="overflow-x-auto w-full soft3d-bg rounded-xl border border-gray-200 dark:border-gray-700 pb-10">
-        <table className="w-full text-sm text-left whitespace-nowrap">
-          <thead className="text-[10px] text-gray-500 dark:text-gray-400 uppercase paint-layer/80 border-b border-gray-200 dark:border-gray-700">
-            <tr>
-              <th className="px-3 py-3 sticky left-0 paint-layer z-20 font-bold border-r border-gray-200 dark:border-gray-700 shadow-[1px_0_0_0_rgba(0,0,0,0.05)]">Nhân Viên</th>
-              {SHORT_DAY_NAMES.map((d, idx) => {
-                const isUnderstaffed = dailyWaitstaffCounts[idx] < 3;
-                return (
-                <th
-                  key={d}
-                  className={`px-1 py-3 text-center border-r border-gray-200 dark:border-gray-700 last:border-r-0 relative ${weekDayMeta[idx].className}`}
-                  title={weekDayMeta[idx].label || undefined}
-                >
-                  <div className="font-bold text-[13px]">{weekInfo.weekDates[idx]}</div>
-                  <div className="text-[10px] font-normal opacity-70 mt-0.5">{d}</div>
-                  {isUnderstaffed && (
-                     <div className="absolute top-1 right-1 text-red-500 animate-pulse" title={`Thiếu nhân sự phục vụ (${dailyWaitstaffCounts[idx]} người)`}>
-                        <ShieldAlert size={12} />
-                     </div>
-                  )}
-                </th>
-              )})}
-            </tr>
-          </thead>
-          <tbody>
-            {rosterToRender.map((emp, empIdx) => (
-              <tr key={empIdx} className={`soft3d-card border-b dark:border-gray-700 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 transition-colors ${emp.username === store.currentUser?.username ? 'bg-indigo-50/30 dark:bg-indigo-900/20' : ''}`}>
-                <td className="px-3 py-3 sticky left-0 soft3d-card z-10 shadow-[1px_0_0_0_rgba(0,0,0,0.05)] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.05)] border-r border-gray-200 dark:border-gray-700">
-                  <SmartPersonName fullname={emp.fullname} className="max-w-[150px] text-xs font-bold text-gray-800 dark:text-gray-200" />
-                  {emp.username === store.currentUser?.username && (
-                    <div className="text-[9px] font-bold text-indigo-500 uppercase tracking-wider mt-0.5">Bạn</div>
-                  )}
-                </td>
-                {emp.shifts.map((shift: string, dayIdx: number) => {
-                  const isOff = shift === 'OFF' || !shift;
+      <div className="relative w-full rounded-2xl overflow-hidden border border-[var(--kg-border)] bg-[var(--kg-surface)]">
+        <div className="overflow-x-auto w-full pb-6 custom-scrollbar">
+          <table className="w-full text-xs sm:text-sm text-left whitespace-nowrap">
+            <thead className="text-[10px] text-[var(--kg-text-muted)] uppercase bg-[var(--kg-surface-soft)] border-b border-[var(--kg-border)]">
+              <tr>
+                <th className="px-3 py-3 sticky left-0 bg-[var(--kg-surface-soft)] z-20 font-black border-r border-[var(--kg-border)] shadow-[1px_0_0_0_rgba(0,0,0,0.05)]">Nhân Viên</th>
+                {SHORT_DAY_NAMES.map((d, idx) => {
+                  const isUnderstaffed = dailyWaitstaffCounts[idx] < 3;
                   return (
-                    <td
-                      key={dayIdx}
-                      className={`px-1 py-2 border-r border-gray-100 dark:border-gray-700/50 last:border-r-0 text-center ${weekDayMeta[dayIdx].className}`}
-                      title={weekDayMeta[dayIdx].label || undefined}
-                    >
-                      <div className={`inline-flex items-center justify-center text-[10px] font-bold w-full max-w-[60px] py-1.5 rounded-lg ${getAdminShiftClass(shift)}`}>
-                        {isOff ? 'OFF' : shift}
-                      </div>
-                    </td>
-                  );
-                })}
+                  <th
+                    key={d}
+                    className={`px-1 py-2.5 text-center border-r border-[var(--kg-border)] last:border-r-0 relative ${weekDayMeta[idx].className}`}
+                    title={weekDayMeta[idx].label || undefined}
+                  >
+                    <div className="font-black text-xs sm:text-[13px]">{weekInfo.weekDates[idx]}</div>
+                    <div className="text-[9px] font-bold opacity-75 mt-0.5">{d}</div>
+                    {isUnderstaffed && (
+                       <div className="absolute top-1 right-1 text-red-500 animate-pulse" title={`Thiếu nhân sự phục vụ (${dailyWaitstaffCounts[idx]} người)`}>
+                          <ShieldAlert size={12} />
+                       </div>
+                    )}
+                  </th>
+                )})}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rosterToRender.map((emp, empIdx) => (
+                <tr key={empIdx} className={`border-b border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]/60 transition-colors ${emp.username === store.currentUser?.username ? 'bg-indigo-500/10' : ''}`}>
+                  <td className="px-3 py-2.5 sticky left-0 bg-[var(--kg-surface)] z-10 shadow-[1px_0_0_0_rgba(0,0,0,0.05)] border-r border-[var(--kg-border)]">
+                    <SmartPersonName fullname={emp.fullname} className="max-w-[140px] text-xs font-black text-[var(--kg-text)]" />
+                    {emp.username === store.currentUser?.username && (
+                      <div className="text-[9px] font-black text-blue-600 dark:text-indigo-400 uppercase tracking-wider mt-0.5">Bạn</div>
+                    )}
+                  </td>
+                  {emp.shifts.map((shift: string, dayIdx: number) => {
+                    const isOff = shift === 'OFF' || !shift;
+                    return (
+                      <td
+                        key={dayIdx}
+                        className={`px-1 py-1.5 border-r border-[var(--kg-border)]/50 last:border-r-0 text-center ${weekDayMeta[dayIdx].className}`}
+                        title={weekDayMeta[dayIdx].label || undefined}
+                      >
+                        <div className={`inline-flex items-center justify-center text-[10px] font-black w-full max-w-[60px] py-1.5 rounded-lg shadow-2xs ${getAdminShiftClass(shift)}`}>
+                          {isOff ? 'OFF' : shift}
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     );
   };

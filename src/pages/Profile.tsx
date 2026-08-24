@@ -102,19 +102,19 @@ export default function Profile() {
         </div>
       ) : (
         <>
-          <div className="soft3d-card overflow-hidden rounded-2xl">
-            <div className="bg-gradient-to-br from-slate-900 via-cyan-900 to-cyan-700 p-5 text-white">
+          <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] overflow-hidden rounded-2xl md:rounded-3xl shadow-xs">
+            <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-blue-900 p-5 sm:p-6 text-white">
               <div className="flex items-center gap-4">
                 {profile.avatarUrl ? (
                   <img src={profile.avatarUrl} alt="" className="h-16 w-16 rounded-2xl border-2 border-white/30 object-cover shadow-lg" />
                 ) : (
-                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 text-2xl font-black backdrop-blur">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 text-2xl font-black backdrop-blur border border-white/20">
                     {profile.fullname.charAt(0).toUpperCase()}
                   </div>
                 )}
                 <div className="min-w-0">
                   <h2 className="truncate text-xl font-black">{profile.fullname}</h2>
-                  <p className="mt-1 text-xs text-cyan-100">@{profile.username}</p>
+                  <p className="mt-1 text-xs text-blue-200">@{profile.username}</p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     <span className="rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-extrabold backdrop-blur">
                       {profile.position || 'Nhân viên'}
