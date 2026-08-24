@@ -325,36 +325,49 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
           {/* Left side: Hero card & Actions */}
           <div className="lg:col-span-7 space-y-4">
             {/* Personal Hero Card */}
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-600 p-6 text-white shadow-sm border border-white/10">
-              <div className="relative z-10 flex flex-col justify-between h-full space-y-6">
-                <div>
-                  <div className="flex items-center space-x-2.5">
-                    <span className="text-2xl">👋</span>
-                    <h2 className="text-xl md:text-2xl font-black tracking-tight text-white">
-                      Xin chào, {currentUser?.fullname.split(' ').pop()}!
-                    </h2>
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-600 p-5 sm:p-6 text-white shadow-md border border-white/15">
+              <div className="relative z-10 flex flex-col justify-between h-full space-y-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center space-x-3 min-w-0">
+                    <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center font-black text-xl text-white flex-shrink-0 shadow-sm">
+                      {currentUser?.fullname.charAt(0) || 'K'}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-white/80 text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5">
+                        <span>{new Date().getHours() < 12 ? '☀️ Chào buổi sáng' : new Date().getHours() < 18 ? '🌤️ Chào buổi chiều' : '🌙 Chào buổi tối'}</span>
+                        <span className="w-1 h-1 rounded-full bg-white/60" />
+                        <span>{currentUser?.position || (currentUser?.role === 'admin' ? 'Quản lý' : 'Nhân sự')}</span>
+                      </p>
+                      <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white truncate mt-0.5">
+                        {currentUser?.fullname || currentUser?.username}
+                      </h2>
+                    </div>
                   </div>
-                  <p className="text-white/80 text-xs font-semibold mt-1">
-                    Hôm nay • {store.currentTime}
-                  </p>
+                  <div className="text-right flex-shrink-0">
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-xl bg-black/25 backdrop-blur-md border border-white/10 text-[11px] font-mono font-bold text-white shadow-xs">
+                      {store.currentTime}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="flex items-center justify-between bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/10">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-white/70">Lịch làm hôm nay</p>
-                    <p className="text-sm font-extrabold mt-0.5">{todayShift}</p>
+                <div className="grid grid-cols-2 gap-2 bg-black/20 backdrop-blur-md rounded-2xl p-3.5 border border-white/10 shadow-inner">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-white/70">Ca làm hôm nay</p>
+                    <p className="text-xs sm:text-sm font-extrabold mt-0.5 text-white truncate">{todayShift}</p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-white/70">Trạng thái</p>
-                    <KgStatusBadge variant={statusVariant} className="mt-1">
-                      {statusText}
-                    </KgStatusBadge>
+                  <div className="text-right min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-white/70">Trạng thái</p>
+                    <div className="mt-0.5 flex justify-end">
+                      <KgStatusBadge variant={statusVariant}>
+                        {statusText}
+                      </KgStatusBadge>
+                    </div>
                   </div>
                 </div>
               </div>
-              {/* Background circles */}
-              <div className="absolute right-[-10%] top-[-20%] w-60 h-60 bg-white/10 rounded-full blur-3xl mix-blend-screen" />
-              <div className="absolute left-[-20%] bottom-[-40%] w-60 h-60 bg-white/5 rounded-full blur-3xl mix-blend-screen" />
+              {/* Radiant Glow overlays */}
+              <div className="absolute right-[-10%] top-[-20%] w-60 h-60 bg-cyan-400/20 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute left-[-20%] bottom-[-40%] w-60 h-60 bg-violet-400/20 rounded-full blur-3xl pointer-events-none" />
             </div>
 
             {/* Quick Newbie Guide Banner */}
@@ -416,15 +429,19 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
                 Bạn đã hoàn thành chấm công ra ca hôm nay. Hẹn gặp lại vào ca làm việc tiếp theo!
               </KgAlertCard>
             ) : (
-              <KgButton
-                variant={userHasIn ? 'danger' : 'primary'}
-                size="lg"
-                className="w-full text-base font-extrabold py-4 shadow-sm active:scale-95 transition-all h-[56px] uppercase tracking-wider"
-                icon={Camera}
+              <button
+                type="button"
                 onClick={() => onTabChange('checkin')}
+                className={`w-full py-4 px-6 rounded-2xl font-black text-sm sm:text-base tracking-wider uppercase text-white shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 min-h-[56px] ${
+                  userHasIn
+                    ? 'bg-gradient-to-r from-rose-500 via-rose-600 to-red-600 hover:from-rose-600 hover:to-red-700 shadow-rose-500/25 ring-2 ring-rose-400/30'
+                    : 'bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 shadow-blue-500/25 ring-2 ring-blue-400/30'
+                }`}
               >
-                {userHasIn ? 'Bấm để Ra Ca' : 'Chấm Công Vào Ca Ngay'}
-              </KgButton>
+                <Camera size={20} className="animate-pulse" />
+                <span>{userHasIn ? 'Bấm để Chấm Ra Ca' : 'Chấm Công Vào Ca Ngay'}</span>
+                <span className="w-2 h-2 rounded-full bg-white shadow-[0_0_8px_white] ml-1" />
+              </button>
             )}
 
             {/* Card việc cần làm (To-Do List) */}

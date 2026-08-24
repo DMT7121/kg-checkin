@@ -766,7 +766,7 @@ export default function CheckIn() {
         <div className="absolute -right-4 -top-4 opacity-5 text-8xl transform rotate-12 text-blue-600/10 pointer-events-none"><MapPin size={100} /></div>
         <div className="flex items-start justify-between gap-3 relative z-10">
           <div className="flex items-start space-x-3.5 min-w-0">
-            <div className="bg-blue-500/10 p-3 rounded-2xl relative flex-shrink-0 text-blue-600 dark:text-blue-400">
+            <div className={`p-3 rounded-2xl relative flex-shrink-0 ${gps.isValid ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-blue-500/10 text-blue-600 dark:text-blue-400'}`}>
               <MapPin className="relative z-10" size={22} />
               {gps.status.includes('Đang') && <div className="gps-ping absolute inset-0 rounded-2xl" />}
             </div>
@@ -775,8 +775,15 @@ export default function CheckIn() {
               <h3 className="font-black text-xs sm:text-sm mt-0.5 leading-tight break-words text-[var(--kg-text)] pr-2">
                 {gps.address ? gps.address : gps.status}
               </h3>
-              <div className={`mt-2 inline-flex items-center px-2.5 py-1 rounded-xl text-xs font-black border ${gps.isValid ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'}`}>
-                <span className="truncate">{gps.message}</span>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <div className={`inline-flex items-center px-3 py-1 rounded-xl text-xs font-black border ${gps.isValid ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'}`}>
+                  <span className="truncate">{gps.message}</span>
+                </div>
+                {gps.isValid && (
+                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                    ✓ Đủ điều kiện chấm công
+                  </span>
+                )}
               </div>
             </div>
           </div>
