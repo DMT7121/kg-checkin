@@ -588,42 +588,46 @@ export default function Guide() {
             {/* Category tabs */}
             <div className="flex overflow-x-auto gap-2 pb-1 md:pb-0 scrollbar-none flex-nowrap shrink-0">
               <button
+                type="button"
                 onClick={() => setSelectedCategory('all')}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 border ${
+                className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all whitespace-nowrap active:scale-95 select-none ${
                   selectedCategory === 'all'
-                    ? 'bg-blue-600 text-white border-blue-600 dark:bg-indigo-600 dark:border-indigo-600'
-                    : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                    ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 text-white shadow-md shadow-blue-500/30 ring-2 ring-blue-400/40 scale-[1.02]'
+                    : 'bg-[var(--kg-surface)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] hover:text-[var(--kg-text)] font-bold opacity-80'
                 }`}
               >
                 Tất cả ({allowedGuides.length})
               </button>
               <button
+                type="button"
                 onClick={() => setSelectedCategory('personal')}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 border ${
+                className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all whitespace-nowrap active:scale-95 select-none ${
                   selectedCategory === 'personal'
-                    ? 'bg-blue-600 text-white border-blue-600 dark:bg-indigo-600 dark:border-indigo-600'
-                    : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                    ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 text-white shadow-md shadow-blue-500/30 ring-2 ring-blue-400/40 scale-[1.02]'
+                    : 'bg-[var(--kg-surface)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] hover:text-[var(--kg-text)] font-bold opacity-80'
                 }`}
               >
                 Cá nhân ({allowedGuides.filter(g => g.category === 'personal').length})
               </button>
               <button
+                type="button"
                 onClick={() => setSelectedCategory('operation')}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 border ${
+                className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all whitespace-nowrap active:scale-95 select-none ${
                   selectedCategory === 'operation'
-                    ? 'bg-blue-600 text-white border-blue-600 dark:bg-indigo-600 dark:border-indigo-600'
-                    : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                    ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 text-white shadow-md shadow-blue-500/30 ring-2 ring-blue-400/40 scale-[1.02]'
+                    : 'bg-[var(--kg-surface)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] hover:text-[var(--kg-text)] font-bold opacity-80'
                 }`}
               >
                 Vận hành ({allowedGuides.filter(g => g.category === 'operation').length})
               </button>
               {allowedGuides.some(g => g.category === 'admin') && (
                 <button
+                  type="button"
                   onClick={() => setSelectedCategory('admin')}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 border ${
+                  className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all whitespace-nowrap active:scale-95 select-none ${
                     selectedCategory === 'admin'
-                      ? 'bg-blue-600 text-white border-blue-600 dark:bg-indigo-600 dark:border-indigo-600'
-                      : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                      ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 text-white shadow-md shadow-blue-500/30 ring-2 ring-blue-400/40 scale-[1.02]'
+                      : 'bg-[var(--kg-surface)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] hover:text-[var(--kg-text)] font-bold opacity-80'
                   }`}
                 >
                   Quản lý ({allowedGuides.filter(g => g.category === 'admin').length})

@@ -147,26 +147,31 @@ export default function Reward() {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex bg-[var(--kg-surface)] border border-[var(--kg-border)] p-1 rounded-2xl shadow-xs">
+      {/* Tabs */}
+      <div className="flex bg-[var(--kg-surface)] border border-[var(--kg-border)] p-1.5 rounded-2xl shadow-sm gap-1.5">
         {[
           { id: 'wallet', label: 'Lịch sử', icon: History },
           { id: 'leaderboard', label: 'Bảng vàng', icon: Trophy },
           { id: 'shop', label: 'Cửa hàng', icon: Gift },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id as any)}
-            className={`flex-1 flex items-center justify-center space-x-1.5 py-2.5 rounded-xl text-xs sm:text-sm transition-all active:scale-95 ${
-              activeTab === tab.id 
-                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm font-black' 
-                : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
-            }`}
-          >
-            <tab.icon size={15} />
-            <span>{tab.label}</span>
-          </button>
-        ))}
+        ].map((tab) => {
+          const isSelected = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`flex-1 flex items-center justify-center space-x-1.5 py-2.5 rounded-xl text-xs sm:text-sm transition-all active:scale-95 select-none ${
+                isSelected 
+                  ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 text-white shadow-lg shadow-blue-500/30 ring-2 ring-blue-400/40 font-black scale-[1.02]' 
+                  : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold opacity-75'
+              }`}
+            >
+              <tab.icon size={15} className={isSelected ? 'text-white' : 'opacity-80'} />
+              <span>{tab.label}</span>
+              {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-white ml-0.5 shadow-[0_0_6px_white] animate-pulse" />}
+            </button>
+          );
+        })}
       </div>
 
       {/* Content Area */}

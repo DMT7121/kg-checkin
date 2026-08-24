@@ -129,28 +129,30 @@ export default function Handover() {
       <div className="relative z-20 flex-1 flex flex-col space-y-4">
         
         {/* Custom Tabs */}
-        <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-1 rounded-2xl flex gap-1 shadow-xs">
+        <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-1.5 rounded-2xl flex gap-1.5 shadow-sm">
           <button 
             type="button"
             onClick={() => setActiveTab('handover')}
-            className={`flex-1 flex items-center justify-center py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all active:scale-95 ${
+            className={`flex-1 flex items-center justify-center py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all active:scale-95 select-none ${
               activeTab === 'handover' 
-                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm' 
-                : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
+                ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 text-white shadow-lg shadow-blue-500/30 ring-2 ring-blue-400/40 scale-[1.02]' 
+                : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold opacity-75'
             }`}
           >
             <Banknote size={16} className="mr-1.5" /> Bàn giao quỹ
+            {activeTab === 'handover' && <span className="w-1.5 h-1.5 rounded-full bg-white ml-1.5 shadow-[0_0_6px_white] animate-pulse" />}
           </button>
           <button 
             type="button"
             onClick={() => setActiveTab('incident')}
-            className={`flex-1 flex items-center justify-center py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all active:scale-95 ${
+            className={`flex-1 flex items-center justify-center py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all active:scale-95 select-none ${
               activeTab === 'incident' 
-                ? 'bg-gradient-to-r from-rose-500 to-red-600 text-white shadow-sm' 
-                : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
+                ? 'bg-gradient-to-r from-rose-500 via-rose-600 to-red-600 text-white shadow-lg shadow-rose-500/30 ring-2 ring-rose-400/40 scale-[1.02]' 
+                : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold opacity-75'
             }`}
           >
             <ShieldAlert size={16} className="mr-1.5" /> Báo cáo sự cố
+            {activeTab === 'incident' && <span className="w-1.5 h-1.5 rounded-full bg-white ml-1.5 shadow-[0_0_6px_white] animate-pulse" />}
           </button>
         </div>
 

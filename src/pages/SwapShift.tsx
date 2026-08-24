@@ -178,40 +178,43 @@ export default function SwapShift() {
       />
 
       {/* Tabs Menu */}
-      <div className="flex bg-[var(--kg-surface)] border border-[var(--kg-border)] p-1 rounded-2xl mb-6 shadow-xs">
+      <div className="flex bg-[var(--kg-surface)] border border-[var(--kg-border)] p-1.5 rounded-2xl mb-6 shadow-sm gap-1.5">
         <button 
           type="button"
           onClick={() => setViewTab('board')} 
-          className={`flex-1 flex items-center justify-center py-2.5 rounded-xl text-xs sm:text-sm transition-all active:scale-95 ${
+          className={`flex-1 flex items-center justify-center py-2.5 rounded-xl text-xs sm:text-sm transition-all active:scale-95 select-none ${
             viewTab === 'board' 
-              ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm font-black' 
-              : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
+              ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 text-white shadow-lg shadow-blue-500/30 ring-2 ring-blue-400/40 font-black scale-[1.02]' 
+              : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold opacity-75'
           }`}
         >
           <Megaphone size={15} className="mr-1.5" /> Bảng tin
+          {viewTab === 'board' && <span className="w-1.5 h-1.5 rounded-full bg-white ml-1.5 shadow-[0_0_6px_white] animate-pulse" />}
           {store.hasNewSwaps && viewTab !== 'board' && <span className="w-2 h-2 rounded-full bg-red-500 ml-1.5 animate-ping" />}
         </button>
         <button 
           type="button"
           onClick={() => setViewTab('post')} 
-          className={`flex-1 flex items-center justify-center py-2.5 rounded-xl text-xs sm:text-sm transition-all active:scale-95 ${
+          className={`flex-1 flex items-center justify-center py-2.5 rounded-xl text-xs sm:text-sm transition-all active:scale-95 select-none ${
             viewTab === 'post' 
-              ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm font-black' 
-              : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
+              ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 text-white shadow-lg shadow-blue-500/30 ring-2 ring-blue-400/40 font-black scale-[1.02]' 
+              : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold opacity-75'
           }`}
         >
           <Send size={15} className="mr-1.5" /> Tìm người thay
+          {viewTab === 'post' && <span className="w-1.5 h-1.5 rounded-full bg-white ml-1.5 shadow-[0_0_6px_white] animate-pulse" />}
         </button>
         <button 
           type="button"
           onClick={() => setViewTab('leave')} 
-          className={`flex-1 flex items-center justify-center py-2.5 rounded-xl text-xs sm:text-sm transition-all active:scale-95 ${
+          className={`flex-1 flex items-center justify-center py-2.5 rounded-xl text-xs sm:text-sm transition-all active:scale-95 select-none ${
             viewTab === 'leave' 
-              ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm font-black' 
-              : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
+              ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 text-white shadow-lg shadow-blue-500/30 ring-2 ring-blue-400/40 font-black scale-[1.02]' 
+              : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold opacity-75'
           }`}
         >
           <LogOut size={15} className="mr-1.5" /> Xin nghỉ phép
+          {viewTab === 'leave' && <span className="w-1.5 h-1.5 rounded-full bg-white ml-1.5 shadow-[0_0_6px_white] animate-pulse" />}
         </button>
       </div>
 
