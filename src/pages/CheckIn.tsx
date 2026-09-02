@@ -2,8 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import KalmanFilter from '../utils/kalman';
-import { getDist, speak, getCurrentTimeString, computeWeekInfo, KG_LAT, KG_LNG, KG_RADIUS_METERS } from '../utils/helpers';
-import { MapPin, RefreshCw, CameraOff, Camera, RotateCcw, LogIn, LogOut, UserCheck, AlertTriangle, Clock } from 'lucide-react';
+import { getDist, speak, getCurrentTimeString, computeWeekInfo, KG_LAT, KG_LNG, KG_RADIUS_METERS, getRecommendedCheckInType } from '../utils/helpers';
+import { MapPin, RefreshCw, CameraOff, Camera, RotateCcw, LogIn, LogOut, UserCheck, AlertTriangle, Clock, Sparkles, ShieldCheck, CheckCircle2, Info } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import {
   KgButton,
@@ -20,6 +20,20 @@ import MissedCheckInModal from '../components/MissedCheckInModal';
 export default function CheckIn() {
   const store = useAppStore();
   const { currentUser, gps, capturedImage, currentTime, approvedShifts } = store;
+
+  // Smart check-in recommendation
+  const recommendation = getRecommendedCheckInType(store.logs, currentUser);
+  const [selectedType, setSelectedType] = useState<'Vào ca' | 'Ra ca'>(recommendation.recommendedType);
+  const [userHasManuallyToggled, setUserHasManuallyToggled] = useState(false);
+  const [confirmInvertedTypeOpen, setConfirmInvertedTypeOpen] = useState(false);
+  const [pendingTypeToSubmit, setPendingTypeToSubmit] = useState<'Vào ca' | 'Ra ca'>('Vào ca');
+
+  // Auto-sync with recommendation if user hasn't manually overridden
+  useEffect(() => {
+    if (!userHasManuallyToggled) {
+      setSelectedType(recommendation.recommendedType);
+    }
+  }, [recommendation.recommendedType, userHasManuallyToggled]);
 
   const [missedModalOpen, setMissedModalOpen] = useState(false);
 
@@ -273,9 +287,9 @@ export default function CheckIn() {
     exactTime: string,
     addr: string
   ) => {
-    const cardX = 24;
-    const cardHeight = 150;
-    const cardY = canvas.height - cardHeight - 24;
+    const cardX = 20;
+    const cardHeight = 210;
+    const cardY = canvas.height - cardHeight - 20;
     const cardWidth = canvas.width - (cardX * 2);
     const radius = 20;
 
@@ -286,7 +300,7 @@ export default function CheckIn() {
     ctx.shadowOffsetY = 0;
 
     // Draw Glassmorphic Card Background (Deep Slate with semi-transparency)
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.90)';
     
     const drawRoundRect = (c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) => {
       if (typeof c.roundRect === 'function') {
@@ -309,24 +323,42 @@ export default function CheckIn() {
     ctx.fill();
 
     // Subtle White/Border Outline
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.20)';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     drawRoundRect(ctx, cardX, cardY, cardWidth, cardHeight, radius);
     ctx.stroke();
 
     // Content Padding
-    const padX = 24;
+    const padX = 22;
     const contentX = cardX + padX;
-    
-    // Time & Date (Row 1)
-    const timeY = cardY + 46;
-    ctx.font = 'bold 28px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif';
-    ctx.fillStyle = '#FCD34D'; // Yellow/Gold
-    ctx.fillText('🕒  ' + exactTime, contentX, timeY);
 
-    // Location Address (Row 2 & 3 if wrapped)
-    ctx.font = '500 20px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif';
+    // Hash Token Signature for Anti-Fraud
+    const currentGpsState = useAppStore.getState().gps;
+    const userObj = useAppStore.getState().currentUser;
+    const strForHash = `${userObj?.username || 'user'}_${exactTime}_${currentGpsState.lat?.toFixed(5)}_${currentGpsState.lng?.toFixed(5)}_KG20`;
+    let hashVal = 0;
+    for (let i = 0; i < strForHash.length; i++) {
+      hashVal = ((hashVal << 5) - hashVal) + strForHash.charCodeAt(i);
+      hashVal |= 0;
+    }
+    const securityHash = `KG#${Math.abs(hashVal).toString(36).toUpperCase().padStart(6, '0')}`;
+    
+    // Line 1: Time & Security Signature
+    const timeY = cardY + 38;
+    ctx.font = 'bold 22px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillStyle = '#FCD34D'; // Yellow/Gold
+    ctx.fillText('🕒 ' + exactTime + '  •  🛡️ ' + securityHash, contentX, timeY);
+
+    // Line 2: Person & Selected Type
+    const isCheckInType = selectedType === 'Vào ca';
+    ctx.font = 'bold 20px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillStyle = isCheckInType ? '#34D399' : '#F87171'; // Emerald or Rose
+    const personText = `👤 ${userObj?.fullname || 'Nhân sự'} (${userObj?.username || ''})  •  [ ${selectedType.toUpperCase()} ]`;
+    ctx.fillText(personText, contentX, timeY + 34);
+
+    // Line 3: Location Address (Wrapped if needed)
+    ctx.font = '500 17px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.fillStyle = '#E2E8F0'; // Slate-200
     
     const displayAddr = '📍 ' + addr;
@@ -352,7 +384,13 @@ export default function CheckIn() {
       context.fillText(line, x, currentY);
     };
 
-    wrapText(ctx, displayAddr, contentX, cardY + 90, maxTextWidth, 28);
+    wrapText(ctx, displayAddr, contentX, timeY + 68, maxTextWidth, 24);
+
+    // Line 4: Precise GPS and Distance check
+    ctx.font = 'bold 15px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillStyle = currentGpsState.isValid ? '#6EE7B7' : '#FCA5A5';
+    const gpsLine = `🛰️ GPS: ${currentGpsState.lat?.toFixed(6) || '---'}, ${currentGpsState.lng?.toFixed(6) || '---'} • ${currentGpsState.message || 'Bán kính ≤20m'}`;
+    ctx.fillText(gpsLine, contentX, cardY + cardHeight - 16);
     
     // Save image with WebP (highly compressed but very sharp), fallback to JPEG
     let dataUrl = canvas.toDataURL('image/webp', 0.8);
@@ -429,6 +467,19 @@ export default function CheckIn() {
 
   // Submit flow triggers
   const submitCheck = async (type: string) => {
+    if (!capturedImage || !gps.isValid || gps.lat === null || gps.lng === null) return;
+
+    // Safety guard: If user manually chose 'Ra ca' but has no 'Vào ca' record today
+    if (type === 'Ra ca' && !recommendation.hasInToday) {
+      setPendingTypeToSubmit('Ra ca');
+      setConfirmInvertedTypeOpen(true);
+      return;
+    }
+
+    proceedSubmitCheck(type);
+  };
+
+  const proceedSubmitCheck = async (type: string) => {
     if (!capturedImage || !gps.isValid || gps.lat === null || gps.lng === null) return;
 
     // Anti-spam 1min check
@@ -702,31 +753,31 @@ export default function CheckIn() {
       setFeedbackSheetOpen(true);
       return;
     }
-    store.setLoading(true, 'Đang lưu vị trí gốc nhà hàng (25m)...');
+    store.setLoading(true, 'Đang lưu vị trí gốc nhà hàng (20m)...');
     try {
       const res = await callApi('UPDATE_GPS_CONFIG', {
         role: currentUser.role || 'admin',
         lat: gps.lat,
         lng: gps.lng,
-        radius: 25
+        radius: 20
       });
       store.setLoading(false);
       if (res?.ok) {
         store.setServerGpsConfig({
           lat: gps.lat,
           lng: gps.lng,
-          radius: 25
+          radius: 20
         });
         store.setGps({
           ...gps,
           isValid: true,
           status: 'Vị trí Chính xác',
-          message: 'Khoảng cách: 0m / 25m - Hợp lệ'
+          message: 'Khoảng cách: 0m / 20m - Hợp lệ'
         });
         speak('Đã lưu vị trí gốc nhà hàng. Vị trí hợp lệ.');
         confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
         setFeedbackTitle('Cập nhật thành công!');
-        setFeedbackMessage('Đã đặt vị trí hiện tại làm tọa độ chuẩn của Nhà Hàng (Bán kính 25m). Toàn bộ nhân sự tại quán sẽ chấm công chuẩn xác 100%!');
+        setFeedbackMessage('Đã đặt vị trí hiện tại làm tọa độ chuẩn của Nhà Hàng (Bán kính 20m). Toàn bộ nhân sự tại quán sẽ chấm công chuẩn xác 100%!');
         setFeedbackType('success');
         setFeedbackSheetOpen(true);
       } else {
@@ -757,12 +808,90 @@ export default function CheckIn() {
       <KgModuleHero
         moduleId="checkin"
         title="Chấm công GPS"
-        description="Chụp ảnh minh chứng tại nhà hàng để hoàn thành chấm công."
-        features={['Xác thực vị trí', 'Ảnh có thời gian']}
+        description="Chụp ảnh minh chứng tại nhà hàng trong bán kính 20m để hoàn tất chấm công."
+        features={['Xác thực GPS ≤20m', 'Nhận diện Live AI', 'Chống chọn nhầm ca']}
       />
 
+      {/* Smart Check-In Mode Selector */}
+      <div className="bg-[var(--kg-surface)] p-3.5 sm:p-4 rounded-2xl md:rounded-3xl border border-[var(--kg-border)] text-[var(--kg-text)] shadow-xs max-w-md mx-auto space-y-2.5">
+        <div className="flex items-center justify-between px-1">
+          <span className="text-[11px] font-black uppercase tracking-wider text-[var(--kg-text-muted)] flex items-center gap-1.5">
+            <Sparkles size={14} className="text-amber-500 animate-pulse" />
+            <span>Chọn Loại Chấm Công</span>
+          </span>
+          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+            recommendation.hasInToday
+              ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+              : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
+          }`}>
+            {recommendation.hasInToday ? '✓ Đã vào ca hôm nay' : 'Chưa vào ca hôm nay'}
+          </span>
+        </div>
+
+        {/* 2 Segmented Option Cards */}
+        <div className="grid grid-cols-2 gap-2.5 p-1 bg-[var(--kg-surface-soft)] rounded-2xl border border-[var(--kg-border)]">
+          {/* Option: VÀO CA */}
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedType('Vào ca');
+              setUserHasManuallyToggled(true);
+            }}
+            className={`relative flex flex-col items-center justify-center py-3 px-2 rounded-xl font-black text-xs sm:text-sm transition-all duration-200 active:scale-95 gap-1 ${
+              selectedType === 'Vào ca'
+                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-600/30 ring-2 ring-emerald-400/50 scale-[1.02]'
+                : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface)] opacity-75'
+            }`}
+          >
+            <div className="flex items-center gap-1.5">
+              <LogIn size={16} className={selectedType === 'Vào ca' ? 'text-white' : 'text-emerald-500'} />
+              <span>VÀO CA</span>
+            </div>
+            {recommendation.recommendedType === 'Vào ca' && (
+              <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${
+                selectedType === 'Vào ca' ? 'bg-white/25 text-white' : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+              }`}>
+                ⭐ Đề xuất
+              </span>
+            )}
+          </button>
+
+          {/* Option: RA CA */}
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedType('Ra ca');
+              setUserHasManuallyToggled(true);
+            }}
+            className={`relative flex flex-col items-center justify-center py-3 px-2 rounded-xl font-black text-xs sm:text-sm transition-all duration-200 active:scale-95 gap-1 ${
+              selectedType === 'Ra ca'
+                ? 'bg-gradient-to-r from-rose-500 to-red-600 text-white shadow-md shadow-rose-600/30 ring-2 ring-rose-400/50 scale-[1.02]'
+                : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface)] opacity-75'
+            }`}
+          >
+            <div className="flex items-center gap-1.5">
+              <LogOut size={16} className={selectedType === 'Ra ca' ? 'text-white' : 'text-rose-500'} />
+              <span>RA CA</span>
+            </div>
+            {recommendation.recommendedType === 'Ra ca' && (
+              <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${
+                selectedType === 'Ra ca' ? 'bg-white/25 text-white' : 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
+              }`}>
+                ⭐ Đề xuất
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Recommendation Context Note */}
+        <div className="px-2.5 py-1.5 bg-blue-500/5 dark:bg-blue-950/20 rounded-xl border border-blue-500/10 flex items-start gap-1.5 text-[11px] text-[var(--kg-text-muted)]">
+          <Info size={13} className="text-blue-500 mt-0.5 flex-shrink-0" />
+          <span className="leading-tight font-medium">{recommendation.reason}</span>
+        </div>
+      </div>
+
       {/* GPS Status Card */}
-      <div className="bg-[var(--kg-surface)] p-4 sm:p-5 rounded-2xl md:rounded-3xl relative overflow-hidden border border-[var(--kg-border)] text-[var(--kg-text)] shadow-xs">
+      <div className="bg-[var(--kg-surface)] p-4 sm:p-5 rounded-2xl md:rounded-3xl relative overflow-hidden border border-[var(--kg-border)] text-[var(--kg-text)] shadow-xs max-w-md mx-auto">
         <div className="absolute -right-4 -top-4 opacity-5 text-8xl transform rotate-12 text-blue-600/10 pointer-events-none"><MapPin size={100} /></div>
         <div className="flex items-start justify-between gap-3 relative z-10">
           <div className="flex items-start space-x-3.5 min-w-0">
@@ -771,7 +900,7 @@ export default function CheckIn() {
               {gps.status.includes('Đang') && <div className="gps-ping absolute inset-0 rounded-2xl" />}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-black text-[var(--kg-text-muted)] uppercase tracking-wider">Định vị GPS Nhà hàng</p>
+              <p className="text-[10px] font-black text-[var(--kg-text-muted)] uppercase tracking-wider">Định vị GPS Nhà hàng (≤20m)</p>
               <h3 className="font-black text-xs sm:text-sm mt-0.5 leading-tight break-words text-[var(--kg-text)] pr-2">
                 {gps.address ? gps.address : gps.status}
               </h3>
@@ -781,7 +910,7 @@ export default function CheckIn() {
                 </div>
                 {gps.isValid && (
                   <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                    ✓ Đủ điều kiện chấm công
+                    ✓ Đủ điều kiện (≤20m)
                   </span>
                 )}
               </div>
@@ -805,7 +934,7 @@ export default function CheckIn() {
                 <span>🎯</span> <b>Quản lý:</b> Bạn đang đứng tại nhà hàng?
               </p>
               <p className="text-[11px] text-[var(--kg-text-muted)] mt-0.5 font-medium">
-                Nhấn nút bên cạnh để đặt tọa độ hiện tại làm vị trí gốc chuẩn (Bán kính 25m).
+                Nhấn nút bên cạnh để đặt tọa độ hiện tại làm vị trí gốc chuẩn (Bán kính 20m).
               </p>
             </div>
             <button
@@ -813,7 +942,7 @@ export default function CheckIn() {
               onClick={handleAdminCalibrateGps}
               className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-xs font-black shadow-md transition active:scale-95 whitespace-nowrap flex-shrink-0"
             >
-              Đặt làm vị trí gốc (25m)
+              Đặt làm vị trí gốc (20m)
             </button>
           </div>
         )}
@@ -920,28 +1049,61 @@ export default function CheckIn() {
         )}
       </div>
 
-      {/* Checkin Action Buttons */}
-      <div className="grid grid-cols-2 gap-4 max-w-sm mx-auto">
+      {/* Pre-Confirmation Quick Check Box */}
+      <div className="max-w-sm mx-auto bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-3 shadow-xs space-y-2">
+        <div className="flex items-center justify-between text-xs">
+          <span className="font-bold text-[var(--kg-text-muted)]">Loại chấm công đang chọn:</span>
+          <span className={`inline-flex items-center gap-1 font-black px-2.5 py-1 rounded-xl text-xs ${
+            selectedType === 'Vào ca'
+              ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+              : 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+          }`}>
+            {selectedType === 'Vào ca' ? <LogIn size={13} /> : <LogOut size={13} />}
+            {selectedType.toUpperCase()}
+          </span>
+        </div>
+
+        <div className="flex items-center justify-between text-xs pt-1.5 border-t border-[var(--kg-border)]">
+          <span className="text-[var(--kg-text-muted)] font-medium">Bán kính nhà hàng (≤20m):</span>
+          <span className={`font-black flex items-center gap-1 ${gps.isValid ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>
+            {gps.isValid ? '✓ Đủ điều kiện (≤20m)' : '✕ Chưa đạt bán kính 20m'}
+          </span>
+        </div>
+
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-[var(--kg-text-muted)] font-medium">Ảnh chụp minh chứng:</span>
+          <span className={`font-black flex items-center gap-1 ${capturedImage ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-500'}`}>
+            {capturedImage ? '✓ Đã chụp ảnh' : 'Chưa chụp ảnh'}
+          </span>
+        </div>
+      </div>
+
+      {/* Single Hero Confirmation Button */}
+      <div className="max-w-sm mx-auto space-y-2">
         <KgButton
-          variant="primary"
+          variant={selectedType === 'Vào ca' ? 'primary' : 'danger'}
           size="lg"
           disabled={!canSubmit}
-          onClick={() => submitCheck('Vào ca')}
-          className="h-14 shadow-lg rounded-2xl text-[15px] font-extrabold tracking-wider bg-gradient-to-r from-blue-600 to-indigo-650 hover:from-blue-700 hover:to-indigo-700 border-none active:scale-[0.97] transition-all"
-          icon={LogIn}
+          onClick={() => submitCheck(selectedType)}
+          className={`w-full h-14 shadow-lg rounded-2xl text-[15px] font-black tracking-wider border-none active:scale-[0.97] transition-all flex items-center justify-center gap-2 ${
+            selectedType === 'Vào ca'
+              ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700 hover:from-emerald-700 hover:to-teal-700 text-white shadow-emerald-600/30'
+              : 'bg-gradient-to-r from-rose-500 via-red-600 to-rose-700 hover:from-rose-600 hover:to-red-700 text-white shadow-rose-600/30'
+          }`}
+          icon={selectedType === 'Vào ca' ? LogIn : LogOut}
         >
-          VÀO CA
+          {selectedType === 'Vào ca' ? 'XÁC NHẬN VÀO CA' : 'XÁC NHẬN RA CA'}
         </KgButton>
-        <KgButton
-          variant="danger"
-          size="lg"
-          disabled={!canSubmit}
-          onClick={() => submitCheck('Ra ca')}
-          className="h-14 shadow-lg rounded-2xl text-[15px] font-extrabold tracking-wider bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 border-none active:scale-[0.97] transition-all"
-          icon={LogOut}
-        >
-          RA CA
-        </KgButton>
+
+        {!canSubmit && (
+          <p className="text-[11px] text-center text-[var(--kg-text-muted)] font-medium">
+            {!capturedImage && !gps.isValid
+              ? '⚠️ Vui lòng đứng trong bán kính 20m và chụp ảnh để chấm công.'
+              : !gps.isValid
+              ? '⚠️ Vị trí chưa hợp lệ (yêu cầu trong bán kính 20m nhà hàng).'
+              : '⚠️ Vui lòng nhấn nút chụp ảnh phía trên để hoàn tất.'}
+          </p>
+        )}
       </div>
 
       {/* Missed Checkin Helper Button */}
@@ -963,6 +1125,21 @@ export default function CheckIn() {
           onClose={() => setMissedModalOpen(false)}
         />
       )}
+
+      {/* Safety Confirmation for Inverted Type Choice */}
+      <KgConfirmSheet
+        isOpen={confirmInvertedTypeOpen}
+        onClose={() => setConfirmInvertedTypeOpen(false)}
+        title="⚠️ Chưa ghi nhận Vào ca!"
+        message="Hôm nay hệ thống chưa ghi nhận lượt Vào ca của bạn. Bạn có chắc chắn muốn tiếp tục chấm RA CA không?"
+        confirmLabel="Tiếp tục chấm RA CA"
+        cancelLabel="Kiểm tra lại"
+        variant="warning"
+        onConfirm={() => {
+          setConfirmInvertedTypeOpen(false);
+          proceedSubmitCheck(pendingTypeToSubmit);
+        }}
+      />
 
       {/* Spam Warning bottom sheet */}
       <KgBottomSheet isOpen={spamWarningOpen} onClose={() => setSpamWarningOpen(false)} title="Cảnh báo Spam">

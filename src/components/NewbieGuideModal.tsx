@@ -174,7 +174,7 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
                   {
                     step: '1',
                     title: 'Đến nhà hàng & Chấm công Vào Ca',
-                    desc: 'Đứng trong bán kính nhà hàng (<100m), mở tab Chấm công, quét Face ID & GPS.',
+                    desc: 'Đứng trong bán kính nhà hàng (≤20m), mở tab Chấm công, quét Live Camera & GPS.',
                     target: 'checkin' as TabId,
                     btnText: 'Xem Chấm công',
                     icon: Camera,
@@ -276,13 +276,13 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
                   },
                   {
                     num: '2',
-                    title: 'Đứng trong phạm vi nhà hàng (< 100m)',
-                    desc: 'Hệ thống tự động đo khoảng cách từ toạ độ hiện tại của bạn đến tâm nhà hàng. Khoảng cách phải hiển thị màu xanh lá (Hợp lệ).'
+                    title: 'Đứng trong phạm vi nhà hàng (≤ 20m)',
+                    desc: 'Hệ thống tự động đo khoảng cách từ toạ độ GPS của bạn đến nhà hàng. Khoảng cách phải nằm trong bán kính 20 mét (Hợp lệ).'
                   },
                   {
                     num: '3',
-                    title: 'Bấm "Chấm công Vào ca" hoặc "Ra ca"',
-                    desc: 'Chọn thao tác tương ứng với ca trực hiện tại. Camera sẽ tự động kích hoạt.'
+                    title: 'Kiểm tra loại chấm công (Gợi ý thông minh)',
+                    desc: 'Hệ thống tự động đề xuất Vào ca (lần đầu/06:00-19:30/sau 19:30) hoặc Ra ca (đã vào ca). Bạn có thể bấm chuyển đổi nếu cần.'
                   },
                   {
                     num: '4',

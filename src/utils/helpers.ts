@@ -195,7 +195,100 @@ export const SHORT_DAY_NAMES = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'] as con
 
 export const KG_LAT = 10.9760826;
 export const KG_LNG = 106.6646541;
-export const KG_RADIUS_METERS = 25;
+export const KG_RADIUS_METERS = 20;
+
+export interface CheckInRecommendation {
+  recommendedType: 'Vào ca' | 'Ra ca';
+  reason: string;
+  hasInToday: boolean;
+  hasOutToday: boolean;
+  firstInTime?: string;
+  todayLogsCount: number;
+}
+
+/**
+ * Smart Check-in Type Recommendation Engine
+ * - 06:00 - 19:30 + first check of the day (no IN log yet) => Vào ca
+ * - After 19:30 + first check of the day (no IN log yet) => Vào ca (Late/night shift)
+ * - Already has IN log today (any time, or after 19:30) => Ra ca
+ */
+export function getRecommendedCheckInType(
+  logs: { fullname: string; type: string; time: string }[] | undefined,
+  currentUser: { fullname: string } | null,
+  targetDate: Date = new Date()
+): CheckInRecommendation {
+  if (!currentUser) {
+    return {
+      recommendedType: 'Vào ca',
+      reason: 'Lần đầu trong ngày: Tự động chọn Vào ca',
+      hasInToday: false,
+      hasOutToday: false,
+      todayLogsCount: 0
+    };
+  }
+
+  const dayStr = String(targetDate.getDate()).padStart(2, '0');
+  const monthStr = String(targetDate.getMonth() + 1).padStart(2, '0');
+  const yearStr = String(targetDate.getFullYear());
+  const todayPrefix = `${dayStr}/${monthStr}/${yearStr}`;
+
+  const userLogs = (logs || []).filter(
+    (l) => l.fullname === currentUser.fullname && l.time && l.time.startsWith(todayPrefix)
+  );
+
+  const inLog = userLogs.find(
+    (l) => l.type.includes('Vào ca') || l.type.includes('IN') || l.type.toLowerCase().includes('vào')
+  );
+  const outLog = userLogs.find(
+    (l) => l.type.includes('Ra ca') || l.type.includes('OUT') || l.type.toLowerCase().includes('ra')
+  );
+
+  const hasInToday = !!inLog;
+  const hasOutToday = !!outLog;
+  const firstInTime = inLog ? inLog.time.split(' ')[1] || inLog.time : undefined;
+
+  const currentMinutes = targetDate.getHours() * 60 + targetDate.getMinutes();
+  const isAfter1930 = currentMinutes >= (19 * 60 + 30); // >= 19:30
+  const isEarlyRange = currentMinutes >= (6 * 60) && currentMinutes < (19 * 60 + 30); // 06:00 - 19:30
+
+  // Case 1: Already has IN today => Recommend RA CA
+  if (hasInToday) {
+    return {
+      recommendedType: 'Ra ca',
+      reason: firstInTime
+        ? `Đã vào ca lúc ${firstInTime} → Đề xuất Ra ca`
+        : 'Đã có chấm công Vào ca hôm nay → Đề xuất Ra ca',
+      hasInToday,
+      hasOutToday,
+      firstInTime,
+      todayLogsCount: userLogs.length
+    };
+  }
+
+  // Case 2: First check-in of the day after 19:30 (Late/night shift) => Recommend VÀO CA
+  if (isAfter1930) {
+    return {
+      recommendedType: 'Vào ca',
+      reason: 'Lần đầu trong ngày (Ca tối sau 19:30) → Ưu tiên Vào ca',
+      hasInToday,
+      hasOutToday,
+      firstInTime: undefined,
+      todayLogsCount: userLogs.length
+    };
+  }
+
+  // Case 3: 06:00 - 19:30 (or before 06:00) with no prior IN => Recommend VÀO CA
+  return {
+    recommendedType: 'Vào ca',
+    reason: isEarlyRange
+      ? 'Lần đầu trong ngày (06:00 - 19:30) → Ưu tiên Vào ca'
+      : 'Lần đầu trong ngày → Ưu tiên Vào ca',
+    hasInToday,
+    hasOutToday,
+    firstInTime: undefined,
+    todayLogsCount: userLogs.length
+  };
+}
 
 export interface MonthDateInfo {
   date: Date;

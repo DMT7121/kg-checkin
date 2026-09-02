@@ -66,7 +66,7 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
       {/* 1. MOBILE TOPBAR */}
       <header className="sticky top-0 z-40 w-full bg-[var(--kg-surface)] border-b border-[var(--kg-border)] px-4 py-3 flex justify-between items-center md:hidden">
         <div className="flex items-center space-x-3">
-          <div className="w-9 h-9 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface)] flex items-center justify-center flex-shrink-0 shadow-sm">
+          <div className="w-9 h-9 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex items-center justify-center flex-shrink-0 shadow-sm">
             <img src="/android-chrome-192x192.png?v=3" alt="Logo" className="w-6 h-6 object-contain" />
           </div>
           <div>
@@ -82,7 +82,7 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
           <button
             type="button"
             onClick={() => setIsGuideOpen(true)}
-            className="w-10 h-10 rounded-xl border border-blue-500/20 bg-blue-50/50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 flex items-center justify-center active:scale-95 transition-all shadow-xs"
+            className="w-10 h-10 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text)] flex items-center justify-center active:scale-95 transition-all shadow-xs hover:border-[var(--kg-primary)]"
             title="Hướng dẫn cho người mới"
             aria-label="Hướng dẫn cho người mới"
           >
@@ -92,7 +92,7 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
           <button
             type="button"
             onClick={() => store.toggleDarkMode()}
-            className="w-10 h-10 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex items-center justify-center text-[var(--kg-text-muted)] active:scale-95 transition-all"
+            className="w-10 h-10 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] active:scale-95 transition-all"
             aria-label="Chuyển chế độ sáng/tối"
           >
             {isDark ? <Sun size={17} /> : <Moon size={17} />}
@@ -100,7 +100,7 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
           <button
             type="button"
             onClick={handleLogout}
-            className="w-10 h-10 rounded-xl bg-[#FFF0EE] dark:bg-[#C94335]/15 text-[#C94335] flex items-center justify-center active:scale-95 transition-all"
+            className="w-10 h-10 rounded-xl bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] border border-[var(--kg-danger)]/20 flex items-center justify-center active:scale-95 transition-all hover:brightness-95"
             aria-label="Đăng xuất"
           >
             <Power size={17} />
@@ -205,7 +205,7 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
             <button
               type="button"
               onClick={() => setIsGuideOpen(true)}
-              className="w-9 h-9 rounded-lg border border-blue-500/20 bg-blue-50/50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 flex items-center justify-center active:scale-95 transition-all shadow-xs"
+              className="w-9 h-9 rounded-lg border border-[var(--kg-border)] bg-[var(--kg-surface)] text-[var(--kg-text)] flex items-center justify-center active:scale-95 transition-all shadow-xs hover:border-[var(--kg-primary)]"
               title="Hướng dẫn cho người mới"
             >
               <GraduationCap size={16} />
@@ -214,7 +214,7 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
             <button
               type="button"
               onClick={() => store.toggleDarkMode()}
-              className="w-9 h-9 rounded-lg border border-[var(--kg-border)] bg-[var(--kg-surface)] text-[var(--kg-text-muted)] flex items-center justify-center active:scale-95 transition-all shadow-sm"
+              className="w-9 h-9 rounded-lg border border-[var(--kg-border)] bg-[var(--kg-surface)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] flex items-center justify-center active:scale-95 transition-all shadow-sm"
               title="Đổi giao diện"
             >
               {isDark ? <Sun size={15} /> : <Moon size={15} />}
@@ -223,7 +223,7 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
           <button
             type="button"
             onClick={handleLogout}
-            className="w-9 h-9 rounded-lg bg-[#ef4444]/12 hover:bg-[#ef4444]/22 text-[#ef4444] flex items-center justify-center active:scale-95 transition-all"
+            className="w-9 h-9 rounded-lg bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] border border-[var(--kg-danger)]/20 hover:brightness-95 flex items-center justify-center active:scale-95 transition-all"
             title="Đăng xuất"
           >
             <Power size={15} />

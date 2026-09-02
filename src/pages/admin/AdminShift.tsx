@@ -12,7 +12,7 @@ export default function AdminShift() {
   const [isMissedModalOpen, setIsMissedModalOpen] = useState(false);
   const [kgLat, setKgLat] = useState('10.9760826');
   const [kgLng, setKgLng] = useState('106.6646541');
-  const [kgRadius, setKgRadius] = useState('25');
+  const [kgRadius, setKgRadius] = useState('20');
   const [shiftCodes, setShiftCodes] = useState<any[]>([
     { id: 'standard', code: 'Ca tiêu chuẩn', description: '15:00, 17:00, 18:00, 19:00', type: 'standard' },
     { id: 'off_admin', code: 'OFF#', description: 'Nghỉ phép (Được Admin duyệt)', type: 'admin' },
@@ -47,14 +47,14 @@ export default function AdminShift() {
         const acc = Math.round(pos.coords.accuracy);
         setKgLat(lat);
         setKgLng(lng);
-        setKgRadius('25');
+        setKgRadius('20');
         Swal.fire({
           icon: 'success',
           title: 'Đã nhận diện tọa độ!',
           html: `
             <p class="text-sm"><b>Vĩ độ:</b> ${lat}</p>
             <p class="text-sm"><b>Kinh độ:</b> ${lng}</p>
-            <p class="text-xs text-gray-500 mt-2">Độ chính xác GPS: ±${acc}m | Bán kính: 25m</p>
+            <p class="text-xs text-gray-500 mt-2">Độ chính xác GPS: ±${acc}m | Bán kính: 20m</p>
             <p class="text-xs text-blue-600 font-bold mt-2">Hãy nhấn nút <b>"Lưu Cấu Hình GPS"</b> bên dưới để áp dụng ngay!</p>
           `,
           confirmButtonColor: '#2563eb'
@@ -187,7 +187,7 @@ export default function AdminShift() {
           </div>
 
           <div>
-            <label className="block text-xs font-black text-[var(--kg-text-muted)] mb-1">Bán kính hợp lệ (Meters) - Chuẩn: 25m</label>
+            <label className="block text-xs font-black text-[var(--kg-text-muted)] mb-1">Bán kính hợp lệ (Meters) - Chuẩn: 20m</label>
             <div className="flex items-center gap-2">
               <input type="number" value={kgRadius} onChange={e => setKgRadius(e.target.value)} className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs font-bold text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-blue-500" />
               <button
@@ -200,7 +200,7 @@ export default function AdminShift() {
               </button>
             </div>
             <p className="text-[11px] text-[var(--kg-text-muted)] mt-1.5 font-medium">
-              💡 <b>Khuyến nghị:</b> Đứng tại nhà hàng, nhấn <b>"Lấy GPS"</b> và bấm <b>"Lưu Cấu Hình GPS"</b> để hệ thống tự động chuẩn hóa vị trí gốc 25m.
+              💡 <b>Khuyến nghị:</b> Đứng tại nhà hàng, nhấn <b>"Lấy GPS"</b> và bấm <b>"Lưu Cấu Hình GPS"</b> để hệ thống tự động chuẩn hóa vị trí gốc 20m.
             </p>
           </div>
 
