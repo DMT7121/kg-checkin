@@ -3,15 +3,26 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
   body {
     font-family: 'Plus Jakarta Sans', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    overscroll-behavior-y: none;
   }
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Plus Jakarta Sans', sans-serif;
   }
   :root {
+    --sat: env(safe-area-inset-top, 0px);
+    --sab: env(safe-area-inset-bottom, 0px);
+    --sal: env(safe-area-inset-left, 0px);
+    --sar: env(safe-area-inset-right, 0px);
+
     --kg-bg: #F8F3EA;
     --kg-surface: #FFFFFF;
     --kg-surface-soft: #FBF7F0;
@@ -70,6 +81,30 @@
 
 @layer utilities {
   .mirror-cam { transform: scaleX(-1); }
+
+  /* iOS Safe Area Utilities */
+  .pt-safe-top {
+    padding-top: max(12px, env(safe-area-inset-top, 12px));
+  }
+  .pb-safe-bottom {
+    padding-bottom: max(12px, env(safe-area-inset-bottom, 12px));
+  }
+  .bottom-safe-nav {
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Prevent auto-zoom on iOS Safari */
+  @media screen and (max-width: 768px) {
+    input[type="text"],
+    input[type="password"],
+    input[type="number"],
+    input[type="email"],
+    input[type="tel"],
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+  }
 
   ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }

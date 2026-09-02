@@ -220,24 +220,102 @@ export interface MissingCheckInAlert {
 }
 
 /**
- * Parse date string from log timestamp: 'dd/MM/yyyy HH:mm:ss' or 'dd/MM/yyyy HH:mm'
+ * Universal Date Parser for logs
+ * Supports:
+ * - Date objects & timestamp numbers
+ * - dd/MM/yyyy HH:mm:ss, dd/MM/yyyy HH:mm, d/M/yyyy H:m
+ * - dd-MM-yyyy HH:mm:ss, yyyy-MM-dd HH:mm:ss
+ * - JS Date strings from Google Sheets (e.g. 'Wed Sep 02 2026 20:45:12 GMT+0700')
+ * - ISO 8601 strings (e.g. '2026-09-02T13:45:12.000Z')
  */
-export function parseLogDate(timeStr: string): Date | null {
-  if (!timeStr || typeof timeStr !== 'string') return null;
-  const parts = timeStr.trim().split(' ');
-  if (parts.length < 2) return null;
-  const [datePart, timePart] = parts;
-  const dParts = datePart.split('/');
-  const tParts = timePart.split(':');
-  if (dParts.length < 3 || tParts.length < 2) return null;
-  const day = parseInt(dParts[0], 10);
-  const month = parseInt(dParts[1], 10) - 1;
-  const year = parseInt(dParts[2], 10);
-  const hours = parseInt(tParts[0], 10);
-  const minutes = parseInt(tParts[1], 10);
-  const seconds = tParts[2] ? parseInt(tParts[2], 10) : 0;
-  if (isNaN(day) || isNaN(month) || isNaN(year) || isNaN(hours) || isNaN(minutes)) return null;
-  return new Date(year, month, day, hours, minutes, seconds);
+export function parseLogDate(timeStr: any): Date | null {
+  if (!timeStr) return null;
+  if (timeStr instanceof Date) return isNaN(timeStr.getTime()) ? null : timeStr;
+  if (typeof timeStr === 'number') {
+    const d = new Date(timeStr);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  if (typeof timeStr !== 'string') {
+    const d = new Date(timeStr);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  const cleanStr = timeStr.trim();
+  if (!cleanStr) return null;
+
+  // Format 1: dd/MM/yyyy or dd-MM-yyyy (e.g., '02/09/2026 20:45:12' or '2/9/2026 20:45')
+  const dmyMatch = cleanStr.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+  if (dmyMatch) {
+    const day = parseInt(dmyMatch[1], 10);
+    const month = parseInt(dmyMatch[2], 10) - 1;
+    const year = parseInt(dmyMatch[3], 10);
+    const hours = dmyMatch[4] ? parseInt(dmyMatch[4], 10) : 0;
+    const minutes = dmyMatch[5] ? parseInt(dmyMatch[5], 10) : 0;
+    const seconds = dmyMatch[6] ? parseInt(dmyMatch[6], 10) : 0;
+    const d = new Date(year, month, day, hours, minutes, seconds);
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  // Format 2: ISO or standard JavaScript Date string from Google Sheets ('Wed Sep 02 2026 20:45:12 GMT+0700' or '2026-09-02T13:45:12Z')
+  const directDate = new Date(cleanStr);
+  if (!isNaN(directDate.getTime())) return directDate;
+
+  return null;
+}
+
+/**
+ * Check if two dates represent the exact same calendar day (day, month, year)
+ */
+export function isSameCalendarDay(d1: Date, d2: Date): boolean {
+  return (
+    d1.getDate() === d2.getDate() &&
+    d1.getMonth() === d2.getMonth() &&
+    d1.getFullYear() === d2.getFullYear()
+  );
+}
+
+/**
+ * Local Punch Storage: Caches last check-in/out on device for 0ms instant UI state
+ */
+export function setLocalLastPunch(
+  currentUser: { fullname: string; username?: string } | null,
+  type: string,
+  timeStr: string
+): void {
+  if (!currentUser) return;
+  try {
+    const item = {
+      fullname: currentUser.fullname,
+      username: currentUser.username,
+      type,
+      time: timeStr,
+      timestamp: Date.now()
+    };
+    localStorage.setItem('kg_last_punch_record', JSON.stringify(item));
+  } catch (e) {
+    console.warn('[Storage] setLocalLastPunch error:', e);
+  }
+}
+
+export function getLocalLastPunch(
+  currentUser: { fullname: string; username?: string } | null
+): { fullname: string; username?: string; type: string; time: string; timestamp: number } | null {
+  if (!currentUser) return null;
+  try {
+    const raw = localStorage.getItem('kg_last_punch_record');
+    if (!raw) return null;
+    const item = JSON.parse(raw);
+    if (!item || !item.type || !item.time) return null;
+    
+    // Validate that it belongs to the current user
+    const nameMatch = item.fullname && currentUser.fullname && item.fullname.trim().toLowerCase() === currentUser.fullname.trim().toLowerCase();
+    const userMatch = item.username && currentUser.username && item.username.trim().toLowerCase() === currentUser.username.trim().toLowerCase();
+    if (!nameMatch && !userMatch) return null;
+
+    return item;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -245,17 +323,18 @@ export function parseLogDate(timeStr: string): Date | null {
  */
 export function auditMissingCheckIns(
   logs: { fullname: string; type: string; time: string }[] | undefined,
-  currentUser: { fullname: string } | null,
+  currentUser: { fullname: string; username?: string } | null,
   daysBack = 7
 ): MissingCheckInAlert[] {
   if (!currentUser || !logs || logs.length === 0) return [];
 
   const now = new Date();
   const cutoffTime = now.getTime() - daysBack * 24 * 60 * 60 * 1000;
+  const userFullname = currentUser.fullname.trim().toLowerCase();
 
   // Filter and sort ascending
   const userLogsWithDate = logs
-    .filter((l) => l.fullname === currentUser.fullname && l.time)
+    .filter((l) => l.fullname && l.fullname.trim().toLowerCase() === userFullname && l.time)
     .map((l) => ({ log: l, date: parseLogDate(l.time) }))
     .filter((item): item is { log: { fullname: string; type: string; time: string }; date: Date } => item.date !== null)
     .filter((item) => item.date.getTime() >= cutoffTime)
@@ -332,11 +411,11 @@ export function auditMissingCheckIns(
  * - Tracks last punch action (Vào ca vs Ra ca)
  * - Supports Overnight Cross-day shifts (00:00 - 06:00 of next day)
  * - Supports Multiple shifts per day (Split-shifts: In 1 -> Out 1 -> In 2 -> Out 2)
- * - Detects stale open shifts (>16h) and prompts for new shift
+ * - Uses Local Last Punch fallback for instantaneous 0ms accurate state
  */
 export function getRecommendedCheckInType(
   logs: { fullname: string; type: string; time: string }[] | undefined,
-  currentUser: { fullname: string } | null,
+  currentUser: { fullname: string; username?: string } | null,
   targetDate: Date = new Date()
 ): CheckInRecommendation {
   if (!currentUser) {
@@ -351,19 +430,25 @@ export function getRecommendedCheckInType(
     };
   }
 
-  const dayStr = String(targetDate.getDate()).padStart(2, '0');
-  const monthStr = String(targetDate.getMonth() + 1).padStart(2, '0');
-  const yearStr = String(targetDate.getFullYear());
-  const todayPrefix = `${dayStr}/${monthStr}/${yearStr}`;
+  const userFullname = currentUser.fullname.trim().toLowerCase();
 
-  // Filter logs for user and parse dates
-  const userLogsWithDates = (logs || [])
-    .filter((l) => l.fullname === currentUser.fullname && l.time)
+  // Filter logs for user and parse dates with Universal Parser
+  let userLogsWithDates = (logs || [])
+    .filter((l) => l.fullname && l.fullname.trim().toLowerCase() === userFullname && l.time)
     .map((l) => ({ log: l, date: parseLogDate(l.time) }))
     .filter((item): item is { log: { fullname: string; type: string; time: string }; date: Date } => item.date !== null)
     .sort((a, b) => a.date.getTime() - b.date.getTime());
 
-  const userTodayLogs = userLogsWithDates.filter((l) => l.log.time.startsWith(todayPrefix));
+  // Fallback: If no server logs found (e.g. cold start / offline), check local storage punch cache
+  if (userLogsWithDates.length === 0) {
+    const localLast = getLocalLastPunch(currentUser);
+    if (localLast) {
+      const localDate = parseLogDate(localLast.time) || new Date(localLast.timestamp);
+      userLogsWithDates = [{ log: { fullname: currentUser.fullname, type: localLast.type, time: localLast.time }, date: localDate }];
+    }
+  }
+
+  const userTodayLogs = userLogsWithDates.filter((l) => isSameCalendarDay(l.date, targetDate));
   const hasInToday = userTodayLogs.some((l) => l.log.type.includes('Vào ca') || l.log.type.includes('IN') || l.log.type.toLowerCase().includes('vào'));
   const hasOutToday = userTodayLogs.some((l) => l.log.type.includes('Ra ca') || l.log.type.includes('OUT') || l.log.type.toLowerCase().includes('ra'));
 
@@ -388,7 +473,7 @@ export function getRecommendedCheckInType(
     if (isLastIn) {
       // If elapsed <= 16 hours -> Shift is ACTIVELY OPEN
       if (elapsedHrs <= 16) {
-        const isDifferentDay = lastItem.date.getDate() !== targetDate.getDate();
+        const isDifferentDay = !isSameCalendarDay(lastItem.date, targetDate);
         const isOvernight = isDifferentDay && isEarlyMorning;
 
         return {
@@ -428,7 +513,7 @@ export function getRecommendedCheckInType(
 
     // STATE: Shift Closed (Last punch was Ra ca)
     // Next action is starting a new shift -> VÀO CA
-    if (userTodayLogs.length >= 2 && lastItem.log.time.startsWith(todayPrefix)) {
+    if (userTodayLogs.length >= 2 && isSameCalendarDay(lastItem.date, targetDate)) {
       return {
         recommendedType: 'Vào ca',
         reason: `Đã hoàn thành ca trước (Ra ca lúc ${lastTimeStr}) → Đề xuất Vào ca tiếp theo (Ca gãy)`,

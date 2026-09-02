@@ -64,7 +64,7 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
     <div className="w-full min-h-screen flex flex-col md:flex-row bg-[var(--kg-bg)] text-[var(--kg-text)] transition-colors duration-200">
       
       {/* 1. MOBILE TOPBAR */}
-      <header className="sticky top-0 z-40 w-full bg-[var(--kg-surface)] border-b border-[var(--kg-border)] px-4 py-3 flex justify-between items-center md:hidden">
+      <header className="sticky top-0 z-40 w-full bg-[var(--kg-surface)] border-b border-[var(--kg-border)] px-4 py-3 pt-safe-top flex justify-between items-center md:hidden">
         <div className="flex items-center space-x-3">
           <div className="w-9 h-9 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex items-center justify-center flex-shrink-0 shadow-sm">
             <img src="/android-chrome-192x192.png?v=3" alt="Logo" className="w-6 h-6 object-contain" />
@@ -82,7 +82,7 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
           <button
             type="button"
             onClick={() => setIsGuideOpen(true)}
-            className="w-10 h-10 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text)] flex items-center justify-center active:scale-95 transition-all shadow-xs hover:border-[var(--kg-primary)]"
+            className="w-10 h-10 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text)] flex items-center justify-center active:scale-95 transition-all shadow-xs hover:border-[var(--kg-primary)] touch-manipulation"
             title="Hướng dẫn cho người mới"
             aria-label="Hướng dẫn cho người mới"
           >
@@ -92,7 +92,7 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
           <button
             type="button"
             onClick={() => store.toggleDarkMode()}
-            className="w-10 h-10 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] active:scale-95 transition-all"
+            className="w-10 h-10 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] active:scale-95 transition-all touch-manipulation"
             aria-label="Chuyển chế độ sáng/tối"
           >
             {isDark ? <Sun size={17} /> : <Moon size={17} />}
@@ -100,7 +100,7 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
           <button
             type="button"
             onClick={handleLogout}
-            className="w-10 h-10 rounded-xl bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] border border-[var(--kg-danger)]/20 flex items-center justify-center active:scale-95 transition-all hover:brightness-95"
+            className="w-10 h-10 rounded-xl bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] border border-[var(--kg-danger)]/20 flex items-center justify-center active:scale-95 transition-all hover:brightness-95 touch-manipulation"
             aria-label="Đăng xuất"
           >
             <Power size={17} />
@@ -267,7 +267,7 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
       </main>
 
       {/* 4. MOBILE BOTTOM NAVIGATION */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[var(--kg-surface)]/95 backdrop-blur-xl border-t border-[var(--kg-border)] flex justify-around items-center py-2 px-1 pb-safe-bottom shadow-2xl">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[var(--kg-surface)]/95 backdrop-blur-xl border-t border-[var(--kg-border)] flex justify-around items-center pt-2 px-1 bottom-safe-nav shadow-2xl">
         {bottomTabs.map((tab) => {
           const isActive = currentTab === tab.id;
           const Icon = tab.icon;
@@ -278,7 +278,7 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
               onPointerEnter={() => onPrefetch?.(tab.id)}
               onFocus={() => onPrefetch?.(tab.id)}
               onTouchStart={() => onPrefetch?.(tab.id)}
-              className="relative flex flex-col items-center justify-center w-16 py-1 transition-all"
+              className="relative flex flex-col items-center justify-center w-16 min-h-[44px] py-1 transition-all touch-manipulation active:scale-95"
             >
               {/* Top Active Glow Indicator Bar */}
               {isActive && (
@@ -312,7 +312,7 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
             <button
               type="button"
               onClick={() => setIsMoreOpen(true)}
-              className="relative flex flex-col items-center justify-center w-16 py-1 transition-all"
+              className="relative flex flex-col items-center justify-center w-16 min-h-[44px] py-1 transition-all touch-manipulation active:scale-95"
             >
               {isMoreActionActive && (
                 <span className="absolute -top-2 w-8 h-1 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 shadow-[0_0_10px_rgba(59,130,246,0.9)] animate-pulse" />
