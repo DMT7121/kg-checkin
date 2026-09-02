@@ -54,17 +54,21 @@ export default function CheckIn() {
   const missingAlerts = auditMissingCheckIns(store.logs, currentUser);
   const [selectedMissingAlert, setSelectedMissingAlert] = useState<MissingCheckInAlert | null>(null);
 
+  // Decision Modal State
+  const [confirmCheckInModalOpen, setConfirmCheckInModalOpen] = useState(false);
+  const [modalChosenType, setModalChosenType] = useState<'Vào ca' | 'Ra ca'>(recommendation.recommendedType);
+  const [acknowledgeMissingIn, setAcknowledgeMissingIn] = useState(false);
+
   const [selectedType, setSelectedType] = useState<'Vào ca' | 'Ra ca'>(recommendation.recommendedType);
   const [userHasManuallyToggled, setUserHasManuallyToggled] = useState(false);
   const [confirmInvertedTypeOpen, setConfirmInvertedTypeOpen] = useState(false);
   const [pendingTypeToSubmit, setPendingTypeToSubmit] = useState<'Vào ca' | 'Ra ca'>('Vào ca');
 
-  // Auto-sync with recommendation if user hasn't manually overridden
+  // Auto-sync with recommendation
   useEffect(() => {
-    if (!userHasManuallyToggled) {
-      setSelectedType(recommendation.recommendedType);
-    }
-  }, [recommendation.recommendedType, userHasManuallyToggled]);
+    setModalChosenType(recommendation.recommendedType);
+    setSelectedType(recommendation.recommendedType);
+  }, [recommendation.recommendedType]);
 
   const [missedModalOpen, setMissedModalOpen] = useState(false);
 
@@ -343,7 +347,8 @@ export default function CheckIn() {
     canvas: HTMLCanvasElement,
     ctx: CanvasRenderingContext2D,
     exactTime: string,
-    addr: string
+    addr: string,
+    chosenType?: 'Vào ca' | 'Ra ca'
   ) => {
     const cardX = 24;
     const cardHeight = 310;
@@ -408,7 +413,8 @@ export default function CheckIn() {
     ctx.fillStyle = '#93C5FD'; // Soft Blue
     ctx.fillText("👑 KING'S GRILL  •  CHỨNG NHẬN CHẤM CÔNG", contentX, headerY);
 
-    const isCheckInType = selectedType === 'Vào ca';
+    const currentType = chosenType || recommendation.recommendedType || 'Vào ca';
+    const isCheckInType = currentType === 'Vào ca';
     const isValidGps = Boolean(currentGpsState.isValid);
     const badgeText = isCheckInType
       ? (isValidGps ? '🟢 VÀO CA - HỢP LỆ' : '⚠️ VÀO CA - NGOÀI BÁN KÍNH')
@@ -973,95 +979,6 @@ export default function CheckIn() {
         </div>
       )}
 
-      {/* Smart Check-In Mode Selector */}
-      <div className="bg-[var(--kg-surface)] p-3.5 sm:p-4 rounded-2xl md:rounded-3xl border border-[var(--kg-border)] text-[var(--kg-text)] shadow-xs max-w-md mx-auto space-y-2.5">
-        <div className="flex items-center justify-between px-1">
-          <span className="text-[11px] font-black uppercase tracking-wider text-[var(--kg-text-muted)] flex items-center gap-1.5">
-            <Sparkles size={14} className="text-amber-500 animate-pulse" />
-            <span>Chọn Loại Chấm Công</span>
-          </span>
-          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
-            recommendation.isOvernightShift
-              ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/25'
-              : recommendation.isOpenShift
-              ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-              : recommendation.hasInToday
-              ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
-              : 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20'
-          }`}>
-            {recommendation.isOvernightShift
-              ? '🌙 Ca đêm (vắt ngày)'
-              : recommendation.isOpenShift
-              ? `🟢 Đang trong ca (${recommendation.openShiftTime})`
-              : recommendation.hasInToday
-              ? '✓ Đã vào ca hôm nay'
-              : 'Chưa vào ca hôm nay'}
-          </span>
-        </div>
-
-        {/* 2 Segmented Option Cards */}
-        <div className="grid grid-cols-2 gap-2.5 p-1 bg-[var(--kg-surface-soft)] rounded-2xl border border-[var(--kg-border)]">
-          {/* Option: VÀO CA */}
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedType('Vào ca');
-              setUserHasManuallyToggled(true);
-            }}
-            className={`relative flex flex-col items-center justify-center py-2.5 px-2 min-h-[48px] rounded-xl font-black text-xs sm:text-sm transition-all duration-200 active:scale-95 touch-manipulation gap-1 ${
-              selectedType === 'Vào ca'
-                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-600/30 ring-2 ring-emerald-400/50 scale-[1.02]'
-                : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface)] opacity-75'
-            }`}
-          >
-            <div className="flex items-center gap-1.5">
-              <LogIn size={16} className={selectedType === 'Vào ca' ? 'text-white' : 'text-emerald-500'} />
-              <span>VÀO CA</span>
-            </div>
-            {recommendation.recommendedType === 'Vào ca' && (
-              <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${
-                selectedType === 'Vào ca' ? 'bg-white/25 text-white' : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-              }`}>
-                ⭐ Đề xuất
-              </span>
-            )}
-          </button>
-
-          {/* Option: RA CA */}
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedType('Ra ca');
-              setUserHasManuallyToggled(true);
-            }}
-            className={`relative flex flex-col items-center justify-center py-2.5 px-2 min-h-[48px] rounded-xl font-black text-xs sm:text-sm transition-all duration-200 active:scale-95 touch-manipulation gap-1 ${
-              selectedType === 'Ra ca'
-                ? 'bg-gradient-to-r from-rose-500 to-red-600 text-white shadow-md shadow-rose-600/30 ring-2 ring-rose-400/50 scale-[1.02]'
-                : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface)] opacity-75'
-            }`}
-          >
-            <div className="flex items-center gap-1.5">
-              <LogOut size={16} className={selectedType === 'Ra ca' ? 'text-white' : 'text-rose-500'} />
-              <span>RA CA</span>
-            </div>
-            {recommendation.recommendedType === 'Ra ca' && (
-              <span className={`text-[9px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 ${
-                selectedType === 'Ra ca' ? 'bg-white/25 text-white' : 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
-              }`}>
-                {recommendation.isOvernightShift ? <Moon size={10} /> : null}
-                <span>{recommendation.isOvernightShift ? '🌙 Ca đêm' : '⭐ Đề xuất'}</span>
-              </span>
-            )}
-          </button>
-        </div>
-
-        {/* Recommendation Context Note */}
-        <div className="px-2.5 py-1.5 bg-blue-500/5 dark:bg-blue-950/20 rounded-xl border border-blue-500/10 flex items-start gap-1.5 text-[11px] text-[var(--kg-text-muted)]">
-          <Info size={13} className="text-blue-500 mt-0.5 flex-shrink-0" />
-          <span className="leading-tight font-medium">{recommendation.reason}</span>
-        </div>
-      </div>
-
       {/* GPS Status Card */}
       <div className="bg-[var(--kg-surface)] p-3.5 sm:p-5 rounded-2xl md:rounded-3xl relative overflow-hidden border border-[var(--kg-border)] text-[var(--kg-text)] shadow-xs max-w-md mx-auto">
         <div className="absolute -right-4 -top-4 opacity-5 text-8xl transform rotate-12 text-blue-600/10 pointer-events-none"><MapPin size={100} /></div>
@@ -1238,17 +1155,20 @@ export default function CheckIn() {
         )}
       </div>
 
-      {/* Pre-Confirmation Quick Check Box */}
+      {/* Smart Recommendation Banner & Status */}
       <div className="max-w-sm mx-auto bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-3 shadow-xs space-y-2">
         <div className="flex items-center justify-between text-xs">
-          <span className="font-bold text-[var(--kg-text-muted)]">Loại chấm công đang chọn:</span>
+          <span className="font-bold text-[var(--kg-text-muted)] flex items-center gap-1.5">
+            <Sparkles size={13} className="text-amber-500 animate-pulse" />
+            <span>Đề xuất ca:</span>
+          </span>
           <span className={`inline-flex items-center gap-1 font-black px-2.5 py-1 rounded-xl text-xs ${
-            selectedType === 'Vào ca'
+            recommendation.recommendedType === 'Vào ca'
               ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
               : 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20'
           }`}>
-            {selectedType === 'Vào ca' ? <LogIn size={13} /> : <LogOut size={13} />}
-            {selectedType.toUpperCase()}
+            {recommendation.recommendedType === 'Vào ca' ? <LogIn size={13} /> : <LogOut size={13} />}
+            {recommendation.recommendedType.toUpperCase()}
           </span>
         </div>
 
@@ -1260,28 +1180,36 @@ export default function CheckIn() {
         </div>
 
         <div className="flex items-center justify-between text-xs">
-          <span className="text-[var(--kg-text-muted)] font-medium">Ảnh chụp minh chứng:</span>
+          <span className="text-[var(--kg-text-muted)] font-medium">Ảnh minh chứng:</span>
           <span className={`font-black flex items-center gap-1 ${capturedImage ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-500'}`}>
             {capturedImage ? '✓ Đã chụp ảnh' : 'Chưa chụp ảnh'}
           </span>
         </div>
       </div>
 
-      {/* Single Hero Confirmation Button */}
+      {/* Primary Action Button: GỬI CHẤM CÔNG */}
       <div className="max-w-sm mx-auto space-y-2">
         <KgButton
-          variant={selectedType === 'Vào ca' ? 'primary' : 'danger'}
+          variant="primary"
           size="lg"
           disabled={!canSubmit}
-          onClick={() => submitCheck(selectedType)}
+          onClick={() => {
+            if (!capturedImage) {
+              takePhoto();
+            } else {
+              setModalChosenType(recommendation.recommendedType);
+              setAcknowledgeMissingIn(false);
+              setConfirmCheckInModalOpen(true);
+            }
+          }}
           className={`w-full h-14 min-h-[52px] shadow-lg rounded-2xl text-[15px] font-black tracking-wider border-none active:scale-[0.97] transition-all touch-manipulation flex items-center justify-center gap-2 ${
-            selectedType === 'Vào ca'
-              ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700 hover:from-emerald-700 hover:to-teal-700 text-white shadow-emerald-600/30'
-              : 'bg-gradient-to-r from-rose-500 via-red-600 to-rose-700 hover:from-rose-600 hover:to-red-700 text-white shadow-rose-600/30'
+            capturedImage
+              ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-700 text-white shadow-blue-600/30 ring-2 ring-blue-400/40'
+              : 'bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700 hover:from-emerald-700 hover:to-teal-700 text-white shadow-emerald-600/30'
           }`}
-          icon={selectedType === 'Vào ca' ? LogIn : LogOut}
+          icon={capturedImage ? Send : Camera}
         >
-          {selectedType === 'Vào ca' ? 'XÁC NHẬN VÀO CA' : 'XÁC NHẬN RA CA'}
+          {capturedImage ? 'GỬI CHẤM CÔNG' : 'CHỤP ẢNH CHẤM CÔNG'}
         </KgButton>
 
         {!canSubmit && (
@@ -1295,17 +1223,189 @@ export default function CheckIn() {
         )}
       </div>
 
-      {/* Missed Checkin Helper Button */}
-      <div className="text-center pt-1 max-w-sm mx-auto">
+      {/* Emergency Assist Card for Missed Check-ins (Enhanced for iPhone) */}
+      <div className="max-w-sm mx-auto pt-1 pb-2">
         <button
           type="button"
           onClick={() => setMissedModalOpen(true)}
-          className="w-full py-2.5 px-4 min-h-[44px] rounded-xl bg-[var(--kg-surface)] hover:bg-[var(--kg-surface-soft)] text-[var(--kg-text)] border border-[var(--kg-border)] text-xs font-black shadow-xs transition active:scale-95 touch-manipulation flex items-center justify-center gap-2"
+          className="w-full p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/5 hover:from-amber-500/15 hover:to-orange-500/15 border border-amber-500/30 text-[var(--kg-text)] shadow-xs transition active:scale-[0.98] touch-manipulation flex items-center justify-between text-left gap-3"
         >
-          <Clock size={15} className="text-amber-500" />
-          <span>Gặp sự cố không chấm được? Gửi báo bổ sung công →</span>
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center shadow-md flex-shrink-0">
+              <Clock size={20} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-black text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                <span>🆘 Gặp sự cố không chấm được?</span>
+              </p>
+              <p className="text-[11px] text-[var(--kg-text-muted)] font-medium mt-0.5 truncate">
+                Gửi báo bổ sung công cho Quản lý duyệt
+              </p>
+            </div>
+          </div>
+          <div className="flex-shrink-0 px-2.5 py-1.5 rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-300 text-xs font-black">
+            Gửi đơn →
+          </div>
         </button>
       </div>
+
+      {/* Smart Decision & Check-In Confirmation Modal */}
+      <KgBottomSheet
+        isOpen={confirmCheckInModalOpen}
+        onClose={() => setConfirmCheckInModalOpen(false)}
+        title="👑 Xác Nhận Chấm Công"
+      >
+        <div className="space-y-4 py-1 text-[var(--kg-text)]">
+          {/* Header Description */}
+          <p className="text-xs text-[var(--kg-text-muted)] font-medium -mt-2">
+            Vui lòng kiểm tra thông tin và chọn loại ca chấm công thực tế của bạn:
+          </p>
+
+          {/* Photo & Metadata Preview Row */}
+          {capturedImage && (
+            <div className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)]">
+              <div className="w-16 h-20 rounded-xl overflow-hidden bg-black flex-shrink-0 border border-white/20 shadow-xs">
+                <img src={capturedImage} alt="Preview" className="w-full h-full object-cover" />
+              </div>
+              <div className="min-w-0 flex-1 space-y-1 text-xs">
+                <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-black text-[11px]">
+                  <CheckCircle2 size={13} />
+                  <span>Ảnh đã đóng dấu bảo mật</span>
+                </div>
+                <p className="font-black text-sm truncate">
+                  {currentUser?.fullname || 'Nhân sự'}
+                </p>
+                <p className="text-[11px] text-[var(--kg-text-muted)] font-mono">
+                  🕒 {store.capturedTime || currentTime}
+                </p>
+                <p className="text-[10px] text-[var(--kg-text-muted)] truncate">
+                  📍 {gps.address || gps.status || 'Tại nhà hàng'}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* System Recommendation Box */}
+          <div className="p-3.5 rounded-2xl bg-blue-500/10 dark:bg-blue-950/30 border border-blue-500/20 space-y-1 text-left">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                <Sparkles size={14} className="text-amber-500 animate-pulse" />
+                <span>Gợi ý hệ thống:</span>
+              </span>
+              <span className={`text-xs font-black px-2.5 py-0.5 rounded-full ${
+                recommendation.recommendedType === 'Vào ca'
+                  ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                  : 'bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30'
+              }`}>
+                {recommendation.recommendedType === 'Vào ca' ? '🟢 VÀO CA' : '🔴 RA CA'}
+              </span>
+            </div>
+            <p className="text-xs text-[var(--kg-text-muted)] font-medium leading-relaxed pt-0.5">
+              💡 {recommendation.reason}
+            </p>
+          </div>
+
+          {/* Interactive Punch Type Chooser (User Decision) */}
+          <div className="space-y-2">
+            <label className="block text-xs font-black text-[var(--kg-text)] uppercase tracking-wider">
+              Chọn loại chấm công thực tế của bạn:
+            </label>
+            <div className="grid grid-cols-2 gap-2.5">
+              {/* Option Vào ca */}
+              <button
+                type="button"
+                onClick={() => {
+                  setModalChosenType('Vào ca');
+                  setAcknowledgeMissingIn(false);
+                }}
+                className={`py-3 px-3 rounded-2xl font-black text-xs sm:text-sm flex flex-col items-center justify-center gap-1 transition-all duration-200 min-h-[54px] active:scale-95 touch-manipulation border ${
+                  modalChosenType === 'Vào ca'
+                    ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-emerald-500 shadow-md shadow-emerald-600/30 ring-2 ring-emerald-400/50 scale-[1.02]'
+                    : 'bg-[var(--kg-surface)] text-[var(--kg-text)] border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]'
+                }`}
+              >
+                <div className="flex items-center gap-1.5">
+                  <LogIn size={16} className={modalChosenType === 'Vào ca' ? 'text-white' : 'text-emerald-500'} />
+                  <span>VÀO CA</span>
+                </div>
+                {recommendation.recommendedType === 'Vào ca' && (
+                  <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${
+                    modalChosenType === 'Vào ca' ? 'bg-white/25 text-white' : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                  }`}>
+                    ⭐ Đề xuất
+                  </span>
+                )}
+              </button>
+
+              {/* Option Ra ca */}
+              <button
+                type="button"
+                onClick={() => setModalChosenType('Ra ca')}
+                className={`py-3 px-3 rounded-2xl font-black text-xs sm:text-sm flex flex-col items-center justify-center gap-1 transition-all duration-200 min-h-[54px] active:scale-95 touch-manipulation border ${
+                  modalChosenType === 'Ra ca'
+                    ? 'bg-gradient-to-r from-rose-500 to-red-600 text-white border-rose-500 shadow-md shadow-rose-600/30 ring-2 ring-rose-400/50 scale-[1.02]'
+                    : 'bg-[var(--kg-surface)] text-[var(--kg-text)] border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]'
+                }`}
+              >
+                <div className="flex items-center gap-1.5">
+                  <LogOut size={16} className={modalChosenType === 'Ra ca' ? 'text-white' : 'text-rose-500'} />
+                  <span>RA CA</span>
+                </div>
+                {recommendation.recommendedType === 'Ra ca' && (
+                  <span className={`text-[9px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                    modalChosenType === 'Ra ca' ? 'bg-white/25 text-white' : 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
+                  }`}>
+                    {recommendation.isOvernightShift ? <Moon size={10} /> : null}
+                    <span>{recommendation.isOvernightShift ? '🌙 Ca đêm' : '⭐ Đề xuất'}</span>
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Missing Vào Ca Warning */}
+          {modalChosenType === 'Ra ca' && !recommendation.isOpenShift && !recommendation.hasInToday && (
+            <div className="p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/40 space-y-2 text-left animate-shake">
+              <div className="flex items-start gap-2 text-xs font-black text-amber-800 dark:text-amber-300">
+                <AlertTriangle size={17} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                <p className="leading-snug">
+                  Hôm nay hệ thống chưa ghi nhận lượt <b>VÀO CA</b> của bạn. Bạn có chắc chắn muốn tiếp tục chấm <b>RA CA</b> không?
+                </p>
+              </div>
+              <label className="flex items-center gap-2.5 text-xs font-bold text-[var(--kg-text)] cursor-pointer pt-1 select-none">
+                <input
+                  type="checkbox"
+                  checked={acknowledgeMissingIn}
+                  onChange={(e) => setAcknowledgeMissingIn(e.target.checked)}
+                  className="w-4 h-4 rounded text-amber-600 accent-amber-500 cursor-pointer flex-shrink-0"
+                />
+                <span>Tôi xác nhận vẫn muốn chấm RA CA (thiếu Vào ca)</span>
+              </label>
+            </div>
+          )}
+
+          {/* Confirm Button */}
+          <div className="pt-2">
+            <KgButton
+              variant={modalChosenType === 'Vào ca' ? 'primary' : 'danger'}
+              size="lg"
+              disabled={modalChosenType === 'Ra ca' && (!recommendation.isOpenShift && !recommendation.hasInToday) && !acknowledgeMissingIn}
+              onClick={() => {
+                setConfirmCheckInModalOpen(false);
+                proceedSubmitCheck(modalChosenType);
+              }}
+              className={`w-full h-14 min-h-[52px] shadow-lg rounded-2xl text-[15px] font-black tracking-wider border-none active:scale-[0.97] transition-all touch-manipulation flex items-center justify-center gap-2 ${
+                modalChosenType === 'Vào ca'
+                  ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700 hover:from-emerald-700 hover:to-teal-700 text-white shadow-emerald-600/30'
+                  : 'bg-gradient-to-r from-rose-500 via-red-600 to-rose-700 hover:from-rose-600 hover:to-red-700 text-white shadow-rose-600/30'
+              }`}
+              icon={modalChosenType === 'Vào ca' ? LogIn : LogOut}
+            >
+              {modalChosenType === 'Vào ca' ? 'XÁC NHẬN GỬI VÀO CA' : 'XÁC NHẬN GỬI RA CA'}
+            </KgButton>
+          </div>
+        </div>
+      </KgBottomSheet>
 
       {/* Missed Check-in Claim Modal */}
       {missedModalOpen && (
@@ -1315,7 +1415,7 @@ export default function CheckIn() {
             setMissedModalOpen(false);
             setSelectedMissingAlert(null);
           }}
-          defaultType={selectedMissingAlert ? selectedMissingAlert.missingType : selectedType}
+          defaultType={selectedMissingAlert ? selectedMissingAlert.missingType : modalChosenType}
           defaultDate={selectedMissingAlert ? selectedMissingAlert.dateStr : undefined}
           defaultTime={selectedMissingAlert ? selectedMissingAlert.timeStr : undefined}
           defaultReason="Quên bấm máy khi vào việc gấp"
