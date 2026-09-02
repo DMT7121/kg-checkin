@@ -846,13 +846,14 @@ function sendReportEmail(ss) {
       + '</td></tr>'
       
       // CTA Action Button
-      + '<tr><td style="padding:4px 24px 24px;text-align:center;" class="content-padding">'
-      + '<table border="0" cellpadding="0" cellspacing="0" width="100%"><tr><td align="center">'
-      + '<a href="' + sheetUrl + '" target="_blank" style="display:block;width:100%;max-width:360px;background-color:#2563eb;color:#ffffff;text-decoration:none;font-size:14px;font-weight:800;letter-spacing:0.3px;padding:14px 24px;border-radius:12px;text-align:center;box-shadow:0 4px 14px rgba(37,99,235,0.35);">'
-      + '📊 XEM CHI TIẾT BẢNG TỔNG HỢP &rarr;'
+      + '<tr><td style="padding:8px 24px 24px;text-align:center;" class="content-padding">'
+      + '<table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin:0 auto;max-width:320px;"><tr>'
+      + '<td align="center" style="border-radius:12px;background-color:#2563eb;background-image:linear-gradient(135deg,#2563eb 0%,#1d4ed8 100%);box-shadow:0 4px 14px rgba(37,99,235,0.28);">'
+      + '<a href="' + sheetUrl + '" target="_blank" style="display:block;padding:13px 20px;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Helvetica,Arial,sans-serif;font-size:13.5px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:12px;text-align:center;line-height:1.2;letter-spacing:0.2px;white-space:nowrap;">'
+      + 'Xem Bảng Tổng Hợp Chi Tiết &rarr;'
       + '</a>'
-      + '<p style="margin:10px 0 0;font-size:11px;color:#64748b;">(Bạn cũng có thể xem trực tiếp tệp PDF đính kèm bên dưới email)</p>'
       + '</td></tr></table>'
+      + '<div style="margin-top:9px;font-size:11px;color:#94a3b8;font-weight:500;">(Bạn cũng có thể xem trực tiếp tệp PDF đính kèm bên dưới email)</div>'
       + '</td></tr>'
       
       // Divider
