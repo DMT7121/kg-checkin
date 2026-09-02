@@ -819,7 +819,9 @@ function handleCheckInOut(payload) {
               var uRows = uSheet.getDataRange().getValues();
               for (var r = 1; r < uRows.length; r++) {
                 if (uRows[r][0] && uRows[r][0].toString().toLowerCase() === (payload.username || '').toLowerCase()) {
-                  if (uRows[r][3] && uRows[r][3].toString().indexOf('@') > 0) {
+                  if (uRows[r][4] && uRows[r][4].toString().indexOf('@') > 0) {
+                    payload.email = uRows[r][4].toString().trim();
+                  } else if (uRows[r][3] && uRows[r][3].toString().indexOf('@') > 0) {
                     payload.email = uRows[r][3].toString().trim();
                   }
                   break;
@@ -1396,35 +1398,36 @@ var _relayIndex = 0; // Round-robin counter
 
 function smartSendEmail(to, subject, body, htmlBody) {
   if (!to || !String(to).trim()) return 'empty';
-  var toStr = String(to).trim();
-  
-  var recipients = toStr.split(',').map(function(e) { return e.trim(); }).filter(function(e) { return e.indexOf('@') > 0; });
-  if (recipients.length === 0) return 'no_valid_recipients';
-  
-  var primaryTo = recipients[0];
-  var ccList = recipients.slice(1).join(',');
-  var emailOptions = { htmlBody: htmlBody, name: "King's Grill HR" };
-  if (ccList) emailOptions.cc = ccList;
+  var cleanTo = String(to).trim();
+  if (cleanTo.indexOf('@') === -1) return 'invalid_email';
 
-  // Thử gửi bằng MailApp trước (nhanh nhất, không cần HTTP call)
-  var localQuota = MailApp.getRemainingDailyQuota();
+  var emailOptions = {
+    htmlBody: htmlBody,
+    name: "King's Grill HR"
+  };
+
+  // 1. Thử gửi bằng MailApp trước (nhanh nhất)
+  var localQuota = 0;
+  try {
+    localQuota = MailApp.getRemainingDailyQuota();
+  } catch(qErr) {}
+
   if (localQuota >= 1) {
     try {
-      MailApp.sendEmail(primaryTo, subject, body || '', emailOptions);
-      Logger.log('📧 [LOCAL] Gửi OK → to:' + primaryTo + (ccList ? ' cc:' + ccList : '') + ' (quota còn: ' + (localQuota - 1) + ')');
+      MailApp.sendEmail(cleanTo, subject, body || '', emailOptions);
+      Logger.log('📧 [LOCAL] Gửi OK → ' + cleanTo + ' (quota còn: ' + (localQuota - 1) + ')');
       return 'local';
     } catch(localErr) {
-      Logger.log('⚠️ [LOCAL] Lỗi MailApp: ' + localErr.message);
+      Logger.log('⚠️ [LOCAL] Lỗi MailApp sang ' + cleanTo + ': ' + localErr.message);
     }
   }
   
-  // Hết quota local → thử relay accounts
+  // 2. Fallback sang relay accounts
   var relayUrls = CONFIG.EMAIL_RELAY_URLS || [];
   if (relayUrls.length === 0) {
     throw new Error('Hết quota email local (' + localQuota + ') và chưa có relay account nào');
   }
   
-  // Round-robin: thử từng relay
   for (var attempt = 0; attempt < relayUrls.length; attempt++) {
     var idx = (_relayIndex + attempt) % relayUrls.length;
     var relayUrl = relayUrls[idx];
@@ -1433,7 +1436,7 @@ function smartSendEmail(to, subject, body, htmlBody) {
       var relayPayload = JSON.stringify({
         action: 'SEND_EMAIL',
         secret: CONFIG.EMAIL_RELAY_SECRET,
-        to: to,
+        to: cleanTo,
         subject: subject,
         body: body || '',
         htmlBody: htmlBody,
@@ -1450,8 +1453,8 @@ function smartSendEmail(to, subject, body, htmlBody) {
       
       var result = JSON.parse(response.getContentText());
       if (result.ok) {
-        _relayIndex = (idx + 1) % relayUrls.length; // Next relay for next call
-        Logger.log('📧 [RELAY#' + (idx + 1) + '] Gửi OK → ' + to);
+        _relayIndex = (idx + 1) % relayUrls.length;
+        Logger.log('📧 [RELAY#' + (idx + 1) + '] Gửi OK → ' + cleanTo);
         return 'relay#' + (idx + 1);
       } else {
         Logger.log('⚠️ [RELAY#' + (idx + 1) + '] Thất bại: ' + (result.message || 'Unknown'));
@@ -1461,60 +1464,86 @@ function smartSendEmail(to, subject, body, htmlBody) {
     }
   }
   
-  throw new Error('Tất cả kênh email đều đã hết quota (local + ' + relayUrls.length + ' relay)');
+  throw new Error('Tất cả kênh email đều đã hết quota hoặc lỗi khi gửi tới ' + cleanTo);
 }
 
 function sendCheckInEmail(payload, timeObj, loc, imgUrl, distMeters, isValid) {
   var typeStr = payload.type ? String(payload.type) : 'Vào ca';
-  var fullnameStr = payload.fullname ? String(payload.fullname) : 'Nhân viên';
-
-  var formattedTimeAdmin = Utilities.formatDate(timeObj, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss');
-  var formattedTimeUI = formattedTimeAdmin.replace(' ', '<br/>');
-  
-  // Đảm bảo isValid là boolean
+  var fullnameStr = payload.fullname ? String(payload.fullname) : 'Nhân sự';
+  var timeStr = Utilities.formatDate(timeObj, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss');
+  var formattedTimeUI = timeStr.replace(' ', '<br/>');
   isValid = (isValid === true || isValid === 'true');
-  
-  Logger.log('sendCheckInEmail START: emp=' + (payload.email || 'NONE') + ', isValid=' + isValid);
-  
+
   var adminBody, empBody;
   try {
     adminBody = buildEmailHtml(payload, formattedTimeUI, loc, distMeters, isValid, true);
     empBody = buildEmailHtml(payload, formattedTimeUI, loc, distMeters, isValid, false);
   } catch (buildErr) {
     Logger.log('LỖI buildEmailHtml: ' + buildErr.message);
-    throw buildErr;
+    return;
   }
 
-  // === ƯU TIÊN 1: Gửi email xác nhận cho nhân viên TRƯỚC ===
-  if (payload.email && String(payload.email).indexOf('@') > 0) {
-    try {
-      smartSendEmail(
-        payload.email,
-        '[KING\'S GRILL] Xác nhận ' + typeStr + ' - ' + formattedTimeAdmin,
-        'Xác nhận chấm công: ' + typeStr + ' lúc ' + formattedTimeAdmin,
-        empBody
-      );
-    } catch(empErr) {
-      Logger.log('❌ Lỗi email nhân viên: ' + empErr.message);
-      try { getSS().getSheetByName(CONFIG.SHEET_CONFIG).appendRow(['ERR_EMAIL_EMP', empErr.message, new Date()]); } catch(x){}
+  // Danh sách email admin nhận báo cáo
+  var adminList = (CONFIG.EMAILS || []).map(function(e) { return String(e).trim(); })
+    .filter(function(e) { return e.indexOf('@') > 0 && e.indexOf('@kingsgrill.com') === -1; });
+  
+  if (adminList.indexOf('dmt.7121@gmail.com') === -1) adminList.unshift('dmt.7121@gmail.com');
+  if (adminList.indexOf('btob.7121@gmail.com') === -1) adminList.push('btob.7121@gmail.com');
+
+  var sentEmails = {};
+
+  // 1. GỬI ADMIN CHÍNH TRƯỚC TIÊN (BẢO ĐẢM dmt.7121@gmail.com LUÔN NHẬN ĐƯỢC ĐẦU TIÊN)
+  var primaryAdmin = 'dmt.7121@gmail.com';
+  try {
+    smartSendEmail(
+      primaryAdmin,
+      '[KING\'S GRILL] ' + fullnameStr + ' - ' + typeStr + ' (' + timeStr + ')',
+      'King\'s Grill HR: ' + fullnameStr + ' đã ' + typeStr + ' lúc ' + timeStr,
+      adminBody
+    );
+    sentEmails[primaryAdmin] = true;
+    Logger.log('✅ Đã gửi báo cáo cho Admin chính: ' + primaryAdmin);
+  } catch(pErr) {
+    Logger.log('❌ Lỗi gửi Admin chính: ' + pErr.message);
+    try { getSS().getSheetByName(CONFIG.SHEET_CONFIG).appendRow(['ERR_EMAIL_PRIMARY_ADMIN', pErr.message, new Date()]); } catch(x){}
+  }
+
+  // 2. GỬI XÁC NHẬN CHO NHÂN VIÊN
+  var empEmail = payload.email ? String(payload.email).trim() : '';
+  if (empEmail && empEmail.indexOf('@') > 0 && empEmail.indexOf('@kingsgrill.com') === -1) {
+    if (!sentEmails[empEmail]) {
+      try {
+        smartSendEmail(
+          empEmail,
+          '[KING\'S GRILL] Xác nhận ' + typeStr + ' - ' + timeStr,
+          'Xác nhận chấm công: ' + typeStr + ' lúc ' + timeStr,
+          empBody
+        );
+        sentEmails[empEmail] = true;
+        Logger.log('✅ Đã gửi xác nhận cho nhân viên: ' + empEmail);
+      } catch(eErr) {
+        Logger.log('❌ Lỗi gửi email nhân viên: ' + eErr.message);
+        try { getSS().getSheetByName(CONFIG.SHEET_CONFIG).appendRow(['ERR_EMAIL_EMP', eErr.message, new Date()]); } catch(x){}
+      }
     }
-  } else {
-    Logger.log('⚠️ NV không có email: "' + (payload.email || '') + '"');
   }
 
-  // === ƯU TIÊN 2: Gửi 1 email GỘP cho Admin ===
-  var adminEmails = CONFIG.EMAILS.filter(function(e) { return !!e; });
-  if (adminEmails.length > 0) {
+  // 3. GỬI CHO CÁC ADMIN KHÁC (btob.7121@gmail.com, v.v.)
+  var otherAdmins = adminList.filter(function(e) { return !sentEmails[e]; });
+  for (var a = 0; a < otherAdmins.length; a++) {
+    var targetAdmin = otherAdmins[a];
     try {
       smartSendEmail(
-        adminEmails.join(','),
-        '[KING\'S GRILL] ' + fullnameStr + ' - ' + typeStr,
-        '',
+        targetAdmin,
+        '[KING\'S GRILL] ' + fullnameStr + ' - ' + typeStr + ' (' + timeStr + ')',
+        'King\'s Grill HR: ' + fullnameStr + ' đã ' + typeStr + ' lúc ' + timeStr,
         adminBody
       );
-    } catch (adminErr) {
-      Logger.log('❌ Lỗi email admin: ' + adminErr.message);
-      try { getSS().getSheetByName(CONFIG.SHEET_CONFIG).appendRow(['ERR_EMAIL_ADMIN', adminErr.message, new Date()]); } catch(x){}
+      sentEmails[targetAdmin] = true;
+      Logger.log('✅ Đã gửi báo cáo cho Admin: ' + targetAdmin);
+    } catch(oaErr) {
+      Logger.log('⚠️ Lỗi gửi admin ' + targetAdmin + ': ' + oaErr.message);
+      try { getSS().getSheetByName(CONFIG.SHEET_CONFIG).appendRow(['ERR_EMAIL_ADMIN_' + targetAdmin, oaErr.message, new Date()]); } catch(x){}
     }
   }
 }
