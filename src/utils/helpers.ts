@@ -275,6 +275,30 @@ export function isSameCalendarDay(d1: Date, d2: Date): boolean {
 }
 
 /**
+ * Flexible User Matching: handles exact names, usernames, diacritic differences, and casing
+ */
+export function matchesUser(
+  log: { fullname?: string; username?: string } | undefined | null,
+  currentUser: { fullname: string; username?: string } | undefined | null
+): boolean {
+  if (!log || !currentUser) return false;
+  const userFullname = (currentUser.fullname || '').trim().toLowerCase();
+  const username = (currentUser.username || '').trim().toLowerCase();
+  const logFullname = (log.fullname || '').trim().toLowerCase();
+  const logUsername = (log.username || '').trim().toLowerCase();
+
+  if (logFullname && (logFullname === userFullname || logFullname === username)) return true;
+  if (logUsername && (logUsername === username || logUsername === userFullname)) return true;
+
+  // Normalized without diacritics (e.g. Nguyễn Văn A vs Nguyen Van A)
+  const normUser = userFullname.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const normLog = logFullname.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (normUser && normLog && normUser === normLog) return true;
+
+  return false;
+}
+
+/**
  * Local Punch Storage: Caches last check-in/out on device for 0ms instant UI state
  */
 export function setLocalLastPunch(
@@ -308,9 +332,7 @@ export function getLocalLastPunch(
     if (!item || !item.type || !item.time) return null;
     
     // Validate that it belongs to the current user
-    const nameMatch = item.fullname && currentUser.fullname && item.fullname.trim().toLowerCase() === currentUser.fullname.trim().toLowerCase();
-    const userMatch = item.username && currentUser.username && item.username.trim().toLowerCase() === currentUser.username.trim().toLowerCase();
-    if (!nameMatch && !userMatch) return null;
+    if (!matchesUser(item, currentUser)) return null;
 
     return item;
   } catch {
@@ -330,11 +352,10 @@ export function auditMissingCheckIns(
 
   const now = new Date();
   const cutoffTime = now.getTime() - daysBack * 24 * 60 * 60 * 1000;
-  const userFullname = currentUser.fullname.trim().toLowerCase();
 
   // Filter and sort ascending
   const userLogsWithDate = logs
-    .filter((l) => l.fullname && l.fullname.trim().toLowerCase() === userFullname && l.time)
+    .filter((l) => matchesUser(l, currentUser) && l.time)
     .map((l) => ({ log: l, date: parseLogDate(l.time) }))
     .filter((item): item is { log: { fullname: string; type: string; time: string }; date: Date } => item.date !== null)
     .filter((item) => item.date.getTime() >= cutoffTime)
@@ -415,7 +436,7 @@ export function auditMissingCheckIns(
  */
 export function getRecommendedCheckInType(
   logs: { fullname: string; type: string; time: string }[] | undefined,
-  currentUser: { fullname: string; username?: string } | null,
+  currentUser: { fullname: string; username?: string; role?: string } | null,
   targetDate: Date = new Date()
 ): CheckInRecommendation {
   if (!currentUser) {
@@ -430,16 +451,25 @@ export function getRecommendedCheckInType(
     };
   }
 
-  const userFullname = currentUser.fullname.trim().toLowerCase();
-
   // Filter logs for user and parse dates with Universal Parser
   let userLogsWithDates = (logs || [])
-    .filter((l) => l.fullname && l.fullname.trim().toLowerCase() === userFullname && l.time)
+    .filter((l) => matchesUser(l, currentUser) && l.time)
     .map((l) => ({ log: l, date: parseLogDate(l.time) }))
     .filter((item): item is { log: { fullname: string; type: string; time: string }; date: Date } => item.date !== null)
     .sort((a, b) => a.date.getTime() - b.date.getTime());
 
-  // Fallback: If no server logs found (e.g. cold start / offline), check local storage punch cache
+  // Fallback 1: If store has user-specific logs but name spelling differed, use logs if non-empty
+  if (userLogsWithDates.length === 0 && (logs || []).length > 0 && currentUser.role !== 'admin') {
+    const candidateLogs = (logs || [])
+      .map((l) => ({ log: l, date: parseLogDate(l.time) }))
+      .filter((item): item is { log: { fullname: string; type: string; time: string }; date: Date } => item.date !== null)
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+    if (candidateLogs.length > 0) {
+      userLogsWithDates = candidateLogs;
+    }
+  }
+
+  // Fallback 2: If no server logs found, check local storage punch cache
   if (userLogsWithDates.length === 0) {
     const localLast = getLocalLastPunch(currentUser);
     if (localLast) {

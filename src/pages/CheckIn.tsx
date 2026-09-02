@@ -1120,8 +1120,8 @@ export default function CheckIn() {
         )}
       </div>
 
-      {/* Camera Viewport: Ergonomic 4:3 ratio for iPhone */}
-      <div className={`relative bg-slate-950 rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm aspect-[4/3] max-h-[300px] sm:max-h-[380px] group border-[4px] sm:border-[5px] max-w-sm mx-auto ${gps.isValid ? 'border-blue-600' : 'border-red-500'}`}>
+      {/* Camera Viewport: Responsive 4:3 camera & 3:4 HD uncropped preview */}
+      <div className={`relative bg-slate-950 rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm ${capturedImage ? 'aspect-[3/4] max-h-[460px]' : 'aspect-[4/3] max-h-[300px] sm:max-h-[380px]'} group border-[4px] sm:border-[5px] max-w-sm mx-auto transition-all ${gps.isValid ? 'border-blue-600' : 'border-red-500'}`}>
         <video ref={videoRef} autoPlay muted playsInline className={`w-full h-full object-cover mirror-cam ${(cameraError || capturedImage) ? 'hidden' : ''}`} />
         <canvas ref={overlayCanvasRef} className={`absolute inset-0 w-full h-full object-cover pointer-events-none ${(cameraError || capturedImage) ? 'hidden' : ''}`} />
         <canvas ref={canvasRef} className="hidden" />
@@ -1203,19 +1203,36 @@ export default function CheckIn() {
           </div>
         )}
 
-        {/* Captured image display */}
+        {/* Captured image display with 100% uncropped full watermark */}
         {capturedImage && (
-          <div className="absolute inset-0 bg-black z-30 flex flex-col items-center justify-center animate-fade-in">
-            <img src={capturedImage} className="w-full h-full object-cover" alt="Captured" />
-            <div className="absolute top-4 right-4 z-40">
-              <button
-                type="button"
-                onClick={() => store.setCapturedImage(null)}
-                className="flex items-center space-x-1.5 px-3.5 py-2 bg-black/60 hover:bg-black/80 text-white rounded-full border border-white/20 backdrop-blur-md shadow-md active:scale-95 transition-all text-xs font-bold pointer-events-auto"
-              >
-                <RotateCcw size={13} />
-                <span>Chụp lại</span>
-              </button>
+          <div className="absolute inset-0 bg-slate-950 z-30 flex flex-col items-center justify-center animate-fade-in">
+            <img src={capturedImage} className="w-full h-full object-contain" alt="Captured with Watermark" />
+            <div className="absolute top-3 inset-x-3 z-40 flex items-center justify-between pointer-events-none">
+              <span className="bg-emerald-600/95 text-white text-[11px] font-black px-2.5 py-1 rounded-full backdrop-blur-md shadow-md flex items-center gap-1">
+                <CheckCircle2 size={13} />
+                <span>Đã đóng dấu HD</span>
+              </span>
+              <div className="flex items-center gap-2 pointer-events-auto">
+                <button
+                  type="button"
+                  onClick={() => {
+                    store.setPreviewImageUrl(capturedImage);
+                    store.setPreviewOpen(true);
+                  }}
+                  className="flex items-center space-x-1 px-3 py-1.5 bg-black/75 hover:bg-black text-white rounded-full border border-white/20 backdrop-blur-md shadow-md active:scale-95 transition-all text-xs font-bold"
+                  title="Xem toàn màn hình"
+                >
+                  <span>🔍 Xem to</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => store.setCapturedImage(null)}
+                  className="flex items-center space-x-1 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-full border border-white/20 backdrop-blur-md shadow-md active:scale-95 transition-all text-xs font-bold"
+                >
+                  <RotateCcw size={13} />
+                  <span>Chụp lại</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
