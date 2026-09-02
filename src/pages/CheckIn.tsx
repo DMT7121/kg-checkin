@@ -644,7 +644,23 @@ export default function CheckIn() {
   };
 
   const proceedSubmitCheck = async (type: string) => {
-    if (!capturedImage || !gps.isValid || gps.lat === null || gps.lng === null) return;
+    if (!capturedImage) {
+      speak('Chưa có ảnh chụp. Vui lòng chụp ảnh minh chứng trước khi gửi.');
+      setFeedbackTitle('Chưa có ảnh chụp');
+      setFeedbackMessage('Vui lòng căn khuôn mặt giữa khung hình và chụp ảnh trước khi gửi chấm công.');
+      setFeedbackType('warning');
+      setFeedbackSheetOpen(true);
+      return;
+    }
+
+    if (!gps.isValid || gps.lat === null || gps.lng === null) {
+      speak('Vị trí chưa hợp lệ. Yêu cầu trong bán kính 20m.');
+      setFeedbackTitle('Vị trí chưa hợp lệ');
+      setFeedbackMessage('Bạn đang ở ngoài bán kính 20m nhà hàng hoặc GPS chưa định vị xong. Vui lòng thử lại hoặc gửi báo bổ sung công.');
+      setFeedbackType('warning');
+      setFeedbackSheetOpen(true);
+      return;
+    }
 
     // Anti-spam 1min check
     const now = Date.now();
@@ -691,6 +707,11 @@ export default function CheckIn() {
 
   // Real execution call
   const executeCheck = async (type: string, isLate: boolean, lateMinsInfo: number, shiftString: string) => {
+    if (!currentUser) {
+      speak('Vui lòng đăng nhập lại để tiếp tục.');
+      return;
+    }
+
     const now = new Date();
     const d = String(now.getDate()).padStart(2, '0');
     const m = String(now.getMonth() + 1).padStart(2, '0');
@@ -703,7 +724,7 @@ export default function CheckIn() {
     // Exactly use the photo's captured time, guaranteeing 100% match with the watermark
     const actualTime = store.capturedTime || fallbackExactTime;
     const tempLog = {
-      fullname: currentUser!.fullname,
+      fullname: currentUser.fullname,
       type,
       time: actualTime,
       status: 'Đang đồng bộ...',
@@ -713,7 +734,7 @@ export default function CheckIn() {
     // Save to store and local persistent punch cache immediately
     store.prependLog(tempLog);
     setLocalLastPunch(currentUser, type, actualTime);
-    setUserHasManuallyToggled(false);
+    store.setLastCheckInTime(Date.now());
     if (type === 'Vào ca') store.setStats({ ...store.stats, totalCheckIn: store.stats.totalCheckIn + 1 });
     
     // Success feedback via local custom sheets
