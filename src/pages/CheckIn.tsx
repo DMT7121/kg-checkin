@@ -30,7 +30,8 @@ import {
   ShieldCheck,
   CheckCircle2,
   Info,
-  Moon
+  Moon,
+  Send
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import {
@@ -355,243 +356,277 @@ export default function CheckIn() {
     addr: string,
     chosenType?: 'Vào ca' | 'Ra ca'
   ) => {
-    const cardX = 24;
-    const cardHeight = 310;
-    const cardY = canvas.height - cardHeight - 24;
-    const cardWidth = canvas.width - (cardX * 2);
-    const radius = 24;
+    try {
+      const cardX = 24;
+      const cardHeight = 310;
+      const cardY = Math.max(0, canvas.height - cardHeight - 24);
+      const cardWidth = Math.max(100, canvas.width - (cardX * 2));
+      const radius = 24;
 
-    // Reset shadow
-    ctx.shadowColor = 'transparent';
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
+      // Reset shadow
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
 
-    // Draw Glassmorphic Card Background (Deep Slate/Navy with 94% opacity)
-    ctx.fillStyle = 'rgba(11, 20, 36, 0.94)';
-    
-    const drawRoundRect = (c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) => {
-      if (typeof c.roundRect === 'function') {
-        c.roundRect(x, y, w, h, r);
-      } else {
-        if (w < 2 * r) r = w / 2;
-        if (h < 2 * r) r = h / 2;
-        c.beginPath();
-        c.moveTo(x + r, y);
-        c.arcTo(x + w, y, x + w, y + h, r);
-        c.arcTo(x + w, y + h, x, y + h, r);
-        c.arcTo(x, y + h, x, y, r);
-        c.arcTo(x, y, x + w, y, r);
-        c.closePath();
-      }
-    };
-
-    ctx.beginPath();
-    drawRoundRect(ctx, cardX, cardY, cardWidth, cardHeight, radius);
-    ctx.fill();
-
-    // Subtle White/Blue Border Outline
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    drawRoundRect(ctx, cardX, cardY, cardWidth, cardHeight, radius);
-    ctx.stroke();
-
-    // Content Padding
-    const padX = 24;
-    const contentX = cardX + padX;
-
-    // Hash Token Signature for Anti-Fraud Verification
-    const currentGpsState = useAppStore.getState().gps;
-    const userObj = useAppStore.getState().currentUser;
-    const strForHash = `${userObj?.username || 'user'}_${exactTime}_${currentGpsState.lat?.toFixed(5)}_${currentGpsState.lng?.toFixed(5)}_KG20`;
-    let hashVal = 0;
-    for (let i = 0; i < strForHash.length; i++) {
-      hashVal = ((hashVal << 5) - hashVal) + strForHash.charCodeAt(i);
-      hashVal |= 0;
-    }
-    const securityHash = `KG#${Math.abs(hashVal).toString(36).toUpperCase().padStart(6, '0')}`;
-    
-    // Header Bar: Restaurant Brand & Official Seal Badge
-    const headerY = cardY + 36;
-    ctx.font = 'bold 22px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = '#93C5FD'; // Soft Blue
-    ctx.fillText("👑 KING'S GRILL  •  CHỨNG NHẬN CHẤM CÔNG", contentX, headerY);
-
-    const currentType = chosenType || recommendation.recommendedType || 'Vào ca';
-    const isCheckInType = currentType === 'Vào ca';
-    const isValidGps = Boolean(currentGpsState.isValid);
-    const badgeText = isCheckInType
-      ? (isValidGps ? '🟢 VÀO CA - HỢP LỆ' : '⚠️ VÀO CA - NGOÀI BÁN KÍNH')
-      : (isValidGps ? '🔴 RA CA - HỢP LỆ' : '⚠️ RA CA - NGOÀI BÁN KÍNH');
-    ctx.font = 'bold 20px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    const badgeWidth = ctx.measureText(badgeText).width + 24;
-    const badgeX = cardX + cardWidth - padX - badgeWidth;
-    
-    ctx.fillStyle = isCheckInType ? 'rgba(16, 185, 129, 0.25)' : 'rgba(244, 63, 94, 0.25)';
-    drawRoundRect(ctx, badgeX, headerY - 24, badgeWidth, 32, 10);
-    ctx.fill();
-    ctx.strokeStyle = isCheckInType ? '#10B981' : '#F43F5E';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    drawRoundRect(ctx, badgeX, headerY - 24, badgeWidth, 32, 10);
-    ctx.stroke();
-
-    ctx.fillStyle = isCheckInType ? '#34D399' : '#FB7185';
-    ctx.fillText(badgeText, badgeX + 12, headerY - 2);
-
-    // Divider Line
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(contentX, headerY + 14);
-    ctx.lineTo(cardX + cardWidth - padX, headerY + 14);
-    ctx.stroke();
-
-    // Row 1: Time & Security Signature
-    const row1Y = headerY + 46;
-    ctx.font = 'bold 25px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = '#FDE047'; // Vivid Gold
-    ctx.fillText('🕒 THỜI GIAN: ' + exactTime, contentX, row1Y);
-
-    ctx.font = 'bold 21px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = '#38BDF8'; // Sky Blue
-    ctx.fillText('🛡️ ' + securityHash + ' (Bảo mật KG-OS)', contentX + 440, row1Y);
-
-    // Row 2: Employee info
-    const row2Y = row1Y + 36;
-    ctx.font = 'bold 22px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = '#FFFFFF';
-    const roleTitle = userObj?.role === 'admin' ? 'Quản lý' : (userObj?.position || 'Nhân sự');
-    const personText = `👤 NHÂN SỰ: ${userObj?.fullname || 'Nhân sự'} (${userObj?.username || ''})  •  💼 ${roleTitle}`;
-    ctx.fillText(personText, contentX, row2Y);
-
-    // Row 3: Address (Word wrapped cleanly)
-    ctx.font = '500 19px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = '#CBD5E1'; // Slate 300
-    
-    const displayAddr = '📍 ĐỊA ĐIỂM: ' + addr;
-    const maxTextWidth = cardWidth - (padX * 2);
-    
-    const wrapText = (context: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number) => {
-      const words = text.split(' ');
-      let line = '';
-      let currentY = y;
+      // Draw Glassmorphic Card Background (Deep Slate/Navy with 94% opacity)
+      ctx.fillStyle = 'rgba(11, 20, 36, 0.94)';
       
-      for (let n = 0; n < words.length; n++) {
-        const testLine = line + words[n] + ' ';
-        const metrics = context.measureText(testLine);
-        const testWidth = metrics.width;
-        if (testWidth > maxWidth && n > 0) {
-          context.fillText(line, x, currentY);
-          line = words[n] + ' ';
-          currentY += lineHeight;
-        } else {
-          line = testLine;
+      const drawRoundRect = (c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) => {
+        try {
+          c.beginPath();
+          if (typeof c.roundRect === 'function') {
+            c.roundRect(x, y, w, h, r);
+          } else {
+            if (w < 2 * r) r = w / 2;
+            if (h < 2 * r) r = h / 2;
+            c.moveTo(x + r, y);
+            c.arcTo(x + w, y, x + w, y + h, r);
+            c.arcTo(x + w, y + h, x, y + h, r);
+            c.arcTo(x, y + h, x, y, r);
+            c.arcTo(x, y, x + w, y, r);
+            c.closePath();
+          }
+        } catch {
+          c.rect(x, y, w, h);
         }
+      };
+
+      drawRoundRect(ctx, cardX, cardY, cardWidth, cardHeight, radius);
+      ctx.fill();
+
+      // Subtle White/Blue Border Outline
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+      ctx.lineWidth = 2;
+      drawRoundRect(ctx, cardX, cardY, cardWidth, cardHeight, radius);
+      ctx.stroke();
+
+      // Content Padding
+      const padX = 24;
+      const contentX = cardX + padX;
+
+      // Hash Token Signature for Anti-Fraud Verification
+      const currentGpsState = useAppStore.getState().gps;
+      const userObj = useAppStore.getState().currentUser;
+      const strForHash = `${userObj?.username || 'user'}_${exactTime}_${currentGpsState?.lat?.toFixed(5) || '0'}_${currentGpsState?.lng?.toFixed(5) || '0'}_KG20`;
+      let hashVal = 0;
+      for (let i = 0; i < strForHash.length; i++) {
+        hashVal = ((hashVal << 5) - hashVal) + strForHash.charCodeAt(i);
+        hashVal |= 0;
       }
-      context.fillText(line, x, currentY);
-    };
+      const securityHash = `KG#${Math.abs(hashVal).toString(36).toUpperCase().padStart(6, '0')}`;
+      
+      // Header Bar: Restaurant Brand & Official Seal Badge
+      const headerY = cardY + 36;
+      ctx.font = 'bold 22px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillStyle = '#93C5FD'; // Soft Blue
+      ctx.fillText("👑 KING'S GRILL  •  CHỨNG NHẬN CHẤM CÔNG", contentX, headerY);
 
-    wrapText(ctx, displayAddr, contentX, row2Y + 32, maxTextWidth, 26);
+      const currentType = chosenType || recommendation.recommendedType || 'Vào ca';
+      const isCheckInType = currentType === 'Vào ca';
+      const isValidGps = Boolean(currentGpsState?.isValid);
+      const badgeText = isCheckInType
+        ? (isValidGps ? '🟢 VÀO CA - HỢP LỆ' : '⚠️ VÀO CA - NGOÀI BÁN KÍNH')
+        : (isValidGps ? '🔴 RA CA - HỢP LỆ' : '⚠️ RA CA - NGOÀI BÁN KÍNH');
+      ctx.font = 'bold 20px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      const badgeWidth = ctx.measureText(badgeText).width + 24;
+      const badgeX = cardX + cardWidth - padX - badgeWidth;
+      
+      ctx.fillStyle = isCheckInType ? 'rgba(16, 185, 129, 0.25)' : 'rgba(244, 63, 94, 0.25)';
+      drawRoundRect(ctx, badgeX, headerY - 24, badgeWidth, 32, 10);
+      ctx.fill();
+      ctx.strokeStyle = isCheckInType ? '#10B981' : '#F43F5E';
+      ctx.lineWidth = 1.5;
+      drawRoundRect(ctx, badgeX, headerY - 24, badgeWidth, 32, 10);
+      ctx.stroke();
 
-    // Row 4: GPS Coordinates & Radius Check
-    const row4Y = cardY + cardHeight - 20;
-    ctx.font = 'bold 18px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = isValidGps ? '#34D399' : '#F87171';
-    const gpsLine = `🛰️ TỌA ĐỘ: ${currentGpsState.lat?.toFixed(6) || '---'}, ${currentGpsState.lng?.toFixed(6) || '---'}  •  ${currentGpsState.message || 'Bán kính ≤20m'}`;
-    ctx.fillText(gpsLine, contentX, row4Y);
+      ctx.fillStyle = isCheckInType ? '#34D399' : '#FB7185';
+      ctx.fillText(badgeText, badgeX + 12, headerY - 2);
+
+      // Divider Line
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(contentX, headerY + 14);
+      ctx.lineTo(cardX + cardWidth - padX, headerY + 14);
+      ctx.stroke();
+
+      // Row 1: Time & Security Signature
+      const row1Y = headerY + 46;
+      ctx.font = 'bold 25px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillStyle = '#FDE047'; // Vivid Gold
+      ctx.fillText('🕒 THỜI GIAN: ' + exactTime, contentX, row1Y);
+
+      ctx.font = 'bold 21px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillStyle = '#38BDF8'; // Sky Blue
+      ctx.fillText('🛡️ ' + securityHash + ' (Bảo mật KG-OS)', contentX + 440, row1Y);
+
+      // Row 2: Employee info
+      const row2Y = row1Y + 36;
+      ctx.font = 'bold 22px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillStyle = '#FFFFFF';
+      const roleTitle = userObj?.role === 'admin' ? 'Quản lý' : (userObj?.position || 'Nhân sự');
+      const personText = `👤 NHÂN SỰ: ${userObj?.fullname || 'Nhân sự'} (${userObj?.username || ''})  •  💼 ${roleTitle}`;
+      ctx.fillText(personText, contentX, row2Y);
+
+      // Row 3: Address (Word wrapped cleanly)
+      ctx.font = '500 19px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillStyle = '#CBD5E1'; // Slate 300
+      
+      const displayAddr = '📍 ĐỊA ĐIỂM: ' + addr;
+      const maxTextWidth = cardWidth - (padX * 2);
+      
+      const wrapText = (context: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number) => {
+        const words = text.split(' ');
+        let line = '';
+        let currentY = y;
+        
+        for (let n = 0; n < words.length; n++) {
+          const testLine = line + words[n] + ' ';
+          const metrics = context.measureText(testLine);
+          const testWidth = metrics.width;
+          if (testWidth > maxWidth && n > 0) {
+            context.fillText(line, x, currentY);
+            line = words[n] + ' ';
+            currentY += lineHeight;
+          } else {
+            line = testLine;
+          }
+        }
+        context.fillText(line, x, currentY);
+      };
+
+      wrapText(ctx, displayAddr, contentX, row2Y + 32, maxTextWidth, 26);
+
+      // Row 4: GPS Coordinates & Radius Check
+      const row4Y = cardY + cardHeight - 20;
+      ctx.font = 'bold 18px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillStyle = isValidGps ? '#34D399' : '#F87171';
+      const gpsLine = `🛰️ TỌA ĐỘ: ${currentGpsState?.lat?.toFixed(6) || '---'}, ${currentGpsState?.lng?.toFixed(6) || '---'}  •  ${currentGpsState?.message || 'Bán kính ≤20m'}`;
+      ctx.fillText(gpsLine, contentX, row4Y);
+    } catch (err) {
+      console.warn('Watermark rendering non-fatal error:', err);
+    }
     
     // Save image with high quality JPEG 0.88 (sharp & universally compatible)
-    let dataUrl = canvas.toDataURL('image/jpeg', 0.88);
-    
-    store.setCapturedImage(dataUrl);
-    store.setCapturedTime(exactTime);
+    try {
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+      store.setCapturedImage(dataUrl);
+      store.setCapturedTime(exactTime);
+    } catch (e) {
+      console.error('toDataURL fallback error:', e);
+      try {
+        const dataUrl = canvas.toDataURL('image/png');
+        store.setCapturedImage(dataUrl);
+        store.setCapturedTime(exactTime);
+      } catch {
+        store.setCapturedTime(exactTime);
+      }
+    }
   };
 
   const takePhoto = () => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !video.videoWidth || !video.videoHeight) {
-      if (fileInputRef.current) {
-        fileInputRef.current.click();
+    try {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      if (!video || !canvas || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !video.videoWidth || !video.videoHeight) {
+        if (fileInputRef.current) {
+          fileInputRef.current.click();
+          return;
+        }
+        setCameraErrorMessage('Camera chưa sẵn sàng. Vui lòng chờ một chút rồi thử lại.');
         return;
       }
-      setCameraErrorMessage('Camera chưa sẵn sàng. Vui lòng chờ một chút rồi thử lại.');
-      return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // Upgraded resolution for HD sharpness: 960x1280 (3:4 ratio)
+      const targetWidth = 960, targetHeight = 1280;
+      canvas.width = targetWidth; canvas.height = targetHeight;
+      const vw = video.videoWidth, vh = video.videoHeight;
+      const canvasRatio = targetWidth / targetHeight, videoRatio = vw / vh;
+      let sx: number, sy: number, sWidth: number, sHeight: number;
+
+      if (videoRatio > canvasRatio) { sHeight = vh; sWidth = vh * canvasRatio; sx = (vw - sWidth) / 2; sy = 0; }
+      else { sWidth = vw; sHeight = vw / canvasRatio; sx = 0; sy = (vh - sHeight) / 2; }
+
+      ctx.save(); ctx.translate(targetWidth, 0); ctx.scale(-1, 1);
+      ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
+      ctx.restore();
+
+      // Exact capture timestamp down to seconds
+      const now = new Date();
+      const d = String(now.getDate()).padStart(2, '0');
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const y = now.getFullYear();
+      const h = String(now.getHours()).padStart(2, '0');
+      const min = String(now.getMinutes()).padStart(2, '0');
+      const s = String(now.getSeconds()).padStart(2, '0');
+      const exactTime = `${d}/${m}/${y} ${h}:${min}:${s}`;
+      
+      const addr = useAppStore.getState().gps.address || useAppStore.getState().gps.status || 'Chưa rõ vị trí';
+      
+      drawWatermarkAndSave(canvas, ctx, exactTime, addr);
+    } catch (err: any) {
+      console.error('takePhoto error:', err);
+      if (fileInputRef.current) {
+        fileInputRef.current.click();
+      }
     }
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Upgraded resolution for HD sharpness: 960x1280 (3:4 ratio)
-    const targetWidth = 960, targetHeight = 1280;
-    canvas.width = targetWidth; canvas.height = targetHeight;
-    const vw = video.videoWidth, vh = video.videoHeight;
-    const canvasRatio = targetWidth / targetHeight, videoRatio = vw / vh;
-    let sx: number, sy: number, sWidth: number, sHeight: number;
-
-    if (videoRatio > canvasRatio) { sHeight = vh; sWidth = vh * canvasRatio; sx = (vw - sWidth) / 2; sy = 0; }
-    else { sWidth = vw; sHeight = vw / canvasRatio; sx = 0; sy = (vh - sHeight) / 2; }
-
-    ctx.save(); ctx.translate(targetWidth, 0); ctx.scale(-1, 1);
-    ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
-    ctx.restore();
-
-    // Exact capture timestamp down to seconds
-    const now = new Date();
-    const d = String(now.getDate()).padStart(2, '0');
-    const m = String(now.getMonth() + 1).padStart(2, '0');
-    const y = now.getFullYear();
-    const h = String(now.getHours()).padStart(2, '0');
-    const min = String(now.getMinutes()).padStart(2, '0');
-    const s = String(now.getSeconds()).padStart(2, '0');
-    const exactTime = `${d}/${m}/${y} ${h}:${min}:${s}`;
-    
-    const addr = useAppStore.getState().gps.address || useAppStore.getState().gps.status || 'Chưa rõ vị trí';
-    
-    drawWatermarkAndSave(canvas, ctx, exactTime, addr);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        
-        // Upgraded resolution for HD sharpness: 960x1280 (3:4 ratio)
-        const targetWidth = 960, targetHeight = 1280;
-        canvas.width = targetWidth; canvas.height = targetHeight;
-        const vw = img.width, vh = img.height;
-        const canvasRatio = targetWidth / targetHeight, imgRatio = vw / vh;
-        let sx: number, sy: number, sWidth: number, sHeight: number;
-        if (imgRatio > canvasRatio) { sHeight = vh; sWidth = vh * canvasRatio; sx = (vw - sWidth) / 2; sy = 0; }
-        else { sWidth = vw; sHeight = vw / canvasRatio; sx = 0; sy = (vh - sHeight) / 2; }
-        ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
-        
-        // Exact capture timestamp down to seconds
-        const now = new Date();
-        const d = String(now.getDate()).padStart(2, '0');
-        const m = String(now.getMonth() + 1).padStart(2, '0');
-        const y = now.getFullYear();
-        const h = String(now.getHours()).padStart(2, '0');
-        const min = String(now.getMinutes()).padStart(2, '0');
-        const s = String(now.getSeconds()).padStart(2, '0');
-        const exactTime = `${d}/${m}/${y} ${h}:${min}:${s}`;
-        
-        const addr = useAppStore.getState().gps.address || useAppStore.getState().gps.status || 'Chưa rõ vị trí';
-        
-        drawWatermarkAndSave(canvas, ctx, exactTime, addr);
+    try {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const img = new Image();
+          img.onload = () => {
+            try {
+              const canvas = canvasRef.current;
+              if (!canvas) return;
+              const ctx = canvas.getContext('2d');
+              if (!ctx) return;
+              
+              // Upgraded resolution for HD sharpness: 960x1280 (3:4 ratio)
+              const targetWidth = 960, targetHeight = 1280;
+              canvas.width = targetWidth; canvas.height = targetHeight;
+              const vw = img.width, vh = img.height;
+              const canvasRatio = targetWidth / targetHeight, imgRatio = vw / vh;
+              let sx: number, sy: number, sWidth: number, sHeight: number;
+              if (imgRatio > canvasRatio) { sHeight = vh; sWidth = vh * canvasRatio; sx = (vw - sWidth) / 2; sy = 0; }
+              else { sWidth = vw; sHeight = vw / canvasRatio; sx = 0; sy = (vh - sHeight) / 2; }
+              ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
+              
+              // Exact capture timestamp down to seconds
+              const now = new Date();
+              const d = String(now.getDate()).padStart(2, '0');
+              const m = String(now.getMonth() + 1).padStart(2, '0');
+              const y = now.getFullYear();
+              const h = String(now.getHours()).padStart(2, '0');
+              const min = String(now.getMinutes()).padStart(2, '0');
+              const s = String(now.getSeconds()).padStart(2, '0');
+              const exactTime = `${d}/${m}/${y} ${h}:${min}:${s}`;
+              
+              const addr = useAppStore.getState().gps.address || useAppStore.getState().gps.status || 'Chưa rõ vị trí';
+              
+              drawWatermarkAndSave(canvas, ctx, exactTime, addr);
+            } catch (err) {
+              console.error('img.onload error:', err);
+            }
+          };
+          img.src = event.target?.result as string;
+        } catch (err) {
+          console.error('reader.onload error:', err);
+        }
       };
-      img.src = event.target?.result as string;
-    };
-    reader.readAsDataURL(file);
-    e.target.value = '';
+      reader.readAsDataURL(file);
+      e.target.value = '';
+    } catch (err) {
+      console.error('handleFileUpload error:', err);
+    }
   };
 
   // Submit flow triggers
