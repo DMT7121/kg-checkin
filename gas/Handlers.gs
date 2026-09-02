@@ -88,7 +88,7 @@ function handleLogin(payload) {
     return jsonResponse(true, {
       username: 'ADMIN',
       fullname: 'SUPER ADMIN',
-      email: 'admin@kingsgrill.com',
+      email: 'dmt.7121@gmail.com',
       role: 'admin',
       position: 'Quản lý',
       employmentStatus: 'active',

@@ -760,9 +760,19 @@ export default function CheckIn() {
     store.setCapturedImage(null);
     store.setCapturedTime(null);
 
+    // Ensure reliable email delivery: resolve fallback to dmt.7121@gmail.com for admin / placeholder domains
+    const effectiveEmail = (currentUser.email && !currentUser.email.includes('@kingsgrill.com'))
+      ? currentUser.email
+      : (currentUser.username.toLowerCase() === 'admin' ? 'dmt.7121@gmail.com' : (currentUser.email || 'dmt.7121@gmail.com'));
+
     const payload = {
-      username: currentUser!.username, fullname: currentUser!.fullname,
-      email: currentUser!.email, type, lat: gps.lat, lng: gps.lng, image: payloadImage ? 'PENDING' : null,
+      username: currentUser.username,
+      fullname: currentUser.fullname,
+      email: effectiveEmail,
+      type,
+      lat: gps.lat,
+      lng: gps.lng,
+      image: payloadImage ? 'PENDING' : null,
       time: payloadTime,
       location: gps.address || gps.status,
       shift: shiftString,
@@ -791,16 +801,19 @@ export default function CheckIn() {
           }, res.data?.lateMins > 5 ? 6500 : 2000);
         }
 
-        // Background triggers
+        // Background email notification trigger with generous 60s timeout
         if (res.data) {
           callApi('SEND_EMAIL_NOTIFICATION', {
             ...payload,
+            email: effectiveEmail,
             imageUrl: res.data.imageUrl,
             distMeters: res.data.distMeters,
             isValid: res.data.isValid,
             viTri: res.data.viTri,
-            timeISO: res.data.timeISO
-          }, { background: true });
+            timeISO: res.data.timeISO || new Date().toISOString()
+          }, { background: true, timeoutMs: 60000, maxAttempts: 2 }).catch(err => {
+            console.warn('[CheckIn] Send email notification error:', err);
+          });
           
           if (payloadImage) {
             enqueueTask('UPLOAD_CHECKIN_IMAGE', {
