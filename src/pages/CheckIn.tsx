@@ -72,6 +72,11 @@ export default function CheckIn() {
 
   const [missedModalOpen, setMissedModalOpen] = useState(false);
 
+  // Submissibility flags
+  const canTakePhoto = Boolean(!capturedImage);
+  const canSendPunch = Boolean(capturedImage && gps.isValid);
+  const canSubmit = capturedImage ? canSendPunch : canTakePhoto;
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -508,6 +513,10 @@ export default function CheckIn() {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !video.videoWidth || !video.videoHeight) {
+      if (fileInputRef.current) {
+        fileInputRef.current.click();
+        return;
+      }
       setCameraErrorMessage('Camera chưa sẵn sàng. Vui lòng chờ một chút rồi thử lại.');
       return;
     }
@@ -927,8 +936,6 @@ export default function CheckIn() {
       setFeedbackSheetOpen(true);
     }
   };
-
-  const canSubmit = !!(capturedImage && gps.isValid && gps.lat !== null && gps.lng !== null);
 
   if (currentUser && !isWorkEligible(currentUser)) {
     return <EmploymentStatusNotice user={currentUser} actionLabel="chấm công tại nhà hàng" />;
