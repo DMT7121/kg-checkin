@@ -31,7 +31,10 @@ import {
   CheckCircle2,
   Info,
   Moon,
-  Send
+  Send,
+  ChevronRight,
+  HelpCircle,
+  Check
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import {
@@ -55,28 +58,22 @@ export default function CheckIn() {
   const missingAlerts = auditMissingCheckIns(store.logs, currentUser);
   const [selectedMissingAlert, setSelectedMissingAlert] = useState<MissingCheckInAlert | null>(null);
 
-  // Decision Modal State
+  // Post-capture confirmation modal & dynamic type selection state
   const [confirmCheckInModalOpen, setConfirmCheckInModalOpen] = useState(false);
   const [modalChosenType, setModalChosenType] = useState<'Vào ca' | 'Ra ca'>(recommendation.recommendedType);
-  const [acknowledgeMissingIn, setAcknowledgeMissingIn] = useState(false);
-
-  const [selectedType, setSelectedType] = useState<'Vào ca' | 'Ra ca'>(recommendation.recommendedType);
-  const [userHasManuallyToggled, setUserHasManuallyToggled] = useState(false);
+  const [hasAcknowledgedMissingIn, setHasAcknowledgedMissingIn] = useState(false);
   const [confirmInvertedTypeOpen, setConfirmInvertedTypeOpen] = useState(false);
   const [pendingTypeToSubmit, setPendingTypeToSubmit] = useState<'Vào ca' | 'Ra ca'>('Vào ca');
 
-  // Auto-sync with recommendation
+  // Auto-sync modal type with recommendation whenever recommendation changes (if modal is closed)
   useEffect(() => {
-    setModalChosenType(recommendation.recommendedType);
-    setSelectedType(recommendation.recommendedType);
-  }, [recommendation.recommendedType]);
+    if (!confirmCheckInModalOpen) {
+      setModalChosenType(recommendation.recommendedType);
+      setHasAcknowledgedMissingIn(false);
+    }
+  }, [recommendation.recommendedType, confirmCheckInModalOpen]);
 
   const [missedModalOpen, setMissedModalOpen] = useState(false);
-
-  // Submissibility flags
-  const canTakePhoto = Boolean(!capturedImage);
-  const canSendPunch = Boolean(capturedImage && gps.isValid);
-  const canSubmit = capturedImage ? canSendPunch : canTakePhoto;
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -349,283 +346,286 @@ export default function CheckIn() {
     }
   };
 
+  const cleanCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
   const drawWatermarkAndSave = (
     canvas: HTMLCanvasElement,
     ctx: CanvasRenderingContext2D,
     exactTime: string,
     addr: string,
-    chosenType?: 'Vào ca' | 'Ra ca'
+    typeToStamp: 'Vào ca' | 'Ra ca' = modalChosenType || recommendation.recommendedType
   ) => {
-    try {
-      const cardX = 24;
-      const cardHeight = 310;
-      const cardY = Math.max(0, canvas.height - cardHeight - 24);
-      const cardWidth = Math.max(100, canvas.width - (cardX * 2));
-      const radius = 24;
+    const cardX = 24;
+    const cardHeight = 310;
+    const cardY = canvas.height - cardHeight - 24;
+    const cardWidth = canvas.width - (cardX * 2);
+    const radius = 24;
 
-      // Reset shadow
-      ctx.shadowColor = 'transparent';
-      ctx.shadowBlur = 0;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 0;
+    // Reset shadow
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
 
-      // Draw Glassmorphic Card Background (Deep Slate/Navy with 94% opacity)
-      ctx.fillStyle = 'rgba(11, 20, 36, 0.94)';
-      
-      const drawRoundRect = (c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) => {
-        try {
-          c.beginPath();
-          if (typeof c.roundRect === 'function') {
-            c.roundRect(x, y, w, h, r);
-          } else {
-            if (w < 2 * r) r = w / 2;
-            if (h < 2 * r) r = h / 2;
-            c.moveTo(x + r, y);
-            c.arcTo(x + w, y, x + w, y + h, r);
-            c.arcTo(x + w, y + h, x, y + h, r);
-            c.arcTo(x, y + h, x, y, r);
-            c.arcTo(x, y, x + w, y, r);
-            c.closePath();
-          }
-        } catch {
-          c.rect(x, y, w, h);
-        }
-      };
-
-      drawRoundRect(ctx, cardX, cardY, cardWidth, cardHeight, radius);
-      ctx.fill();
-
-      // Subtle White/Blue Border Outline
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
-      ctx.lineWidth = 2;
-      drawRoundRect(ctx, cardX, cardY, cardWidth, cardHeight, radius);
-      ctx.stroke();
-
-      // Content Padding
-      const padX = 24;
-      const contentX = cardX + padX;
-
-      // Hash Token Signature for Anti-Fraud Verification
-      const currentGpsState = useAppStore.getState().gps;
-      const userObj = useAppStore.getState().currentUser;
-      const strForHash = `${userObj?.username || 'user'}_${exactTime}_${currentGpsState?.lat?.toFixed(5) || '0'}_${currentGpsState?.lng?.toFixed(5) || '0'}_KG20`;
-      let hashVal = 0;
-      for (let i = 0; i < strForHash.length; i++) {
-        hashVal = ((hashVal << 5) - hashVal) + strForHash.charCodeAt(i);
-        hashVal |= 0;
+    // Draw Glassmorphic Card Background (Deep Slate/Navy with 94% opacity)
+    ctx.fillStyle = 'rgba(11, 20, 36, 0.94)';
+    
+    const drawRoundRect = (c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) => {
+      if (typeof c.roundRect === 'function') {
+        c.roundRect(x, y, w, h, r);
+      } else {
+        if (w < 2 * r) r = w / 2;
+        if (h < 2 * r) r = h / 2;
+        c.beginPath();
+        c.moveTo(x + r, y);
+        c.arcTo(x + w, y, x + w, y + h, r);
+        c.arcTo(x + w, y + h, x, y + h, r);
+        c.arcTo(x, y + h, x, y, r);
+        c.arcTo(x, y, x + w, y, r);
+        c.closePath();
       }
-      const securityHash = `KG#${Math.abs(hashVal).toString(36).toUpperCase().padStart(6, '0')}`;
-      
-      // Header Bar: Restaurant Brand & Official Seal Badge
-      const headerY = cardY + 36;
-      ctx.font = 'bold 22px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      ctx.fillStyle = '#93C5FD'; // Soft Blue
-      ctx.fillText("👑 KING'S GRILL  •  CHỨNG NHẬN CHẤM CÔNG", contentX, headerY);
+    };
 
-      const currentType = chosenType || recommendation.recommendedType || 'Vào ca';
-      const isCheckInType = currentType === 'Vào ca';
-      const isValidGps = Boolean(currentGpsState?.isValid);
-      const badgeText = isCheckInType
-        ? (isValidGps ? '🟢 VÀO CA - HỢP LỆ' : '⚠️ VÀO CA - NGOÀI BÁN KÍNH')
-        : (isValidGps ? '🔴 RA CA - HỢP LỆ' : '⚠️ RA CA - NGOÀI BÁN KÍNH');
-      ctx.font = 'bold 20px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      const badgeWidth = ctx.measureText(badgeText).width + 24;
-      const badgeX = cardX + cardWidth - padX - badgeWidth;
-      
-      ctx.fillStyle = isCheckInType ? 'rgba(16, 185, 129, 0.25)' : 'rgba(244, 63, 94, 0.25)';
-      drawRoundRect(ctx, badgeX, headerY - 24, badgeWidth, 32, 10);
-      ctx.fill();
-      ctx.strokeStyle = isCheckInType ? '#10B981' : '#F43F5E';
-      ctx.lineWidth = 1.5;
-      drawRoundRect(ctx, badgeX, headerY - 24, badgeWidth, 32, 10);
-      ctx.stroke();
+    ctx.beginPath();
+    drawRoundRect(ctx, cardX, cardY, cardWidth, cardHeight, radius);
+    ctx.fill();
 
-      ctx.fillStyle = isCheckInType ? '#34D399' : '#FB7185';
-      ctx.fillText(badgeText, badgeX + 12, headerY - 2);
+    // Subtle White/Blue Border Outline
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    drawRoundRect(ctx, cardX, cardY, cardWidth, cardHeight, radius);
+    ctx.stroke();
 
-      // Divider Line
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(contentX, headerY + 14);
-      ctx.lineTo(cardX + cardWidth - padX, headerY + 14);
-      ctx.stroke();
+    // Content Padding
+    const padX = 24;
+    const contentX = cardX + padX;
 
-      // Row 1: Time & Security Signature
-      const row1Y = headerY + 46;
-      ctx.font = 'bold 25px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      ctx.fillStyle = '#FDE047'; // Vivid Gold
-      ctx.fillText('🕒 THỜI GIAN: ' + exactTime, contentX, row1Y);
-
-      ctx.font = 'bold 21px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      ctx.fillStyle = '#38BDF8'; // Sky Blue
-      ctx.fillText('🛡️ ' + securityHash + ' (Bảo mật KG-OS)', contentX + 440, row1Y);
-
-      // Row 2: Employee info
-      const row2Y = row1Y + 36;
-      ctx.font = 'bold 22px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      ctx.fillStyle = '#FFFFFF';
-      const roleTitle = userObj?.role === 'admin' ? 'Quản lý' : (userObj?.position || 'Nhân sự');
-      const personText = `👤 NHÂN SỰ: ${userObj?.fullname || 'Nhân sự'} (${userObj?.username || ''})  •  💼 ${roleTitle}`;
-      ctx.fillText(personText, contentX, row2Y);
-
-      // Row 3: Address (Word wrapped cleanly)
-      ctx.font = '500 19px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      ctx.fillStyle = '#CBD5E1'; // Slate 300
-      
-      const displayAddr = '📍 ĐỊA ĐIỂM: ' + addr;
-      const maxTextWidth = cardWidth - (padX * 2);
-      
-      const wrapText = (context: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number) => {
-        const words = text.split(' ');
-        let line = '';
-        let currentY = y;
-        
-        for (let n = 0; n < words.length; n++) {
-          const testLine = line + words[n] + ' ';
-          const metrics = context.measureText(testLine);
-          const testWidth = metrics.width;
-          if (testWidth > maxWidth && n > 0) {
-            context.fillText(line, x, currentY);
-            line = words[n] + ' ';
-            currentY += lineHeight;
-          } else {
-            line = testLine;
-          }
-        }
-        context.fillText(line, x, currentY);
-      };
-
-      wrapText(ctx, displayAddr, contentX, row2Y + 32, maxTextWidth, 26);
-
-      // Row 4: GPS Coordinates & Radius Check
-      const row4Y = cardY + cardHeight - 20;
-      ctx.font = 'bold 18px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      ctx.fillStyle = isValidGps ? '#34D399' : '#F87171';
-      const gpsLine = `🛰️ TỌA ĐỘ: ${currentGpsState?.lat?.toFixed(6) || '---'}, ${currentGpsState?.lng?.toFixed(6) || '---'}  •  ${currentGpsState?.message || 'Bán kính ≤20m'}`;
-      ctx.fillText(gpsLine, contentX, row4Y);
-    } catch (err) {
-      console.warn('Watermark rendering non-fatal error:', err);
+    // Hash Token Signature for Anti-Fraud Verification
+    const currentGpsState = useAppStore.getState().gps;
+    const userObj = useAppStore.getState().currentUser;
+    const strForHash = `${userObj?.username || 'user'}_${exactTime}_${currentGpsState.lat?.toFixed(5)}_${currentGpsState.lng?.toFixed(5)}_KG20`;
+    let hashVal = 0;
+    for (let i = 0; i < strForHash.length; i++) {
+      hashVal = ((hashVal << 5) - hashVal) + strForHash.charCodeAt(i);
+      hashVal |= 0;
     }
+    const securityHash = `KG#${Math.abs(hashVal).toString(36).toUpperCase().padStart(6, '0')}`;
+    
+    // Header Bar: Restaurant Brand & Official Seal Badge
+    const headerY = cardY + 36;
+    ctx.font = 'bold 22px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillStyle = '#93C5FD'; // Soft Blue
+    ctx.fillText("👑 KING'S GRILL  •  CHỨNG NHẬN CHẤM CÔNG", contentX, headerY);
+
+    const isCheckInType = typeToStamp === 'Vào ca';
+    const isValidGps = Boolean(currentGpsState.isValid);
+    const badgeText = isCheckInType
+      ? (isValidGps ? '🟢 VÀO CA - HỢP LỆ' : '⚠️ VÀO CA - NGOÀI BÁN KÍNH')
+      : (isValidGps ? '🔴 RA CA - HỢP LỆ' : '⚠️ RA CA - NGOÀI BÁN KÍNH');
+    ctx.font = 'bold 20px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    const badgeWidth = ctx.measureText(badgeText).width + 24;
+    const badgeX = cardX + cardWidth - padX - badgeWidth;
+    
+    ctx.fillStyle = isCheckInType ? 'rgba(16, 185, 129, 0.25)' : 'rgba(244, 63, 94, 0.25)';
+    drawRoundRect(ctx, badgeX, headerY - 24, badgeWidth, 32, 10);
+    ctx.fill();
+    ctx.strokeStyle = isCheckInType ? '#10B981' : '#F43F5E';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    drawRoundRect(ctx, badgeX, headerY - 24, badgeWidth, 32, 10);
+    ctx.stroke();
+
+    ctx.fillStyle = isCheckInType ? '#34D399' : '#FB7185';
+    ctx.fillText(badgeText, badgeX + 12, headerY - 2);
+
+    // Divider Line
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(contentX, headerY + 14);
+    ctx.lineTo(cardX + cardWidth - padX, headerY + 14);
+    ctx.stroke();
+
+    // Row 1: Time & Security Signature
+    const row1Y = headerY + 46;
+    ctx.font = 'bold 25px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillStyle = '#FDE047'; // Vivid Gold
+    ctx.fillText('🕒 THỜI GIAN: ' + exactTime, contentX, row1Y);
+
+    ctx.font = 'bold 21px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillStyle = '#38BDF8'; // Sky Blue
+    ctx.fillText('🛡️ ' + securityHash + ' (Bảo mật KG-OS)', contentX + 440, row1Y);
+
+    // Row 2: Employee info
+    const row2Y = row1Y + 36;
+    ctx.font = 'bold 22px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillStyle = '#FFFFFF';
+    const roleTitle = userObj?.role === 'admin' ? 'Quản lý' : (userObj?.position || 'Nhân sự');
+    const personText = `👤 NHÂN SỰ: ${userObj?.fullname || 'Nhân sự'} (${userObj?.username || ''})  •  💼 ${roleTitle}`;
+    ctx.fillText(personText, contentX, row2Y);
+
+    // Row 3: Address (Word wrapped cleanly)
+    ctx.font = '500 19px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillStyle = '#CBD5E1'; // Slate 300
+    
+    const displayAddr = '📍 ĐỊA ĐIỂM: ' + addr;
+    const maxTextWidth = cardWidth - (padX * 2);
+    
+    const wrapText = (context: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number) => {
+      const words = text.split(' ');
+      let line = '';
+      let currentY = y;
+      
+      for (let n = 0; n < words.length; n++) {
+        const testLine = line + words[n] + ' ';
+        const metrics = context.measureText(testLine);
+        const testWidth = metrics.width;
+        if (testWidth > maxWidth && n > 0) {
+          context.fillText(line, x, currentY);
+          line = words[n] + ' ';
+          currentY += lineHeight;
+        } else {
+          line = testLine;
+        }
+      }
+      context.fillText(line, x, currentY);
+    };
+
+    wrapText(ctx, displayAddr, contentX, row2Y + 32, maxTextWidth, 26);
+
+    // Row 4: GPS Coordinates & Radius Check
+    const row4Y = cardY + cardHeight - 20;
+    ctx.font = 'bold 18px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillStyle = isValidGps ? '#34D399' : '#F87171';
+    const gpsLine = `🛰️ TỌA ĐỘ: ${currentGpsState.lat?.toFixed(6) || '---'}, ${currentGpsState.lng?.toFixed(6) || '---'}  •  ${currentGpsState.message || 'Bán kính ≤20m'}`;
+    ctx.fillText(gpsLine, contentX, row4Y);
     
     // Save image with high quality JPEG 0.88 (sharp & universally compatible)
-    try {
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
-      store.setCapturedImage(dataUrl);
-      store.setCapturedTime(exactTime);
-    } catch (e) {
-      console.error('toDataURL fallback error:', e);
-      try {
-        const dataUrl = canvas.toDataURL('image/png');
-        store.setCapturedImage(dataUrl);
-        store.setCapturedTime(exactTime);
-      } catch {
-        store.setCapturedTime(exactTime);
-      }
-    }
+    let dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+    
+    store.setCapturedImage(dataUrl);
+    store.setCapturedTime(exactTime);
   };
 
   const takePhoto = () => {
-    try {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      if (!video || !canvas || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !video.videoWidth || !video.videoHeight) {
-        if (fileInputRef.current) {
-          fileInputRef.current.click();
-          return;
-        }
-        setCameraErrorMessage('Camera chưa sẵn sàng. Vui lòng chờ một chút rồi thử lại.');
-        return;
-      }
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      // Upgraded resolution for HD sharpness: 960x1280 (3:4 ratio)
-      const targetWidth = 960, targetHeight = 1280;
-      canvas.width = targetWidth; canvas.height = targetHeight;
-      const vw = video.videoWidth, vh = video.videoHeight;
-      const canvasRatio = targetWidth / targetHeight, videoRatio = vw / vh;
-      let sx: number, sy: number, sWidth: number, sHeight: number;
-
-      if (videoRatio > canvasRatio) { sHeight = vh; sWidth = vh * canvasRatio; sx = (vw - sWidth) / 2; sy = 0; }
-      else { sWidth = vw; sHeight = vw / canvasRatio; sx = 0; sy = (vh - sHeight) / 2; }
-
-      ctx.save(); ctx.translate(targetWidth, 0); ctx.scale(-1, 1);
-      ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
-      ctx.restore();
-
-      // Exact capture timestamp down to seconds
-      const now = new Date();
-      const d = String(now.getDate()).padStart(2, '0');
-      const m = String(now.getMonth() + 1).padStart(2, '0');
-      const y = now.getFullYear();
-      const h = String(now.getHours()).padStart(2, '0');
-      const min = String(now.getMinutes()).padStart(2, '0');
-      const s = String(now.getSeconds()).padStart(2, '0');
-      const exactTime = `${d}/${m}/${y} ${h}:${min}:${s}`;
-      
-      const addr = useAppStore.getState().gps.address || useAppStore.getState().gps.status || 'Chưa rõ vị trí';
-      
-      drawWatermarkAndSave(canvas, ctx, exactTime, addr);
-    } catch (err: any) {
-      console.error('takePhoto error:', err);
-      if (fileInputRef.current) {
-        fileInputRef.current.click();
-      }
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !video.videoWidth || !video.videoHeight) {
+      setCameraErrorMessage('Camera chưa sẵn sàng. Vui lòng chờ một chút rồi thử lại.');
+      return;
     }
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Upgraded resolution for HD sharpness: 960x1280 (3:4 ratio)
+    const targetWidth = 960, targetHeight = 1280;
+    canvas.width = targetWidth; canvas.height = targetHeight;
+    const vw = video.videoWidth, vh = video.videoHeight;
+    const canvasRatio = targetWidth / targetHeight, videoRatio = vw / vh;
+    let sx: number, sy: number, sWidth: number, sHeight: number;
+
+    if (videoRatio > canvasRatio) { sHeight = vh; sWidth = vh * canvasRatio; sx = (vw - sWidth) / 2; sy = 0; }
+    else { sWidth = vw; sHeight = vw / canvasRatio; sx = 0; sy = (vh - sHeight) / 2; }
+
+    ctx.save(); ctx.translate(targetWidth, 0); ctx.scale(-1, 1);
+    ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
+    ctx.restore();
+
+    // Preserve clean unwatermarked frame for real-time re-stamping in modal
+    if (!cleanCanvasRef.current) {
+      cleanCanvasRef.current = document.createElement('canvas');
+    }
+    cleanCanvasRef.current.width = targetWidth;
+    cleanCanvasRef.current.height = targetHeight;
+    const cleanCtx = cleanCanvasRef.current.getContext('2d');
+    if (cleanCtx) {
+      cleanCtx.drawImage(canvas, 0, 0);
+    }
+
+    // Exact capture timestamp down to seconds
+    const now = new Date();
+    const d = String(now.getDate()).padStart(2, '0');
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const y = now.getFullYear();
+    const h = String(now.getHours()).padStart(2, '0');
+    const min = String(now.getMinutes()).padStart(2, '0');
+    const s = String(now.getSeconds()).padStart(2, '0');
+    const exactTime = `${d}/${m}/${y} ${h}:${min}:${s}`;
+    
+    const addr = useAppStore.getState().gps.address || useAppStore.getState().gps.status || 'Chưa rõ vị trí';
+    
+    drawWatermarkAndSave(canvas, ctx, exactTime, addr, modalChosenType || recommendation.recommendedType);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    try {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        try {
-          const img = new Image();
-          img.onload = () => {
-            try {
-              const canvas = canvasRef.current;
-              if (!canvas) return;
-              const ctx = canvas.getContext('2d');
-              if (!ctx) return;
-              
-              // Upgraded resolution for HD sharpness: 960x1280 (3:4 ratio)
-              const targetWidth = 960, targetHeight = 1280;
-              canvas.width = targetWidth; canvas.height = targetHeight;
-              const vw = img.width, vh = img.height;
-              const canvasRatio = targetWidth / targetHeight, imgRatio = vw / vh;
-              let sx: number, sy: number, sWidth: number, sHeight: number;
-              if (imgRatio > canvasRatio) { sHeight = vh; sWidth = vh * canvasRatio; sx = (vw - sWidth) / 2; sy = 0; }
-              else { sWidth = vw; sHeight = vw / canvasRatio; sx = 0; sy = (vh - sHeight) / 2; }
-              ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
-              
-              // Exact capture timestamp down to seconds
-              const now = new Date();
-              const d = String(now.getDate()).padStart(2, '0');
-              const m = String(now.getMonth() + 1).padStart(2, '0');
-              const y = now.getFullYear();
-              const h = String(now.getHours()).padStart(2, '0');
-              const min = String(now.getMinutes()).padStart(2, '0');
-              const s = String(now.getSeconds()).padStart(2, '0');
-              const exactTime = `${d}/${m}/${y} ${h}:${min}:${s}`;
-              
-              const addr = useAppStore.getState().gps.address || useAppStore.getState().gps.status || 'Chưa rõ vị trí';
-              
-              drawWatermarkAndSave(canvas, ctx, exactTime, addr);
-            } catch (err) {
-              console.error('img.onload error:', err);
-            }
-          };
-          img.src = event.target?.result as string;
-        } catch (err) {
-          console.error('reader.onload error:', err);
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        
+        // Upgraded resolution for HD sharpness: 960x1280 (3:4 ratio)
+        const targetWidth = 960, targetHeight = 1280;
+        canvas.width = targetWidth; canvas.height = targetHeight;
+        const vw = img.width, vh = img.height;
+        const canvasRatio = targetWidth / targetHeight, imgRatio = vw / vh;
+        let sx: number, sy: number, sWidth: number, sHeight: number;
+        if (imgRatio > canvasRatio) { sHeight = vh; sWidth = vh * canvasRatio; sx = (vw - sWidth) / 2; sy = 0; }
+        else { sWidth = vw; sHeight = vw / canvasRatio; sx = 0; sy = (vh - sHeight) / 2; }
+        ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
+
+        // Preserve clean unwatermarked frame for real-time re-stamping in modal
+        if (!cleanCanvasRef.current) {
+          cleanCanvasRef.current = document.createElement('canvas');
         }
+        cleanCanvasRef.current.width = targetWidth;
+        cleanCanvasRef.current.height = targetHeight;
+        const cleanCtx = cleanCanvasRef.current.getContext('2d');
+        if (cleanCtx) {
+          cleanCtx.drawImage(canvas, 0, 0);
+        }
+        
+        // Exact capture timestamp down to seconds
+        const now = new Date();
+        const d = String(now.getDate()).padStart(2, '0');
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const y = now.getFullYear();
+        const h = String(now.getHours()).padStart(2, '0');
+        const min = String(now.getMinutes()).padStart(2, '0');
+        const s = String(now.getSeconds()).padStart(2, '0');
+        const exactTime = `${d}/${m}/${y} ${h}:${min}:${s}`;
+        
+        const addr = useAppStore.getState().gps.address || useAppStore.getState().gps.status || 'Chưa rõ vị trí';
+        
+        drawWatermarkAndSave(canvas, ctx, exactTime, addr, modalChosenType || recommendation.recommendedType);
       };
-      reader.readAsDataURL(file);
-      e.target.value = '';
-    } catch (err) {
-      console.error('handleFileUpload error:', err);
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleTypeChangeInModal = (newType: 'Vào ca' | 'Ra ca') => {
+    setModalChosenType(newType);
+    setHasAcknowledgedMissingIn(false);
+    
+    // Re-render watermark in real-time onto canvas
+    const canvas = canvasRef.current;
+    const cleanCanvas = cleanCanvasRef.current;
+    if (canvas && cleanCanvas) {
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(cleanCanvas, 0, 0);
+        const exactTime = store.capturedTime || `${String(new Date().getDate()).padStart(2, '0')}/${String(new Date().getMonth() + 1).padStart(2, '0')}/${new Date().getFullYear()} ${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}:${String(new Date().getSeconds()).padStart(2, '0')}`;
+        const addr = useAppStore.getState().gps.address || useAppStore.getState().gps.status || 'Chưa rõ vị trí';
+        drawWatermarkAndSave(canvas, ctx, exactTime, addr, newType);
+      }
     }
   };
 
@@ -972,6 +972,8 @@ export default function CheckIn() {
     }
   };
 
+  const canSubmit = !!(capturedImage && gps.isValid && gps.lat !== null && gps.lng !== null);
+
   if (currentUser && !isWorkEligible(currentUser)) {
     return <EmploymentStatusNotice user={currentUser} actionLabel="chấm công tại nhà hàng" />;
   }
@@ -1020,6 +1022,47 @@ export default function CheckIn() {
           </div>
         </div>
       )}
+
+      {/* Current Shift Status Card (Clean & Non-intrusive) */}
+      <div className="bg-[var(--kg-surface)] p-3 rounded-2xl border border-[var(--kg-border)] text-[var(--kg-text)] shadow-xs max-w-md mx-auto flex items-center justify-between gap-2.5">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0 font-bold">
+            <Clock size={18} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] font-black text-[var(--kg-text-muted)] uppercase tracking-wider">Hôm nay</p>
+            <h4 className="text-xs font-black text-[var(--kg-text)] truncate">
+              {currentUser?.fullname || 'Nhân viên'}
+            </h4>
+          </div>
+        </div>
+
+        <span className={`inline-flex items-center gap-1 text-[11px] font-black px-2.5 py-1 rounded-xl flex-shrink-0 border ${
+          recommendation.isOpenShift
+            ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/25'
+            : recommendation.isOvernightShift
+            ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/25'
+            : recommendation.hasInToday
+            ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/25'
+            : 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20'
+        }`}>
+          {recommendation.isOvernightShift ? (
+            <>
+              <Moon size={11} />
+              <span>Ca đêm</span>
+            </>
+          ) : recommendation.isOpenShift ? (
+            <>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Đang trong ca ({recommendation.openShiftTime})</span>
+            </>
+          ) : recommendation.hasInToday ? (
+            <span>✓ Đã vào ca</span>
+          ) : (
+            <span>Chưa vào ca</span>
+          )}
+        </span>
+      </div>
 
       {/* GPS Status Card */}
       <div className="bg-[var(--kg-surface)] p-3.5 sm:p-5 rounded-2xl md:rounded-3xl relative overflow-hidden border border-[var(--kg-border)] text-[var(--kg-text)] shadow-xs max-w-md mx-auto">
@@ -1074,6 +1117,26 @@ export default function CheckIn() {
               className="w-full sm:w-auto px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-xs font-black shadow-md transition active:scale-95 min-h-[44px] touch-manipulation whitespace-nowrap flex-shrink-0"
             >
               Đặt vị trí gốc (20m)
+            </button>
+          </div>
+        )}
+
+        {/* Quick GPS out-of-range helper banner for staff */}
+        {!gps.isValid && gps.lat !== null && (
+          <div className="mt-3 pt-2.5 border-t border-[var(--kg-border)] flex items-center justify-between gap-2.5 bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/25 animate-fade-in">
+            <div className="flex items-center gap-2 min-w-0">
+              <AlertTriangle size={16} className="text-amber-500 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs font-black text-[var(--kg-text)] leading-tight">Chưa vào bán kính 20m?</p>
+                <p className="text-[10px] text-[var(--kg-text-muted)] mt-0.5">Gửi giải trình bổ sung công cho quản lý duyệt</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setMissedModalOpen(true)}
+              className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-xl min-h-[40px] touch-manipulation flex-shrink-0 active:scale-95 transition shadow-xs whitespace-nowrap"
+            >
+              Báo công →
             </button>
           </div>
         )}
@@ -1197,40 +1260,8 @@ export default function CheckIn() {
         )}
       </div>
 
-      {/* Smart Recommendation Banner & Status */}
-      <div className="max-w-sm mx-auto bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-3 shadow-xs space-y-2">
-        <div className="flex items-center justify-between text-xs">
-          <span className="font-bold text-[var(--kg-text-muted)] flex items-center gap-1.5">
-            <Sparkles size={13} className="text-amber-500 animate-pulse" />
-            <span>Đề xuất ca:</span>
-          </span>
-          <span className={`inline-flex items-center gap-1 font-black px-2.5 py-1 rounded-xl text-xs ${
-            recommendation.recommendedType === 'Vào ca'
-              ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-              : 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20'
-          }`}>
-            {recommendation.recommendedType === 'Vào ca' ? <LogIn size={13} /> : <LogOut size={13} />}
-            {recommendation.recommendedType.toUpperCase()}
-          </span>
-        </div>
-
-        <div className="flex items-center justify-between text-xs pt-1.5 border-t border-[var(--kg-border)]">
-          <span className="text-[var(--kg-text-muted)] font-medium">Bán kính nhà hàng (≤20m):</span>
-          <span className={`font-black flex items-center gap-1 ${gps.isValid ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>
-            {gps.isValid ? '✓ Đủ điều kiện (≤20m)' : '✕ Chưa đạt bán kính 20m'}
-          </span>
-        </div>
-
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-[var(--kg-text-muted)] font-medium">Ảnh minh chứng:</span>
-          <span className={`font-black flex items-center gap-1 ${capturedImage ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-500'}`}>
-            {capturedImage ? '✓ Đã chụp ảnh' : 'Chưa chụp ảnh'}
-          </span>
-        </div>
-      </div>
-
-      {/* Primary Action Button: GỬI CHẤM CÔNG */}
-      <div className="max-w-sm mx-auto space-y-2">
+      {/* Primary Action Button: Triggers Smart Confirmation Modal */}
+      <div className="max-w-sm mx-auto space-y-2.5">
         <KgButton
           variant="primary"
           size="lg"
@@ -1238,164 +1269,157 @@ export default function CheckIn() {
           onClick={() => {
             if (!capturedImage) {
               takePhoto();
-            } else {
-              setModalChosenType(recommendation.recommendedType);
-              setAcknowledgeMissingIn(false);
-              setConfirmCheckInModalOpen(true);
+              return;
             }
+            if (!gps.isValid) {
+              speak('Bạn đang ở ngoài bán kính 20m nhà hàng.');
+              return;
+            }
+            // Prepare modal state
+            setModalChosenType(recommendation.recommendedType);
+            setHasAcknowledgedMissingIn(false);
+            setConfirmCheckInModalOpen(true);
           }}
-          className={`w-full h-14 min-h-[52px] shadow-lg rounded-2xl text-[15px] font-black tracking-wider border-none active:scale-[0.97] transition-all touch-manipulation flex items-center justify-center gap-2 ${
-            capturedImage
-              ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-700 text-white shadow-blue-600/30 ring-2 ring-blue-400/40'
-              : 'bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700 hover:from-emerald-700 hover:to-teal-700 text-white shadow-emerald-600/30'
+          className={`w-full h-14 min-h-[52px] shadow-lg rounded-2xl text-[15px] font-black tracking-wider border-none active:scale-[0.97] transition-all touch-manipulation flex items-center justify-center gap-2.5 ${
+            !canSubmit
+              ? 'opacity-60 cursor-not-allowed bg-slate-400 text-white'
+              : 'bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-blue-600/30 ring-2 ring-blue-400/30'
           }`}
-          icon={capturedImage ? Send : Camera}
+          icon={Send}
         >
-          {capturedImage ? 'GỬI CHẤM CÔNG' : 'CHỤP ẢNH CHẤM CÔNG'}
+          {capturedImage ? '🚀 GỬI CHẤM CÔNG' : '📸 CHỤP ẢNH ĐỂ CHẤM CÔNG'}
         </KgButton>
 
         {!canSubmit && (
           <p className="text-[11px] text-center text-[var(--kg-text-muted)] font-medium">
             {!capturedImage && !gps.isValid
-              ? '⚠️ Vui lòng đứng trong bán kính 20m và chụp ảnh để chấm công.'
+              ? '⚠️ Vui lòng đứng trong bán kính 20m và chụp ảnh để gửi chấm công.'
               : !gps.isValid
               ? '⚠️ Vị trí chưa hợp lệ (yêu cầu trong bán kính 20m nhà hàng).'
-              : '⚠️ Vui lòng nhấn nút chụp ảnh phía trên để hoàn tất.'}
+              : '⚠️ Vui lòng nhấn nút chụp ảnh phía trên để gửi chấm công.'}
           </p>
         )}
       </div>
 
-      {/* Emergency Assist Card for Missed Check-ins (Enhanced for iPhone) */}
-      <div className="max-w-sm mx-auto pt-1 pb-2">
+      {/* Missed Checkin Helper Card - iPhone Ergonomic & High Visibility */}
+      <div className="max-w-sm mx-auto pt-2 pb-8">
         <button
           type="button"
           onClick={() => setMissedModalOpen(true)}
-          className="w-full p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/5 hover:from-amber-500/15 hover:to-orange-500/15 border border-amber-500/30 text-[var(--kg-text)] shadow-xs transition active:scale-[0.98] touch-manipulation flex items-center justify-between text-left gap-3"
+          className="w-full p-3.5 min-h-[54px] rounded-2xl bg-gradient-to-r from-amber-500/10 via-[var(--kg-surface)] to-amber-500/5 hover:from-amber-500/15 hover:to-amber-500/10 text-[var(--kg-text)] border border-amber-500/30 text-left shadow-xs transition active:scale-98 touch-manipulation flex items-center justify-between gap-3 group"
         >
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center shadow-md flex-shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-500 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition">
               <Clock size={20} />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-black text-amber-700 dark:text-amber-400 flex items-center gap-1">
-                <span>🆘 Gặp sự cố không chấm được?</span>
+              <p className="text-xs font-black text-[var(--kg-text)] leading-tight flex items-center gap-1.5">
+                <span>Gặp sự cố không chấm được?</span>
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-600 dark:text-amber-400">Trợ giúp</span>
               </p>
-              <p className="text-[11px] text-[var(--kg-text-muted)] font-medium mt-0.5 truncate">
-                Gửi báo bổ sung công cho Quản lý duyệt
+              <p className="text-[11px] text-[var(--kg-text-muted)] mt-0.5 truncate font-medium">
+                Gửi giải trình bổ sung công cho quản lý duyệt →
               </p>
             </div>
           </div>
-          <div className="flex-shrink-0 px-2.5 py-1.5 rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-300 text-xs font-black">
-            Gửi đơn →
+          <div className="w-8 h-8 rounded-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex items-center justify-center flex-shrink-0 text-[var(--kg-text-muted)] group-hover:text-amber-500 group-hover:border-amber-500/30 transition">
+            <ChevronRight size={16} />
           </div>
         </button>
       </div>
 
-      {/* Smart Decision & Check-In Confirmation Modal */}
+      {/* Smart Check-In Type Confirmation Bottom Sheet */}
       <KgBottomSheet
         isOpen={confirmCheckInModalOpen}
         onClose={() => setConfirmCheckInModalOpen(false)}
-        title="👑 Xác Nhận Chấm Công"
+        title="Xác Nhận Loại Chấm Công"
       >
-        <div className="space-y-4 py-1 text-[var(--kg-text)]">
-          {/* Header Description */}
-          <p className="text-xs text-[var(--kg-text-muted)] font-medium -mt-2">
-            Vui lòng kiểm tra thông tin và chọn loại ca chấm công thực tế của bạn:
-          </p>
-
-          {/* Photo & Metadata Preview Row */}
-          {capturedImage && (
-            <div className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)]">
-              <div className="w-16 h-20 rounded-xl overflow-hidden bg-black flex-shrink-0 border border-white/20 shadow-xs">
+        <div className="space-y-4 py-1">
+          {/* Summary Proof Pill Card */}
+          <div className="p-3 bg-[var(--kg-surface-soft)] rounded-2xl border border-[var(--kg-border)] flex items-center gap-3">
+            {capturedImage && (
+              <div className="w-14 h-16 rounded-xl overflow-hidden bg-slate-900 border border-white/20 flex-shrink-0">
                 <img src={capturedImage} alt="Preview" className="w-full h-full object-cover" />
               </div>
-              <div className="min-w-0 flex-1 space-y-1 text-xs">
-                <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-black text-[11px]">
-                  <CheckCircle2 size={13} />
-                  <span>Ảnh đã đóng dấu bảo mật</span>
-                </div>
-                <p className="font-black text-sm truncate">
-                  {currentUser?.fullname || 'Nhân sự'}
-                </p>
-                <p className="text-[11px] text-[var(--kg-text-muted)] font-mono">
-                  🕒 {store.capturedTime || currentTime}
-                </p>
-                <p className="text-[10px] text-[var(--kg-text-muted)] truncate">
-                  📍 {gps.address || gps.status || 'Tại nhà hàng'}
-                </p>
+            )}
+            <div className="min-w-0 flex-1 space-y-0.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black text-blue-600 dark:text-blue-400">👑 KING'S GRILL</span>
+                <span className="text-[10px] font-mono font-bold text-[var(--kg-text-muted)]">
+                  {store.capturedTime || currentTime}
+                </span>
               </div>
+              <p className="text-xs font-black text-[var(--kg-text)] truncate">
+                {currentUser?.fullname} ({currentUser?.username})
+              </p>
+              <p className="text-[10px] text-[var(--kg-text-muted)] truncate flex items-center gap-1">
+                <MapPin size={11} className="text-emerald-500 flex-shrink-0" />
+                <span className="truncate">{gps.address || 'Đúng bán kính nhà hàng'}</span>
+              </p>
             </div>
-          )}
-
-          {/* System Recommendation Box */}
-          <div className="p-3.5 rounded-2xl bg-blue-500/10 dark:bg-blue-950/30 border border-blue-500/20 space-y-1 text-left">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-black text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
-                <Sparkles size={14} className="text-amber-500 animate-pulse" />
-                <span>Gợi ý hệ thống:</span>
-              </span>
-              <span className={`text-xs font-black px-2.5 py-0.5 rounded-full ${
-                recommendation.recommendedType === 'Vào ca'
-                  ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
-                  : 'bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30'
-              }`}>
-                {recommendation.recommendedType === 'Vào ca' ? '🟢 VÀO CA' : '🔴 RA CA'}
-              </span>
-            </div>
-            <p className="text-xs text-[var(--kg-text-muted)] font-medium leading-relaxed pt-0.5">
-              💡 {recommendation.reason}
-            </p>
           </div>
 
-          {/* Interactive Punch Type Chooser (User Decision) */}
-          <div className="space-y-2">
-            <label className="block text-xs font-black text-[var(--kg-text)] uppercase tracking-wider">
-              Chọn loại chấm công thực tế của bạn:
-            </label>
-            <div className="grid grid-cols-2 gap-2.5">
-              {/* Option Vào ca */}
+          {/* Smart Recommendation Banner */}
+          <div className="px-3 py-2 bg-blue-500/10 border border-blue-500/20 rounded-xl flex items-start gap-2">
+            <Sparkles size={15} className="text-blue-500 mt-0.5 flex-shrink-0" />
+            <div className="text-xs">
+              <p className="font-black text-blue-600 dark:text-blue-400">
+                Gợi ý: {recommendation.recommendedType.toUpperCase()}
+              </p>
+              <p className="text-[11px] text-[var(--kg-text-muted)] font-medium leading-tight mt-0.5">
+                {recommendation.reason}
+              </p>
+            </div>
+          </div>
+
+          {/* 2 Big Action Choices */}
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-wider text-[var(--kg-text-muted)] mb-2 px-1">
+              Chọn loại chấm công thực tế:
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {/* VÀO CA */}
               <button
                 type="button"
-                onClick={() => {
-                  setModalChosenType('Vào ca');
-                  setAcknowledgeMissingIn(false);
-                }}
-                className={`py-3 px-3 rounded-2xl font-black text-xs sm:text-sm flex flex-col items-center justify-center gap-1 transition-all duration-200 min-h-[54px] active:scale-95 touch-manipulation border ${
+                onClick={() => handleTypeChangeInModal('Vào ca')}
+                className={`relative p-3.5 rounded-2xl border-2 flex flex-col items-center justify-center min-h-[58px] touch-manipulation transition-all duration-200 active:scale-95 gap-1 ${
                   modalChosenType === 'Vào ca'
-                    ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-emerald-500 shadow-md shadow-emerald-600/30 ring-2 ring-emerald-400/50 scale-[1.02]'
+                    ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-emerald-400 shadow-md shadow-emerald-600/30 ring-2 ring-emerald-400/40'
                     : 'bg-[var(--kg-surface)] text-[var(--kg-text)] border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]'
                 }`}
               >
-                <div className="flex items-center gap-1.5">
-                  <LogIn size={16} className={modalChosenType === 'Vào ca' ? 'text-white' : 'text-emerald-500'} />
+                <div className="flex items-center gap-1.5 font-black text-sm">
+                  <LogIn size={18} className={modalChosenType === 'Vào ca' ? 'text-white' : 'text-emerald-500'} />
                   <span>VÀO CA</span>
+                  {modalChosenType === 'Vào ca' && <Check size={16} className="text-white" />}
                 </div>
                 {recommendation.recommendedType === 'Vào ca' && (
                   <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${
-                    modalChosenType === 'Vào ca' ? 'bg-white/25 text-white' : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                    modalChosenType === 'Vào ca' ? 'bg-white/20 text-white' : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
                   }`}>
                     ⭐ Đề xuất
                   </span>
                 )}
               </button>
 
-              {/* Option Ra ca */}
+              {/* RA CA */}
               <button
                 type="button"
-                onClick={() => setModalChosenType('Ra ca')}
-                className={`py-3 px-3 rounded-2xl font-black text-xs sm:text-sm flex flex-col items-center justify-center gap-1 transition-all duration-200 min-h-[54px] active:scale-95 touch-manipulation border ${
+                onClick={() => handleTypeChangeInModal('Ra ca')}
+                className={`relative p-3.5 rounded-2xl border-2 flex flex-col items-center justify-center min-h-[58px] touch-manipulation transition-all duration-200 active:scale-95 gap-1 ${
                   modalChosenType === 'Ra ca'
-                    ? 'bg-gradient-to-r from-rose-500 to-red-600 text-white border-rose-500 shadow-md shadow-rose-600/30 ring-2 ring-rose-400/50 scale-[1.02]'
+                    ? 'bg-gradient-to-r from-rose-500 to-red-600 text-white border-rose-400 shadow-md shadow-rose-600/30 ring-2 ring-rose-400/40'
                     : 'bg-[var(--kg-surface)] text-[var(--kg-text)] border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]'
                 }`}
               >
-                <div className="flex items-center gap-1.5">
-                  <LogOut size={16} className={modalChosenType === 'Ra ca' ? 'text-white' : 'text-rose-500'} />
+                <div className="flex items-center gap-1.5 font-black text-sm">
+                  <LogOut size={18} className={modalChosenType === 'Ra ca' ? 'text-white' : 'text-rose-500'} />
                   <span>RA CA</span>
+                  {modalChosenType === 'Ra ca' && <Check size={16} className="text-white" />}
                 </div>
                 {recommendation.recommendedType === 'Ra ca' && (
                   <span className={`text-[9px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 ${
-                    modalChosenType === 'Ra ca' ? 'bg-white/25 text-white' : 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
+                    modalChosenType === 'Ra ca' ? 'bg-white/20 text-white' : 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
                   }`}>
                     {recommendation.isOvernightShift ? <Moon size={10} /> : null}
                     <span>{recommendation.isOvernightShift ? '🌙 Ca đêm' : '⭐ Đề xuất'}</span>
@@ -1405,46 +1429,57 @@ export default function CheckIn() {
             </div>
           </div>
 
-          {/* Missing Vào Ca Warning */}
+          {/* Safety Warning if Ra ca without prior Vào ca */}
           {modalChosenType === 'Ra ca' && !recommendation.isOpenShift && !recommendation.hasInToday && (
-            <div className="p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/40 space-y-2 text-left animate-shake">
-              <div className="flex items-start gap-2 text-xs font-black text-amber-800 dark:text-amber-300">
-                <AlertTriangle size={17} className="text-amber-500 flex-shrink-0 mt-0.5" />
-                <p className="leading-snug">
-                  Hôm nay hệ thống chưa ghi nhận lượt <b>VÀO CA</b> của bạn. Bạn có chắc chắn muốn tiếp tục chấm <b>RA CA</b> không?
-                </p>
+            <div className="p-3.5 bg-amber-500/10 dark:bg-amber-950/30 border-2 border-amber-500/30 rounded-2xl space-y-2 animate-fade-in">
+              <div className="flex items-start gap-2 text-amber-600 dark:text-amber-400 font-bold text-xs">
+                <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" />
+                <span>Cảnh báo: Chưa có lượt Vào ca hôm nay!</span>
               </div>
-              <label className="flex items-center gap-2.5 text-xs font-bold text-[var(--kg-text)] cursor-pointer pt-1 select-none">
+              <p className="text-[11px] text-[var(--kg-text-muted)] leading-relaxed font-medium">
+                Hệ thống chưa tìm thấy dữ liệu Vào ca của bạn. Bạn vẫn có thể tiếp tục chấm Ra ca nhưng lượt chấm này có thể sẽ cần Quản lý duyệt bổ sung.
+              </p>
+              <label className="flex items-center gap-2.5 pt-1 cursor-pointer select-none">
                 <input
                   type="checkbox"
-                  checked={acknowledgeMissingIn}
-                  onChange={(e) => setAcknowledgeMissingIn(e.target.checked)}
-                  className="w-4 h-4 rounded text-amber-600 accent-amber-500 cursor-pointer flex-shrink-0"
+                  checked={hasAcknowledgedMissingIn}
+                  onChange={(e) => setHasAcknowledgedMissingIn(e.target.checked)}
+                  className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
                 />
-                <span>Tôi xác nhận vẫn muốn chấm RA CA (thiếu Vào ca)</span>
+                <span className="text-xs font-black text-amber-700 dark:text-amber-300">
+                  Tôi hiểu và xác nhận vẫn muốn chấm RA CA
+                </span>
               </label>
             </div>
           )}
 
-          {/* Confirm Button */}
-          <div className="pt-2">
+          {/* Final Confirmation Action Buttons */}
+          <div className="space-y-2 pt-2">
             <KgButton
               variant={modalChosenType === 'Vào ca' ? 'primary' : 'danger'}
               size="lg"
-              disabled={modalChosenType === 'Ra ca' && (!recommendation.isOpenShift && !recommendation.hasInToday) && !acknowledgeMissingIn}
+              disabled={modalChosenType === 'Ra ca' && !recommendation.isOpenShift && !recommendation.hasInToday && !hasAcknowledgedMissingIn}
               onClick={() => {
                 setConfirmCheckInModalOpen(false);
                 proceedSubmitCheck(modalChosenType);
               }}
-              className={`w-full h-14 min-h-[52px] shadow-lg rounded-2xl text-[15px] font-black tracking-wider border-none active:scale-[0.97] transition-all touch-manipulation flex items-center justify-center gap-2 ${
+              className={`w-full h-13 min-h-[52px] shadow-lg rounded-2xl text-[15px] font-black tracking-wider border-none active:scale-[0.97] transition-all touch-manipulation flex items-center justify-center gap-2 ${
                 modalChosenType === 'Vào ca'
                   ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700 hover:from-emerald-700 hover:to-teal-700 text-white shadow-emerald-600/30'
                   : 'bg-gradient-to-r from-rose-500 via-red-600 to-rose-700 hover:from-rose-600 hover:to-red-700 text-white shadow-rose-600/30'
               }`}
               icon={modalChosenType === 'Vào ca' ? LogIn : LogOut}
             >
-              {modalChosenType === 'Vào ca' ? 'XÁC NHẬN GỬI VÀO CA' : 'XÁC NHẬN GỬI RA CA'}
+              XÁC NHẬN CHẤM {modalChosenType.toUpperCase()}
             </KgButton>
+
+            <button
+              type="button"
+              onClick={() => setConfirmCheckInModalOpen(false)}
+              className="w-full py-2.5 text-center text-xs font-bold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition min-h-[44px] touch-manipulation"
+            >
+              Đóng / Xem lại ảnh
+            </button>
           </div>
         </div>
       </KgBottomSheet>

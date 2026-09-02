@@ -487,7 +487,7 @@ export default function MissedCheckInModal({
                         onChange={(e) => setClaimDate(e.target.value)}
                         placeholder="dd/MM/yyyy (ví dụ: 24/08/2026)"
                         required
-                        className="w-full px-3.5 py-3 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] text-base sm:text-sm font-bold text-[var(--kg-text)] focus:outline-none focus:border-amber-500 min-h-[46px] touch-manipulation"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] text-xs sm:text-sm font-bold text-[var(--kg-text)] focus:outline-none focus:border-amber-500"
                       />
                     </div>
                     <div>
@@ -500,7 +500,7 @@ export default function MissedCheckInModal({
                         onChange={(e) => setClaimTime(e.target.value)}
                         placeholder="HH:mm (ví dụ: 15:02)"
                         required
-                        className="w-full px-3.5 py-3 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] text-base sm:text-sm font-bold text-[var(--kg-text)] focus:outline-none focus:border-amber-500 font-mono min-h-[46px] touch-manipulation"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] text-xs sm:text-sm font-bold text-[var(--kg-text)] focus:outline-none focus:border-amber-500 font-mono"
                       />
                     </div>
                   </div>
@@ -515,24 +515,24 @@ export default function MissedCheckInModal({
                         <button
                           type="button"
                           onClick={() => setClaimType('Vào ca')}
-                          className={`py-3 px-3 rounded-xl text-xs sm:text-sm font-black transition-all border min-h-[46px] touch-manipulation active:scale-95 flex items-center justify-center gap-1.5 ${
+                          className={`py-2.5 px-3 rounded-xl text-xs font-black transition-all border ${
                             claimType === 'Vào ca'
                               ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                               : 'bg-[var(--kg-surface)] text-[var(--kg-text)] border-[var(--kg-border)]'
                           }`}
                         >
-                          <span>🟢 Vào Ca</span>
+                          🟢 Vào Ca
                         </button>
                         <button
                           type="button"
                           onClick={() => setClaimType('Ra ca')}
-                          className={`py-3 px-3 rounded-xl text-xs sm:text-sm font-black transition-all border min-h-[46px] touch-manipulation active:scale-95 flex items-center justify-center gap-1.5 ${
+                          className={`py-2.5 px-3 rounded-xl text-xs font-black transition-all border ${
                             claimType === 'Ra ca'
                               ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
                               : 'bg-[var(--kg-surface)] text-[var(--kg-text)] border-[var(--kg-border)]'
                           }`}
                         >
-                          <span>🔴 Ra Ca</span>
+                          🔴 Ra Ca
                         </button>
                       </div>
                     </div>
@@ -544,7 +544,7 @@ export default function MissedCheckInModal({
                       <select
                         value={claimShift}
                         onChange={(e) => setClaimShift(e.target.value)}
-                        className="w-full px-3.5 py-3 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] text-base sm:text-sm font-bold text-[var(--kg-text)] focus:outline-none focus:border-amber-500 min-h-[46px] touch-manipulation"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] text-xs sm:text-sm font-bold text-[var(--kg-text)] focus:outline-none focus:border-amber-500"
                       >
                         <option value="15:00">Ca 15:00</option>
                         <option value="17:00">Ca 17:00</option>
@@ -566,9 +566,9 @@ export default function MissedCheckInModal({
                           key={r}
                           type="button"
                           onClick={() => setClaimReasonPreset(r)}
-                          className={`py-2.5 px-2.5 rounded-xl text-xs font-bold text-left transition-all border leading-tight min-h-[44px] touch-manipulation active:scale-95 ${
+                          className={`py-2 px-2.5 rounded-xl text-[11px] font-bold text-left transition-all border leading-tight ${
                             claimReasonPreset === r
-                              ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/50 shadow-xs ring-1 ring-amber-500/40'
+                              ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/50 shadow-xs'
                               : 'bg-[var(--kg-surface)] text-[var(--kg-text-muted)] border-[var(--kg-border)] hover:text-[var(--kg-text)]'
                           }`}
                         >
@@ -588,7 +588,7 @@ export default function MissedCheckInModal({
                       value={claimReasonDetail}
                       onChange={(e) => setClaimReasonDetail(e.target.value)}
                       placeholder="Ví dụ: Đã đến quán lúc 14:58 nhưng điện thoại bị sập nguồn..."
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] text-base sm:text-sm text-[var(--kg-text)] focus:outline-none focus:border-amber-500 resize-none min-h-[54px] touch-manipulation"
+                      className="w-full px-3.5 py-2 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] text-xs sm:text-sm text-[var(--kg-text)] focus:outline-none focus:border-amber-500 resize-none"
                     />
                   </div>
 
@@ -600,7 +600,7 @@ export default function MissedCheckInModal({
                         <button
                           type="button"
                           onClick={() => setProofImage(null)}
-                          className="text-xs text-rose-500 hover:underline font-bold"
+                          className="text-[11px] text-rose-500 hover:underline"
                         >
                           Xóa ảnh
                         </button>
@@ -623,7 +623,7 @@ export default function MissedCheckInModal({
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className="w-full py-3.5 px-4 rounded-xl border border-dashed border-[var(--kg-border)] hover:border-amber-500 text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] flex items-center justify-center gap-2 text-xs font-bold transition bg-[var(--kg-surface-soft)] min-h-[46px] touch-manipulation active:scale-95"
+                        className="w-full py-3 px-4 rounded-xl border border-dashed border-[var(--kg-border)] hover:border-amber-500 text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] flex items-center justify-center gap-2 text-xs font-bold transition bg-[var(--kg-surface-soft)]"
                       >
                         <Camera size={16} className="text-amber-500" />
                         <span>Chụp / Đính kèm ảnh minh chứng tại quán</span>
@@ -636,7 +636,7 @@ export default function MissedCheckInModal({
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="w-full py-4 px-4 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-white rounded-2xl font-black text-sm shadow-md transition active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2 min-h-[52px] touch-manipulation"
+                      className="w-full py-3.5 px-4 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-white rounded-2xl font-black text-sm shadow-md transition active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
                     >
                       {isSubmitting ? (
                         <>
