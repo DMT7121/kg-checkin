@@ -753,89 +753,120 @@ function sendReportEmail(ss) {
       : '<div style="background:#f1f5f9;border-radius:12px;padding:30px;text-align:center;color:#64748b;font-size:14px;">Preview khong kha dung - vui long mo link ben duoi</div>';
 
     var body = ''
-      + '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;600;700;800&display=swap" rel="stylesheet"></head>'
-      + '<body style="margin:0;padding:0;background:#f0f4f8;font-family:Libre Franklin,Segoe UI,Arial,sans-serif;">'
-      + '<div style="max-width:720px;margin:20px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.08);">'
-
-      // Header gradient - NO EMOJI
-      + '<div style="background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 50%,#7c3aed 100%);padding:40px 32px;text-align:center;">'
-      + '<div style="width:64px;height:64px;background:rgba(255,255,255,0.2);border-radius:16px;margin:0 auto 16px;line-height:64px;font-size:28px;font-weight:900;color:#fbbf24;">KG</div>'
-      + '<h1 style="color:#ffffff;font-size:24px;font-weight:700;margin:0 0 8px;">KING\'s GRILL HR</h1>'
-      + '<p style="color:rgba(255,255,255,0.8);font-size:14px;margin:0;">Bao Cao Tong Hop Cham Cong Tu Dong</p>'
-      + '</div>'
-
-      // Status badge - text only
-      + '<div style="padding:0 32px;">'
-      + '<div style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:14px 24px;border-radius:12px;margin-top:-20px;text-align:center;font-weight:700;font-size:15px;box-shadow:0 4px 12px rgba(16,185,129,0.3);">'
-      + '&#10004; Tong hop hoan tat thanh cong'
-      + '</div>'
-      + '</div>'
-
-      // Stats cards - CSS icons only
-      + '<div style="padding:24px 32px 0;">'
-      + '<table cellpadding="0" cellspacing="0" border="0" width="100%"><tr>'
-
-      // Card 1: Thoi gian
-      + '<td width="33%" style="padding:0 6px 0 0;">'
-      + '<div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:12px;padding:16px;text-align:center;">'
-      + iconBadge('T', '#0ea5e9')
-      + '<div style="color:#0369a1;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-top:6px;">THOI GIAN</div>'
-      + '<div style="color:#1e3a5f;font-size:12px;font-weight:700;margin-top:4px;">' + formattedTime + '</div>'
-      + '</div></td>'
-
-      // Card 2: Luot cham
-      + '<td width="33%" style="padding:0 3px;">'
-      + '<div style="background:#fdf4ff;border:1px solid #e9d5ff;border-radius:12px;padding:16px;text-align:center;">'
-      + iconBadge('L', '#a855f7')
-      + '<div style="color:#7e22ce;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-top:6px;">LUOT CHAM</div>'
-      + '<div style="color:#4a1d96;font-size:22px;font-weight:700;margin-top:4px;">' + totalCheckins + '</div>'
-      + '</div></td>'
-
-      // Card 3: Dong tong hop
-      + '<td width="33%" style="padding:0 0 0 6px;">'
-      + '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:16px;text-align:center;">'
-      + iconBadge('D', '#22c55e')
-      + '<div style="color:#15803d;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-top:6px;">DONG TONG HOP</div>'
-      + '<div style="color:#14532d;font-size:22px;font-weight:700;margin-top:4px;">' + totalRows + '</div>'
-      + '</div></td>'
-
-      + '</tr></table></div>'
-
-      // Preview section
-      + '<div style="padding:24px 32px;">'
-      + '<div style="font-size:14px;font-weight:700;color:#1e293b;margin-bottom:12px;">'
-      + iconBadge('P', '#6366f1') + ' <span style="vertical-align:middle;margin-left:8px;">Preview Bang Tong Hop</span>'
-      + '</div>'
-      + '<div style="background:#f8fafc;border-radius:16px;padding:16px;border:1px solid #e2e8f0;">'
-      + previewImgTag
-      + '</div></div>'
-
-      // Action button
-      + '<div style="padding:0 32px 32px;text-align:center;">'
-      + '<a href="' + sheetUrl + '" style="display:inline-block;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#ffffff;padding:14px 40px;border-radius:12px;text-decoration:none;font-weight:700;font-size:15px;box-shadow:0 4px 16px rgba(37,99,235,0.3);">'
-      + '&#9654; XEM CHI TIET BANG TONG HOP'
+      + '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">'
+      + '<html xmlns="http://www.w3.org/1999/xhtml" lang="vi">'
+      + '<head>'
+      + '<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />'
+      + '<meta name="viewport" content="width=device-width, initial-scale=1.0" />'
+      + '<title>Báo Cáo Tổng Hợp Chấm Công - King\'s Grill</title>'
+      + '<style type="text/css">'
+      + 'body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }'
+      + 'table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }'
+      + 'img { -ms-interpolation-mode: bicubic; border: 0; outline: none; text-decoration: none; }'
+      + 'body { margin: 0; padding: 0; width: 100% !important; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }'
+      + '@media only screen and (max-width: 600px) {'
+      + '  .container-table { width: 100% !important; max-width: 100% !important; }'
+      + '  .content-padding { padding: 16px !important; }'
+      + '  .header-padding { padding: 24px 16px !important; }'
+      + '  .stat-card-td { display: block !important; width: 100% !important; padding: 4px 0 !important; }'
+      + '}'
+      + '</style>'
+      + '</head>'
+      + '<body style="margin:0;padding:0;background-color:#f1f5f9;color:#0f172a;">'
+      + '<table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#f1f5f9;table-layout:fixed;">'
+      + '<tr><td align="center" style="padding:24px 12px;">'
+      + '<table border="0" cellpadding="0" cellspacing="0" width="100%" class="container-table" style="max-width:620px;background-color:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 10px 25px -5px rgba(15,23,42,0.08);border:1px solid #e2e8f0;">'
+      
+      // Header
+      + '<tr><td style="background-color:#0b1329;padding:28px 24px 24px;text-align:center;" class="header-padding">'
+      + '<table border="0" cellpadding="0" cellspacing="0" width="100%"><tr><td align="center">'
+      + '<table border="0" cellpadding="0" cellspacing="0"><tr>'
+      + '<td align="center" style="width:52px;height:52px;background-color:#1e293b;border:2px solid rgba(251,191,36,0.4);border-radius:14px;color:#fbbf24;font-size:22px;font-weight:900;line-height:52px;text-align:center;">KG</td>'
+      + '</tr></table>'
+      + '<h1 style="margin:12px 0 2px;color:#ffffff;font-size:20px;font-weight:900;letter-spacing:0.5px;text-transform:uppercase;">KING&#39;S GRILL</h1>'
+      + '<p style="margin:0;color:#94a3b8;font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;">BÁO CÁO TỔNG HỢP CHẤM CÔNG HỆ THỐNG</p>'
+      + '</td></tr></table>'
+      + '</td></tr>'
+      
+      // Status Badge
+      + '<tr><td style="padding:20px 24px 12px;" class="content-padding">'
+      + '<table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#ecfdf5;border:1.5px solid #10b981;border-radius:14px;">'
+      + '<tr><td style="padding:14px 16px;">'
+      + '<table border="0" cellpadding="0" cellspacing="0" width="100%"><tr>'
+      + '<td width="30" valign="middle" style="font-size:20px;line-height:1;">✅</td>'
+      + '<td valign="middle" style="padding-left:8px;">'
+      + '<div style="font-size:14px;font-weight:900;color:#065f46;letter-spacing:0.3px;text-transform:uppercase;line-height:1.3;">TỔNG HỢP HOÀN TẤT THÀNH CÔNG</div>'
+      + '<div style="font-size:11px;font-weight:700;color:#047857;opacity:0.85;margin-top:2px;">Dữ liệu đã được xử lý và đồng bộ vào bảng tính quản trị</div>'
+      + '</td></tr></table>'
+      + '</td></tr></table>'
+      + '</td></tr>'
+      
+      // KPI Stat Cards
+      + '<tr><td style="padding:6px 24px 16px;" class="content-padding">'
+      + '<table border="0" cellpadding="0" cellspacing="0" width="100%"><tr>'
+      + '<td width="33%" class="stat-card-td" style="padding:0 6px 0 0;" valign="top">'
+      + '<table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#f0f9ff;border:1px solid #bae6fd;border-radius:14px;">'
+      + '<tr><td style="padding:16px 12px;text-align:center;">'
+      + '<div style="font-size:11px;font-weight:800;color:#0284c7;text-transform:uppercase;letter-spacing:0.5px;">THỜI GIAN</div>'
+      + '<div style="font-size:12px;font-weight:800;color:#0c4a6e;margin-top:6px;line-height:1.3;">' + formattedTime + '</div>'
+      + '</td></tr></table>'
+      + '</td>'
+      + '<td width="33%" class="stat-card-td" style="padding:0 3px;" valign="top">'
+      + '<table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#fdf4ff;border:1px solid #e9d5ff;border-radius:14px;">'
+      + '<tr><td style="padding:16px 12px;text-align:center;">'
+      + '<div style="font-size:11px;font-weight:800;color:#7e22ce;text-transform:uppercase;letter-spacing:0.5px;">LƯỢT CHẤM</div>'
+      + '<div style="font-size:24px;font-weight:900;color:#581c87;margin-top:4px;">' + totalCheckins + '</div>'
+      + '</td></tr></table>'
+      + '</td>'
+      + '<td width="33%" class="stat-card-td" style="padding:0 0 0 6px;" valign="top">'
+      + '<table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#f0fdf4;border:1px solid #bbf7d0;border-radius:14px;">'
+      + '<tr><td style="padding:16px 12px;text-align:center;">'
+      + '<div style="font-size:11px;font-weight:800;color:#15803d;text-transform:uppercase;letter-spacing:0.5px;">DÒNG TỔNG HỢP</div>'
+      + '<div style="font-size:24px;font-weight:900;color:#14532d;margin-top:4px;">' + totalRows + '</div>'
+      + '</td></tr></table>'
+      + '</td>'
+      + '</tr></table>'
+      + '</td></tr>'
+      
+      // Preview Section
+      + '<tr><td style="padding:4px 24px 16px;" class="content-padding">'
+      + '<table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;">'
+      + '<tr><td style="padding:14px 16px;border-bottom:1px solid #edf2f7;"><span style="font-size:12px;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:0.5px;">📸 Bản Xem Trước Bảng Tổng Hợp</span></td></tr>'
+      + '<tr><td style="padding:16px;text-align:center;">' + previewImgTag + '</td></tr>'
+      + '</table>'
+      + '</td></tr>'
+      
+      // Metadata Details Table
+      + '<tr><td style="padding:0 24px 20px;" class="content-padding">'
+      + '<table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;">'
+      + '<tr><td style="padding:10px 16px;border-bottom:1px solid #edf2f7;" width="35%"><span style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;">Nguồn dữ liệu:</span></td><td style="padding:10px 16px;border-bottom:1px solid #edf2f7;" width="65%" align="right"><span style="font-size:12px;font-weight:800;color:#0f172a;">' + AUTO_PROCESS_SHEET + '</span></td></tr>'
+      + '<tr><td style="padding:10px 16px;border-bottom:1px solid #edf2f7;"><span style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;">Sheet kết quả:</span></td><td style="padding:10px 16px;border-bottom:1px solid #edf2f7;" align="right"><span style="font-size:12px;font-weight:800;color:#0284c7;">' + summarySheetName + '</span></td></tr>'
+      + '<tr><td style="padding:10px 16px;"><span style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;">Lịch trình tự động:</span></td><td style="padding:10px 16px;" align="right"><span style="font-size:12px;font-weight:800;color:#16a34a;">01:00 hàng ngày (Cron)</span></td></tr>'
+      + '</table>'
+      + '</td></tr>'
+      
+      // CTA Action Button
+      + '<tr><td style="padding:4px 24px 24px;text-align:center;" class="content-padding">'
+      + '<table border="0" cellpadding="0" cellspacing="0" width="100%"><tr><td align="center">'
+      + '<a href="' + sheetUrl + '" target="_blank" style="display:block;width:100%;max-width:360px;background-color:#2563eb;color:#ffffff;text-decoration:none;font-size:14px;font-weight:800;letter-spacing:0.3px;padding:14px 24px;border-radius:12px;text-align:center;box-shadow:0 4px 14px rgba(37,99,235,0.35);">'
+      + '📊 XEM CHI TIẾT BẢNG TỔNG HỢP &rarr;'
       + '</a>'
-      + '<p style="margin-top:12px;font-size:12px;color:#94a3b8;">Hoac mo file PDF dinh kem ben duoi</p>'
-      + '</div>'
-
+      + '<p style="margin:10px 0 0;font-size:11px;color:#64748b;">(Bạn cũng có thể xem trực tiếp tệp PDF đính kèm bên dưới email)</p>'
+      + '</td></tr></table>'
+      + '</td></tr>'
+      
       // Divider
-      + '<div style="border-top:1px solid #f1f5f9;margin:0 32px;"></div>'
-
-      // Source info
-      + '<div style="padding:20px 32px;">'
-      + '<table cellpadding="0" cellspacing="0" border="0" width="100%">'
-      + '<tr><td width="120" style="color:#64748b;font-size:12px;padding:4px 0;">' + iconBadge('N', '#6366f1') + ' <strong>Nguon:</strong></td><td style="color:#334155;font-size:12px;padding:4px 0;">' + AUTO_PROCESS_SHEET + '</td></tr>'
-      + '<tr><td style="color:#64748b;font-size:12px;padding:4px 0;">' + iconBadge('S', '#ec4899') + ' <strong>Sheet:</strong></td><td style="color:#334155;font-size:12px;padding:4px 0;">' + summarySheetName + '</td></tr>'
-      + '<tr><td style="color:#64748b;font-size:12px;padding:4px 0;">' + iconBadge('A', '#f59e0b') + ' <strong>Trigger:</strong></td><td style="color:#334155;font-size:12px;padding:4px 0;">Tu dong 01:00 hang ngay</td></tr>'
-      + '</table></div>'
-
+      + '<tr><td style="padding:0 24px;"><div style="height:1px;background-color:#e2e8f0;"></div></td></tr>'
+      
       // Footer
-      + '<div style="background:#f8fafc;padding:24px 32px;text-align:center;border-top:1px solid #e2e8f0;">'
-      + '<p style="margin:0 0 8px;font-size:11px;color:#94a3b8;">He thong cham cong tu dong</p>'
-      + '<p style="margin:0;font-size:14px;font-weight:800;color:#1e293b;letter-spacing:1px;">KING\'s GRILL &#169; ' + new Date().getFullYear() + '</p>'
-      + '</div>'
-
-      + '</div></body></html>';
+      + '<tr><td style="padding:20px 24px;background-color:#f8fafc;text-align:center;" class="content-padding">'
+      + '<p style="margin:0 0 6px;font-size:11px;color:#64748b;line-height:1.4;">Email này được gửi tự động từ máy chủ <strong>King&#39;s Grill HR</strong>.<br />Vui lòng không trả lời trực tiếp email này.</p>'
+      + '<p style="margin:0;font-size:12px;font-weight:800;color:#0f172a;letter-spacing:0.5px;">KING&#39;S GRILL RESTAURANT &copy; ' + new Date().getFullYear() + '</p>'
+      + '</td></tr>'
+      
+      + '</table>'
+      + '</td></tr></table>'
+      + '</body></html>';
 
     // Gui email
     var emailOptions = { htmlBody: body };

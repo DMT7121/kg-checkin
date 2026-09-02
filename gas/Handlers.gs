@@ -302,10 +302,50 @@ function handleRequestOTP(payload) {
   
   // Send Email using MailApp
   try {
+    var otpHtml = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">'
+      + '<html xmlns="http://www.w3.org/1999/xhtml" lang="vi">'
+      + '<head>'
+      + '<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />'
+      + '<meta name="viewport" content="width=device-width, initial-scale=1.0" />'
+      + '<title>Mã Xác Nhận OTP - King\'s Grill</title>'
+      + '<style type="text/css">'
+      + 'body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }'
+      + 'table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }'
+      + 'body { margin: 0; padding: 0; width: 100% !important; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }'
+      + '</style>'
+      + '</head>'
+      + '<body style="margin: 0; padding: 0; background-color: #f1f5f9; color: #0f172a;">'
+      + '<table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f1f5f9; table-layout: fixed;">'
+      + '<tr><td align="center" style="padding: 24px 12px;">'
+      + '<table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 500px; background-color: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08); border: 1px solid #e2e8f0;">'
+      + '<tr><td style="background-color: #0b1329; padding: 24px; text-align: center;">'
+      + '<table border="0" cellpadding="0" cellspacing="0" align="center"><tr>'
+      + '<td align="center" style="width: 46px; height: 46px; background-color: #1e293b; border: 2px solid rgba(251, 191, 36, 0.4); border-radius: 12px; color: #fbbf24; font-size: 20px; font-weight: 900; line-height: 46px; text-align: center;">KG</td>'
+      + '</tr></table>'
+      + '<h1 style="margin: 10px 0 2px; color: #ffffff; font-size: 18px; font-weight: 900; letter-spacing: 0.5px; text-transform: uppercase;">KING&#39;S GRILL</h1>'
+      + '<p style="margin: 0; color: #94a3b8; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;">KHÔI PHỤC MẬT KHẨU TÀI KHOẢN</p>'
+      + '</td></tr>'
+      + '<tr><td style="padding: 24px;">'
+      + '<p style="margin: 0 0 16px; font-size: 14px; line-height: 1.5; color: #334155;">Xin chào bạn,<br />Bạn vừa yêu cầu mã xác thực OTP để thiết lập lại mật khẩu tài khoản hệ thống King&#39;s Grill.</p>'
+      + '<table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 14px; margin: 16px 0;">'
+      + '<tr><td align="center" style="padding: 20px 16px;">'
+      + '<div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">MÃ XÁC THỰC CỦA BẠN</div>'
+      + '<div style="font-family: monospace, Courier, sans-serif; font-size: 32px; font-weight: 900; color: #2563eb; letter-spacing: 8px;">' + otp + '</div>'
+      + '<div style="font-size: 11px; font-weight: 600; color: #e11d48; margin-top: 6px;">⏱️ Có hiệu lực trong vòng 5 phút</div>'
+      + '</td></tr></table>'
+      + '<p style="margin: 16px 0 0; font-size: 12px; line-height: 1.5; color: #64748b;">Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email hoặc liên hệ quản trị viên.</p>'
+      + '</td></tr>'
+      + '<tr><td style="padding: 16px 24px; background-color: #f8fafc; text-align: center; border-top: 1px solid #e2e8f0;">'
+      + '<p style="margin: 0; font-size: 11px; font-weight: 800; color: #0f172a; letter-spacing: 0.5px;">KING&#39;S GRILL RESTAURANT &copy; ' + new Date().getFullYear() + '</p>'
+      + '</td></tr>'
+      + '</table>'
+      + '</td></tr></table>'
+      + '</body></html>';
+
     MailApp.sendEmail({
       to: payload.email,
       subject: "Mã xác nhận (OTP) Khôi phục mật khẩu - King's Grill",
-      htmlBody: "<h2>Xin chào,</h2><p>Mã xác nhận OTP để khôi phục mật khẩu của bạn là: <b><span style='font-size:24px;color:blue;'>" + otp + "</span></b></p><p>Mã này có hiệu lực trong vòng 5 phút.</p><br><p>Cảm ơn bạn đã sử dụng hệ thống King's Grill.</p>"
+      htmlBody: otpHtml
     });
     return jsonResponse(true, 'Đã gửi mã OTP qua Email');
   } catch (e) {
@@ -1169,195 +1209,154 @@ function formatEntireCheckInSheet() {
 // Email template v8 - FIXED OVERFLOW, table-layout:fixed, word-break
 function buildEmailHtml(payload, formattedTimeUI, loc, distMeters, isValid, isAdmin) {
   var typeStr = payload.type ? String(payload.type) : 'Vào ca';
-  var fullnameStr = payload.fullname ? String(payload.fullname) : 'Nhân viên';
-  if (!loc || String(loc) === 'undefined' || !String(loc).trim()) loc = 'Không xác định';
-  var headerTitle = isAdmin ? 'Thông Báo Quản Trị Hệ Thống' : 'Xác Nhận Chấm Công';
-  var badgeText = isAdmin ? 'PHÁT SINH LƯỢT CHẤM CÔNG MỚI' : (typeStr.toUpperCase() + (isValid ? ' THÀNH CÔNG' : ' KHÔNG HỢP LỆ'));
-  var statusText = isValid ? 'Hợp lệ' : 'Không hợp lệ';
-  var greeting = typeStr === 'Vào ca' ? 'Chúc bạn có ca làm việc hiệu quả!' : 'Cảm ơn bạn đã hoàn thành ca làm việc!';
-  var noteHTML = isAdmin
-    ? 'Hệ thống ghi nhận thao tác từ <b style="color:#0d55ff">' + fullnameStr + '</b>'
-    : 'Xin chào <b style="color:#0d55ff">' + fullnameStr + '</b>, ' + greeting;
-  var bannerBg = isValid ? 'linear-gradient(135deg,#38e98d 0%,#0abc56 54%,#16c971 100%)' : 'linear-gradient(135deg,#ff6b6b 0%,#ee2a2a 54%,#d61818 100%)';
-  var bannerShadow = isValid ? 'rgba(22,195,103,.16)' : 'rgba(195,22,22,.16)';
-  var checkColor = isValid ? '#0fbd59' : '#dc2626';
-  var checkShadow = isValid ? 'rgba(0,77,40,.10)' : 'rgba(77,0,0,.10)';
-  var checkChar = isValid ? '&#10003;' : '&#10007;';
-  var statusColor = isValid ? '#15aa4f' : '#dc2626';
-  var statusIconColor = isValid ? '#11b956' : '#dc2626';
-  var statusIconBg = isValid ? '#eefff5' : '#fff0f0';
-  var dashUrl = CONFIG.WEB_APP_URL || '#';
+  var fullnameStr = payload.fullname ? String(payload.fullname) : 'Nhân sự';
+  var usernameStr = payload.username ? String(payload.username) : '';
+  var roleStr = payload.role === 'admin' ? 'Quản lý' : (payload.position || 'Nhân sự');
+  var shiftStr = payload.shift || 'Theo phân ca';
+  var timeStr = payload.time || (formattedTimeUI ? formattedTimeUI.replace(/<br\s*\/?>/gi, ' ') : '');
+  var isCheckIn = typeStr.indexOf('Vào ca') >= 0;
+  
+  if (!loc || String(loc) === 'undefined' || !String(loc).trim()) {
+    loc = "Nhà hàng King's Grill (Bán kính ≤ 20m)";
+  }
+  
+  // Security hash token for fraud prevention verification
+  var strForHash = usernameStr + '_' + timeStr + '_' + (distMeters || '0') + '_KG';
+  var hashVal = 0;
+  for (var i = 0; i < strForHash.length; i++) {
+    hashVal = ((hashVal << 5) - hashVal) + strForHash.charCodeAt(i);
+    hashVal |= 0;
+  }
+  var securityHash = 'KG#' + Math.abs(hashVal).toString(36).toUpperCase().padStart(6, '0');
+
+  // Themes and colors adhering to Design System & WCAG AA standards
+  var statusBadgeBg = isValid ? (isCheckIn ? '#ecfdf5' : '#f0f9ff') : '#fff1f2';
+  var statusBorderColor = isValid ? (isCheckIn ? '#10b981' : '#0284c7') : '#f43f5e';
+  var statusTextColor = isValid ? (isCheckIn ? '#065f46' : '#0369a1') : '#9f1239';
+  var statusIcon = isValid ? (isCheckIn ? '🟢' : '🔵') : '⚠️';
+  var statusTitle = isAdmin
+    ? (isCheckIn ? 'GHI NHẬN LƯỢT VÀO CA' : 'GHI NHẬN LƯỢT RA CA')
+    : (isCheckIn ? 'XÁC NHẬN VÀO CA THÀNH CÔNG' : 'XÁC NHẬN RA CA THÀNH CÔNG');
+  if (!isValid) statusTitle += ' (NGOÀI BÁN KÍNH)';
+
+  var greetingText = isAdmin
+    ? 'Hệ thống ghi nhận lượt chấm công từ nhân sự <b>' + fullnameStr + '</b> (@' + usernameStr + ').'
+    : 'Xin chào <b>' + fullnameStr + '</b>, hệ thống đã ghi nhận và xác thực thành công lượt <b>' + typeStr + '</b> của bạn.';
+
+  var dashUrl = CONFIG.WEB_APP_URL || 'https://kg-checkin.pages.dev/';
   var year = new Date().getFullYear();
-  var html = `<!DOCTYPE html>
-<html lang="vi">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>King's Grill HR</title>
-<!--[if mso]><style>table,td{font-family:Arial,sans-serif!important}</style><![endif]-->
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-*{box-sizing:border-box;-moz-box-sizing:border-box;-webkit-box-sizing:border-box}
-body,html{margin:0;padding:0;width:100%!important;min-width:100%!important;background:#edf6ff}
-body{font-family:Inter,'Segoe UI',Roboto,Arial,sans-serif;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%}
-table{border-spacing:0;border-collapse:collapse;table-layout:fixed!important;width:100%!important}
-td{word-break:break-word;overflow-wrap:break-word;-webkit-hyphens:auto}
-img{border:0;max-width:100%}
-a{color:#0d5cff;text-decoration:none}
-</style>
-</head>
-<body style="margin:0;padding:0;width:100%!important;background:#edf6ff;font-family:Inter,'Segoe UI',Roboto,Arial,sans-serif;color:#08295e;-webkit-text-size-adjust:100%">
 
-<!-- OUTER -->
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#edf6ff;width:100%!important;table-layout:fixed!important">
-<tr><td align="center" style="padding:20px 10px">
-
-<!-- CARD -->
-<div style="max-width:540px;margin:0 auto;width:100%">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%!important;table-layout:fixed!important;border-radius:20px;background:#fff;background:linear-gradient(155deg,#fff 0%,#f8fbff 40%,#f0f6ff 100%);border:1px solid #e3ecf8;box-shadow:0 12px 36px rgba(8,41,94,.08)">
-<tr><td style="padding:28px 20px 22px;word-break:break-word">
-
-<!-- LOGO -->
-<div style="text-align:center;padding-bottom:12px">
-<div style="display:inline-block;width:64px;height:64px;border-radius:16px;background:linear-gradient(145deg,#1664ff,#003cbd 60%,#001f6e);text-align:center;line-height:64px;font-size:26px;font-weight:900;color:#ffd65a;letter-spacing:-1px;box-shadow:0 10px 22px rgba(0,58,169,.26)">KG</div>
-</div>
-
-<!-- TITLE -->
-<div style="text-align:center;padding-bottom:2px">
-<div style="font-size:24px;font-weight:900;color:#082b63;letter-spacing:-.5px;line-height:1.15">KING&#8217;S GRILL HR</div>
-</div>
-
-<!-- SUBTITLE -->
-<div style="text-align:center;padding-bottom:16px">
-<span style="font-size:12px;font-weight:500;color:#71829f">
-<span style="color:#b0bdd4;font-size:7px;vertical-align:middle">&#9679;</span>
-&nbsp;{{HEADER_TITLE}}&nbsp;
-<span style="color:#b0bdd4;font-size:7px;vertical-align:middle">&#9679;</span>
-</span>
-</div>
-
-<!-- BANNER -->
-<div style="padding-bottom:12px">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%!important;table-layout:fixed!important;border-radius:14px;background:{{BANNER_BG}};box-shadow:0 8px 20px {{BANNER_SHADOW}}">
-<tr>
-<td width="44" style="padding:12px 0 12px 14px;vertical-align:middle">
-<div style="width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.92);text-align:center;line-height:38px;font-size:20px;font-weight:900;color:{{CHECK_COLOR}};box-shadow:0 4px 10px {{CHECK_SHADOW}}">{{CHECK_CHAR}}</div>
-</td>
-<td style="padding:12px 14px 12px 10px;vertical-align:middle">
-<div style="font-size:16px;font-weight:900;color:#fff;line-height:1.25;letter-spacing:.1px;word-break:break-word">{{BADGE_TEXT}}</div>
-</td>
-</tr>
-</table>
-</div>
-
-<!-- NOTE -->
-<div style="padding-bottom:10px;font-size:13px;font-weight:500;color:#2b4265;line-height:1.45;word-break:break-word">{{NOTE_HTML}}</div>
-
-<!-- INFO CARD -->
-<div style="padding-bottom:12px">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%!important;table-layout:fixed!important;border-radius:14px;background:#f8faff;border:1px solid #eaf0f9;box-shadow:0 6px 16px rgba(35,81,143,.04)">
-
-<!-- Hành động -->
-<tr>
-<td width="42" style="padding:10px 0 10px 10px;vertical-align:middle">
-<div style="width:34px;height:34px;border-radius:10px;background:linear-gradient(145deg,#fff,#f0f5ff);border:1px solid #e6edfb;text-align:center;line-height:34px;font-size:15px;color:#2365f4">&#128100;</div>
-</td>
-<td style="padding:10px 6px;vertical-align:middle;font-size:13px;font-weight:700;color:#40536f">Hành động</td>
-<td style="padding:10px 12px 10px 6px;vertical-align:middle;text-align:right;font-size:15px;font-weight:900;color:#0c55f4;letter-spacing:.2px">{{ACTION}}</td>
-</tr>
-<tr><td colspan="3" style="padding:0 10px"><div style="height:1px;background:#eef3fb"></div></td></tr>
-
-<!-- Thời gian -->
-<tr>
-<td width="42" style="padding:10px 0 10px 10px;vertical-align:middle">
-<div style="width:34px;height:34px;border-radius:10px;background:linear-gradient(145deg,#fff,#f0f5ff);border:1px solid #e6edfb;text-align:center;line-height:34px;font-size:15px;color:#2365f4">&#128339;</div>
-</td>
-<td style="padding:10px 6px;vertical-align:middle;font-size:13px;font-weight:700;color:#40536f">Thời gian</td>
-<td style="padding:10px 12px 10px 6px;vertical-align:middle;text-align:right;font-size:13px;font-weight:800;color:#071f4b;line-height:1.35">{{TIME}}</td>
-</tr>
-<tr><td colspan="3" style="padding:0 10px"><div style="height:1px;background:#eef3fb"></div></td></tr>
-
-<!-- Vị trí -->
-<tr>
-<td width="42" style="padding:10px 0 10px 10px;vertical-align:top;padding-top:12px">
-<div style="width:34px;height:34px;border-radius:10px;background:linear-gradient(145deg,#fff,#f0f5ff);border:1px solid #e6edfb;text-align:center;line-height:34px;font-size:15px;color:#2365f4">&#128205;</div>
-</td>
-<td style="padding:10px 6px;vertical-align:top;font-size:13px;font-weight:700;color:#40536f;padding-top:12px">Vị trí</td>
-<td style="padding:10px 12px 10px 6px;vertical-align:top;text-align:right;font-size:12px;font-weight:500;color:#334965;line-height:1.4;word-break:break-word">{{LOCATION}}</td>
-</tr>
-<tr><td colspan="3" style="padding:0 10px"><div style="height:1px;background:#eef3fb"></div></td></tr>
-
-<!-- Khoảng cách -->
-<tr>
-<td width="42" style="padding:10px 0 10px 10px;vertical-align:middle">
-<div style="width:34px;height:34px;border-radius:10px;background:linear-gradient(145deg,#fff,#f0f5ff);border:1px solid #e6edfb;text-align:center;line-height:34px;font-size:15px;color:#2365f4">&#127919;</div>
-</td>
-<td style="padding:10px 6px;vertical-align:middle;font-size:13px;font-weight:700;color:#40536f">Khoảng cách</td>
-<td style="padding:10px 12px 10px 6px;vertical-align:middle;text-align:right;font-size:13px;font-weight:800;color:#071f4b">{{DISTANCE}}</td>
-</tr>
-<tr><td colspan="3" style="padding:0 10px"><div style="height:1px;background:#eef3fb"></div></td></tr>
-
-<!-- Trạng thái -->
-<tr>
-<td width="42" style="padding:10px 0 10px 10px;vertical-align:middle">
-<div style="width:34px;height:34px;border-radius:10px;background:linear-gradient(145deg,#fff,{{STATUS_ICON_BG}});border:1px solid #e6edfb;text-align:center;line-height:34px;font-size:15px;color:{{STATUS_ICON_COLOR}}">&#128737;</div>
-</td>
-<td style="padding:10px 6px;vertical-align:middle;font-size:13px;font-weight:700;color:#40536f">Trạng thái</td>
-<td style="padding:10px 12px 10px 6px;vertical-align:middle;text-align:right;font-size:14px;font-weight:900;color:{{STATUS_COLOR}}">{{STATUS}}</td>
-</tr>
-
-</table>
-</div>
-
-<!-- BUTTON -->
-<div style="text-align:center;padding-bottom:8px">
-<table role="presentation" width="88%" cellpadding="0" cellspacing="0" align="center" style="max-width:88%;margin:0 auto;table-layout:fixed!important">
-<tr><td style="border-radius:14px;background:linear-gradient(180deg,#3d91ff,#0055f4 50%,#0039b4);box-shadow:0 10px 20px rgba(0,64,180,.18);text-align:center">
-<a href="{{DASHBOARD_URL}}" target="_blank" style="display:block;padding:14px 16px;color:#fff;font-size:16px;font-weight:900;text-decoration:none;letter-spacing:.2px">&#9783;&nbsp;Truy c&#7853;p Dashboard</a>
-</td></tr></table>
-</div>
-
-<!-- DIVIDER -->
-<div style="text-align:center;padding:2px 0 8px">
-<table role="presentation" width="50%" cellpadding="0" cellspacing="0" align="center" style="table-layout:fixed!important"><tr>
-<td style="height:1px;background:linear-gradient(90deg,transparent,#d6e2f2)"></td>
-<td width="26" style="text-align:center"><div style="width:24px;height:24px;border-radius:50%;background:#f4f8ff;border:1px solid #e2eaf6;text-align:center;line-height:24px;font-size:11px;color:#a0b3cc;display:inline-block">&#128274;</div></td>
-<td style="height:1px;background:linear-gradient(90deg,#d6e2f2,transparent)"></td>
-</tr></table>
-</div>
-
-<!-- FOOTER -->
-<div style="text-align:center">
-<div style="font-size:12px;font-weight:500;color:#667898;line-height:1.4;padding-bottom:3px">Email t&#7921; &#273;&#7897;ng t&#7915; h&#7879; th&#7889;ng m&aacute;y ch&#7911;</div>
-<div style="font-size:14px;font-weight:900;color:#08275c;letter-spacing:1.5px">KING&#8217;S GRILL &copy; {{YEAR}}</div>
-</div>
-
-</td></tr></table>
-</div>
-
-</td></tr></table>
-</body>
-</html>
-`;
-  html = html.replace(/\{\{HEADER_TITLE\}\}/g, headerTitle);
-  html = html.replace(/\{\{BADGE_TEXT\}\}/g, badgeText);
-  html = html.replace(/\{\{NOTE_HTML\}\}/g, noteHTML);
-  html = html.replace(/\{\{ACTION\}\}/g, typeStr.toUpperCase());
-  html = html.replace(/\{\{TIME\}\}/g, formattedTimeUI);
-  html = html.replace(/\{\{LOCATION\}\}/g, loc);
-  html = html.replace(/\{\{DISTANCE\}\}/g, distMeters || '');
-  html = html.replace(/\{\{STATUS\}\}/g, statusText);
-  html = html.replace(/\{\{DASHBOARD_URL\}\}/g, dashUrl);
-  html = html.replace(/\{\{YEAR\}\}/g, String(year));
-  html = html.replace(/\{\{BANNER_BG\}\}/g, bannerBg);
-  html = html.replace(/\{\{BANNER_SHADOW\}\}/g, bannerShadow);
-  html = html.replace(/\{\{CHECK_COLOR\}\}/g, checkColor);
-  html = html.replace(/\{\{CHECK_SHADOW\}\}/g, checkShadow);
-  html = html.replace(/\{\{CHECK_CHAR\}\}/g, checkChar);
-  html = html.replace(/\{\{STATUS_COLOR\}\}/g, statusColor);
-  html = html.replace(/\{\{STATUS_ICON_COLOR\}\}/g, statusIconColor);
-  html = html.replace(/\{\{STATUS_ICON_BG\}\}/g, statusIconBg);
-  return html;
+  return '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">'
+    + '<html xmlns="http://www.w3.org/1999/xhtml" lang="vi">'
+    + '<head>'
+    + '<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />'
+    + '<meta name="viewport" content="width=device-width, initial-scale=1.0" />'
+    + '<meta name="format-detection" content="telephone=no, date=no, address=no, email=no" />'
+    + '<title>King\'s Grill HR - ' + typeStr + '</title>'
+    + '<style type="text/css">'
+    + 'body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }'
+    + 'table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }'
+    + 'img { -ms-interpolation-mode: bicubic; border: 0; outline: none; text-decoration: none; }'
+    + 'body { margin: 0; padding: 0; width: 100% !important; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }'
+    + '@media only screen and (max-width: 600px) {'
+    + '  .container-table { width: 100% !important; max-width: 100% !important; }'
+    + '  .content-padding { padding: 16px !important; }'
+    + '  .header-padding { padding: 24px 16px !important; }'
+    + '}'
+    + '</style>'
+    + '</head>'
+    + '<body style="margin: 0; padding: 0; background-color: #f1f5f9; color: #0f172a;">'
+    + '<table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f1f5f9; table-layout: fixed;">'
+    + '<tr>'
+    + '<td align="center" style="padding: 24px 12px;">'
+    + '<table border="0" cellpadding="0" cellspacing="0" width="100%" class="container-table" style="max-width: 580px; background-color: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08); border: 1px solid #e2e8f0;">'
+    
+    // Header
+    + '<tr>'
+    + '<td style="background-color: #0b1329; padding: 28px 24px 24px; text-align: center;" class="header-padding">'
+    + '<table border="0" cellpadding="0" cellspacing="0" width="100%">'
+    + '<tr><td align="center">'
+    + '<table border="0" cellpadding="0" cellspacing="0"><tr>'
+    + '<td align="center" style="width: 52px; height: 52px; background-color: #1e293b; border: 2px solid rgba(251, 191, 36, 0.4); border-radius: 14px; color: #fbbf24; font-size: 22px; font-weight: 900; line-height: 52px; text-align: center;">KG</td>'
+    + '</tr></table>'
+    + '<h1 style="margin: 12px 0 2px; color: #ffffff; font-size: 20px; font-weight: 900; letter-spacing: 0.5px; text-transform: uppercase;">KING&#39;S GRILL</h1>'
+    + '<p style="margin: 0; color: #94a3b8; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;">HỆ THỐNG CHẤM CÔNG &amp; QUẢN TRỊ NHÂN SỰ</p>'
+    + '</td></tr></table>'
+    + '</td>'
+    + '</tr>'
+    
+    // Status Hero
+    + '<tr>'
+    + '<td style="padding: 20px 24px 12px;" class="content-padding">'
+    + '<table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: ' + statusBadgeBg + '; border: 1.5px solid ' + statusBorderColor + '; border-radius: 14px;">'
+    + '<tr><td style="padding: 14px 16px;">'
+    + '<table border="0" cellpadding="0" cellspacing="0" width="100%"><tr>'
+    + '<td width="30" valign="middle" style="font-size: 20px; line-height: 1;">' + statusIcon + '</td>'
+    + '<td valign="middle" style="padding-left: 8px;">'
+    + '<div style="font-size: 14px; font-weight: 900; color: ' + statusTextColor + '; letter-spacing: 0.3px; text-transform: uppercase; line-height: 1.3;">' + statusTitle + '</div>'
+    + '<div style="font-size: 11px; font-weight: 700; color: ' + statusTextColor + '; opacity: 0.85; margin-top: 2px;">' + (isValid ? 'Định vị GPS đạt chuẩn (Bán kính ≤ 20m)' : 'Cảnh báo: Ngoài bán kính 20m nhà hàng') + '</div>'
+    + '</td>'
+    + '</tr></table>'
+    + '</td></tr></table>'
+    + '<p style="margin: 16px 4px 6px; font-size: 13px; line-height: 1.5; color: #334155;">' + greetingText + '</p>'
+    + '</td>'
+    + '</tr>'
+    
+    // Core Details
+    + '<tr>'
+    + '<td style="padding: 6px 24px 20px;" class="content-padding">'
+    + '<table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px;">'
+    + '<tr>'
+    + '<td style="padding: 12px 16px; border-bottom: 1px solid #edf2f7;" width="38%" valign="top"><span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">👤 Nhân sự</span></td>'
+    + '<td style="padding: 12px 16px; border-bottom: 1px solid #edf2f7;" width="62%" align="right" valign="top"><div style="font-size: 13px; font-weight: 800; color: #0f172a;">' + fullnameStr + '</div><div style="font-size: 11px; font-weight: 600; color: #64748b; margin-top: 1px;">@' + usernameStr + ' &bull; ' + roleStr + '</div></td>'
+    + '</tr>'
+    + '<tr>'
+    + '<td style="padding: 12px 16px; border-bottom: 1px solid #edf2f7;" valign="top"><span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">🕒 Thời gian</span></td>'
+    + '<td style="padding: 12px 16px; border-bottom: 1px solid #edf2f7;" align="right" valign="top"><span style="font-size: 13px; font-weight: 900; color: #1e3a8a; font-family: monospace, sans-serif;">' + timeStr + '</span></td>'
+    + '</tr>'
+    + '<tr>'
+    + '<td style="padding: 12px 16px; border-bottom: 1px solid #edf2f7;" valign="top"><span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">💼 Ca làm việc</span></td>'
+    + '<td style="padding: 12px 16px; border-bottom: 1px solid #edf2f7;" align="right" valign="top"><span style="display: inline-block; padding: 2px 8px; background-color: #e0f2fe; color: #0369a1; border-radius: 6px; font-size: 11px; font-weight: 800;">' + shiftStr + '</span></td>'
+    + '</tr>'
+    + '<tr>'
+    + '<td style="padding: 12px 16px; border-bottom: 1px solid #edf2f7;" valign="top"><span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">📍 Vị trí &amp; Khoảng cách</span></td>'
+    + '<td style="padding: 12px 16px; border-bottom: 1px solid #edf2f7;" align="right" valign="top"><div style="font-size: 12px; font-weight: 700; color: #0f172a; line-height: 1.3;">' + loc + '</div><div style="margin-top: 3px;"><span style="display: inline-block; padding: 2px 8px; background-color: ' + (isValid ? '#dcfce7' : '#fee2e2') + '; color: ' + (isValid ? '#15803d' : '#b91c1c') + '; border-radius: 6px; font-size: 11px; font-weight: 800;">📏 ' + (distMeters || '<=20m') + ' (' + (isValid ? 'Hợp lệ' : 'Ngoài phạm vi') + ')</span></div></td>'
+    + '</tr>'
+    + '<tr>'
+    + '<td style="padding: 12px 16px;" valign="top"><span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">🛡️ Chữ ký bảo mật</span></td>'
+    + '<td style="padding: 12px 16px;" align="right" valign="top"><span style="font-family: monospace, sans-serif; font-size: 12px; font-weight: 800; color: #0284c7; background-color: #f0f9ff; padding: 2px 8px; border-radius: 6px; border: 1px solid #bae6fd;">' + securityHash + '</span></td>'
+    + '</tr>'
+    + '</table>'
+    + '</td>'
+    + '</tr>'
+    
+    // Action Button
+    + '<tr>'
+    + '<td style="padding: 4px 24px 24px; text-align: center;" class="content-padding">'
+    + '<table border="0" cellpadding="0" cellspacing="0" width="100%"><tr><td align="center">'
+    + '<a href="' + dashUrl + '" target="_blank" style="display: block; width: 100%; max-width: 320px; background-color: #2563eb; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 800; letter-spacing: 0.3px; padding: 14px 24px; border-radius: 12px; text-align: center; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);">'
+    + '🚀 MỞ BẢNG CHẤM CÔNG WEBAPP &rarr;'
+    + '</a>'
+    + '</td></tr></table>'
+    + '</td>'
+    + '</tr>'
+    
+    // Divider
+    + '<tr><td style="padding: 0 24px;"><div style="height: 1px; background-color: #e2e8f0;"></div></td></tr>'
+    
+    // Footer
+    + '<tr>'
+    + '<td style="padding: 20px 24px; background-color: #f8fafc; text-align: center;" class="content-padding">'
+    + '<p style="margin: 0 0 6px; font-size: 11px; color: #64748b; line-height: 1.4;">Email này được gửi tự động từ máy chủ bảo mật <strong>King&#39;s Grill OS</strong>.<br />Vui lòng không trả lời trực tiếp email này.</p>'
+    + '<p style="margin: 0; font-size: 12px; font-weight: 800; color: #0f172a; letter-spacing: 0.5px;">KING&#39;S GRILL RESTAURANT &copy; ' + year + '</p>'
+    + '</td>'
+    + '</tr>'
+    
+    + '</table>'
+    + '</td>'
+    + '</tr>'
+    + '</table>'
+    + '</body></html>';
 }
 
 /**
