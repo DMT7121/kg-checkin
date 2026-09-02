@@ -44,14 +44,18 @@ interface MissedCheckInModalProps {
   isOpen: boolean;
   onClose: () => void;
   defaultType?: 'Vào ca' | 'Ra ca';
+  defaultDate?: string;
+  defaultTime?: string;
+  defaultReason?: string;
+  defaultShift?: string;
   onSuccess?: () => void;
 }
 
 const COMMON_REASONS = [
+  'Quên bấm máy khi vào việc gấp',
   'Lỗi kết nối mạng tại quán',
   'Camera điện thoại không nhận diện',
   'Hết pin / Điện thoại sập nguồn',
-  'Quên bấm máy khi vào việc gấp',
   'GPS báo sai khoảng cách',
   'Lỗi kỹ thuật khác'
 ];
@@ -60,6 +64,10 @@ export default function MissedCheckInModal({
   isOpen,
   onClose,
   defaultType = 'Vào ca',
+  defaultDate,
+  defaultTime,
+  defaultReason,
+  defaultShift,
   onSuccess
 }: MissedCheckInModalProps) {
   const store = useAppStore();
@@ -71,22 +79,35 @@ export default function MissedCheckInModal({
   // Form State
   const today = new Date();
   const [claimDate, setClaimDate] = useState(() => {
+    if (defaultDate) return defaultDate;
     const d = String(today.getDate()).padStart(2, '0');
     const m = String(today.getMonth() + 1).padStart(2, '0');
     const y = today.getFullYear();
     return `${d}/${m}/${y}`;
   });
   const [claimTime, setClaimTime] = useState(() => {
+    if (defaultTime) return defaultTime;
     const h = String(today.getHours()).padStart(2, '0');
     const min = String(today.getMinutes()).padStart(2, '0');
     return `${h}:${min}`;
   });
   const [claimType, setClaimType] = useState<'Vào ca' | 'Ra ca'>(defaultType);
-  const [claimShift, setClaimShift] = useState('15:00');
-  const [claimReasonPreset, setClaimReasonPreset] = useState(COMMON_REASONS[0]);
+  const [claimShift, setClaimShift] = useState(defaultShift || '15:00');
+  const [claimReasonPreset, setClaimReasonPreset] = useState(defaultReason || COMMON_REASONS[0]);
   const [claimReasonDetail, setClaimReasonDetail] = useState('');
   const [proofImage, setProofImage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Sync props when opening
+  useEffect(() => {
+    if (isOpen) {
+      if (defaultType) setClaimType(defaultType);
+      if (defaultDate) setClaimDate(defaultDate);
+      if (defaultTime) setClaimTime(defaultTime);
+      if (defaultReason) setClaimReasonPreset(defaultReason);
+      if (defaultShift) setClaimShift(defaultShift);
+    }
+  }, [isOpen, defaultType, defaultDate, defaultTime, defaultReason, defaultShift]);
 
   // Success Receipt State
   const [submittedClaim, setSubmittedClaim] = useState<MissedClaimItem | null>(null);

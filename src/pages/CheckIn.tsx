@@ -2,8 +2,35 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import KalmanFilter from '../utils/kalman';
-import { getDist, speak, getCurrentTimeString, computeWeekInfo, KG_LAT, KG_LNG, KG_RADIUS_METERS, getRecommendedCheckInType } from '../utils/helpers';
-import { MapPin, RefreshCw, CameraOff, Camera, RotateCcw, LogIn, LogOut, UserCheck, AlertTriangle, Clock, Sparkles, ShieldCheck, CheckCircle2, Info } from 'lucide-react';
+import {
+  getDist,
+  speak,
+  getCurrentTimeString,
+  computeWeekInfo,
+  KG_LAT,
+  KG_LNG,
+  KG_RADIUS_METERS,
+  getRecommendedCheckInType,
+  auditMissingCheckIns,
+  MissingCheckInAlert
+} from '../utils/helpers';
+import {
+  MapPin,
+  RefreshCw,
+  CameraOff,
+  Camera,
+  RotateCcw,
+  LogIn,
+  LogOut,
+  UserCheck,
+  AlertTriangle,
+  Clock,
+  Sparkles,
+  ShieldCheck,
+  CheckCircle2,
+  Info,
+  Moon
+} from 'lucide-react';
 import confetti from 'canvas-confetti';
 import {
   KgButton,
@@ -21,8 +48,11 @@ export default function CheckIn() {
   const store = useAppStore();
   const { currentUser, gps, capturedImage, currentTime, approvedShifts } = store;
 
-  // Smart check-in recommendation
+  // Smart check-in recommendation & state machine
   const recommendation = getRecommendedCheckInType(store.logs, currentUser);
+  const missingAlerts = auditMissingCheckIns(store.logs, currentUser);
+  const [selectedMissingAlert, setSelectedMissingAlert] = useState<MissingCheckInAlert | null>(null);
+
   const [selectedType, setSelectedType] = useState<'Vào ca' | 'Ra ca'>(recommendation.recommendedType);
   const [userHasManuallyToggled, setUserHasManuallyToggled] = useState(false);
   const [confirmInvertedTypeOpen, setConfirmInvertedTypeOpen] = useState(false);
@@ -43,8 +73,8 @@ export default function CheckIn() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  const kalmanLatRef = useRef(new KalmanFilter(25));
-  const kalmanLngRef = useRef(new KalmanFilter(25));
+  const kalmanLatRef = useRef(new KalmanFilter(20));
+  const kalmanLngRef = useRef(new KalmanFilter(20));
   const watchIdRef = useRef<number | null>(null);
   const gpsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevGpsValidRef = useRef<boolean | null>(null);
@@ -99,19 +129,19 @@ export default function CheckIn() {
     }
   }, [gps.lat, gps.lng, gps.isValid]);
 
-  // GPS Logic
+  // GPS Logic - Adaptive Ultra-Fast & High-Precision Lock
   const handleGpsSuccess = useCallback((pos: GeolocationPosition, isFastStart: boolean) => {
     const rawLat = pos.coords.latitude;
     const rawLng = pos.coords.longitude;
     const acc = pos.coords.accuracy;
 
-    kalmanLatRef.current.setR(acc * acc);
-    kalmanLngRef.current.setR(acc * acc);
-    const filteredLat = kalmanLatRef.current.filter(rawLat);
-    const filteredLng = kalmanLngRef.current.filter(rawLng);
+    // Filter coordinates with adaptive accuracy weight
+    const filteredLat = kalmanLatRef.current.filter(rawLat, 0, acc);
+    const filteredLng = kalmanLngRef.current.filter(rawLng, 0, acc);
 
-    const lat = (isFastStart || acc < 30) ? rawLat : filteredLat;
-    const lng = (isFastStart || acc < 30) ? rawLng : filteredLng;
+    // If hardware accuracy is under 15m, instantly adopt raw/filtered coordinates
+    const lat = (acc <= 15 || isFastStart) ? rawLat : filteredLat;
+    const lng = (acc <= 15 || isFastStart) ? rawLng : filteredLng;
 
     const latestGpsConfig = useAppStore.getState().serverGpsConfig;
     const targetLat = latestGpsConfig?.lat ?? KG_LAT;
@@ -119,18 +149,38 @@ export default function CheckIn() {
     
     const dist = getDist(lat, lng, targetLat, targetLng) * 1000;
     const isTestApp = useAppStore.getState().currentUser?.username === 'testapp';
-
     const targetRadius = latestGpsConfig?.radius ?? KG_RADIUS_METERS;
     
     if (dist <= targetRadius || isTestApp) {
-      store.setGps({ lat, lng, isValid: true, status: isTestApp ? 'Vị trí Test (Bypass)' : 'Vị trí Chính xác', message: `Khoảng cách: ${Math.round(dist)}m / ${targetRadius}m - Hợp lệ` });
-      if (prevGpsValidRef.current !== true) { speak('Vị trí đã hợp lệ, sẵn sàng chấm công'); prevGpsValidRef.current = true; }
+      store.setGps({
+        lat,
+        lng,
+        isValid: true,
+        status: isTestApp ? 'Vị trí Test (Bypass)' : 'Vị trí Chính xác',
+        message: `Khoảng cách: ${Math.round(dist)}m / ${targetRadius}m (≤20m Hợp lệ)`
+      });
+      if (prevGpsValidRef.current !== true) {
+        speak('Vị trí đã hợp lệ, sẵn sàng chấm công');
+        prevGpsValidRef.current = true;
+      }
     } else {
-      store.setGps({ lat, lng, isValid: false, status: 'Vị trí quá xa', message: `Khoảng cách: ${Math.round(dist)}m / ${targetRadius}m - Quá bán kính` });
-      if (prevGpsValidRef.current !== false && prevGpsValidRef.current !== null) { speak('Vị trí không hợp lệ, vui lòng di chuyển lại gần'); prevGpsValidRef.current = false; }
-      else if (prevGpsValidRef.current === null) { prevGpsValidRef.current = false; }
+      store.setGps({
+        lat,
+        lng,
+        isValid: false,
+        status: 'Vị trí quá xa',
+        message: `Khoảng cách: ${Math.round(dist)}m / ${targetRadius}m (Quá bán kính ≤20m)`
+      });
+      if (prevGpsValidRef.current !== false && prevGpsValidRef.current !== null) {
+        speak('Vị trí không hợp lệ, vui lòng di chuyển lại gần');
+        prevGpsValidRef.current = false;
+      } else if (prevGpsValidRef.current === null) {
+        prevGpsValidRef.current = false;
+      }
     }
-    if (!isFastStart && acc < 20) { store.setGps({ status: 'GPS Ổn định (Độ chính xác cao)' }); }
+    if (!isFastStart && acc < 20) {
+      store.setGps({ status: 'GPS Khóa Vệ Tinh (Độ chính xác cao)' });
+    }
   }, [store]);
 
   const handleGpsError = useCallback((err: GeolocationPositionError) => {
@@ -159,36 +209,43 @@ export default function CheckIn() {
 
   const startGpsWatch = useCallback(() => {
     if (watchIdRef.current !== null) return;
-    store.setGps({ isValid: false, status: 'Đang xác định vị trí...', message: 'Vui lòng đợi trong giây lát.' });
+    store.setGps({ isValid: false, status: 'Đang định vị siêu tốc...', message: 'Khóa vệ tinh trong giây lát.' });
     if (!navigator.geolocation) {
       store.setGps({ status: 'Thiết bị không hỗ trợ định vị', message: 'Hãy dùng điện thoại có GPS.' });
       return;
     }
 
+    // Tier 1: Instant Seed (<300ms) with network/cached GPS
     navigator.geolocation.getCurrentPosition(
       (pos) => handleGpsSuccess(pos, true),
+      () => {},
+      { enableHighAccuracy: false, timeout: 2000, maximumAge: 30000 }
+    );
+
+    // Tier 2: Real-time high-precision hardware GPS lock
+    navigator.geolocation.getCurrentPosition(
+      (pos) => handleGpsSuccess(pos, false),
       handleGpsError,
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 15000 }
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
     );
 
     watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => handleGpsSuccess(pos, false),
       handleGpsError,
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 15000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
 
     if (gpsTimeoutRef.current) clearTimeout(gpsTimeoutRef.current);
     gpsTimeoutRef.current = setTimeout(() => {
       const g = useAppStore.getState().gps;
       if (!g.isValid && g.status !== 'Chưa được cấp quyền vị trí') {
-        store.setGps({ status: 'Đang thử lại vị trí...', message: 'Có thể mất thêm vài giây.' });
         navigator.geolocation.getCurrentPosition(
-          (p) => handleGpsSuccess(p, true),
+          (p) => handleGpsSuccess(p, false),
           handleGpsError,
-          { enableHighAccuracy: false, timeout: 10000, maximumAge: 30000 }
+          { enableHighAccuracy: true, timeout: 6000, maximumAge: 5000 }
         );
       }
-    }, 13000);
+    }, 5000);
   }, [handleGpsError, handleGpsSuccess, store]);
 
   const restartGps = () => {
@@ -196,8 +253,8 @@ export default function CheckIn() {
     if (gpsTimeoutRef.current) clearTimeout(gpsTimeoutRef.current);
     watchIdRef.current = null;
     store.setGps({ lat: null, lng: null, isValid: false, status: 'Chưa định vị', message: '', address: undefined });
-    kalmanLatRef.current = new KalmanFilter(25);
-    kalmanLngRef.current = new KalmanFilter(25);
+    kalmanLatRef.current.reset();
+    kalmanLngRef.current.reset();
     prevGpsValidRef.current = null;
     startGpsWatch();
   };
@@ -469,8 +526,8 @@ export default function CheckIn() {
   const submitCheck = async (type: string) => {
     if (!capturedImage || !gps.isValid || gps.lat === null || gps.lng === null) return;
 
-    // Safety guard: If user manually chose 'Ra ca' but has no 'Vào ca' record today
-    if (type === 'Ra ca' && !recommendation.hasInToday) {
+    // Safety guard: If user manually chose 'Ra ca' but has no active open shift or Vào ca record
+    if (type === 'Ra ca' && !recommendation.isOpenShift && !recommendation.hasInToday) {
       setPendingTypeToSubmit('Ra ca');
       setConfirmInvertedTypeOpen(true);
       return;
@@ -812,6 +869,40 @@ export default function CheckIn() {
         features={['Xác thực GPS ≤20m', 'Nhận diện Live AI', 'Chống chọn nhầm ca']}
       />
 
+      {/* Missing Check-in Alerts Banner */}
+      {missingAlerts.length > 0 && (
+        <div className="bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 border border-amber-500/30 rounded-2xl p-3.5 sm:p-4 text-[var(--kg-text)] shadow-xs max-w-md mx-auto animate-fade-in">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0 shadow-xs mt-0.5">
+                <AlertTriangle size={17} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+                  ⚠️ Phát hiện {missingAlerts.length} ca chưa hoàn tất
+                </p>
+                <p className="text-xs font-bold text-[var(--kg-text)] mt-0.5 leading-snug">
+                  {missingAlerts[0].message}
+                </p>
+                <p className="text-[10px] text-[var(--kg-text-muted)] mt-0.5">
+                  Bổ sung ngay để đảm bảo chuẩn công và tính lương đầy đủ.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedMissingAlert(missingAlerts[0]);
+                setMissedModalOpen(true);
+              }}
+              className="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-black shadow-xs whitespace-nowrap active:scale-95 transition-all flex-shrink-0"
+            >
+              Báo ngay →
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Smart Check-In Mode Selector */}
       <div className="bg-[var(--kg-surface)] p-3.5 sm:p-4 rounded-2xl md:rounded-3xl border border-[var(--kg-border)] text-[var(--kg-text)] shadow-xs max-w-md mx-auto space-y-2.5">
         <div className="flex items-center justify-between px-1">
@@ -820,11 +911,21 @@ export default function CheckIn() {
             <span>Chọn Loại Chấm Công</span>
           </span>
           <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
-            recommendation.hasInToday
+            recommendation.isOvernightShift
+              ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/25'
+              : recommendation.isOpenShift
               ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-              : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
+              : recommendation.hasInToday
+              ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
+              : 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20'
           }`}>
-            {recommendation.hasInToday ? '✓ Đã vào ca hôm nay' : 'Chưa vào ca hôm nay'}
+            {recommendation.isOvernightShift
+              ? '🌙 Ca đêm (vắt ngày)'
+              : recommendation.isOpenShift
+              ? `🟢 Đang trong ca (${recommendation.openShiftTime})`
+              : recommendation.hasInToday
+              ? '✓ Đã vào ca hôm nay'
+              : 'Chưa vào ca hôm nay'}
           </span>
         </div>
 
@@ -874,10 +975,11 @@ export default function CheckIn() {
               <span>RA CA</span>
             </div>
             {recommendation.recommendedType === 'Ra ca' && (
-              <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${
+              <span className={`text-[9px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 ${
                 selectedType === 'Ra ca' ? 'bg-white/25 text-white' : 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
               }`}>
-                ⭐ Đề xuất
+                {recommendation.isOvernightShift ? <Moon size={10} /> : null}
+                <span>{recommendation.isOvernightShift ? '🌙 Ca đêm' : '⭐ Đề xuất'}</span>
               </span>
             )}
           </button>
@@ -1122,7 +1224,14 @@ export default function CheckIn() {
       {missedModalOpen && (
         <MissedCheckInModal
           isOpen={missedModalOpen}
-          onClose={() => setMissedModalOpen(false)}
+          onClose={() => {
+            setMissedModalOpen(false);
+            setSelectedMissingAlert(null);
+          }}
+          defaultType={selectedMissingAlert ? selectedMissingAlert.missingType : selectedType}
+          defaultDate={selectedMissingAlert ? selectedMissingAlert.dateStr : undefined}
+          defaultTime={selectedMissingAlert ? selectedMissingAlert.timeStr : undefined}
+          defaultReason="Quên bấm máy khi vào việc gấp"
         />
       )}
 

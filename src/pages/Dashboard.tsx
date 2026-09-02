@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState, useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
-import { computeWeekInfo } from '../utils/helpers';
+import { computeWeekInfo, auditMissingCheckIns, MissingCheckInAlert } from '../utils/helpers';
 import { refreshAppData } from '../utils/refreshData';
 import { hasTabPermission, getTabLabel } from '../utils/permissions';
 import {
@@ -185,6 +185,9 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isMissedModalOpen, setIsMissedModalOpen] = useState(false);
   const [pendingMissedClaims, setPendingMissedClaims] = useState<any[]>([]);
+
+  const missingAlerts = auditMissingCheckIns(logs, currentUser);
+  const [selectedMissingAlert, setSelectedMissingAlert] = useState<MissingCheckInAlert | null>(null);
 
   const loadDashboardPendingClaims = () => {
     if (!currentUser?.username) return;
@@ -415,6 +418,37 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
                 </div>
                 <span className="text-xs font-bold text-amber-600 dark:text-amber-400 whitespace-nowrap self-center">
                   Chi tiết →
+                </span>
+              </div>
+            )}
+
+            {/* Detected Missing Check-in Shifts Alert on Dashboard */}
+            {missingAlerts.length > 0 && (
+              <div 
+                onClick={() => {
+                  setSelectedMissingAlert(missingAlerts[0]);
+                  setIsMissedModalOpen(true);
+                }}
+                className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/15 via-orange-500/15 to-amber-500/15 border-2 border-amber-500/50 cursor-pointer hover:bg-amber-500/25 transition-all flex items-start justify-between gap-3 shadow-xs animate-slide-up"
+              >
+                <div className="flex items-start gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black flex-shrink-0 shadow-sm mt-0.5">
+                    ⚠️
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-black text-amber-700 dark:text-amber-300 flex items-center gap-1">
+                      Phát hiện {missingAlerts.length} ca làm chưa hoàn tất!
+                    </p>
+                    <p className="text-[11px] text-[var(--kg-text)] font-bold mt-0.5 leading-tight">
+                      {missingAlerts[0].message}
+                    </p>
+                    <p className="text-[10px] text-amber-800/80 dark:text-amber-300/80 font-semibold mt-0.5">
+                      Chạm vào đây để gửi Đơn Bổ Sung Công ngay →
+                    </p>
+                  </div>
+                </div>
+                <span className="text-xs font-black text-amber-600 dark:text-amber-400 whitespace-nowrap self-center bg-amber-500/15 px-2.5 py-1.5 rounded-xl border border-amber-500/30">
+                  Bổ sung →
                 </span>
               </div>
             )}
@@ -855,8 +889,13 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
           isOpen={isMissedModalOpen}
           onClose={() => {
             setIsMissedModalOpen(false);
+            setSelectedMissingAlert(null);
             loadDashboardPendingClaims();
           }}
+          defaultType={selectedMissingAlert ? selectedMissingAlert.missingType : 'Vào ca'}
+          defaultDate={selectedMissingAlert ? selectedMissingAlert.dateStr : undefined}
+          defaultTime={selectedMissingAlert ? selectedMissingAlert.timeStr : undefined}
+          defaultReason="Quên bấm máy khi vào việc gấp"
           onSuccess={loadDashboardPendingClaims}
         />
       )}

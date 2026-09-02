@@ -203,14 +203,136 @@ export interface CheckInRecommendation {
   hasInToday: boolean;
   hasOutToday: boolean;
   firstInTime?: string;
+  lastPunch?: { type: string; time: string; date: Date };
+  isOpenShift: boolean;
+  openShiftTime?: string;
+  isOvernightShift: boolean;
   todayLogsCount: number;
 }
 
+export interface MissingCheckInAlert {
+  id: string;
+  dateStr: string;
+  timeStr: string;
+  missingType: 'Vào ca' | 'Ra ca';
+  existingType: 'Vào ca' | 'Ra ca';
+  message: string;
+}
+
 /**
- * Smart Check-in Type Recommendation Engine
- * - 06:00 - 19:30 + first check of the day (no IN log yet) => Vào ca
- * - After 19:30 + first check of the day (no IN log yet) => Vào ca (Late/night shift)
- * - Already has IN log today (any time, or after 19:30) => Ra ca
+ * Parse date string from log timestamp: 'dd/MM/yyyy HH:mm:ss' or 'dd/MM/yyyy HH:mm'
+ */
+export function parseLogDate(timeStr: string): Date | null {
+  if (!timeStr || typeof timeStr !== 'string') return null;
+  const parts = timeStr.trim().split(' ');
+  if (parts.length < 2) return null;
+  const [datePart, timePart] = parts;
+  const dParts = datePart.split('/');
+  const tParts = timePart.split(':');
+  if (dParts.length < 3 || tParts.length < 2) return null;
+  const day = parseInt(dParts[0], 10);
+  const month = parseInt(dParts[1], 10) - 1;
+  const year = parseInt(dParts[2], 10);
+  const hours = parseInt(tParts[0], 10);
+  const minutes = parseInt(tParts[1], 10);
+  const seconds = tParts[2] ? parseInt(tParts[2], 10) : 0;
+  if (isNaN(day) || isNaN(month) || isNaN(year) || isNaN(hours) || isNaN(minutes)) return null;
+  return new Date(year, month, day, hours, minutes, seconds);
+}
+
+/**
+ * Audit recent logs to detect any unclosed shifts or missing check-ins
+ */
+export function auditMissingCheckIns(
+  logs: { fullname: string; type: string; time: string }[] | undefined,
+  currentUser: { fullname: string } | null,
+  daysBack = 7
+): MissingCheckInAlert[] {
+  if (!currentUser || !logs || logs.length === 0) return [];
+
+  const now = new Date();
+  const cutoffTime = now.getTime() - daysBack * 24 * 60 * 60 * 1000;
+
+  // Filter and sort ascending
+  const userLogsWithDate = logs
+    .filter((l) => l.fullname === currentUser.fullname && l.time)
+    .map((l) => ({ log: l, date: parseLogDate(l.time) }))
+    .filter((item): item is { log: { fullname: string; type: string; time: string }; date: Date } => item.date !== null)
+    .filter((item) => item.date.getTime() >= cutoffTime)
+    .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  const alerts: MissingCheckInAlert[] = [];
+  let pendingIn: { log: { fullname: string; type: string; time: string }; date: Date } | null = null;
+
+  for (let i = 0; i < userLogsWithDate.length; i++) {
+    const item = userLogsWithDate[i];
+    const isCheckIn = item.log.type.includes('Vào ca') || item.log.type.includes('IN') || item.log.type.toLowerCase().includes('vào');
+    const isCheckOut = item.log.type.includes('Ra ca') || item.log.type.includes('OUT') || item.log.type.toLowerCase().includes('ra');
+
+    if (isCheckIn) {
+      if (pendingIn) {
+        // Found a previous IN without OUT
+        const elapsedHrs = (item.date.getTime() - pendingIn.date.getTime()) / (1000 * 60 * 60);
+        if (elapsedHrs > 3) {
+          const dStr = formatDateShort(pendingIn.date);
+          const tStr = `${String(pendingIn.date.getHours()).padStart(2, '0')}:${String(pendingIn.date.getMinutes()).padStart(2, '0')}`;
+          alerts.push({
+            id: `missing_out_${pendingIn.date.getTime()}`,
+            dateStr: dStr,
+            timeStr: tStr,
+            missingType: 'Ra ca',
+            existingType: 'Vào ca',
+            message: `Thiếu Ra ca cho lượt Vào ngày ${dStr} (${tStr})`
+          });
+        }
+      }
+      pendingIn = item;
+    } else if (isCheckOut) {
+      if (pendingIn) {
+        // Paired successfully
+        pendingIn = null;
+      } else {
+        // Found OUT without IN
+        const dStr = formatDateShort(item.date);
+        const tStr = `${String(item.date.getHours()).padStart(2, '0')}:${String(item.date.getMinutes()).padStart(2, '0')}`;
+        alerts.push({
+          id: `missing_in_${item.date.getTime()}`,
+          dateStr: dStr,
+          timeStr: tStr,
+          missingType: 'Vào ca',
+          existingType: 'Ra ca',
+          message: `Thiếu Vào ca cho lượt Ra ngày ${dStr} (${tStr})`
+        });
+      }
+    }
+  }
+
+  // If there is still an open pending IN older than 16 hours
+  if (pendingIn) {
+    const elapsedHrs = (now.getTime() - pendingIn.date.getTime()) / (1000 * 60 * 60);
+    if (elapsedHrs > 16) {
+      const dStr = formatDateShort(pendingIn.date);
+      const tStr = `${String(pendingIn.date.getHours()).padStart(2, '0')}:${String(pendingIn.date.getMinutes()).padStart(2, '0')}`;
+      alerts.push({
+        id: `missing_out_${pendingIn.date.getTime()}`,
+        dateStr: dStr,
+        timeStr: tStr,
+        missingType: 'Ra ca',
+        existingType: 'Vào ca',
+        message: `Quên Ra ca ngày ${dStr} (Vào lúc ${tStr})`
+      });
+    }
+  }
+
+  return alerts.reverse(); // Newest first
+}
+
+/**
+ * Advanced State-Machine Check-in Type Recommendation Engine
+ * - Tracks last punch action (Vào ca vs Ra ca)
+ * - Supports Overnight Cross-day shifts (00:00 - 06:00 of next day)
+ * - Supports Multiple shifts per day (Split-shifts: In 1 -> Out 1 -> In 2 -> Out 2)
+ * - Detects stale open shifts (>16h) and prompts for new shift
  */
 export function getRecommendedCheckInType(
   logs: { fullname: string; type: string; time: string }[] | undefined,
@@ -223,6 +345,8 @@ export function getRecommendedCheckInType(
       reason: 'Lần đầu trong ngày: Tự động chọn Vào ca',
       hasInToday: false,
       hasOutToday: false,
+      isOpenShift: false,
+      isOvernightShift: false,
       todayLogsCount: 0
     };
   }
@@ -232,61 +356,108 @@ export function getRecommendedCheckInType(
   const yearStr = String(targetDate.getFullYear());
   const todayPrefix = `${dayStr}/${monthStr}/${yearStr}`;
 
-  const userLogs = (logs || []).filter(
-    (l) => l.fullname === currentUser.fullname && l.time && l.time.startsWith(todayPrefix)
-  );
+  // Filter logs for user and parse dates
+  const userLogsWithDates = (logs || [])
+    .filter((l) => l.fullname === currentUser.fullname && l.time)
+    .map((l) => ({ log: l, date: parseLogDate(l.time) }))
+    .filter((item): item is { log: { fullname: string; type: string; time: string }; date: Date } => item.date !== null)
+    .sort((a, b) => a.date.getTime() - b.date.getTime());
 
-  const inLog = userLogs.find(
-    (l) => l.type.includes('Vào ca') || l.type.includes('IN') || l.type.toLowerCase().includes('vào')
-  );
-  const outLog = userLogs.find(
-    (l) => l.type.includes('Ra ca') || l.type.includes('OUT') || l.type.toLowerCase().includes('ra')
-  );
+  const userTodayLogs = userLogsWithDates.filter((l) => l.log.time.startsWith(todayPrefix));
+  const hasInToday = userTodayLogs.some((l) => l.log.type.includes('Vào ca') || l.log.type.includes('IN') || l.log.type.toLowerCase().includes('vào'));
+  const hasOutToday = userTodayLogs.some((l) => l.log.type.includes('Ra ca') || l.log.type.includes('OUT') || l.log.type.toLowerCase().includes('ra'));
 
-  const hasInToday = !!inLog;
-  const hasOutToday = !!outLog;
-  const firstInTime = inLog ? inLog.time.split(' ')[1] || inLog.time : undefined;
+  const firstInItem = userTodayLogs.find((l) => l.log.type.includes('Vào ca') || l.log.type.includes('IN') || l.log.type.toLowerCase().includes('vào'));
+  const firstInTime = firstInItem ? `${String(firstInItem.date.getHours()).padStart(2, '0')}:${String(firstInItem.date.getMinutes()).padStart(2, '0')}` : undefined;
 
   const currentMinutes = targetDate.getHours() * 60 + targetDate.getMinutes();
+  const isEarlyMorning = currentMinutes < (6 * 60); // 00:00 - 06:00
   const isAfter1930 = currentMinutes >= (19 * 60 + 30); // >= 19:30
   const isEarlyRange = currentMinutes >= (6 * 60) && currentMinutes < (19 * 60 + 30); // 06:00 - 19:30
 
-  // Case 1: Already has IN today => Recommend RA CA
-  if (hasInToday) {
-    return {
-      recommendedType: 'Ra ca',
-      reason: firstInTime
-        ? `Đã vào ca lúc ${firstInTime} → Đề xuất Ra ca`
-        : 'Đã có chấm công Vào ca hôm nay → Đề xuất Ra ca',
-      hasInToday,
-      hasOutToday,
-      firstInTime,
-      todayLogsCount: userLogs.length
-    };
+  // Inspect the very last punch in history
+  const lastItem = userLogsWithDates.length > 0 ? userLogsWithDates[userLogsWithDates.length - 1] : null;
+
+  if (lastItem) {
+    const isLastIn = lastItem.log.type.includes('Vào ca') || lastItem.log.type.includes('IN') || lastItem.log.type.toLowerCase().includes('vào');
+    const elapsedHrs = (targetDate.getTime() - lastItem.date.getTime()) / (1000 * 60 * 60);
+    const lastTimeStr = `${String(lastItem.date.getHours()).padStart(2, '0')}:${String(lastItem.date.getMinutes()).padStart(2, '0')}`;
+    const lastDateStr = formatDateShort(lastItem.date);
+
+    // STATE: Open Shift (Last punch was Vào ca)
+    if (isLastIn) {
+      // If elapsed <= 16 hours -> Shift is ACTIVELY OPEN
+      if (elapsedHrs <= 16) {
+        const isDifferentDay = lastItem.date.getDate() !== targetDate.getDate();
+        const isOvernight = isDifferentDay && isEarlyMorning;
+
+        return {
+          recommendedType: 'Ra ca',
+          reason: isOvernight
+            ? `🌙 Ra ca cho ca đêm bắt đầu từ hôm qua (Vào lúc ${lastTimeStr} ${lastDateStr})`
+            : `Đã vào ca lúc ${lastTimeStr} → Đề xuất Ra ca`,
+          hasInToday,
+          hasOutToday,
+          firstInTime,
+          lastPunch: { type: lastItem.log.type, time: lastItem.log.time, date: lastItem.date },
+          isOpenShift: true,
+          openShiftTime: lastTimeStr,
+          isOvernightShift: isOvernight,
+          todayLogsCount: userTodayLogs.length
+        };
+      }
+
+      // If elapsed > 16 hours -> Previous shift was abandoned/forgotten checkout
+      return {
+        recommendedType: 'Vào ca',
+        reason: isEarlyRange
+          ? 'Bắt đầu ca mới (06:00 - 19:30) → Ưu tiên Vào ca'
+          : isAfter1930
+          ? 'Bắt đầu ca mới (Ca tối sau 19:30) → Ưu tiên Vào ca'
+          : 'Bắt đầu ca làm việc mới → Ưu tiên Vào ca',
+        hasInToday,
+        hasOutToday,
+        firstInTime: undefined,
+        lastPunch: { type: lastItem.log.type, time: lastItem.log.time, date: lastItem.date },
+        isOpenShift: false,
+        openShiftTime: undefined,
+        isOvernightShift: false,
+        todayLogsCount: userTodayLogs.length
+      };
+    }
+
+    // STATE: Shift Closed (Last punch was Ra ca)
+    // Next action is starting a new shift -> VÀO CA
+    if (userTodayLogs.length >= 2 && lastItem.log.time.startsWith(todayPrefix)) {
+      return {
+        recommendedType: 'Vào ca',
+        reason: `Đã hoàn thành ca trước (Ra ca lúc ${lastTimeStr}) → Đề xuất Vào ca tiếp theo (Ca gãy)`,
+        hasInToday,
+        hasOutToday,
+        firstInTime,
+        lastPunch: { type: lastItem.log.type, time: lastItem.log.time, date: lastItem.date },
+        isOpenShift: false,
+        isOvernightShift: false,
+        todayLogsCount: userTodayLogs.length
+      };
+    }
   }
 
-  // Case 2: First check-in of the day after 19:30 (Late/night shift) => Recommend VÀO CA
-  if (isAfter1930) {
-    return {
-      recommendedType: 'Vào ca',
-      reason: 'Lần đầu trong ngày (Ca tối sau 19:30) → Ưu tiên Vào ca',
-      hasInToday,
-      hasOutToday,
-      firstInTime: undefined,
-      todayLogsCount: userLogs.length
-    };
-  }
-
-  // Case 3: 06:00 - 19:30 (or before 06:00) with no prior IN => Recommend VÀO CA
+  // Fallback / First punch of the day
   return {
     recommendedType: 'Vào ca',
     reason: isEarlyRange
       ? 'Lần đầu trong ngày (06:00 - 19:30) → Ưu tiên Vào ca'
+      : isAfter1930
+      ? 'Lần đầu trong ngày (Ca tối sau 19:30) → Ưu tiên Vào ca'
       : 'Lần đầu trong ngày → Ưu tiên Vào ca',
     hasInToday,
     hasOutToday,
     firstInTime: undefined,
-    todayLogsCount: userLogs.length
+    lastPunch: lastItem ? { type: lastItem.log.type, time: lastItem.log.time, date: lastItem.date } : undefined,
+    isOpenShift: false,
+    isOvernightShift: false,
+    todayLogsCount: userTodayLogs.length
   };
 }
 
