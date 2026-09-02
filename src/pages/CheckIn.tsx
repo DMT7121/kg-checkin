@@ -34,7 +34,8 @@ import {
   Send,
   ChevronRight,
   HelpCircle,
-  Check
+  Check,
+  PartyPopper
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import {
@@ -112,6 +113,16 @@ export default function CheckIn() {
   const [feedbackTitle, setFeedbackTitle] = useState('');
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [feedbackType, setFeedbackType] = useState<'success' | 'warning' | 'info'>('info');
+  const [lastSubmittedPunch, setLastSubmittedPunch] = useState<{
+    type: 'Vào ca' | 'Ra ca';
+    fullname: string;
+    time: string;
+    location: string;
+    distMeters: string;
+    isValid: boolean;
+    shift: string;
+    email: string;
+  } | null>(null);
 
   // Clock
   useEffect(() => {
@@ -737,24 +748,6 @@ export default function CheckIn() {
     store.setLastCheckInTime(Date.now());
     if (type === 'Vào ca') store.setStats({ ...store.stats, totalCheckIn: store.stats.totalCheckIn + 1 });
     
-    // Success feedback via local custom sheets
-    setFeedbackTitle('Đã ghi nhận!');
-    setFeedbackMessage('Dữ liệu đang được đồng bộ ngầm lên hệ thống...');
-    setFeedbackType('success');
-    setFeedbackSheetOpen(true);
-
-    if (type === 'Vào ca') {
-      if (!isLate) {
-        confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#0ea5e9', '#22c55e', '#facc15', '#ef4444'] });
-        speak('Ting! Chúc bạn ca làm việc vui vẻ!');
-      } else {
-        document.body.classList.add('shake-warning');
-        setTimeout(() => document.body.classList.remove('shake-warning'), 800);
-      }
-    } else {
-      speak(type + ' thành công!');
-    }
-
     const payloadImage = capturedImage;
     const payloadTime = store.capturedTime || currentTime;
     store.setCapturedImage(null);
@@ -764,6 +757,39 @@ export default function CheckIn() {
     const effectiveEmail = (currentUser.email && !currentUser.email.includes('@kingsgrill.com'))
       ? currentUser.email
       : (currentUser.username.toLowerCase() === 'admin' ? 'dmt.7121@gmail.com' : (currentUser.email || 'dmt.7121@gmail.com'));
+
+    // Save details for synchronized rich feedback modal
+    setLastSubmittedPunch({
+      type,
+      fullname: currentUser.fullname,
+      time: payloadTime,
+      location: gps.address || (gps.status === 'Đang lấy vị trí...' ? 'Nhà hàng King\'s Grill' : gps.status),
+      distMeters: typeof distMeters === 'number' ? `${Math.round(distMeters)}m` : '<= 20m',
+      isValid: gps.isValid,
+      shift: shiftString,
+      email: effectiveEmail
+    });
+
+    // Synchronized celebratory confetti for BOTH Vào ca and Ra ca!
+    confetti({
+      particleCount: 160,
+      spread: 80,
+      origin: { y: 0.6 },
+      colors: type === 'Vào ca'
+        ? ['#10b981', '#06b6d4', '#facc15', '#3b82f6', '#ec4899']
+        : ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981']
+    });
+
+    // Synchronized voice greetings
+    if (type === 'Vào ca') {
+      speak('Ting! Chúc bạn ca làm việc vui vẻ!');
+    } else {
+      speak('Ting! Chúc mừng bạn đã hoàn thành ca làm việc!');
+    }
+
+    setFeedbackTitle(type === 'Vào ca' ? 'Điểm Danh Vào Ca Thành Công! 🎉' : 'Điểm Danh Ra Ca Thành Công! 🎊');
+    setFeedbackType('success');
+    setFeedbackSheetOpen(true);
 
     const payload = {
       username: currentUser.username,
@@ -1579,22 +1605,102 @@ export default function CheckIn() {
       />
 
       {/* General info feedback sheet */}
-      <KgBottomSheet isOpen={feedbackSheetOpen} onClose={() => setFeedbackSheetOpen(false)} title="Thông báo">
-        <div className="space-y-4 text-center py-2">
-          <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto ${
-            feedbackType === 'success' ? 'bg-green-50 text-green-500' :
-            feedbackType === 'warning' ? 'bg-red-50 text-red-500' : 'bg-blue-50 text-blue-500'
-          }`}>
-            <UserCheck size={24} />
+      <KgBottomSheet isOpen={feedbackSheetOpen} onClose={() => setFeedbackSheetOpen(false)} title={feedbackType === 'success' ? (lastSubmittedPunch?.type === 'Vào ca' ? '🎉 Bắt đầu ca làm việc' : '🎊 Hoàn thành ca làm việc') : 'Thông báo'}>
+        {feedbackType === 'success' && lastSubmittedPunch ? (
+          <div className="space-y-4 py-2">
+            {/* Celebratory Hero Header */}
+            <div className="text-center">
+              <div className={`w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-3 shadow-lg ${
+                lastSubmittedPunch.type === 'Vào ca'
+                  ? 'bg-gradient-to-tr from-emerald-600 to-teal-400 text-white shadow-emerald-500/25 ring-4 ring-emerald-100 dark:ring-emerald-950/50'
+                  : 'bg-gradient-to-tr from-blue-600 to-indigo-500 text-white shadow-blue-500/25 ring-4 ring-blue-100 dark:ring-blue-950/50'
+              }`}>
+                {lastSubmittedPunch.type === 'Vào ca' ? (
+                  <Sparkles size={32} className="animate-pulse" />
+                ) : (
+                  <PartyPopper size={32} className="animate-bounce" />
+                )}
+              </div>
+
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider ${
+                lastSubmittedPunch.type === 'Vào ca'
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                  : 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800'
+              }`}>
+                {lastSubmittedPunch.type === 'Vào ca' ? '🟢 VÀO CA THÀNH CÔNG' : '🔵 RA CA THÀNH CÔNG'}
+              </span>
+
+              <h3 className="mt-2 text-xl font-black text-slate-900 dark:text-white tracking-tight">
+                {lastSubmittedPunch.type === 'Vào ca' ? 'Điểm Danh Vào Ca Thành Công!' : 'Điểm Danh Ra Ca Thành Công!'}
+              </h3>
+              
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto leading-relaxed">
+                {lastSubmittedPunch.type === 'Vào ca'
+                  ? 'Chúc bạn một ca làm việc tràn đầy năng lượng, niềm vui và phục vụ khách hàng chu đáo!'
+                  : 'Cảm ơn bạn đã cống hiến hết mình cho nhà hàng hôm nay. Hãy nghỉ ngơi và hồi phục thật tốt nhé!'}
+              </p>
+            </div>
+
+            {/* Synchronized Detail Metrics Card */}
+            <div className="bg-slate-50 dark:bg-slate-900/60 rounded-2xl p-3.5 border border-slate-200/80 dark:border-slate-800 space-y-2 text-xs">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
+                <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">👤 Nhân sự</span>
+                <span className="font-extrabold text-slate-900 dark:text-white text-sm">{lastSubmittedPunch.fullname}</span>
+              </div>
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
+                <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">🕒 Thời gian</span>
+                <span className="font-mono font-bold text-blue-600 dark:text-blue-400">{lastSubmittedPunch.time}</span>
+              </div>
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
+                <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">💼 Ca làm việc</span>
+                <span className="inline-block bg-white dark:bg-slate-800 px-2 py-0.5 rounded-md font-bold text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700">
+                  {lastSubmittedPunch.shift}
+                </span>
+              </div>
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
+                <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">📍 Định vị GPS</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                  <CheckCircle2 size={13} /> {lastSubmittedPunch.distMeters} • Hợp lệ
+                </span>
+              </div>
+              <div className="flex items-center justify-between pt-0.5">
+                <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">📧 Email gửi về</span>
+                <span className="font-semibold text-slate-600 dark:text-slate-300 truncate max-w-[200px]" title={lastSubmittedPunch.email}>
+                  {lastSubmittedPunch.email}
+                </span>
+              </div>
+            </div>
+
+            {/* Action button */}
+            <button
+              type="button"
+              onClick={() => setFeedbackSheetOpen(false)}
+              className={`w-full py-3.5 rounded-xl font-black text-sm text-white shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2 ${
+                lastSubmittedPunch.type === 'Vào ca'
+                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 shadow-emerald-500/25 hover:brightness-105'
+                  : 'bg-gradient-to-r from-blue-600 to-indigo-600 shadow-blue-500/25 hover:brightness-105'
+              }`}
+            >
+              <CheckCircle2 size={18} />
+              Tuyệt vời, hoàn tất
+            </button>
           </div>
-          <h4 className="text-base font-extrabold text-slate-800 dark:text-white">{feedbackTitle}</h4>
-          <p className="text-xs text-slate-600 dark:text-slate-400 whitespace-pre-line leading-relaxed">
-            {feedbackMessage}
-          </p>
-          <KgButton variant="secondary" size="md" className="w-full" onClick={() => setFeedbackSheetOpen(false)}>
-            Đóng
-          </KgButton>
-        </div>
+        ) : (
+          <div className="space-y-4 text-center py-2">
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto ${
+              feedbackType === 'warning' ? 'bg-amber-50 text-amber-500' : 'bg-blue-50 text-blue-500'
+            }`}>
+              {feedbackType === 'warning' ? <AlertTriangle size={24} /> : <UserCheck size={24} />}
+            </div>
+            <h4 className="text-base font-extrabold text-slate-800 dark:text-white">{feedbackTitle}</h4>
+            <p className="text-xs text-slate-600 dark:text-slate-400 whitespace-pre-line leading-relaxed">
+              {feedbackMessage}
+            </p>
+            <KgButton variant="secondary" size="md" className="w-full" onClick={() => setFeedbackSheetOpen(false)}>
+              Đóng
+            </KgButton>
+          </div>
+        )}
       </KgBottomSheet>
 
       {/* Pulse survey bottom sheet */}

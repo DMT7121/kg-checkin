@@ -806,6 +806,33 @@ function handleCheckInOut(payload) {
   
     // Phase A: Invalidate cache after check-in
     invalidateGetDataCache(payload.username);
+
+    // === GỬI EMAIL THÔNG BÁO TỨC THÌ TẠI MÁY CHỦ (BẢO ĐẢM 100% GỬI KHI SPREADSHEET CÓ DÒNG) ===
+    try {
+      if (!payload.email || payload.email.indexOf('@') === -1 || payload.email.indexOf('@kingsgrill.com') !== -1) {
+        if ((payload.username || '').toLowerCase() === 'admin') {
+          payload.email = 'dmt.7121@gmail.com';
+        } else {
+          try {
+            var uSheet = ss.getSheetByName(CONFIG.SHEET_USERS || 'DATA');
+            if (uSheet) {
+              var uRows = uSheet.getDataRange().getValues();
+              for (var r = 1; r < uRows.length; r++) {
+                if (uRows[r][0] && uRows[r][0].toString().toLowerCase() === (payload.username || '').toLowerCase()) {
+                  if (uRows[r][3] && uRows[r][3].toString().indexOf('@') > 0) {
+                    payload.email = uRows[r][3].toString().trim();
+                  }
+                  break;
+                }
+              }
+            }
+          } catch(ex) {}
+        }
+      }
+      sendCheckInEmail(payload, time, viTri, imageUrl, distMeters + 'm', isValid);
+    } catch(mailErr) {
+      Logger.log('Lỗi gửi email trong handleCheckInOut: ' + mailErr.message);
+    }
   
     return jsonResponse(true, {
       message: 'Chấm công thành công',
@@ -1368,12 +1395,27 @@ function buildEmailHtml(payload, formattedTimeUI, loc, distMeters, isValid, isAd
 var _relayIndex = 0; // Round-robin counter
 
 function smartSendEmail(to, subject, body, htmlBody) {
+  if (!to || !String(to).trim()) return 'empty';
+  var toStr = String(to).trim();
+  
+  var recipients = toStr.split(',').map(function(e) { return e.trim(); }).filter(function(e) { return e.indexOf('@') > 0; });
+  if (recipients.length === 0) return 'no_valid_recipients';
+  
+  var primaryTo = recipients[0];
+  var ccList = recipients.slice(1).join(',');
+  var emailOptions = { htmlBody: htmlBody, name: "King's Grill HR" };
+  if (ccList) emailOptions.cc = ccList;
+
   // Thử gửi bằng MailApp trước (nhanh nhất, không cần HTTP call)
   var localQuota = MailApp.getRemainingDailyQuota();
   if (localQuota >= 1) {
-    MailApp.sendEmail(to, subject, body || '', { htmlBody: htmlBody });
-    Logger.log('📧 [LOCAL] Gửi OK → ' + to + ' (quota còn: ' + (localQuota - 1) + ')');
-    return 'local';
+    try {
+      MailApp.sendEmail(primaryTo, subject, body || '', emailOptions);
+      Logger.log('📧 [LOCAL] Gửi OK → to:' + primaryTo + (ccList ? ' cc:' + ccList : '') + ' (quota còn: ' + (localQuota - 1) + ')');
+      return 'local';
+    } catch(localErr) {
+      Logger.log('⚠️ [LOCAL] Lỗi MailApp: ' + localErr.message);
+    }
   }
   
   // Hết quota local → thử relay accounts
