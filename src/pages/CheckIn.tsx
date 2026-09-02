@@ -345,11 +345,11 @@ export default function CheckIn() {
     exactTime: string,
     addr: string
   ) => {
-    const cardX = 20;
-    const cardHeight = 210;
-    const cardY = canvas.height - cardHeight - 20;
+    const cardX = 24;
+    const cardHeight = 310;
+    const cardY = canvas.height - cardHeight - 24;
     const cardWidth = canvas.width - (cardX * 2);
-    const radius = 20;
+    const radius = 24;
 
     // Reset shadow
     ctx.shadowColor = 'transparent';
@@ -357,8 +357,8 @@ export default function CheckIn() {
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 0;
 
-    // Draw Glassmorphic Card Background (Deep Slate with semi-transparency)
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.90)';
+    // Draw Glassmorphic Card Background (Deep Slate/Navy with 94% opacity)
+    ctx.fillStyle = 'rgba(11, 20, 36, 0.94)';
     
     const drawRoundRect = (c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) => {
       if (typeof c.roundRect === 'function') {
@@ -367,11 +367,11 @@ export default function CheckIn() {
         if (w < 2 * r) r = w / 2;
         if (h < 2 * r) r = h / 2;
         c.beginPath();
-        c.moveTo(x+r, y);
-        c.arcTo(x+w, y,   x+w, y+h, r);
-        c.arcTo(x+w, y+h, x,   y+h, r);
-        c.arcTo(x,   y+h, x,   y,   r);
-        c.arcTo(x,   y,   x+w, y,   r);
+        c.moveTo(x + r, y);
+        c.arcTo(x + w, y, x + w, y + h, r);
+        c.arcTo(x + w, y + h, x, y + h, r);
+        c.arcTo(x, y + h, x, y, r);
+        c.arcTo(x, y, x + w, y, r);
         c.closePath();
       }
     };
@@ -380,18 +380,18 @@ export default function CheckIn() {
     drawRoundRect(ctx, cardX, cardY, cardWidth, cardHeight, radius);
     ctx.fill();
 
-    // Subtle White/Border Outline
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.20)';
-    ctx.lineWidth = 1.5;
+    // Subtle White/Blue Border Outline
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+    ctx.lineWidth = 2;
     ctx.beginPath();
     drawRoundRect(ctx, cardX, cardY, cardWidth, cardHeight, radius);
     ctx.stroke();
 
     // Content Padding
-    const padX = 22;
+    const padX = 24;
     const contentX = cardX + padX;
 
-    // Hash Token Signature for Anti-Fraud
+    // Hash Token Signature for Anti-Fraud Verification
     const currentGpsState = useAppStore.getState().gps;
     const userObj = useAppStore.getState().currentUser;
     const strForHash = `${userObj?.username || 'user'}_${exactTime}_${currentGpsState.lat?.toFixed(5)}_${currentGpsState.lng?.toFixed(5)}_KG20`;
@@ -402,24 +402,64 @@ export default function CheckIn() {
     }
     const securityHash = `KG#${Math.abs(hashVal).toString(36).toUpperCase().padStart(6, '0')}`;
     
-    // Line 1: Time & Security Signature
-    const timeY = cardY + 38;
+    // Header Bar: Restaurant Brand & Official Seal Badge
+    const headerY = cardY + 36;
     ctx.font = 'bold 22px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = '#FCD34D'; // Yellow/Gold
-    ctx.fillText('🕒 ' + exactTime + '  •  🛡️ ' + securityHash, contentX, timeY);
+    ctx.fillStyle = '#93C5FD'; // Soft Blue
+    ctx.fillText("👑 KING'S GRILL  •  CHỨNG NHẬN CHẤM CÔNG", contentX, headerY);
 
-    // Line 2: Person & Selected Type
     const isCheckInType = selectedType === 'Vào ca';
+    const isValidGps = Boolean(currentGpsState.isValid);
+    const badgeText = isCheckInType
+      ? (isValidGps ? '🟢 VÀO CA - HỢP LỆ' : '⚠️ VÀO CA - NGOÀI BÁN KÍNH')
+      : (isValidGps ? '🔴 RA CA - HỢP LỆ' : '⚠️ RA CA - NGOÀI BÁN KÍNH');
     ctx.font = 'bold 20px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = isCheckInType ? '#34D399' : '#F87171'; // Emerald or Rose
-    const personText = `👤 ${userObj?.fullname || 'Nhân sự'} (${userObj?.username || ''})  •  [ ${selectedType.toUpperCase()} ]`;
-    ctx.fillText(personText, contentX, timeY + 34);
-
-    // Line 3: Location Address (Wrapped if needed)
-    ctx.font = '500 17px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = '#E2E8F0'; // Slate-200
+    const badgeWidth = ctx.measureText(badgeText).width + 24;
+    const badgeX = cardX + cardWidth - padX - badgeWidth;
     
-    const displayAddr = '📍 ' + addr;
+    ctx.fillStyle = isCheckInType ? 'rgba(16, 185, 129, 0.25)' : 'rgba(244, 63, 94, 0.25)';
+    drawRoundRect(ctx, badgeX, headerY - 24, badgeWidth, 32, 10);
+    ctx.fill();
+    ctx.strokeStyle = isCheckInType ? '#10B981' : '#F43F5E';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    drawRoundRect(ctx, badgeX, headerY - 24, badgeWidth, 32, 10);
+    ctx.stroke();
+
+    ctx.fillStyle = isCheckInType ? '#34D399' : '#FB7185';
+    ctx.fillText(badgeText, badgeX + 12, headerY - 2);
+
+    // Divider Line
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(contentX, headerY + 14);
+    ctx.lineTo(cardX + cardWidth - padX, headerY + 14);
+    ctx.stroke();
+
+    // Row 1: Time & Security Signature
+    const row1Y = headerY + 46;
+    ctx.font = 'bold 25px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillStyle = '#FDE047'; // Vivid Gold
+    ctx.fillText('🕒 THỜI GIAN: ' + exactTime, contentX, row1Y);
+
+    ctx.font = 'bold 21px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillStyle = '#38BDF8'; // Sky Blue
+    ctx.fillText('🛡️ ' + securityHash + ' (Bảo mật KG-OS)', contentX + 440, row1Y);
+
+    // Row 2: Employee info
+    const row2Y = row1Y + 36;
+    ctx.font = 'bold 22px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillStyle = '#FFFFFF';
+    const roleTitle = userObj?.role === 'admin' ? 'Quản lý' : (userObj?.position || 'Nhân sự');
+    const personText = `👤 NHÂN SỰ: ${userObj?.fullname || 'Nhân sự'} (${userObj?.username || ''})  •  💼 ${roleTitle}`;
+    ctx.fillText(personText, contentX, row2Y);
+
+    // Row 3: Address (Word wrapped cleanly)
+    ctx.font = '500 19px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillStyle = '#CBD5E1'; // Slate 300
+    
+    const displayAddr = '📍 ĐỊA ĐIỂM: ' + addr;
     const maxTextWidth = cardWidth - (padX * 2);
     
     const wrapText = (context: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number) => {
@@ -442,19 +482,17 @@ export default function CheckIn() {
       context.fillText(line, x, currentY);
     };
 
-    wrapText(ctx, displayAddr, contentX, timeY + 68, maxTextWidth, 24);
+    wrapText(ctx, displayAddr, contentX, row2Y + 32, maxTextWidth, 26);
 
-    // Line 4: Precise GPS and Distance check
-    ctx.font = 'bold 15px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = currentGpsState.isValid ? '#6EE7B7' : '#FCA5A5';
-    const gpsLine = `🛰️ GPS: ${currentGpsState.lat?.toFixed(6) || '---'}, ${currentGpsState.lng?.toFixed(6) || '---'} • ${currentGpsState.message || 'Bán kính ≤20m'}`;
-    ctx.fillText(gpsLine, contentX, cardY + cardHeight - 16);
+    // Row 4: GPS Coordinates & Radius Check
+    const row4Y = cardY + cardHeight - 20;
+    ctx.font = 'bold 18px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillStyle = isValidGps ? '#34D399' : '#F87171';
+    const gpsLine = `🛰️ TỌA ĐỘ: ${currentGpsState.lat?.toFixed(6) || '---'}, ${currentGpsState.lng?.toFixed(6) || '---'}  •  ${currentGpsState.message || 'Bán kính ≤20m'}`;
+    ctx.fillText(gpsLine, contentX, row4Y);
     
-    // Save image with WebP (highly compressed but very sharp), fallback to JPEG
-    let dataUrl = canvas.toDataURL('image/webp', 0.8);
-    if (dataUrl.startsWith('data:image/png')) {
-      dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-    }
+    // Save image with high quality JPEG 0.88 (sharp & universally compatible)
+    let dataUrl = canvas.toDataURL('image/jpeg', 0.88);
     
     store.setCapturedImage(dataUrl);
     store.setCapturedTime(exactTime);
@@ -470,8 +508,8 @@ export default function CheckIn() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Upgraded resolution for sharpness: 720x960 (3:4 ratio)
-    const targetWidth = 720, targetHeight = 960;
+    // Upgraded resolution for HD sharpness: 960x1280 (3:4 ratio)
+    const targetWidth = 960, targetHeight = 1280;
     canvas.width = targetWidth; canvas.height = targetHeight;
     const vw = video.videoWidth, vh = video.videoHeight;
     const canvasRatio = targetWidth / targetHeight, videoRatio = vw / vh;
@@ -484,7 +522,16 @@ export default function CheckIn() {
     ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
     ctx.restore();
 
-    const exactTime = currentTime + ':' + String(new Date().getSeconds()).padStart(2, '0');
+    // Exact capture timestamp down to seconds
+    const now = new Date();
+    const d = String(now.getDate()).padStart(2, '0');
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const y = now.getFullYear();
+    const h = String(now.getHours()).padStart(2, '0');
+    const min = String(now.getMinutes()).padStart(2, '0');
+    const s = String(now.getSeconds()).padStart(2, '0');
+    const exactTime = `${d}/${m}/${y} ${h}:${min}:${s}`;
+    
     const addr = useAppStore.getState().gps.address || useAppStore.getState().gps.status || 'Chưa rõ vị trí';
     
     drawWatermarkAndSave(canvas, ctx, exactTime, addr);
@@ -502,8 +549,8 @@ export default function CheckIn() {
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
         
-        // Upgraded resolution for sharpness: 720x960 (3:4 ratio)
-        const targetWidth = 720, targetHeight = 960;
+        // Upgraded resolution for HD sharpness: 960x1280 (3:4 ratio)
+        const targetWidth = 960, targetHeight = 1280;
         canvas.width = targetWidth; canvas.height = targetHeight;
         const vw = img.width, vh = img.height;
         const canvasRatio = targetWidth / targetHeight, imgRatio = vw / vh;
@@ -512,7 +559,16 @@ export default function CheckIn() {
         else { sWidth = vw; sHeight = vw / canvasRatio; sx = 0; sy = (vh - sHeight) / 2; }
         ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
         
-        const exactTime = currentTime + ':' + String(new Date().getSeconds()).padStart(2, '0');
+        // Exact capture timestamp down to seconds
+        const now = new Date();
+        const d = String(now.getDate()).padStart(2, '0');
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const y = now.getFullYear();
+        const h = String(now.getHours()).padStart(2, '0');
+        const min = String(now.getMinutes()).padStart(2, '0');
+        const s = String(now.getSeconds()).padStart(2, '0');
+        const exactTime = `${d}/${m}/${y} ${h}:${min}:${s}`;
+        
         const addr = useAppStore.getState().gps.address || useAppStore.getState().gps.status || 'Chưa rõ vị trí';
         
         drawWatermarkAndSave(canvas, ctx, exactTime, addr);
@@ -585,7 +641,17 @@ export default function CheckIn() {
 
   // Real execution call
   const executeCheck = async (type: string, isLate: boolean, lateMinsInfo: number, shiftString: string) => {
-    const actualTime = store.capturedTime || currentTime;
+    const now = new Date();
+    const d = String(now.getDate()).padStart(2, '0');
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const y = now.getFullYear();
+    const h = String(now.getHours()).padStart(2, '0');
+    const min = String(now.getMinutes()).padStart(2, '0');
+    const s = String(now.getSeconds()).padStart(2, '0');
+    const fallbackExactTime = `${d}/${m}/${y} ${h}:${min}:${s}`;
+
+    // Exactly use the photo's captured time, guaranteeing 100% match with the watermark
+    const actualTime = store.capturedTime || fallbackExactTime;
     const tempLog = {
       fullname: currentUser!.fullname,
       type,
