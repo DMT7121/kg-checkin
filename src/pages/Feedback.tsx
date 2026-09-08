@@ -131,6 +131,12 @@ export default function Feedback() {
         description="Lắng nghe ý kiến đóng góp, đề xuất và thắc mắc của nhân sự với bảo mật tuyệt đối."
         eyebrow="Khảo sát"
         features={['Tuỳ chọn ẩn danh 100%', 'Gửi thẳng Quản lý', 'Theo dõi phản hồi']}
+        tipTitle="Chính sách Góp ý & Khiếu nại Nội bộ"
+        tips={[
+          "Mọi ý kiến đóng góp nhằm cải thiện quy trình, vệ sinh, không khí làm việc đều được trân trọng.",
+          "Chế độ 'Gửi ẩn danh' đảm bảo tuyệt đối không lưu lại danh tính hay tài khoản của người gửi.",
+          "Ban Quản lý cam kết phản hồi công khai hoặc xử lý thỏa đáng trong vòng 24 - 48 giờ làm việc."
+        ]}
       />
 
       <div className="relative z-20 flex-1 flex flex-col space-y-4">

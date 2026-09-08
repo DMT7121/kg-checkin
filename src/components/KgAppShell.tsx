@@ -232,7 +232,7 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
       </aside>
 
       {/* 3. MAIN CONTENT */}
-      <main className="kg-app-main flex-1 flex flex-col min-w-0 h-screen md:overflow-y-auto overflow-x-hidden pb-[80px] md:pb-0">
+      <main className="kg-app-main flex-1 flex flex-col min-w-0 min-h-screen md:h-screen md:overflow-y-auto overflow-x-hidden pb-28 md:pb-0">
         
         {/* Desktop breadcrumbs & status */}
         <div className="hidden md:flex justify-between items-center px-6 py-4 border-b border-[var(--kg-border)] bg-[var(--kg-surface)] flex-shrink-0">
@@ -261,7 +261,7 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
         </div>
 
         {/* Scrollable page body */}
-        <div className="flex-1 w-full max-w-7xl mx-auto px-4 py-4 md:py-6 pb-24 md:pb-12 min-h-0">
+        <div className="flex-1 w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-3 sm:py-4 md:py-6 pb-28 md:pb-12 min-h-0">
           {children}
         </div>
       </main>
@@ -278,7 +278,7 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
               onPointerEnter={() => onPrefetch?.(tab.id)}
               onFocus={() => onPrefetch?.(tab.id)}
               onTouchStart={() => onPrefetch?.(tab.id)}
-              className="relative flex flex-col items-center justify-center w-16 min-h-[44px] py-1 transition-all touch-manipulation active:scale-95 select-none"
+              className="relative flex flex-col items-center justify-center min-w-[56px] min-h-[48px] py-1 transition-all touch-manipulation active:scale-95 select-none"
             >
               {/* Top Active Indicator Bar */}
               {isActive && (

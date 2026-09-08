@@ -155,6 +155,12 @@ export default function AdminPayroll() {
         title="Lương & Phúc lợi"
         description="Thiết lập công thức tính lương động, cấu hình ứng lương, phụ cấp và các khoản khấu trừ."
         eyebrow="Cấu hình"
+        tipTitle="Hướng dẫn Quản trị Tiền lương"
+        tips={[
+          "Khai báo bảng lương hàng tháng: Chọn từng nhân viên để thiết lập lương theo giờ hoặc lương khoán tháng.",
+          "Cấu hình ứng lương: Quy định hạn mức ứng tối đa (thường 30-50% số tiền công đã tích lũy trong tháng).",
+          "Sau khi cập nhật mức lương mới, bấm 'Lưu bảng lương' để đồng bộ sang Google Sheets và hệ thống tính lương tự động."
+        ]}
       />
 
       {currentUser?.role === 'admin' && (

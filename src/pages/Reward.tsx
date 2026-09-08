@@ -96,6 +96,13 @@ export default function Reward() {
         title="King Coins"
         description="Tích điểm từ mọi hoạt động chấm công, checklist công việc, bàn giao ca."
         eyebrow="Phần thưởng"
+        tipTitle="Cơ chế Tích lũy King Coins & Đổi thưởng"
+        tips={[
+          "Chấm công đúng giờ: +10 Coins mỗi ca làm việc hợp lệ.",
+          "Hoàn thành Checklist 100%: +20 Coins cho khu vực phụ trách.",
+          "Bàn giao ca chuẩn xác không lệch quỹ: +15 Coins.",
+          "Coins tích lũy dùng để đổi voucher ăn uống, ngày nghỉ phép ưu tiên hoặc quy đổi quà tặng cuối năm."
+        ]}
       />
 
       {/* Points Card */}

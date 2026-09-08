@@ -219,6 +219,12 @@ export default function HrList() {
         title="Hồ Sơ Nhân Sự"
         description="Quản lý trạng thái hoạt động, chức vụ, phân quyền và toàn bộ vòng đời hồ sơ nhân sự."
         eyebrow="Nhân sự"
+        tipTitle="Hướng dẫn Quản trị Nhân sự"
+        tips={[
+          "Trạng thái nhân sự: Đang làm việc (đủ điều kiện vào ca), Tạm nghỉ (tạm khóa chấm công), Đình chỉ / Thôi việc.",
+          "Cấp tài khoản & Mật khẩu: Có thể đặt lại mật khẩu hoặc đổi mã PIN cho nhân viên quên thông tin.",
+          "Chức danh & Vị trí: Gán đúng vai trò Phục vụ, Pha chế, Bếp, Thu ngân để hệ thống phân công checklist chuẩn."
+        ]}
       />
 
 

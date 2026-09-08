@@ -1141,39 +1141,65 @@ export function Kg3dIllustration({ moduleId }: { moduleId: string }) {
   );
 }
 
+export { KgFeatureTip, type KgFeatureTipProps } from './KgFeatureTip';
+export { KgFeatureTip as KgTooltip } from './KgFeatureTip';
+import { KgFeatureTip } from './KgFeatureTip';
+
 export function KgModuleHero({
   moduleId,
   title,
   description,
   eyebrow = "Phân hệ",
-  features = []
+  features = [],
+  tipTitle,
+  tipContent,
+  tips
 }: {
   moduleId: string;
   title: string;
   description?: string;
   eyebrow?: string;
   features?: string[];
+  tipTitle?: string;
+  tipContent?: React.ReactNode;
+  tips?: string[];
 }) {
+  const hasTip = Boolean(tipContent || tips || (description && description.length > 30));
+
   return (
-    <section className="kg-module-hero relative overflow-hidden p-4 sm:p-5 md:p-7 text-white rounded-2xl md:rounded-3xl border border-white/10 shadow-hero bg-gradient-hero mb-4 md:mb-6">
-      <div className="kg-module-hero__layout relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
-        <div className="kg-module-hero__copy space-y-2 md:space-y-3.5 max-w-2xl">
-          <span className="kg-module-hero__eyebrow inline-flex items-center gap-1.5 bg-white/12 border border-white/20 px-2.5 py-0.5 md:px-3 md:py-1 rounded-full text-[9px] md:text-[10px] font-black tracking-wider uppercase text-white shadow-inner">
-            <span className="w-1.5 h-1.5 rounded-full bg-[var(--kg-accent)] animate-pulse" />
-            {eyebrow}
-          </span>
-          <h1 className="kg-module-hero__title text-xl sm:text-2xl md:text-3xl lg:text-4xl font-extrabold tracking-tight text-white leading-tight">
+    <section className="kg-module-hero relative overflow-hidden p-3.5 sm:p-5 md:p-7 text-white rounded-2xl md:rounded-3xl border border-white/10 shadow-hero bg-gradient-hero mb-3 sm:mb-4 md:mb-6">
+      <div className="kg-module-hero__layout relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-6">
+        <div className="kg-module-hero__copy space-y-1.5 sm:space-y-2 md:space-y-3.5 max-w-2xl">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="kg-module-hero__eyebrow inline-flex items-center gap-1.5 bg-white/15 border border-white/20 px-2.5 py-0.5 rounded-full text-[9px] md:text-[10px] font-black tracking-wider uppercase text-white shadow-inner">
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--kg-accent)] animate-pulse" />
+              {eyebrow}
+            </span>
+            {hasTip && (
+              <KgFeatureTip
+                title={tipTitle || `Hướng dẫn: ${title}`}
+                content={tipContent || description}
+                tips={tips}
+                variant="hero"
+                triggerText="💡 Mẹo & Lưu ý"
+              />
+            )}
+          </div>
+
+          <h1 className="kg-module-hero__title text-lg sm:text-2xl md:text-3xl lg:text-4xl font-black tracking-tight text-white leading-tight">
             {title}
           </h1>
+
           {description && (
-            <p className="kg-module-hero__description text-xs sm:text-sm md:text-base text-white/90 leading-relaxed font-medium max-w-lg">
+            <p className="kg-module-hero__description text-xs sm:text-sm md:text-base text-white/90 leading-relaxed font-medium max-w-lg line-clamp-2 sm:line-clamp-none">
               {description}
             </p>
           )}
+
           {features.length > 0 && (
-            <div className="kg-module-hero__features flex flex-wrap gap-1.5 md:gap-2 pt-1 md:pt-2">
+            <div className="kg-module-hero__features flex flex-wrap gap-1 md:gap-2 pt-0.5 md:pt-2">
               {features.map((feat, idx) => (
-                <div key={idx} className="inline-flex items-center gap-1.5 bg-white/10 border border-white/10 px-2.5 py-1 md:px-3 md:py-1.5 rounded-xl text-[11px] md:text-xs font-bold text-white backdrop-blur-sm shadow-sm">
+                <div key={idx} className="inline-flex items-center gap-1 bg-white/10 border border-white/10 px-2 py-0.5 sm:px-2.5 sm:py-1 md:px-3 md:py-1.5 rounded-lg sm:rounded-xl text-[10px] sm:text-[11px] md:text-xs font-bold text-white backdrop-blur-sm shadow-sm">
                   <span className="text-[var(--kg-accent)]">✦</span>
                   {feat}
                 </div>

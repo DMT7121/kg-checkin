@@ -124,6 +124,13 @@ export default function Timesheet() {
         title="Tổng Hợp Công"
         description={`Bảng công và thời gian làm việc chi tiết tháng ${month}/${year}`}
         eyebrow="Báo cáo"
+        tipTitle="Quy chuẩn & Ký hiệu Bảng công"
+        tips={[
+          "Giờ làm: Tổng số giờ làm việc thực tế được ghi nhận qua chấm công GPS & xác thực ảnh.",
+          "Mốc thời gian: Hiển thị chi tiết giờ Vào ca và giờ Ra ca từng ngày của nhân viên.",
+          "Nếu có sai sót công hoặc quên chấm, vui lòng tạo 'Đơn Bổ Sung Công' trong vòng 48h để Quản lý duyệt.",
+          "Dữ liệu công được chốt vào ngày cuối cùng của tháng để tính bảng lương."
+        ]}
       />
 
       <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-4 sm:p-5 rounded-2xl shadow-xs">

@@ -47,7 +47,8 @@ import {
   KgBottomSheet,
   KgConfirmSheet,
   KgTextarea,
-  KgModuleHero
+  KgModuleHero,
+  KgFeatureTip
 } from '../components/KgDesignSystem';
 import { isWorkEligible } from '../utils/employment';
 import EmploymentStatusNotice from '../components/EmploymentStatusNotice';
@@ -1081,6 +1082,13 @@ export default function CheckIn() {
         title="Chấm công GPS"
         description="Chụp ảnh minh chứng tại nhà hàng trong bán kính 20m để hoàn tất chấm công."
         features={['Xác thực GPS ≤20m', 'Nhận diện Live AI', 'Chống chọn nhầm ca']}
+        tipTitle="Quy chuẩn Chấm công Hợp lệ"
+        tips={[
+          "Đứng trong bán kính 20m tại khuôn viên nhà hàng King's Grill.",
+          "Bật định vị độ chính xác cao trên điện thoại và cho phép quyền truy cập vị trí.",
+          "Chụp ảnh khuôn mặt rõ nét, đủ ánh sáng, không dùng ảnh chụp lại từ màn hình khác.",
+          "Sau khi chấm Vào ca, hệ thống giãn cách 15 phút chống spam trước khi có thể chấm Ra ca."
+        ]}
       />
 
       {/* 15-Minute Anti-Spam Cooldown Banner */}
@@ -1244,7 +1252,19 @@ export default function CheckIn() {
               {gps.status.includes('Đang') && <div className="gps-ping absolute inset-0 rounded-2xl" />}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-black text-[var(--kg-text-muted)] uppercase tracking-wider">Định vị GPS (≤20m)</p>
+              <div className="flex items-center gap-1.5">
+                <p className="text-[10px] font-black text-[var(--kg-text-muted)] uppercase tracking-wider">Định vị GPS (≤20m)</p>
+                <KgFeatureTip
+                  title="Mẹo Định vị GPS chính xác"
+                  tips={[
+                    "Vị trí chuẩn: Khuôn viên nhà hàng King's Grill (bán kính ≤20m).",
+                    "Cần bật Quyền truy cập vị trí và Vị trí chính xác (Precise Location) trên Safari/Chrome.",
+                    "Nếu sóng yếu hoặc báo Chưa nhận được vị trí, hãy di chuyển ra gần cửa sảnh và bấm 'Làm mới'."
+                  ]}
+                  size="sm"
+                  variant="subtle"
+                />
+              </div>
               <h3 className="font-black text-xs sm:text-sm mt-0.5 leading-tight break-words text-[var(--kg-text)] pr-2">
                 {gps.address ? gps.address : gps.status}
               </h3>

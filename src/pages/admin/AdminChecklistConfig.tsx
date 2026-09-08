@@ -186,6 +186,12 @@ export default function AdminChecklistConfig() {
         title="Cấu hình Checklist Phân Khu"
         description="Thiết lập danh mục công việc, phân loại theo ca trực và định cấu hình các công việc con."
         eyebrow="Cấu hình hệ thống"
+        tipTitle="Hướng dẫn Cấu hình Checklist"
+        tips={[
+          "Phân loại theo khu vực: Khu A (Sảnh/Bàn), B (Bar/Thu ngân), C (Bếp/Kho), D & E (Vệ sinh).",
+          "Thời điểm thực hiện: Đầu ca, Trong ca, hoặc Xuống ca sau cùng.",
+          "Việc con & Vật tư: Bật tùy chọn nếu hạng mục yêu cầu chia nhỏ các bước hoặc có đề xuất xin cấp vật tư."
+        ]}
       />
 
       <div className="soft3d-card p-5">

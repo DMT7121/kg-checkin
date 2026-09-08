@@ -123,6 +123,13 @@ export default function Handover() {
         description="Chuyển giao trách nhiệm quỹ tiền mặt và báo cáo sự cố vận hành ca trực."
         eyebrow="Vận hành"
         features={['Bàn giao tiền mặt', 'Báo cáo sự cố tức thì', 'Lưu nhật ký điện tử']}
+        tipTitle="Quy chuẩn Bàn giao Ca & Quỹ tiền mặt"
+        tips={[
+          "Kiểm đếm tiền mặt thực tế trong két thu ngân trước khi bàn giao cho ca tiếp theo.",
+          "Đối chiếu số dư đầu ca + doanh thu tiền mặt phát sinh trong ca = số dư thực tế trong két.",
+          "Ghi nhận rõ ràng các khoản chi tiêu hoặc ứng tạm thời nếu có phát sinh trong ca.",
+          "Nếu có sự cố trang thiết bị (máy in bill, POS, tủ lạnh), chuyển sang tab 'Báo cáo sự cố' để ghi nhận ngay."
+        ]}
       />
 
       {/* Content wrapper */}

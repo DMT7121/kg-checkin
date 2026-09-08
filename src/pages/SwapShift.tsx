@@ -175,6 +175,13 @@ export default function SwapShift() {
         title="Chợ Đổi Ca"
         description="Tìm người làm thay hoặc đổi ca nhanh chóng."
         eyebrow="Bảng tin"
+        tipTitle="Quy chế Đổi Ca & Nghỉ Phép"
+        tips={[
+          "Đổi ca: Cần thỏa thuận trước với đồng nghiệp cùng vị trí nghiệp vụ (Phục vụ đổi Phục vụ, Pha chế đổi Pha chế).",
+          "Thời hạn gửi yêu cầu: Trước giờ bắt đầu ca làm tối thiểu 24 giờ để Quản lý kịp thời phê duyệt.",
+          "Tìm người thay: Nếu có việc gấp không thể đổi 2 chiều, hãy đăng tin 'Tìm người thay' lên bảng tin.",
+          "Sau khi đồng nghiệp bấm nhận ca, hệ thống sẽ gửi thông báo cho Quản lý xác nhận cuối cùng."
+        ]}
       />
 
       {/* Tabs Menu */}

@@ -357,6 +357,12 @@ export default function Roster() {
         title="Ma trận Xoay ca"
         description="Lịch làm việc của toàn bộ nhân sự tại nhà hàng."
         eyebrow="Phân ca"
+        tipTitle="Hướng dẫn Đọc Ma trận Xoay ca"
+        tips={[
+          "Màu sắc theo vị trí: Phục vụ (Xanh lam), Pha chế (Hổ phách), Bếp (Tím), Thu ngân (Ngọc lục bảo).",
+          "Chạm hoặc click vào ô ca làm để xem chi tiết giờ bắt đầu - kết thúc và ghi chú của ca.",
+          "Trên điện thoại: Vuốt ngang để xem các ngày trong tuần, cột Họ tên nhân viên được cố định bên trái."
+        ]}
       />
 
       {/* Toggle Mode & Time Navigation */}

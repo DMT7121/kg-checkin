@@ -563,6 +563,14 @@ export default function Checklist() {
         title="Checklist Vận Hành Theo Khu Vực"
         description="Đồng bộ trực tuyến theo thời gian thực cho 4 khu vực. Hỗ trợ việc con và đề xuất vật tư."
         eyebrow="Vận hành"
+        tipTitle="Tiêu chuẩn Kiểm tra Checklist Vận hành"
+        tips={[
+          "Khu vực A (Sảnh & Bàn ăn): Vệ sinh bàn ghế, lau sàn, kiểm tra lọ gia vị và menu.",
+          "Khu vực B (Quầy Bar & Thu ngân): Chuẩn bị ly tách, nguyên liệu pha chế, máy POS và hoá đơn.",
+          "Khu vực C (Bếp & Kho): Kiểm tra nhiệt độ tủ đông/mát, vệ sinh bề mặt chế biến, an toàn thực phẩm.",
+          "Khu vực D & E (Vệ sinh & Cơ sở vật chất): Kiểm tra nhà vệ sinh, hệ thống ánh sáng, điều hòa và âm thanh.",
+          "Chạm vào từng đầu mục để đánh dấu hoàn tất. Dữ liệu sẽ tự động đồng bộ lên máy chủ."
+        ]}
       />
 
       {/* Date & Mode selector */}
@@ -999,7 +1007,7 @@ export default function Checklist() {
 
       {/* Floating Sync bar for Batch mode */}
       {saveMode === 'batch' && selectedArea && hasPendingChanges && (
-        <div className="fixed bottom-20 md:bottom-6 left-4 right-4 md:left-64 md:right-6 z-40 bg-[var(--kg-surface)]/95 backdrop-blur border border-[var(--kg-border)] p-3.5 sm:p-4 rounded-2xl flex items-center justify-between shadow-xl animate-slide-up">
+        <div className="fixed bottom-24 md:bottom-6 left-4 right-4 md:left-64 md:right-6 z-40 bg-[var(--kg-surface)]/95 backdrop-blur border border-[var(--kg-border)] p-3.5 sm:p-4 rounded-2xl flex items-center justify-between shadow-xl animate-slide-up">
           <div className="flex items-center space-x-2 min-w-0 pr-2">
             <span className="flex w-2.5 h-2.5 bg-[var(--kg-accent)] rounded-full animate-ping flex-shrink-0" />
             <span className="text-xs font-black text-[var(--kg-text)] truncate">

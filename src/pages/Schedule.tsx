@@ -549,6 +549,21 @@ ${aiInputText}
         title={isManagerView ? 'Sắp Xếp Ca Làm' : 'Đăng Ký Ca Làm'}
         description={isManagerView ? 'Duyệt và sắp xếp ca làm việc cho toàn bộ nhân sự.' : `Đăng ký lịch làm ca tuần ${weekInfo.weekDisplay}.`}
         eyebrow={isManagerView ? "Quản lý" : "Nhân sự"}
+        tipTitle={isManagerView ? "Hướng dẫn Sắp xếp Ca làm" : "Quy định Đăng ký Ca làm"}
+        tips={
+          isManagerView
+            ? [
+                "Kiểm tra quân số từng ca (Sáng, Chiều, Tối) so với định biên tối thiểu của nhà hàng.",
+                "Sử dụng công cụ 'Xếp ca AI' để tự động lấp đầy các vị trí trống còn thiếu.",
+                "Sau khi điều chỉnh xong, bấm 'Xác nhận lịch tuần' để công bố cho toàn bộ nhân viên."
+              ]
+            : [
+                "Hạn chót đăng ký lịch làm: Trước 23h59 Chủ nhật hàng tuần.",
+                "Đăng ký tối thiểu theo hợp đồng (thường 4-6 ca/tuần tùy vị trí Part-time hay Full-time).",
+                "Nếu cần xin nghỉ hoặc bận đột xuất, hãy chọn 'Off' và ghi chú lý do rõ ràng.",
+                "Sau khi Quản lý đã chốt lịch, việc thay đổi phải thực hiện qua mục 'Bảng tin đổi ca'."
+              ]
+        }
       />
 
       {/* Toggle Mode & Time Navigation for Admin */}

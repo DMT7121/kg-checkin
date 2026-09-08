@@ -125,6 +125,12 @@ export default function AdminOrg() {
         title="Tổ chức & Quyền"
         description="Thiết lập doanh nghiệp, chức vụ, phòng ban và quản lý phân quyền thành viên."
         eyebrow="Cấu hình"
+        tipTitle="Hướng dẫn Thiết lập Tổ chức & Quyền"
+        tips={[
+          "Thông tin doanh nghiệp: Cập nhật tên cơ sở, số hotline quản lý và địa chỉ nhà hàng.",
+          "Cấu hình Zalo Bot: Kết nối Webhook và Group ID để gửi lịch làm việc, thông báo khẩn và duyệt đơn bổ sung công.",
+          "Phân quyền vai trò: Admin (toàn quyền quản trị), Quản lý ca (duyệt công/lịch), Nhân viên (thao tác ca làm)."
+        ]}
       />
 
 

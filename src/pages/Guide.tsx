@@ -10,7 +10,7 @@ import {
   ArrowLeft, CheckCircle2, GraduationCap, Sparkles
 } from 'lucide-react';
 import NewbieGuideModal from '../components/NewbieGuideModal';
-import { KgPage, KgPageHeader, KgCard, KgInput, KgButton, KgStatusBadge, KgAlertCard } from '../components/KgDesignSystem';
+import { KgPage, KgPageHeader, KgCard, KgInput, KgButton, KgStatusBadge, KgAlertCard, KgFeatureTip } from '../components/KgDesignSystem';
 
 interface GuideItem {
   id: TabId;
@@ -522,6 +522,17 @@ export default function Guide() {
             title="Hướng Dẫn Sử Dụng"
             description="Tài liệu đào tạo và hướng dẫn vận hành hệ thống Staff OS của King's Grill."
             icon={BookOpen}
+            actions={
+              <KgFeatureTip
+                title="Mẹo Tự Học & Nâng Cao Nghiệp Vụ"
+                tips={[
+                  "Đọc kỹ cẩm nang từng phân hệ để nắm vững cách chấm công, xem bảng công, làm checklist.",
+                  "Sau khi nắm rõ quy trình, bấm 'Đã hiểu & Hoàn thành' để ghi nhận tiến độ học tập.",
+                  "Nhân viên đạt 100% tiến độ tự học sẽ được ưu tiên xem xét thưởng King Coins và tăng bậc lương."
+                ]}
+                triggerText="Mẹo tự học"
+              />
+            }
           />
 
           {/* Quick Onboarding Launcher Banner */}

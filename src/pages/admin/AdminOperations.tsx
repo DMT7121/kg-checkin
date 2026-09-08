@@ -630,6 +630,12 @@ export default function AdminOperations() {
         title="Phân Công Vận Hành"
         description="Tổ chức nhóm trực, khu vực, checklist và cân bằng năng lực nhân sự theo từng ngày."
         eyebrow="Điều phối"
+        tipTitle="Hướng dẫn Phân công Vận hành"
+        tips={[
+          "Nhóm trực: Chia đội ngũ nhân viên thành các nhóm (Nhóm A, B, C) để luân chuyển đều đặn giữa các khu vực.",
+          "Khu & việc: Cài đặt tiêu chuẩn và danh sách công việc phụ trách cho từng khu vực nhà hàng.",
+          "Phân công & Tự cân bằng: Hệ thống tự động gợi ý xoay vòng khu vực để đảm bảo tính công bằng cho nhân sự."
+        ]}
       />
 
       <div className="soft3d-card rounded-2xl p-2">

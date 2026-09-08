@@ -155,6 +155,12 @@ export default function AdminShift() {
         title="Ca làm & Chấm công"
         description="Thiết lập tọa độ định vị GPS nhà hàng, bán kính Check-in hợp lệ và quản lý các loại mã ca làm việc."
         eyebrow="Cấu hình"
+        tipTitle="Hướng dẫn Quản trị GPS & Ca làm"
+        tips={[
+          "Tọa độ GPS chuẩn: Cần đứng trực tiếp tại sảnh chính King's Grill và bấm 'Lấy vị trí hiện tại' để có tọa độ chính xác nhất.",
+          "Bán kính GPS hợp lệ: Khuyến nghị đặt 20m để tránh trường hợp nhân viên chấm công từ xa ngoài quán.",
+          "Mã ca làm việc: Thiết lập đầy đủ giờ Vào, giờ Ra và thời gian nghỉ giữa ca cho từng ca Sáng, Chiều, Tối."
+        ]}
       />
 
       {/* GPS Configuration */}

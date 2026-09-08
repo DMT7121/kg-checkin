@@ -1604,3 +1604,31 @@ main [class*="bg-teal-600"] {
     animation-iteration-count: 1 !important;
   }
 }
+
+/* iOS Safe Area & Mobile Ergonomics Utilities */
+.pt-safe-top {
+  padding-top: max(0.75rem, env(safe-area-inset-top, 0px)) !important;
+}
+
+.bottom-safe-nav {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px)) !important;
+}
+
+.pb-safe {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px)) !important;
+}
+
+.min-h-screen-safe {
+  min-height: calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+}
+
+.touch-manipulation {
+  touch-action: manipulation;
+}
+
+.mobile-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+

@@ -105,6 +105,12 @@ export default function SoldOut() {
         description="Cập nhật nhanh tình trạng món ăn, thức uống tạm hết để phục vụ order chuẩn xác."
         eyebrow="Vận hành"
         features={['Đồng bộ tức thì', 'Tự động báo Dashboard', 'Dễ dàng khôi phục']}
+        tipTitle="Quy chuẩn Báo hết món (Item 86)"
+        tips={[
+          "Bếp hoặc Bar báo hết nguyên liệu / món ăn ngay khi lượng tồn kho dưới ngưỡng an toàn.",
+          "Thu ngân và Nhân viên phục vụ lập tức cập nhật để không nhận order món đã hết của khách hàng.",
+          "Khi có đợt nhập hàng hoặc sơ chế bổ sung, bấm 'Khôi phục món' để mở lại món trên thực đơn."
+        ]}
       />
 
       {/* Toolbar */}

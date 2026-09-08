@@ -23,7 +23,8 @@ import {
   KgButton,
   KgStatusBadge,
   KgMetricCard,
-  KgAlertCard
+  KgAlertCard,
+  KgFeatureTip
 } from '../components/KgDesignSystem';
 import { moduleLoaders } from '../config/moduleRegistry';
 import type { TabId } from '../types/navigation';
@@ -477,11 +478,22 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
               </button>
             )}
 
-            {/* Card việc cần làm (To-Do List) */}
             <KgCard className="p-5">
-              <h3 className="text-sm font-black text-[var(--kg-text)] uppercase tracking-wider mb-4 border-b border-[var(--kg-border)] pb-2">
-                Việc cần làm hôm nay
-              </h3>
+              <div className="flex items-center justify-between border-b border-[var(--kg-border)] pb-2 mb-4">
+                <h3 className="text-sm font-black text-[var(--kg-text)] uppercase tracking-wider">
+                  Việc cần làm hôm nay
+                </h3>
+                <KgFeatureTip
+                  title="Hướng dẫn Việc cần làm hôm nay"
+                  tips={[
+                    "Checklist: Kiểm tra và đánh dấu đầy đủ các khu vực trước khi bắt đầu hoặc kết thúc ca làm.",
+                    "Sổ Bàn giao ca: Bắt buộc đếm quỹ tiền mặt, ghi nhận tồn kho và sự cố trước khi giao ca.",
+                    "Đăng ký lịch làm: Hạn chót 23h59 Chủ nhật hàng tuần để AI và Quản lý sắp xếp đội hình tối ưu."
+                  ]}
+                  triggerText="Lưu ý"
+                  size="sm"
+                />
+              </div>
               <div className="space-y-3.5">
                 {/* Checklist item */}
                 {hasTabPermission('checklist', currentUser) && (

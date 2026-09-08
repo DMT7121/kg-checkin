@@ -161,6 +161,12 @@ export default function NewsFeed() {
         title="Bảng tin Nội bộ"
         description="Thông báo và tin tức quan trọng từ nhà hàng."
         eyebrow="Thông tin"
+        tipTitle="Quy chế Bảng tin Nội bộ"
+        tips={[
+          "Mọi nhân viên cần theo dõi bảng tin hàng ngày để cập nhật các thông báo điều hành và sự kiện quan trọng.",
+          "Quản lý có thể ghim bài viết quan trọng và gửi thông báo trực tiếp tới toàn bộ nhân sự.",
+          "Thả tim và bình luận tích cực để xây dựng tinh thần đồng đội tại King's Grill."
+        ]}
       />
 
 

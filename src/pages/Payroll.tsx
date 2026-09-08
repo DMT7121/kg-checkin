@@ -122,6 +122,13 @@ export default function Payroll({ mode = 'user' }: { mode?: 'user' | 'admin' }) 
         }
         eyebrow="Tài chính"
         features={['Minh bạch 100%', 'Chi tiết thưởng/phạt', 'Theo dõi tạm ứng']}
+        tipTitle="Chính sách Tiền lương & Đối soát"
+        tips={[
+          "Lương giờ/tháng được tính toán tự động dựa trên bảng công thực tế đã chốt của tháng.",
+          "Các khoản phụ cấp, trách nhiệm, thưởng doanh số hoặc tiền tip được cộng dồn theo ca.",
+          "Tiền tạm ứng trong tháng sẽ được tự động đối trừ vào số thực nhận cuối cùng.",
+          "Nếu có thắc mắc hoặc sai lệch, nhân viên bấm 'Gửi đề nghị điều chỉnh' để Quản lý kiểm tra."
+        ]}
       />
 
       {!isManagerView && <EmployeeSalaryCard currentUser={currentUser} />}

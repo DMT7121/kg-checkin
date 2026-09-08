@@ -17,6 +17,7 @@ import {
   salaryMonthLabel,
   salaryTypeLabel,
 } from '../types/salary';
+import { KgFeatureTip } from './KgFeatureTip';
 
 export default function EmployeeSalaryCard({ currentUser }: { currentUser: User }) {
   const [month, setMonth] = useState(currentSalaryMonth);
@@ -103,7 +104,20 @@ export default function EmployeeSalaryCard({ currentUser }: { currentUser: User 
                 Mức lương của bạn
               </p>
               <h2 className="mt-2 text-2xl font-black">{salaryMonthLabel(month)}</h2>
-              <p className="mt-1 text-xs opacity-75 font-medium">Thông tin do quản trị viên khai báo</p>
+              <div className="mt-1 flex items-center gap-1.5">
+                <p className="text-xs opacity-85 font-medium">Thông tin do quản trị viên khai báo</p>
+                <KgFeatureTip
+                  title="Quy định Mức lương & Điều chỉnh"
+                  tips={[
+                    "Mức lương được Quản lý thiết lập theo chức danh và hợp đồng làm việc.",
+                    "Lương theo giờ: Nhân tổng số giờ công thực tế trong tháng.",
+                    "Lương tháng: Tính theo số ngày công chuẩn quy định.",
+                    "Nếu mức lương chưa chính xác, bấm nút 'Gửi đề nghị điều chỉnh mức lương' bên dưới để phản hồi."
+                  ]}
+                  variant="hero"
+                  size="sm"
+                />
+              </div>
             </div>
             <label className="rounded-xl bg-white/10 p-2 backdrop-blur border border-white/10">
               <span className="sr-only">Chọn tháng</span>

@@ -494,6 +494,12 @@ export default function Training() {
         title="Sổ Tay Vận Hành & Đào Tạo"
         description="Tra cứu quy trình chuẩn (SOP), nội quy nhà hàng và làm bài kiểm tra nghiệp vụ tích lũy King Coins."
         features={[`${completedCount}/${totalLessons} bài hoàn thành`]}
+        tipTitle="Hướng dẫn Tự học & Kiểm tra SOP"
+        tips={[
+          "Tab SOP: Hướng dẫn chi tiết từng vị trí (Phục vụ, Pha chế, Bếp, Thu ngân, Vệ sinh).",
+          "Tab Bài kiểm tra: Trả lời 10 câu hỏi trắc nghiệm thực tế, đạt trên 80% sẽ nhận chứng chỉ và +50 King Coins.",
+          "Tab Trợ lý AI: Hỏi đáp trực tiếp các tình huống giao tiếp với khách hàng hoặc xử lý sự cố."
+        ]}
       />
 
       {/* Tab Buttons */}
