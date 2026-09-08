@@ -1607,7 +1607,7 @@ function handleGetSalaryConfig(payload) {
       items.push({
         username: data[i][0].toString(),
         fullname: data[i][1] ? data[i][1].toString() : '',
-        baseSalaryPerHour: Number(data[i][2]) || 20000
+        baseSalaryPerHour: Number(data[i][2]) || 0
       });
     }
   }
@@ -1629,7 +1629,7 @@ function handleUpdateSalaryConfig(payload) {
   }
   if (items.length > 0) {
     var rows = items.map(function(it) {
-      return [it.username || '', it.fullname || '', Number(it.baseSalaryPerHour) || 20000];
+      return [it.username || '', it.fullname || '', Number(it.baseSalaryPerHour) || 0];
     });
     sheet.getRange(2, 1, rows.length, 3).setValues(rows);
   }
@@ -2005,11 +2005,14 @@ function handleGetPayroll(payload) {
     if (logsSheet) logsData = logsSheet.getDataRange().getValues();
   }
 
-  // 1. Get Base Salaries
+  // 1. Get Base Salaries (Không gán mặc định 20.000đ)
   var baseSalaries = {};
   for (var i = 1; i < configData.length; i++) {
     if (configData[i] && configData[i][0]) {
-      baseSalaries[configData[i][0]] = Number(configData[i][2]) || 20000;
+      var sAmount = Number(configData[i][2]);
+      if (sAmount > 0) {
+        baseSalaries[configData[i][0]] = sAmount;
+      }
     }
   }
 
@@ -2056,8 +2059,10 @@ function handleGetPayroll(payload) {
     }
   }
   
-  // 4. LẤY TỔNG GIỜ LÀM
+  // 4. LẤY TỔNG GIỜ LÀM (TÍNH THEO CA VÀ TĂNG CA QUA ĐÊM VỚI MỐC 00:15)
   var hoursWorked = {};
+  var regularHoursMap = {};
+  var overtimeHoursMap = {};
   var daysWorked = {};
   
   if (hasSummary && summaryData.length > 0) {
@@ -2070,6 +2075,8 @@ function handleGetPayroll(payload) {
       var gioTheoCa = parseFloat(row[9]) || 0;
       if (gioTangCa > 0 || gioTheoCa > 0) {
         hoursWorked[empName] = (hoursWorked[empName] || 0) + gioTangCa + gioTheoCa;
+        regularHoursMap[empName] = (regularHoursMap[empName] || 0) + gioTheoCa;
+        overtimeHoursMap[empName] = (overtimeHoursMap[empName] || 0) + gioTangCa;
         daysWorked[empName] = (daysWorked[empName] || 0) + 1;
       }
     }
@@ -2101,23 +2108,55 @@ function handleGetPayroll(payload) {
     
     for (var fullname in userLogs) {
       var logs = userLogs[fullname].sort(function(a, b) { return a.time - b.time; });
-      var totalMs = 0;
+      var totalRegMs = 0;
+      var totalOtMs = 0;
       var lastIn = 0;
       var workedDateKeys = {};
       
       for (var j = 0; j < logs.length; j++) {
-        if (logs[j].type.indexOf('VÀO') >= 0 || logs[j].type === 'IN') {
+        var isCheckIn = logs[j].type.indexOf('VÀO') >= 0 || logs[j].type === 'IN';
+        var isCheckOut = logs[j].type.indexOf('RA') >= 0 || logs[j].type === 'OUT';
+
+        if (isCheckIn) {
           lastIn = logs[j].time;
           workedDateKeys[Utilities.formatDate(new Date(logs[j].time), CONFIG.TIMEZONE, 'yyyy-MM-dd')] = true;
-        } else if ((logs[j].type.indexOf('RA') >= 0 || logs[j].type === 'OUT') && lastIn > 0) {
+        } else if (isCheckOut && lastIn > 0) {
           var diff = logs[j].time - lastIn;
-          if (diff > 0 && diff < 14 * 60 * 60 * 1000) {
-            totalMs += diff;
+          if (diff > 0 && diff < 16 * 60 * 60 * 1000) {
+            var inDate = new Date(lastIn);
+            var outDate = new Date(logs[j].time);
+            var inDay = Utilities.formatDate(inDate, CONFIG.TIMEZONE, 'yyyy-MM-dd');
+            var outDay = Utilities.formatDate(outDate, CONFIG.TIMEZONE, 'yyyy-MM-dd');
+            
+            // Ra ca thuộc ngày hôm sau từ 00:00 đến 06:00
+            var outHour = Number(Utilities.formatDate(outDate, CONFIG.TIMEZONE, 'H'));
+            var outMinute = Number(Utilities.formatDate(outDate, CONFIG.TIMEZONE, 'm'));
+            var isOvernight = (inDay !== outDay) && (outHour >= 0 && outHour < 6);
+            
+            if (isOvernight) {
+              if (outHour === 0 && outMinute <= 15) {
+                // Nhỏ hơn hoặc bằng 00:15 -> là Ra ca ngày hôm trước, không tính tăng ca
+                totalRegMs += diff;
+              } else {
+                // Lớn hơn 00:15 -> Ca chính chốt tại 00:00, thời gian sau 00:00 tính tăng ca
+                var midnightDate = new Date(outDate.getFullYear(), outDate.getMonth(), outDate.getDate(), 0, 0, 0, 0);
+                var midnight = midnightDate.getTime();
+                var regMs = Math.max(0, midnight - lastIn);
+                var otMs = Math.max(0, logs[j].time - midnight);
+                totalRegMs += regMs;
+                totalOtMs += otMs;
+              }
+            } else {
+              totalRegMs += diff;
+            }
           }
           lastIn = 0;
         }
       }
-      hoursWorked[fullname] = totalMs / (1000 * 60 * 60);
+      var userTotalHours = (totalRegMs + totalOtMs) / (1000 * 60 * 60);
+      hoursWorked[fullname] = userTotalHours;
+      regularHoursMap[fullname] = totalRegMs / (1000 * 60 * 60);
+      overtimeHoursMap[fullname] = totalOtMs / (1000 * 60 * 60);
       daysWorked[fullname] = Object.keys(workedDateKeys).length;
     }
   }
@@ -2132,19 +2171,37 @@ function handleGetPayroll(payload) {
     if (!isAdmin && uName !== payload.username) continue;
     
     var hours = hoursWorked[fName] || 0;
+    var regH = regularHoursMap[fName] || hours;
+    var otH = overtimeHoursMap[fName] || 0;
     var workedDays = daysWorked[fName] || 0;
     var monthlySalary = monthlySalaries[uName] || null;
-    var payType = monthlySalary ? monthlySalary.payType : 'hourly';
-    var salaryAmount = monthlySalary ? monthlySalary.amount : (baseSalaries[uName] || 20000);
+    
+    var isConfigured = false;
+    var payType = 'hourly';
+    var salaryAmount = 0;
+
+    if (monthlySalary && Number(monthlySalary.amount) > 0) {
+      isConfigured = true;
+      payType = monthlySalary.payType || 'hourly';
+      salaryAmount = Number(monthlySalary.amount);
+    } else if (baseSalaries[uName] && Number(baseSalaries[uName]) > 0) {
+      isConfigured = true;
+      payType = 'hourly';
+      salaryAmount = Number(baseSalaries[uName]);
+    }
+
     var base = payType === 'hourly' ? salaryAmount : 0;
-    var totalBase = payType === 'daily'
-      ? (salaryAmount / 30) * workedDays
-      : hours * salaryAmount;
+    var totalBase = 0;
+    if (isConfigured) {
+      totalBase = payType === 'daily'
+        ? (salaryAmount / 30) * workedDays
+        : hours * salaryAmount;
+    }
     var adv = advances[uName] || 0;
     var bon = bonuses[uName] || 0;
     var pen = penalties[uName] || 0;
     
-    var netPay = totalBase + bon - pen - adv;
+    var netPay = isConfigured ? (totalBase + bon - pen - adv) : (bon - pen - adv);
     
     payroll.push({
       username: uName,
@@ -2155,11 +2212,14 @@ function handleGetPayroll(payload) {
       standardDays: 30,
       workedDays: workedDays,
       totalHours: hours,
+      regularHours: regH,
+      overtimeHours: otH,
       totalBaseSalary: totalBase,
       advances: adv,
       bonus: bon,
       penalty: pen,
-      netPay: netPay
+      netPay: netPay,
+      isConfigured: isConfigured
     });
   }
   

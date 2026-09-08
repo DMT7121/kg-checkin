@@ -67,6 +67,13 @@ export default function App() {
           // Phase A+B: Restore ALL cached data instantly (SWR pattern)
           restoreFromCache();
 
+          // Support deep-linking via ?tab=... query param
+          const urlParams = new URLSearchParams(window.location.search);
+          const tabParam = urlParams.get('tab') as TabId | null;
+          if (tabParam) {
+            store.setCurrentTab(tabParam);
+          }
+
           // Init week schedule
           const weekInfo = computeWeekInfo();
           const initShifts: Record<string, string> = {};

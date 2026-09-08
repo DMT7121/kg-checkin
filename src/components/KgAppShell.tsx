@@ -13,19 +13,30 @@ interface KgAppShellProps {
   onPrefetch?: (tab: TabId) => void;
 }
 
-export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
-  const store = useAppStore();
-  const { currentUser, isDark, currentTab } = store;
+export default function KgAppShell({
+  children,
+  onPrefetch,
+}: {
+  children: React.ReactNode;
+  onPrefetch?: (tabId: TabId) => void;
+}) {
+  const currentTab = useAppStore(state => state.currentTab);
+  const currentUser = useAppStore(state => state.currentUser);
+  const isDark = useAppStore(state => state.isDark);
+  const shiftName = useAppStore(state => state.shiftName);
+  const setCurrentTab = useAppStore(state => state.setCurrentTab);
+  const logout = useAppStore(state => state.logout);
+  const toggleDarkMode = useAppStore(state => state.toggleDarkMode);
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
 
   const handleLogout = () => {
-    store.logout();
+    logout();
     document.documentElement.classList.remove('dark');
   };
 
   const handleTabChange = (tab: TabId) => {
-    store.setCurrentTab(tab);
+    setCurrentTab(tab);
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
@@ -263,7 +274,7 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
             </button>
             <div className="text-xs font-semibold text-[var(--kg-text-muted)] flex items-center gap-1.5">
               <Clock size={13} className="text-[var(--kg-primary)] dark:text-[var(--kg-accent)]" />
-              <span>Ca hiện tại: <b>{store.shiftName}</b></span>
+              <span>Ca hiện tại: <b>{shiftName}</b></span>
             </div>
             <div className="w-1.5 h-1.5 bg-[#10b981] rounded-full animate-ping" />
           </div>

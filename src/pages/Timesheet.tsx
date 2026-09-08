@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { generateMonthDates, SHORT_DAY_NAMES } from '../utils/helpers';
 import CalendarGrid from '../components/CalendarGrid';
 import { callApi } from '../services/api';
-import { CalendarClock, Clock, ListOrdered, Calendar, FileClock, Search, List, Eye, ArrowLeft, RefreshCw } from 'lucide-react';
+import { CalendarClock, Clock, ListOrdered, Calendar, FileClock, Search, List, Eye, ArrowLeft, RefreshCw, Zap } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { KgModuleHero, KgInput, KgCard, KgButton } from '../components/KgDesignSystem';
 import { saveModuleCache } from '../utils/refreshData';
+import { calculateEmployeeMonthTimesheet, formatDayDateKey, UserMonthSummary } from '../utils/timesheetCalculator';
 
 type ViewMode = 'HOURS' | 'TIMESTAMPS';
 type DetailMobileView = 'CALENDAR' | 'LIST';
@@ -50,6 +51,22 @@ export default function Timesheet() {
     loadTimesheet();
   }, []);
 
+  // Pre-calculate all employee monthly summaries with overnight overtime awareness (00:15 threshold)
+  const employeeSummaries = useMemo<Record<string, UserMonthSummary>>(() => {
+    if (!timesheetData || !timesheetData.timesheet || !timesheetData.year) return {};
+    const map: Record<string, UserMonthSummary> = {};
+    for (const name of Object.keys(timesheetData.timesheet)) {
+      map[name] = calculateEmployeeMonthTimesheet(
+        name,
+        timesheetData.timesheet[name] || {},
+        timesheetData.daysInMonth,
+        timesheetData.month,
+        timesheetData.year
+      );
+    }
+    return map;
+  }, [timesheetData]);
+
   if (!timesheetData || !timesheetData.year) {
     return (
       <div className="p-4 space-y-5 animate-slide-up pb-10">
@@ -92,48 +109,6 @@ export default function Timesheet() {
     
     return true;
   });
-
-  const calculateCell = (records: any[]) => {
-    if (!records || records.length === 0) return { hours: 0, text: '' };
-    
-    // Sort by time
-    const sorted = [...records].sort((a, b) => a.originalTimeMs - b.originalTimeMs);
-    let totalMs = 0;
-    let lastIn = 0;
-    let lastInTimeStr = '';
-    let timeTextLines: string[] = [];
-    
-    for (const r of sorted) {
-      const validStr = r.validStatus || '';
-      // Nếu validStr rỗng (do nhập tay hoặc backend chưa cập nhật), mặc định cho phép
-      const isHopLe = validStr === '' || (validStr.includes('HỢP LỆ') && !validStr.includes('KHÔNG'));
-      if (!isHopLe) continue;
-
-      const type = r.status.toUpperCase();
-      if (type.includes('VÀO CA') || type === 'IN') {
-        lastIn = r.originalTimeMs;
-        lastInTimeStr = r.time;
-      } else if ((type.includes('RA CA') || type === 'OUT') && lastIn > 0) {
-        const diff = r.originalTimeMs - lastIn;
-        if (diff > 0 && diff < 14 * 60 * 60 * 1000) {
-          totalMs += diff;
-        }
-        timeTextLines.push(`${lastInTimeStr} - ${r.time}`);
-        lastIn = 0;
-        lastInTimeStr = '';
-      }
-    }
-    
-    // Nêu thiếu giờ ra ca
-    if (lastIn > 0) {
-      timeTextLines.push(`${lastInTimeStr} - ?`);
-    }
-
-    return {
-      hours: totalMs / (1000 * 60 * 60),
-      text: timeTextLines.join('\n')
-    };
-  };
 
   return (
     <div className="p-4 space-y-5 animate-slide-up pb-10">
@@ -263,12 +238,8 @@ export default function Timesheet() {
                     </tr>
                   ) : (
                     displayNames.map(name => {
-                      const userDates = timesheetData.timesheet[name] || {};
-                      const totalMonthHours = days.reduce((sum, d) => {
-                        const dateStr = `${d.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
-                        const records = userDates[dateStr] || [];
-                        return sum + calculateCell(records).hours;
-                      }, 0);
+                      const summary = employeeSummaries[name];
+                      const totalMonthHours = summary?.totalMonthHours || 0;
                       
                       return (
                         <tr key={name} className="border-b border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]/50 transition-colors">
@@ -277,15 +248,26 @@ export default function Timesheet() {
                           </td>
                           <td className="px-4 py-3 font-black text-center font-mono text-[var(--kg-primary)] dark:text-cyan-300 sticky left-[150px] bg-[var(--kg-surface-soft)] border-r border-[var(--kg-border)] z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.06)]">
                             {totalMonthHours.toFixed(2)}h
+                            {summary?.totalOvertimeHours > 0 && (
+                              <span className="block text-[10px] text-amber-500 font-bold">
+                                +{summary.totalOvertimeHours.toFixed(1)}h TC
+                              </span>
+                            )}
                           </td>
                           {days.map(d => {
-                            const dateStr = `${d.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
-                            const records = userDates[dateStr] || [];
-                            const { hours, text } = calculateCell(records);
+                            const dayRes = summary?.days[d];
+                            const hours = dayRes?.totalHours || 0;
+                            const text = dayRes?.timeText || '';
+                            const hasOvertime = dayRes?.hasOvertime || false;
+
                             return (
                               <td key={d} className="px-2 py-2 border-r border-[var(--kg-border)] text-center relative group">
                                 {(hours > 0 || text !== '') ? (
-                                  <div className="bg-[var(--kg-primary)]/10 text-[var(--kg-primary)] dark:bg-[var(--kg-primary)]/30 dark:text-cyan-200 border border-[var(--kg-primary)]/20 py-1 px-1.5 rounded-lg text-xs font-mono font-bold mx-auto w-fit whitespace-pre-line">
+                                  <div className={`py-1 px-1.5 rounded-lg text-xs font-mono font-bold mx-auto w-fit whitespace-pre-line border ${
+                                    hasOvertime
+                                      ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30'
+                                      : 'bg-[var(--kg-primary)]/10 text-[var(--kg-primary)] dark:bg-[var(--kg-primary)]/30 dark:text-cyan-200 border-[var(--kg-primary)]/20'
+                                  }`}>
                                     {viewMode === 'HOURS' ? (hours > 0 ? hours.toFixed(2) : '?') : text}
                                   </div>
                                 ) : (
@@ -310,18 +292,9 @@ export default function Timesheet() {
                 </div>
               ) : (
                 displayNames.map(name => {
-                  const userDates = timesheetData.timesheet[name] || {};
-                  const totalMonthHours = days.reduce((sum, d) => {
-                    const dateStr = `${d.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
-                    const records = userDates[dateStr] || [];
-                    return sum + calculateCell(records).hours;
-                  }, 0);
-
-                  const workDaysCount = days.filter(d => {
-                    const dateStr = `${d.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
-                    const records = userDates[dateStr] || [];
-                    return calculateCell(records).hours > 0;
-                  }).length;
+                  const summary = employeeSummaries[name];
+                  const totalMonthHours = summary?.totalMonthHours || 0;
+                  const workDaysCount = summary?.workedDaysCount || 0;
 
                   // Lấy chữ cái đầu làm Avatar
                   const nameParts = name.trim().split(' ');
@@ -346,7 +319,14 @@ export default function Timesheet() {
                       <div className="flex items-center gap-3">
                         <div className="text-right">
                           <span className="text-[10px] text-[var(--kg-text-muted)] font-bold block uppercase tracking-wider">Tổng giờ</span>
-                          <span className="text-sm font-mono font-black text-[var(--kg-primary)] dark:text-cyan-300">{totalMonthHours.toFixed(2)}h</span>
+                          <span className="text-sm font-mono font-black text-[var(--kg-primary)] dark:text-cyan-300">
+                            {totalMonthHours.toFixed(2)}h
+                          </span>
+                          {summary?.totalOvertimeHours > 0 && (
+                            <span className="text-[10px] text-amber-600 dark:text-amber-400 block font-bold">
+                              +{summary.totalOvertimeHours.toFixed(1)}h TC
+                            </span>
+                          )}
                         </div>
                         <KgButton
                           size="sm"
@@ -369,12 +349,10 @@ export default function Timesheet() {
           <div className="mt-4 animate-fade-in">
             {(() => {
               const targetUser = isAdmin && selectedUser !== 'ALL' ? selectedUser : (currentUser?.fullname || '');
-              const userDates = timesheetData.timesheet[targetUser] || {};
-              const totalMonthHours = days.reduce((sum, d) => {
-                const dateStr = `${d.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
-                const records = userDates[dateStr] || [];
-                return sum + calculateCell(records).hours;
-              }, 0);
+              const summary = employeeSummaries[targetUser];
+              const totalMonthHours = summary?.totalMonthHours || 0;
+              const totalRegularHours = summary?.totalRegularHours || 0;
+              const totalOvertimeHours = summary?.totalOvertimeHours || 0;
 
               // Danh sách công chuẩn bị cho List View
               const workdayList = days.map(d => {
@@ -382,9 +360,7 @@ export default function Timesheet() {
                 const dayOfWeek = dateObj.getDay();
                 const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
                 const dayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-                const dateStr = `${d.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
-                const records = userDates[dateStr] || [];
-                const { hours, text } = calculateCell(records);
+                const dayRes = summary?.days[d];
                 const isToday = new Date().toDateString() === dateObj.toDateString();
                 
                 return {
@@ -392,11 +368,16 @@ export default function Timesheet() {
                   dateObj,
                   isWeekend,
                   dayLabel: SHORT_DAY_NAMES[dayIndex],
-                  dateStr,
-                  hours,
-                  text,
+                  dateStr: dayRes?.dateStr || formatDayDateKey(d, month, year),
+                  hours: dayRes?.totalHours || 0,
+                  regularHours: dayRes?.regularHours || 0,
+                  overtimeHours: dayRes?.overtimeHours || 0,
+                  sessions: dayRes?.sessions || [],
+                  text: dayRes?.timeText || '',
+                  hasOvertime: dayRes?.hasOvertime || false,
+                  hasMissingCheckout: dayRes?.hasMissingCheckout || false,
                   isToday,
-                  hasData: hours > 0 || text !== ''
+                  hasData: (dayRes?.totalHours || 0) > 0 || (dayRes?.timeText || '') !== ''
                 };
               });
 
@@ -408,13 +389,25 @@ export default function Timesheet() {
               return (
                 <div>
                   {/* Banner tổng hợp giờ làm */}
-                  <div className="mb-4 bg-[var(--kg-surface-soft)] p-4 rounded-2xl border border-[var(--kg-border)] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shadow-xs">
+                  <div className="mb-4 bg-[var(--kg-surface-soft)] p-4 sm:p-5 rounded-2xl border border-[var(--kg-border)] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shadow-xs">
                     <div>
-                      <div className="text-xs text-[var(--kg-accent)] font-black uppercase tracking-wider">
+                      <div className="text-xs text-[var(--kg-accent)] font-black uppercase tracking-wider flex items-center gap-1.5">
+                        <Clock size={14} />
                         {targetUser}
                       </div>
-                      <div className="text-xl sm:text-2xl font-black text-[var(--kg-text)] mt-1 font-mono">
-                        {totalMonthHours.toFixed(2)} <span className="text-xs sm:text-sm font-bold font-sans text-[var(--kg-text-muted)]">giờ làm tháng {month}/{year}</span>
+                      <div className="text-xl sm:text-2xl font-black text-[var(--kg-text)] mt-1 font-mono flex flex-wrap items-baseline gap-2">
+                        <span>{totalMonthHours.toFixed(2)}</span>
+                        <span className="text-xs sm:text-sm font-bold font-sans text-[var(--kg-text-muted)]">giờ làm tháng {month}/{year}</span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-[var(--kg-text-muted)] font-medium">
+                        <span>Theo ca: <strong className="text-[var(--kg-text)] font-mono">{totalRegularHours.toFixed(2)}h</strong></span>
+                        {totalOvertimeHours > 0 && (
+                          <span className="text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1">
+                            <Zap size={13} className="text-amber-500" />
+                            Tăng ca: <strong className="font-mono">+{totalOvertimeHours.toFixed(2)}h</strong>
+                          </span>
+                        )}
+                        <span>Số ngày làm: <strong className="text-[var(--kg-text)] font-mono">{summary?.workedDaysCount || 0} ngày</strong></span>
                       </div>
                     </div>
                     
@@ -438,16 +431,19 @@ export default function Timesheet() {
                         monthDates={monthDates}
                         renderCell={(mDate) => {
                           const d = mDate.date.getDate();
-                          const dateStr = `${d.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
-                          const records = userDates[dateStr] || [];
-                          const { hours, text } = calculateCell(records);
-                          
+                          const dayRes = summary?.days[d];
+                          const hours = dayRes?.totalHours || 0;
+                          const text = dayRes?.timeText || '';
                           const hasData = hours > 0 || text !== '';
                           
                           return (
                             <div className="w-full h-full flex flex-col justify-center items-center rounded-lg p-1">
                               {hasData ? (
-                                <div className="bg-indigo-500 text-white py-1 px-2 rounded-md text-[10px] sm:text-xs font-bold whitespace-pre-line text-center w-full ">
+                                <div className={`py-1 px-2 rounded-md text-[10px] sm:text-xs font-bold whitespace-pre-line text-center w-full border ${
+                                  dayRes?.hasOvertime
+                                    ? 'bg-amber-500 text-white border-amber-600'
+                                    : 'bg-indigo-500 text-white border-indigo-600'
+                                }`}>
                                   {viewMode === 'HOURS' ? (hours > 0 ? `${hours.toFixed(2)}h` : '?') : text}
                                 </div>
                               ) : (
@@ -484,9 +480,6 @@ export default function Timesheet() {
                       ) : (
                         <div className="space-y-2.5">
                           {filteredWorkdays.map(item => {
-                            const shifts = item.text.split('\n').filter(Boolean);
-                            const hasMissingCheckout = item.text.includes('?');
-                            
                             // Xác định màu sắc ngày
                             let dayBg = 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)]';
                             if (item.isToday) {
@@ -507,35 +500,40 @@ export default function Timesheet() {
                                 }`}
                               >
                                 {/* Cột 1: Ngày tháng */}
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-3 min-w-0">
                                   <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-black text-center flex-shrink-0 ${dayBg}`}>
                                     <span className="text-sm font-mono leading-none">{item.day.toString().padStart(2, '0')}</span>
                                     <span className="text-[9px] uppercase mt-1 tracking-wider">{item.dayLabel}</span>
                                   </div>
 
-                                  {/* Cột 2: Ca làm & Trạng thái */}
-                                  <div>
-                                    <div className="flex flex-wrap gap-1.5 items-center">
-                                      {item.hasData ? (
-                                        shifts.map((s, idx) => (
-                                          <span
-                                            key={idx}
-                                            className={`px-2.5 py-0.5 rounded-lg text-xs font-mono font-bold ${
-                                              s.includes('?')
-                                                ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 animate-pulse'
-                                                : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text)] border border-[var(--kg-border)]'
-                                            }`}
-                                          >
-                                            {s}
-                                          </span>
-                                        ))
-                                      ) : (
-                                        <span className="text-xs text-[var(--kg-text-muted)] font-medium">Nghỉ</span>
-                                      )}
-                                    </div>
+                                  {/* Cột 2: Các lượt Vào ca - Ra ca trong ngày */}
+                                  <div className="min-w-0 flex-1">
+                                    {item.hasData ? (
+                                      <div className="flex flex-col gap-1.5">
+                                        {item.sessions.map((session, sIdx) => (
+                                          <div key={sIdx} className="flex flex-wrap items-center gap-1.5 text-xs">
+                                            <span className="px-2.5 py-1 rounded-xl font-mono font-bold bg-[var(--kg-surface-soft)] text-[var(--kg-text)] border border-[var(--kg-border)] flex items-center gap-1">
+                                              <span className="text-[10px] text-[var(--kg-text-muted)] uppercase font-semibold">Vào:</span>
+                                              <span>{session.inTime}</span>
+                                              <span className="text-[var(--kg-text-muted)] mx-0.5">→</span>
+                                              <span className="text-[10px] text-[var(--kg-text-muted)] uppercase font-semibold">Ra:</span>
+                                              <span className={session.isMissingOut ? 'text-amber-500 font-black animate-pulse' : ''}>{session.outTime}</span>
+                                            </span>
+                                            {session.overtimeHours > 0 && (
+                                              <span className="px-2 py-0.5 rounded-lg text-[10px] font-mono font-black bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 flex items-center gap-0.5">
+                                                <Zap size={11} className="text-amber-500" />
+                                                +{session.overtimeHours.toFixed(1)}h Tăng ca
+                                              </span>
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <span className="text-xs text-[var(--kg-text-muted)] font-medium">Nghỉ</span>
+                                    )}
                                     
                                     {/* Cảnh báo thiếu ra ca */}
-                                    {hasMissingCheckout && (
+                                    {item.hasMissingCheckout && (
                                       <span className="text-[10px] text-amber-600 dark:text-amber-400 font-extrabold block mt-1">
                                         ⚠️ Thiếu giờ ra ca
                                       </span>

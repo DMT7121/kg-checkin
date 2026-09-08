@@ -967,8 +967,9 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
 };
 
 export default function Dashboard() {
+  const currentTab = useAppStore(state => state.currentTab);
+  const currentUser = useAppStore(state => state.currentUser);
   const store = useAppStore();
-  const { currentTab, currentUser } = store;
 
   useEffect(() => {
     const connection = (navigator as Navigator & {
@@ -1052,7 +1053,7 @@ export default function Dashboard() {
             )}
 
             {/* Keep-Alive for Data-driven Hubs & Modules */}
-            {Array.from(visitedTabs).map((tabId) => {
+            {Array.from(new Set([...visitedTabs, currentTab])).map((tabId) => {
               if (tabId === 'checkin') return null;
               const isSelected = tabId === currentTab;
               return (

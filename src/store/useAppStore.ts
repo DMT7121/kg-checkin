@@ -87,11 +87,14 @@ export interface PayrollRecord {
   standardDays?: number;
   workedDays?: number;
   totalHours: number;
+  regularHours?: number;
+  overtimeHours?: number;
   totalBaseSalary: number;
   advances: number;
   bonus: number;
   penalty: number;
   netPay: number;
+  isConfigured?: boolean;
 }
 
 export interface TimesheetData {
