@@ -614,7 +614,7 @@ function handleCheckInOut(payload) {
   var serverLateMins = 0;
   var checklistPending = false;
   
-  if (loaiChamCong === 'Vào ca' || loaiChamCong === 'IN') {
+  if (loaiChamCong.indexOf('Vào ca') === 0 || loaiChamCong === 'IN') {
     // 1. Find today's shift from schedule sheet
     try {
       var todayDate = time;

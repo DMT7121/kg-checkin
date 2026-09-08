@@ -610,7 +610,8 @@ function createRowData(name, dateStr, dateObj, datesMap, x2Days, x3Days) {
   var normalRecords = [];
 
   filtered.forEach(function(r) {
-    if (r.status === 'Ra ca' && r.time < '06:00') {
+    var isOut = r.status.indexOf('Ra ca') === 0 || r.status.indexOf('OUT') === 0;
+    if (isOut && r.time < '06:00') {
       earlyMorningOuts.push(r);
     } else {
       normalRecords.push(r);
@@ -637,8 +638,8 @@ function createRowData(name, dateStr, dateObj, datesMap, x2Days, x3Days) {
   // ═══════════════════════════════════════════════════════════════
   // STEP 3: Xử lý Vào 1/Ra 1/Vào 2/Ra 2 (ca trong ngày, ≥ 06:00)
   // ═══════════════════════════════════════════════════════════════
-  var inTimes = normalRecords.filter(function(r) { return r.status === 'Vào ca'; }).map(function(r) { return r.time; });
-  var outTimes = normalRecords.filter(function(r) { return r.status === 'Ra ca'; }).map(function(r) { return r.time; });
+  var inTimes = normalRecords.filter(function(r) { return r.status.indexOf('Vào ca') === 0 || r.status.indexOf('IN') === 0; }).map(function(r) { return r.time; });
+  var outTimes = normalRecords.filter(function(r) { return r.status.indexOf('Ra ca') === 0 || r.status.indexOf('OUT') === 0; }).map(function(r) { return r.time; });
 
   var vao1 = inTimes[0] || '';
   var ra1 = outTimes[0] || '';
@@ -654,7 +655,7 @@ function createRowData(name, dateStr, dateObj, datesMap, x2Days, x3Days) {
   nextRecords.sort(function(a, b) { return a.originalTime - b.originalTime; });
 
   var nextEarlyOuts = nextRecords.filter(function(r) {
-    return r.status === 'Ra ca' && r.time < '06:00';
+    return (r.status.indexOf('Ra ca') === 0 || r.status.indexOf('OUT') === 0) && r.time < '06:00';
   });
   // Loại trùng lặp
   nextEarlyOuts = nextEarlyOuts.filter(function(r, i, arr) {

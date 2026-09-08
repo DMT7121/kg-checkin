@@ -13,7 +13,8 @@ import {
   getRecommendedCheckInType,
   setLocalLastPunch,
   auditMissingCheckIns,
-  MissingCheckInAlert
+  MissingCheckInAlert,
+  CheckInTypeString
 } from '../utils/helpers';
 import {
   MapPin,
@@ -35,7 +36,8 @@ import {
   ChevronRight,
   HelpCircle,
   Check,
-  PartyPopper
+  PartyPopper,
+  Users
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import {
@@ -49,6 +51,7 @@ import { isWorkEligible } from '../utils/employment';
 import EmploymentStatusNotice from '../components/EmploymentStatusNotice';
 import { enqueueTask } from '../utils/offlineQueue';
 import MissedCheckInModal from '../components/MissedCheckInModal';
+import EmployeeAttendanceMonitor from '../components/EmployeeAttendanceMonitor';
 
 export default function CheckIn() {
   const store = useAppStore();
@@ -61,16 +64,19 @@ export default function CheckIn() {
 
   // Post-capture confirmation modal & dynamic type selection state
   const [confirmCheckInModalOpen, setConfirmCheckInModalOpen] = useState(false);
-  const [modalChosenType, setModalChosenType] = useState<'Vào ca' | 'Ra ca'>(recommendation.recommendedType);
+  const [modalChosenType, setModalChosenType] = useState<CheckInTypeString>(recommendation.recommendedType);
   const [hasAcknowledgedMissingIn, setHasAcknowledgedMissingIn] = useState(false);
+  const [hasAcknowledgedEarlyOut, setHasAcknowledgedEarlyOut] = useState(false);
   const [confirmInvertedTypeOpen, setConfirmInvertedTypeOpen] = useState(false);
-  const [pendingTypeToSubmit, setPendingTypeToSubmit] = useState<'Vào ca' | 'Ra ca'>('Vào ca');
+  const [pendingTypeToSubmit, setPendingTypeToSubmit] = useState<CheckInTypeString>('Vào ca');
+  const [employeeAttendanceModalOpen, setEmployeeAttendanceModalOpen] = useState(false);
 
   // Auto-sync modal type with recommendation whenever recommendation changes (if modal is closed)
   useEffect(() => {
     if (!confirmCheckInModalOpen) {
       setModalChosenType(recommendation.recommendedType);
       setHasAcknowledgedMissingIn(false);
+      setHasAcknowledgedEarlyOut(false);
     }
   }, [recommendation.recommendedType, confirmCheckInModalOpen]);
 
@@ -364,7 +370,7 @@ export default function CheckIn() {
     ctx: CanvasRenderingContext2D,
     exactTime: string,
     addr: string,
-    typeToStamp: 'Vào ca' | 'Ra ca' = modalChosenType || recommendation.recommendedType
+    typeToStamp: CheckInTypeString = modalChosenType || recommendation.recommendedType
   ) => {
     const cardX = 24;
     const cardHeight = 310;
@@ -429,11 +435,12 @@ export default function CheckIn() {
     ctx.fillStyle = '#93C5FD'; // Soft Blue
     ctx.fillText("👑 KING'S GRILL  •  CHỨNG NHẬN CHẤM CÔNG", contentX, headerY);
 
-    const isCheckInType = typeToStamp === 'Vào ca';
+    const isCheckInType = typeToStamp.includes('Vào') || typeToStamp.includes('IN') || typeToStamp.toLowerCase().includes('vào');
     const isValidGps = Boolean(currentGpsState.isValid);
+    const upperType = typeToStamp.toUpperCase();
     const badgeText = isCheckInType
-      ? (isValidGps ? '🟢 VÀO CA - HỢP LỆ' : '⚠️ VÀO CA - NGOÀI BÁN KÍNH')
-      : (isValidGps ? '🔴 RA CA - HỢP LỆ' : '⚠️ RA CA - NGOÀI BÁN KÍNH');
+      ? (isValidGps ? `🟢 ${upperType} - HỢP LỆ` : `⚠️ ${upperType} - NGOÀI BÁN KÍNH`)
+      : (isValidGps ? `🔴 ${upperType} - HỢP LỆ` : `⚠️ ${upperType} - NGOÀI BÁN KÍNH`);
     ctx.font = 'bold 20px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     const badgeWidth = ctx.measureText(badgeText).width + 24;
     const badgeX = cardX + cardWidth - padX - badgeWidth;
@@ -622,9 +629,10 @@ export default function CheckIn() {
     e.target.value = '';
   };
 
-  const handleTypeChangeInModal = (newType: 'Vào ca' | 'Ra ca') => {
+  const handleTypeChangeInModal = (newType: CheckInTypeString) => {
     setModalChosenType(newType);
     setHasAcknowledgedMissingIn(false);
+    setHasAcknowledgedEarlyOut(false);
     
     // Re-render watermark in real-time onto canvas
     const canvas = canvasRef.current;
@@ -644,9 +652,10 @@ export default function CheckIn() {
   const submitCheck = async (type: string) => {
     if (!capturedImage || !gps.isValid || gps.lat === null || gps.lng === null) return;
 
+    const isOutAction = type.includes('Ra ca') || type.includes('OUT') || type.toLowerCase().includes('ra');
     // Safety guard: If user manually chose 'Ra ca' but has no active open shift or Vào ca record
-    if (type === 'Ra ca' && !recommendation.isOpenShift && !recommendation.hasInToday) {
-      setPendingTypeToSubmit('Ra ca');
+    if (isOutAction && !recommendation.isOpenShift && !recommendation.hasInToday) {
+      setPendingTypeToSubmit(type);
       setConfirmInvertedTypeOpen(true);
       return;
     }
@@ -687,7 +696,8 @@ export default function CheckIn() {
     // Late check-in warning
     let lateMinsInfo = 0;
     let shiftString = '';
-    if (type === 'Vào ca' && approvedShifts) {
+    const isInAction = type.includes('Vào ca') || type.includes('IN') || type.toLowerCase().includes('vào');
+    if (isInAction && approvedShifts) {
       const todayDate = new Date();
       let dayIdx = todayDate.getDay() - 1;
       if (dayIdx === -1) dayIdx = 6;
@@ -746,7 +756,8 @@ export default function CheckIn() {
     store.prependLog(tempLog);
     setLocalLastPunch(currentUser, type, actualTime);
     store.setLastCheckInTime(Date.now());
-    if (type === 'Vào ca') store.setStats({ ...store.stats, totalCheckIn: store.stats.totalCheckIn + 1 });
+    const isClockInType = type.includes('Vào ca') || type.includes('IN') || type.toLowerCase().includes('vào');
+    if (isClockInType) store.setStats({ ...store.stats, totalCheckIn: store.stats.totalCheckIn + 1 });
     
     const payloadImage = capturedImage;
     const payloadTime = store.capturedTime || currentTime;
@@ -851,7 +862,7 @@ export default function CheckIn() {
         }
 
         // Pulse survey trigger (40% probability)
-        if (type === 'Vào ca' && Math.random() < 0.4) {
+        if (isClockInType && Math.random() < 0.4) {
           setTimeout(() => {
             setSurveyEmotion(null);
             setSurveyNote('');
@@ -872,7 +883,7 @@ export default function CheckIn() {
       } else {
         // Rollback on fail
         store.removeFirstLog();
-        if (type === 'Vào ca') store.setStats({ ...store.stats, totalCheckIn: store.stats.totalCheckIn - 1 });
+        if (isClockInType) store.setStats({ ...store.stats, totalCheckIn: store.stats.totalCheckIn - 1 });
         speak('Lỗi đồng bộ dữ liệu, vui lòng kiểm tra mạng');
         setFeedbackTitle('Lỗi đồng bộ');
         setFeedbackMessage(res?.message || 'Không thể kết nối với máy chủ. Vui lòng kiểm tra sóng điện thoại.');
@@ -1083,45 +1094,66 @@ export default function CheckIn() {
         </div>
       )}
 
-      {/* Current Shift Status Card (Clean & Non-intrusive) */}
-      <div className="bg-[var(--kg-surface)] p-3 rounded-2xl border border-[var(--kg-border)] text-[var(--kg-text)] shadow-xs max-w-md mx-auto flex items-center justify-between gap-2.5">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0 font-bold">
-            <Clock size={18} />
+      {/* Current Shift Status Card (Clean, Informative & Multi-shift Ready) */}
+      <div className="bg-[var(--kg-surface)] p-3 rounded-2xl border border-[var(--kg-border)] text-[var(--kg-text)] shadow-xs max-w-md mx-auto space-y-2.5">
+        <div className="flex items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0 font-bold">
+              <Clock size={18} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-black text-[var(--kg-text-muted)] uppercase tracking-wider">Hôm nay</p>
+              <h4 className="text-xs font-black text-[var(--kg-text)] truncate">
+                {currentUser?.fullname || 'Nhân viên'}
+              </h4>
+            </div>
           </div>
-          <div className="min-w-0">
-            <p className="text-[10px] font-black text-[var(--kg-text-muted)] uppercase tracking-wider">Hôm nay</p>
-            <h4 className="text-xs font-black text-[var(--kg-text)] truncate">
-              {currentUser?.fullname || 'Nhân viên'}
-            </h4>
-          </div>
+
+          <span className={`inline-flex items-center gap-1 text-[11px] font-black px-2.5 py-1 rounded-xl flex-shrink-0 border ${
+            recommendation.isOpenShift
+              ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/25'
+              : recommendation.isOvernightShift
+              ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/25'
+              : recommendation.hasInToday
+              ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/25'
+              : 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20'
+          }`}>
+            {recommendation.isOvernightShift ? (
+              <>
+                <Moon size={11} />
+                <span>Ca đêm ({recommendation.openShiftTime})</span>
+              </>
+            ) : recommendation.isOpenShift ? (
+              <>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Đang trong Ca {recommendation.shiftIndex} ({recommendation.openShiftTime})</span>
+              </>
+            ) : recommendation.shiftIndex > 1 ? (
+              <span>✓ Xong Ca {recommendation.shiftIndex - 1} • Chờ Ca {recommendation.shiftIndex}</span>
+            ) : recommendation.hasInToday ? (
+              <span>✓ Đã vào ca</span>
+            ) : (
+              <span>Chưa vào ca</span>
+            )}
+          </span>
         </div>
 
-        <span className={`inline-flex items-center gap-1 text-[11px] font-black px-2.5 py-1 rounded-xl flex-shrink-0 border ${
-          recommendation.isOpenShift
-            ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/25'
-            : recommendation.isOvernightShift
-            ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/25'
-            : recommendation.hasInToday
-            ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/25'
-            : 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20'
-        }`}>
-          {recommendation.isOvernightShift ? (
-            <>
-              <Moon size={11} />
-              <span>Ca đêm</span>
-            </>
-          ) : recommendation.isOpenShift ? (
-            <>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Đang trong ca ({recommendation.openShiftTime})</span>
-            </>
-          ) : recommendation.hasInToday ? (
-            <span>✓ Đã vào ca</span>
-          ) : (
-            <span>Chưa vào ca</span>
-          )}
-        </span>
+        {/* Quick Shift Pulse / Team Attendance Banner */}
+        <div className="pt-2 border-t border-[var(--kg-border)]/60 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 text-[11px] text-[var(--kg-text-muted)] truncate min-w-0">
+            <Sparkles size={12} className="text-blue-500 flex-shrink-0" />
+            <span className="truncate">{recommendation.reason}</span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setEmployeeAttendanceModalOpen(true)}
+            className="px-2.5 py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-bold text-[10px] flex items-center gap-1 whitespace-nowrap transition active:scale-95 flex-shrink-0"
+          >
+            <Users size={12} />
+            <span>Xem ca toàn đội →</span>
+          </button>
+        </div>
       </div>
 
       {/* GPS Status Card */}
@@ -1432,73 +1464,100 @@ export default function CheckIn() {
             </div>
           </div>
 
-          {/* 2 Big Action Choices */}
-          <div>
-            <p className="text-[11px] font-black uppercase tracking-wider text-[var(--kg-text-muted)] mb-2 px-1">
-              Chọn loại chấm công thực tế:
-            </p>
-            <div className="grid grid-cols-2 gap-3">
-              {/* VÀO CA */}
-              <button
-                type="button"
-                onClick={() => handleTypeChangeInModal('Vào ca')}
-                className={`relative p-3.5 rounded-2xl border-2 flex flex-col items-center justify-center min-h-[58px] touch-manipulation transition-all duration-200 active:scale-95 gap-1 ${
-                  modalChosenType === 'Vào ca'
-                    ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-emerald-400 shadow-md shadow-emerald-600/30 ring-2 ring-emerald-400/40'
-                    : 'bg-[var(--kg-surface)] text-[var(--kg-text)] border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]'
-                }`}
-              >
-                <div className="flex items-center gap-1.5 font-black text-sm">
-                  <LogIn size={18} className={modalChosenType === 'Vào ca' ? 'text-white' : 'text-emerald-500'} />
-                  <span>VÀO CA</span>
-                  {modalChosenType === 'Vào ca' && <Check size={16} className="text-white" />}
-                </div>
-                {recommendation.recommendedType === 'Vào ca' && (
-                  <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${
-                    modalChosenType === 'Vào ca' ? 'bg-white/20 text-white' : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                  }`}>
-                    ⭐ Đề xuất
-                  </span>
-                )}
-              </button>
+          {/* Dynamic Shift Action Choices */}
+          {(() => {
+            const shiftIdx = recommendation.shiftIndex || 1;
+            const inType: CheckInTypeString = shiftIdx === 1 ? 'Vào ca' : `Vào ca ${shiftIdx}`;
+            const inLabel = shiftIdx === 1 ? 'VÀO CA' : `VÀO CA ${shiftIdx}`;
+            const outType: CheckInTypeString = shiftIdx === 1 ? 'Ra ca' : `Ra ca ${shiftIdx}`;
+            const outLabel = shiftIdx === 1 ? 'RA CA' : `RA CA ${shiftIdx}`;
 
-              {/* RA CA */}
-              <button
-                type="button"
-                onClick={() => handleTypeChangeInModal('Ra ca')}
-                className={`relative p-3.5 rounded-2xl border-2 flex flex-col items-center justify-center min-h-[58px] touch-manipulation transition-all duration-200 active:scale-95 gap-1 ${
-                  modalChosenType === 'Ra ca'
-                    ? 'bg-gradient-to-r from-rose-500 to-red-600 text-white border-rose-400 shadow-md shadow-rose-600/30 ring-2 ring-rose-400/40'
-                    : 'bg-[var(--kg-surface)] text-[var(--kg-text)] border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]'
-                }`}
-              >
-                <div className="flex items-center gap-1.5 font-black text-sm">
-                  <LogOut size={18} className={modalChosenType === 'Ra ca' ? 'text-white' : 'text-rose-500'} />
-                  <span>RA CA</span>
-                  {modalChosenType === 'Ra ca' && <Check size={16} className="text-white" />}
-                </div>
-                {recommendation.recommendedType === 'Ra ca' && (
-                  <span className={`text-[9px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 ${
-                    modalChosenType === 'Ra ca' ? 'bg-white/20 text-white' : 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
-                  }`}>
-                    {recommendation.isOvernightShift ? <Moon size={10} /> : null}
-                    <span>{recommendation.isOvernightShift ? '🌙 Ca đêm' : '⭐ Đề xuất'}</span>
-                  </span>
-                )}
-              </button>
-            </div>
-          </div>
+            const isChosenIn = modalChosenType.includes('Vào') || modalChosenType === inType;
+            const isChosenOut = modalChosenType.includes('Ra') || modalChosenType === outType;
 
-          {/* Safety Warning if Ra ca without prior Vào ca */}
-          {modalChosenType === 'Ra ca' && !recommendation.isOpenShift && !recommendation.hasInToday && (
-            <div className="p-3.5 bg-amber-500/10 dark:bg-amber-950/30 border-2 border-amber-500/30 rounded-2xl space-y-2 animate-fade-in">
+            const isRecommendedIn = recommendation.recommendedType.includes('Vào');
+            const isRecommendedOut = recommendation.recommendedType.includes('Ra');
+
+            return (
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-wider text-[var(--kg-text-muted)] mb-2 px-1">
+                  Chọn loại chấm công thực tế ({shiftIdx > 1 ? `Lượt ca ${shiftIdx}` : 'Ca chính'}):
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  {/* VÀO CA */}
+                  <button
+                    type="button"
+                    onClick={() => handleTypeChangeInModal(inType)}
+                    className={`relative p-3.5 rounded-2xl border-2 flex flex-col items-center justify-center min-h-[58px] touch-manipulation transition-all duration-200 active:scale-95 gap-1 ${
+                      isChosenIn
+                        ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-emerald-400 shadow-md shadow-emerald-600/30 ring-2 ring-emerald-400/40'
+                        : 'bg-[var(--kg-surface)] text-[var(--kg-text)] border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 font-black text-sm">
+                      <LogIn size={18} className={isChosenIn ? 'text-white' : 'text-emerald-500'} />
+                      <span>{inLabel}</span>
+                      {isChosenIn && <Check size={16} className="text-white" />}
+                    </div>
+                    {isRecommendedIn && (
+                      <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${
+                        isChosenIn ? 'bg-white/20 text-white' : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                      }`}>
+                        ⭐ Đề xuất
+                      </span>
+                    )}
+                  </button>
+
+                  {/* RA CA */}
+                  <button
+                    type="button"
+                    onClick={() => handleTypeChangeInModal(outType)}
+                    className={`relative p-3.5 rounded-2xl border-2 flex flex-col items-center justify-center min-h-[58px] touch-manipulation transition-all duration-200 active:scale-95 gap-1 ${
+                      isChosenOut
+                        ? 'bg-gradient-to-r from-rose-500 to-red-600 text-white border-rose-400 shadow-md shadow-rose-600/30 ring-2 ring-rose-400/40'
+                        : 'bg-[var(--kg-surface)] text-[var(--kg-text)] border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 font-black text-sm">
+                      <LogOut size={18} className={isChosenOut ? 'text-white' : 'text-rose-500'} />
+                      <span>{outLabel}</span>
+                      {isChosenOut && <Check size={16} className="text-white" />}
+                    </div>
+                    {isRecommendedOut && (
+                      <span className={`text-[9px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                        isChosenOut ? 'bg-white/20 text-white' : 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
+                      }`}>
+                        {recommendation.isOvernightShift ? <Moon size={10} /> : null}
+                        <span>{recommendation.isOvernightShift ? '🌙 Ca đêm' : '⭐ Đề xuất'}</span>
+                      </span>
+                    )}
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Safety Warning 1: if Ra ca without prior Vào ca */}
+          {modalChosenType.includes('Ra') && !recommendation.isOpenShift && !recommendation.hasInToday && (
+            <div className="p-3.5 bg-amber-500/10 dark:bg-amber-950/30 border-2 border-amber-500/30 rounded-2xl space-y-2.5 animate-fade-in">
               <div className="flex items-start gap-2 text-amber-600 dark:text-amber-400 font-bold text-xs">
                 <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" />
                 <span>Cảnh báo: Chưa có lượt Vào ca hôm nay!</span>
               </div>
               <p className="text-[11px] text-[var(--kg-text-muted)] leading-relaxed font-medium">
-                Hệ thống chưa tìm thấy dữ liệu Vào ca của bạn. Bạn vẫn có thể tiếp tục chấm Ra ca nhưng lượt chấm này có thể sẽ cần Quản lý duyệt bổ sung.
+                Hệ thống chưa tìm thấy dữ liệu Vào ca của bạn. Nếu bạn quên chấm Vào ca trước đó, vui lòng báo với Quản lý hoặc gửi giải trình bổ sung công tại app để được duyệt.
               </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmCheckInModalOpen(false);
+                  setMissedModalOpen(true);
+                }}
+                className="w-full py-2.5 px-3 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-xs transition active:scale-98"
+              >
+                <Clock size={15} />
+                <span>🚨 Báo sự cố không chấm công được tại app →</span>
+              </button>
               <label className="flex items-center gap-2.5 pt-1 cursor-pointer select-none">
                 <input
                   type="checkbox"
@@ -1507,40 +1566,73 @@ export default function CheckIn() {
                   className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
                 />
                 <span className="text-xs font-black text-amber-700 dark:text-amber-300">
-                  Tôi hiểu và xác nhận vẫn muốn chấm RA CA
+                  Tôi hiểu và xác nhận vẫn muốn chấm {modalChosenType.toUpperCase()}
+                </span>
+              </label>
+            </div>
+          )}
+
+          {/* Safety Warning 2: if Ra ca earlier than 15 minutes after Vào ca */}
+          {modalChosenType.includes('Ra') && recommendation.isOpenShift && !recommendation.canCheckOutNow && (
+            <div className="p-3.5 bg-amber-500/10 dark:bg-amber-950/30 border-2 border-amber-500/30 rounded-2xl space-y-2.5 animate-fade-in">
+              <div className="flex items-start gap-2 text-amber-600 dark:text-amber-400 font-bold text-xs">
+                <Clock size={18} className="flex-shrink-0 mt-0.5" />
+                <span>Cảnh báo: Quy định làm việc tối thiểu hơn 15 phút!</span>
+              </div>
+              <p className="text-[11px] text-[var(--kg-text-muted)] leading-relaxed font-medium">
+                Bạn vừa Vào ca lúc <b>{recommendation.openShiftTime}</b> (mới được <b>{recommendation.elapsedMinutes} phút</b>). Theo quy định, sau khi Vào ca cần tối thiểu hơn 15 phút mới được Ra ca (còn thiếu <b>{recommendation.minWaitMinutesRemaining} phút</b>).
+              </p>
+              <label className="flex items-center gap-2.5 pt-1 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={hasAcknowledgedEarlyOut}
+                  onChange={(e) => setHasAcknowledgedEarlyOut(e.target.checked)}
+                  className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
+                />
+                <span className="text-xs font-black text-amber-700 dark:text-amber-300">
+                  Tôi xác nhận có việc đột xuất và vẫn muốn RA CA sớm
                 </span>
               </label>
             </div>
           )}
 
           {/* Final Confirmation Action Buttons */}
-          <div className="space-y-2 pt-2">
-            <KgButton
-              variant={modalChosenType === 'Vào ca' ? 'primary' : 'danger'}
-              size="lg"
-              disabled={modalChosenType === 'Ra ca' && !recommendation.isOpenShift && !recommendation.hasInToday && !hasAcknowledgedMissingIn}
-              onClick={() => {
-                setConfirmCheckInModalOpen(false);
-                proceedSubmitCheck(modalChosenType);
-              }}
-              className={`w-full h-13 min-h-[52px] shadow-lg rounded-2xl text-[15px] font-black tracking-wider border-none active:scale-[0.97] transition-all touch-manipulation flex items-center justify-center gap-2 ${
-                modalChosenType === 'Vào ca'
-                  ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700 hover:from-emerald-700 hover:to-teal-700 text-white shadow-emerald-600/30'
-                  : 'bg-gradient-to-r from-rose-500 via-red-600 to-rose-700 hover:from-rose-600 hover:to-red-700 text-white shadow-rose-600/30'
-              }`}
-              icon={modalChosenType === 'Vào ca' ? LogIn : LogOut}
-            >
-              XÁC NHẬN CHẤM {modalChosenType.toUpperCase()}
-            </KgButton>
+          {(() => {
+            const isOutSelection = modalChosenType.includes('Ra');
+            const isMissingInGuard = isOutSelection && !recommendation.isOpenShift && !recommendation.hasInToday && !hasAcknowledgedMissingIn;
+            const isEarlyOutGuard = isOutSelection && recommendation.isOpenShift && !recommendation.canCheckOutNow && !hasAcknowledgedEarlyOut;
+            const isSubmitDisabled = isMissingInGuard || isEarlyOutGuard;
 
-            <button
-              type="button"
-              onClick={() => setConfirmCheckInModalOpen(false)}
-              className="w-full py-2.5 text-center text-xs font-bold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition min-h-[44px] touch-manipulation"
-            >
-              Đóng / Xem lại ảnh
-            </button>
-          </div>
+            return (
+              <div className="space-y-2 pt-2">
+                <KgButton
+                  variant={modalChosenType.includes('Vào') ? 'primary' : 'danger'}
+                  size="lg"
+                  disabled={isSubmitDisabled}
+                  onClick={() => {
+                    setConfirmCheckInModalOpen(false);
+                    proceedSubmitCheck(modalChosenType);
+                  }}
+                  className={`w-full h-13 min-h-[52px] shadow-lg rounded-2xl text-[15px] font-black tracking-wider border-none active:scale-[0.97] transition-all touch-manipulation flex items-center justify-center gap-2 ${
+                    modalChosenType.includes('Vào')
+                      ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700 hover:from-emerald-700 hover:to-teal-700 text-white shadow-emerald-600/30'
+                      : 'bg-gradient-to-r from-rose-500 via-red-600 to-rose-700 hover:from-rose-600 hover:to-red-700 text-white shadow-rose-600/30'
+                  }`}
+                  icon={modalChosenType.includes('Vào') ? LogIn : LogOut}
+                >
+                  XÁC NHẬN CHẤM {modalChosenType.toUpperCase()}
+                </KgButton>
+
+                <button
+                  type="button"
+                  onClick={() => setConfirmCheckInModalOpen(false)}
+                  className="w-full py-2.5 text-center text-xs font-bold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition min-h-[44px] touch-manipulation"
+                >
+                  Đóng / Xem lại ảnh
+                </button>
+              </div>
+            );
+          })()}
         </div>
       </KgBottomSheet>
 
@@ -1552,10 +1644,19 @@ export default function CheckIn() {
             setMissedModalOpen(false);
             setSelectedMissingAlert(null);
           }}
-          defaultType={selectedMissingAlert ? selectedMissingAlert.missingType : modalChosenType}
+          defaultType={selectedMissingAlert ? selectedMissingAlert.missingType : (modalChosenType.includes('Ra') ? 'Ra ca' : 'Vào ca')}
           defaultDate={selectedMissingAlert ? selectedMissingAlert.dateStr : undefined}
           defaultTime={selectedMissingAlert ? selectedMissingAlert.timeStr : undefined}
           defaultReason="Quên bấm máy khi vào việc gấp"
+        />
+      )}
+
+      {/* Employee Attendance Monitor Modal */}
+      {employeeAttendanceModalOpen && (
+        <EmployeeAttendanceMonitor
+          isModal
+          isOpen={employeeAttendanceModalOpen}
+          onClose={() => setEmployeeAttendanceModalOpen(false)}
         />
       )}
 
