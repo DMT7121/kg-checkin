@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
-import { computeWeekInfo, SHORT_DAY_NAMES, getAdminShiftClass, generateMonthDates, formatDateShort } from '../utils/helpers';
+import { computeWeekInfo, SHORT_DAY_NAMES, getAdminShiftClass, generateMonthDates, formatDateShort, ResponsiveShift } from '../utils/helpers';
 import type { MonthDateInfo } from '../utils/helpers';
 import { RefreshCw, Info, Calendar, ChevronLeft, ChevronRight, LayoutGrid, CalendarRange, Filter, ShieldAlert } from 'lucide-react';
 import CalendarGrid from '../components/CalendarGrid';
@@ -183,7 +183,7 @@ export default function Roster() {
                 onClick={() => showDayDetails(mDate, empMonthMap)}
                 title="Nhấn để xem chi tiết toàn quán"
               >
-                {!isOff && <span className="text-[10px] sm:text-xs font-bold leading-tight text-center">{myShift}</span>}
+                {!isOff && <span className="text-[10px] sm:text-xs font-bold leading-tight text-center"><ResponsiveShift shift={myShift} /></span>}
                 {isOff && <span className="text-[9px] opacity-60">OFF</span>}
               </div>
             );
@@ -240,7 +240,7 @@ export default function Roster() {
                         title={weekDayMeta[dayIdx].label || undefined}
                       >
                         <div className={`inline-flex items-center justify-center text-[10px] font-black w-full max-w-[60px] py-1.5 rounded-lg shadow-2xs ${getAdminShiftClass(shift)}`}>
-                          {isOff ? 'OFF' : shift}
+                          {isOff ? 'OFF' : <ResponsiveShift shift={shift} />}
                         </div>
                       </td>
                     );
@@ -336,7 +336,7 @@ export default function Roster() {
                   return (
                     <td key={mDate.dateKey} className={`px-1 py-1 border-r border-gray-100 dark:border-gray-700/50 text-center ${mDate.isWeekend ? 'paint-layer/80' : ''}`}>
                       <div className={`inline-flex items-center justify-center text-[9px] font-bold w-full py-1 rounded-md ${getAdminShiftClass(shift)}`}>
-                        {isOff ? 'OFF' : shift}
+                        {isOff ? 'OFF' : <ResponsiveShift shift={shift} />}
                       </div>
                     </td>
                   );

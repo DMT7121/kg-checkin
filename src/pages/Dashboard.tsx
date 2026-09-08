@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState, useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
-import { computeWeekInfo, auditMissingCheckIns, MissingCheckInAlert } from '../utils/helpers';
+import { computeWeekInfo, auditMissingCheckIns, MissingCheckInAlert, ResponsiveShift } from '../utils/helpers';
 import { refreshAppData } from '../utils/refreshData';
 import { hasTabPermission, getTabLabel } from '../utils/permissions';
 import {
@@ -379,7 +379,7 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
                 <div className="grid grid-cols-2 gap-2 bg-black/25 backdrop-blur-md rounded-2xl p-3.5 border border-white/10 shadow-inner">
                   <div className="min-w-0">
                     <p className="text-[10px] font-black uppercase tracking-wider text-white/70">Ca làm hôm nay</p>
-                    <p className="text-xs sm:text-sm font-extrabold mt-0.5 text-white truncate">{todayShift}</p>
+                    <p className="text-xs sm:text-sm font-extrabold mt-0.5 text-white truncate"><ResponsiveShift shift={todayShift} /></p>
                   </div>
                   <div className="text-right min-w-0">
                     <p className="text-[10px] font-black uppercase tracking-wider text-white/70">Trạng thái</p>

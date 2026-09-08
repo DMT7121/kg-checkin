@@ -547,6 +547,7 @@ export default function MissedCheckInModal({
                         className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] text-xs sm:text-sm font-bold text-[var(--kg-text)] focus:outline-none focus:border-amber-500"
                       >
                         <option value="15:00">Ca 15:00</option>
+                        <option value="16:00">Ca 16:00</option>
                         <option value="17:00">Ca 17:00</option>
                         <option value="18:00">Ca 18:00</option>
                         <option value="19:00">Ca 19:00</option>

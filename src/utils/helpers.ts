@@ -132,6 +132,7 @@ export function isInAppBrowser(): boolean {
 /** Shift color classes - active state */
 export const getActiveShiftClass = (shift: string) => {
   if (shift === 'OFF') return 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-600 line-through';
+  if (shift === '16:00') return 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-md shadow-teal-500/30 transform scale-105 border-transparent';
   if (shift === 'RẢNH') return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800';
   if (shift === '18:00') return 'bg-gradient-to-r from-orange-400 to-red-500 text-white shadow-md shadow-red-500/30 transform scale-105 border-transparent';
   if (shift === '19:00') return 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md shadow-purple-500/30 transform scale-105 border-transparent';
@@ -142,6 +143,7 @@ export const getActiveShiftClass = (shift: string) => {
 /** Shift color classes - preview (small labels) */
 export const getPreviewShiftClass = (shift: string) => {
   if (!shift || shift === 'OFF') return 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400';
+  if (shift === '16:00') return 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300 font-bold border border-teal-200 dark:border-teal-800';
   if (shift === 'RẢNH') return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400';
   if (shift === '18:00') return 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400';
   if (shift === '19:00') return 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400';
@@ -152,6 +154,7 @@ export const getPreviewShiftClass = (shift: string) => {
 /** Shift color classes - admin table */
 export const getAdminShiftClass = (shift: string) => {
   if (shift === 'OFF') return 'bg-gray-50 text-gray-500 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700';
+  if (shift === '16:00') return 'bg-teal-50 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 border border-teal-200 dark:border-teal-800 font-bold';
   if (shift === 'RẢNH') return 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800';
   if (shift === '18:00') return 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400 border border-red-200 dark:border-red-800 font-bold';
   if (shift === '19:00') return 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border border-purple-200 dark:border-purple-800 font-bold';
@@ -176,12 +179,14 @@ export async function fetchWithRetry(url: string, options: RequestInit, retries 
 }
 
 // Shift Options & Labels
-export const SHIFT_OPTIONS = ['OFF', '15:00', '17:00', '18:00', '19:00', 'RẢNH'];
-export const ADMIN_SHIFT_OPTIONS = ['OFF', '15:00', '17:00', '18:00', '19:00', 'RẢNH', 'OFF#', 'OFF!'];
+export const SHIFT_OPTIONS = ['OFF', '15:00', '16:00', '17:00', '18:00', '19:00'];
+export const ADMIN_SHIFT_OPTIONS = ['OFF', '15:00', '16:00', '17:00', '18:00', '19:00', 'OFF#', 'OFF!'];
+export { formatMobileShift, ResponsiveShift } from '../components/ResponsiveShift';
 
 export const SHIFT_LABELS: Record<string, string> = {
   'OFF': 'Nghỉ',
   '15:00': 'Ca 1 (15:00)',
+  '16:00': 'Ca 16:00',
   '17:00': 'Ca 2 (17:00)',
   '18:00': 'Ca 3 (18:00)',
   '19:00': 'Ca 4 (19:00)',

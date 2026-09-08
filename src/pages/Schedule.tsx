@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
-import { speak, computeWeekInfo, getActiveShiftClass, getPreviewShiftClass, SHIFT_OPTIONS, SHORT_DAY_NAMES, isRegistrationOpen, getAdminShiftClass, ADMIN_SHIFT_OPTIONS, generateMonthDates, formatDateShort } from '../utils/helpers';
+import { speak, computeWeekInfo, getActiveShiftClass, getPreviewShiftClass, SHIFT_OPTIONS, SHORT_DAY_NAMES, isRegistrationOpen, getAdminShiftClass, ADMIN_SHIFT_OPTIONS, generateMonthDates, formatDateShort, formatMobileShift, ResponsiveShift } from '../utils/helpers';
 import type { MonthDateInfo } from '../utils/helpers';
 import Swal from 'sweetalert2';
 import { CalendarCheck, Eye, AlertTriangle, Send, Lock, ExternalLink, Clock, RefreshCw, Pencil, CheckCheck, Inbox, LayoutGrid, CalendarRange, ChevronLeft, ChevronRight, Sparkles, X, Bot } from 'lucide-react';
@@ -12,13 +12,6 @@ import EmploymentStatusNotice from '../components/EmploymentStatusNotice';
 import SmartPersonName from '../components/SmartPersonName';
 import MonthDayVisibility from '../components/MonthDayVisibility';
 import { useMonthDayVisibility } from '../hooks/useMonthDayVisibility';
-
-const formatMobileShift = (shift: string) => {
-  const timeMatch = shift.match(/^(\d{1,2}):(\d{2})$/);
-  if (!timeMatch) return shift || '—';
-  const [, hour, minute] = timeMatch;
-  return minute === '00' ? `${Number(hour)}H` : `${Number(hour)}H${minute}`;
-};
 
 export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' }) {
   const store = useAppStore();
@@ -306,7 +299,7 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
             {shortDayName}
           </span>
           <div className={`w-full text-center py-1.5 rounded text-xs font-bold text-white  ${getPreviewShiftClass(getShift(i))}`}>
-            {getShift(i)}
+            <ResponsiveShift shift={getShift(i)} />
           </div>
         </div>
       ))}
@@ -809,7 +802,7 @@ ${aiInputText}
                                     }`}>
                                     <option value="">OFF</option>
                                     {ADMIN_SHIFT_OPTIONS.map((opt) => (
-                                      <option key={opt} value={opt} className="bg-white text-gray-800">{opt}</option>
+                                      <option key={opt} value={opt} className="bg-white text-gray-800">{formatMobileShift(opt)}</option>
                                     ))}
                                   </select>
                                 </div>
@@ -881,7 +874,7 @@ ${aiInputText}
                     {shortDayName}
                   </span>
                   <div className={`w-full text-center py-1.5 rounded text-xs font-bold text-white  ${getPreviewShiftClass(approved)} ${isChanged ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}>
-                    {approved}
+                    <ResponsiveShift shift={approved} />
                   </div>
                   {isChanged && (
                     <span className="text-[8px] text-amber-500 font-bold mt-0.5">Đã đổi</span>
@@ -1012,15 +1005,15 @@ ${aiInputText}
                       )}
                     </span>
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="grid grid-cols-3 sm:flex sm:flex-wrap gap-2">
                     {SHIFT_OPTIONS.map((shift) => (
                       <button 
                         key={shift} 
                         type="button"
                         onClick={() => handleShiftChange(key, shift)}
-                        className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition-all transform active:scale-95 touch-manipulation min-h-[40px] flex items-center justify-center ${currentShift === shift ? getActiveShiftClass(shift) : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] hover:bg-[var(--kg-border)]/50'}`}
+                        className={`px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition-all transform active:scale-95 touch-manipulation min-h-[40px] flex items-center justify-center ${currentShift === shift ? getActiveShiftClass(shift) : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] hover:bg-[var(--kg-border)]/50'}`}
                       >
-                        {shift}
+                        <ResponsiveShift shift={shift} />
                       </button>
                     ))}
                   </div>

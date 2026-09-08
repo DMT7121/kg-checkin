@@ -14,7 +14,7 @@ export default function AdminShift() {
   const [kgLng, setKgLng] = useState('106.6646541');
   const [kgRadius, setKgRadius] = useState('20');
   const [shiftCodes, setShiftCodes] = useState<any[]>([
-    { id: 'standard', code: 'Ca tiêu chuẩn', description: '15:00, 17:00, 18:00, 19:00', type: 'standard' },
+    { id: 'standard', code: 'Ca tiêu chuẩn', description: '15:00, 16:00, 17:00, 18:00, 19:00', type: 'standard' },
     { id: 'off_admin', code: 'OFF#', description: 'Nghỉ phép (Được Admin duyệt)', type: 'admin' },
     { id: 'off_penalty', code: 'OFF!', description: 'Nghỉ không phép (Bị phạt)', type: 'penalty' }
   ]);

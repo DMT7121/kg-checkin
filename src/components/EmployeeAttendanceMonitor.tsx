@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import { auditAllEmployeesAttendance, EmployeeAttendanceStatus } from '../utils/helpers';
+import { auditAllEmployeesAttendance, EmployeeAttendanceStatus, ResponsiveShift } from '../utils/helpers';
 import {
   Users,
   Search,
@@ -345,7 +345,7 @@ export default function EmployeeAttendanceMonitor({
 
                         {isUserNotInYet && item.scheduledShift && item.scheduledShift !== 'OFF' && (
                           <span className="font-semibold flex items-center gap-1 text-amber-600 dark:text-amber-400">
-                            <Clock size={11} /> Ca quy định: <b>{item.scheduledShift}</b>
+                            <Clock size={11} /> Ca quy định: <b><ResponsiveShift shift={item.scheduledShift} /></b>
                           </span>
                         )}
 
