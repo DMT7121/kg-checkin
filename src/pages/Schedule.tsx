@@ -284,6 +284,7 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
       store.setRegisteredShifts(shifts);
       localStorage.setItem('kg_registered_shifts', JSON.stringify(shifts));
       localStorage.setItem('kg_registered_week', weekInfo.monthSheet + '|' + weekInfo.weekLabel);
+      localStorage.setItem('kg_schedule_registered', 'true');
       setIsEditing(false);
       Swal.fire({ title: 'Thành công!', text: isUpdate ? 'Đã cập nhật lịch đăng ký.' : 'Đã gửi lịch đăng ký ca.', icon: 'success', confirmButtonColor: '#10b981' });
       speak('Đăng ký lịch làm việc thành công');
@@ -338,8 +339,8 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
         });
         
         // Kiểm tra xem nhân viên đã đăng ký hay chưa
-        // Cứ có ca nào khác OFF và khác rỗng thì coi như Đã đăng ký
-        const isRegistered = emp.hasApproved || shifts.some((s: string) => s && s !== 'OFF' && s !== '');
+        // Cứ có ca nào khác OFF và khác rỗng, hoặc có trạng thái Chờ duyệt / Đã duyệt thì coi như Đã đăng ký
+        const isRegistered = emp.hasApproved || emp.status === 'Chờ duyệt' || (emp.status && emp.status.includes('duyệt')) || shifts.some((s: string) => s && s !== 'OFF' && s !== '');
         
         // Nếu chưa đăng ký, để trống tất cả lịch (thay vì mặc định OFF)
         if (!isRegistered) {
@@ -899,10 +900,21 @@ ${aiInputText}
 
       {/* === REGISTERED PREVIEW (not editing) === */}
       {isScheduleRegistered && !isEditing && (
-        <div className="soft3d-card p-4 rounded-2xl   mb-6">
-          <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center">
-            <Eye size={16} className="mr-2" /> Lịch đã đăng ký
-          </h3>
+        <div className="soft3d-card p-4 rounded-2xl mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider flex items-center">
+              <Eye size={16} className="mr-2" /> Lịch đã đăng ký
+            </h3>
+            {approvedShifts && approvedShifts.length > 0 ? (
+              <span className="px-2.5 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                ✓ Đã duyệt
+              </span>
+            ) : (
+              <span className="px-2.5 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-300 dark:border-amber-700 animate-pulse">
+                ⏳ Chờ duyệt
+              </span>
+            )}
+          </div>
           {renderShiftGrid((i) => registeredShifts?.[i] || shiftData[weekInfo.weekDatesKeys[i]] || 'OFF')}
 
           {/* Edit button - only when registration window is open */}
@@ -938,18 +950,7 @@ ${aiInputText}
         </>
       )}
 
-      {/* === CLOSED WINDOW (registered - show lock message) === */}
-      {!isOpen && isScheduleRegistered && !approvedShifts && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-4 flex items-center space-x-3 mb-6">
-          <div className="w-10 h-10 bg-red-100 dark:bg-red-800 text-red-500 rounded-full flex items-center justify-center flex-shrink-0">
-            <Lock size={20} />
-          </div>
-          <div>
-            <h4 className="font-bold text-red-700 dark:text-red-400 text-sm">Đã đóng đăng ký</h4>
-            <p className="text-xs text-red-600 dark:text-red-500">{regWindow.message}</p>
-          </div>
-        </div>
-      )}
+      {/* === CLOSED WINDOW (registered - already shown pending status above, no error needed) === */}
 
       {/* === NOT REGISTERED + OPEN WINDOW === */}
       {isOpen && !isScheduleRegistered && (

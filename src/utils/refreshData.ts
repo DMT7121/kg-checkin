@@ -50,6 +50,12 @@ export function restoreFromCache(): void {
         logs: data.logs ?? state.logs,
         stats: data.stats ?? state.stats,
         users: data.users ?? state.users,
+        isScheduleRegistered: (() => {
+          const direct = localStorage.getItem('kg_schedule_registered');
+          if (direct === 'true') return true;
+          if (data.isScheduleRegistered !== undefined) return data.isScheduleRegistered;
+          return state.isScheduleRegistered;
+        })(),
         approvedShifts: data.approvedShifts ?? state.approvedShifts,
         registeredShifts: data.registeredShifts ?? state.registeredShifts,
         payrollData: data.payrollData ?? state.payrollData,
@@ -108,6 +114,7 @@ function persistToCache(data: any): void {
           logs: data.logs ?? currentState.logs,
           stats: data.stats ?? currentState.stats,
           users: data.users ?? currentState.users,
+          isScheduleRegistered: data.isScheduleRegistered !== undefined ? data.isScheduleRegistered : currentState.isScheduleRegistered,
           approvedShifts: data.approvedShifts ?? currentState.approvedShifts,
           registeredShifts: data.registeredShifts ?? currentState.registeredShifts,
           payrollData: currentState.payrollData,
@@ -241,7 +248,12 @@ function hydrateStore(data: any): void {
     groqKeys: data.keys ?? state.groqKeys,
     chatHistory: data.chatHistory ?? state.chatHistory,
     aiPrompts: data.aiPrompts ?? state.aiPrompts,
-    isScheduleRegistered: data.isScheduleRegistered ?? state.isScheduleRegistered,
+    isScheduleRegistered: (() => {
+      if (data.isScheduleRegistered === true) return true;
+      const hasLocalReg = localStorage.getItem('kg_schedule_registered') === 'true' || !!localStorage.getItem('kg_registered_shifts');
+      if (hasLocalReg || state.isScheduleRegistered) return true;
+      return data.isScheduleRegistered ?? state.isScheduleRegistered;
+    })(),
     approvedShifts: data.approvedShifts ?? state.approvedShifts,
     registeredShifts: data.registeredShifts ?? state.registeredShifts,
     serverGpsConfig: data.gpsConfig ?? state.serverGpsConfig,

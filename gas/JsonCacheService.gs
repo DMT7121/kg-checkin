@@ -475,22 +475,43 @@ var JsonCacheService = (function() {
     // Schedule / Shifts
     result.isScheduleRegistered = false;
     result.approvedShifts = null;
+    result.registeredShifts = null;
     if (monthSheet && weekLabel) {
       var schedData = db.getValues(monthSheet);
       if (schedData && schedData.length > 0) {
-        var isReg = false, appShifts = null, inWeek = false;
-        var cleanWL = weekLabel.replace('📅 TUẦN ', '').replace('TUẦN ', '').trim();
+        var isReg = false, appShifts = null, regShifts = null, inWeek = false;
+        var cleanWL = weekLabel.replace(/[📅\s]/g, '').replace(/[–—]/g, '-').replace(/TUẦN/gi, '').trim().toLowerCase();
+        var cleanFullname = fullname ? fullname.trim().toLowerCase() : '';
+        var cleanUsername = username ? username.trim().toLowerCase() : '';
+
         for (var s = 0; s < schedData.length; s++) {
-          var cv = schedData[s][0] ? schedData[s][0].toString() : '';
-          if (cv.indexOf('TUẦN ') >= 0) { inWeek = cv.indexOf(cleanWL) >= 0; continue; }
+          var rawCv = schedData[s][0] ? schedData[s][0].toString() : '';
+          var normCv = rawCv.replace(/[📅\s]/g, '').replace(/[–—]/g, '-').toLowerCase();
+
+          if (normCv.indexOf('tuần') >= 0) {
+            inWeek = cleanWL ? normCv.indexOf(cleanWL) >= 0 : false;
+            continue;
+          }
           if (!inWeek) continue;
-          if (cv.toLowerCase() === fullname.toLowerCase()) isReg = true;
-          if (cv.indexOf('┗') >= 0 && cv.toLowerCase().indexOf(fullname.toLowerCase()) >= 0) {
+
+          var rowName = rawCv.trim().toLowerCase();
+          var matchesUser = (cleanFullname && rowName === cleanFullname) || (cleanUsername && rowName === cleanUsername);
+          if (matchesUser) {
+            isReg = true;
+            regShifts = [];
+            for (var d = 1; d <= 7; d++) {
+              regShifts.push(schedData[s][d] ? schedData[s][d].toString().trim() : 'OFF');
+            }
+          }
+          if (rawCv.indexOf('┗') >= 0 && ((cleanFullname && rowName.indexOf(cleanFullname) >= 0) || (cleanUsername && rowName.indexOf(cleanUsername) >= 0))) {
             appShifts = [];
-            for (var d = 1; d <= 7; d++) appShifts.push(schedData[s][d] ? schedData[s][d].toString().trim() : 'OFF');
+            for (var d = 1; d <= 7; d++) {
+              appShifts.push(schedData[s][d] ? schedData[s][d].toString().trim() : 'OFF');
+            }
           }
         }
         result.isScheduleRegistered = isReg;
+        if (regShifts) result.registeredShifts = regShifts;
         if (appShifts) result.approvedShifts = appShifts;
       }
     }

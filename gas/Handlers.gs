@@ -2298,6 +2298,16 @@ function handleRegisterShift(payload) {
   } catch(styleErr) {
     Logger.log('Style error: ' + styleErr.message);
   }
+
+  // Invalidate cached user and admin schedule records so GET_DATA serves fresh status
+  try {
+    if (typeof JsonCacheService !== 'undefined') {
+      JsonCacheService.invalidateUserCache(payload.username);
+      JsonCacheService.invalidateAdminCache();
+    }
+  } catch (invErr) {
+    Logger.log('Error invalidating cache after shift registration: ' + invErr);
+  }
   
   return jsonResponse(true, payload.isEdit ? 'Đã cập nhật lịch đăng ký thành công' : 'Đăng ký ca thành công');
 }

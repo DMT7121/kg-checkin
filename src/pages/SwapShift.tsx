@@ -348,6 +348,14 @@ export default function SwapShift() {
       {/* POST / LEAVE VIEW */}
       {(viewTab === 'post' || viewTab === 'leave') && (
         <div className="animate-fade-in">
+          {store.isScheduleRegistered && (!approvedShifts || approvedShifts.length === 0) && (
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 mb-4 flex items-center space-x-3">
+              <Clock size={20} className="text-amber-500 flex-shrink-0" />
+              <p className="text-xs text-amber-700 dark:text-amber-300 font-medium">
+                Lịch làm việc tuần tới đang ở trạng thái <strong>Chờ duyệt</strong>. Bạn có thể đổi ca hoặc xin nghỉ sau khi quản lý phê duyệt lịch.
+              </p>
+            </div>
+          )}
           <div className="soft3d-card p-5 mb-6">
             <h3 className="font-bold text-gray-800 dark:text-white mb-4">
               1. Chọn ca của bạn muốn {viewTab === 'leave' ? 'xin nghỉ' : 'đổi'}

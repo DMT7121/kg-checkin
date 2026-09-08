@@ -378,7 +378,16 @@ export const useAppStore = create<AppState>((set) => ({
   users: [],
   news: [],
   shiftData: {},
-  registeredShifts: [],
+  registeredShifts: (() => {
+    try {
+      const saved = localStorage.getItem('kg_registered_shifts');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
+  })(),
   soldOutItems: [],
   swapRequests: [],
   hasNewSwaps: false,
@@ -398,8 +407,17 @@ export const useAppStore = create<AppState>((set) => ({
   todayHandoverDone: false,
   feedbacks: [],
 
-  // Schedule
-  isScheduleRegistered: false,
+  // Schedule (Restored from persistent storage)
+  isScheduleRegistered: (() => {
+    try {
+      const savedWeek = localStorage.getItem('kg_registered_week');
+      const savedShifts = localStorage.getItem('kg_registered_shifts');
+      const isExplicitlyRegistered = localStorage.getItem('kg_schedule_registered') === 'true';
+      return Boolean((savedWeek && savedShifts) || isExplicitlyRegistered);
+    } catch {
+      return false;
+    }
+  })(),
   approvedShifts: null,
   offReason: '',
 
@@ -544,7 +562,16 @@ export const useAppStore = create<AppState>((set) => ({
     }),
   setStats: (stats) => set({ stats }),
   setUsers: (users) => set({ users }),
-  setScheduleRegistered: (isScheduleRegistered) => set({ isScheduleRegistered }),
+  setScheduleRegistered: (isScheduleRegistered) => {
+    try {
+      if (isScheduleRegistered) {
+        localStorage.setItem('kg_schedule_registered', 'true');
+      } else {
+        localStorage.removeItem('kg_schedule_registered');
+      }
+    } catch {}
+    set({ isScheduleRegistered });
+  },
   setApprovedShifts: (approvedShifts) => set({ approvedShifts }),
   setRegisteredShifts: (registeredShifts) => set({ registeredShifts }),
   setShiftData: (shiftData) => set({ shiftData }),
@@ -595,8 +622,14 @@ export const useAppStore = create<AppState>((set) => ({
     localStorage.removeItem('kg_logs');
     localStorage.removeItem('kg_stats');
     localStorage.removeItem('kg_last_checkin');
+    try {
+      localStorage.removeItem('kg_registered_week');
+      localStorage.removeItem('kg_registered_shifts');
+      localStorage.removeItem('kg_schedule_registered');
+    } catch {}
     set({
       currentUser: null,
+      rememberMe: false,
       logs: [],
       stats: { totalCheckIn: 0, validCount: 0 },
       capturedImage: null,

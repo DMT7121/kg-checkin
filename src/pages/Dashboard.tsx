@@ -577,17 +577,49 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
                 {hasTabPermission('schedule', currentUser) && (
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] gap-2.5">
                     <div className="flex items-center space-x-3 min-w-0">
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${store.isScheduleRegistered ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400 border border-emerald-200/50' : 'bg-amber-50 text-amber-600 dark:bg-amber-950/20 dark:text-amber-400 border border-amber-200/50'}`}>
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                        store.approvedShifts && store.approvedShifts.length > 0
+                          ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400 border border-emerald-200/50'
+                          : store.isScheduleRegistered
+                            ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/20 dark:text-amber-400 border border-amber-200/50'
+                            : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border border-slate-200/50'
+                      }`}>
                         <Calendar size={18} />
                       </div>
                       <div className="min-w-0">
                         <p className="text-xs font-black text-[var(--kg-text)] truncate">Đăng Ký Lịch Tuần Tới</p>
-                        <p className="text-[10px] text-[var(--kg-text-muted)] font-medium truncate">Đăng ký trước 17:00 Thứ 7 hàng tuần</p>
+                        <p className="text-[10px] text-[var(--kg-text-muted)] font-medium truncate">
+                          {store.approvedShifts && store.approvedShifts.length > 0
+                            ? 'Lịch làm việc đã được quản lý phê duyệt'
+                            : store.isScheduleRegistered
+                              ? 'Đã nộp đăng ký ca • Đang chờ quản lý duyệt'
+                              : 'Đăng ký trước 17:00 Thứ 7 hàng tuần'}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center justify-between sm:justify-end gap-2 pl-12 sm:pl-0">
-                      {store.isScheduleRegistered ? (
-                        <KgStatusBadge variant="success">✓ Đã đăng ký</KgStatusBadge>
+                      {store.approvedShifts && store.approvedShifts.length > 0 ? (
+                        <div className="flex items-center gap-2">
+                          <KgStatusBadge variant="success">✓ Đã duyệt</KgStatusBadge>
+                          <button 
+                            type="button"
+                            onClick={() => onTabChange('schedule')} 
+                            className="text-xs font-bold text-[var(--kg-primary)] hover:underline"
+                          >
+                            Xem lịch →
+                          </button>
+                        </div>
+                      ) : store.isScheduleRegistered ? (
+                        <div className="flex items-center gap-2">
+                          <KgStatusBadge variant="warning">⏳ Chờ duyệt</KgStatusBadge>
+                          <button 
+                            type="button"
+                            onClick={() => onTabChange('schedule')} 
+                            className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline"
+                          >
+                            Xem lịch →
+                          </button>
+                        </div>
                       ) : (
                         <button 
                           type="button"

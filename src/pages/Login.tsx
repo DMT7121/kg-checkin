@@ -63,6 +63,7 @@ export default function Login() {
           const shifts = JSON.parse(savedShiftsStr);
           if (Array.isArray(shifts) && shifts.length === 7) {
             store.setRegisteredShifts(shifts);
+            store.setScheduleRegistered(true);
             const regShifts: Record<string, string> = {};
             weekInfo.weekDatesKeys.forEach((k, i) => regShifts[k] = shifts[i]);
             store.setShiftData(regShifts);
@@ -86,8 +87,11 @@ export default function Login() {
           store.setStats(dataRes.data.stats || { totalCheckIn: 0, validCount: 0 });
           store.setUsers(dataRes.data.users || []);
           if (dataRes.data.keys) store.setGroqKeys(dataRes.data.keys);
-          if (dataRes.data.isScheduleRegistered !== undefined)
-            store.setScheduleRegistered(dataRes.data.isScheduleRegistered);
+          
+          const hasLocalReg = (savedWeek === expectedWeekKey || savedWeek === weekInfo.sheetName) && !!savedShiftsStr;
+          const isReg = dataRes.data.isScheduleRegistered === true ? true : (hasLocalReg || useAppStore.getState().isScheduleRegistered);
+          store.setScheduleRegistered(isReg);
+          
           if (dataRes.data.approvedShifts) store.setApprovedShifts(dataRes.data.approvedShifts);
           if (dataRes.data.registeredShifts) store.setRegisteredShifts(dataRes.data.registeredShifts);
           if (dataRes.data.gpsConfig) store.setServerGpsConfig(dataRes.data.gpsConfig);
@@ -96,8 +100,8 @@ export default function Login() {
           localStorage.setItem('kg_logs', JSON.stringify(dataRes.data.logs || []));
           localStorage.setItem('kg_stats', JSON.stringify(dataRes.data.stats || { totalCheckIn: 0, validCount: 0 }));
 
-          // Show schedule reminder after data loads
-          if (!dataRes.data.isScheduleRegistered) {
+          // Show schedule reminder after data loads ONLY IF really not registered
+          if (!isReg) {
             Swal.fire({
               title: '🔔 Nhắc nhở',
               text: 'Bạn chưa nộp Lịch đăng ký ca cho tuần tiếp theo. Vui lòng vào Tab "Đăng ký ca" để nộp nhé!',

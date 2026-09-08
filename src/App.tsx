@@ -82,6 +82,7 @@ export default function App() {
               const shifts = JSON.parse(savedShiftsStr);
               if (Array.isArray(shifts) && shifts.length === 7) {
                 store.setRegisteredShifts(shifts);
+                store.setScheduleRegistered(true);
                 const regShifts: Record<string, string> = {};
                 weekInfo.weekDatesKeys.forEach((k, i) => regShifts[k] = shifts[i]);
                 store.setShiftData(regShifts);
