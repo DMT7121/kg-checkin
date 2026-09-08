@@ -6,6 +6,7 @@ import { KeyRound, Loader2, Mail, Briefcase, UserCog, Search, Calendar, ChevronD
 import { motion, AnimatePresence } from 'framer-motion';
 import { KgModuleHero } from '../../components/KgDesignSystem';
 import { employmentStatuses, getEmploymentStatusMeta, normalizeEmploymentStatus, type EmploymentStatus } from '../../utils/employment';
+import { encodeOptimalCanvas } from '../../utils/helpers';
 
 
 export default function HrList() {
@@ -430,8 +431,10 @@ function compressAvatar(file: File, maxDim: number): Promise<string> {
         canvas.height = h;
         const ctx = canvas.getContext('2d');
         if (!ctx) { resolve(event.target?.result as string); return; }
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL('image/jpeg', 0.7));
+        resolve(encodeOptimalCanvas(canvas, 0.82));
       };
       img.onerror = reject;
       img.src = event.target?.result as string;

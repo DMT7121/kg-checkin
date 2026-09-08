@@ -912,9 +912,27 @@ export async function uploadImageToDrive(base64Image: string, filename?: string)
   }
 }
 
+/**
+ * Encode canvas to highest visual sharpness with minimal byte footprint.
+ * Uses WebP at optimal compression (0.83) with transparent fallback to JPEG (0.82).
+ * WebP provides 35-50% smaller file size than JPEG while maintaining superior
+ * edge sharpness on faces and text elements without compression artifacts.
+ */
+export function encodeOptimalCanvas(canvas: HTMLCanvasElement, quality = 0.83): string {
+  try {
+    const webpData = canvas.toDataURL('image/webp', quality);
+    if (webpData && webpData.startsWith('data:image/webp')) {
+      return webpData;
+    }
+  } catch {
+    // fallback
+  }
+  return canvas.toDataURL('image/jpeg', Math.min(quality, 0.82));
+}
+
 /** 
  * Convert a File object to base64 DataURL with client-side compression 
- * Keeps image sharp but reduces size (Max dimension 1280px, JPEG 0.8)
+ * Keeps image sharp with bicubic smoothing and modern WebP encoding
  */
 export function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -945,10 +963,11 @@ export function fileToBase64(file: File): Promise<string> {
           return;
         }
         
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, width, height);
-        // Force JPEG 80% quality for optimal balance of size & sharpness
-        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
-        resolve(compressedBase64);
+        
+        resolve(encodeOptimalCanvas(canvas, 0.83));
       };
       img.onerror = (error) => reject(error);
       img.src = event.target?.result as string;

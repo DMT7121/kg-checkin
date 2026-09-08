@@ -2904,8 +2904,17 @@ function handleUploadAvatar(payload) {
     if (base64Data.indexOf('base64,') >= 0) base64Data = base64Data.split('base64,')[1];
     else if (base64Data.indexOf(',') >= 0) base64Data = base64Data.split(',')[1];
     
-    var filename = 'avatar_' + payload.username.replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now() + '.jpg';
+    var ext = '.jpg';
     var mimeType = 'image/jpeg';
+    if (payload.image && payload.image.indexOf('data:image/webp') === 0) {
+      mimeType = 'image/webp';
+      ext = '.webp';
+    } else if (payload.image && payload.image.indexOf('data:image/png') === 0) {
+      mimeType = 'image/png';
+      ext = '.png';
+    }
+    
+    var filename = 'avatar_' + payload.username.replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now() + ext;
     var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType, filename);
     var folder = DriveApp.getFolderById(CONFIG.FOLDER_ID);
     var file = folder.createFile(blob);
@@ -3027,7 +3036,10 @@ function handleSubmitMissedCheckin(payload) {
           base64Data = parts[1];
         }
         var decoded = Utilities.base64Decode(base64Data);
-        var blob = Utilities.newBlob(decoded, mimeType, 'MissedCheckIn_' + id + '.jpg');
+        var ext = '.jpg';
+        if (mimeType === 'image/webp') ext = '.webp';
+        else if (mimeType === 'image/png') ext = '.png';
+        var blob = Utilities.newBlob(decoded, mimeType, 'MissedCheckIn_' + id + ext);
         var folder = DriveApp.getFolderById(CONFIG.FOLDER_ID);
         var file = folder.createFile(blob);
         try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) {}

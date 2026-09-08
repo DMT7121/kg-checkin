@@ -16,7 +16,8 @@ import {
   MissingCheckInAlert,
   CheckInTypeString,
   getCheckInCooldown,
-  auditCheckInAnomalies
+  auditCheckInAnomalies,
+  encodeOptimalCanvas
 } from '../utils/helpers';
 import {
   MapPin,
@@ -407,7 +408,10 @@ export default function CheckIn() {
     const cardWidth = canvas.width - (cardX * 2);
     const radius = 22;
 
-    // Reset shadow
+    // Reset shadow & filter for ultra-crisp stamp graphics
+    ctx.filter = 'none';
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
     ctx.shadowColor = 'transparent';
     ctx.shadowBlur = 0;
     ctx.shadowOffsetX = 0;
@@ -689,8 +693,8 @@ export default function CheckIn() {
     ctx.fillText(rightFooterText, contentX + contentWidth - rightFooterWidth, footerY);
     ctx.restore();
 
-    // Save image with high quality JPEG 0.88 (sharp & universally compatible)
-    let dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+    // Save image with high-efficiency WebP encoding (crisp watermark text, natural skin tone, 35-50% smaller size)
+    const dataUrl = encodeOptimalCanvas(canvas, 0.83);
     
     store.setCapturedImage(dataUrl);
     store.setCapturedTime(exactTime);
@@ -716,7 +720,11 @@ export default function CheckIn() {
     if (videoRatio > canvasRatio) { sHeight = vh; sWidth = vh * canvasRatio; sx = (vw - sWidth) / 2; sy = 0; }
     else { sWidth = vw; sHeight = vw / canvasRatio; sx = 0; sy = (vh - sHeight) / 2; }
 
-    ctx.save(); ctx.translate(targetWidth, 0); ctx.scale(-1, 1);
+    ctx.save();
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.filter = 'contrast(1.04) saturate(1.03) brightness(1.01)';
+    ctx.translate(targetWidth, 0); ctx.scale(-1, 1);
     ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
     ctx.restore();
 
@@ -766,7 +774,13 @@ export default function CheckIn() {
         let sx: number, sy: number, sWidth: number, sHeight: number;
         if (imgRatio > canvasRatio) { sHeight = vh; sWidth = vh * canvasRatio; sx = (vw - sWidth) / 2; sy = 0; }
         else { sWidth = vw; sHeight = vw / canvasRatio; sx = 0; sy = (vh - sHeight) / 2; }
+        
+        ctx.save();
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.filter = 'contrast(1.04) saturate(1.03) brightness(1.01)';
         ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
+        ctx.restore();
 
         // Preserve clean unwatermarked frame for real-time re-stamping in modal
         if (!cleanCanvasRef.current) {
