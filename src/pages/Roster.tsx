@@ -14,6 +14,8 @@ import MonthDayVisibility from '../components/MonthDayVisibility';
 import { useMonthDayVisibility } from '../hooks/useMonthDayVisibility';
 
 
+import { saveModuleCache } from '../utils/refreshData';
+
 export default function Roster() {
   const store = useAppStore();
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
@@ -36,10 +38,16 @@ export default function Roster() {
     updateVisibleKeys: setVisibleMonthDateKeys,
   } = useMonthDayVisibility('kg_roster_visible_days', monthDates);
   
-  const [monthData, setMonthData] = useState<any[]>([]); // To hold data from GET_MONTH_SCHEDULES
+  const [monthData, setMonthData] = useState<any[]>(() => {
+    return Array.isArray(store.monthSchedules) ? store.monthSchedules : [];
+  });
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
   const loadSchedules = useCallback(async () => {
-    store.setLoading(true, `Đang tải lịch Tháng ${selectedMonth}...`);
+    const hasData = monthData.length > 0 || (Array.isArray(store.monthSchedules) && store.monthSchedules.length > 0);
+    if (!hasData) {
+      setIsRefreshing(true);
+    }
     const requestsMap = new Map<string, string>();
     monthDates.forEach(mDate => {
       const wInfo = computeWeekInfo(mDate.date, false);
@@ -49,15 +57,21 @@ export default function Roster() {
     const requests = Array.from(requestsMap.entries()).map(([weekLabel, monthSheet]) => ({ monthSheet, weekLabel }));
     const monthSheet = `Tháng ${String(selectedMonth).padStart(2, '0')}/${selectedYear}`;
     
-    const res = await callApi('GET_MONTH_SCHEDULES', { monthSheet, requests });
-    store.setLoading(false);
-    
-    if (res?.ok && res.data?.weeks) {
-      setMonthData(res.data.weeks);
-    } else {
-      Swal.fire('Lỗi', 'Không thể tải lịch làm việc', 'error');
+    try {
+      const res = await callApi('GET_MONTH_SCHEDULES', { monthSheet, requests }, { background: true });
+      setIsRefreshing(false);
+      
+      if (res?.ok && res.data?.weeks) {
+        setMonthData(res.data.weeks);
+        store.setMonthSchedules(res.data.weeks);
+        saveModuleCache('roster', res.data.weeks);
+      } else if (!hasData) {
+        Swal.fire('Lỗi', 'Không thể tải lịch làm việc', 'error');
+      }
+    } catch {
+      setIsRefreshing(false);
     }
-  }, [selectedMonth, selectedYear, monthDates, store]);
+  }, [selectedMonth, selectedYear, monthDates, store, monthData.length]);
 
   useEffect(() => {
     const timer = setTimeout(() => {

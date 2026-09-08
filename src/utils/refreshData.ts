@@ -52,6 +52,10 @@ export function restoreFromCache(): void {
         users: data.users ?? state.users,
         approvedShifts: data.approvedShifts ?? state.approvedShifts,
         registeredShifts: data.registeredShifts ?? state.registeredShifts,
+        payrollData: data.payrollData ?? state.payrollData,
+        timesheetData: data.timesheetData ?? state.timesheetData,
+        monthSchedules: data.monthSchedules ?? state.monthSchedules,
+        swapRequests: data.swapRequests ?? state.swapRequests,
         serverGpsConfig: data.gpsConfig ?? state.serverGpsConfig,
         serverOrgConfig: data.orgConfig ?? state.serverOrgConfig,
         serverPayrollConfig: data.payrollConfig ?? state.serverPayrollConfig,
@@ -101,18 +105,22 @@ function persistToCache(data: any): void {
         version: 2,
         savedAt: Date.now(),
         data: {
-          logs: data.logs,
-          stats: data.stats,
-          users: data.users,
-          approvedShifts: data.approvedShifts,
-          registeredShifts: data.registeredShifts,
-          gpsConfig: data.gpsConfig,
-          orgConfig: data.orgConfig,
-          payrollConfig: data.payrollConfig,
-          recentPosts: data.recentPosts,
-          pendingFeedbackCount: data.pendingFeedbackCount,
-          todayChecklistDone: data.todayChecklistDone,
-          todayHandoverDone: data.todayHandoverDone,
+          logs: data.logs ?? currentState.logs,
+          stats: data.stats ?? currentState.stats,
+          users: data.users ?? currentState.users,
+          approvedShifts: data.approvedShifts ?? currentState.approvedShifts,
+          registeredShifts: data.registeredShifts ?? currentState.registeredShifts,
+          payrollData: currentState.payrollData,
+          timesheetData: currentState.timesheetData,
+          monthSchedules: currentState.monthSchedules,
+          swapRequests: currentState.swapRequests,
+          gpsConfig: data.gpsConfig ?? currentState.serverGpsConfig,
+          orgConfig: data.orgConfig ?? currentState.serverOrgConfig,
+          payrollConfig: data.payrollConfig ?? currentState.serverPayrollConfig,
+          recentPosts: data.recentPosts ?? currentState.recentPosts,
+          pendingFeedbackCount: data.pendingFeedbackCount ?? currentState.pendingFeedbackCount,
+          todayChecklistDone: data.todayChecklistDone ?? currentState.todayChecklistDone,
+          todayHandoverDone: data.todayHandoverDone ?? currentState.todayHandoverDone,
           lastCheckInTime: currentState.lastCheckInTime,
         },
       }));
@@ -133,6 +141,92 @@ function persistToCache(data: any): void {
   cacheWriteHandle = cacheWriteIsIdle
     ? window.requestIdleCallback(writeCache, { timeout: 1500 })
     : setTimeout(writeCache, 0);
+}
+
+/**
+ * Dedicated helper to instantly update individual module cache
+ */
+export function saveModuleCache(key: 'payroll' | 'timesheet' | 'roster' | 'swap', value: any): void {
+  try {
+    const appCache = localStorage.getItem(APP_CACHE_KEY);
+    const parsed = appCache ? JSON.parse(appCache) : { version: 2, data: {} };
+    if (!parsed.data) parsed.data = {};
+    if (key === 'payroll') parsed.data.payrollData = value;
+    if (key === 'timesheet') parsed.data.timesheetData = value;
+    if (key === 'roster') parsed.data.monthSchedules = value;
+    if (key === 'swap') parsed.data.swapRequests = value;
+    parsed.savedAt = Date.now();
+    localStorage.setItem(APP_CACHE_KEY, JSON.stringify(parsed));
+  } catch (e) {
+    console.warn('[Cache] saveModuleCache error:', e);
+  }
+}
+
+const prefetchingHubs = new Set<string>();
+
+/**
+ * Smart background pre-fetching for hub modules
+ */
+export function prefetchHubData(hubId: string): void {
+  const store = useAppStore.getState();
+  const { currentUser } = store;
+  if (!currentUser || prefetchingHubs.has(hubId)) return;
+
+  prefetchingHubs.add(hubId);
+
+  const runPrefetch = async () => {
+    try {
+      if (hubId === 'attendance') {
+        // Pre-fetch payroll if empty
+        if (!store.payrollData || store.payrollData.length === 0) {
+          const res = await callApi('GET_PAYROLL', { username: currentUser.username, role: currentUser.role }, { background: true });
+          if (res?.ok && Array.isArray(res.data?.payroll)) {
+            store.setPayrollData(res.data.payroll);
+            saveModuleCache('payroll', res.data.payroll);
+          }
+        }
+        // Pre-fetch timesheet if empty
+        if (!store.timesheetData) {
+          const res = await callApi('GET_TIMESHEET', { username: currentUser.username, role: currentUser.role }, { background: true });
+          if (res?.ok && res.data) {
+            store.setTimesheetData(res.data);
+            saveModuleCache('timesheet', res.data);
+          }
+        }
+      } else if (hubId === 'workforce') {
+        // Pre-fetch month schedule (Roster) if empty
+        if (!store.monthSchedules) {
+          const now = new Date();
+          const selectedMonth = now.getMonth() + 1;
+          const selectedYear = now.getFullYear();
+          const monthSheet = `Tháng ${String(selectedMonth).padStart(2, '0')}/${selectedYear}`;
+          const weekInfo = computeWeekInfo(now, false);
+          const requests = [{ monthSheet: weekInfo.monthSheet, weekLabel: weekInfo.weekLabel }];
+          const res = await callApi('GET_MONTH_SCHEDULES', { monthSheet, requests }, { background: true });
+          if (res?.ok && res.data?.weeks) {
+            store.setMonthSchedules(res.data.weeks);
+            saveModuleCache('roster', res.data.weeks);
+          }
+        }
+        // Pre-fetch swap requests
+        if (!store.swapRequests || store.swapRequests.length === 0) {
+          const res = await callApi('GET_SWAP_REQUESTS', { username: currentUser.username, role: currentUser.role }, { background: true });
+          if (res?.ok && Array.isArray(res.data)) {
+            store.setSwapRequests(res.data);
+            saveModuleCache('swap', res.data);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[Prefetch] hub data error:', err);
+    }
+  };
+
+  if (typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(() => runPrefetch(), { timeout: 2000 });
+  } else {
+    setTimeout(runPrefetch, 200);
+  }
 }
 
 /**

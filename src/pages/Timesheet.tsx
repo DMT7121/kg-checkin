@@ -3,9 +3,10 @@ import { useAppStore } from '../store/useAppStore';
 import { generateMonthDates, SHORT_DAY_NAMES } from '../utils/helpers';
 import CalendarGrid from '../components/CalendarGrid';
 import { callApi } from '../services/api';
-import { CalendarClock, Clock, ListOrdered, Calendar, FileClock, Search, List, Eye, ArrowLeft } from 'lucide-react';
+import { CalendarClock, Clock, ListOrdered, Calendar, FileClock, Search, List, Eye, ArrowLeft, RefreshCw } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { KgModuleHero, KgInput, KgCard, KgButton } from '../components/KgDesignSystem';
+import { saveModuleCache } from '../utils/refreshData';
 
 type ViewMode = 'HOURS' | 'TIMESTAMPS';
 type DetailMobileView = 'CALENDAR' | 'LIST';
@@ -20,18 +21,28 @@ export default function Timesheet() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [mobileDetailView, setMobileDetailView] = useState<DetailMobileView>('LIST');
   const [onlyShowWorkdays, setOnlyShowWorkdays] = useState<boolean>(true);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
   const loadTimesheet = async () => {
-    store.setLoading(true, 'Đang tải bảng chấm công...');
-    const res = await callApi('GET_TIMESHEET', {
-      username: currentUser?.username,
-      role: currentUser?.role
-    });
-    store.setLoading(false);
-    if (res?.ok) {
-      store.setTimesheetData(res.data);
-    } else {
-      Swal.fire('Lỗi', res?.message || 'Không thể tải bảng tổng hợp công', 'error');
+    const hasCached = timesheetData && timesheetData.year;
+    if (!hasCached) {
+      setIsRefreshing(true);
+    }
+    try {
+      const res = await callApi('GET_TIMESHEET', {
+        username: currentUser?.username,
+        role: currentUser?.role
+      }, { background: true });
+
+      setIsRefreshing(false);
+      if (res?.ok && res.data) {
+        store.setTimesheetData(res.data);
+        saveModuleCache('timesheet', res.data);
+      } else if (!hasCached) {
+        Swal.fire('Lỗi', res?.message || 'Không thể tải bảng tổng hợp công', 'error');
+      }
+    } catch {
+      setIsRefreshing(false);
     }
   };
 
@@ -47,7 +58,14 @@ export default function Timesheet() {
             <CalendarClock size={120} />
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-[var(--kg-text)] mb-1 tracking-tight relative z-10">Tổng Hợp Công</h2>
-          <p className="text-[var(--kg-text-muted)] font-bold relative z-10 text-xs sm:text-sm">Chưa có dữ liệu bảng công cho tháng này.</p>
+          {isRefreshing ? (
+            <div className="flex items-center gap-2 py-4 text-xs font-bold text-[var(--kg-text-muted)]">
+              <RefreshCw size={16} className="animate-spin text-[var(--kg-primary)]" />
+              <span>Đang tải nhanh bảng công...</span>
+            </div>
+          ) : (
+            <p className="text-[var(--kg-text-muted)] font-bold relative z-10 text-xs sm:text-sm">Chưa có dữ liệu bảng công cho tháng này.</p>
+          )}
         </div>
       </div>
     );

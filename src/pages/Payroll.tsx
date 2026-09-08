@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Calculator, ChevronRight, FileSpreadsheet, Settings2 } from 'lucide-react';
+import { Calculator, ChevronRight, FileSpreadsheet, Settings2, RefreshCw } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { KgModuleHero } from '../components/KgDesignSystem';
 import EmployeeSalaryCard from '../components/EmployeeSalaryCard';
 import { callApi } from '../services/api';
 import { useAppStore } from '../store/useAppStore';
+import { saveModuleCache } from '../utils/refreshData';
 
 const formatMoney = (amount: number) => `${Math.round(amount).toLocaleString('vi-VN')} đ`;
 const formatHours = (hours: number) => `${hours.toFixed(2)} giờ`;
@@ -12,34 +13,58 @@ const formatHours = (hours: number) => `${hours.toFixed(2)} giờ`;
 export default function Payroll({ mode = 'user' }: { mode?: 'user' | 'admin' }) {
   const currentUser = useAppStore(state => state.currentUser);
   const payrollData = useAppStore(state => state.payrollData);
-  const setLoading = useAppStore(state => state.setLoading);
   const setPayrollData = useAppStore(state => state.setPayrollData);
   const setCurrentTab = useAppStore(state => state.setCurrentTab);
   const isManagerView = mode === 'admin' && (currentUser?.role === 'admin' || currentUser?.role === 'tester');
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedUser, setSelectedUser] = useState<string | null>(
     isManagerView ? null : currentUser?.username || null,
   );
 
+  // Auto-pick user if payrollData is already in cache
+  useEffect(() => {
+    if (!isManagerView && !selectedUser && payrollData?.length) {
+      setSelectedUser(payrollData[0].username);
+    }
+  }, [payrollData, isManagerView, selectedUser]);
+
   useEffect(() => {
     if (!currentUser) return;
+    let isCancelled = false;
+
     const loadPayroll = async () => {
-      setLoading(true, 'Đang tính toán bảng lương...');
-      const res = await callApi('GET_PAYROLL', {
-        username: currentUser.username,
-        role: currentUser.role,
-      });
-      setLoading(false);
-      if (res?.ok) {
-        setPayrollData(res.data.payroll || []);
-        if (!isManagerView && res.data.payroll?.length) {
-          setSelectedUser(res.data.payroll[0].username);
+      const hasCached = payrollData && payrollData.length > 0;
+      if (!hasCached) {
+        setIsRefreshing(true);
+      }
+      try {
+        const res = await callApi('GET_PAYROLL', {
+          username: currentUser.username,
+          role: currentUser.role,
+        }, { background: true });
+
+        if (isCancelled) return;
+        setIsRefreshing(false);
+
+        if (res?.ok && Array.isArray(res.data?.payroll)) {
+          setPayrollData(res.data.payroll);
+          saveModuleCache('payroll', res.data.payroll);
+          if (!isManagerView && res.data.payroll.length && !selectedUser) {
+            setSelectedUser(res.data.payroll[0].username);
+          }
+        } else if (!hasCached) {
+          Swal.fire('Lỗi', res?.message || 'Không thể tải bảng lương', 'error');
         }
-      } else {
-        Swal.fire('Lỗi', res?.message || 'Không thể tải bảng lương', 'error');
+      } catch (err) {
+        if (!isCancelled) {
+          setIsRefreshing(false);
+        }
       }
     };
+
     loadPayroll();
-  }, [currentUser, isManagerView, setLoading, setPayrollData]);
+    return () => { isCancelled = true; };
+  }, [currentUser?.username, currentUser?.role, isManagerView, setPayrollData]);
 
   if (!currentUser) return null;
 
@@ -201,7 +226,14 @@ export default function Payroll({ mode = 'user' }: { mode?: 'user' | 'admin' }) 
         </div>
       ) : (
         <div className="bg-[var(--kg-surface)] border border-dashed border-[var(--kg-border)] rounded-2xl p-8 text-center text-xs font-bold text-[var(--kg-text-muted)]">
-          Chưa có dữ liệu công để lập phiếu lương tháng này.
+          {isRefreshing ? (
+            <div className="flex items-center justify-center gap-2">
+              <RefreshCw size={15} className="animate-spin text-[var(--kg-primary)]" />
+              <span>Đang tính toán bảng lương...</span>
+            </div>
+          ) : (
+            'Chưa có dữ liệu công để lập phiếu lương tháng này.'
+          )}
         </div>
       )}
     </div>

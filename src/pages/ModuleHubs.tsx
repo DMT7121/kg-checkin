@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, type ComponentType } from 'react';
+import { lazy, Suspense, useState, useEffect, type ComponentType } from 'react';
 import {
   Activity,
   Banknote,
@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { hasTabPermission } from '../utils/permissions';
+import { prefetchHubData } from '../utils/refreshData';
 import type { TabId } from '../types/navigation';
 
 const CheckIn = lazy(() => import('./CheckIn'));
@@ -88,8 +89,19 @@ function ModuleHub({ tabs, initialTab }: { tabs: HubTab[]; initialTab?: string }
   const allowedTabs = tabs.filter(tab => hasTabPermission(tab.id as TabId, currentUser));
   const [activeId, setActiveId] = useState(initialTab || tabs[0].id);
   const active = allowedTabs.find(tab => tab.id === activeId) || allowedTabs[0];
+  const [visitedTabs, setVisitedTabs] = useState<Set<string>>(() => new Set([initialTab || tabs[0]?.id || '']));
+
+  const handleSelectTab = (tabId: string) => {
+    setActiveId(tabId);
+    setVisitedTabs(prev => {
+      if (prev.has(tabId)) return prev;
+      const next = new Set(prev);
+      next.add(tabId);
+      return next;
+    });
+  };
+
   if (!active) return null;
-  const ActiveComponent = active.component;
 
   return (
     <div className="kg-module-hub min-h-full">
@@ -103,7 +115,7 @@ function ModuleHub({ tabs, initialTab }: { tabs: HubTab[]; initialTab?: string }
                 type="button"
                 key={tab.id}
                 onClick={(e) => {
-                  setActiveId(tab.id);
+                  handleSelectTab(tab.id);
                   e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
                 }}
                 className={`kg-module-tab relative inline-flex min-w-max flex-1 items-center justify-center gap-2 rounded-xl px-3.5 sm:px-4 py-2 text-xs transition-all duration-150 active:scale-98 select-none touch-manipulation min-h-[40px] ${
@@ -123,14 +135,34 @@ function ModuleHub({ tabs, initialTab }: { tabs: HubTab[]; initialTab?: string }
           })}
         </div>
       </div>
-      <Suspense fallback={<HubFallback />}>
-        <ActiveComponent />
-      </Suspense>
+      <div className="kg-module-content">
+        {allowedTabs.map(tab => {
+          const isSelected = tab.id === active.id;
+          const isVisited = visitedTabs.has(tab.id) || isSelected;
+          if (!isVisited) return null;
+          const Component = tab.component;
+          return (
+            <div
+              key={tab.id}
+              className={isSelected ? 'block' : 'hidden'}
+              style={{ display: isSelected ? 'block' : 'none' }}
+            >
+              <Suspense fallback={<HubFallback />}>
+                <Component />
+              </Suspense>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
 export function AttendanceHub() {
+  useEffect(() => {
+    prefetchHubData('attendance');
+  }, []);
+
   return <ModuleHub tabs={[
     { id: 'payroll', label: 'Phiếu lương', shortLabel: 'Phiếu lương', icon: Banknote, component: UserPayroll },
     { id: 'timesheet', label: 'Bảng công', icon: Clock3, component: Timesheet },
@@ -140,6 +172,10 @@ export function AttendanceHub() {
 }
 
 export function WorkforceHub() {
+  useEffect(() => {
+    prefetchHubData('workforce');
+  }, []);
+
   return <ModuleHub tabs={[
     { id: 'schedule', label: 'Lịch của tôi', shortLabel: 'Lịch tôi', icon: CalendarDays, component: UserSchedule },
     { id: 'roster', label: 'Lịch tổng', shortLabel: 'Lịch tổng', icon: CalendarRange, component: Roster },

@@ -44,7 +44,10 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
     updateVisibleKeys: setVisibleMonthDateKeys,
   } = useMonthDayVisibility('kg_schedule_visible_days', monthDates);
   
-  const [monthData, setMonthData] = useState<any[]>([]);
+  const [monthData, setMonthData] = useState<any[]>(() => {
+    return Array.isArray(store.monthSchedules) ? store.monthSchedules : [];
+  });
+  const [isMonthRefreshing, setIsMonthRefreshing] = useState(false);
 
   const changeWeek = (offset: number) => {
     const d = new Date(currentDate);
@@ -59,7 +62,10 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
   };
 
   const loadMonthSchedules = async () => {
-    store.setLoading(true, `Đang tải lịch Tháng ${selectedMonth}...`);
+    const hasData = monthData.length > 0 || (Array.isArray(store.monthSchedules) && store.monthSchedules.length > 0);
+    if (!hasData) {
+      setIsMonthRefreshing(true);
+    }
     
     // Calculate all unique (monthSheet, weekLabel) required for the current month view
     const requestsMap = new Map<string, string>();
@@ -70,15 +76,20 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
     
     const requests = Array.from(requestsMap.entries()).map(([weekLabel, monthSheet]) => ({ monthSheet, weekLabel }));
     
-    const res = await callApi('GET_MONTH_SCHEDULES', { 
-      monthSheet: `Tháng ${String(selectedMonth).padStart(2, '0')}/${selectedYear}`,
-      requests 
-    });
-    store.setLoading(false);
-    if (res?.ok && res.data?.weeks) {
-      setMonthData(res.data.weeks);
-    } else {
-      Swal.fire('Lỗi', 'Không thể tải lịch làm việc', 'error');
+    try {
+      const res = await callApi('GET_MONTH_SCHEDULES', { 
+        monthSheet: `Tháng ${String(selectedMonth).padStart(2, '0')}/${selectedYear}`,
+        requests 
+      }, { background: true });
+      setIsMonthRefreshing(false);
+      if (res?.ok && res.data?.weeks) {
+        setMonthData(res.data.weeks);
+        store.setMonthSchedules(res.data.weeks);
+      } else if (!hasData) {
+        Swal.fire('Lỗi', 'Không thể tải lịch làm việc', 'error');
+      }
+    } catch {
+      setIsMonthRefreshing(false);
     }
   };
 

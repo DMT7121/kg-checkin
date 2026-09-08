@@ -990,70 +990,93 @@ export default function Dashboard() {
     }
   };
 
+  const [visitedTabs, setVisitedTabs] = useState<Set<TabId>>(() => new Set([currentTab]));
+
+  useEffect(() => {
+    setVisitedTabs(prev => {
+      if (prev.has(currentTab)) return prev;
+      const next = new Set(prev);
+      next.add(currentTab);
+      return next;
+    });
+  }, [currentTab]);
+
   const hasAccess = hasTabPermission(currentTab, currentUser);
 
   return (
     <KgAppShell onPrefetch={prefetchModule}>
-      <AnimatePresence mode="popLayout">
-        <motion.div
-          key={currentTab}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.12 }}
-          className="h-full"
-        >
-          <AppErrorBoundary resetKey={currentTab} fallback={<ModuleRecoverFallback />}>
-            <Suspense fallback={<TabFallback />}>
-              {!hasAccess ? (
-                <AccessDeniedPage tabTitle={getTabLabel(currentTab)} />
-              ) : (
-                <>
-                   {currentTab === 'dashboard' && <DashboardOverview onTabChange={handleTabChange} />}
-                   {currentTab === 'attendance' && <AttendanceHub />}
-                   {currentTab === 'workforce' && <WorkforceHub />}
-                   {currentTab === 'work' && <WorkHub />}
-                   {currentTab === 'income' && <IncomeHub />}
-                   {currentTab === 'communications' && <CommunicationsHub />}
-                   {currentTab === 'knowledge' && <KnowledgeHub />}
-                   {currentTab === 'admin_people' && <AdminPeopleHub />}
-                   {currentTab === 'admin_workforce' && <AdminWorkforceHub />}
-                   {currentTab === 'admin_work' && <AdminWorkHub />}
-                   {currentTab === 'admin_income' && <AdminIncomeHub />}
-                   {currentTab === 'admin_system' && <AdminSystemHub />}
-                  {currentTab === 'checkin' && <CheckIn />}
-                  {currentTab === 'schedule' && <Schedule />}
-                  {currentTab === 'swap' && <SwapShift />}
-                  {currentTab === 'roster' && <Roster />}
-                   {currentTab === 'profile' && <Profile />}
-                   {currentTab === 'checklist' && <Checklist />}
-                   {currentTab === 'operations' && <Operations />}
-                  {currentTab === 'handover' && <Handover />}
-                  {currentTab === 'feedback' && <Feedback />}
-                  {currentTab === 'news' && <NewsFeed />}
-                  {currentTab === 'soldout' && <SoldOut />}
-                  {currentTab === 'training' && <Training />}
-                  {currentTab === 'advance' && <Advance />}
-                  {currentTab === 'discipline' && <Discipline />}
-                  {currentTab === 'payroll' && <Payroll />}
-                  {currentTab === 'reward' && <Reward />}
-                  {currentTab === 'timesheet' && <Timesheet />}
-                  {currentTab === 'history' && <ActivityHistory />}
-                  {currentTab === 'admin' && <Admin />}
-                   {currentTab === 'admin_shift' && <AdminShift />}
-                   {currentTab === 'admin_operations' && <AdminOperations />}
-                  {currentTab === 'admin_org' && <AdminOrg />}
-                  {currentTab === 'admin_payroll' && <AdminPayroll />}
-                  {currentTab === 'admin_checklist' && <AdminChecklistConfig />}
-                  {currentTab === 'admin_analytics' && <AdminAnalytics />}
-                  {currentTab === 'hr_list' && <HrList />}
-                  {currentTab === 'guide' && <Guide />}
-                </>
-              )}
-            </Suspense>
-          </AppErrorBoundary>
-        </motion.div>
-      </AnimatePresence>
+      <div className="h-full">
+        {!hasAccess ? (
+          <AccessDeniedPage tabTitle={getTabLabel(currentTab)} />
+        ) : (
+          <>
+            {/* Dedicated mounting for CheckIn to cleanly manage camera stream */}
+            {currentTab === 'checkin' && (
+              <AppErrorBoundary resetKey="checkin" fallback={<ModuleRecoverFallback />}>
+                <Suspense fallback={<TabFallback />}>
+                  <CheckIn />
+                </Suspense>
+              </AppErrorBoundary>
+            )}
+
+            {/* Keep-Alive for Data-driven Hubs & Modules */}
+            {Array.from(visitedTabs).map((tabId) => {
+              if (tabId === 'checkin') return null;
+              const isSelected = tabId === currentTab;
+              return (
+                <div
+                  key={tabId}
+                  className={isSelected ? 'block h-full animate-fade-in' : 'hidden'}
+                  style={{ display: isSelected ? 'block' : 'none' }}
+                >
+                  <AppErrorBoundary resetKey={tabId} fallback={<ModuleRecoverFallback />}>
+                    <Suspense fallback={<TabFallback />}>
+                      {tabId === 'dashboard' && <DashboardOverview onTabChange={handleTabChange} />}
+                      {tabId === 'attendance' && <AttendanceHub />}
+                      {tabId === 'workforce' && <WorkforceHub />}
+                      {tabId === 'work' && <WorkHub />}
+                      {tabId === 'income' && <IncomeHub />}
+                      {tabId === 'communications' && <CommunicationsHub />}
+                      {tabId === 'knowledge' && <KnowledgeHub />}
+                      {tabId === 'admin_people' && <AdminPeopleHub />}
+                      {tabId === 'admin_workforce' && <AdminWorkforceHub />}
+                      {tabId === 'admin_work' && <AdminWorkHub />}
+                      {tabId === 'admin_income' && <AdminIncomeHub />}
+                      {tabId === 'admin_system' && <AdminSystemHub />}
+                      {tabId === 'schedule' && <Schedule />}
+                      {tabId === 'swap' && <SwapShift />}
+                      {tabId === 'roster' && <Roster />}
+                      {tabId === 'profile' && <Profile />}
+                      {tabId === 'checklist' && <Checklist />}
+                      {tabId === 'operations' && <Operations />}
+                      {tabId === 'handover' && <Handover />}
+                      {tabId === 'feedback' && <Feedback />}
+                      {tabId === 'news' && <NewsFeed />}
+                      {tabId === 'soldout' && <SoldOut />}
+                      {tabId === 'training' && <Training />}
+                      {tabId === 'advance' && <Advance />}
+                      {tabId === 'discipline' && <Discipline />}
+                      {tabId === 'payroll' && <Payroll />}
+                      {tabId === 'reward' && <Reward />}
+                      {tabId === 'timesheet' && <Timesheet />}
+                      {tabId === 'history' && <ActivityHistory />}
+                      {tabId === 'admin' && <Admin />}
+                      {tabId === 'admin_shift' && <AdminShift />}
+                      {tabId === 'admin_operations' && <AdminOperations />}
+                      {tabId === 'admin_org' && <AdminOrg />}
+                      {tabId === 'admin_payroll' && <AdminPayroll />}
+                      {tabId === 'admin_checklist' && <AdminChecklistConfig />}
+                      {tabId === 'admin_analytics' && <AdminAnalytics />}
+                      {tabId === 'hr_list' && <HrList />}
+                      {tabId === 'guide' && <Guide />}
+                    </Suspense>
+                  </AppErrorBoundary>
+                </div>
+              );
+            })}
+          </>
+        )}
+      </div>
     </KgAppShell>
   );
 }
