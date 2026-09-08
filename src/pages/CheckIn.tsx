@@ -100,6 +100,22 @@ export default function CheckIn() {
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const logoImgRef = useRef<HTMLImageElement | null>(null);
+
+  useEffect(() => {
+    const img = new Image();
+    img.src = '/android-chrome-192x192.png?v=3';
+    img.onload = () => {
+      logoImgRef.current = img;
+    };
+    img.onerror = () => {
+      const fallback = new Image();
+      fallback.src = '/LOGO.png';
+      fallback.onload = () => {
+        logoImgRef.current = fallback;
+      };
+    };
+  }, []);
 
   const kalmanLatRef = useRef(new KalmanFilter(20));
   const kalmanLngRef = useRef(new KalmanFilter(20));
@@ -187,7 +203,7 @@ export default function CheckIn() {
     
     const dist = getDist(lat, lng, targetLat, targetLng) * 1000;
     const isTestApp = useAppStore.getState().currentUser?.username === 'testapp';
-    const targetRadius = latestGpsConfig?.radius ?? KG_RADIUS_METERS;
+    const targetRadius = (latestGpsConfig?.radius && latestGpsConfig.radius <= 20) ? latestGpsConfig.radius : KG_RADIUS_METERS; // Chuẩn 20m
     
     if (dist <= targetRadius || isTestApp) {
       store.setGps({
@@ -195,7 +211,7 @@ export default function CheckIn() {
         lng,
         isValid: true,
         status: isTestApp ? 'Vị trí Test (Bypass)' : 'Vị trí Chính xác',
-        message: `Khoảng cách: ${Math.round(dist)}m / ${targetRadius}m (≤20m Hợp lệ)`
+        message: `Khoảng cách: ${Math.round(dist)}m / ${targetRadius}m (≤${targetRadius}m Hợp lệ)`
       });
       if (prevGpsValidRef.current !== true) {
         speak('Vị trí đã hợp lệ, sẵn sàng chấm công');
@@ -207,7 +223,7 @@ export default function CheckIn() {
         lng,
         isValid: false,
         status: 'Vị trí quá xa',
-        message: `Khoảng cách: ${Math.round(dist)}m / ${targetRadius}m (Quá bán kính ≤20m)`
+        message: `Khoảng cách: ${Math.round(dist)}m / ${targetRadius}m (Quá bán kính ≤${targetRadius}m)`
       });
       if (prevGpsValidRef.current !== false && prevGpsValidRef.current !== null) {
         speak('Vị trí không hợp lệ, vui lòng di chuyển lại gần');
@@ -386,10 +402,10 @@ export default function CheckIn() {
     typeToStamp: CheckInTypeString = modalChosenType || recommendation.recommendedType
   ) => {
     const cardX = 24;
-    const cardHeight = 310;
+    const cardHeight = 300;
     const cardY = canvas.height - cardHeight - 24;
     const cardWidth = canvas.width - (cardX * 2);
-    const radius = 24;
+    const radius = 22;
 
     // Reset shadow
     ctx.shadowColor = 'transparent';
@@ -397,9 +413,6 @@ export default function CheckIn() {
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 0;
 
-    // Draw Glassmorphic Card Background (Deep Slate/Navy with 94% opacity)
-    ctx.fillStyle = 'rgba(11, 20, 36, 0.94)';
-    
     const drawRoundRect = (c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) => {
       if (typeof c.roundRect === 'function') {
         c.roundRect(x, y, w, h, r);
@@ -416,24 +429,47 @@ export default function CheckIn() {
       }
     };
 
+    // 1. Draw Card Background with sleek dark glassmorphism
+    ctx.save();
+    ctx.fillStyle = 'rgba(10, 18, 34, 0.95)';
     ctx.beginPath();
     drawRoundRect(ctx, cardX, cardY, cardWidth, cardHeight, radius);
     ctx.fill();
 
-    // Subtle White/Blue Border Outline
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    drawRoundRect(ctx, cardX, cardY, cardWidth, cardHeight, radius);
+    // Subtle premium border
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
+    ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    // Content Padding
-    const padX = 24;
-    const contentX = cardX + padX;
-
-    // Hash Token Signature for Anti-Fraud Verification
+    // Top subtle gradient bar to add sleek accent
     const currentGpsState = useAppStore.getState().gps;
     const userObj = useAppStore.getState().currentUser;
+    const isCheckInType = typeToStamp.includes('Vào') || typeToStamp.includes('IN') || typeToStamp.toLowerCase().includes('vào');
+    const isValidGps = Boolean(currentGpsState.isValid);
+
+    const gradBar = ctx.createLinearGradient(cardX, cardY, cardX + cardWidth, cardY);
+    if (!isValidGps) {
+      gradBar.addColorStop(0, '#EF4444');
+      gradBar.addColorStop(1, '#F59E0B');
+    } else if (isCheckInType) {
+      gradBar.addColorStop(0, '#059669');
+      gradBar.addColorStop(1, '#06B6D4');
+    } else {
+      gradBar.addColorStop(0, '#2563EB');
+      gradBar.addColorStop(1, '#8B5CF6');
+    }
+    ctx.beginPath();
+    drawRoundRect(ctx, cardX, cardY, cardWidth, 4, 2);
+    ctx.fillStyle = gradBar;
+    ctx.fill();
+    ctx.restore();
+
+    // Padding
+    const padX = 20;
+    const contentX = cardX + padX;
+    const contentWidth = cardWidth - (padX * 2);
+
+    // Security Hash
     const strForHash = `${userObj?.username || 'user'}_${exactTime}_${currentGpsState.lat?.toFixed(5)}_${currentGpsState.lng?.toFixed(5)}_KG20`;
     let hashVal = 0;
     for (let i = 0; i < strForHash.length; i++) {
@@ -441,97 +477,218 @@ export default function CheckIn() {
       hashVal |= 0;
     }
     const securityHash = `KG#${Math.abs(hashVal).toString(36).toUpperCase().padStart(6, '0')}`;
-    
-    // Header Bar: Restaurant Brand & Official Seal Badge
-    const headerY = cardY + 36;
-    ctx.font = 'bold 22px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = '#93C5FD'; // Soft Blue
-    ctx.fillText("👑 KING'S GRILL  •  CHỨNG NHẬN CHẤM CÔNG", contentX, headerY);
 
-    const isCheckInType = typeToStamp.includes('Vào') || typeToStamp.includes('IN') || typeToStamp.toLowerCase().includes('vào');
-    const isValidGps = Boolean(currentGpsState.isValid);
-    const upperType = typeToStamp.toUpperCase();
-    const badgeText = isCheckInType
-      ? (isValidGps ? `🟢 ${upperType} - HỢP LỆ` : `⚠️ ${upperType} - NGOÀI BÁN KÍNH`)
-      : (isValidGps ? `🔴 ${upperType} - HỢP LỆ` : `⚠️ ${upperType} - NGOÀI BÁN KÍNH`);
-    ctx.font = 'bold 20px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    const badgeWidth = ctx.measureText(badgeText).width + 24;
-    const badgeX = cardX + cardWidth - padX - badgeWidth;
-    
-    ctx.fillStyle = isCheckInType ? 'rgba(16, 185, 129, 0.25)' : 'rgba(244, 63, 94, 0.25)';
-    drawRoundRect(ctx, badgeX, headerY - 24, badgeWidth, 32, 10);
-    ctx.fill();
-    ctx.strokeStyle = isCheckInType ? '#10B981' : '#F43F5E';
-    ctx.lineWidth = 1.5;
+    // --- HEADER SECTION (y = cardY + 16 to cardY + 56) ---
+    const headerTop = cardY + 16;
+    const logoSize = 42;
+    const logoX = contentX;
+    const logoY = headerTop;
+
+    // Logo backdrop rounded container
+    ctx.save();
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
     ctx.beginPath();
-    drawRoundRect(ctx, badgeX, headerY - 24, badgeWidth, 32, 10);
+    drawRoundRect(ctx, logoX, logoY, logoSize, logoSize, 10);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.lineWidth = 1;
     ctx.stroke();
 
-    ctx.fillStyle = isCheckInType ? '#34D399' : '#FB7185';
-    ctx.fillText(badgeText, badgeX + 12, headerY - 2);
+    // Draw webapp logo image
+    if (logoImgRef.current && logoImgRef.current.complete && logoImgRef.current.naturalWidth > 0) {
+      ctx.save();
+      ctx.beginPath();
+      drawRoundRect(ctx, logoX + 3, logoY + 3, logoSize - 6, logoSize - 6, 8);
+      ctx.clip();
+      ctx.drawImage(logoImgRef.current, logoX + 3, logoY + 3, logoSize - 6, logoSize - 6);
+      ctx.restore();
+    } else {
+      ctx.fillStyle = '#38BDF8';
+      ctx.font = 'bold 18px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('KG', logoX + logoSize / 2, logoY + logoSize / 2);
+    }
+    ctx.restore();
 
-    // Divider Line
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+    // Brand Title beside Logo
+    const brandTextX = logoX + logoSize + 12;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.font = 'bold 19px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText("KING'S GRILL", brandTextX, headerTop + 2);
+
+    ctx.font = 'bold 11px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillStyle = '#94A3B8'; // Slate 400
+    ctx.fillText("HỆ THỐNG CHỨNG THỰC CHẤM CÔNG GPS • KG-OS", brandTextX, headerTop + 24);
+
+    // Right Header: Status Badge Pill
+    const upperType = typeToStamp.toUpperCase();
+    const statusText = isValidGps ? `${upperType} • HỢP LỆ` : `${upperType} • NGOÀI BÁN KÍNH`;
+    ctx.font = 'bold 14px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    const statusWidth = ctx.measureText(statusText).width + 36;
+    const statusHeight = 32;
+    const statusX = cardX + cardWidth - padX - statusWidth;
+    const statusY = headerTop + 5;
+
+    ctx.save();
+    ctx.beginPath();
+    drawRoundRect(ctx, statusX, statusY, statusWidth, statusHeight, 16);
+    ctx.fillStyle = !isValidGps
+      ? 'rgba(239, 68, 68, 0.22)'
+      : isCheckInType
+        ? 'rgba(16, 185, 129, 0.22)'
+        : 'rgba(59, 130, 246, 0.22)';
+    ctx.fill();
+    ctx.strokeStyle = !isValidGps ? '#EF4444' : isCheckInType ? '#10B981' : '#3B82F6';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Dot indicator
+    ctx.beginPath();
+    ctx.arc(statusX + 16, statusY + statusHeight / 2, 4.5, 0, Math.PI * 2);
+    ctx.fillStyle = !isValidGps ? '#F87171' : isCheckInType ? '#34D399' : '#60A5FA';
+    ctx.fill();
+
+    // Status text
+    ctx.fillStyle = !isValidGps ? '#FCA5A5' : isCheckInType ? '#6EE7B7' : '#93C5FD';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(statusText, statusX + 27, statusY + statusHeight / 2);
+    ctx.restore();
+
+    // Divider Line below Header
+    const divY = headerTop + logoSize + 10;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(contentX, headerY + 14);
-    ctx.lineTo(cardX + cardWidth - padX, headerY + 14);
+    ctx.moveTo(contentX, divY);
+    ctx.lineTo(contentX + contentWidth, divY);
     ctx.stroke();
 
-    // Row 1: Time & Security Signature
-    const row1Y = headerY + 46;
-    ctx.font = 'bold 25px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = '#FDE047'; // Vivid Gold
-    ctx.fillText('🕒 THỜI GIAN: ' + exactTime, contentX, row1Y);
+    // --- 2x2 MODULAR INFORMATION TILES (y = divY + 10) ---
+    const tileGap = 14;
+    const tileW = (contentWidth - tileGap) / 2;
+    const tileH = 70;
+    const tileR = 12;
+    const col1X = contentX;
+    const col2X = contentX + tileW + tileGap;
+    const row1Y = divY + 10;
+    const row2Y = row1Y + tileH + 10;
 
-    ctx.font = 'bold 21px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = '#38BDF8'; // Sky Blue
-    ctx.fillText('🛡️ ' + securityHash + ' (Bảo mật KG-OS)', contentX + 440, row1Y);
+    const drawInfoTile = (
+      x: number,
+      y: number,
+      w: number,
+      h: number,
+      iconLabel: string,
+      mainValue: string,
+      subValue: string = '',
+      mainColor: string = '#FFFFFF',
+      iconColor: string = '#94A3B8'
+    ) => {
+      // Tile background
+      ctx.save();
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+      ctx.beginPath();
+      drawRoundRect(ctx, x, y, w, h, tileR);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
 
-    // Row 2: Employee info
-    const row2Y = row1Y + 36;
-    ctx.font = 'bold 22px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = '#FFFFFF';
-    const roleTitle = userObj?.role === 'admin' ? 'Quản lý' : (userObj?.position || 'Nhân sự');
-    const personText = `👤 NHÂN SỰ: ${userObj?.fullname || 'Nhân sự'} (${userObj?.username || ''})  •  💼 ${roleTitle}`;
-    ctx.fillText(personText, contentX, row2Y);
+      // Top label
+      ctx.font = 'bold 11px system-ui, -apple-system, sans-serif';
+      ctx.fillStyle = iconColor;
+      ctx.textBaseline = 'top';
+      ctx.fillText(iconLabel, x + 14, y + 10);
 
-    // Row 3: Address (Word wrapped cleanly)
-    ctx.font = '500 19px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = '#CBD5E1'; // Slate 300
-    
-    const displayAddr = '📍 ĐỊA ĐIỂM: ' + addr;
-    const maxTextWidth = cardWidth - (padX * 2);
-    
-    const wrapText = (context: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number) => {
-      const words = text.split(' ');
-      let line = '';
-      let currentY = y;
-      
-      for (let n = 0; n < words.length; n++) {
-        const testLine = line + words[n] + ' ';
-        const metrics = context.measureText(testLine);
-        const testWidth = metrics.width;
-        if (testWidth > maxWidth && n > 0) {
-          context.fillText(line, x, currentY);
-          line = words[n] + ' ';
-          currentY += lineHeight;
-        } else {
-          line = testLine;
-        }
+      // Main value
+      ctx.font = 'bold 15px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+      ctx.fillStyle = mainColor;
+      ctx.fillText(mainValue, x + 14, y + 27);
+
+      // Sub value if exists
+      if (subValue) {
+        ctx.font = '500 12px system-ui, -apple-system, sans-serif';
+        ctx.fillStyle = '#CBD5E1';
+        ctx.fillText(subValue, x + 14, y + 47);
       }
-      context.fillText(line, x, currentY);
+      ctx.restore();
     };
 
-    wrapText(ctx, displayAddr, contentX, row2Y + 32, maxTextWidth, 26);
+    // Tile 1: Thời gian ghi nhận
+    drawInfoTile(
+      col1X,
+      row1Y,
+      tileW,
+      tileH,
+      '🕒 THỜI GIAN GHI NHẬN',
+      exactTime,
+      `Bảo mật: ${securityHash} (Hệ thống KG-OS)`,
+      '#FDE047', // Vivid Gold
+      '#FACC15'
+    );
 
-    // Row 4: GPS Coordinates & Radius Check
-    const row4Y = cardY + cardHeight - 20;
-    ctx.font = 'bold 18px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = isValidGps ? '#34D399' : '#F87171';
-    const gpsLine = `🛰️ TỌA ĐỘ: ${currentGpsState.lat?.toFixed(6) || '---'}, ${currentGpsState.lng?.toFixed(6) || '---'}  •  ${currentGpsState.message || 'Bán kính ≤20m'}`;
-    ctx.fillText(gpsLine, contentX, row4Y);
-    
+    // Tile 2: Nhân sự chấm công
+    const roleTitle = userObj?.role === 'admin' ? 'Quản lý' : (userObj?.position || 'Nhân sự');
+    const personName = `${userObj?.fullname || 'Nhân sự'} (${userObj?.username || ''})`;
+    drawInfoTile(
+      col2X,
+      row1Y,
+      tileW,
+      tileH,
+      '👤 NHÂN SỰ CHẤM CÔNG',
+      personName,
+      `Vị trí công tác: ${roleTitle}`,
+      '#FFFFFF',
+      '#93C5FD'
+    );
+
+    // Tile 3: Địa điểm & Trạng thái vệ tinh
+    drawInfoTile(
+      col1X,
+      row2Y,
+      tileW,
+      tileH,
+      '📍 ĐỊA ĐIỂM & ĐỊNH VỊ',
+      addr.length > 38 ? addr.slice(0, 36) + '...' : addr,
+      'Khóa vệ tinh GPS chính xác cao',
+      '#E2E8F0',
+      '#38BDF8'
+    );
+
+    // Tile 4: Tiêu chuẩn Bán kính GPS (Chuẩn 20m)
+    const distText = currentGpsState.message && currentGpsState.message.includes('Khoảng cách:')
+      ? currentGpsState.message
+      : `Khoảng cách: ${isValidGps ? '0m / 20m (≤20m Hợp lệ)' : 'Vượt bán kính (≤20m)'}`;
+    drawInfoTile(
+      col2X,
+      row2Y,
+      tileW,
+      tileH,
+      '🛰️ TIÊU CHUẨN BÁN KÍNH GPS (≤20M)',
+      distText,
+      isValidGps ? '✓ Đạt chuẩn vị trí nhà hàng' : '⚠️ Vượt quá bán kính quy định (20m)',
+      isValidGps ? '#34D399' : '#F87171',
+      isValidGps ? '#10B981' : '#EF4444'
+    );
+
+    // --- FOOTER BAR (y = row2Y + tileH + 10) ---
+    const footerY = row2Y + tileH + 10;
+    ctx.save();
+    ctx.font = '500 12px system-ui, -apple-system, sans-serif';
+    ctx.fillStyle = '#64748B'; // Slate 500
+    ctx.textBaseline = 'top';
+
+    const coordsText = `🛰️ TỌA ĐỘ: ${currentGpsState.lat?.toFixed(6) || '10.976083'}, ${currentGpsState.lng?.toFixed(6) || '106.664654'}`;
+    ctx.fillText(coordsText, contentX, footerY);
+
+    const rightFooterText = `BÁN KÍNH TIÊU CHUẨN: ≤ 20M  •  KING'S GRILL CHÍNH THỨC`;
+    const rightFooterWidth = ctx.measureText(rightFooterText).width;
+    ctx.fillText(rightFooterText, contentX + contentWidth - rightFooterWidth, footerY);
+    ctx.restore();
+
     // Save image with high quality JPEG 0.88 (sharp & universally compatible)
     let dataUrl = canvas.toDataURL('image/jpeg', 0.88);
     

@@ -29,7 +29,7 @@ var CONFIG = {
   LOCATION: {
     LAT: 10.9760826,
     LNG: 106.6646541,
-    MAX_DISTANCE_METERS: 25
+    MAX_DISTANCE_METERS: 20
   },
   EMAILS: ["dmt.7121@gmail.com", "btob.7121@gmail.com", "dmt.kgwork@gmail.com", "leminhsang993@gmail.com", "nguyentien1744293@gmail.com"],
   TIMEZONE: "Asia/Ho_Chi_Minh",
