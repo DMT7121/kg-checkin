@@ -331,25 +331,33 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
             {/* Personal Hero Card */}
             <div className="relative overflow-hidden rounded-3xl bg-gradient-hero p-5 sm:p-6 text-white shadow-hero border border-white/10">
               <div className="relative z-10 flex flex-col justify-between h-full space-y-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center space-x-3 min-w-0">
+                <div className="flex items-start justify-between gap-2.5">
+                  <div className="flex items-center space-x-3 min-w-0 flex-1">
                     <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center justify-center font-black text-xl text-white flex-shrink-0 shadow-xs">
                       {currentUser?.fullname.charAt(0) || 'K'}
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-white/80 text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5">
-                        <span>{new Date().getHours() < 12 ? '☀️ Chào buổi sáng' : new Date().getHours() < 18 ? '🌤️ Chào buổi chiều' : '🌙 Chào buổi tối'}</span>
-                        <span className="w-1 h-1 rounded-full bg-white/60" />
-                        <span>{currentUser?.position || (currentUser?.role === 'admin' ? 'Quản lý' : 'Nhân sự')}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-white/80 text-[10.5px] sm:text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 overflow-hidden">
+                        <span className="whitespace-nowrap flex-shrink-0">
+                          {new Date().getHours() < 12 ? '☀️ Chào buổi sáng' : new Date().getHours() < 18 ? '🌤️ Chào buổi chiều' : '🌙 Chào buổi tối'}
+                        </span>
+                        <span className="w-1 h-1 rounded-full bg-white/60 flex-shrink-0" />
+                        <span className="truncate text-amber-300 font-extrabold">
+                          {currentUser?.position || (currentUser?.role === 'admin' ? 'Quản lý' : 'Nhân sự')}
+                        </span>
                       </p>
                       <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white truncate mt-0.5">
                         {currentUser?.fullname || currentUser?.username}
                       </h2>
                     </div>
                   </div>
-                  <div className="text-right flex-shrink-0">
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-xl bg-black/25 backdrop-blur-md border border-white/10 text-[11px] font-mono font-bold text-white shadow-xs">
-                      {store.currentTime}
+                  <div className="text-right flex-shrink-0 self-start">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-black/25 backdrop-blur-md border border-white/10 text-[11px] font-mono font-bold text-white shadow-xs whitespace-nowrap">
+                      <Clock size={11} className="text-amber-300 flex-shrink-0" />
+                      <span>{store.currentTime ? store.currentTime.split(' ').pop() : ''}</span>
+                      <span className="hidden sm:inline opacity-70 text-[10px] ml-0.5">
+                        {store.currentTime ? store.currentTime.split(' ')[0] : ''}
+                      </span>
                     </span>
                   </div>
                 </div>
@@ -401,22 +409,22 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
             {pendingMissedClaims.length > 0 && (
               <div 
                 onClick={() => setIsMissedModalOpen(true)}
-                className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/15 to-orange-500/15 border-2 border-amber-500/40 cursor-pointer hover:bg-amber-500/20 transition-all flex items-start justify-between gap-3 shadow-xs animate-slide-up"
+                className="p-3.5 rounded-2xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/35 cursor-pointer hover:bg-amber-500/20 transition-all flex items-center justify-between gap-3 shadow-xs animate-slide-up"
               >
-                <div className="flex items-start gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black flex-shrink-0 shadow-sm mt-0.5">
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black flex-shrink-0 shadow-xs text-xs">
                     ⚠️
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-black text-amber-700 dark:text-amber-300 flex items-center gap-1">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-black text-amber-700 dark:text-amber-300 truncate">
                       Bạn có {pendingMissedClaims.length} yêu cầu bổ sung công đang CHỜ DUYỆT!
                     </p>
-                    <p className="text-[10.5px] text-[var(--kg-text-muted)] mt-0.5 font-medium leading-tight">
-                      Gần nhất: <b>{pendingMissedClaims[0].date}</b> ({pendingMissedClaims[0].type} - {pendingMissedClaims[0].time}). Nhấn để xem & nhắc Quản lý trên nhóm Zalo.
+                    <p className="text-[10.5px] text-[var(--kg-text-muted)] mt-0.5 font-medium truncate">
+                      Gần nhất: <b>{pendingMissedClaims[0].date}</b> ({pendingMissedClaims[0].type} - {pendingMissedClaims[0].time})
                     </p>
                   </div>
                 </div>
-                <span className="text-xs font-bold text-amber-600 dark:text-amber-400 whitespace-nowrap self-center">
+                <span className="text-xs font-black text-amber-700 dark:text-amber-300 whitespace-nowrap bg-amber-500/20 hover:bg-amber-500/30 px-3 py-1.5 rounded-xl border border-amber-500/40 flex-shrink-0 shadow-xs active:scale-95 transition-all">
                   Chi tiết →
                 </span>
               </div>
@@ -429,25 +437,22 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
                   setSelectedMissingAlert(missingAlerts[0]);
                   setIsMissedModalOpen(true);
                 }}
-                className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/15 via-orange-500/15 to-amber-500/15 border-2 border-amber-500/50 cursor-pointer hover:bg-amber-500/25 transition-all flex items-start justify-between gap-3 shadow-xs animate-slide-up"
+                className="p-3.5 rounded-2xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/35 cursor-pointer hover:bg-amber-500/20 transition-all flex items-center justify-between gap-3 shadow-xs animate-slide-up"
               >
-                <div className="flex items-start gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black flex-shrink-0 shadow-sm mt-0.5">
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black flex-shrink-0 shadow-xs text-xs">
                     ⚠️
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-black text-amber-700 dark:text-amber-300 flex items-center gap-1">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-black text-amber-700 dark:text-amber-300 truncate">
                       Phát hiện {missingAlerts.length} ca làm chưa hoàn tất!
                     </p>
-                    <p className="text-[11px] text-[var(--kg-text)] font-bold mt-0.5 leading-tight">
+                    <p className="text-[11px] text-[var(--kg-text)] font-semibold mt-0.5 line-clamp-1 leading-snug">
                       {missingAlerts[0].message}
-                    </p>
-                    <p className="text-[10px] text-amber-800/80 dark:text-amber-300/80 font-semibold mt-0.5">
-                      Chạm vào đây để gửi Đơn Bổ Sung Công ngay →
                     </p>
                   </div>
                 </div>
-                <span className="text-xs font-black text-amber-600 dark:text-amber-400 whitespace-nowrap self-center bg-amber-500/15 px-2.5 py-1.5 rounded-xl border border-amber-500/30">
+                <span className="text-xs font-black text-amber-700 dark:text-amber-300 whitespace-nowrap bg-amber-500/20 hover:bg-amber-500/30 px-3 py-1.5 rounded-xl border border-amber-500/40 flex-shrink-0 shadow-xs active:scale-95 transition-all">
                   Bổ sung →
                 </span>
               </div>
@@ -488,7 +493,7 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
                   tips={[
                     "Checklist: Kiểm tra và đánh dấu đầy đủ các khu vực trước khi bắt đầu hoặc kết thúc ca làm.",
                     "Sổ Bàn giao ca: Bắt buộc đếm quỹ tiền mặt, ghi nhận tồn kho và sự cố trước khi giao ca.",
-                    "Đăng ký lịch làm: Hạn chót 23h59 Chủ nhật hàng tuần để AI và Quản lý sắp xếp đội hình tối ưu."
+                    "Đăng ký lịch làm: Hạn chót 17:00 Thứ 7 hàng tuần để AI và Quản lý sắp xếp đội hình tối ưu."
                   ]}
                   variant="badge"
                   triggerText="Lưu ý"
@@ -563,7 +568,7 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
                       </div>
                       <div className="min-w-0">
                         <p className="text-xs font-black text-[var(--kg-text)] truncate">Đăng Ký Lịch Tuần Tới</p>
-                        <p className="text-[10px] text-[var(--kg-text-muted)] font-medium truncate">Đăng ký trước 23h59 Chủ nhật hàng tuần</p>
+                        <p className="text-[10px] text-[var(--kg-text-muted)] font-medium truncate">Đăng ký trước 17:00 Thứ 7 hàng tuần</p>
                       </div>
                     </div>
                     <div className="flex items-center justify-between sm:justify-end gap-2 pl-12 sm:pl-0">

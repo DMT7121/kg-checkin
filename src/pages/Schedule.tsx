@@ -558,7 +558,7 @@ ${aiInputText}
                 "Sau khi điều chỉnh xong, bấm 'Xác nhận lịch tuần' để công bố cho toàn bộ nhân viên."
               ]
             : [
-                "Hạn chót đăng ký lịch làm: Trước 23h59 Chủ nhật hàng tuần.",
+                "Hạn chót đăng ký lịch làm: Trước 17:00 Thứ 7 hàng tuần.",
                 "Đăng ký tối thiểu theo hợp đồng (thường 4-6 ca/tuần tùy vị trí Part-time hay Full-time).",
                 "Nếu cần xin nghỉ hoặc bận đột xuất, hãy chọn 'Off' và ghi chú lý do rõ ràng.",
                 "Sau khi Quản lý đã chốt lịch, việc thay đổi phải thực hiện qua mục 'Bảng tin đổi ca'."
@@ -1074,7 +1074,7 @@ ${aiInputText}
           <p className="text-center text-[11px] font-semibold text-[var(--kg-text-muted)] mt-3">
             {isScheduleRegistered
               ? 'Bạn có thể cập nhật lịch không giới hạn trong thời gian mở đăng ký.'
-              : 'Hạn đăng ký: Trước 23:59 Chủ Nhật hàng tuần.'}
+              : 'Hạn đăng ký: Trước 17:00 Thứ Bảy hàng tuần.'}
           </p>
         </>
       )}

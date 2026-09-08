@@ -102,7 +102,7 @@ export default function Guide() {
         'Kiểm tra kỹ thông tin ca đăng ký và bấm "Đăng ký lịch làm" để gửi lên quản lý duyệt.'
       ],
       tips: [
-        'Lịch đăng ký tuần sau cần hoàn tất trước 23:59 Chủ nhật hàng tuần.',
+        'Lịch đăng ký tuần sau cần hoàn tất trước 17:00 Thứ 7 hàng tuần.',
         'Sau khi quản lý phê duyệt, bạn sẽ không tự ý sửa đổi được mà phải dùng tính năng Đổi ca.'
       ]
     },

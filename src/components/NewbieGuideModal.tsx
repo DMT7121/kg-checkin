@@ -210,7 +210,7 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
                   {
                     step: '5',
                     title: 'Đăng ký lịch làm việc tuần mới',
-                    desc: 'Chủ động chọn ca Sáng/Tối/OFF cho tuần tới trước 23:59 Chủ Nhật hàng tuần.',
+                    desc: 'Chủ động chọn ca Sáng/Tối/OFF cho tuần tới trước 17:00 Thứ Bảy hàng tuần.',
                     target: 'workforce' as TabId,
                     btnText: 'Đăng ký Lịch',
                     icon: Calendar,
@@ -360,7 +360,7 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
                     <li>Bấm <b>"Đăng ký lịch làm"</b> để gửi lên Quản lý duyệt.</li>
                   </ol>
                   <p className="text-[11px] font-bold text-amber-600 dark:text-amber-400">
-                    ⏱️ Hạn chót: Trước 23:59 Chủ Nhật hàng tuần.
+                    ⏱️ Hạn chót: Trước 17:00 Thứ Bảy hàng tuần.
                   </p>
                 </div>
 
