@@ -193,7 +193,7 @@ export default function AdminShift() {
               <button
                 type="button"
                 onClick={handleGetLiveLocation}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2.5 rounded-xl text-xs font-black whitespace-nowrap shadow-sm active:scale-95 transition-all flex items-center gap-1"
+                className="bg-[var(--kg-primary)] hover:opacity-90 text-white px-3.5 py-2.5 rounded-xl text-xs font-black whitespace-nowrap shadow-xs active:scale-95 transition-all flex items-center gap-1"
                 title="Lấy tọa độ hiện tại của thiết bị"
               >
                 <Crosshair size={16} /> Lấy GPS
@@ -204,7 +204,7 @@ export default function AdminShift() {
             </p>
           </div>
 
-          <button onClick={handleSaveGPS} disabled={isSaving} className={`w-full font-black py-3 rounded-xl text-xs sm:text-sm transition flex items-center justify-center shadow-md active:scale-95 ${isSaving ? 'bg-blue-400 text-white cursor-not-allowed' : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white'}`}>
+          <button onClick={handleSaveGPS} disabled={isSaving} className={`w-full font-black py-3 rounded-xl text-xs sm:text-sm transition flex items-center justify-center shadow-xs active:scale-95 ${isSaving ? 'bg-slate-400 text-white cursor-not-allowed' : 'bg-[var(--kg-primary)] text-white hover:opacity-90'}`}>
             {isSaving ? (
               <><span className="animate-spin mr-2">⏳</span> Đang lưu cấu hình...</>
             ) : (
@@ -215,46 +215,46 @@ export default function AdminShift() {
       </div>
 
       {/* Shift Codes */}
-      <div className="soft3d-card p-5 rounded-2xl  ">
-        <h3 className="font-bold mb-4 border-b dark:border-gray-700 pb-2 flex items-center text-gray-800 dark:text-white">
-          <CalendarRange size={18} className="mr-2 text-ocean-600" /> Mã Ca Làm
+      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-5 rounded-2xl shadow-xs">
+        <h3 className="font-bold mb-4 border-b border-[var(--kg-border)] pb-2 flex items-center text-[var(--kg-text)]">
+          <CalendarRange size={18} className="mr-2 text-[var(--kg-primary)]" /> Mã Ca Làm
         </h3>
         
         <div className="space-y-3">
           {shiftCodes.map((s) => (
-            <div key={s.id} className={`flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl border ${s.type === 'standard' ? 'soft3d-bg border-gray-100 dark:border-gray-800' : s.type === 'admin' ? 'bg-orange-50 dark:bg-orange-900/10 border-orange-100 dark:border-orange-800' : 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-800'}`}>
+            <div key={s.id} className={`flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl border ${s.type === 'standard' ? 'bg-[var(--kg-surface-soft)] border-[var(--kg-border)]' : s.type === 'admin' ? 'bg-amber-500/10 border-amber-500/20' : 'bg-rose-500/10 border-rose-500/20'}`}>
               <div className="min-w-0 pr-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className={`text-sm font-bold truncate ${s.type === 'standard' ? 'text-gray-800 dark:text-gray-200' : s.type === 'admin' ? 'text-orange-800 dark:text-orange-400' : 'text-red-800 dark:text-red-400'}`}>{s.code}</p>
+                  <p className={`text-sm font-bold truncate ${s.type === 'standard' ? 'text-[var(--kg-text)]' : s.type === 'admin' ? 'text-amber-700 dark:text-amber-400' : 'text-rose-700 dark:text-rose-400'}`}>{s.code}</p>
                   {s.type !== 'standard' && (
-                    <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold flex-shrink-0 ${s.type === 'admin' ? 'bg-orange-200 text-orange-700' : 'bg-red-200 text-red-700'}`}>{s.type === 'admin' ? 'ADMIN ONLY' : 'PENALTY'}</span>
+                    <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold flex-shrink-0 ${s.type === 'admin' ? 'bg-amber-500/20 text-amber-700' : 'bg-rose-500/20 text-rose-700'}`}>{s.type === 'admin' ? 'ADMIN ONLY' : 'PENALTY'}</span>
                   )}
                 </div>
-                <p className={`text-[10px] truncate ${s.type === 'standard' ? 'text-gray-500' : s.type === 'admin' ? 'text-orange-600' : 'text-red-600'}`}>{s.description}</p>
+                <p className={`text-[10px] truncate ${s.type === 'standard' ? 'text-[var(--kg-text-muted)]' : s.type === 'admin' ? 'text-amber-600' : 'text-rose-600'}`}>{s.description}</p>
               </div>
-              <button onClick={() => handleRemoveShiftCode(s.id)} className="text-red-500 text-xs font-bold px-2 py-1 hover:underline flex-shrink-0">Xóa</button>
+              <button onClick={() => handleRemoveShiftCode(s.id)} className="text-rose-500 text-xs font-bold px-2 py-1 hover:underline flex-shrink-0">Xóa</button>
             </div>
           ))}
 
-          <button onClick={handleAddShiftCode} className="w-full border-2 border-dashed border-gray-200 text-gray-500 font-bold py-2.5 rounded-lg text-sm transition hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800 flex items-center justify-center mt-2">
+          <button onClick={handleAddShiftCode} className="w-full border-2 border-dashed border-[var(--kg-border)] text-[var(--kg-text-muted)] font-bold py-2.5 rounded-xl text-sm transition hover:bg-[var(--kg-surface-soft)] flex items-center justify-center mt-2">
             + Thêm mã ca mới
           </button>
         </div>
       </div>
       
       {/* Registration Settings */}
-      <div className="soft3d-card p-5 rounded-2xl  ">
-        <h3 className="font-bold mb-4 border-b dark:border-gray-700 pb-2 flex items-center text-gray-800 dark:text-white">
-          <AlertCircle size={18} className="mr-2 text-ocean-600" /> Luật Đăng Ký Ca
+      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-5 rounded-2xl shadow-xs">
+        <h3 className="font-bold mb-4 border-b border-[var(--kg-border)] pb-2 flex items-center text-[var(--kg-text)]">
+          <AlertCircle size={18} className="mr-2 text-[var(--kg-primary)]" /> Luật Đăng Ký Ca
         </h3>
         
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0 pr-2">
-              <p className="text-sm font-bold text-gray-800 dark:text-gray-200 truncate">Giờ đóng cổng tự động</p>
-              <input type="text" value={registrationCloseTime} onChange={(e) => setRegistrationCloseTime(e.target.value)} className="w-full text-[10px] text-gray-500 bg-transparent border-b border-gray-300 dark:border-gray-600 focus:outline-none focus:border-ocean-500" />
+              <p className="text-sm font-bold text-[var(--kg-text)] truncate">Giờ đóng cổng tự động</p>
+              <input type="text" value={registrationCloseTime} onChange={(e) => setRegistrationCloseTime(e.target.value)} className="w-full text-[10px] text-[var(--kg-text-muted)] bg-transparent border-b border-[var(--kg-border)] focus:outline-none focus:border-[var(--kg-primary)]" />
             </div>
-            <button onClick={handleSaveGPS} disabled={isSaving} className="px-3 py-1 bg-ocean-100 text-ocean-600 font-bold text-xs rounded hover:bg-ocean-200 transition flex-shrink-0">
+            <button onClick={handleSaveGPS} disabled={isSaving} className="px-3 py-1 bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-border)] border border-[var(--kg-border)] text-[var(--kg-text)] font-bold text-xs rounded-xl transition flex-shrink-0">
               {isSaving ? 'Lưu...' : 'Lưu Tất cả'}
             </button>
           </div>
@@ -262,9 +262,9 @@ export default function AdminShift() {
       </div>
       
       {/* Missed Check-ins Approval Quick Card */}
-      <div className="bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-600/10 border-2 border-amber-500/30 p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+      <div className="bg-[var(--kg-surface)] border border-amber-500/30 p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-black shadow-md flex-shrink-0">
+          <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-black shadow-xs flex-shrink-0">
             <ShieldCheck size={22} />
           </div>
           <div>
@@ -279,7 +279,7 @@ export default function AdminShift() {
         <button
           type="button"
           onClick={() => setIsMissedModalOpen(true)}
-          className="w-full sm:w-auto px-4 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 text-white rounded-xl text-xs font-black shadow-md transition active:scale-95 whitespace-nowrap flex-shrink-0"
+          className="w-full sm:w-auto px-4 py-2.5 bg-[var(--kg-primary)] text-white hover:opacity-90 rounded-xl text-xs font-black shadow-xs transition active:scale-95 whitespace-nowrap flex-shrink-0"
         >
           Mở hàng chờ duyệt →
         </button>

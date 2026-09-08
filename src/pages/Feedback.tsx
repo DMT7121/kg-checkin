@@ -174,7 +174,7 @@ export default function Feedback() {
 
                 <button 
                   type="submit" 
-                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black py-2.5 px-5 rounded-xl shadow-md transition-all active:scale-95 text-xs sm:text-sm"
+                  className="bg-[var(--kg-primary)] hover:brightness-110 text-white font-black py-2.5 px-5 rounded-xl shadow-xs transition-all active:scale-98 text-xs sm:text-sm"
                 >
                   Gửi phản hồi
                 </button>

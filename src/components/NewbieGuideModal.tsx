@@ -80,9 +80,9 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
       <div className="relative w-full max-w-4xl max-h-[92vh] bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-3xl shadow-2xl border border-[var(--kg-border)] flex flex-col overflow-hidden z-10 animate-scale-in">
         
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--kg-border)] bg-gradient-to-r from-blue-600/10 via-indigo-600/10 to-violet-600/10 dark:from-blue-900/20 dark:to-indigo-900/20 flex-shrink-0">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-md flex-shrink-0">
+            <div className="w-10 h-10 rounded-2xl bg-[var(--kg-primary)] text-white flex items-center justify-center shadow-xs flex-shrink-0">
               <BookOpen size={20} />
             </div>
             <div>
@@ -90,7 +90,7 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
                 <h2 className="text-base sm:text-lg font-black tracking-tight text-[var(--kg-text)]">
                   Cẩm Nang Nhập Môn Nhân Sự Mới
                 </h2>
-                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-blue-500 text-white shadow-xs">
+                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-[var(--kg-accent)] text-white shadow-xs">
                   King's Grill OS
                 </span>
               </div>
@@ -103,7 +103,7 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
           <button
             type="button"
             onClick={handleFinish}
-            className="w-8 h-8 rounded-xl bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-border)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition-colors active:scale-95"
+            className="w-8 h-8 rounded-xl bg-[var(--kg-surface)] hover:bg-[var(--kg-border)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition-colors active:scale-95"
             aria-label="Đóng"
           >
             <X size={16} />
@@ -111,7 +111,7 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
         </div>
 
         {/* Tab Navigation Row */}
-        <div className="relative flex-shrink-0 border-b border-[var(--kg-border)] bg-[var(--kg-surface-soft)]/80">
+        <div className="relative flex-shrink-0 border-b border-[var(--kg-border)] bg-[var(--kg-surface-soft)]/60">
           <div className="flex items-center gap-2 px-3 sm:px-4 py-2.5 overflow-x-auto hide-scrollbar">
             {tabs.map((tab) => {
               const Icon = tab.icon;
@@ -124,10 +124,10 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
                     setActiveTab(tab.key);
                     e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
                   }}
-                  className={`relative flex items-center gap-2 px-3.5 py-2.5 rounded-2xl text-xs font-black transition-all duration-200 whitespace-nowrap active:scale-95 flex-shrink-0 select-none ${
+                  className={`relative flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-black transition-all duration-200 whitespace-nowrap active:scale-95 flex-shrink-0 select-none ${
                     isActive
-                      ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 text-white shadow-lg shadow-blue-500/35 ring-2 ring-blue-400/50 scale-[1.02]'
-                      : 'bg-[var(--kg-surface)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] hover:text-[var(--kg-text)] hover:border-blue-500/30 opacity-80'
+                      ? 'bg-[var(--kg-primary)] text-white shadow-xs ring-1 ring-[var(--kg-primary)] scale-[1.01]'
+                      : 'bg-[var(--kg-surface)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] hover:text-[var(--kg-text)] hover:border-[var(--kg-border-strong)]'
                   }`}
                 >
                   <Icon size={15} className={`flex-shrink-0 ${isActive ? 'text-white' : 'opacity-80'}`} />
@@ -135,13 +135,13 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
                   <span className="inline sm:hidden">{tab.shortLabel}</span>
                   {tab.badge && (
                     <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-extrabold uppercase ${
-                      isActive ? 'bg-white/20 text-white' : 'bg-blue-500/10 text-blue-600 dark:text-indigo-400 border border-blue-500/20'
+                      isActive ? 'bg-white/20 text-white' : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)]'
                     }`}>
                       {tab.badge}
                     </span>
                   )}
                   {isActive && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_6px_white] animate-pulse flex-shrink-0" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--kg-accent)] shadow-[0_0_6px_var(--kg-accent)] animate-pulse flex-shrink-0" />
                   )}
                 </button>
               );
@@ -155,8 +155,8 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
           {/* TAB 1: 5 BƯỚC KHỞI ĐẦU NHANH */}
           {activeTab === 'start' && (
             <div className="space-y-6 animate-fade-in">
-              <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border border-blue-200/50 dark:border-indigo-900/30 flex items-start gap-3.5">
-                <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center flex-shrink-0 font-black shadow-sm">
+              <div className="p-4 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex items-start gap-3.5">
+                <div className="w-9 h-9 rounded-xl bg-[var(--kg-primary)] text-white flex items-center justify-center flex-shrink-0 font-black shadow-xs">
                   ✨
                 </div>
                 <div>
@@ -637,7 +637,7 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
             <button
               type="button"
               onClick={handleFinish}
-              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-black shadow-md hover:from-blue-700 hover:to-indigo-700 active:scale-95 transition-all"
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl bg-[var(--kg-primary)] text-white text-xs font-black shadow-xs hover:opacity-90 active:scale-95 transition-all"
             >
               <CheckCircle2 size={15} /> Tôi Đã Hiểu & Bắt Đầu Làm Việc
             </button>

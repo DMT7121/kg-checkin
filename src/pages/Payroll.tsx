@@ -148,7 +148,7 @@ export default function Payroll({ mode = 'user' }: { mode?: 'user' | 'admin' }) 
               <span className="text-[var(--kg-text-muted)] font-medium">
                 {payroll.payType === 'daily' ? 'Lương tháng chuẩn 30 ngày' : 'Mức lương cơ bản / giờ'}
               </span>
-              <span className="font-bold text-[var(--kg-text)]">
+              <span className="font-mono font-bold text-[var(--kg-text)]">
                 {formatMoney(payroll.salaryAmount ?? payroll.baseSalaryPerHour)}
               </span>
             </div>
@@ -156,7 +156,7 @@ export default function Payroll({ mode = 'user' }: { mode?: 'user' | 'admin' }) 
               <span className="text-[var(--kg-text-muted)] font-medium">
                 {payroll.payType === 'daily' ? 'Tổng số ngày làm thực tế' : 'Tổng số giờ làm thực tế'}
               </span>
-              <span className="font-black text-[var(--kg-text)]">
+              <span className="font-mono font-black text-[var(--kg-text)]">
                 {payroll.payType === 'daily'
                   ? `${payroll.workedDays || 0} ngày`
                   : formatHours(payroll.totalHours)}
@@ -165,28 +165,28 @@ export default function Payroll({ mode = 'user' }: { mode?: 'user' | 'admin' }) 
             <div className="w-full h-px bg-[var(--kg-border)]" />
             <div className="flex justify-between items-center gap-3">
               <span className="text-[var(--kg-text)] font-black">Tổng lương theo công</span>
-              <span className="font-black text-blue-600 dark:text-indigo-400">
+              <span className="font-mono font-black text-[var(--kg-primary)] dark:text-cyan-300">
                 {formatMoney(payroll.totalBaseSalary)}
               </span>
             </div>
             <div className="flex justify-between items-center gap-3 text-emerald-600 dark:text-emerald-400 font-bold">
               <span>+ Thưởng hiệu suất / chuyên cần</span>
-              <span>+ {formatMoney(payroll.bonus)}</span>
+              <span className="font-mono">+ {formatMoney(payroll.bonus)}</span>
             </div>
             <div className="flex justify-between items-center gap-3 text-rose-500 dark:text-rose-400 font-bold">
               <span>- Khấu trừ phạt vi phạm</span>
-              <span>- {formatMoney(payroll.penalty)}</span>
+              <span className="font-mono">- {formatMoney(payroll.penalty)}</span>
             </div>
             <div className="flex justify-between items-center gap-3 text-amber-500 dark:text-amber-400 font-bold">
               <span>- Đã tạm ứng trong tháng</span>
-              <span>- {formatMoney(payroll.advances)}</span>
+              <span className="font-mono">- {formatMoney(payroll.advances)}</span>
             </div>
             <div className="w-full h-px bg-[var(--kg-border)] border-dashed border-t" />
             <div className="flex justify-between items-center gap-3 bg-emerald-500/10 p-4 rounded-2xl border border-emerald-500/20">
               <span className="text-emerald-700 dark:text-emerald-300 font-black text-sm sm:text-base uppercase tracking-wider">
                 THỰC LĨNH
               </span>
-              <span className="font-black text-xl sm:text-2xl text-emerald-600 dark:text-emerald-400">
+              <span className="font-mono font-black text-xl sm:text-2xl text-emerald-600 dark:text-emerald-400">
                 {formatMoney(payroll.netPay)}
               </span>
             </div>

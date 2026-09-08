@@ -76,9 +76,9 @@ interface HubTab {
 
 function HubFallback() {
   return (
-    <div className="flex items-center justify-center gap-2 py-20 text-sm font-bold text-slate-400">
-      <span className="h-5 w-5 animate-spin rounded-full border-2 border-cyan-500 border-t-transparent" />
-      Đang mở chức năng...
+    <div className="flex items-center justify-center gap-2.5 py-20 text-xs font-bold text-[var(--kg-text-muted)]">
+      <span className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--kg-primary)] border-t-transparent" />
+      <span>Đang tải phân hệ...</span>
     </div>
   );
 }
@@ -93,8 +93,8 @@ function ModuleHub({ tabs, initialTab }: { tabs: HubTab[]; initialTab?: string }
 
   return (
     <div className="kg-module-hub min-h-full">
-      <div className="kg-module-tabs-wrap sticky top-0 z-30 border-b border-[var(--kg-border)] bg-[var(--kg-bg)]/95 px-2 sm:px-4 py-2.5 backdrop-blur-xl transition-colors">
-        <div className="kg-module-tabs mx-auto flex max-w-7xl gap-2 overflow-x-auto rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface)] p-1.5 shadow-sm hide-scrollbar">
+      <div className="kg-module-tabs-wrap sticky top-0 z-30 border-b border-[var(--kg-border)] bg-[var(--kg-bg)]/90 px-2 sm:px-4 py-2 backdrop-blur-md transition-colors">
+        <div className="kg-module-tabs mx-auto flex max-w-7xl gap-1.5 overflow-x-auto rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface)] p-1.5 shadow-sm hide-scrollbar">
           {allowedTabs.map(tab => {
             const Icon = tab.icon;
             const selected = tab.id === active.id;
@@ -106,17 +106,17 @@ function ModuleHub({ tabs, initialTab }: { tabs: HubTab[]; initialTab?: string }
                   setActiveId(tab.id);
                   e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
                 }}
-                className={`kg-module-tab relative inline-flex min-w-max flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs transition-all duration-200 active:scale-95 select-none ${
+                className={`kg-module-tab relative inline-flex min-w-max flex-1 items-center justify-center gap-2 rounded-xl px-3.5 sm:px-4 py-2 text-xs transition-all duration-150 active:scale-98 select-none touch-manipulation min-h-[40px] ${
                   selected
-                    ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 text-white font-black shadow-lg shadow-blue-500/30 ring-2 ring-blue-400/40 scale-[1.02]'
-                    : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)] font-bold opacity-75'
+                    ? 'bg-[var(--kg-primary)] text-white font-extrabold shadow-sm border border-[var(--kg-primary)]'
+                    : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)] font-bold border border-transparent'
                 }`}
               >
-                <Icon size={16} className={`flex-shrink-0 ${selected ? 'text-white' : 'opacity-80'}`} />
-                <span className="hidden sm:inline tracking-wide">{tab.label}</span>
-                <span className="inline sm:hidden tracking-wide">{tab.shortLabel || tab.label}</span>
+                <Icon size={16} className={`flex-shrink-0 ${selected ? 'text-white' : 'text-[var(--kg-text-muted)]'}`} />
+                <span className="hidden sm:inline tracking-tight">{tab.label}</span>
+                <span className="inline sm:hidden tracking-tight">{tab.shortLabel || tab.label}</span>
                 {selected && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_6px_white] animate-pulse flex-shrink-0" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--kg-accent)] flex-shrink-0" />
                 )}
               </button>
             );

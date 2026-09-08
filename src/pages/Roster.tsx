@@ -359,30 +359,31 @@ export default function Roster() {
         eyebrow="Phân ca"
       />
 
-        
       {/* Toggle Mode & Time Navigation */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 relative z-10 gap-3 w-full soft3d-card p-2 rounded-2xl  ">
-          <div className="flex items-center space-x-1">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 relative z-10 gap-3 w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] p-2 rounded-2xl shadow-xs">
+          <div className="flex items-center space-x-1 bg-[var(--kg-surface-soft)] p-1 rounded-xl border border-[var(--kg-border)]/60">
             <button 
+              type="button"
               onClick={() => setViewMode('week')} 
-              className={`flex items-center px-4 py-2 rounded-xl text-sm font-bold transition-colors ${viewMode === 'week' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}
+              className={`flex items-center px-4 py-2 rounded-lg text-xs sm:text-sm font-black transition-all ${viewMode === 'week' ? 'bg-[var(--kg-primary)] text-white shadow-xs' : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'}`}
             >
-              <CalendarRange size={16} className="mr-1.5" /> Tuần
+              <CalendarRange size={15} className="mr-1.5" /> Tuần
             </button>
             <button 
+              type="button"
               onClick={() => setViewMode('month')} 
-              className={`flex items-center px-4 py-2 rounded-xl text-sm font-bold transition-colors ${viewMode === 'month' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}
+              className={`flex items-center px-4 py-2 rounded-lg text-xs sm:text-sm font-black transition-all ${viewMode === 'month' ? 'bg-[var(--kg-primary)] text-white shadow-xs' : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'}`}
             >
-              <LayoutGrid size={16} className="mr-1.5" /> Tháng
+              <LayoutGrid size={15} className="mr-1.5" /> Tháng
             </button>
           </div>
           
-          <div className="flex items-center space-x-2 soft3d-bg/50 rounded-xl p-1.5 border border-gray-200 dark:border-gray-700 w-full sm:w-auto justify-center sm:justify-start">
-            <button onClick={() => viewMode === 'week' ? changeWeek(-1) : changeMonth(-1)} className="p-1.5 hover:bg-white dark:hover:bg-gray-800 hover: rounded-lg transition-all text-gray-600 dark:text-gray-400"><ChevronLeft size={18} /></button>
-            <div className="text-sm font-bold px-2 min-w-[140px] text-center text-gray-800 dark:text-gray-200">
+          <div className="flex items-center space-x-2 bg-[var(--kg-surface-soft)] rounded-xl p-1.5 border border-[var(--kg-border)] w-full sm:w-auto justify-between sm:justify-start">
+            <button onClick={() => viewMode === 'week' ? changeWeek(-1) : changeMonth(-1)} className="p-1.5 hover:bg-[var(--kg-surface)] hover:text-[var(--kg-text)] rounded-lg transition-all text-[var(--kg-text-muted)]"><ChevronLeft size={18} /></button>
+            <div className="text-xs sm:text-sm font-black px-2 min-w-[140px] text-center text-[var(--kg-text)]">
               {viewMode === 'week' ? weekInfo.weekDisplay : `Tháng ${selectedMonth}/${selectedYear}`}
             </div>
-            <button onClick={() => viewMode === 'week' ? changeWeek(1) : changeMonth(1)} className="p-1.5 hover:bg-white dark:hover:bg-gray-800 hover: rounded-lg transition-all text-gray-600 dark:text-gray-400"><ChevronRight size={18} /></button>
+            <button onClick={() => viewMode === 'week' ? changeWeek(1) : changeMonth(1)} className="p-1.5 hover:bg-[var(--kg-surface)] hover:text-[var(--kg-text)] rounded-lg transition-all text-[var(--kg-text-muted)]"><ChevronRight size={18} /></button>
           </div>
         </div>
 
@@ -391,23 +392,21 @@ export default function Roster() {
           <span className="inline-flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-full bg-[#cc6049]" /> Cao điểm F&amp;B</span>
           <span className="inline-flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-full bg-amber-400" /> T6 · T7 · CN</span>
         </div>
-        
 
-
-      <div className="soft3d-card p-5 rounded-2xl  ">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 border-b dark:border-gray-700 pb-3 gap-3">
-          <h3 className="font-bold flex items-center text-gray-800 dark:text-white text-sm">
-            <Calendar size={16} className="mr-2 text-indigo-600" /> Bảng phân ca toàn quán
+      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-4 sm:p-5 rounded-2xl shadow-xs">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 border-b border-[var(--kg-border)] pb-3 gap-3">
+          <h3 className="font-black flex items-center text-[var(--kg-text)] text-sm sm:text-base">
+            <Calendar size={18} className="mr-2 text-[var(--kg-primary)] dark:text-cyan-400" /> Bảng phân ca toàn quán
           </h3>
           <div className="flex items-center space-x-2 w-full sm:w-auto">
             <div className="relative w-full sm:w-48">
               <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
-                <Filter size={14} className="text-gray-400" />
+                <Filter size={14} className="text-[var(--kg-text-muted)]" />
               </div>
               <select 
                 value={selectedRole}
                 onChange={(e) => setSelectedRole(e.target.value)}
-                className="w-full pl-8 pr-4 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-700 soft3d-bg focus:ring-2 focus:ring-indigo-500 appearance-none text-gray-700 dark:text-gray-300 font-medium"
+                className="w-full pl-8 pr-4 py-2 text-xs rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] focus:ring-2 focus:ring-[var(--kg-primary)] appearance-none text-[var(--kg-text)] font-bold min-h-[38px]"
               >
                 <option value="ALL">Tất cả chức vụ</option>
                 {uniqueRoles.map(role => (
@@ -415,14 +414,14 @@ export default function Roster() {
                 ))}
               </select>
             </div>
-            <button onClick={loadSchedules} className="text-xs bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300 px-3 py-1.5 rounded-lg hover:bg-indigo-200 transition flex items-center font-bold flex-shrink-0">
-              <RefreshCw size={12} className="mr-1" /> Làm mới
+            <button onClick={loadSchedules} className="text-xs bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-text)] hover:bg-[var(--kg-border)]/40 px-3 py-2 rounded-xl transition flex items-center font-bold flex-shrink-0 min-h-[38px]">
+              <RefreshCw size={13} className="mr-1.5" /> Làm mới
             </button>
           </div>
         </div>
 
-        <div className="mb-4 text-xs text-gray-500 dark:text-gray-400 soft3d-bg p-3 rounded-xl  flex items-start">
-          <Info size={14} className="mr-2 text-indigo-500 mt-0.5 flex-shrink-0" />
+        <div className="mb-4 text-xs text-[var(--kg-text-muted)] bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] p-3 rounded-xl flex items-start font-medium">
+          <Info size={14} className="mr-2 text-[var(--kg-primary)] dark:text-cyan-400 mt-0.5 flex-shrink-0" />
           <p>Đây là lịch làm việc chính thức đã được Quản lý phê duyệt. Nếu có nhu cầu thay đổi, vui lòng báo Quản lý (Admin).</p>
         </div>
 

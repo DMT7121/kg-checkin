@@ -148,7 +148,7 @@ export default function Reward() {
 
       {/* Navigation Tabs */}
       {/* Tabs */}
-      <div className="flex bg-[var(--kg-surface)] border border-[var(--kg-border)] p-1.5 rounded-2xl shadow-sm gap-1.5">
+      <div className="flex bg-[var(--kg-surface)] border border-[var(--kg-border)] p-1.5 rounded-2xl shadow-xs gap-1.5">
         {[
           { id: 'wallet', label: 'Lịch sử', icon: History },
           { id: 'leaderboard', label: 'Bảng vàng', icon: Trophy },
@@ -160,15 +160,15 @@ export default function Reward() {
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex-1 flex items-center justify-center space-x-1.5 py-2.5 rounded-xl text-xs sm:text-sm transition-all active:scale-95 select-none ${
+              className={`flex-1 flex items-center justify-center space-x-1.5 py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all active:scale-95 select-none ${
                 isSelected 
-                  ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 text-white shadow-lg shadow-blue-500/30 ring-2 ring-blue-400/40 font-black scale-[1.02]' 
-                  : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold opacity-75'
+                  ? 'bg-[var(--kg-primary)] text-white shadow-xs scale-[1.01]' 
+                  : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
               }`}
             >
               <tab.icon size={15} className={isSelected ? 'text-white' : 'opacity-80'} />
               <span>{tab.label}</span>
-              {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-white ml-0.5 shadow-[0_0_6px_white] animate-pulse" />}
+              {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-[var(--kg-accent)] ml-0.5" />}
             </button>
           );
         })}

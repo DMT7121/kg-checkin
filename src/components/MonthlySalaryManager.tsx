@@ -209,23 +209,23 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
 
   return (
     <section className="space-y-4">
-      <div className="soft3d-card rounded-2xl overflow-hidden">
-        <div className="p-5 border-b border-slate-200/70 dark:border-slate-700/70 bg-gradient-to-r from-cyan-50 to-emerald-50 dark:from-cyan-950/30 dark:to-emerald-950/20">
+      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl overflow-hidden shadow-xs">
+        <div className="p-5 border-b border-[var(--kg-border)] bg-[var(--kg-surface-soft)]">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-[0.16em] text-cyan-700 dark:text-cyan-300">
+              <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-[0.16em] text-[var(--kg-primary)]">
                 <CircleDollarSign size={16} />
                 Khai báo mức lương hàng tháng
               </div>
-              <h2 className="mt-2 text-xl font-black text-slate-900 dark:text-white">
+              <h2 className="mt-2 text-xl font-black text-[var(--kg-text)]">
                 Bảng lương {salaryMonthLabel(month)}
               </h2>
-              <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+              <p className="mt-1 text-xs leading-5 text-[var(--kg-text-muted)]">
                 Mỗi tháng được lưu thành một JSON riêng trên Spreadsheet. Lương tháng được quy đổi theo chuẩn 30 ngày.
               </p>
             </div>
             {dirty && (
-              <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-bold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+              <span className="rounded-full bg-amber-500/15 border border-amber-500/30 px-3 py-1 text-[11px] font-bold text-amber-600 dark:text-amber-400">
                 Có thay đổi chưa lưu
               </span>
             )}
@@ -233,20 +233,20 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
 
           <div className="mt-4 grid gap-3 md:grid-cols-[minmax(180px,0.7fr)_minmax(240px,1.3fr)_auto]">
             <label className="block">
-              <span className="mb-1.5 block text-[11px] font-bold uppercase text-slate-500">Tháng áp dụng</span>
+              <span className="mb-1.5 block text-[11px] font-bold uppercase text-[var(--kg-text-muted)]">Tháng áp dụng</span>
               <input
                 type="month"
                 value={month}
                 onChange={event => setMonth(event.target.value || currentSalaryMonth())}
-                className="w-full rounded-xl border border-white/80 bg-white/90 px-3 py-2.5 text-sm font-bold text-slate-800 shadow-sm outline-none focus:ring-2 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900/80 dark:text-white"
+                className="w-full rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface)] px-3 py-2.5 text-sm font-bold text-[var(--kg-text)] shadow-xs outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
               />
             </label>
             <label className="block">
-              <span className="mb-1.5 block text-[11px] font-bold uppercase text-slate-500">Sao chép từ tháng cũ</span>
+              <span className="mb-1.5 block text-[11px] font-bold uppercase text-[var(--kg-text-muted)]">Sao chép từ tháng cũ</span>
               <select
                 value={copySource}
                 onChange={event => setCopySource(event.target.value)}
-                className="w-full rounded-xl border border-white/80 bg-white/90 px-3 py-2.5 text-sm font-semibold text-slate-700 shadow-sm outline-none focus:ring-2 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900/80 dark:text-white"
+                className="w-full rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface)] px-3 py-2.5 text-sm font-semibold text-[var(--kg-text)] shadow-xs outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
               >
                 <option value="">Chọn tháng đã khai báo</option>
                 {availableMonths.filter(value => value !== month).map(value => (
@@ -258,7 +258,7 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
               type="button"
               onClick={copyMonth}
               disabled={!copySource || saving}
-              className="self-end inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-cyan-800 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-45 dark:bg-slate-800 dark:text-cyan-300"
+              className="self-end inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] px-4 py-2.5 text-sm font-bold text-[var(--kg-text)] shadow-xs transition hover:border-[var(--kg-border-strong)] disabled:cursor-not-allowed disabled:opacity-45"
             >
               <Copy size={16} />
               Sao chép
@@ -269,15 +269,15 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
         <div className="p-4 sm:p-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <Users size={18} className="text-cyan-700 dark:text-cyan-300" />
-              <h3 className="font-extrabold text-slate-800 dark:text-white">{items.length} nhân viên</h3>
+              <Users size={18} className="text-[var(--kg-primary)]" />
+              <h3 className="font-extrabold text-[var(--kg-text)]">{items.length} nhân viên</h3>
             </div>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={loadData}
                 disabled={loading}
-                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)]"
               >
                 <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
                 Tải lại
@@ -285,7 +285,7 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
               <button
                 type="button"
                 onClick={addMissingEmployees}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-50 px-3 py-2 text-xs font-bold text-cyan-700 hover:bg-cyan-100 dark:bg-cyan-900/30 dark:text-cyan-300"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] px-3 py-2 text-xs font-bold text-[var(--kg-text)] hover:border-[var(--kg-border-strong)]"
               >
                 <Plus size={14} />
                 Thêm NV thiếu
@@ -294,7 +294,7 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
           </div>
 
           {loading ? (
-            <div className="flex items-center justify-center gap-2 py-12 text-sm font-semibold text-slate-500">
+            <div className="flex items-center justify-center gap-2 py-12 text-sm font-semibold text-[var(--kg-text-muted)]">
               <LoaderCircle className="animate-spin" size={20} /> Đang tải bảng lương...
             </div>
           ) : (
@@ -302,16 +302,16 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
               {items.map(item => (
                 <div
                   key={item.username}
-                  className="grid gap-3 rounded-2xl border border-slate-200/80 bg-white/70 p-3.5 shadow-sm sm:grid-cols-[minmax(150px,1fr)_minmax(160px,0.8fr)_minmax(150px,0.8fr)_36px] sm:items-center dark:border-slate-700 dark:bg-slate-900/45"
+                  className="grid gap-3 rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] p-3.5 shadow-xs sm:grid-cols-[minmax(150px,1fr)_minmax(160px,0.8fr)_minmax(150px,0.8fr)_36px] sm:items-center"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-extrabold text-slate-800 dark:text-white">{item.fullname}</p>
-                    <p className="truncate text-[11px] text-slate-400">@{item.username}</p>
+                    <p className="truncate text-sm font-extrabold text-[var(--kg-text)]">{item.fullname}</p>
+                    <p className="truncate text-[11px] text-[var(--kg-text-muted)] font-mono">@{item.username}</p>
                   </div>
                   <select
                     value={item.payType}
                     onChange={event => updateItem(item.username, { payType: event.target.value as SalaryPayType })}
-                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    className="rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface)] px-3 py-2.5 text-xs font-bold text-[var(--kg-text)] outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
                   >
                     <option value="hourly">Theo giờ</option>
                     <option value="daily">Lương tháng / 30 ngày</option>
@@ -323,11 +323,11 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
                       step={item.payType === 'hourly' ? 1000 : 100000}
                       value={item.amount || ''}
                       onChange={event => updateItem(item.username, { amount: Number(event.target.value) })}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 pr-8 text-right text-sm font-black text-cyan-800 outline-none focus:ring-2 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-800 dark:text-cyan-300"
+                      className="w-full rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface)] px-3 py-2.5 pr-8 text-right text-sm font-mono font-black text-[var(--kg-text)] outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
                       aria-label={`Mức lương của ${item.fullname}`}
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">đ</span>
-                    <span className="mt-1 block text-right text-[10px] text-slate-400">
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[var(--kg-text-muted)]">đ</span>
+                    <span className="mt-1 block text-right text-[10px] font-mono text-[var(--kg-text-muted)]">
                       {item.payType === 'hourly'
                         ? `${formatSalaryMoney(item.amount)} / giờ`
                         : `${formatSalaryMoney(item.amount / 30)} / ngày`}
@@ -336,7 +336,7 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
                   <button
                     type="button"
                     onClick={() => removeItem(item.username)}
-                    className="justify-self-end rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/30"
+                    className="justify-self-end rounded-lg p-2 text-[var(--kg-text-muted)] hover:bg-rose-500/10 hover:text-rose-600"
                     aria-label={`Xóa ${item.fullname}`}
                   >
                     <Trash2 size={16} />
@@ -347,11 +347,11 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
                 <button
                   type="button"
                   onClick={addMissingEmployees}
-                  className="flex w-full flex-col items-center justify-center rounded-2xl border border-dashed border-cyan-200 py-10 text-cyan-700 hover:bg-cyan-50/70 dark:border-cyan-900 dark:text-cyan-300 dark:hover:bg-cyan-950/20"
+                  className="flex w-full flex-col items-center justify-center rounded-2xl border border-dashed border-[var(--kg-border)] py-10 text-[var(--kg-primary)] hover:bg-[var(--kg-surface-soft)]"
                 >
                   <Users size={28} />
                   <span className="mt-2 text-sm font-extrabold">Tạo bảng lương cho nhân viên</span>
-                  <span className="mt-1 text-xs text-slate-400">Mức khởi tạo: 25.000 đ/giờ</span>
+                  <span className="mt-1 text-xs text-[var(--kg-text-muted)]">Mức khởi tạo: 25.000 đ/giờ</span>
                 </button>
               )}
             </div>
@@ -361,7 +361,7 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
             type="button"
             onClick={save}
             disabled={saving || loading || !items.length}
-            className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-700 to-emerald-600 px-4 py-3.5 text-sm font-extrabold text-white shadow-lg shadow-cyan-900/15 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--kg-primary)] px-4 py-3.5 text-sm font-extrabold text-white shadow-xs transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving ? <LoaderCircle size={18} className="animate-spin" /> : <Save size={18} />}
             {saving ? 'Đang cập nhật Spreadsheet...' : `Lưu bảng lương ${salaryMonthLabel(month)}`}
@@ -369,17 +369,17 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
         </div>
       </div>
 
-      <div className="soft3d-card rounded-2xl p-5">
+      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-5 shadow-xs">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h3 className="flex items-center gap-2 font-extrabold text-slate-800 dark:text-white">
-              <MessageSquareText size={18} className="text-violet-500" />
+            <h3 className="flex items-center gap-2 font-extrabold text-[var(--kg-text)]">
+              <MessageSquareText size={18} className="text-[var(--kg-accent)]" />
               Đề nghị điều chỉnh lương
             </h3>
-            <p className="mt-1 text-xs text-slate-500">{pendingRequests.length} đề nghị đang chờ xử lý</p>
+            <p className="mt-1 text-xs text-[var(--kg-text-muted)]">{pendingRequests.length} đề nghị đang chờ xử lý</p>
           </div>
           {!!pendingRequests.length && (
-            <span className="rounded-full bg-violet-100 px-3 py-1 text-xs font-black text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
+            <span className="rounded-full bg-[var(--kg-accent)]/15 text-[var(--kg-accent)] px-3 py-1 text-xs font-black">
               {pendingRequests.length} mới
             </span>
           )}
@@ -389,44 +389,44 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
           {requests.map(request => (
             <article
               key={request.id}
-              className="rounded-2xl border border-slate-200/80 bg-white/65 p-4 dark:border-slate-700 dark:bg-slate-900/40"
+              className="rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] p-4"
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                  <p className="font-extrabold text-slate-800 dark:text-white">{request.fullname}</p>
-                  <p className="mt-0.5 text-[11px] text-slate-400">
+                  <p className="font-extrabold text-[var(--kg-text)]">{request.fullname}</p>
+                  <p className="mt-0.5 text-[11px] text-[var(--kg-text-muted)] font-mono">
                     @{request.username} · {salaryMonthLabel(request.month)} · {request.createdAt}
                   </p>
                 </div>
                 <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${
                   request.status === 'Approved'
-                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
                     : request.status === 'Rejected'
-                      ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'
-                      : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                      ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
+                      : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
                 }`}>
                   {request.status === 'Approved' ? 'Đã duyệt' : request.status === 'Rejected' ? 'Từ chối' : 'Chờ duyệt'}
                 </span>
               </div>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800/70">
-                  <p className="text-[10px] font-bold uppercase text-slate-400">Hiện tại</p>
-                  <p className="mt-1 text-sm font-extrabold text-slate-600 dark:text-slate-300">
+                <div className="rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] p-3">
+                  <p className="text-[10px] font-bold uppercase text-[var(--kg-text-muted)]">Hiện tại</p>
+                  <p className="mt-1 text-sm font-mono font-extrabold text-[var(--kg-text)]">
                     {formatSalaryMoney(request.currentAmount)}
                   </p>
-                  <p className="text-[10px] text-slate-400">{salaryTypeLabel(request.currentType)}</p>
+                  <p className="text-[10px] text-[var(--kg-text-muted)]">{salaryTypeLabel(request.currentType)}</p>
                 </div>
-                <div className="rounded-xl bg-cyan-50 p-3 dark:bg-cyan-950/25">
-                  <p className="text-[10px] font-bold uppercase text-cyan-600">Đề xuất</p>
-                  <p className="mt-1 text-sm font-extrabold text-cyan-800 dark:text-cyan-300">
+                <div className="rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-accent)]/30 p-3">
+                  <p className="text-[10px] font-bold uppercase text-[var(--kg-accent)]">Đề xuất</p>
+                  <p className="mt-1 text-sm font-mono font-extrabold text-[var(--kg-accent)]">
                     {formatSalaryMoney(request.proposedAmount)}
                   </p>
-                  <p className="text-[10px] text-cyan-600">{salaryTypeLabel(request.proposedType)}</p>
+                  <p className="text-[10px] text-[var(--kg-accent)]">{salaryTypeLabel(request.proposedType)}</p>
                 </div>
               </div>
-              <p className="mt-3 text-xs leading-5 text-slate-600 dark:text-slate-300">{request.reason}</p>
+              <p className="mt-3 text-xs leading-5 text-[var(--kg-text)]">{request.reason}</p>
               {request.adminReply && (
-                <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:bg-slate-800">
+                <p className="mt-2 rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-border)] px-3 py-2 text-xs text-[var(--kg-text-muted)]">
                   Phản hồi: {request.adminReply}
                 </p>
               )}
@@ -435,14 +435,14 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
                   <button
                     type="button"
                     onClick={() => reviewRequest(request, 'Rejected')}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 dark:bg-rose-950/30 dark:text-rose-300"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-rose-500/10 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-500/20"
                   >
                     <X size={14} /> Từ chối
                   </button>
                   <button
                     type="button"
                     onClick={() => reviewRequest(request, 'Approved')}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700 shadow-xs"
                   >
                     <Check size={14} /> Duyệt & cập nhật
                   </button>
@@ -451,7 +451,7 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
             </article>
           ))}
           {!requests.length && (
-            <div className="flex flex-col items-center justify-center py-9 text-center text-slate-400">
+            <div className="flex flex-col items-center justify-center py-9 text-center text-[var(--kg-text-muted)]">
               <BadgeCheck size={28} />
               <p className="mt-2 text-sm font-bold">Chưa có đề nghị điều chỉnh</p>
               <p className="mt-1 text-xs">Các đề nghị từ nhân viên sẽ xuất hiện tại đây.</p>

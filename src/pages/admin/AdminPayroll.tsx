@@ -296,12 +296,12 @@ export default function AdminPayroll() {
       </div>
       
       {/* Salary Matrix */}
-      <div className="soft3d-card p-5 rounded-2xl  ">
-        <h3 className="font-bold mb-4 border-b dark:border-gray-700 pb-2 flex items-center text-gray-800 dark:text-white">
-          <KeyRound size={18} className="mr-2 text-ocean-600" /> Ma trận Mức Lương
+      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-5 rounded-2xl shadow-xs">
+        <h3 className="font-bold mb-4 border-b border-[var(--kg-border)] pb-2 flex items-center text-[var(--kg-text)]">
+          <KeyRound size={18} className="mr-2 text-[var(--kg-primary)]" /> Ma trận Mức Lương
         </h3>
-        <p className="text-xs text-gray-500 mb-3">Quản lý mức lương cơ bản theo từng phòng ban/cá nhân.</p>
-        <button className="w-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-bold py-2.5 rounded-lg text-sm transition">
+        <p className="text-xs text-[var(--kg-text-muted)] mb-3">Quản lý mức lương cơ bản theo từng phòng ban/cá nhân.</p>
+        <button className="w-full bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-border)] border border-[var(--kg-border)] text-[var(--kg-text)] font-bold py-2.5 rounded-xl text-sm transition shadow-xs">
           Mở Bảng Ma Trận Lương
         </button>
       </div>
@@ -311,7 +311,7 @@ export default function AdminPayroll() {
         type="button"
         onClick={handleSavePayrollConfig} 
         disabled={isSaving || formulaLocked} 
-        className={`w-full font-black py-4 rounded-2xl shadow-md transition-all transform active:scale-95 flex items-center justify-center mt-6 text-xs sm:text-sm uppercase tracking-wider ${isSaving || formulaLocked ? 'bg-gray-400 text-white cursor-not-allowed opacity-60' : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white'}`}
+        className={`w-full font-black py-4 rounded-2xl shadow-xs transition-all transform active:scale-95 flex items-center justify-center mt-6 text-xs sm:text-sm uppercase tracking-wider ${isSaving || formulaLocked ? 'bg-slate-400 text-white cursor-not-allowed opacity-60' : 'bg-[var(--kg-primary)] text-white hover:opacity-90'}`}
       >
         {isSaving ? (
           <><span className="animate-spin mr-2">⏳</span> Đang lưu...</>

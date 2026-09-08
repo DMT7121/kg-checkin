@@ -525,9 +525,9 @@ export default function Guide() {
           />
 
           {/* Quick Onboarding Launcher Banner */}
-          <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-600/10 via-indigo-600/10 to-violet-600/10 border border-blue-500/20 dark:border-indigo-900/30 flex flex-col sm:flex-row items-center justify-between gap-3.5 shadow-xs">
+          <div className="p-4 rounded-2xl bg-[var(--kg-surface)] border border-[var(--kg-border)] flex flex-col sm:flex-row items-center justify-between gap-3.5 shadow-xs">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm flex-shrink-0 shadow-md">
+              <div className="w-10 h-10 rounded-xl bg-[var(--kg-primary)] text-white flex items-center justify-center font-bold text-sm flex-shrink-0 shadow-xs">
                 <GraduationCap size={20} />
               </div>
               <div>
@@ -542,31 +542,31 @@ export default function Guide() {
             <button
               type="button"
               onClick={() => setIsGuideModalOpen(true)}
-              className="w-full sm:w-auto px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black shadow-md active:scale-95 transition-all flex items-center justify-center gap-1.5 flex-shrink-0"
+              className="w-full sm:w-auto px-4 py-2 rounded-xl bg-[var(--kg-primary)] hover:opacity-90 text-white text-xs font-black shadow-xs active:scale-95 transition-all flex items-center justify-center gap-1.5 flex-shrink-0"
             >
               <Sparkles size={14} /> Mở Cẩm Nang Nhanh
             </button>
           </div>
 
           {/* Learning progress bar */}
-          <KgCard className="p-4 bg-gradient-to-r from-blue-500/5 to-transparent dark:from-indigo-500/5 dark:to-transparent border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <KgCard className="p-4 bg-[var(--kg-surface)] border border-[var(--kg-border)] flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xs">
             <div className="space-y-1 text-center sm:text-left">
-              <h3 className="text-sm font-extrabold text-slate-850 dark:text-white">
+              <h3 className="text-sm font-extrabold text-[var(--kg-text)]">
                 Tiến trình tự học tập của bạn
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-[var(--kg-text-muted)]">
                 Đã hoàn thành <b>{totalRead}</b> trên tổng số <b>{totalAllowed}</b> chức năng được cấp quyền.
               </p>
             </div>
 
             <div className="w-full sm:w-64 space-y-2">
-              <div className="flex justify-between items-center text-xs font-bold text-slate-500 dark:text-slate-400">
+              <div className="flex justify-between items-center text-xs font-bold text-[var(--kg-text-muted)]">
                 <span>Tiến độ</span>
-                <span className="text-blue-600 dark:text-indigo-400">{displayPercent}%</span>
+                <span className="text-[var(--kg-primary)] font-mono font-black">{displayPercent}%</span>
               </div>
-              <div className="w-full h-2.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+              <div className="w-full h-2.5 rounded-full bg-[var(--kg-surface-soft)] overflow-hidden border border-[var(--kg-border)]">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 transition-all duration-500 ease-out"
+                  className="h-full rounded-full bg-[var(--kg-primary)] transition-all duration-500 ease-out"
                   style={{ width: `${displayPercent}%` }}
                 />
               </div>
@@ -586,14 +586,14 @@ export default function Guide() {
             </div>
 
             {/* Category tabs */}
-            <div className="flex overflow-x-auto gap-2 pb-1 md:pb-0 scrollbar-none flex-nowrap shrink-0">
+            <div className="flex overflow-x-auto gap-1.5 pb-1 md:pb-0 scrollbar-none flex-nowrap shrink-0 bg-[var(--kg-surface)] border border-[var(--kg-border)] p-1 rounded-2xl shadow-xs">
               <button
                 type="button"
                 onClick={() => setSelectedCategory('all')}
-                className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all whitespace-nowrap active:scale-95 select-none ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap active:scale-95 select-none ${
                   selectedCategory === 'all'
-                    ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 text-white shadow-md shadow-blue-500/30 ring-2 ring-blue-400/40 scale-[1.02]'
-                    : 'bg-[var(--kg-surface)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] hover:text-[var(--kg-text)] font-bold opacity-80'
+                    ? 'bg-[var(--kg-primary)] text-white shadow-xs scale-[1.01]'
+                    : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
                 }`}
               >
                 Tất cả ({allowedGuides.length})
@@ -601,10 +601,10 @@ export default function Guide() {
               <button
                 type="button"
                 onClick={() => setSelectedCategory('personal')}
-                className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all whitespace-nowrap active:scale-95 select-none ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap active:scale-95 select-none ${
                   selectedCategory === 'personal'
-                    ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 text-white shadow-md shadow-blue-500/30 ring-2 ring-blue-400/40 scale-[1.02]'
-                    : 'bg-[var(--kg-surface)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] hover:text-[var(--kg-text)] font-bold opacity-80'
+                    ? 'bg-[var(--kg-primary)] text-white shadow-xs scale-[1.01]'
+                    : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
                 }`}
               >
                 Cá nhân ({allowedGuides.filter(g => g.category === 'personal').length})
@@ -612,10 +612,10 @@ export default function Guide() {
               <button
                 type="button"
                 onClick={() => setSelectedCategory('operation')}
-                className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all whitespace-nowrap active:scale-95 select-none ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap active:scale-95 select-none ${
                   selectedCategory === 'operation'
-                    ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 text-white shadow-md shadow-blue-500/30 ring-2 ring-blue-400/40 scale-[1.02]'
-                    : 'bg-[var(--kg-surface)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] hover:text-[var(--kg-text)] font-bold opacity-80'
+                    ? 'bg-[var(--kg-primary)] text-white shadow-xs scale-[1.01]'
+                    : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
                 }`}
               >
                 Vận hành ({allowedGuides.filter(g => g.category === 'operation').length})
@@ -624,10 +624,10 @@ export default function Guide() {
                 <button
                   type="button"
                   onClick={() => setSelectedCategory('admin')}
-                  className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all whitespace-nowrap active:scale-95 select-none ${
+                  className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap active:scale-95 select-none ${
                     selectedCategory === 'admin'
-                      ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 text-white shadow-md shadow-blue-500/30 ring-2 ring-blue-400/40 scale-[1.02]'
-                      : 'bg-[var(--kg-surface)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] hover:text-[var(--kg-text)] font-bold opacity-80'
+                      ? 'bg-[var(--kg-primary)] text-white shadow-xs scale-[1.01]'
+                      : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
                   }`}
                 >
                   Quản lý ({allowedGuides.filter(g => g.category === 'admin').length})

@@ -215,7 +215,7 @@ export default function AdminChecklistConfig() {
             <button 
               onClick={handleSaveAll} 
               disabled={isSaving}
-              className="flex items-center justify-center bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white px-5 py-2 rounded-xl font-bold text-xs transition-colors disabled:opacity-50 shadow-md"
+              className="flex items-center justify-center bg-[var(--kg-primary)] hover:opacity-90 text-white px-5 py-2 rounded-xl font-bold text-xs transition-all disabled:opacity-50 shadow-xs active:scale-95"
             >
               {isSaving ? <Loader2 size={14} className="mr-1 animate-spin" /> : <Save size={14} className="mr-1" />} 
               <span>Lưu Cấu Hình</span>

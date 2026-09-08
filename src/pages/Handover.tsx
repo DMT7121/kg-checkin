@@ -129,30 +129,30 @@ export default function Handover() {
       <div className="relative z-20 flex-1 flex flex-col space-y-4">
         
         {/* Custom Tabs */}
-        <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-1.5 rounded-2xl flex gap-1.5 shadow-sm">
+        <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-1.5 rounded-2xl flex gap-1.5 shadow-xs">
           <button 
             type="button"
             onClick={() => setActiveTab('handover')}
             className={`flex-1 flex items-center justify-center py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all active:scale-95 select-none ${
               activeTab === 'handover' 
-                ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 text-white shadow-lg shadow-blue-500/30 ring-2 ring-blue-400/40 scale-[1.02]' 
-                : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold opacity-75'
+                ? 'bg-[var(--kg-primary)] text-white shadow-xs scale-[1.01]' 
+                : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
             }`}
           >
             <Banknote size={16} className="mr-1.5" /> Bàn giao quỹ
-            {activeTab === 'handover' && <span className="w-1.5 h-1.5 rounded-full bg-white ml-1.5 shadow-[0_0_6px_white] animate-pulse" />}
+            {activeTab === 'handover' && <span className="w-1.5 h-1.5 rounded-full bg-[var(--kg-accent)] ml-1.5" />}
           </button>
           <button 
             type="button"
             onClick={() => setActiveTab('incident')}
             className={`flex-1 flex items-center justify-center py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all active:scale-95 select-none ${
               activeTab === 'incident' 
-                ? 'bg-gradient-to-r from-rose-500 via-rose-600 to-red-600 text-white shadow-lg shadow-rose-500/30 ring-2 ring-rose-400/40 scale-[1.02]' 
-                : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold opacity-75'
+                ? 'bg-[var(--kg-primary)] text-white shadow-xs scale-[1.01]' 
+                : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
             }`}
           >
-            <ShieldAlert size={16} className="mr-1.5" /> Báo cáo sự cố
-            {activeTab === 'incident' && <span className="w-1.5 h-1.5 rounded-full bg-white ml-1.5 shadow-[0_0_6px_white] animate-pulse" />}
+            <ShieldAlert size={16} className="mr-1.5 text-rose-400" /> Báo cáo sự cố
+            {activeTab === 'incident' && <span className="w-1.5 h-1.5 rounded-full bg-rose-500 ml-1.5" />}
           </button>
         </div>
 
@@ -190,7 +190,7 @@ export default function Handover() {
                           value={cashAmount}
                           onChange={handleCashChange}
                           placeholder="VD: 500.000"
-                          className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl pl-12 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-[var(--kg-text)] font-extrabold text-sm sm:text-base tracking-wide"
+                          className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl pl-12 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)] font-mono font-black text-sm sm:text-base tracking-wide min-h-[44px]"
                         />
                       </div>
                     </div>
@@ -206,16 +206,16 @@ export default function Handover() {
                           onChange={(e) => setHandoverNote(e.target.value)}
                           placeholder="Ghi chú về tiền dư/thiếu, hóa đơn nợ..."
                           rows={3}
-                          className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl pl-9 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-[var(--kg-text)] text-xs sm:text-sm"
+                          className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl pl-9 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)] text-xs sm:text-sm"
                         />
                       </div>
                     </div>
 
                     <button 
                       type="submit" 
-                      className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black py-3.5 rounded-2xl shadow-md transition-all transform active:scale-95 flex items-center justify-center text-xs sm:text-sm uppercase tracking-wider"
+                      className="w-full bg-[var(--kg-primary)] hover:brightness-110 text-white font-black py-4 rounded-2xl shadow-md transition-all transform active:scale-98 flex items-center justify-center text-xs sm:text-sm uppercase tracking-wider"
                     >
-                      <CheckCircle2 size={18} className="mr-1.5" /> XÁC NHẬN BÀN GIAO CA
+                      <CheckCircle2 size={18} className="mr-1.5 text-emerald-400" /> XÁC NHẬN BÀN GIAO CA
                     </button>
                   </form>
                 </div>

@@ -1263,7 +1263,7 @@ export default function CheckIn() {
           <button
             type="button"
             onClick={restartGps}
-            className="text-xs bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-3 py-2 rounded-xl transition font-black flex items-center min-h-[44px] touch-manipulation shadow-xs active:scale-95 flex-shrink-0"
+            className="text-xs bg-[var(--kg-primary)] hover:opacity-90 text-white px-3 py-2 rounded-xl transition font-black flex items-center min-h-[44px] touch-manipulation shadow-xs active:scale-95 flex-shrink-0"
           >
             <RefreshCw size={13} className={`mr-1.5 ${gps.status.includes('Đang') ? 'animate-spin' : ''}`} />
             Làm mới
@@ -1284,7 +1284,7 @@ export default function CheckIn() {
             <button
               type="button"
               onClick={handleAdminCalibrateGps}
-              className="w-full sm:w-auto px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-xs font-black shadow-md transition active:scale-95 min-h-[44px] touch-manipulation whitespace-nowrap flex-shrink-0"
+              className="w-full sm:w-auto px-3.5 py-2 bg-[var(--kg-primary)] text-white hover:opacity-90 rounded-xl text-xs font-black shadow-xs transition active:scale-95 min-h-[44px] touch-manipulation whitespace-nowrap flex-shrink-0"
             >
               Đặt vị trí gốc (20m)
             </button>
@@ -1458,10 +1458,10 @@ export default function CheckIn() {
           }}
           className={`w-full h-14 min-h-[52px] shadow-lg rounded-2xl text-[15px] font-black tracking-wider border-none active:scale-[0.97] transition-all touch-manipulation flex items-center justify-center gap-2.5 ${
             cooldown.isBlocked && currentUser?.role !== 'admin' && currentUser?.role !== 'tester'
-              ? 'bg-amber-600 text-white opacity-90 ring-2 ring-amber-400/30'
+              ? 'bg-amber-600 text-white opacity-90'
               : !canSubmit
               ? 'opacity-60 cursor-not-allowed bg-slate-400 text-white'
-              : 'bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-blue-600/30 ring-2 ring-blue-400/30'
+              : 'bg-[var(--kg-primary)] hover:opacity-90 text-white shadow-md'
           }`}
           icon={Send}
         >
@@ -1801,10 +1801,10 @@ export default function CheckIn() {
           <div className="space-y-4 py-2">
             {/* Celebratory Hero Header */}
             <div className="text-center">
-              <div className={`w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-3 shadow-lg ${
+              <div className={`w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-3 shadow-xs ${
                 lastSubmittedPunch.type === 'Vào ca'
-                  ? 'bg-gradient-to-tr from-emerald-600 to-teal-400 text-white shadow-emerald-500/25 ring-4 ring-emerald-100 dark:ring-emerald-950/50'
-                  : 'bg-gradient-to-tr from-blue-600 to-indigo-500 text-white shadow-blue-500/25 ring-4 ring-blue-100 dark:ring-blue-950/50'
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-[var(--kg-primary)] text-white'
               }`}>
                 {lastSubmittedPunch.type === 'Vào ca' ? (
                   <Sparkles size={32} className="animate-pulse" />
@@ -1866,10 +1866,10 @@ export default function CheckIn() {
             <button
               type="button"
               onClick={() => setFeedbackSheetOpen(false)}
-              className={`w-full py-3.5 rounded-xl font-black text-sm text-white shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2 ${
+              className={`w-full py-3.5 rounded-xl font-black text-sm text-white shadow-xs active:scale-[0.98] transition-all flex items-center justify-center gap-2 ${
                 lastSubmittedPunch.type === 'Vào ca'
-                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 shadow-emerald-500/25 hover:brightness-105'
-                  : 'bg-gradient-to-r from-blue-600 to-indigo-600 shadow-blue-500/25 hover:brightness-105'
+                  ? 'bg-emerald-600 hover:bg-emerald-700'
+                  : 'bg-[var(--kg-primary)] hover:opacity-90'
               }`}
             >
               <CheckCircle2 size={18} />

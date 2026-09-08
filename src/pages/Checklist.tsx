@@ -567,29 +567,31 @@ export default function Checklist() {
 
       {/* Date & Mode selector */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="soft3d-card p-4 flex flex-col justify-center">
-          <label className="block text-xs font-bold text-gray-500 mb-1">Ngày làm việc</label>
+        <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-4 rounded-2xl shadow-xs flex flex-col justify-center">
+          <label className="block text-xs font-black text-[var(--kg-text-muted)] mb-1 uppercase tracking-wider">Ngày làm việc</label>
           <input 
             type="date" 
             value={workDate}
             onChange={(e) => setWorkDate(e.target.value)}
-            className="w-full bg-white dark:bg-[#0E273C] border border-[var(--kg-border)] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500 text-gray-800 dark:text-white"
+            className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)] font-bold min-h-[44px]"
           />
         </div>
 
-        <div className="soft3d-card p-4 md:col-span-2 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-4 rounded-2xl shadow-xs md:col-span-2 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="w-full">
-            <span className="block text-xs font-bold text-gray-500 mb-2">Chế độ lưu trữ</span>
+            <span className="block text-xs font-black text-[var(--kg-text-muted)] mb-2 uppercase tracking-wider">Chế độ lưu trữ</span>
             <div className="grid grid-cols-2 gap-3 w-full">
               <button 
+                type="button"
                 onClick={() => { setSaveMode('batch'); setPending({}); }}
-                className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${saveMode === 'batch' ? 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800' : 'bg-gray-50 text-gray-600 border-transparent dark:bg-gray-800 dark:text-gray-300'}`}
+                className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all ${saveMode === 'batch' ? 'bg-[var(--kg-primary)] text-white shadow-xs' : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] hover:text-[var(--kg-text)]'}`}
               >
                 Lưu hàng loạt (Khuyên dùng)
               </button>
               <button 
+                type="button"
                 onClick={() => { setSaveMode('single'); setPending({}); }}
-                className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${saveMode === 'single' ? 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800' : 'bg-gray-50 text-gray-600 border-transparent dark:bg-gray-800 dark:text-gray-300'}`}
+                className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all ${saveMode === 'single' ? 'bg-[var(--kg-primary)] text-white shadow-xs' : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] hover:text-[var(--kg-text)]'}`}
               >
                 Lưu trực tiếp tức thì
               </button>
@@ -611,33 +613,33 @@ export default function Checklist() {
             <div 
               key={area}
               onClick={() => handleJoinArea(area)}
-              className={`p-4 rounded-3xl border-2 transition-all cursor-pointer select-none flex flex-col justify-between ${
+              className={`p-4 rounded-2xl border-2 transition-all cursor-pointer select-none flex flex-col justify-between shadow-xs ${
                 isSelected 
-                  ? 'border-blue-500 bg-blue-50/20 dark:bg-blue-950/20 shadow-md ring-2 ring-blue-500/10' 
-                  : 'border-transparent soft3d-card hover:border-blue-300'
+                  ? 'border-[var(--kg-accent)] bg-[var(--kg-surface)] shadow-md ring-2 ring-[var(--kg-accent)]/20' 
+                  : 'border-[var(--kg-border)] bg-[var(--kg-surface)] hover:border-[var(--kg-accent)]/40'
               }`}
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="font-extrabold text-base text-gray-800 dark:text-white">Khu {area}</span>
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-100/50 text-blue-600 dark:bg-blue-900/50 dark:text-blue-300">{pct}%</span>
+                <span className="font-black text-base text-[var(--kg-text)]">Khu {area}</span>
+                <span className="text-xs font-mono font-black px-2 py-0.5 rounded-full bg-[var(--kg-surface-soft)] text-[var(--kg-primary)] dark:text-cyan-300 border border-[var(--kg-border)]">{pct}%</span>
               </div>
-              <div className="h-1.5 w-full bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden mb-3">
-                <div className="h-full bg-gradient-to-r from-blue-400 to-indigo-500" style={{ width: `${pct}%` }} />
+              <div className="h-2 w-full bg-[var(--kg-surface-soft)] rounded-full overflow-hidden mb-3 border border-[var(--kg-border)]/50">
+                <div className="h-full bg-[var(--kg-accent)] rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
               </div>
-              <div className="text-[11px] font-bold text-gray-500 mb-3">
-                {participants.length} nhân viên · {doneCount}/{totalCount} mục
+              <div className="text-[11px] font-bold text-[var(--kg-text-muted)] mb-3">
+                {participants.length} nhân viên · <span className="font-mono">{doneCount}/{totalCount}</span> mục
               </div>
               
               {/* Participant mini list */}
-              <div className="flex flex-wrap gap-1 mt-auto pt-2 border-t border-dashed border-gray-200 dark:border-gray-800">
+              <div className="flex flex-wrap gap-1 mt-auto pt-2 border-t border-dashed border-[var(--kg-border)]">
                 {participants.length > 0 ? (
                   participants.map(p => (
-                    <span key={p.key} className="text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-full">
+                    <span key={p.key} className="text-[10px] font-bold bg-[var(--kg-surface-soft)] text-[var(--kg-text)] border border-[var(--kg-border)] px-2 py-0.5 rounded-full">
                       👤 {p.name.split(' ').pop()}
                     </span>
                   ))
                 ) : (
-                  <span className="text-[10px] italic text-gray-400">Chưa có ai</span>
+                  <span className="text-[10px] italic text-[var(--kg-text-muted)]">Chưa có ai</span>
                 )}
               </div>
             </div>
@@ -997,10 +999,10 @@ export default function Checklist() {
 
       {/* Floating Sync bar for Batch mode */}
       {saveMode === 'batch' && selectedArea && hasPendingChanges && (
-        <div className="fixed bottom-20 md:bottom-6 left-4 right-4 md:left-64 md:right-6 z-40 bg-white/95 dark:bg-gray-900/95 backdrop-blur border border-blue-200 dark:border-blue-800 p-3.5 sm:p-4 rounded-2xl flex items-center justify-between shadow-xl animate-slide-up">
+        <div className="fixed bottom-20 md:bottom-6 left-4 right-4 md:left-64 md:right-6 z-40 bg-[var(--kg-surface)]/95 backdrop-blur border border-[var(--kg-border)] p-3.5 sm:p-4 rounded-2xl flex items-center justify-between shadow-xl animate-slide-up">
           <div className="flex items-center space-x-2 min-w-0 pr-2">
-            <span className="flex w-2.5 h-2.5 bg-amber-500 rounded-full animate-ping flex-shrink-0" />
-            <span className="text-xs font-bold text-gray-700 dark:text-gray-200 truncate">
+            <span className="flex w-2.5 h-2.5 bg-[var(--kg-accent)] rounded-full animate-ping flex-shrink-0" />
+            <span className="text-xs font-black text-[var(--kg-text)] truncate">
               Có thay đổi chưa đồng bộ lên Google Sheets.
             </span>
           </div>
@@ -1008,7 +1010,7 @@ export default function Checklist() {
             type="button"
             onClick={handleSyncAllPending}
             disabled={isSaving}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black px-4 sm:px-5 py-2.5 rounded-xl text-xs transition-transform active:scale-95 shadow-md flex items-center space-x-1.5 flex-shrink-0"
+            className="bg-[var(--kg-primary)] hover:brightness-110 text-white font-black px-4 sm:px-5 py-2.5 rounded-xl text-xs transition-transform active:scale-95 shadow-md flex items-center space-x-1.5 flex-shrink-0"
           >
             <RefreshCw size={14} className={isSaving ? 'animate-spin' : ''} />
             <span>Đồng bộ ngay</span>

@@ -553,28 +553,30 @@ ${aiInputText}
 
       {/* Toggle Mode & Time Navigation for Admin */}
         {isManagerView && (
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 relative z-10 gap-3 w-full soft3d-card p-2 rounded-2xl  ">
-            <div className="flex items-center space-x-1">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 relative z-10 gap-3 w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] p-2 rounded-2xl shadow-xs">
+            <div className="flex items-center space-x-1 bg-[var(--kg-surface-soft)] p-1 rounded-xl border border-[var(--kg-border)]/60">
               <button 
+                type="button"
                 onClick={() => setViewMode('week')} 
-                className={`flex items-center px-4 py-2 rounded-xl text-sm font-bold transition-colors ${viewMode === 'week' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}
+                className={`flex items-center px-4 py-2 rounded-lg text-xs sm:text-sm font-black transition-all ${viewMode === 'week' ? 'bg-[var(--kg-primary)] text-white shadow-xs' : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'}`}
               >
-                <CalendarRange size={16} className="mr-1.5" /> Tuần
+                <CalendarRange size={15} className="mr-1.5" /> Tuần
               </button>
               <button 
+                type="button"
                 onClick={() => setViewMode('month')} 
-                className={`flex items-center px-4 py-2 rounded-xl text-sm font-bold transition-colors ${viewMode === 'month' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}
+                className={`flex items-center px-4 py-2 rounded-lg text-xs sm:text-sm font-black transition-all ${viewMode === 'month' ? 'bg-[var(--kg-primary)] text-white shadow-xs' : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'}`}
               >
-                <LayoutGrid size={16} className="mr-1.5" /> Tháng
+                <LayoutGrid size={15} className="mr-1.5" /> Tháng
               </button>
             </div>
             
-            <div className="flex items-center space-x-2 soft3d-bg/50 rounded-xl p-1.5 border border-gray-200 dark:border-gray-700 w-full sm:w-auto justify-center sm:justify-start">
-              <button onClick={() => viewMode === 'week' ? changeWeek(-1) : changeMonth(-1)} className="p-1.5 hover:bg-white dark:hover:bg-gray-800 hover: rounded-lg transition-all text-gray-600 dark:text-gray-400"><ChevronLeft size={18} /></button>
-              <div className="text-sm font-bold px-2 min-w-[140px] text-center text-gray-800 dark:text-gray-200">
+            <div className="flex items-center space-x-2 bg-[var(--kg-surface-soft)] rounded-xl p-1.5 border border-[var(--kg-border)] w-full sm:w-auto justify-between sm:justify-start">
+              <button onClick={() => viewMode === 'week' ? changeWeek(-1) : changeMonth(-1)} className="p-1.5 hover:bg-[var(--kg-surface)] hover:text-[var(--kg-text)] rounded-lg transition-all text-[var(--kg-text-muted)]"><ChevronLeft size={18} /></button>
+              <div className="text-xs sm:text-sm font-black px-2 min-w-[140px] text-center text-[var(--kg-text)]">
                 {viewMode === 'week' ? weekInfo.weekDisplay : `Tháng ${selectedMonth}/${selectedYear}`}
               </div>
-              <button onClick={() => viewMode === 'week' ? changeWeek(1) : changeMonth(1)} className="p-1.5 hover:bg-white dark:hover:bg-gray-800 hover: rounded-lg transition-all text-gray-600 dark:text-gray-400"><ChevronRight size={18} /></button>
+              <button onClick={() => viewMode === 'week' ? changeWeek(1) : changeMonth(1)} className="p-1.5 hover:bg-[var(--kg-surface)] hover:text-[var(--kg-text)] rounded-lg transition-all text-[var(--kg-text-muted)]"><ChevronRight size={18} /></button>
             </div>
           </div>
         )}
@@ -707,11 +709,19 @@ ${aiInputText}
                 </table>
               </div>
               <div className="flex flex-col sm:flex-row gap-3 mb-2">
-                <button onClick={() => setAiModalOpen(true)} className="flex-1 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-bold py-3.5 rounded-xl shadow-md transition transform active:scale-95 flex items-center justify-center touch-manipulation">
-                  <Bot size={18} className="mr-2" /> XẾP CA BẰNG AI
+                <button 
+                  type="button"
+                  onClick={() => setAiModalOpen(true)} 
+                  className="flex-1 bg-[var(--kg-primary)] hover:brightness-110 text-white font-black py-3.5 rounded-xl shadow-md transition transform active:scale-98 flex items-center justify-center touch-manipulation text-xs sm:text-sm tracking-wider uppercase"
+                >
+                  <Bot size={18} className="mr-2 text-[var(--kg-accent)]" /> XẾP CA BẰNG AI
                 </button>
-                <button onClick={approveAllSchedules} className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 rounded-xl shadow-lg transition transform active:scale-95 flex items-center justify-center touch-manipulation">
-                  <CheckCheck size={18} className="mr-2" /> XÁC NHẬN SẮP XẾP CA (GHI ĐÈ LÊN SERVER)
+                <button 
+                  type="button"
+                  onClick={approveAllSchedules} 
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3.5 rounded-xl shadow-md transition transform active:scale-98 flex items-center justify-center touch-manipulation text-xs sm:text-sm tracking-wider uppercase"
+                >
+                  <CheckCheck size={18} className="mr-2" /> XÁC NHẬN SẮP XẾP CA (GHI ĐÈ)
                 </button>
               </div>
             </>
@@ -878,9 +888,12 @@ ${aiInputText}
 
           {/* Edit button - only when registration window is open */}
           {isOpen && (
-            <button onClick={startEditing}
-              className="mt-4 w-full bg-gradient-to-r from-amber-400 to-orange-500 text-white font-bold py-3 rounded-xl shadow-md hover:shadow-amber-500/40 transition-all transform active:scale-95 flex items-center justify-center touch-manipulation">
-              <Pencil size={16} className="mr-2" /> Chỉnh sửa đăng ký ca
+            <button 
+              type="button"
+              onClick={startEditing}
+              className="mt-4 w-full bg-[var(--kg-primary)] hover:brightness-110 text-white font-black py-3.5 rounded-2xl shadow-md transition-all transform active:scale-98 flex items-center justify-center touch-manipulation text-xs sm:text-sm tracking-wider uppercase"
+            >
+              <Pencil size={16} className="mr-2 text-[var(--kg-accent)]" /> Chỉnh sửa đăng ký ca
             </button>
           )}
         </div>

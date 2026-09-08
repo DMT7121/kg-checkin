@@ -705,7 +705,7 @@ export default function AdminOperations() {
                   <button
                     type="button"
                     onClick={autoBalanceTeams}
-                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-cyan-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-md"
+                    className="inline-flex items-center gap-2 rounded-xl bg-[var(--kg-primary)] px-4 py-2.5 text-xs font-extrabold text-white shadow-xs hover:opacity-90 active:scale-95 transition-all"
                   >
                     <Sparkles size={15} /> Tự cân bằng đội
                   </button>

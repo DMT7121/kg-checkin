@@ -204,11 +204,11 @@ export default function Login() {
   };
 
   return (
-    <div className="login-shell flex-1 flex flex-col justify-center p-4 sm:p-6 min-h-screen bg-[#f7f9ff] dark:bg-[#080d18] font-sans">
+    <div className="login-shell flex-1 flex flex-col justify-center p-4 sm:p-6 min-h-screen bg-[var(--kg-bg)] text-[var(--kg-text)] font-sans transition-colors duration-200">
       <div className="relative z-10 w-full max-w-5xl mx-auto grid lg:grid-cols-[0.95fr_1.05fr] gap-6 lg:gap-10 items-center">
         {/* Logo and Intro */}
         <div className="text-center lg:text-left animate-fade-in space-y-4">
-          <div className="login-logo-card inline-flex rounded-3xl bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] p-4 shadow-soft">
+          <div className="login-logo-card inline-flex rounded-3xl bg-[var(--kg-surface)] border border-[var(--kg-border)] p-4 shadow-sm">
             <img src="/LOGO.png?v=3" alt="King's Grill Logo" className="w-[120px] h-auto object-contain" />
           </div>
           <p 
@@ -236,11 +236,11 @@ export default function Login() {
         <div className="w-full">
           {/* LOGIN FORM */}
           {mode === 'login' && (
-            <div className="login-card bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-3xl p-6 sm:p-8 shadow-card neo-card-stack">
-              <h3 className="text-xl font-bold mb-6 text-[#0f172a] dark:text-white">Đăng nhập tài khoản</h3>
+            <div className="login-card bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-3xl p-6 sm:p-8 shadow-card">
+              <h3 className="text-xl font-bold mb-6 text-[var(--kg-text)]">Đăng nhập tài khoản</h3>
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[#9AA1AA]">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[var(--kg-text-soft)]">
                     <User size={16} />
                   </div>
                   <input 
@@ -250,12 +250,12 @@ export default function Login() {
                     autoComplete="username" 
                     value={loginForm.username} 
                     onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
-                    className="w-full bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-xl pl-11 pr-4 py-3 text-sm focus:outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/10 text-[#0f172a] dark:text-white placeholder-[#9AA1AA] min-h-[44px]" 
+                    className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl pl-11 pr-4 py-3 text-sm focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/10 text-[var(--kg-text)] placeholder-[var(--kg-text-soft)] min-h-[44px] transition-all" 
                     placeholder="Tài khoản nhân viên" 
                   />
                 </div>
                 <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[#9AA1AA]">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[var(--kg-text-soft)]">
                     <Lock size={16} />
                   </div>
                   <input 
@@ -265,13 +265,13 @@ export default function Login() {
                     autoComplete="current-password" 
                     value={loginForm.password} 
                     onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                    className="w-full bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-xl pl-11 pr-12 py-3 text-sm focus:outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/10 text-[#0f172a] dark:text-white placeholder-[#9AA1AA] min-h-[44px]" 
+                    className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl pl-11 pr-12 py-3 text-sm focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/10 text-[var(--kg-text)] placeholder-[var(--kg-text-soft)] min-h-[44px] transition-all" 
                     placeholder="Mật khẩu" 
                   />
                   <button 
                     type="button" 
                     onClick={() => setShowPass(!showPass)} 
-                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-[#9AA1AA] hover:text-[#0f172a] focus:outline-none"
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-[var(--kg-text-soft)] hover:text-[var(--kg-text)] focus:outline-none"
                   >
                     {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
@@ -285,9 +285,9 @@ export default function Login() {
                       type="checkbox" 
                       checked={rememberMe} 
                       onChange={(e) => setRememberMe(e.target.checked)}
-                      className="h-4 w-4 text-[#2563eb] focus:ring-[#2563eb]/20 border-[#E8DED1] rounded bg-white" 
+                      className="h-4 w-4 text-[var(--kg-primary)] focus:ring-[var(--kg-primary)]/20 border-[var(--kg-border)] rounded bg-[var(--kg-surface)]" 
                     />
-                    <label htmlFor="remember-me" className="ml-2 block text-xs font-bold text-[#64748b] dark:text-[#98a2b3]">
+                    <label htmlFor="remember-me" className="ml-2 block text-xs font-bold text-[var(--kg-text-muted)] select-none">
                       Ghi nhớ đăng nhập
                     </label>
                   </div>
@@ -302,13 +302,13 @@ export default function Login() {
 
                 <button 
                   type="submit" 
-                  className="login-primary w-full bg-gradient-to-r from-[#2563eb] to-[#7c3aed] text-white font-bold py-3.5 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 text-sm shadow-md hover:shadow-lg hover:-translate-y-0.5 min-h-[44px]"
+                  className="login-primary w-full bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-extrabold py-3.5 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 text-sm shadow-sm hover:shadow-md hover:-translate-y-0.5 min-h-[44px]"
                 >
                   Đăng nhập <ArrowRight size={15} />
                 </button>
               </form>
-              <div className="mt-6 pt-5 border-t border-[#E8DED1] dark:border-[#1E3F57] text-center">
-                <span className="text-xs text-[#64748b] dark:text-[#98a2b3]">Chưa có tài khoản? </span>
+              <div className="mt-6 pt-5 border-t border-[var(--kg-border)] text-center">
+                <span className="text-xs text-[var(--kg-text-muted)]">Chưa có tài khoản? </span>
                 <button 
                   type="button" 
                   onClick={() => setMode('register')} 
@@ -321,15 +321,15 @@ export default function Login() {
           )}
 
           {mode === 'register' && (
-            <div className="login-card bg-white dark:bg-[#0E273C] border border-blue-100 dark:border-blue-900/30 rounded-3xl p-6 sm:p-8 shadow-xl shadow-blue-500/5">
+            <div className="login-card bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-3xl p-6 sm:p-8 shadow-card">
               <div className="mb-6">
-                <h3 className="text-xl font-bold text-[#0f172a] dark:text-white">Đăng ký nhân sự mới</h3>
-                <p className="text-xs text-[#64748b] dark:text-[#98a2b3] mt-1">Đăng ký tài khoản để quản lý công việc và chấm công</p>
+                <h3 className="text-xl font-bold text-[var(--kg-text)]">Đăng ký nhân sự mới</h3>
+                <p className="text-xs text-[var(--kg-text-muted)] mt-1">Đăng ký tài khoản để quản lý công việc và chấm công</p>
               </div>
 
               <form onSubmit={handleRegister} className="space-y-4">
-                <div className="p-4 rounded-2xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/30">
-                  <h4 className="text-[11px] font-bold text-blue-600 dark:text-indigo-400 mb-3 uppercase tracking-wider flex items-center gap-1.5">
+                <div className="p-4 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)]">
+                  <h4 className="text-[11px] font-bold text-[var(--kg-primary)] dark:text-[var(--kg-accent)] mb-3 uppercase tracking-wider flex items-center gap-1.5">
                     <Lock size={12} /> 1. Tài khoản bảo mật
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -339,7 +339,7 @@ export default function Login() {
                       value={registerForm.username} 
                       onChange={(e) => setRegisterForm({ ...registerForm, username: e.target.value })} 
                       placeholder="Tên đăng nhập" 
-                      className="w-full bg-white dark:bg-[#0E273C] border border-slate-200 dark:border-[#1E3F57] rounded-xl px-3.5 py-2.5 text-xs text-[#0f172a] dark:text-white focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/10 transition-all placeholder-[#9AA1AA] min-h-[44px]" 
+                      className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/10 transition-all placeholder-[var(--kg-text-soft)] min-h-[44px]" 
                     />
                     <input 
                       type="password" 
@@ -347,14 +347,14 @@ export default function Login() {
                       value={registerForm.password} 
                       onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })} 
                       placeholder="Mật khẩu" 
-                      className="w-full bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-xl px-3.5 py-2.5 text-xs text-[#0f172a] dark:text-white focus:outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/10 transition-all placeholder-[#9AA1AA] min-h-[44px]" 
+                      className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/10 transition-all placeholder-[var(--kg-text-soft)] min-h-[44px]" 
                     />
                   </div>
                 </div>
 
                 {/* Hồ sơ cá nhân */}
-                <div className="p-4 rounded-2xl bg-[#FFF0ED]/60 dark:bg-[#E85D4A]/5 border border-[#FFF0ED] dark:border-[#E85D4A]/20">
-                  <h4 className="text-[11px] font-bold text-[#ef4444] mb-3 uppercase tracking-wider flex items-center gap-1.5">
+                <div className="p-4 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)]">
+                  <h4 className="text-[11px] font-bold text-[var(--kg-accent)] mb-3 uppercase tracking-wider flex items-center gap-1.5">
                     <User size={12} /> 2. Hồ sơ cá nhân
                   </h4>
                   <div className="space-y-3">
@@ -364,7 +364,7 @@ export default function Login() {
                       value={registerForm.fullname} 
                       onChange={(e) => setRegisterForm({ ...registerForm, fullname: e.target.value })} 
                       placeholder="Họ và Tên (Tiếng Việt có dấu)" 
-                      className="w-full bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-xl px-3.5 py-2.5 text-xs text-[#0f172a] dark:text-white focus:outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/10 transition-all placeholder-[#9AA1AA] min-h-[44px]" 
+                      className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/10 transition-all placeholder-[var(--kg-text-soft)] min-h-[44px]" 
                     />
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <input 
@@ -373,7 +373,7 @@ export default function Login() {
                         value={registerForm.email} 
                         onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })} 
                         placeholder="Email cá nhân" 
-                        className="w-full bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-xl px-3.5 py-2.5 text-xs text-[#0f172a] dark:text-white focus:outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/10 transition-all placeholder-[#9AA1AA] min-h-[44px]" 
+                        className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/10 transition-all placeholder-[var(--kg-text-soft)] min-h-[44px]" 
                       />
                       <input 
                         type="tel" 
@@ -381,7 +381,7 @@ export default function Login() {
                         value={registerForm.phone} 
                         onChange={(e) => setRegisterForm({ ...registerForm, phone: e.target.value })} 
                         placeholder="Số điện thoại" 
-                        className="w-full bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-xl px-3.5 py-2.5 text-xs text-[#0f172a] dark:text-white focus:outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/10 transition-all placeholder-[#9AA1AA] min-h-[44px]" 
+                        className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/10 transition-all placeholder-[var(--kg-text-soft)] min-h-[44px]" 
                       />
                     </div>
                     <input 
@@ -390,21 +390,21 @@ export default function Login() {
                       value={registerForm.dob} 
                       onChange={handleDobChange} 
                       placeholder="Ngày sinh (Gõ số liền nhau, VD: 15082000)" 
-                      className="w-full bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-xl px-3.5 py-2.5 text-xs text-[#0f172a] dark:text-white focus:outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/10 transition-all placeholder-[#9AA1AA] min-h-[44px]" 
+                      className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/10 transition-all placeholder-[var(--kg-text-soft)] min-h-[44px]" 
                     />
                   </div>
                 </div>
 
                 <button 
                   type="submit" 
-                  className="login-primary w-full bg-gradient-to-r from-[#2563eb] to-[#7c3aed] text-white font-bold py-3 rounded-xl transition-all duration-200 text-xs shadow-md hover:shadow-lg hover:-translate-y-0.5 min-h-[44px]"
+                  className="login-primary w-full bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-extrabold py-3.5 rounded-xl transition-all duration-200 text-xs shadow-sm hover:shadow-md hover:-translate-y-0.5 min-h-[44px]"
                 >
                   Hoàn tất đăng ký
                 </button>
                 <button 
                   type="button" 
                   onClick={() => setMode('login')} 
-                  className="w-full text-center text-xs font-bold text-[#64748b] hover:text-[#0f172a] dark:hover:text-white flex items-center justify-center gap-1 transition-colors"
+                  className="w-full text-center text-xs font-bold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] flex items-center justify-center gap-1 transition-colors min-h-[40px]"
                 >
                   <ChevronLeft size={14} /> Quay lại đăng nhập
                 </button>
@@ -414,20 +414,20 @@ export default function Login() {
 
           {/* FORGOT PASSWORD FORM */}
           {mode === 'forgot' && (
-            <div className="login-card bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-3xl p-6 sm:p-8 shadow-card neo-card-stack">
+            <div className="login-card bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-3xl p-6 sm:p-8 shadow-card">
               <div className="mb-6 text-center">
-                <div className="w-12 h-12 rounded-full bg-[#FFF0ED] dark:bg-[#ef4444]/10 flex items-center justify-center mx-auto mb-3 text-[#ef4444]">
+                <div className="w-12 h-12 rounded-full bg-[var(--kg-accent-soft)] flex items-center justify-center mx-auto mb-3 text-[var(--kg-accent)]">
                   <KeyRound size={20} />
                 </div>
-                <h3 className="text-xl font-bold text-[#0f172a] dark:text-white">Khôi phục mật khẩu</h3>
-                <p className="text-xs text-[#64748b] dark:text-[#98a2b3] mt-1">Nhập email đã đăng ký để nhận mã OTP khôi phục mật khẩu</p>
+                <h3 className="text-xl font-bold text-[var(--kg-text)]">Khôi phục mật khẩu</h3>
+                <p className="text-xs text-[var(--kg-text-muted)] mt-1">Nhập email đã đăng ký để nhận mã OTP khôi phục mật khẩu</p>
               </div>
 
               <form onSubmit={handleForgot} className="space-y-4">
                 {forgotStep === 1 ? (
                   <>
                     <div className="relative group">
-                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[#9AA1AA]">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[var(--kg-text-soft)]">
                         <Mail size={16} />
                       </div>
                       <input 
@@ -436,12 +436,12 @@ export default function Login() {
                         value={forgotForm.email} 
                         onChange={(e) => setForgotForm({ email: e.target.value })} 
                         placeholder="Nhập Email của bạn..." 
-                        className="w-full bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-xl pl-11 pr-4 py-3 text-sm focus:outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/10 text-[#0f172a] dark:text-white placeholder-[#9AA1AA] min-h-[44px]" 
+                        className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl pl-11 pr-4 py-3 text-sm focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/10 text-[var(--kg-text)] placeholder-[var(--kg-text-soft)] min-h-[44px]" 
                       />
                     </div>
                     <button 
                       type="submit" 
-                      className="login-primary w-full bg-gradient-to-r from-[#2563eb] to-[#7c3aed] text-white font-bold py-3.5 rounded-xl transition-all duration-200 text-sm shadow-md hover:shadow-lg hover:-translate-y-0.5 min-h-[44px]"
+                      className="login-primary w-full bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-extrabold py-3.5 rounded-xl transition-all duration-200 text-sm shadow-sm hover:shadow-md hover:-translate-y-0.5 min-h-[44px]"
                     >
                       Gửi mã OTP
                     </button>
@@ -455,7 +455,7 @@ export default function Login() {
                         value={resetForm.otp} 
                         onChange={(e) => setResetForm({ ...resetForm, otp: e.target.value })} 
                         placeholder="Nhập mã OTP 6 số" 
-                        className="w-full bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-xl px-4 py-3 text-sm text-center tracking-widest font-bold focus:outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/10 text-[#0f172a] dark:text-white min-h-[44px]" 
+                        className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-4 py-3 text-sm text-center tracking-widest font-mono font-bold focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/10 text-[var(--kg-text)] min-h-[44px]" 
                         maxLength={6} 
                       />
                       <input 
@@ -464,12 +464,12 @@ export default function Login() {
                         value={resetForm.newPassword} 
                         onChange={(e) => setResetForm({ ...resetForm, newPassword: e.target.value })} 
                         placeholder="Mật khẩu mới" 
-                        className="w-full bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/10 text-[#0f172a] dark:text-white min-h-[44px]" 
+                        className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/10 text-[var(--kg-text)] min-h-[44px]" 
                       />
                     </div>
                     <button 
                       type="submit" 
-                      className="w-full bg-gradient-to-r from-[#10b981] to-[#059669] text-white font-bold py-3.5 rounded-xl transition-all duration-200 text-sm shadow-md hover:shadow-lg hover:-translate-y-0.5 min-h-[44px]"
+                      className="w-full bg-[var(--kg-success)] hover:brightness-95 text-white font-extrabold py-3.5 rounded-xl transition-all duration-200 text-sm shadow-sm hover:shadow-md hover:-translate-y-0.5 min-h-[44px]"
                     >
                       Đặt lại mật khẩu
                     </button>
@@ -479,7 +479,7 @@ export default function Login() {
                 <button 
                   type="button" 
                   onClick={() => { setMode('login'); setForgotStep(1); }} 
-                  className="w-full text-center text-xs font-bold text-[#64748b] hover:text-[#0f172a] dark:hover:text-white flex items-center justify-center gap-1 transition-colors"
+                  className="w-full text-center text-xs font-bold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] flex items-center justify-center gap-1 transition-colors min-h-[40px]"
                 >
                   <ChevronLeft size={14} /> Quay lại đăng nhập
                 </button>

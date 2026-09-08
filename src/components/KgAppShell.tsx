@@ -128,9 +128,9 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
         {/* User profile card */}
         <div className="mx-4 my-3 p-3.5 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex items-center gap-3 shadow-sm">
           {currentUser?.avatarUrl ? (
-            <img src={currentUser.avatarUrl} alt="" className="w-10 h-10 rounded-full object-cover border border-slate-300 dark:border-slate-700" />
+            <img src={currentUser.avatarUrl} alt="" className="w-10 h-10 rounded-full object-cover border border-[var(--kg-border)]" />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#2563eb] to-[#7c3aed] text-white flex items-center justify-center font-bold text-sm flex-shrink-0">
+            <div className="w-10 h-10 rounded-full bg-[var(--kg-primary)] text-white flex items-center justify-center font-bold text-sm flex-shrink-0 shadow-xs">
               {currentUser?.fullname.charAt(0) || 'U'}
             </div>
           )}
@@ -149,13 +149,13 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
           <button
             type="button"
             onClick={() => setIsGuideOpen(true)}
-            className="w-full p-3 rounded-2xl bg-gradient-to-r from-blue-600/10 via-indigo-600/10 to-violet-600/10 border border-blue-500/20 dark:border-indigo-900/30 text-left hover:border-blue-500/40 transition-all active:scale-98 group flex items-center gap-2.5"
+            className="w-full p-3 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-left hover:border-[var(--kg-primary)] transition-all active:scale-98 group flex items-center gap-2.5 shadow-xs"
           >
-            <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-xs flex-shrink-0 group-hover:scale-105 transition-transform">
+            <div className="w-8 h-8 rounded-xl bg-[var(--kg-primary)] text-white flex items-center justify-center font-bold shadow-xs flex-shrink-0 group-hover:scale-105 transition-transform">
               <GraduationCap size={16} />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-black text-blue-600 dark:text-indigo-400 truncate">
+              <p className="text-xs font-black text-[var(--kg-text)] truncate">
                 Hướng dẫn người mới
               </p>
               <p className="text-[10px] text-[var(--kg-text-muted)] truncate font-semibold">
@@ -183,14 +183,14 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
                       onPointerEnter={() => onPrefetch?.(item.id)}
                       onFocus={() => onPrefetch?.(item.id)}
                       aria-current={isActive ? 'page' : undefined}
-                      className={`kg-nav-item ${isActive ? 'kg-nav-item--active' : ''} w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all ${
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all select-none touch-manipulation ${
                         isActive
-                          ? 'text-white font-bold shadow-md scale-[1.02]'
-                          : 'text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)] border border-transparent'
+                          ? 'bg-[var(--kg-primary)] text-white font-extrabold shadow-sm scale-[1.01]'
+                          : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)] font-bold border border-transparent'
                       }`}
                     >
-                      <Icon size={16} className={isActive ? 'kg-nav-item__active-icon text-white' : 'text-[var(--kg-text-muted)]'} />
-                      <span className="text-[13px]">{item.label}</span>
+                      <Icon size={16} className={`flex-shrink-0 ${isActive ? 'text-white' : 'text-[var(--kg-text-muted)]'}`} />
+                      <span className="text-[13px] tracking-tight">{item.label}</span>
                     </button>
                   );
                 })}
@@ -247,9 +247,9 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
             <button
               type="button"
               onClick={() => setIsGuideOpen(true)}
-              className="px-3 py-1.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-indigo-400 text-xs font-bold flex items-center gap-1.5 hover:bg-blue-500/20 transition-all active:scale-95"
+              className="px-3 py-1.5 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-text)] text-xs font-bold flex items-center gap-1.5 hover:border-[var(--kg-primary)] transition-all active:scale-95 shadow-xs"
             >
-              <Sparkles size={13} />
+              <Sparkles size={13} className="text-[var(--kg-accent)]" />
               <span>Hướng dẫn người mới</span>
             </button>
             <div className="text-xs font-semibold text-[var(--kg-text-muted)] flex items-center gap-1.5">
@@ -267,7 +267,7 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
       </main>
 
       {/* 4. MOBILE BOTTOM NAVIGATION */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[var(--kg-surface)]/95 backdrop-blur-xl border-t border-[var(--kg-border)] flex justify-around items-center pt-2 px-1 bottom-safe-nav shadow-2xl">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[var(--kg-surface)]/95 backdrop-blur-xl border-t border-[var(--kg-border)] flex justify-around items-center pt-2 px-1 bottom-safe-nav shadow-lg">
         {bottomTabs.map((tab) => {
           const isActive = currentTab === tab.id;
           const Icon = tab.icon;
@@ -278,25 +278,25 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
               onPointerEnter={() => onPrefetch?.(tab.id)}
               onFocus={() => onPrefetch?.(tab.id)}
               onTouchStart={() => onPrefetch?.(tab.id)}
-              className="relative flex flex-col items-center justify-center w-16 min-h-[44px] py-1 transition-all touch-manipulation active:scale-95"
+              className="relative flex flex-col items-center justify-center w-16 min-h-[44px] py-1 transition-all touch-manipulation active:scale-95 select-none"
             >
-              {/* Top Active Glow Indicator Bar */}
+              {/* Top Active Indicator Bar */}
               {isActive && (
-                <span className="absolute -top-2 w-8 h-1 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 shadow-[0_0_10px_rgba(59,130,246,0.9)] animate-pulse" />
+                <span className="absolute -top-2 w-8 h-1 rounded-full bg-[var(--kg-accent)] shadow-[0_0_8px_rgba(232,93,74,0.6)]" />
               )}
               
               <div
-                className={`w-11 h-7.5 rounded-xl flex items-center justify-center mb-1 transition-all ${
+                className={`w-11 h-7 rounded-xl flex items-center justify-center mb-1 transition-all ${
                   isActive
-                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/30 scale-105 ring-2 ring-blue-500/20'
+                    ? 'bg-[var(--kg-primary)] text-white shadow-sm scale-105'
                     : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
                 }`}
               >
-                <Icon size={19} className={isActive ? 'text-white' : ''} />
+                <Icon size={18} className={isActive ? 'text-white' : ''} />
               </div>
               <span
                 className={`text-[9.5px] tracking-wider uppercase transition-all ${
-                  isActive ? 'font-black text-blue-600 dark:text-indigo-400 scale-105' : 'font-bold text-[var(--kg-text-muted)] opacity-70'
+                  isActive ? 'font-black text-[var(--kg-primary)] dark:text-[var(--kg-accent)] scale-105' : 'font-bold text-[var(--kg-text-muted)] opacity-70'
                 }`}
               >
                 {tab.shortLabel || tab.label}
@@ -312,23 +312,23 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
             <button
               type="button"
               onClick={() => setIsMoreOpen(true)}
-              className="relative flex flex-col items-center justify-center w-16 min-h-[44px] py-1 transition-all touch-manipulation active:scale-95"
+              className="relative flex flex-col items-center justify-center w-16 min-h-[44px] py-1 transition-all touch-manipulation active:scale-95 select-none"
             >
               {isMoreActionActive && (
-                <span className="absolute -top-2 w-8 h-1 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 shadow-[0_0_10px_rgba(59,130,246,0.9)] animate-pulse" />
+                <span className="absolute -top-2 w-8 h-1 rounded-full bg-[var(--kg-accent)] shadow-[0_0_8px_rgba(232,93,74,0.6)]" />
               )}
               <div
-                className={`w-11 h-7.5 rounded-xl flex items-center justify-center mb-1 transition-all ${
+                className={`w-11 h-7 rounded-xl flex items-center justify-center mb-1 transition-all ${
                   isMoreActionActive
-                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/30 scale-105 ring-2 ring-blue-500/20'
+                    ? 'bg-[var(--kg-primary)] text-white shadow-sm scale-105'
                     : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
                 }`}
               >
-                <MoreHorizontal size={19} className={isMoreActionActive ? 'text-white' : ''} />
+                <MoreHorizontal size={18} className={isMoreActionActive ? 'text-white' : ''} />
               </div>
               <span
                 className={`text-[9.5px] tracking-wider uppercase transition-all ${
-                  isMoreActionActive ? 'font-black text-blue-600 dark:text-indigo-400 scale-105' : 'font-bold text-[var(--kg-text-muted)] opacity-70'
+                  isMoreActionActive ? 'font-black text-[var(--kg-primary)] dark:text-[var(--kg-accent)] scale-105' : 'font-bold text-[var(--kg-text-muted)] opacity-70'
                 }`}
               >
                 Thêm

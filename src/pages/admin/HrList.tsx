@@ -209,7 +209,7 @@ export default function HrList() {
 
       {/* Back button */}
       <div className="flex -mt-2 mb-1">
-        <button onClick={() => store.setCurrentTab('admin_people')} className="flex items-center text-xs font-bold text-gray-500 hover:text-ocean-600 transition-colors">
+        <button onClick={() => store.setCurrentTab('admin_people')} className="flex items-center text-xs font-bold text-[var(--kg-text-muted)] hover:text-[var(--kg-primary)] transition-colors">
           <span className="mr-1">←</span> Quay lại Cài đặt chung
         </button>
       </div>
@@ -225,47 +225,47 @@ export default function HrList() {
       {/* Stat Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: 'Đang làm việc', value: stats.active, icon: '●', bg: 'bg-emerald-50 dark:bg-emerald-900/20', iconCls: 'text-emerald-500' },
-          { label: 'Tạm nghỉ', value: stats.leave, icon: '●', bg: 'bg-amber-50 dark:bg-amber-900/20', iconCls: 'text-amber-500' },
-          { label: 'Đình chỉ', value: stats.suspended, icon: '●', bg: 'bg-rose-50 dark:bg-rose-900/20', iconCls: 'text-rose-500' },
-          { label: 'Đã nghỉ việc', value: stats.resigned, icon: '●', bg: 'bg-slate-100 dark:bg-slate-900/40', iconCls: 'text-slate-400' },
+          { label: 'Đang làm việc', value: stats.active, icon: '●', bg: 'bg-emerald-500/10 border-emerald-500/20', iconCls: 'text-emerald-600 dark:text-emerald-400' },
+          { label: 'Tạm nghỉ', value: stats.leave, icon: '●', bg: 'bg-amber-500/10 border-amber-500/20', iconCls: 'text-amber-600 dark:text-amber-400' },
+          { label: 'Đình chỉ', value: stats.suspended, icon: '●', bg: 'bg-rose-500/10 border-rose-500/20', iconCls: 'text-rose-600 dark:text-rose-400' },
+          { label: 'Đã nghỉ việc', value: stats.resigned, icon: '●', bg: 'bg-[var(--kg-surface-soft)] border-[var(--kg-border)]', iconCls: 'text-[var(--kg-text-muted)]' },
         ].map((s, i) => (
-          <motion.div key={i} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }} className={`soft3d-card p-3 ${s.bg}`}>
-            <span className={`text-lg ${s.iconCls}`}>{s.icon}</span>
-            <p className="text-xl font-black text-gray-800 dark:text-white mt-1">{s.value}</p>
-            <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{s.label}</p>
+          <motion.div key={i} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }} className={`bg-[var(--kg-surface)] border rounded-2xl p-3.5 shadow-xs ${s.bg}`}>
+            <span className={`text-base ${s.iconCls}`}>{s.icon}</span>
+            <p className="text-xl sm:text-2xl font-mono font-black text-[var(--kg-text)] mt-1">{s.value}</p>
+            <p className="text-[10px] font-black text-[var(--kg-text-muted)] uppercase tracking-wider">{s.label}</p>
           </motion.div>
         ))}
       </div>
 
       {/* Search & Filter */}
-      <div className="soft3d-card p-3">
-        <div className="flex flex-col md:flex-row gap-2">
+      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-3.5 rounded-2xl shadow-xs">
+        <div className="flex flex-col md:flex-row gap-2.5">
           <div className="relative flex-1">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--kg-text-muted)]" />
             <input type="text" placeholder="Tìm tên, username, email..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-8 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-medium focus:ring-2 focus:ring-ocean-500 focus:border-ocean-500 outline-none transition-shadow" />
-            {searchQuery && <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"><X size={14} /></button>}
+              className="w-full pl-10 pr-8 py-2.5 bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl text-xs sm:text-sm font-bold text-[var(--kg-text)] focus:ring-2 focus:ring-[var(--kg-primary)] outline-none transition-all min-h-[44px]" />
+            {searchQuery && <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]"><X size={14} /></button>}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 md:flex gap-2">
-            <select value={filterPosition} onChange={e => setFilterPosition(e.target.value)} className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5 text-xs sm:text-sm font-medium outline-none cursor-pointer w-full md:w-auto">
+            <select value={filterPosition} onChange={e => setFilterPosition(e.target.value)} className="bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-text)] rounded-xl px-3 py-2.5 text-xs sm:text-sm font-bold outline-none cursor-pointer w-full md:w-auto min-h-[44px]">
               <option value="all">Tất cả bộ phận</option>
               {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
-            <select value={filterRole} onChange={e => setFilterRole(e.target.value)} className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5 text-xs sm:text-sm font-medium outline-none cursor-pointer w-full md:w-auto">
+            <select value={filterRole} onChange={e => setFilterRole(e.target.value)} className="bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-text)] rounded-xl px-3 py-2.5 text-xs sm:text-sm font-bold outline-none cursor-pointer w-full md:w-auto min-h-[44px]">
               <option value="all">Tất cả quyền</option>
               {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
             </select>
-            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5 text-xs sm:text-sm font-medium outline-none cursor-pointer w-full md:w-auto">
+            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-text)] rounded-xl px-3 py-2.5 text-xs sm:text-sm font-bold outline-none cursor-pointer w-full md:w-auto min-h-[44px]">
               <option value="all">Tất cả trạng thái</option>
               {employmentStatuses.map(status => <option key={status.value} value={status.value}>{status.label}</option>)}
             </select>
           </div>
         </div>
         {(searchQuery || filterPosition !== 'all' || filterRole !== 'all' || filterStatus !== 'all') && (
-          <p className="text-[11px] text-gray-500 mt-2 ml-1 font-medium">
+          <p className="text-[11px] text-[var(--kg-text-muted)] mt-2 ml-1 font-bold">
             Hiển thị {filteredUsers.length} / {users.length} nhân viên
-            <button onClick={() => { setSearchQuery(''); setFilterPosition('all'); setFilterRole('all'); setFilterStatus('all'); }} className="ml-2 text-ocean-600 hover:underline font-bold">Xóa lọc</button>
+            <button onClick={() => { setSearchQuery(''); setFilterPosition('all'); setFilterRole('all'); setFilterStatus('all'); }} className="ml-2 text-[var(--kg-accent)] hover:underline font-black">Xóa lọc</button>
           </p>
         )}
       </div>
@@ -283,16 +283,16 @@ export default function HrList() {
 
             return (
               <motion.div key={user.username} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ delay: Math.min(idx * 0.03, 0.3) }}
-                className={`soft3d-card overflow-hidden transition-all duration-300 ${isProcessing ? 'opacity-50 pointer-events-none' : ''}`}>
+                className={`bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl overflow-hidden shadow-xs hover:border-[var(--kg-border-strong)] transition-all duration-200 ${isProcessing ? 'opacity-50 pointer-events-none' : ''}`}>
                 
                 {/* Main Info Row */}
                 <div className="p-4 flex items-start gap-3">
                   {/* Avatar with upload overlay */}
                   <div className="relative group flex-shrink-0" onClick={(e) => { e.stopPropagation(); handleAvatarClick(user.username); }}>
                     {user.avatarUrl ? (
-                      <img src={user.avatarUrl} alt={user.fullname} className="w-12 h-12 rounded-xl object-cover shadow-md border-2 border-white dark:border-gray-700 cursor-pointer" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden'); }} />
+                      <img src={user.avatarUrl} alt={user.fullname} className="w-12 h-12 rounded-xl object-cover shadow-xs border border-[var(--kg-border)] cursor-pointer" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden'); }} />
                     ) : null}
-                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${avatarColor} flex items-center justify-center text-white font-bold text-lg shadow-md cursor-pointer ${user.avatarUrl ? 'hidden' : ''}`}>
+                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${avatarColor} flex items-center justify-center text-white font-bold text-lg shadow-xs cursor-pointer ${user.avatarUrl ? 'hidden' : ''}`}>
                       {user.fullname.charAt(0).toUpperCase()}
                     </div>
                     {/* Camera overlay */}
@@ -305,16 +305,16 @@ export default function HrList() {
                   <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setExpandedUser(isExpanded ? null : user.username)}>
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <h4 className="font-bold text-gray-800 dark:text-gray-100 text-[15px] leading-tight">{user.fullname}</h4>
-                        <p className="text-[11px] text-gray-400 dark:text-gray-500 font-mono mt-0.5">@{user.username}</p>
+                        <h4 className="font-extrabold text-[var(--kg-text)] text-[15px] leading-tight">{user.fullname}</h4>
+                        <p className="text-[11px] text-[var(--kg-text-muted)] font-mono mt-0.5">@{user.username}</p>
                       </div>
                       <div className="flex flex-shrink-0 flex-col items-end gap-1">
                         <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-lg border ${statusMeta.badgeClass}`}>{statusMeta.shortLabel}</span>
                         <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-lg border ${badge.cls}`}>{badge.label}</span>
                       </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-[11px] text-gray-500 dark:text-gray-400">
-                      <span className="inline-flex items-center gap-1 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-md font-semibold">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-[11px] text-[var(--kg-text-muted)]">
+                      <span className="inline-flex items-center gap-1 bg-[var(--kg-surface-soft)] px-2 py-0.5 rounded-md font-semibold text-[var(--kg-text)]">
                         <Briefcase size={10} /> {user.position || 'Phục vụ'}
                       </span>
                       {user.dob && <span className="inline-flex items-center gap-1"><Calendar size={10} /> {user.dob}</span>}
@@ -323,7 +323,7 @@ export default function HrList() {
                   </div>
 
                   {/* Expand Toggle */}
-                  <button onClick={() => setExpandedUser(isExpanded ? null : user.username)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 flex-shrink-0 mt-1 transition-colors">
+                  <button onClick={() => setExpandedUser(isExpanded ? null : user.username)} className="p-1.5 rounded-lg hover:bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] flex-shrink-0 mt-1 transition-colors">
                     {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                   </button>
                 </div>
@@ -332,7 +332,7 @@ export default function HrList() {
                 <AnimatePresence>
                   {isExpanded && (
                     <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
-                      <div className="px-4 pb-4 pt-1 border-t border-gray-100 dark:border-gray-800">
+                      <div className="px-4 pb-4 pt-1 border-t border-[var(--kg-border)]">
                         <div className={`mt-3 rounded-xl border p-3 ${statusMeta.badgeClass}`}>
                           <div className="flex flex-wrap items-start justify-between gap-3">
                             <div className="flex min-w-0 gap-2.5">
@@ -351,7 +351,7 @@ export default function HrList() {
                               <button
                                 type="button"
                                 onClick={() => handleUpdateEmploymentStatus(user)}
-                                className="rounded-lg bg-white/75 px-3 py-2 text-[11px] font-extrabold shadow-sm hover:bg-white dark:bg-slate-900/60"
+                                className="rounded-xl bg-[var(--kg-primary)] text-white px-3 py-2 text-[11px] font-extrabold shadow-xs hover:opacity-90 active:scale-95 transition-all"
                               >
                                 Đổi trạng thái
                               </button>
@@ -360,22 +360,22 @@ export default function HrList() {
                         </div>
                         <div className="flex flex-col sm:flex-row gap-3 mt-3">
                           <div className="flex-1">
-                            <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1 ml-0.5 flex items-center gap-1"><Briefcase size={9} /> Chức vụ</label>
+                            <label className="block text-[10px] uppercase font-bold text-[var(--kg-text-muted)] mb-1 ml-0.5 flex items-center gap-1"><Briefcase size={9} /> Chức vụ</label>
                             <select value={user.position || 'Phục vụ'} onChange={e => handleUpdatePosition(user.username, user.fullname, e.target.value)}
-                              className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:ring-2 focus:ring-ocean-500 outline-none cursor-pointer">
+                              className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-text)] rounded-xl px-3 py-2.5 text-sm font-medium focus:ring-2 focus:ring-[var(--kg-primary)] outline-none cursor-pointer">
                               {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
                             </select>
                           </div>
                           <div className="flex-1">
-                            <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1 ml-0.5 flex items-center gap-1"><UserCog size={9} /> Phân quyền</label>
+                            <label className="block text-[10px] uppercase font-bold text-[var(--kg-text-muted)] mb-1 ml-0.5 flex items-center gap-1"><UserCog size={9} /> Phân quyền</label>
                             <select value={user.role || 'user'} onChange={e => handleUpdateRole(user.username, user.fullname, e.target.value)}
-                              className={`w-full rounded-xl px-3 py-2.5 text-sm font-bold focus:ring-2 focus:ring-ocean-500 outline-none cursor-pointer border ${badge.cls}`}>
+                              className={`w-full bg-[var(--kg-surface-soft)] text-[var(--kg-text)] rounded-xl px-3 py-2.5 text-sm font-bold focus:ring-2 focus:ring-[var(--kg-primary)] outline-none cursor-pointer border ${badge.cls}`}>
                               {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                             </select>
                           </div>
                           <div className="sm:self-end">
                             <button onClick={() => handleForceReset(user.username, user.fullname)}
-                              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 border border-red-200 dark:border-red-800/50 rounded-xl transition-colors">
+                              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-rose-600 dark:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-xl transition-colors">
                               <KeyRound size={14} /><span>Đặt lại MK</span>
                             </button>
                           </div>
@@ -390,17 +390,17 @@ export default function HrList() {
         </AnimatePresence>
 
         {filteredUsers.length === 0 && (
-          <div className="soft3d-card p-8 text-center">
-            <Search size={32} className="mx-auto mb-3 text-gray-300" />
-            <p className="text-sm text-gray-500 font-medium">Không tìm thấy nhân viên nào</p>
-            <button onClick={() => { setSearchQuery(''); setFilterPosition('all'); setFilterRole('all'); setFilterStatus('all'); }} className="text-xs text-ocean-600 font-bold mt-2 hover:underline">Xóa bộ lọc</button>
+          <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-8 text-center shadow-xs">
+            <Search size={32} className="mx-auto mb-3 text-[var(--kg-text-muted)]" />
+            <p className="text-sm text-[var(--kg-text-muted)] font-medium">Không tìm thấy nhân viên nào</p>
+            <button onClick={() => { setSearchQuery(''); setFilterPosition('all'); setFilterRole('all'); setFilterStatus('all'); }} className="text-xs text-[var(--kg-primary)] font-black mt-2 hover:underline">Xóa bộ lọc</button>
           </div>
         )}
       </div>
 
       {/* Loading overlay */}
       {(updatingUser || uploadingAvatar) && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-ocean-600 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 text-sm font-bold">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-[var(--kg-primary)] text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 text-sm font-bold">
           <Loader2 size={14} className="animate-spin" /> {uploadingAvatar ? 'Đang upload ảnh...' : 'Đang cập nhật...'}
         </div>
       )}

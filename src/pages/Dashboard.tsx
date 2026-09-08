@@ -328,11 +328,11 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
           {/* Left side: Hero card & Actions */}
           <div className="lg:col-span-7 space-y-4">
             {/* Personal Hero Card */}
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-600 p-5 sm:p-6 text-white shadow-md border border-white/15">
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-hero p-5 sm:p-6 text-white shadow-hero border border-white/10">
               <div className="relative z-10 flex flex-col justify-between h-full space-y-5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center space-x-3 min-w-0">
-                    <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center font-black text-xl text-white flex-shrink-0 shadow-sm">
+                    <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center justify-center font-black text-xl text-white flex-shrink-0 shadow-xs">
                       {currentUser?.fullname.charAt(0) || 'K'}
                     </div>
                     <div className="min-w-0">
@@ -353,7 +353,7 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 bg-black/20 backdrop-blur-md rounded-2xl p-3.5 border border-white/10 shadow-inner">
+                <div className="grid grid-cols-2 gap-2 bg-black/25 backdrop-blur-md rounded-2xl p-3.5 border border-white/10 shadow-inner">
                   <div className="min-w-0">
                     <p className="text-[10px] font-black uppercase tracking-wider text-white/70">Ca làm hôm nay</p>
                     <p className="text-xs sm:text-sm font-extrabold mt-0.5 text-white truncate">{todayShift}</p>
@@ -368,19 +368,18 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
                   </div>
                 </div>
               </div>
-              {/* Radiant Glow overlays */}
-              <div className="absolute right-[-10%] top-[-20%] w-60 h-60 bg-cyan-400/20 rounded-full blur-3xl pointer-events-none" />
-              <div className="absolute left-[-20%] bottom-[-40%] w-60 h-60 bg-violet-400/20 rounded-full blur-3xl pointer-events-none" />
+              {/* Subtle brand glow overlay */}
+              <div className="absolute right-[-10%] top-[-20%] w-60 h-60 bg-[var(--kg-accent)]/15 rounded-full blur-3xl pointer-events-none" />
             </div>
 
             {/* Quick Newbie Guide Banner */}
-            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-600/10 via-indigo-600/10 to-violet-600/10 border border-blue-500/20 dark:border-indigo-900/30 flex items-center justify-between gap-3 shadow-xs">
+            <div className="p-3.5 rounded-2xl bg-[var(--kg-surface)] border border-[var(--kg-border)] flex items-center justify-between gap-3 shadow-xs">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-xs flex-shrink-0 shadow-xs">
+                <div className="w-8 h-8 rounded-xl bg-[var(--kg-primary)] text-white flex items-center justify-center font-bold text-xs flex-shrink-0 shadow-xs">
                   🎓
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs font-black text-blue-600 dark:text-indigo-400 truncate">
+                  <p className="text-xs font-black text-[var(--kg-text)] truncate">
                     Cẩm nang nhân sự mới
                   </p>
                   <p className="text-[10px] text-[var(--kg-text-muted)] font-semibold truncate">
@@ -466,15 +465,15 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
               <button
                 type="button"
                 onClick={() => onTabChange('checkin')}
-                className={`w-full py-4 px-6 rounded-2xl font-black text-sm sm:text-base tracking-wider uppercase text-white shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 min-h-[56px] ${
+                className={`w-full py-4 px-6 rounded-2xl font-black text-sm sm:text-base tracking-wider uppercase text-white shadow-md active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 min-h-[56px] ${
                   userHasIn
-                    ? 'bg-gradient-to-r from-rose-500 via-rose-600 to-red-600 hover:from-rose-600 hover:to-red-700 shadow-rose-500/25 ring-2 ring-rose-400/30'
-                    : 'bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 shadow-blue-500/25 ring-2 ring-blue-400/30'
+                    ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/20'
+                    : 'bg-[var(--kg-primary)] hover:opacity-90 shadow-[var(--kg-primary)]/20'
                 }`}
               >
                 <Camera size={20} className="animate-pulse" />
                 <span>{userHasIn ? 'Bấm để Chấm Ra Ca' : 'Chấm Công Vào Ca Ngay'}</span>
-                <span className="w-2 h-2 rounded-full bg-white shadow-[0_0_8px_white] ml-1" />
+                <span className="w-2 h-2 rounded-full bg-[var(--kg-accent)] ml-1" />
               </button>
             )}
 

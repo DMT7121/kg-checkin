@@ -329,35 +329,35 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
         <button
           type="button"
           onClick={() => setAiOpen(true)}
-          className={`fixed bottom-20 md:bottom-6 right-3.5 md:right-6 w-11 h-11 md:w-14 md:h-14 bg-gradient-to-tr from-violet-600 to-indigo-600 rounded-full shadow-xl flex items-center justify-center text-white hover:scale-105 active:scale-95 transition-transform ${isLightboxOpen ? 'z-40' : 'z-[90]'} border-2 border-white/20`}
+          className={`fixed bottom-20 md:bottom-6 right-3.5 md:right-6 w-11 h-11 md:w-14 md:h-14 bg-[var(--kg-primary)] rounded-full shadow-xl flex items-center justify-center text-white hover:scale-105 active:scale-95 transition-transform ${isLightboxOpen ? 'z-40' : 'z-[90]'} border-2 border-white/20`}
           title="Trợ lý AI King's Grill"
         >
           <Sparkles size={20} />
           {/* Notification Dot */}
-          <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 border-2 border-white rounded-full animate-ping"></span>
-          <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 border-2 border-white rounded-full"></span>
+          <span className="absolute top-0 right-0 w-3 h-3 bg-[var(--kg-accent)] border-2 border-white rounded-full animate-ping"></span>
+          <span className="absolute top-0 right-0 w-3 h-3 bg-[var(--kg-accent)] border-2 border-white rounded-full"></span>
         </button>
       )}
 
       {/* Chat Window */}
       {isAiOpen && (
         <div 
-          className={`fixed right-0 md:right-6 bottom-0 md:bottom-6 soft3d-bg shadow-2xl ${isLightboxOpen ? 'z-40' : 'z-[9999]'} flex flex-col transition-all duration-300 ease-in-out border border-gray-200 dark:border-gray-800 ${
+          className={`fixed right-0 md:right-6 bottom-0 md:bottom-6 bg-[var(--kg-surface)] text-[var(--kg-text)] shadow-2xl ${isLightboxOpen ? 'z-40' : 'z-[9999]'} flex flex-col transition-all duration-300 ease-in-out border border-[var(--kg-border)] ${
             isExpanded 
               ? 'w-full md:w-[600px] h-full md:h-[80vh] md:rounded-2xl' 
               : 'w-full md:w-[380px] h-[75vh] md:h-[550px] md:rounded-2xl rounded-t-2xl'
           }`}
         >
           {/* Header */}
-          <div className="bg-gradient-to-r from-violet-600 to-indigo-600 p-4 flex items-center justify-between text-white rounded-t-2xl shadow-md z-10 flex-shrink-0">
+          <div className="bg-[var(--kg-primary)] p-4 flex items-center justify-between text-white md:rounded-t-2xl shadow-sm z-10 flex-shrink-0">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
+              <div className="w-10 h-10 bg-white/15 rounded-xl flex items-center justify-center backdrop-blur-sm">
                 <Bot size={22} />
               </div>
               <div>
                 <h3 className="font-bold text-sm">King&apos;s Grill AI Assistant</h3>
-                <p className="text-[10px] text-indigo-100 flex items-center">
-                  <span className="w-1.5 h-1.5 bg-green-400 rounded-full mr-1.5 animate-pulse"></span>
+                <p className="text-[10px] text-white/80 flex items-center">
+                  <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full mr-1.5 animate-pulse"></span>
                   {useGeminiFallback ? 'Sẵn sàng (Gemini)' : `Sẵn sàng (${groqKeys.length} Groq Keys)`}
                 </p>
               </div>
@@ -373,10 +373,10 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/50 dark:bg-gray-900/50">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[var(--kg-surface-soft)]/50">
             {useGeminiFallback && (
               <div className="bg-blue-50/55 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 text-blue-700 dark:text-blue-300 rounded-xl p-3 text-[11px] flex items-start space-x-2">
-                <Sparkles size={14} className="mt-0.5 flex-shrink-0 text-indigo-500" />
+                <Sparkles size={14} className="mt-0.5 flex-shrink-0 text-[var(--kg-accent)]" />
                 <p>Trợ lý đang chạy ở chế độ dự phòng bằng Gemini. Liên hệ Admin nạp Groq API Key nếu muốn tăng độ nhạy phản hồi.</p>
               </div>
             )}
@@ -385,8 +385,8 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
               <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[85%] rounded-2xl px-4 py-3  ${
                   msg.role === 'user' 
-                    ? 'bg-indigo-600 text-white rounded-tr-sm' 
-                    : 'soft3d-card  text-gray-800 dark:text-gray-200 rounded-tl-sm'
+                    ? 'bg-[var(--kg-primary)] text-white rounded-tr-sm shadow-xs' 
+                    : 'bg-[var(--kg-surface)] text-[var(--kg-text)] border border-[var(--kg-border)] rounded-tl-sm shadow-xs'
                 }`}>
                   {msg.role === 'user' ? (
                     <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
@@ -399,9 +399,9 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
             
             {isTyping && (
               <div className="flex justify-start">
-                <div className="soft3d-card  rounded-2xl rounded-tl-sm px-4 py-3  flex items-center space-x-2">
-                  <Loader2 size={16} className="animate-spin text-indigo-600" />
-                  <span className="text-xs text-gray-500 font-medium tracking-wide">AI đang suy nghĩ...</span>
+                <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl rounded-tl-sm px-4 py-3 flex items-center space-x-2 shadow-xs">
+                  <Loader2 size={16} className="animate-spin text-[var(--kg-primary)]" />
+                  <span className="text-xs text-[var(--kg-text-muted)] font-medium tracking-wide">AI đang suy nghĩ...</span>
                 </div>
               </div>
             )}
@@ -409,7 +409,7 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
           </div>
 
           {/* Input Area */}
-          <div className="p-3 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 rounded-b-2xl">
+          <div className="p-3 bg-[var(--kg-surface)] border-t border-[var(--kg-border)] md:rounded-b-2xl">
             <div className="flex items-end space-x-2 relative">
               <textarea
                 value={input}
@@ -421,20 +421,20 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
                   }
                 }}
                 placeholder="Hỏi AI về lịch làm, checklist, quy trình SOP..."
-                className="flex-1 max-h-32 min-h-[44px] paint-layer border-transparent focus:border-indigo-500 focus:bg-white dark:focus:bg-gray-900 rounded-xl px-4 py-3 text-sm resize-none transition-all dark:text-white"
+                className="flex-1 max-h-32 min-h-[44px] bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] focus:border-[var(--kg-primary)] focus:bg-[var(--kg-surface)] rounded-xl px-4 py-3 text-sm resize-none transition-all text-[var(--kg-text)]"
                 rows={1}
                 disabled={isTyping}
               />
               <button
                 onClick={handleSend}
                 disabled={!input.trim() || isTyping}
-                className="w-11 h-11 bg-indigo-600 text-white rounded-xl flex items-center justify-center hover:bg-indigo-700 transition disabled:opacity-50 disabled:hover:bg-indigo-600 flex-shrink-0"
+                className="w-11 h-11 bg-[var(--kg-primary)] text-white rounded-xl flex items-center justify-center hover:opacity-90 transition disabled:opacity-50 flex-shrink-0 shadow-xs"
               >
                 <Send size={18} className="ml-0.5" />
               </button>
             </div>
             <div className="text-center mt-2">
-              <span className="text-[9px] text-gray-400 font-medium">Powered by Llama 3.3 70B & Groq LPU™ / Gemini 2.5 Flash</span>
+              <span className="text-[9px] text-[var(--kg-text-muted)] font-medium">Powered by Llama 3.3 70B & Groq LPU™ / Gemini 2.5 Flash</span>
             </div>
           </div>
         </div>

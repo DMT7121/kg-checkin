@@ -42,12 +42,12 @@ export default function Timesheet() {
   if (!timesheetData || !timesheetData.year) {
     return (
       <div className="p-4 space-y-5 animate-slide-up pb-10">
-        <div className="soft3d-card !bg-gradient-to-br from-indigo-500 to-blue-600 p-6 text-white relative overflow-hidden border-opacity-30">
-          <div className="absolute right-0 top-0 opacity-10 text-8xl transform translate-x-4 -translate-y-4">
-            <CalendarClock size={100} />
+        <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-6 rounded-2xl relative overflow-hidden shadow-xs">
+          <div className="absolute right-0 top-0 opacity-5 text-[var(--kg-primary)] transform translate-x-4 -translate-y-4">
+            <CalendarClock size={120} />
           </div>
-          <h2 className="text-2xl font-extrabold mb-1 tracking-tight relative z-10">Tổng Hợp Công</h2>
-          <p className="text-indigo-100 font-medium opacity-90 relative z-10 text-sm">Chưa có dữ liệu</p>
+          <h2 className="text-xl sm:text-2xl font-black text-[var(--kg-text)] mb-1 tracking-tight relative z-10">Tổng Hợp Công</h2>
+          <p className="text-[var(--kg-text-muted)] font-bold relative z-10 text-xs sm:text-sm">Chưa có dữ liệu bảng công cho tháng này.</p>
         </div>
       </div>
     );
@@ -126,39 +126,43 @@ export default function Timesheet() {
         eyebrow="Báo cáo"
       />
 
-      <div className="soft3d-card p-5 rounded-2xl">
+      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-4 sm:p-5 rounded-2xl shadow-xs">
         {/* Thanh công cụ tìm kiếm và lọc */}
         <div className="flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-4 mb-6">
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex soft3d-bg p-1 rounded-xl">
+            <div className="flex bg-[var(--kg-surface-soft)] p-1 rounded-xl border border-[var(--kg-border)]/60">
               <button
+                type="button"
                 onClick={() => setViewMode('HOURS')}
-                className={`flex items-center px-4 py-2 rounded-lg text-sm font-bold transition-all ${viewMode === 'HOURS' ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 ' : 'text-gray-500'}`}
+                className={`flex items-center px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-black transition-all ${viewMode === 'HOURS' ? 'bg-[var(--kg-primary)] text-white shadow-xs' : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'}`}
               >
-                <Clock size={16} className="mr-2" /> Giờ làm
+                <Clock size={15} className="mr-1.5" /> Giờ làm
               </button>
               <button
+                type="button"
                 onClick={() => setViewMode('TIMESTAMPS')}
-                className={`flex items-center px-4 py-2 rounded-lg text-sm font-bold transition-all ${viewMode === 'TIMESTAMPS' ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 ' : 'text-gray-500'}`}
+                className={`flex items-center px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-black transition-all ${viewMode === 'TIMESTAMPS' ? 'bg-[var(--kg-primary)] text-white shadow-xs' : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'}`}
               >
-                <ListOrdered size={16} className="mr-2" /> Mốc thời gian
+                <ListOrdered size={15} className="mr-1.5" /> Mốc thời gian
               </button>
             </div>
 
             {/* Bộ chuyển đổi chế độ xem Lịch / Danh sách cho cá nhân */}
             {(selectedUser !== 'ALL' || !isAdmin) && (
-              <div className="flex soft3d-bg p-1 rounded-xl">
+              <div className="flex bg-[var(--kg-surface-soft)] p-1 rounded-xl border border-[var(--kg-border)]/60">
                 <button
+                  type="button"
                   onClick={() => setMobileDetailView('CALENDAR')}
-                  className={`flex items-center px-3 py-2 rounded-lg text-sm font-bold transition-all ${mobileDetailView === 'CALENDAR' ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 ' : 'text-gray-500'}`}
+                  className={`flex items-center px-3 py-1.5 rounded-lg text-xs sm:text-sm font-black transition-all ${mobileDetailView === 'CALENDAR' ? 'bg-[var(--kg-primary)] text-white shadow-xs' : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'}`}
                 >
-                  <Calendar size={16} className="mr-1.5" /> Lịch
+                  <Calendar size={15} className="mr-1.5" /> Lịch
                 </button>
                 <button
+                  type="button"
                   onClick={() => setMobileDetailView('LIST')}
-                  className={`flex items-center px-3 py-2 rounded-lg text-sm font-bold transition-all ${mobileDetailView === 'LIST' ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 ' : 'text-gray-500'}`}
+                  className={`flex items-center px-3 py-1.5 rounded-lg text-xs sm:text-sm font-black transition-all ${mobileDetailView === 'LIST' ? 'bg-[var(--kg-primary)] text-white shadow-xs' : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'}`}
                 >
-                  <List size={16} className="mr-1.5" /> Danh sách
+                  <List size={15} className="mr-1.5" /> Danh sách
                 </button>
               </div>
             )}
@@ -184,7 +188,7 @@ export default function Timesheet() {
                   setSelectedUser(e.target.value);
                   setSearchQuery(''); // Xóa tìm kiếm khi chuyển user
                 }}
-                className="soft3d-bg border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-sm min-h-[44px]"
+                className="bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-text)] rounded-xl px-4 py-2 focus:ring-2 focus:ring-[var(--kg-primary)] outline-none font-bold text-xs sm:text-sm min-h-[44px]"
               >
                 <option value="ALL">Tất cả nhân viên</option>
                 {users.map(u => (
@@ -199,14 +203,14 @@ export default function Timesheet() {
         {selectedUser === 'ALL' && isAdmin ? (
           <>
             {/* Giao diện Desktop: Bảng ngang cuộn */}
-            <div className="hidden md:block overflow-x-auto w-full rounded-xl border border-gray-200 dark:border-gray-700 custom-scrollbar">
-              <table className="w-full text-sm text-left">
-                <thead className="soft3d-bg/50 text-gray-500 dark:text-gray-400 uppercase text-xs">
+            <div className="hidden md:block overflow-x-auto w-full rounded-2xl border border-[var(--kg-border)] custom-scrollbar">
+              <table className="w-full text-xs sm:text-sm text-left">
+                <thead className="bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] uppercase text-[10px] sm:text-xs">
                   <tr>
-                    <th className="px-4 py-3 font-bold sticky left-0 soft3d-bg z-10 border-b border-r dark:border-gray-700 min-w-[150px]">
+                    <th className="px-4 py-3 font-black sticky left-0 bg-[var(--kg-surface-soft)] z-10 border-b border-r border-[var(--kg-border)] min-w-[150px]">
                       Nhân viên
                     </th>
-                    <th className="px-4 py-3 font-extrabold sticky left-[150px] bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 z-10 border-b border-r dark:border-gray-700 min-w-[100px] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                    <th className="px-4 py-3 font-black sticky left-[150px] bg-[var(--kg-surface)] text-[var(--kg-primary)] dark:text-cyan-300 z-10 border-b border-r border-[var(--kg-border)] min-w-[100px] text-center font-mono shadow-[2px_0_5px_-2px_rgba(0,0,0,0.06)]">
                       Tổng giờ
                     </th>
                     {days.map(d => {
@@ -215,10 +219,10 @@ export default function Timesheet() {
                       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
                       const dayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
                       return (
-                        <th key={d} className={`px-2 py-2 font-bold text-center border-b border-r dark:border-gray-700 min-w-[70px] ${isWeekend ? 'bg-orange-50/50 dark:bg-orange-900/10 text-orange-600' : ''}`}>
-                          <div className="flex flex-col items-center">
-                            <span className="text-[13px]">{`${d.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}`}</span>
-                            <span className="text-[10px] font-normal opacity-70 mt-0.5 uppercase">{SHORT_DAY_NAMES[dayIndex]}</span>
+                        <th key={d} className={`px-2 py-2 font-black text-center border-b border-r border-[var(--kg-border)] min-w-[70px] ${isWeekend ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400' : ''}`}>
+                          <div className="flex flex-col items-center font-mono">
+                            <span className="text-[12px] font-bold">{`${d.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}`}</span>
+                            <span className="text-[9px] font-semibold opacity-70 mt-0.5 uppercase tracking-wider">{SHORT_DAY_NAMES[dayIndex]}</span>
                           </div>
                         </th>
                       );
@@ -228,7 +232,7 @@ export default function Timesheet() {
                 <tbody>
                   {displayNames.length === 0 ? (
                     <tr>
-                      <td colSpan={days.length + 2} className="text-center py-8 text-gray-400">
+                      <td colSpan={days.length + 2} className="text-center py-8 text-[var(--kg-text-muted)] font-bold">
                         Không tìm thấy nhân viên phù hợp
                       </td>
                     </tr>
@@ -242,25 +246,25 @@ export default function Timesheet() {
                       }, 0);
                       
                       return (
-                        <tr key={name} className="border-b dark:border-gray-700 hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 transition-colors">
-                          <td className="px-4 py-3 font-bold text-gray-800 dark:text-gray-200 sticky left-0 soft3d-card border-r dark:border-gray-700 z-10">
+                        <tr key={name} className="border-b border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]/50 transition-colors">
+                          <td className="px-4 py-3 font-bold text-[var(--kg-text)] sticky left-0 bg-[var(--kg-surface)] border-r border-[var(--kg-border)] z-10">
                             {name}
                           </td>
-                          <td className="px-4 py-3 font-black text-center text-indigo-600 dark:text-indigo-400 sticky left-[150px] bg-indigo-50/50 dark:bg-indigo-900/20 border-r dark:border-gray-700 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
-                            {totalMonthHours.toFixed(2)}
+                          <td className="px-4 py-3 font-black text-center font-mono text-[var(--kg-primary)] dark:text-cyan-300 sticky left-[150px] bg-[var(--kg-surface-soft)] border-r border-[var(--kg-border)] z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.06)]">
+                            {totalMonthHours.toFixed(2)}h
                           </td>
                           {days.map(d => {
                             const dateStr = `${d.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
                             const records = userDates[dateStr] || [];
                             const { hours, text } = calculateCell(records);
                             return (
-                              <td key={d} className="px-2 py-2 border-r dark:border-gray-700 text-center relative group">
+                              <td key={d} className="px-2 py-2 border-r border-[var(--kg-border)] text-center relative group">
                                 {(hours > 0 || text !== '') ? (
-                                  <div className="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 py-1 px-1.5 rounded-lg text-xs font-bold mx-auto w-fit whitespace-pre-line">
+                                  <div className="bg-[var(--kg-primary)]/10 text-[var(--kg-primary)] dark:bg-[var(--kg-primary)]/30 dark:text-cyan-200 border border-[var(--kg-primary)]/20 py-1 px-1.5 rounded-lg text-xs font-mono font-bold mx-auto w-fit whitespace-pre-line">
                                     {viewMode === 'HOURS' ? (hours > 0 ? hours.toFixed(2) : '?') : text}
                                   </div>
                                 ) : (
-                                  <div className="text-gray-300 dark:text-gray-600 text-xs">-</div>
+                                  <div className="text-[var(--kg-text-muted)] opacity-40 text-xs font-mono">-</div>
                                 )}
                               </td>
                             );
@@ -301,14 +305,14 @@ export default function Timesheet() {
                     : nameParts[0].substring(0, 2).toUpperCase();
 
                   return (
-                    <KgCard key={name} className="flex items-center justify-between p-4 border border-gray-100 dark:border-gray-800">
+                    <KgCard key={name} className="flex items-center justify-between p-4 border border-[var(--kg-border)] bg-[var(--kg-surface)]">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center text-xs font-black shadow-sm flex-shrink-0">
+                        <div className="w-10 h-10 rounded-xl bg-[var(--kg-primary)] text-white flex items-center justify-center text-xs font-black shadow-xs flex-shrink-0">
                           {initials}
                         </div>
                         <div>
-                          <h4 className="font-extrabold text-gray-800 dark:text-gray-100 text-sm leading-snug">{name}</h4>
-                          <span className="text-[11px] text-gray-400 block font-medium mt-0.5">
+                          <h4 className="font-extrabold text-[var(--kg-text)] text-sm leading-snug">{name}</h4>
+                          <span className="text-[11px] text-[var(--kg-text-muted)] block font-medium mt-0.5">
                             {workDaysCount} ngày công • Tháng {month}/{year}
                           </span>
                         </div>
@@ -316,8 +320,8 @@ export default function Timesheet() {
                       
                       <div className="flex items-center gap-3">
                         <div className="text-right">
-                          <span className="text-[10px] text-gray-400 font-bold block uppercase tracking-wider">Tổng giờ</span>
-                          <span className="text-sm font-black text-indigo-600 dark:text-indigo-400">{totalMonthHours.toFixed(2)}h</span>
+                          <span className="text-[10px] text-[var(--kg-text-muted)] font-bold block uppercase tracking-wider">Tổng giờ</span>
+                          <span className="text-sm font-mono font-black text-[var(--kg-primary)] dark:text-cyan-300">{totalMonthHours.toFixed(2)}h</span>
                         </div>
                         <KgButton
                           size="sm"
@@ -379,13 +383,13 @@ export default function Timesheet() {
               return (
                 <div>
                   {/* Banner tổng hợp giờ làm */}
-                  <div className="mb-4 bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                  <div className="mb-4 bg-[var(--kg-surface-soft)] p-4 rounded-2xl border border-[var(--kg-border)] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shadow-xs">
                     <div>
-                      <div className="text-xs text-indigo-600 dark:text-indigo-400 font-extrabold uppercase tracking-wider">
+                      <div className="text-xs text-[var(--kg-accent)] font-black uppercase tracking-wider">
                         {targetUser}
                       </div>
-                      <div className="text-xl font-black text-indigo-700 dark:text-indigo-300 mt-1">
-                        {totalMonthHours.toFixed(2)} <span className="text-sm font-medium">giờ làm tháng {month}</span>
+                      <div className="text-xl sm:text-2xl font-black text-[var(--kg-text)] mt-1 font-mono">
+                        {totalMonthHours.toFixed(2)} <span className="text-xs sm:text-sm font-bold font-sans text-[var(--kg-text-muted)]">giờ làm tháng {month}/{year}</span>
                       </div>
                     </div>
                     
@@ -459,13 +463,13 @@ export default function Timesheet() {
                             const hasMissingCheckout = item.text.includes('?');
                             
                             // Xác định màu sắc ngày
-                            let dayBg = 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400';
+                            let dayBg = 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)]';
                             if (item.isToday) {
-                              dayBg = 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20';
+                              dayBg = 'bg-[var(--kg-primary)] text-white shadow-xs';
                             } else if (item.isWeekend) {
-                              dayBg = 'bg-orange-100 text-orange-600 dark:bg-orange-950/30 dark:text-orange-400';
+                              dayBg = 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20';
                             } else if (item.hasData) {
-                              dayBg = 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/30 dark:text-indigo-400';
+                              dayBg = 'bg-[var(--kg-surface-soft)] text-[var(--kg-primary)] dark:text-cyan-300 border border-[var(--kg-border)]';
                             }
 
                             return (
@@ -473,15 +477,15 @@ export default function Timesheet() {
                                 key={item.day}
                                 className={`flex items-center justify-between p-3 rounded-2xl border transition-all ${
                                   item.isToday
-                                    ? 'border-indigo-400 bg-indigo-50/20 dark:bg-indigo-900/10'
-                                    : 'border-gray-100 bg-white/50 dark:border-gray-800 dark:bg-gray-900/40'
+                                    ? 'border-[var(--kg-accent)]/50 bg-[var(--kg-accent-soft)]/20'
+                                    : 'border-[var(--kg-border)] bg-[var(--kg-surface)]'
                                 }`}
                               >
                                 {/* Cột 1: Ngày tháng */}
                                 <div className="flex items-center gap-3">
-                                  <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-bold text-center flex-shrink-0 ${dayBg}`}>
-                                    <span className="text-sm font-black leading-none">{item.day.toString().padStart(2, '0')}</span>
-                                    <span className="text-[9px] font-bold uppercase mt-1 tracking-wider">{item.dayLabel}</span>
+                                  <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-black text-center flex-shrink-0 ${dayBg}`}>
+                                    <span className="text-sm font-mono leading-none">{item.day.toString().padStart(2, '0')}</span>
+                                    <span className="text-[9px] uppercase mt-1 tracking-wider">{item.dayLabel}</span>
                                   </div>
 
                                   {/* Cột 2: Ca làm & Trạng thái */}
@@ -491,17 +495,17 @@ export default function Timesheet() {
                                         shifts.map((s, idx) => (
                                           <span
                                             key={idx}
-                                            className={`px-2 py-0.5 rounded-lg text-xs font-bold ${
+                                            className={`px-2.5 py-0.5 rounded-lg text-xs font-mono font-bold ${
                                               s.includes('?')
-                                                ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 animate-pulse'
-                                                : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400'
+                                                ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 animate-pulse'
+                                                : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text)] border border-[var(--kg-border)]'
                                             }`}
                                           >
                                             {s}
                                           </span>
                                         ))
                                       ) : (
-                                        <span className="text-xs text-gray-400 font-medium">Nghỉ</span>
+                                        <span className="text-xs text-[var(--kg-text-muted)] font-medium">Nghỉ</span>
                                       )}
                                     </div>
                                     
@@ -518,13 +522,13 @@ export default function Timesheet() {
                                 <div className="text-right flex-shrink-0 pl-2">
                                   {item.hasData ? (
                                     <div>
-                                      <span className="text-sm font-black text-indigo-600 dark:text-indigo-400">
+                                      <span className="text-sm font-mono font-black text-[var(--kg-primary)] dark:text-cyan-300">
                                         {item.hours > 0 ? item.hours.toFixed(2) : '?'}
                                       </span>
-                                      <span className="text-[10px] text-gray-400 block font-medium">giờ</span>
+                                      <span className="text-[10px] text-[var(--kg-text-muted)] block font-medium">giờ</span>
                                     </div>
                                   ) : (
-                                    <span className="text-gray-300 dark:text-gray-700 font-medium">-</span>
+                                    <span className="text-[var(--kg-text-muted)] opacity-30 font-medium">-</span>
                                   )}
                                 </div>
                               </div>

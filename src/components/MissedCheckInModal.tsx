@@ -448,7 +448,7 @@ export default function MissedCheckInModal({
                     <button
                       type="button"
                       onClick={() => handleCopyZalo(submittedClaim)}
-                      className="w-full py-3.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 text-white rounded-2xl font-black text-sm shadow-md transition active:scale-[0.98] flex items-center justify-center gap-2"
+                      className="w-full py-3.5 px-4 bg-[var(--kg-primary)] hover:opacity-90 text-white rounded-2xl font-black text-sm shadow-xs transition active:scale-[0.98] flex items-center justify-center gap-2"
                     >
                       {copiedZalo ? <Check size={18} className="text-emerald-300" /> : <Copy size={18} />}
                       <span>{copiedZalo ? '✓ ĐÃ SAO CHÉP VÀO BỘ NHỚ TẠM!' : '📋 Sao Chép Nội Dung Gửi Nhóm Zalo'}</span>
@@ -636,7 +636,7 @@ export default function MissedCheckInModal({
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="w-full py-3.5 px-4 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-white rounded-2xl font-black text-sm shadow-md transition active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+                      className="w-full py-3.5 px-4 bg-[var(--kg-primary)] hover:opacity-90 text-white rounded-2xl font-black text-sm shadow-xs transition active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
                     >
                       {isSubmitting ? (
                         <>
@@ -711,7 +711,7 @@ export default function MissedCheckInModal({
                 <button
                   type="button"
                   onClick={() => setActiveTab('create')}
-                  className="w-full py-3 px-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl text-xs font-black shadow-sm transition active:scale-95 text-center"
+                  className="w-full py-3 px-4 bg-[var(--kg-primary)] hover:opacity-90 text-white rounded-xl text-xs font-black shadow-xs transition active:scale-95 text-center"
                 >
                   Bắt đầu tạo đơn ngay →
                 </button>
@@ -907,7 +907,7 @@ export default function MissedCheckInModal({
                             <button
                               type="button"
                               onClick={() => handleApprove(claim)}
-                              className="flex-1 py-2 px-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 text-white rounded-xl text-xs font-black shadow-xs transition active:scale-95 flex items-center justify-center gap-1.5"
+                              className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-xs transition active:scale-95 flex items-center justify-center gap-1.5"
                             >
                               <CheckCircle2 size={14} />
                               <span>DUYỆT & GHI CÔNG</span>

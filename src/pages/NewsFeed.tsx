@@ -206,9 +206,9 @@ export default function NewsFeed() {
               type="button"
               onClick={handleAddPost}
               disabled={isPosting || uploadingImage || (!newPostContent.trim() && !newPostImagePreview)}
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black py-2.5 px-5 rounded-xl transition-all shadow-md active:scale-95 flex items-center text-xs sm:text-sm disabled:opacity-50"
+              className="bg-[var(--kg-primary)] hover:brightness-110 text-white font-black py-2.5 px-5 rounded-xl transition-all shadow-xs active:scale-98 flex items-center text-xs sm:text-sm disabled:opacity-50"
             >
-              {isPosting ? <Loader2 size={15} className="animate-spin mr-1.5" /> : <Send size={15} className="mr-1.5" />}
+              {isPosting ? <Loader2 size={15} className="animate-spin mr-1.5" /> : <Send size={15} className="mr-1.5 text-[var(--kg-accent)]" />}
               Đăng tin
             </button>
           </div>

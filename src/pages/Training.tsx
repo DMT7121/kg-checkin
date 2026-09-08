@@ -497,30 +497,30 @@ export default function Training() {
       />
 
       {/* Tab Buttons */}
-      <div className="flex gap-2 overflow-x-auto hide-scrollbar mb-6 p-1.5 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-sm">
+      <div className="flex gap-2 overflow-x-auto hide-scrollbar mb-6 p-1.5 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-xs">
           <button
             type="button"
             onClick={() => setActiveTab('sop')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black whitespace-nowrap transition-all active:scale-95 flex-shrink-0 select-none ${
               activeTab === 'sop'
-                ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 text-white shadow-lg shadow-blue-500/30 ring-2 ring-blue-400/40 scale-[1.02]'
-                : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)] opacity-75'
+                ? 'bg-[var(--kg-primary)] text-white shadow-xs scale-[1.01]'
+                : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
             }`}
           >
             <BookMarked size={15} /> Tra cứu SOP
-            {activeTab === 'sop' && <span className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_6px_white] animate-pulse" />}
+            {activeTab === 'sop' && <span className="w-1.5 h-1.5 rounded-full bg-[var(--kg-accent)] ml-0.5" />}
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('quiz')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black whitespace-nowrap transition-all active:scale-95 relative flex-shrink-0 select-none ${
               activeTab === 'quiz'
-                ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 text-white shadow-lg shadow-blue-500/30 ring-2 ring-blue-400/40 scale-[1.02]'
-                : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)] opacity-75'
+                ? 'bg-[var(--kg-primary)] text-white shadow-xs scale-[1.01]'
+                : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
             }`}
           >
             <UserCheck size={15} /> Kiểm tra năng lực
-            {activeTab === 'quiz' && <span className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_6px_white] animate-pulse" />}
+            {activeTab === 'quiz' && <span className="w-1.5 h-1.5 rounded-full bg-[var(--kg-accent)] ml-0.5" />}
             {totalLessons > 0 && completedCount < totalLessons && activeTab !== 'quiz' && (
               <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
@@ -533,12 +533,12 @@ export default function Training() {
             onClick={() => setActiveTab('cukcuk')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black whitespace-nowrap transition-all active:scale-95 flex-shrink-0 select-none ${
               activeTab === 'cukcuk'
-                ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 text-white shadow-lg shadow-blue-500/30 ring-2 ring-blue-400/40 scale-[1.02]'
-                : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)] opacity-75'
+                ? 'bg-[var(--kg-primary)] text-white shadow-xs scale-[1.01]'
+                : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
             }`}
           >
             <Tablet size={15} /> Hướng dẫn CUKCUK
-            {activeTab === 'cukcuk' && <span className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_6px_white] animate-pulse" />}
+            {activeTab === 'cukcuk' && <span className="w-1.5 h-1.5 rounded-full bg-[var(--kg-accent)] ml-0.5" />}
           </button>
       </div>
 
@@ -570,16 +570,16 @@ export default function Training() {
               variant="primary"
               onClick={() => store.setAiOpen(true)}
               icon={Sparkles}
-              className="bg-gradient-to-r from-violet-600 to-indigo-600 border-none text-white hover:from-violet-700 hover:to-indigo-700 h-[44px]"
+              className="bg-[var(--kg-primary)] border-none text-white hover:opacity-90 h-[44px] shadow-xs"
             >
               King&apos;s Grill AI Assistant
             </KgButton>
           </div>
 
-          <KgCard className="p-3 md:p-4 space-y-4 bg-gradient-to-br from-white to-blue-50/60 dark:from-[var(--kg-surface)] dark:to-blue-950/20">
+          <KgCard className="p-3 md:p-4 space-y-4 bg-[var(--kg-surface)] border border-[var(--kg-border)] shadow-xs">
             <div>
               <div className="flex items-center gap-2 mb-2.5">
-                <Zap size={15} className="text-amber-500" />
+                <Zap size={15} className="text-[var(--kg-accent)]" />
                 <h3 className="text-xs font-extrabold uppercase tracking-wider text-[var(--kg-text)]">
                   Tra cứu nhanh theo tình huống
                 </h3>
