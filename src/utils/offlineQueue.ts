@@ -2,6 +2,7 @@
 // offlineQueue.ts - Offline Queue & Resilient Sync
 // ============================================
 import { callApi } from '../services/api';
+import { useAppStore } from '../store/useAppStore';
 
 export interface QueuedTask {
   id: string;
@@ -114,6 +115,12 @@ export async function processQueue(): Promise<void> {
 
         if (res && res.ok !== false) {
           // Success, do not keep in queue
+          if (task.action === 'UPLOAD_CHECKIN_IMAGE') {
+            const driveUrl = res.data?.url || res.data?.imageUrl;
+            if (driveUrl) {
+              useAppStore.getState().updateLogImage(task.payload.timeISO || '', driveUrl);
+            }
+          }
           console.log(`[OfflineQueue] Successfully processed task: ${task.action} (${task.id})`);
         } else {
           // If server explicitly returned an error or task reached limit

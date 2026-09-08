@@ -291,6 +291,7 @@ interface AppState {
   prependLog: (log: LogEntry) => void;
   removeFirstLog: () => void;
   updateLogType: (time: string, newType: string, reason?: string) => void;
+  updateLogImage: (timeOrIso: string, imageUrl: string) => void;
   setStats: (stats: AppState['stats']) => void;
   setUsers: (users: User[]) => void;
   setScheduleRegistered: (v: boolean) => void;
@@ -481,13 +482,46 @@ export const useAppStore = create<AppState>((set) => ({
   setCapturedImage: (capturedImage) => set({ capturedImage }),
   setCapturedTime: (capturedTime) => set({ capturedTime }),
   setGps: (partial) => set((s) => ({ gps: { ...s.gps, ...partial } })),
-  setLogs: (logs) => set({ logs }),
+  setLogs: (logs) =>
+    set((s) => {
+      // Protect and merge images: Never lose locally captured or pending images when fetching logs from sheet
+      const mergedLogs = logs.map((newLog) => {
+        let finalImage = newLog.image;
+        if (!finalImage || finalImage === 'Đang tải ảnh...' || finalImage === 'PENDING') {
+          const existing = s.logs.find(
+            (l) =>
+              (l.time === newLog.time || l.time.replace(/^'/, '') === newLog.time.replace(/^'/, '')) &&
+              l.fullname.trim().toLowerCase() === newLog.fullname.trim().toLowerCase()
+          );
+          if (existing?.image && existing.image !== 'Đang tải ảnh...' && existing.image !== 'PENDING') {
+            finalImage = existing.image;
+          }
+        }
+        return finalImage !== newLog.image ? { ...newLog, image: finalImage } : newLog;
+      });
+      localStorage.setItem('kg_logs', JSON.stringify(mergedLogs));
+      return { logs: mergedLogs };
+    }),
   prependLog: (log) => set((s) => {
     const updatedLogs = [log, ...s.logs];
     localStorage.setItem('kg_logs', JSON.stringify(updatedLogs));
     return { logs: updatedLogs };
   }),
   removeFirstLog: () => set((s) => ({ logs: s.logs.slice(1) })),
+  updateLogImage: (timeOrIso, imageUrl) =>
+    set((s) => {
+      if (!imageUrl) return s;
+      const updatedLogs = s.logs.map((l) => {
+        // Match by time or if the log image was pending / base64
+        const matchesTime = l.time === timeOrIso || l.time.replace(/^'/, '') === timeOrIso.replace(/^'/, '');
+        if (matchesTime || (l.image && (l.image.startsWith('data:image') || l.image === 'Đang tải ảnh...' || l.image === 'PENDING'))) {
+          return { ...l, image: imageUrl };
+        }
+        return l;
+      });
+      localStorage.setItem('kg_logs', JSON.stringify(updatedLogs));
+      return { logs: updatedLogs };
+    }),
   updateLogType: (time, newType, reason) =>
     set((s) => {
       const updatedLogs = s.logs.map((l) => {

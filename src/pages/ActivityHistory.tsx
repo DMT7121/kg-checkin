@@ -183,12 +183,22 @@ export default function ActivityHistory() {
 
       {/* Action buttons */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <button onClick={openTimesheet} className="soft3d-card w-full !bg-gradient-to-r from-green-500 to-green-600 text-white font-bold py-3.5 hover:shadow-md transition-all transform active:scale-95 flex items-center justify-center touch-manipulation border border-green-400 border-opacity-30 rounded-2xl text-xs sm:text-sm">
-          <FileSpreadsheet size={18} className="mr-2" /> XEM SHEET ✔️CHẤM CÔNG GỐC
+        <button
+          type="button"
+          onClick={openTimesheet}
+          className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-3.5 px-4 shadow-sm hover:shadow-md transition-all transform active:scale-95 flex items-center justify-center touch-manipulation border border-emerald-400/30 rounded-2xl text-xs sm:text-sm"
+        >
+          <FileSpreadsheet size={18} className="mr-2 flex-shrink-0" />
+          <span>XEM SHEET ✔️CHẤM CÔNG GỐC</span>
         </button>
 
-        <button onClick={analyzeMyProductivity} className="soft3d-card w-full !bg-gradient-to-r from-blue-500 to-cyan-600 text-white font-bold py-3.5 hover:shadow-md transition-all transform active:scale-95 flex items-center justify-center touch-manipulation border border-cyan-400 border-opacity-30 rounded-2xl text-xs sm:text-sm">
-          <Bot size={18} className="mr-2" /> ✨ AI ĐÁNH GIÁ NĂNG SUẤT
+        <button
+          type="button"
+          onClick={analyzeMyProductivity}
+          className="w-full bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-bold py-3.5 px-4 shadow-sm hover:shadow-md transition-all transform active:scale-95 flex items-center justify-center touch-manipulation border border-sky-400/30 rounded-2xl text-xs sm:text-sm"
+        >
+          <Bot size={18} className="mr-2 flex-shrink-0" />
+          <span>✨ AI ĐÁNH GIÁ NĂNG SUẤT</span>
         </button>
       </div>
 
@@ -313,28 +323,38 @@ export default function ActivityHistory() {
                   </div>
 
                   {/* Actions right on card */}
-                  <div className="flex items-center gap-2 self-end sm:self-center">
+                  <div className="flex items-center gap-2 self-end sm:self-center flex-wrap">
                     {canEdit && (
                       <button
                         type="button"
                         onClick={() => handleOpenEdit(log)}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-ocean-500/10 hover:bg-ocean-500/20 text-ocean-600 dark:text-ocean-400 border border-ocean-500/20 text-xs font-black transition active:scale-95 touch-manipulation"
-                        title="Sửa loại chấm công nếu bấm nhầm"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 text-xs font-bold transition-all active:scale-95 shadow-xs touch-manipulation"
+                        title="Đổi giữa Vào ca và Ra ca nếu ghi nhận nhầm"
                       >
-                        <Edit3 size={12} />
-                        <span>Sửa loại</span>
+                        <Edit3 size={13} className="text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                        <span>Sửa loại ca</span>
                       </button>
                     )}
 
-                    {log.image && (
+                    {log.image && log.image !== 'Đang tải ảnh...' && log.image !== 'PENDING' ? (
                       <button
+                        type="button"
                         onClick={() => openPreview(log.image!)}
-                        className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-ocean-600 dark:text-ocean-400 hover:bg-ocean-100 dark:hover:bg-ocean-900 transition touch-manipulation"
-                        title="Xem ảnh minh chứng"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-900 dark:bg-sky-950/40 dark:text-sky-300 border border-sky-200 dark:border-sky-800/60 text-xs font-bold transition-all active:scale-95 shadow-xs touch-manipulation"
+                        title="Xem ảnh minh chứng sắc nét tức thì"
                       >
-                        <ImageIcon size={18} />
+                        <ImageIcon size={14} className="text-sky-600 dark:text-sky-400 flex-shrink-0" />
+                        <span>Hình ảnh</span>
                       </button>
-                    )}
+                    ) : (log.image === 'Đang tải ảnh...' || log.image === 'PENDING') ? (
+                      <div
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs font-medium border border-slate-200 dark:border-slate-700/60"
+                        title="Ảnh đang được đồng bộ lên Google Drive"
+                      >
+                        <Loader2 size={12} className="animate-spin text-sky-500" />
+                        <span>Đang lưu ảnh</span>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </div>

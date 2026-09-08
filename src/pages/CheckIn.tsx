@@ -105,7 +105,7 @@ export default function CheckIn() {
 
   useEffect(() => {
     const img = new Image();
-    img.src = '/android-chrome-192x192.png?v=3';
+    img.src = '/android-chrome-192x192.png?v=4';
     img.onload = () => {
       logoImgRef.current = img;
     };
@@ -116,6 +116,9 @@ export default function CheckIn() {
         logoImgRef.current = fallback;
       };
     };
+    if (img.complete && img.naturalWidth > 0) {
+      logoImgRef.current = img;
+    }
   }, []);
 
   const kalmanLatRef = useRef(new KalmanFilter(20));
@@ -482,33 +485,50 @@ export default function CheckIn() {
     }
     const securityHash = `KG#${Math.abs(hashVal).toString(36).toUpperCase().padStart(6, '0')}`;
 
-    // --- HEADER SECTION (y = cardY + 16 to cardY + 56) ---
+    // --- HEADER SECTION (y = cardY + 16 to cardY + 62) ---
     const headerTop = cardY + 16;
-    const logoSize = 42;
+    const logoSize = 44;
     const logoX = contentX;
     const logoY = headerTop;
 
-    // Logo backdrop rounded container
+    // Logo backdrop rounded container - Luminous White Badge that POPS out from the dark card
     ctx.save();
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+    // Vibrant radiant outer glow
+    ctx.shadowColor = 'rgba(56, 189, 248, 0.75)';
+    ctx.shadowBlur = 12;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+
+    // Crisp white badge background with subtle bevel
+    const badgeGrad = ctx.createLinearGradient(logoX, logoY, logoX, logoY + logoSize);
+    badgeGrad.addColorStop(0, '#FFFFFF');
+    badgeGrad.addColorStop(1, '#F1F5F9');
+    ctx.fillStyle = badgeGrad;
     ctx.beginPath();
-    drawRoundRect(ctx, logoX, logoY, logoSize, logoSize, 10);
+    drawRoundRect(ctx, logoX, logoY, logoSize, logoSize, 12);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-    ctx.lineWidth = 1;
+
+    // High-visibility border ring
+    ctx.strokeStyle = '#38BDF8';
+    ctx.lineWidth = 2;
     ctx.stroke();
+
+    // Reset shadow for crisp image rendering inside
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
 
     // Draw webapp logo image
     if (logoImgRef.current && logoImgRef.current.complete && logoImgRef.current.naturalWidth > 0) {
       ctx.save();
       ctx.beginPath();
-      drawRoundRect(ctx, logoX + 3, logoY + 3, logoSize - 6, logoSize - 6, 8);
+      drawRoundRect(ctx, logoX + 2, logoY + 2, logoSize - 4, logoSize - 4, 10);
       ctx.clip();
-      ctx.drawImage(logoImgRef.current, logoX + 3, logoY + 3, logoSize - 6, logoSize - 6);
+      ctx.drawImage(logoImgRef.current, logoX + 2, logoY + 2, logoSize - 4, logoSize - 4);
       ctx.restore();
     } else {
-      ctx.fillStyle = '#38BDF8';
-      ctx.font = 'bold 18px system-ui, sans-serif';
+      // Vector fallback with sharp King's Grill emblem
+      ctx.fillStyle = '#0369A1';
+      ctx.font = '900 18px "Plus Jakarta Sans", system-ui, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText('KG', logoX + logoSize / 2, logoY + logoSize / 2);
@@ -519,13 +539,13 @@ export default function CheckIn() {
     const brandTextX = logoX + logoSize + 12;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.font = 'bold 19px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.font = '900 19px "Plus Jakarta Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillText("KING'S GRILL", brandTextX, headerTop + 2);
+    ctx.fillText("KING'S GRILL", brandTextX, headerTop + 3);
 
-    ctx.font = 'bold 11px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.font = '700 11px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.fillStyle = '#94A3B8'; // Slate 400
-    ctx.fillText("HỆ THỐNG CHỨNG THỰC CHẤM CÔNG GPS • KG-OS", brandTextX, headerTop + 24);
+    ctx.fillText("HỆ THỐNG CHỨNG THỰC CHẤM CÔNG GPS • KG-OS", brandTextX, headerTop + 26);
 
     // Right Header: Status Badge Pill
     const upperType = typeToStamp.toUpperCase();

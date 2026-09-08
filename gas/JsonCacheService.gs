@@ -351,6 +351,23 @@ var JsonCacheService = (function() {
     return !isNaN(d2.getTime()) ? d2.getTime() : 0;
   }
 
+  function _resolveLogImageUrl(rowCol6, rowJson) {
+    if (rowJson && rowJson.linkAnh && rowJson.linkAnh.toString().indexOf('http') >= 0) {
+      return rowJson.linkAnh.toString().trim();
+    }
+    if (!rowCol6) return '';
+    var s = rowCol6.toString().trim();
+    if (s.indexOf('http') >= 0) {
+      var match = s.match(/(https?:\/\/[^\s"'<>\)]+)/);
+      if (match && match[1]) return match[1];
+      return s;
+    }
+    if (s.indexOf('Đang tải ảnh') >= 0 || s === 'PENDING') {
+      return 'Đang tải ảnh...';
+    }
+    return '';
+  }
+
   /**
    * Rebuilds and caches user-specific data.
    */
@@ -399,7 +416,7 @@ var JsonCacheService = (function() {
             location: row[3] ? row[3].toString() : '', 
             status: statusVal, 
             distance: row[5] ? row[5].toString() : '', 
-            image: row[6] ? row[6].toString() : '',
+            image: _resolveLogImageUrl(row[6], rowJson),
             note: note,
             isCorrected: !!(rowJson && rowJson.isCorrected),
             editReason: rowJson && rowJson.correctionReason ? rowJson.correctionReason : '',
@@ -620,7 +637,7 @@ var JsonCacheService = (function() {
           location: row[3] ? row[3].toString() : '', 
           status: statusVal, 
           distance: row[5] ? row[5].toString() : '', 
-          image: row[6] ? row[6].toString() : '',
+          image: _resolveLogImageUrl(row[6], rowJson),
           note: note,
           isCorrected: !!(rowJson && rowJson.isCorrected),
           editReason: rowJson && rowJson.correctionReason ? rowJson.correctionReason : '',
