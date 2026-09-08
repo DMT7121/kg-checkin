@@ -351,13 +351,19 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
                       </h2>
                     </div>
                   </div>
-                  <div className="text-right flex-shrink-0 self-start">
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-black/25 backdrop-blur-md border border-white/10 text-[11px] font-mono font-bold text-white shadow-xs whitespace-nowrap">
-                      <Clock size={11} className="text-amber-300 flex-shrink-0" />
-                      <span>{store.currentTime ? store.currentTime.split(' ').pop() : ''}</span>
-                      <span className="hidden sm:inline opacity-70 text-[10px] ml-0.5">
-                        {store.currentTime ? store.currentTime.split(' ')[0] : ''}
+                  <div className="text-right flex-shrink-0 flex flex-col items-end self-start">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md border border-white/20 shadow-xs">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)] flex-shrink-0" />
+                      <span className="text-xs sm:text-sm font-black font-mono tracking-wider text-white leading-none">
+                        {store.currentTime ? store.currentTime.split(' ').pop() : `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}`}
                       </span>
+                    </div>
+                    <span className="text-[10px] sm:text-[10.5px] font-bold text-white/75 mt-1 tracking-tight block text-right">
+                      {(() => {
+                        const dayNames = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+                        const now = new Date();
+                        return `${dayNames[now.getDay()]}, ${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}`;
+                      })()}
                     </span>
                   </div>
                 </div>
