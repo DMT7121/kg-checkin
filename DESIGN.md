@@ -21,23 +21,24 @@ This document is the **Single Source of Truth** for the visual architecture, tok
 
 | Token | Light Mode Value | Dark Mode Value | Usage & Meaning |
 |---|---|---|---|
-| `--kg-bg` | `#F8F3EA` (Warm Canvas) | `#061B2B` (Deep Navy) | Main canvas background |
-| `--kg-surface` | `#FFFFFF` | `#0E273C` | Primary cards, panels, sidebars |
-| `--kg-surface-soft`| `#FBF7F0` | `#122F48` | Secondary nested panels, table headers |
-| `--kg-primary` | `#062B49` (Navy Brand) | `#0B3A5F` | Main brand color, primary buttons |
-| `--kg-primary-hover` | `#0B3A5F` | `#104C7B` | Primary button hover / active state |
-| `--kg-accent` | `#E85D4A` (Coral Red) | `#E85D4A` | Accent indicators, check-in radar ping |
-| `--kg-accent-soft` | `#FFF0ED` | `rgba(232, 93, 74, 0.15)` | Coral badges, accent highlights |
-| `--kg-success` | `#4F8A5B` (Forest Green)| `#5F9D6B` | Valid check-in, approved shift, on-time |
-| `--kg-success-soft`| `#EEF7F0` | `rgba(95, 157, 107, 0.15)` | Success badges, verified tags |
-| `--kg-warning` | `#D8A23A` (Warm Amber) | `#E2B24C` | Pending approval, late check-in, note |
-| `--kg-warning-soft`| `#FFF7E4` | `rgba(226, 178, 76, 0.15)` | Warning badges, pending tags |
-| `--kg-danger` | `#C94335` (Crimson) | `#D8584B` | Missed check-in, rejected, error, delete |
-| `--kg-danger-soft` | `#FFF0EE` | `rgba(216, 88, 75, 0.15)` | Error banners, critical alerts |
-| `--kg-border` | `#E8DED1` | `#1E3F57` | Subtle 1px borders, card dividers |
-| `--kg-text` | `#172033` (Deep Ink) | `#F1F5F9` (Slate 100) | Primary headings, main content |
-| `--kg-text-muted` | `#6F7785` | `#A0ABC0` | Supporting text, timestamps, labels |
-| `--kg-text-soft` | `#9AA1AA` | `#718096` | De-emphasized metadata, hints |
+| `--kg-bg` | `#F4F6F9` (Crystal Slate Canvas) | `#081018` (Midnight Sapphire) | Main canvas background, zero muddy tints |
+| `--kg-surface` | `#FFFFFF` (Pure Crisp White) | `#0F1E2E` (Elevated Sapphire) | Primary cards, panels, sidebars |
+| `--kg-surface-soft`| `#EDF2F7` (Clean Pearl Sub-panel)| `#15293E` (Deep Sub-panel) | Nested panels, inputs, table headers |
+| `--kg-border` | `#E2E8F0` (Delicate 1px) | `rgba(255, 255, 255, 0.09)` | Subtle card borders, dividers |
+| `--kg-border-strong` | `#CBD5E1` | `rgba(255, 255, 255, 0.16)` | Active borders, input borders |
+| `--kg-text` | `#0F172A` (Slate 900 Ink) | `#F8FAFC` (Slate 50) | Primary headings, main content, high contrast |
+| `--kg-text-muted` | `#64748B` (Slate 500) | `#94A3B8` (Slate 400) | Supporting text, timestamps, labels |
+| `--kg-text-soft` | `#94A3B8` (Slate 400) | `#64748B` (Slate 500) | De-emphasized metadata, placeholder hints |
+| `--kg-primary` | `#062B49` (Royal Navy Brand) | `#2563EB` (Royal Electric Blue)| Primary buttons, active sidebar tab, key actions |
+| `--kg-primary-hover` | `#0A3B63` | `#3B82F6` | Primary button hover / active state |
+| `--kg-accent` | `#E85D4A` (King's Grill Coral) | `#FF6B57` (Luminous Coral) | Signature brand accent, indicators, radar ping |
+| `--kg-accent-soft` | `#FFF1EF` | `rgba(255, 107, 87, 0.16)` | Coral badges, accent highlights |
+| `--kg-success` | `#16A34A` (Emerald Green) | `#22C55E` | Valid check-in, approved shift, on-time |
+| `--kg-success-soft`| `#F0FDF4` | `rgba(34, 197, 94, 0.16)` | Success badges, verified tags |
+| `--kg-warning` | `#D97706` (Warm Amber) | `#F59E0B` | Pending approval, late check-in, note |
+| `--kg-warning-soft`| `#FFFBEB` | `rgba(245, 158, 11, 0.16)` | Warning badges, pending tags |
+| `--kg-danger` | `#DC2626` (Vibrant Crimson) | `#EF4444` | Missed check-in, rejected, error, delete |
+| `--kg-danger-soft` | `#FEF2F2` | `rgba(239, 68, 68, 0.16)` | Error banners, critical alerts |
 
 ### 2.2 Typography Scale
 - **Font Stack**: `'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`

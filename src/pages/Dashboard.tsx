@@ -390,7 +390,7 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
               <button
                 type="button"
                 onClick={() => setIsGuideOpen(true)}
-                className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black shadow-xs active:scale-95 transition-all flex-shrink-0 flex items-center gap-1"
+                className="px-3 py-1.5 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs font-black shadow-xs active:scale-95 transition-all flex-shrink-0 flex items-center gap-1"
               >
                 <span>Xem ngay</span> <ArrowRight size={13} />
               </button>
@@ -479,20 +479,20 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
 
             {/* Card việc cần làm (To-Do List) */}
             <KgCard className="p-5">
-              <h3 className="text-sm font-black text-slate-850 dark:text-white uppercase tracking-wider mb-4 border-b border-slate-100 dark:border-slate-800 pb-2">
+              <h3 className="text-sm font-black text-[var(--kg-text)] uppercase tracking-wider mb-4 border-b border-[var(--kg-border)] pb-2">
                 Việc cần làm hôm nay
               </h3>
               <div className="space-y-3.5">
                 {/* Checklist item */}
                 {hasTabPermission('checklist', currentUser) && (
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 gap-2.5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] gap-2.5">
                     <div className="flex items-center space-x-3 min-w-0">
                       <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${store.todayChecklistDone ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400 border border-emerald-200/50' : 'bg-amber-50 text-amber-600 dark:bg-amber-950/20 dark:text-amber-400 border border-amber-200/50'}`}>
                         <ClipboardCheck size={18} />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-black text-slate-800 dark:text-slate-200 truncate">Checklist Vận Hành Hôm Nay</p>
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">
+                        <p className="text-xs font-black text-[var(--kg-text)] truncate">Checklist Vận Hành Hôm Nay</p>
+                        <p className="text-[10px] text-[var(--kg-text-muted)] font-medium truncate">
                           {store.todayChecklistDone ? '100% hoàn thành tất cả hạng mục ca' : 'Chưa hoàn thành đầy đủ hạng mục'}
                         </p>
                       </div>
@@ -504,7 +504,7 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
                         <button 
                           type="button"
                           onClick={() => onTabChange('checklist')} 
-                          className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black shadow-xs active:scale-95 transition-all flex items-center gap-1"
+                          className="px-3 py-1.5 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs font-black shadow-xs active:scale-95 transition-all flex items-center gap-1"
                         >
                           Làm Checklist ngay →
                         </button>
@@ -515,14 +515,14 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
 
                 {/* Handover item */}
                 {hasTabPermission('handover', currentUser) && (
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 gap-2.5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] gap-2.5">
                     <div className="flex items-center space-x-3 min-w-0">
                       <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${store.todayHandoverDone ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400 border border-emerald-200/50' : 'bg-rose-50 text-rose-600 dark:bg-rose-950/20 dark:text-rose-400 border border-rose-200/50'}`}>
                         <Repeat size={18} />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-black text-slate-800 dark:text-slate-200 truncate">Sổ Bàn Giao Ca</p>
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">Bàn giao quỹ tiền mặt, tồn kho, sự cố</p>
+                        <p className="text-xs font-black text-[var(--kg-text)] truncate">Sổ Bàn Giao Ca</p>
+                        <p className="text-[10px] text-[var(--kg-text-muted)] font-medium truncate">Bàn giao quỹ tiền mặt, tồn kho, sự cố</p>
                       </div>
                     </div>
                     <div className="flex items-center justify-between sm:justify-end gap-2 pl-12 sm:pl-0">
@@ -532,7 +532,7 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
                         <button 
                           type="button"
                           onClick={() => onTabChange('handover')} 
-                          className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black shadow-xs active:scale-95 transition-all flex items-center gap-1"
+                          className="px-3 py-1.5 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs font-black shadow-xs active:scale-95 transition-all flex items-center gap-1"
                         >
                           Ghi sổ ngay →
                         </button>
@@ -543,14 +543,14 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
 
                 {/* Register Schedule item */}
                 {hasTabPermission('schedule', currentUser) && (
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 gap-2.5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] gap-2.5">
                     <div className="flex items-center space-x-3 min-w-0">
                       <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${store.isScheduleRegistered ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400 border border-emerald-200/50' : 'bg-amber-50 text-amber-600 dark:bg-amber-950/20 dark:text-amber-400 border border-amber-200/50'}`}>
                         <Calendar size={18} />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-black text-slate-800 dark:text-slate-200 truncate">Đăng Ký Lịch Tuần Tới</p>
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">Đăng ký trước 23h59 Chủ nhật hàng tuần</p>
+                        <p className="text-xs font-black text-[var(--kg-text)] truncate">Đăng Ký Lịch Tuần Tới</p>
+                        <p className="text-[10px] text-[var(--kg-text-muted)] font-medium truncate">Đăng ký trước 23h59 Chủ nhật hàng tuần</p>
                       </div>
                     </div>
                     <div className="flex items-center justify-between sm:justify-end gap-2 pl-12 sm:pl-0">
@@ -560,7 +560,7 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
                         <button 
                           type="button"
                           onClick={() => onTabChange('schedule')} 
-                          className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black shadow-xs active:scale-95 transition-all flex items-center gap-1"
+                          className="px-3 py-1.5 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs font-black shadow-xs active:scale-95 transition-all flex items-center gap-1"
                         >
                           Đăng ký ngay →
                         </button>

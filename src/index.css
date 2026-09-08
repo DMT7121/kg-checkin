@@ -18,65 +18,173 @@
     font-family: 'Plus Jakarta Sans', sans-serif;
   }
   :root {
+    /* iOS Safe Area Insets */
     --sat: env(safe-area-inset-top, 0px);
     --sab: env(safe-area-inset-bottom, 0px);
     --sal: env(safe-area-inset-left, 0px);
     --sar: env(safe-area-inset-right, 0px);
 
-    --kg-bg: #F8F3EA;
+    /* =========================================================
+       KING'S GRILL MASTER PALETTE: LIGHT MODE
+       Crisp, modern, crystal-clear hospitality OS canvas.
+       ========================================================= */
+    --kg-bg: #F4F6F9;
     --kg-surface: #FFFFFF;
-    --kg-surface-soft: #FBF7F0;
-    --kg-primary: #062B49;
-    --kg-primary-hover: #0B3A5F;
-    --kg-accent: #E85D4A;
-    --kg-accent-soft: #FFF0ED;
-    --kg-success: #4F8A5B;
-    --kg-success-soft: #EEF7F0;
-    --kg-warning: #D8A23A;
-    --kg-warning-soft: #FFF7E4;
-    --kg-danger: #C94335;
-    --kg-danger-soft: #FFF0EE;
-    --kg-border: #E8DED1;
-    --kg-text: #172033;
-    --kg-text-muted: #6F7785;
-    --kg-text-soft: #9AA1AA;
+    --kg-surface-soft: #EDF2F7;
+    --kg-border: #E2E8F0;
+    --kg-border-strong: #CBD5E1;
 
-    --primary: #062B49;
-    --primary-strong: #0B3A5F;
-    --secondary: #E85D4A;
-    --surface: #FFFFFF;
-    --surface-muted: #FBF7F0;
-    --line: #E8DED1;
-    --ink: #172033;
+    --kg-text: #0F172A;
+    --kg-text-muted: #64748B;
+    --kg-text-soft: #94A3B8;
+
+    --kg-primary: #062B49;
+    --kg-primary-hover: #0A3B63;
+    --kg-accent: #E85D4A;
+    --kg-accent-soft: #FFF1EF;
+
+    --kg-success: #16A34A;
+    --kg-success-soft: #F0FDF4;
+    --kg-warning: #D97706;
+    --kg-warning-soft: #FFFBEB;
+    --kg-danger: #DC2626;
+    --kg-danger-soft: #FEF2F2;
+
+    /* Semantic & Legacy aliases (100% harmonized) */
+    --bg-app: var(--kg-bg);
+    --bg-surface: var(--kg-surface);
+    --bg-soft: var(--kg-surface-soft);
+    --border-soft: var(--kg-border);
+    --text-main: var(--kg-text);
+    --text-muted: var(--kg-text-muted);
+
+    --kg-panel: var(--kg-surface);
+    --kg-panel-2: var(--kg-surface-soft);
+    --kg-sidebar: var(--kg-surface);
+    --kg-sidebar-2: var(--kg-surface-soft);
+    --kg-line: var(--kg-border);
+    --kg-brand: var(--kg-primary);
+    --kg-brand-2: var(--kg-primary-hover);
+    --kg-warn: var(--kg-warning);
+    --kg-muted: var(--kg-text-muted);
+
+    --primary: var(--kg-primary);
+    --primary-strong: var(--kg-primary-hover);
+    --secondary: var(--kg-accent);
+    --surface: var(--kg-surface);
+    --surface-muted: var(--kg-surface-soft);
+    --line: var(--kg-border);
+    --ink: var(--kg-text);
+
+    --color-primary: var(--kg-primary);
+    --color-primary-2: var(--kg-primary-hover);
+    --color-violet: var(--kg-accent);
+    --color-cyan: var(--kg-primary);
+    --color-success: var(--kg-success);
+    --color-warning: var(--kg-warning);
+    --color-danger: var(--kg-danger);
+
+    /* Gradients */
+    --gradient-hero: linear-gradient(135deg, #062B49 0%, #0C4472 65%, #17588C 100%);
+    --gradient-primary: linear-gradient(135deg, #062B49 0%, #0C4472 100%);
+    --gradient-soft: linear-gradient(135deg, rgba(6, 43, 73, 0.05), rgba(232, 93, 74, 0.05));
+
+    /* Radii */
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 18px;
+    --radius-xl: 24px;
+    --radius-2xl: 32px;
+
+    /* Sizing & Controls */
+    --kg-control-height: 44px;
+    --kg-card-radius: var(--radius-lg);
+    --kg-control-radius: var(--radius-md);
+    --kg-focus-ring: 0 0 0 3px rgba(6, 43, 73, 0.16);
+
+    /* Shadows & Elevation */
+    --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.04), 0 6px 16px -2px rgba(15, 23, 42, 0.06);
+    --shadow-soft: 0 1px 2px rgba(15, 23, 42, 0.03), 0 4px 10px rgba(15, 23, 42, 0.03);
+    --shadow-hero: 0 12px 30px -5px rgba(6, 43, 73, 0.25);
+    --kg-card-shadow: var(--shadow-card);
   }
 }
 
 .dark {
-  --kg-bg: #061B2B;
-  --kg-surface: #0E273C;
-  --kg-surface-soft: #122F48;
-  --kg-primary: #0B3A5F;
-  --kg-primary-hover: #104C7B;
-  --kg-accent: #E85D4A;
-  --kg-accent-soft: rgba(232, 93, 74, 0.15);
-  --kg-success: #5F9D6B;
-  --kg-success-soft: rgba(95, 157, 107, 0.15);
-  --kg-warning: #E2B24C;
-  --kg-warning-soft: rgba(226, 178, 76, 0.15);
-  --kg-danger: #D8584B;
-  --kg-danger-soft: rgba(216, 88, 75, 0.15);
-  --kg-border: #1E3F57;
-  --kg-text: #F1F5F9;
-  --kg-text-muted: #A0ABC0;
-  --kg-text-soft: #718096;
+  /* =========================================================
+     KING'S GRILL MASTER PALETTE: DARK MODE (Midnight Sapphire)
+     Deep, comfortable dark theme with high-contrast actions.
+     ========================================================= */
+  --kg-bg: #081018;
+  --kg-surface: #0F1E2E;
+  --kg-surface-soft: #15293E;
+  --kg-border: rgba(255, 255, 255, 0.09);
+  --kg-border-strong: rgba(255, 255, 255, 0.16);
 
-  --primary: #0B3A5F;
-  --primary-strong: #104C7B;
-  --secondary: #E85D4A;
-  --surface: #0E273C;
-  --surface-muted: #122F48;
-  --line: #1E3F57;
-  --ink: #F1F5F9;
+  --kg-text: #F8FAFC;
+  --kg-text-muted: #94A3B8;
+  --kg-text-soft: #64748B;
+
+  /* In Dark Mode, primary action is Royal Electric Blue for clear contrast */
+  --kg-primary: #2563EB;
+  --kg-primary-hover: #3B82F6;
+  --kg-accent: #FF6B57;
+  --kg-accent-soft: rgba(255, 107, 87, 0.16);
+
+  --kg-success: #22C55E;
+  --kg-success-soft: rgba(34, 197, 94, 0.16);
+  --kg-warning: #F59E0B;
+  --kg-warning-soft: rgba(245, 158, 11, 0.16);
+  --kg-danger: #EF4444;
+  --kg-danger-soft: rgba(239, 68, 68, 0.16);
+
+  /* Semantic & Legacy aliases (100% harmonized) */
+  --bg-app: var(--kg-bg);
+  --bg-surface: var(--kg-surface);
+  --bg-soft: var(--kg-surface-soft);
+  --border-soft: var(--kg-border);
+  --text-main: var(--kg-text);
+  --text-muted: var(--kg-text-muted);
+
+  --kg-panel: var(--kg-surface);
+  --kg-panel-2: var(--kg-surface-soft);
+  --kg-sidebar: var(--kg-surface);
+  --kg-sidebar-2: var(--kg-surface-soft);
+  --kg-line: var(--kg-border);
+  --kg-brand: var(--kg-primary);
+  --kg-brand-2: var(--kg-primary-hover);
+  --kg-warn: var(--kg-warning);
+  --kg-muted: var(--kg-text-muted);
+
+  --primary: var(--kg-primary);
+  --primary-strong: var(--kg-primary-hover);
+  --secondary: var(--kg-accent);
+  --surface: var(--kg-surface);
+  --surface-muted: var(--kg-surface-soft);
+  --line: var(--kg-border);
+  --ink: var(--kg-text);
+
+  --color-primary: var(--kg-primary);
+  --color-primary-2: var(--kg-primary-hover);
+  --color-violet: var(--kg-accent);
+  --color-cyan: var(--kg-primary);
+  --color-success: var(--kg-success);
+  --color-warning: var(--kg-warning);
+  --color-danger: var(--kg-danger);
+
+  /* Gradients */
+  --gradient-hero: linear-gradient(135deg, #0E273C 0%, #153B5B 70%, #1F4C74 100%);
+  --gradient-primary: linear-gradient(135deg, #1D4ED8 0%, #2563EB 100%);
+  --gradient-soft: linear-gradient(135deg, rgba(37, 99, 235, 0.1), rgba(255, 107, 87, 0.1));
+
+  /* Sizing & Controls */
+  --kg-focus-ring: 0 0 0 3px rgba(37, 99, 235, 0.25);
+
+  /* Shadows & Elevation */
+  --shadow-card: 0 4px 20px -2px rgba(0, 0, 0, 0.45);
+  --shadow-soft: 0 2px 10px rgba(0, 0, 0, 0.3);
+  --shadow-hero: 0 14px 36px -6px rgba(0, 0, 0, 0.55);
+  --kg-card-shadow: var(--shadow-card);
 }
 
 @layer utilities {
@@ -482,130 +590,6 @@ main [class*="border-dashed"] {
   }
 }
 
-/* King's Grill light theme: warm hospitality palette with strong navy contrast. */
-:root {
-  /* Colors */
-  --color-primary: #103a59;
-  --color-primary-2: #18556a;
-  --color-violet: #cc6049;
-  --color-cyan: #2d7780;
-  --color-success: #2e7d58;
-  --color-warning: #b7792b;
-  --color-danger: #bd493d;
-
-  --bg-app: #f5f0e8;
-  --bg-surface: #fffdf9;
-  --bg-soft: #eee7dc;
-  --text-main: #172638;
-  --text-muted: #667085;
-  --border-soft: rgba(94, 72, 48, 0.16);
-
-  /* Gradients */
-  --gradient-hero: linear-gradient(132deg, #0a2d47 0%, #164f60 58%, #a94f40 118%);
-  --gradient-primary: linear-gradient(135deg, #103a59 0%, #18556a 100%);
-  --gradient-soft: linear-gradient(135deg, rgba(16, 58, 89, 0.09), rgba(204, 96, 73, 0.09));
-
-  /* Radius */
-  --radius-sm: 10px;
-  --radius-md: 14px;
-  --radius-lg: 20px;
-  --radius-xl: 28px;
-  --radius-2xl: 34px;
-
-  /* Shadow */
-  --shadow-card: 0 14px 36px rgba(61, 45, 29, 0.07);
-  --shadow-soft: 0 8px 24px rgba(61, 45, 29, 0.055);
-  --shadow-hero: 0 22px 52px rgba(10, 45, 71, 0.2);
-
-  /* Map old kg- variables to new tokens */
-  --kg-bg: var(--bg-app);
-  --kg-panel: var(--bg-surface);
-  --kg-panel-2: var(--bg-soft);
-  --kg-surface: var(--bg-surface);
-  --kg-surface-soft: var(--bg-soft);
-  --kg-sidebar: var(--bg-surface); /* light sidebar as requested */
-  --kg-sidebar-2: var(--bg-soft);
-  --kg-line: var(--border-soft);
-  --kg-border: var(--border-soft);
-  --kg-text: var(--text-main);
-  --kg-muted: var(--text-muted);
-  --kg-text-muted: var(--text-muted);
-  --kg-brand: var(--color-primary);
-  --kg-brand-2: var(--color-primary-2);
-  --kg-warn: var(--color-warning);
-  --kg-danger: var(--color-danger);
-  --kg-success: var(--color-success);
-
-  --kg-primary: var(--color-primary);
-  --kg-primary-hover: var(--color-primary-2);
-  --kg-accent: var(--color-violet);
-  --kg-accent-soft: rgba(204, 96, 73, 0.12);
-  --kg-success-soft: rgba(46, 125, 88, 0.12);
-  --kg-warning-soft: rgba(183, 121, 43, 0.12);
-  --kg-danger-soft: rgba(189, 73, 61, 0.12);
-
-  --primary: var(--color-primary);
-  --primary-strong: var(--color-primary-2);
-  --secondary: var(--color-violet);
-  --surface: var(--bg-surface);
-  --surface-muted: var(--bg-soft);
-  --line: var(--border-soft);
-  --ink: var(--text-main);
-}
-
-.dark {
-  --color-primary: #147985;
-  --color-primary-2: #1f8f8a;
-  --color-violet: #ef7865;
-  --color-cyan: #4ac4cf;
-  --color-success: #4fc08a;
-  --color-warning: #e7ad4f;
-  --color-danger: #eb6b5f;
-  --gradient-hero: linear-gradient(132deg, #071f33 0%, #0d5360 60%, #713b43 118%);
-  --gradient-primary: linear-gradient(135deg, #0e6875 0%, #287e7a 100%);
-
-  --bg-app: #071723;
-  --bg-surface: #0d2433;
-  --bg-soft: #143244;
-  --text-main: #f8fafc;
-  --text-muted: #a8b6c4;
-  --border-soft: rgba(125, 181, 194, 0.18);
-
-  --kg-bg: var(--bg-app);
-  --kg-panel: var(--bg-surface);
-  --kg-panel-2: var(--bg-soft);
-  --kg-surface: var(--bg-surface);
-  --kg-surface-soft: var(--bg-soft);
-  --kg-sidebar: var(--bg-surface);
-  --kg-sidebar-2: var(--bg-soft);
-  --kg-line: var(--border-soft);
-  --kg-border: var(--border-soft);
-  --kg-text: var(--text-main);
-  --kg-muted: var(--text-muted);
-  --kg-text-muted: var(--text-muted);
-  --kg-brand: var(--color-primary);
-  --kg-brand-2: var(--color-primary-2);
-  --kg-warn: var(--color-warning);
-  --kg-danger: var(--color-danger);
-  --kg-success: var(--color-success);
-
-  --kg-primary: var(--color-primary);
-  --kg-primary-hover: var(--color-primary-2);
-  --kg-accent: var(--color-violet);
-  --kg-accent-soft: rgba(124, 58, 237, 0.15);
-  --kg-success-soft: rgba(16, 185, 129, 0.15);
-  --kg-warning-soft: rgba(245, 158, 11, 0.15);
-  --kg-danger-soft: rgba(239, 68, 68, 0.15);
-
-  --primary: var(--color-primary);
-  --primary-strong: var(--color-primary-2);
-  --secondary: var(--color-violet);
-  --surface: var(--bg-surface);
-  --surface-muted: var(--bg-soft);
-  --line: var(--border-soft);
-  --ink: var(--text-main);
-}
-
 body {
   background: var(--kg-bg);
   color: var(--kg-text);
@@ -613,27 +597,36 @@ body {
 }
 
 .soft3d-bg {
-  background:
-    radial-gradient(circle at 8% 0%, rgba(204, 96, 73, 0.08), transparent 26%),
-    radial-gradient(circle at 94% 4%, rgba(183, 121, 43, 0.09), transparent 28%),
-    linear-gradient(180deg, var(--bg-app) 0%, var(--bg-app) 100%) !important;
+  background: var(--kg-bg) !important;
 }
 
 .dark .soft3d-bg {
-  background:
-    radial-gradient(circle at 10% 2%, rgba(37,116,255,.11), transparent 28%),
-    radial-gradient(circle at 92% 8%, rgba(168,88,255,.13), transparent 30%),
-    linear-gradient(180deg, var(--bg-app) 0%, var(--bg-app) 100%) !important;
+  background: var(--kg-bg) !important;
 }
 
 .soft3d-card,
+.kg-card,
 .paint-layer {
-  background: var(--kg-panel) !important;
-  border: 1px solid var(--kg-line) !important;
+  background: var(--kg-surface) !important;
+  border: 1px solid var(--kg-border) !important;
   border-radius: var(--radius-lg) !important;
   box-shadow: var(--shadow-card) !important;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
+}
+
+.soft3d-card:hover,
+.kg-card:hover {
+  border-color: color-mix(in srgb, var(--kg-primary) 32%, var(--kg-border)) !important;
+  box-shadow: var(--shadow-card) !important;
+}
+
+.dark .soft3d-card,
+.dark .kg-card,
+.dark .paint-layer {
+  background: var(--kg-surface) !important;
+  border-color: var(--kg-border) !important;
+  box-shadow: var(--shadow-card) !important;
 }
 
 /* Layered stacked card design */
@@ -644,101 +637,65 @@ body {
   content: "";
   position: absolute;
   inset: 8px -8px -8px 8px;
-  border: 1px solid var(--border-soft);
+  border: 1px solid var(--kg-border);
   border-radius: var(--radius-lg);
-  background: var(--bg-soft);
+  background: var(--kg-surface-soft);
   opacity: 0.5;
   z-index: -1;
   pointer-events: none;
   transition: all 0.25s ease;
 }
 
-.dark .soft3d-card,
-.dark .paint-layer {
-  background: var(--kg-panel) !important;
-  border-color: var(--kg-line) !important;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3) !important;
+.login-shell {
+  background: var(--kg-bg) !important;
 }
 
-.soft3d-card:hover {
-  border-color: rgba(16, 58, 89, 0.25) !important;
+.login-card,
+.login-logo-card {
+  background: var(--kg-surface) !important;
+  border-color: var(--kg-border) !important;
   box-shadow: var(--shadow-card) !important;
-  transform: translateY(-2px);
 }
 
-:root:not(.dark) {
-  color-scheme: light;
+.login-card input {
+  background: var(--kg-surface-soft) !important;
+  border-color: var(--kg-border) !important;
+  color: var(--kg-text) !important;
 }
 
-:root:not(.dark) .login-shell {
-  background:
-    radial-gradient(circle at 8% 12%, rgba(204, 96, 73, 0.10), transparent 24%),
-    radial-gradient(circle at 92% 84%, rgba(183, 121, 43, 0.12), transparent 26%),
-    linear-gradient(145deg, #f8f4ed 0%, var(--bg-app) 62%, #efe7da 100%) !important;
+.login-card input:focus {
+  border-color: var(--kg-primary) !important;
+  box-shadow: var(--kg-focus-ring) !important;
 }
 
-:root:not(.dark) .login-card,
-:root:not(.dark) .login-logo-card {
-  background: rgba(255, 253, 249, 0.94) !important;
-  border-color: rgba(94, 72, 48, 0.17) !important;
-  box-shadow: 0 22px 60px rgba(61, 45, 29, 0.09) !important;
+.login-primary {
+  background: var(--kg-primary) !important;
+  color: #ffffff !important;
+  box-shadow: var(--shadow-soft) !important;
+}
+.login-primary:hover {
+  background: var(--kg-primary-hover) !important;
 }
 
-:root:not(.dark) .login-card input {
-  background: #fffdf9 !important;
-  border-color: rgba(94, 72, 48, 0.2) !important;
-  color: var(--text-main) !important;
-}
-
-:root:not(.dark) .login-card input:focus {
-  border-color: var(--color-primary) !important;
-  box-shadow: 0 0 0 3px rgba(16, 58, 89, 0.1) !important;
-}
-
-:root:not(.dark) .login-primary {
-  background: var(--gradient-primary) !important;
-  box-shadow: 0 10px 24px rgba(16, 58, 89, 0.18) !important;
-}
-
-/* Give light-mode cards a clear visual layer above the warm app canvas. */
-:root:not(.dark) .kg-card,
-:root:not(.dark) .soft3d-card {
-  background:
-    linear-gradient(145deg, #ffffff 0%, #fffdfa 72%, #faf5ed 100%) !important;
-  border-color: rgba(126, 94, 58, 0.24) !important;
-  box-shadow:
-    0 12px 30px rgba(61, 45, 29, 0.095),
-    0 2px 7px rgba(61, 45, 29, 0.055),
-    inset 0 1px 0 rgba(255, 255, 255, 0.96) !important;
-}
-
-:root:not(.dark) .kg-card:hover,
-:root:not(.dark) .soft3d-card:hover {
-  border-color: rgba(16, 58, 89, 0.38) !important;
-  box-shadow:
-    0 18px 40px rgba(61, 45, 29, 0.13),
-    0 3px 9px rgba(61, 45, 29, 0.07) !important;
-}
-
-:root:not(.dark) .kg-metric-card {
+.kg-metric-card {
   overflow: hidden;
   border-top-width: 3px !important;
 }
 
-:root:not(.dark) .kg-metric-info {
-  border-top-color: #2d7780 !important;
+.kg-metric-info {
+  border-top-color: var(--kg-primary) !important;
 }
 
-:root:not(.dark) .kg-metric-success {
-  border-top-color: #2e7d58 !important;
+.kg-metric-success {
+  border-top-color: var(--kg-success) !important;
 }
 
-:root:not(.dark) .kg-metric-warning {
-  border-top-color: #b7792b !important;
+.kg-metric-warning {
+  border-top-color: var(--kg-warning) !important;
 }
 
-:root:not(.dark) .kg-metric-error {
-  border-top-color: #bd493d !important;
+.kg-metric-error {
+  border-top-color: var(--kg-danger) !important;
 }
 
 .soft3d-btn,
@@ -749,72 +706,71 @@ body {
 }
 
 .soft3d-btn-primary {
-  background: var(--gradient-primary) !important;
+  background: var(--kg-primary) !important;
   color: white !important;
   border: none !important;
-  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.16) !important;
+  box-shadow: var(--shadow-soft) !important;
 }
 
 .soft3d-btn-primary:hover {
-  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.26) !important;
+  background: var(--kg-primary-hover) !important;
   transform: translateY(-1px);
 }
 
-.rounded-xl {
-  border-radius: var(--radius-md) !important;
-}
-.rounded-2xl {
-  border-radius: var(--radius-lg) !important;
-}
-.rounded-3xl {
-  border-radius: var(--radius-xl) !important;
-}
-
-.rounded-lg,
-.rounded-md,
-.rounded-sm {
-  border-radius: var(--radius-sm) !important;
-}
-
 header {
-  background: rgba(255, 255, 255, 0.8) !important;
+  background: var(--kg-surface) !important;
   backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--kg-line) !important;
+  border-bottom: 1px solid var(--kg-border) !important;
   box-shadow: var(--shadow-soft);
 }
 
 .dark header {
-  background: rgba(17, 24, 39, 0.8) !important;
+  background: var(--kg-surface) !important;
+  border-bottom: 1px solid var(--kg-border) !important;
 }
 
 aside {
-  background: var(--kg-sidebar) !important;
-  border-right: 1px solid var(--kg-line) !important;
+  background: var(--kg-surface) !important;
+  border-right: 1px solid var(--kg-border) !important;
   box-shadow: var(--shadow-soft);
 }
 
-aside h3,
+aside h2,
+aside h3 {
+  color: var(--kg-text) !important;
+}
+
 aside p,
-aside span,
+aside span:not([class*="text-white"]):not([class*="bg-"]) {
+  color: var(--kg-text-muted);
+}
+
 aside button {
-  color: var(--text-main) !important;
+  color: var(--kg-text-muted);
 }
 
 aside button:hover {
-  background: var(--bg-soft) !important;
+  background: var(--kg-surface-soft);
+  color: var(--kg-text);
 }
 
-aside button[class*="bg-teal-600"],
-aside button[class*="bg-[#E85D4A]"] {
-  background: var(--gradient-primary) !important;
+aside button[class*="bg-[var(--kg-primary)]"],
+aside button[aria-current="page"] {
+  background: var(--kg-primary) !important;
   color: #ffffff !important;
-  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.2) !important;
+}
+
+aside button[class*="bg-[var(--kg-primary)]"] span,
+aside button[class*="bg-[var(--kg-primary)]"] svg,
+aside button[aria-current="page"] span,
+aside button[aria-current="page"] svg {
+  color: #ffffff !important;
 }
 
 aside [class*="border-slate"],
 aside [class*="bg-slate"] {
-  border-color: var(--kg-line) !important;
-  background: var(--bg-soft) !important;
+  border-color: var(--kg-border) !important;
+  background: var(--kg-surface-soft) !important;
 }
 
 main {
@@ -1482,25 +1438,21 @@ main [class*="bg-teal-600"] {
 
 /* =========================================================
    KG UI CONSISTENCY LAYER
-   One visual contract shared by every module and hub.
+   One unified visual contract shared by every module and hub.
    ========================================================= */
-:root {
-  --kg-control-height: 44px;
-  --kg-card-radius: var(--radius-lg);
-  --kg-control-radius: var(--radius-md);
-  --kg-focus-ring: 0 0 0 3px rgba(45, 119, 128, 0.16);
-  --kg-card-shadow: 0 12px 30px rgba(61, 45, 29, 0.085);
+
+.bg-gradient-hero {
+  background: var(--gradient-hero) !important;
+  color: #ffffff !important;
 }
 
-.dark {
-  --kg-focus-ring: 0 0 0 3px rgba(74, 196, 207, 0.18);
-  --kg-card-shadow: 0 16px 38px rgba(0, 0, 0, 0.28);
+.bg-gradient-primary {
+  background: var(--gradient-primary) !important;
+  color: #ffffff !important;
 }
 
 .kg-app-main {
-  background:
-    radial-gradient(circle at 4% 0%, color-mix(in srgb, var(--kg-accent) 7%, transparent), transparent 24rem),
-    var(--kg-bg);
+  background: var(--kg-bg);
 }
 
 .kg-app-main .soft3d-card,
@@ -1508,7 +1460,7 @@ main [class*="bg-teal-600"] {
 .kg-app-main .paint-layer {
   border-radius: var(--kg-card-radius) !important;
   border-color: var(--kg-border) !important;
-  box-shadow: var(--kg-card-shadow) !important;
+  box-shadow: var(--shadow-card) !important;
 }
 
 .kg-app-main .paint-layer {
@@ -1530,7 +1482,7 @@ main [class*="bg-teal-600"] {
 .kg-app-main .kg-module-hero__title,
 .kg-app-main .kg-module-hero__description,
 .kg-app-main .kg-module-hero__eyebrow {
-  color: #fff !important;
+  color: #ffffff !important;
 }
 
 .kg-app-main input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
@@ -1551,7 +1503,7 @@ main [class*="bg-teal-600"] {
 .kg-app-main input:focus,
 .kg-app-main select:focus,
 .kg-app-main textarea:focus {
-  border-color: var(--color-cyan) !important;
+  border-color: var(--kg-primary) !important;
   box-shadow: var(--kg-focus-ring) !important;
   outline: none !important;
 }
@@ -1606,7 +1558,7 @@ main [class*="bg-teal-600"] {
 
 .kg-module-tabs {
   border-color: var(--kg-border) !important;
-  background: color-mix(in srgb, var(--kg-surface) 94%, transparent) !important;
+  background: var(--kg-surface) !important;
   box-shadow: var(--shadow-soft) !important;
 }
 
@@ -1614,12 +1566,12 @@ main [class*="bg-teal-600"] {
   min-height: 42px;
 }
 
-.kg-module-tab:not([class*="bg-cyan-700"]):hover {
+.kg-module-tab:not([class*="bg-"]):hover {
   color: var(--kg-primary);
 }
 
-.dark .kg-module-tab:not([class*="bg-cyan-700"]):hover {
-  color: var(--color-cyan);
+.dark .kg-module-tab:not([class*="bg-"]):hover {
+  color: var(--kg-primary);
 }
 
 @media (max-width: 767px) {

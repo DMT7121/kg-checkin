@@ -561,19 +561,19 @@ export function KgBottomSheet({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-            className="fixed left-0 right-0 bottom-0 max-h-[85vh] bg-[#F8F3EA] dark:bg-[#061B2B] z-[999] rounded-t-3xl border-t border-[#E8DED1] dark:border-[#1E3F57] shadow-2xl flex flex-col pointer-events-auto overflow-hidden pb-safe-bottom"
+            className="fixed left-0 right-0 bottom-0 max-h-[85vh] bg-[var(--kg-surface)] text-[var(--kg-text)] z-[999] rounded-t-3xl border-t border-[var(--kg-border)] shadow-2xl flex flex-col pointer-events-auto overflow-hidden pb-safe-bottom"
           >
             {/* Handle bar */}
-            <div className="w-12 h-1 bg-[#E8DED1] dark:bg-[#1E3F57] rounded-full mx-auto my-3 flex-shrink-0" />
+            <div className="w-12 h-1 bg-[var(--kg-border-strong)] rounded-full mx-auto my-3 flex-shrink-0" />
             
             {/* Header */}
-            <div className="px-5 pb-3 border-b border-[#E8DED1] dark:border-[#1E3F57] flex items-center justify-between flex-shrink-0">
-              <h3 className="text-sm font-black uppercase tracking-wider text-[#172033] dark:text-white">
+            <div className="px-5 pb-3 border-b border-[var(--kg-border)] flex items-center justify-between flex-shrink-0">
+              <h3 className="text-sm font-black uppercase tracking-wider text-[var(--kg-text)]">
                 {title}
               </h3>
               <button
                 onClick={onClose}
-                className="w-8 h-8 rounded-full bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] flex items-center justify-center text-[#6F7785] hover:text-[#172033] dark:hover:text-white transition-colors"
+                className="w-8 h-8 rounded-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition-colors"
               >
                 <X size={16} />
               </button>
@@ -1159,7 +1159,7 @@ export function KgModuleHero({
       <div className="kg-module-hero__layout relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
         <div className="kg-module-hero__copy space-y-2 md:space-y-3.5 max-w-2xl">
           <span className="kg-module-hero__eyebrow inline-flex items-center gap-1.5 bg-white/12 border border-white/20 px-2.5 py-0.5 md:px-3 md:py-1 rounded-full text-[9px] md:text-[10px] font-black tracking-wider uppercase text-white shadow-inner">
-            <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-cyan)] animate-pulse" />
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--kg-accent)] animate-pulse" />
             {eyebrow}
           </span>
           <h1 className="kg-module-hero__title text-xl sm:text-2xl md:text-3xl lg:text-4xl font-extrabold tracking-tight text-white leading-tight">
@@ -1174,7 +1174,7 @@ export function KgModuleHero({
             <div className="kg-module-hero__features flex flex-wrap gap-1.5 md:gap-2 pt-1 md:pt-2">
               {features.map((feat, idx) => (
                 <div key={idx} className="inline-flex items-center gap-1.5 bg-white/10 border border-white/10 px-2.5 py-1 md:px-3 md:py-1.5 rounded-xl text-[11px] md:text-xs font-bold text-white backdrop-blur-sm shadow-sm">
-                  <span className="text-[var(--color-cyan)]">✦</span>
+                  <span className="text-[var(--kg-accent)]">✦</span>
                   {feat}
                 </div>
               ))}

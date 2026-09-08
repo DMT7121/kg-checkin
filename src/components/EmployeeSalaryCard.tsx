@@ -95,7 +95,7 @@ export default function EmployeeSalaryCard({ currentUser }: { currentUser: User 
   return (
     <section className="space-y-4">
       <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] overflow-hidden rounded-2xl shadow-xs">
-        <div className="bg-[var(--kg-primary)] p-5 text-white">
+        <div className="bg-gradient-hero p-5 text-white">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.15em] text-[var(--kg-accent)]">

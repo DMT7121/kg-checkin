@@ -296,7 +296,7 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
               </div>
               <span
                 className={`text-[9.5px] tracking-wider uppercase transition-all ${
-                  isActive ? 'font-black text-[var(--kg-primary)] dark:text-[var(--kg-accent)] scale-105' : 'font-bold text-[var(--kg-text-muted)] opacity-70'
+                  isActive ? 'font-black text-[var(--kg-primary)] scale-105' : 'font-bold text-[var(--kg-text-muted)] opacity-70'
                 }`}
               >
                 {tab.shortLabel || tab.label}
@@ -328,7 +328,7 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
               </div>
               <span
                 className={`text-[9.5px] tracking-wider uppercase transition-all ${
-                  isMoreActionActive ? 'font-black text-[var(--kg-primary)] dark:text-[var(--kg-accent)] scale-105' : 'font-bold text-[var(--kg-text-muted)] opacity-70'
+                  isMoreActionActive ? 'font-black text-[var(--kg-primary)] scale-105' : 'font-bold text-[var(--kg-text-muted)] opacity-70'
                 }`}
               >
                 Thêm

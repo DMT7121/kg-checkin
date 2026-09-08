@@ -11,6 +11,26 @@ export default {
         sans: ['"Plus Jakarta Sans"', 'sans-serif'],
       },
       colors: {
+        kg: {
+          bg: 'var(--kg-bg)',
+          surface: 'var(--kg-surface)',
+          'surface-soft': 'var(--kg-surface-soft)',
+          primary: 'var(--kg-primary)',
+          'primary-hover': 'var(--kg-primary-hover)',
+          accent: 'var(--kg-accent)',
+          'accent-soft': 'var(--kg-accent-soft)',
+          success: 'var(--kg-success)',
+          'success-soft': 'var(--kg-success-soft)',
+          warning: 'var(--kg-warning)',
+          'warning-soft': 'var(--kg-warning-soft)',
+          danger: 'var(--kg-danger)',
+          'danger-soft': 'var(--kg-danger-soft)',
+          border: 'var(--kg-border)',
+          'border-strong': 'var(--kg-border-strong)',
+          text: 'var(--kg-text)',
+          'text-muted': 'var(--kg-text-muted)',
+          'text-soft': 'var(--kg-text-soft)',
+        },
         ocean: {
           50: '#f0f9ff',
           100: '#e0f2fe',
@@ -29,6 +49,16 @@ export default {
           border: 'rgba(255, 255, 255, 0.2)',
           borderDark: 'rgba(255, 255, 255, 0.05)',
         }
+      },
+      backgroundImage: {
+        'gradient-hero': 'var(--gradient-hero)',
+        'gradient-primary': 'var(--gradient-primary)',
+        'gradient-soft': 'var(--gradient-soft)',
+      },
+      boxShadow: {
+        card: 'var(--shadow-card)',
+        soft: 'var(--shadow-soft)',
+        hero: 'var(--shadow-hero)',
       },
       animation: { 
         'fade-in': 'fadeIn 0.3s ease-out', 
