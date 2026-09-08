@@ -59,7 +59,11 @@ export function restoreFromCache(): void {
         pendingFeedbackCount: data.pendingFeedbackCount ?? state.pendingFeedbackCount,
         todayChecklistDone: data.todayChecklistDone ?? state.todayChecklistDone,
         todayHandoverDone: data.todayHandoverDone ?? state.todayHandoverDone,
-        lastCheckInTime: data.lastCheckInTime ?? state.lastCheckInTime,
+        lastCheckInTime: (() => {
+          const direct = localStorage.getItem('kg_last_checkin');
+          if (direct) return parseInt(direct, 10) || 0;
+          return data.lastCheckInTime ?? state.lastCheckInTime;
+        })(),
         lastFetchTime: snapshot.savedAt ?? state.lastFetchTime,
       }));
       return;

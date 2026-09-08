@@ -574,7 +574,9 @@ function safeShiftValue(cellValue) {
 
 function parseDateTimeString(str) {
   if (!str) return new Date();
-  var parts = str.match(/^(\d{2})\/(\d{2})\/(\d{4})\s(\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (str instanceof Date) return isNaN(str.getTime()) ? new Date() : str;
+  var s = str.toString().trim().replace(/^['"\s]+|['"\s]+$/g, '');
+  var parts = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/);
   if (parts) {
     var day = parseInt(parts[1], 10);
     var month = parseInt(parts[2], 10) - 1; // 0-indexed month
@@ -582,9 +584,46 @@ function parseDateTimeString(str) {
     var hour = parseInt(parts[4], 10);
     var minute = parseInt(parts[5], 10);
     var second = parts[6] ? parseInt(parts[6], 10) : 0;
-    return new Date(year, month, day, hour, minute, second);
+    var d = new Date(year, month, day, hour, minute, second);
+    if (!isNaN(d.getTime())) return d;
   }
-  return new Date();
+  var d2 = new Date(s);
+  return !isNaN(d2.getTime()) ? d2 : new Date();
+}
+
+/**
+ * Robust extraction of timestamp from column C (time string/Date) or column H (Data JSON)
+ */
+function getLogTimestampSafe(timeVal, jsonVal) {
+  if (jsonVal) {
+    try {
+      var p = typeof jsonVal === 'string' ? JSON.parse(jsonVal) : jsonVal;
+      if (p.timestamp) {
+        var t = new Date(p.timestamp).getTime();
+        if (!isNaN(t)) return t;
+      }
+    } catch(e) {}
+  }
+  if (!timeVal) return 0;
+  if (timeVal instanceof Date) return isNaN(timeVal.getTime()) ? 0 : timeVal.getTime();
+  var s = timeVal.toString().trim().replace(/^['"\s]+|['"\s]+$/g, '');
+  var parts = s.split(' ');
+  if (parts.length >= 2) {
+    var dParts = parts[0].split(/[\/\-]/);
+    var tParts = parts[1].split(':');
+    if (dParts.length === 3 && tParts.length >= 2) {
+      var day = parseInt(dParts[0], 10);
+      var mon = parseInt(dParts[1], 10) - 1;
+      var year = parseInt(dParts[2], 10);
+      var hr = parseInt(tParts[0], 10);
+      var min = parseInt(tParts[1], 10);
+      var sec = tParts[2] ? parseInt(tParts[2], 10) : 0;
+      var d = new Date(year, mon, day, hr, min, sec);
+      if (!isNaN(d.getTime())) return d.getTime();
+    }
+  }
+  var d2 = new Date(s);
+  return !isNaN(d2.getTime()) ? d2.getTime() : 0;
 }
 
 // 2B. Chấm Công Logic - 8 COLUMNS FORMAT
@@ -609,11 +648,11 @@ function handleCheckInOut(payload) {
   // === COL B: LOẠI CHẤM CÔNG ===
   var loaiChamCong = payload.type; // "Vào ca" / "Ra ca"
 
-  // === ANTI-SPAM: 15 MINUTES COOLDOWN RULE ===
-  var isAdmin = payload.role === 'admin' || payload.role === 'tester' || (payload.username || '').toLowerCase() === 'admin';
-  if (!isAdmin && !payload.skipCooldownCheck) {
+  // === ANTI-SPAM: 15 MINUTES COOLDOWN RULE (Enforced for all check-ins) ===
+  if (!payload.bypassCooldown) {
     try {
-      var lastCheckRows = sheet.getRange(2, 1, Math.min(sheet.getLastRow() - 1, 100), 8).getValues();
+      var numRows = Math.min(Math.max(1, sheet.getLastRow() - 1), 150);
+      var lastCheckRows = sheet.getRange(2, 1, numRows, 8).getValues();
       var cleanTargetName = hoVaTen ? hoVaTen.trim().toLowerCase() : '';
       var cleanTargetUser = payload.username ? payload.username.trim().toLowerCase() : '';
       var nowMs = time ? time.getTime() : new Date().getTime();
@@ -624,21 +663,21 @@ function handleCheckInOut(payload) {
         var cName = cRow[0].toString().trim().toLowerCase();
         var cJson = null;
         if (cRow[7]) {
-          try { cJson = JSON.parse(cRow[7].toString()); } catch(e){}
+          try { cJson = typeof cRow[7] === 'string' ? JSON.parse(cRow[7]) : cRow[7]; } catch(e){}
         }
         var isMatch = (cleanTargetName && cName === cleanTargetName) ||
                       (cleanTargetUser && cName === cleanTargetUser) ||
                       (cJson && cJson.username && cJson.username.toString().toLowerCase() === cleanTargetUser);
                       
         if (isMatch) {
-          var lastLogTime = parseDateTimeString(cRow[2]);
-          if (lastLogTime && !isNaN(lastLogTime.getTime())) {
-            var diffMs = nowMs - lastLogTime.getTime();
+          var lastLogTs = getLogTimestampSafe(cRow[2], cRow[7]);
+          if (lastLogTs > 0) {
+            var diffMs = nowMs - lastLogTs;
             if (diffMs >= 0 && diffMs < 15 * 60 * 1000) {
               var remainingSecs = Math.ceil((15 * 60 * 1000 - diffMs) / 1000);
               var remainingMins = Math.ceil(remainingSecs / 60);
-              var lastFormatted = cRow[2] ? cRow[2].toString().replace(/^'/, '') : '';
-              return jsonResponse(false, 'Hệ thống chống spam: Bạn vừa chấm công lúc ' + lastFormatted + '. Quy định tối thiểu sau 15 phút mới được chấm tiếp (còn thiếu khoảng ' + remainingMins + ' phút).');
+              var lastFormatted = cRow[2] ? cRow[2].toString().replace(/^['"\s]+|['"\s]+$/g, '') : '';
+              return jsonResponse(false, 'Hệ thống chống spam: Bạn vừa chấm công lúc ' + lastFormatted + '. Quy định tối thiểu sau 15 phút mới được chấm tiếp (vui lòng đợi thêm ' + remainingMins + ' phút).');
             }
           }
           break; // Đã tìm thấy lượt chấm công mới nhất của nhân viên này

@@ -766,7 +766,11 @@ export default function CheckIn() {
     // Save to store and local persistent punch cache immediately
     store.prependLog(tempLog);
     setLocalLastPunch(currentUser, type, actualTime);
-    store.setLastCheckInTime(Date.now());
+    const punchNowMs = Date.now();
+    store.setLastCheckInTime(punchNowMs);
+    try {
+      localStorage.setItem('kg_last_checkin', String(punchNowMs));
+    } catch {}
     const isClockInType = type.includes('Vào ca') || type.includes('IN') || type.toLowerCase().includes('vào');
     if (isClockInType) store.setStats({ ...store.stats, totalCheckIn: store.stats.totalCheckIn + 1 });
     
@@ -882,7 +886,15 @@ export default function CheckIn() {
         }
 
         const weekInfo = computeWeekInfo();
-        const dataRes = await callApi('GET_DATA', { username: currentUser!.username, fullname: currentUser!.fullname, role: currentUser!.role, monthSheet: weekInfo.monthSheet, weekLabel: weekInfo.weekLabel }, { background: true });
+        const dataRes = await callApi('GET_DATA', {
+          username: currentUser!.username,
+          fullname: currentUser!.fullname,
+          role: currentUser!.role,
+          monthSheet: weekInfo.monthSheet,
+          weekLabel: weekInfo.weekLabel,
+          forceRefresh: true,
+          cacheBuster: Date.now()
+        }, { background: true, cacheTtlMs: 0 });
         if (dataRes?.ok) {
           store.setLogs(dataRes.data.logs || []);
           store.setStats(dataRes.data.stats || store.stats);

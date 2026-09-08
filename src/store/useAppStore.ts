@@ -420,8 +420,15 @@ export const useAppStore = create<AppState>((set) => ({
   isPreviewOpen: false,
   previewImageUrl: '',
 
-  // Anti-spam
-  lastCheckInTime: 0,
+  // Anti-spam (initialized from persistent device storage to prevent F5 bypass)
+  lastCheckInTime: (() => {
+    try {
+      const saved = localStorage.getItem('kg_last_checkin');
+      return saved ? parseInt(saved, 10) || 0 : 0;
+    } catch {
+      return 0;
+    }
+  })(),
 
   // Phase 7: Data freshness
   lastFetchTime: 0,
@@ -475,7 +482,11 @@ export const useAppStore = create<AppState>((set) => ({
   setCapturedTime: (capturedTime) => set({ capturedTime }),
   setGps: (partial) => set((s) => ({ gps: { ...s.gps, ...partial } })),
   setLogs: (logs) => set({ logs }),
-  prependLog: (log) => set((s) => ({ logs: [log, ...s.logs] })),
+  prependLog: (log) => set((s) => {
+    const updatedLogs = [log, ...s.logs];
+    localStorage.setItem('kg_logs', JSON.stringify(updatedLogs));
+    return { logs: updatedLogs };
+  }),
   removeFirstLog: () => set((s) => ({ logs: s.logs.slice(1) })),
   updateLogType: (time, newType, reason) =>
     set((s) => {
@@ -517,7 +528,18 @@ export const useAppStore = create<AppState>((set) => ({
   setSelectedYear: (selectedYear) => set({ selectedYear }),
   setPreviewOpen: (isPreviewOpen) => set({ isPreviewOpen }),
   setPreviewImageUrl: (previewImageUrl) => set({ previewImageUrl }),
-  setLastCheckInTime: (lastCheckInTime) => set({ lastCheckInTime }),
+  setLastCheckInTime: (lastCheckInTime) => {
+    try {
+      if (lastCheckInTime > 0) {
+        localStorage.setItem('kg_last_checkin', String(lastCheckInTime));
+      } else {
+        localStorage.removeItem('kg_last_checkin');
+      }
+    } catch (e) {
+      console.warn('[Store] persist lastCheckInTime error:', e);
+    }
+    set({ lastCheckInTime });
+  },
   addSwapRequest: (req) =>
     set((state) => {
       const exists = state.swapRequests.find((r) => r.id === req.id);

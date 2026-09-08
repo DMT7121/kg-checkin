@@ -21,8 +21,8 @@ export async function onRequest(context) {
     const payload = JSON.parse(bodyText);
     const action = payload.action || '';
 
-    // Cache-able actions: starts with GET_ or is GEOCODE
-    const isCacheable = action.startsWith('GET_') || action === 'GEOCODE';
+    // Cache-able actions: starts with GET_ or is GEOCODE, unless forceRefresh / noCache is set
+    const isCacheable = (action.startsWith('GET_') || action === 'GEOCODE') && !payload.forceRefresh && !payload.noCache && !payload.cacheBuster;
     
     const targetGasUrl = 'https://script.google.com/macros/s/AKfycbyQ4Y5cQ0BCHBlmzftWq0dPVP2qNgc-PaYMklh44raSX4hDOCIyFi0bV-G6QdUbb-3D/exec';
 
@@ -70,10 +70,10 @@ export async function onRequest(context) {
     };
 
     if (isCacheable) {
-      // Cache on Cloudflare Edge for 60 seconds
-      responseHeaders['Cache-Control'] = 'public, max-age=60';
+      // Cache on Cloudflare Edge for 10 seconds max
+      responseHeaders['Cache-Control'] = 'public, max-age=10, s-maxage=10';
     } else {
-      responseHeaders['Cache-Control'] = 'no-store';
+      responseHeaders['Cache-Control'] = 'no-store, no-cache, must-revalidate';
     }
 
     const response = new Response(responseBody, {

@@ -266,7 +266,7 @@ export function parseLogDate(timeStr: any): Date | null {
     return isNaN(d.getTime()) ? null : d;
   }
 
-  const cleanStr = timeStr.trim();
+  const cleanStr = String(timeStr).trim().replace(/^['"\s]+|['"\s]+$/g, '');
   if (!cleanStr) return null;
 
   // Format 1: dd/MM/yyyy or dd-MM-yyyy (e.g., '02/09/2026 20:45:12' or '2/9/2026 20:45')
@@ -973,17 +973,32 @@ export function getCheckInCooldown(
     return { isBlocked: false, remainingSeconds: 0, remainingMinutesFormatted: '00:00' };
   }
 
-  // Find most recent punch for this user
+  // 1. Read persistent localStorage values (safe against F5 / page reload)
+  let storageLastMs = 0;
+  try {
+    const rawSaved = localStorage.getItem('kg_last_checkin');
+    if (rawSaved) storageLastMs = parseInt(rawSaved, 10) || 0;
+  } catch {}
+
+  const localPunch = getLocalLastPunch(currentUser);
+  const localPunchMs = localPunch?.timestamp || 0;
+
+  // 2. Find most recent punch from logs for this user
   const userLogsWithDates = (logs || [])
     .filter((l) => matchesUser(l, currentUser) && l.time)
-    .map((l) => ({ log: l, date: parseLogDate(l.time) }))
-    .filter((item): item is { log: { fullname: string; type: string; time: string }; date: Date } => item.date !== null)
-    .sort((a, b) => b.date.getTime() - a.date.getTime()); // newest first
+    .map((l) => {
+      const ts = (l.timestamp && l.timestamp > 0) ? l.timestamp : (parseLogDate(l.time)?.getTime() || 0);
+      return { log: l, timestamp: ts };
+    })
+    .filter((item) => item.timestamp > 0)
+    .sort((a, b) => b.timestamp - a.timestamp); // newest first
 
   const newestLog = userLogsWithDates[0];
-  const newestLogMs = newestLog ? newestLog.date.getTime() : 0;
+  const newestLogMs = newestLog ? newestLog.timestamp : 0;
   const storeLastMs = lastCheckInTime || 0;
-  const mostRecentMs = Math.max(newestLogMs, storeLastMs);
+
+  // Combine ALL sources of truth (persists through F5, cache reload, or network delay)
+  const mostRecentMs = Math.max(newestLogMs, storeLastMs, storageLastMs, localPunchMs);
 
   if (mostRecentMs <= 0) {
     return { isBlocked: false, remainingSeconds: 0, remainingMinutesFormatted: '00:00' };
@@ -1000,9 +1015,10 @@ export function getCheckInCooldown(
     const remainingMinutesFormatted = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
     const minutesSinceLast = Math.max(0, Math.floor(diffMs / 60000));
 
-    const timeStr = newestLog
-      ? `${String(newestLog.date.getHours()).padStart(2, '0')}:${String(newestLog.date.getMinutes()).padStart(2, '0')}`
-      : undefined;
+    const mostRecentDate = new Date(mostRecentMs);
+    const timeStr = `${String(mostRecentDate.getHours()).padStart(2, '0')}:${String(mostRecentDate.getMinutes()).padStart(2, '0')}`;
+
+    const effectiveType = newestLog?.log.type || localPunch?.type || undefined;
 
     return {
       isBlocked: remainingSeconds > 0,
@@ -1010,7 +1026,7 @@ export function getCheckInCooldown(
       remainingMinutesFormatted,
       lastTimeStr: timeStr,
       minutesSinceLast,
-      lastType: newestLog ? newestLog.log.type : undefined,
+      lastType: effectiveType,
     };
   }
 
@@ -1019,7 +1035,7 @@ export function getCheckInCooldown(
     remainingSeconds: 0,
     remainingMinutesFormatted: '00:00',
     minutesSinceLast: Math.floor(diffMs / 60000),
-    lastType: newestLog ? newestLog.log.type : undefined,
+    lastType: newestLog?.log.type || localPunch?.type || undefined,
   };
 }
 
