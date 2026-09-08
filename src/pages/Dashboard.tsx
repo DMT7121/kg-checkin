@@ -490,6 +490,7 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
                     "Sổ Bàn giao ca: Bắt buộc đếm quỹ tiền mặt, ghi nhận tồn kho và sự cố trước khi giao ca.",
                     "Đăng ký lịch làm: Hạn chót 23h59 Chủ nhật hàng tuần để AI và Quản lý sắp xếp đội hình tối ưu."
                   ]}
+                  variant="badge"
                   triggerText="Lưu ý"
                   size="sm"
                 />

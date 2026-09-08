@@ -1226,18 +1226,19 @@ export default function CheckIn() {
 
         {/* Quick Shift Pulse / Team Attendance Banner */}
         <div className="pt-2 border-t border-[var(--kg-border)]/60 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 text-[11px] text-[var(--kg-text-muted)] truncate min-w-0">
+          <div className="flex items-center gap-1.5 text-[11px] text-[var(--kg-text-muted)] min-w-0 flex-1">
             <Sparkles size={12} className="text-blue-500 flex-shrink-0" />
-            <span className="truncate">{recommendation.reason}</span>
+            <span className="truncate font-medium">{recommendation.reason}</span>
           </div>
 
           <button
             type="button"
             onClick={() => setEmployeeAttendanceModalOpen(true)}
-            className="px-2.5 py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-bold text-[10px] flex items-center gap-1 whitespace-nowrap transition active:scale-95 flex-shrink-0"
+            className="px-2 py-1 sm:px-2.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-bold text-[10px] flex items-center gap-1 whitespace-nowrap transition active:scale-95 flex-shrink-0"
+            title="Xem danh sách ca toàn đội hôm nay"
           >
             <Users size={12} />
-            <span>Xem ca toàn đội →</span>
+            <span>Toàn đội →</span>
           </button>
         </div>
       </div>

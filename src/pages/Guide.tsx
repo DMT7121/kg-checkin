@@ -530,6 +530,7 @@ export default function Guide() {
                   "Sau khi nắm rõ quy trình, bấm 'Đã hiểu & Hoàn thành' để ghi nhận tiến độ học tập.",
                   "Nhân viên đạt 100% tiến độ tự học sẽ được ưu tiên xem xét thưởng King Coins và tăng bậc lương."
                 ]}
+                variant="badge"
                 triggerText="Mẹo tự học"
               />
             }

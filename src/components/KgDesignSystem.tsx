@@ -351,8 +351,8 @@ export function KgMetricCard({
       className={`kg-metric-card kg-metric-${variant} flex items-center justify-between p-4 ${className}`}
       hoverable={!!onClick}
     >
-      <div className="space-y-1 min-w-0">
-        <span className="text-[11px] text-[var(--kg-text-muted)] font-bold uppercase tracking-wider block truncate">
+      <div className="space-y-1 min-w-0 flex-1 pr-2">
+        <span className="text-[10.5px] sm:text-[11px] text-[var(--kg-text-muted)] font-bold uppercase tracking-wider block line-clamp-2 leading-tight">
           {title}
         </span>
         <p className="text-xl md:text-2xl font-black text-[var(--kg-text)] tracking-tight truncate">
@@ -1181,7 +1181,7 @@ export function KgModuleHero({
                 content={tipContent || description}
                 tips={tips}
                 variant="hero"
-                triggerText="💡 Mẹo & Lưu ý"
+                triggerText="Mẹo & Lưu ý"
               />
             )}
           </div>

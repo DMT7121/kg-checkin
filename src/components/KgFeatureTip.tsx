@@ -38,6 +38,9 @@ export function KgFeatureTip({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen]);
 
+  // Clean triggerText to remove duplicate lightbulb emoji if passed
+  const cleanTriggerText = triggerText ? triggerText.replace(/^💡\s*/, '').trim() : '';
+
   // Trigger styles based on variant
   const getTriggerClass = () => {
     if (variant === 'hero') {
@@ -49,7 +52,11 @@ export function KgFeatureTip({
     if (variant === 'subtle') {
       return 'inline-flex items-center justify-center w-6 h-6 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-amber-500/10 transition-all active:scale-95 cursor-pointer select-none';
     }
-    // Default 'icon'
+    // Default 'icon' with triggerText -> render as pill
+    if (cleanTriggerText) {
+      return 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-xs font-bold transition-all duration-200 active:scale-95 hover:scale-105 shadow-xs cursor-pointer select-none';
+    }
+    // Default 'icon' without triggerText -> circular
     const sizeClasses = size === 'sm' ? 'w-6 h-6 text-xs' : 'w-7 h-7 text-sm';
     return `inline-flex items-center justify-center ${sizeClasses} rounded-full bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-400 border border-amber-500/30 transition-all duration-200 active:scale-90 hover:scale-105 shadow-xs cursor-pointer select-none`;
   };
@@ -70,9 +77,9 @@ export function KgFeatureTip({
         <span className="leading-none text-[13px]" role="img" aria-label="lightbulb">
           💡
         </span>
-        {triggerText && (
-          <span className="leading-none font-bold text-[11px] tracking-tight truncate max-w-[120px]">
-            {triggerText}
+        {cleanTriggerText && (
+          <span className="leading-none font-bold text-[11px] tracking-tight whitespace-nowrap">
+            {cleanTriggerText}
           </span>
         )}
       </button>

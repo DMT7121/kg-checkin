@@ -73,8 +73,17 @@ export default function KgAppShell({ children, onPrefetch }: KgAppShellProps) {
             <h1 className="font-extrabold text-sm tracking-tight leading-tight text-[var(--kg-text)]">
               KG Staff OS
             </h1>
-            <p className="text-[10px] font-bold text-[var(--kg-text-muted)]">
-              {currentUser?.fullname.split(' ').pop()} • {currentUser?.role === 'admin' ? 'Quản lý' : 'Nhân sự'}
+            <p className="text-[10px] font-bold text-[var(--kg-text-muted)] truncate max-w-[170px]">
+              {(() => {
+                if (!currentUser) return 'Nhân sự';
+                const roleText = currentUser.role === 'admin' ? 'Quản lý' : (currentUser.position || 'Nhân sự');
+                if (/quản\s*lý|admin/i.test(currentUser.fullname)) {
+                  return `Admin • ${roleText}`;
+                }
+                const nameParts = currentUser.fullname.trim().split(/\s+/);
+                const shortName = nameParts.length > 0 ? nameParts[nameParts.length - 1] : '';
+                return `${shortName} • ${roleText}`;
+              })()}
             </p>
           </div>
         </div>
