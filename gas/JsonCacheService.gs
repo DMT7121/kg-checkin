@@ -317,6 +317,41 @@ var JsonCacheService = (function() {
   }
 
   /**
+   * Helper parse timestamp from time value or json data.
+   */
+  function parseLogTimestamp(timeVal, jsonVal) {
+    if (jsonVal) {
+      try {
+        var p = typeof jsonVal === 'string' ? JSON.parse(jsonVal) : jsonVal;
+        if (p.timestamp) {
+          var t = new Date(p.timestamp).getTime();
+          if (!isNaN(t)) return t;
+        }
+      } catch(e) {}
+    }
+    if (!timeVal) return 0;
+    if (timeVal instanceof Date) return timeVal.getTime();
+    var s = timeVal.toString().trim().replace(/^'/, '');
+    var parts = s.split(' ');
+    if (parts.length >= 2) {
+      var dParts = parts[0].split('/');
+      var tParts = parts[1].split(':');
+      if (dParts.length === 3 && tParts.length >= 2) {
+        var day = parseInt(dParts[0], 10);
+        var mon = parseInt(dParts[1], 10) - 1;
+        var year = parseInt(dParts[2], 10);
+        var hr = parseInt(tParts[0], 10);
+        var min = parseInt(tParts[1], 10);
+        var sec = tParts[2] ? parseInt(tParts[2], 10) : 0;
+        var d = new Date(year, mon, day, hr, min, sec);
+        if (!isNaN(d.getTime())) return d.getTime();
+      }
+    }
+    var d2 = new Date(s);
+    return !isNaN(d2.getTime()) ? d2.getTime() : 0;
+  }
+
+  /**
    * Rebuilds and caches user-specific data.
    */
   function rebuildUserCache(db, username, fullname, monthSheet, weekLabel) {
@@ -327,30 +362,59 @@ var JsonCacheService = (function() {
     var logData = db.getValues(CONFIG.SHEET_LOGS);
     if (logData && logData.length > 1) {
       var logs = [], userCheckins = 0, validCount = 0;
-      var startIdx = Math.max(1, logData.length - 200); // Only process last 200
-      for (var i = logData.length - 1; i >= startIdx; i--) {
+      var cleanFullname = fullname ? fullname.trim().toLowerCase() : '';
+      var cleanUsername = username ? username.trim().toLowerCase() : '';
+      var maxRows = Math.min(logData.length, 1200);
+
+      // Sheet inserts new rows at Row 2, so index 1 is newest. Loop top-down.
+      for (var i = 1; i < maxRows; i++) {
         var row = logData[i];
         if (!row[0]) continue;
-        var isCurrentUser = row[0].toString().toLowerCase() === fullname.toLowerCase();
-        if (isCurrentUser) {
+        var rowName = row[0].toString().trim().toLowerCase();
+        var rowJson = null;
+        if (row[7]) {
+          try { rowJson = JSON.parse(row[7].toString()); } catch(e){}
+        }
+        var matchesUser = (cleanFullname && rowName === cleanFullname) || 
+                          (cleanUsername && rowName === cleanUsername) ||
+                          (rowJson && rowJson.username && rowJson.username.toString().toLowerCase() === cleanUsername);
+
+        if (matchesUser) {
           var timeVal = row[2];
-          var timeStr = timeVal ? timeVal.toString() : '';
+          var timeStr = timeVal ? timeVal.toString().replace(/^'/, '') : '';
           var statusVal = row[4] ? row[4].toString() : '';
           var isHopLe = statusVal.toUpperCase().indexOf('HỢP LỆ') >= 0 && statusVal.toUpperCase().indexOf('KHÔNG') < 0;
+          var ts = parseLogTimestamp(timeVal, row[7]);
+
+          var note = rowJson && rowJson.ghiChu ? rowJson.ghiChu : (rowJson && rowJson.diTre ? 'Trễ ' + rowJson.diTre + 'p' : '');
+          if (rowJson && rowJson.isCorrected) {
+            note = (note ? note + ' • ' : '') + 'Đã sửa từ ' + (rowJson.originalType || 'loại cũ');
+          }
+
           logs.push({ 
+            rowIndex: i + 1,
             fullname: row[0].toString(), 
             type: row[1] ? row[1].toString() : '', 
             time: timeStr, 
             location: row[3] ? row[3].toString() : '', 
             status: statusVal, 
             distance: row[5] ? row[5].toString() : '', 
-            image: row[6] ? row[6].toString() : '' 
+            image: row[6] ? row[6].toString() : '',
+            note: note,
+            isCorrected: !!(rowJson && rowJson.isCorrected),
+            editReason: rowJson && rowJson.correctionReason ? rowJson.correctionReason : '',
+            originalType: rowJson && rowJson.originalType ? rowJson.originalType : '',
+            claimId: rowJson && rowJson.claimId ? rowJson.claimId : '',
+            timestamp: ts
           });
-          if (row[1] && row[1].toString().toLowerCase() === 'vào ca') userCheckins++;
+          if (row[1] && row[1].toString().toLowerCase().indexOf('vào ca') >= 0) userCheckins++;
           if (isHopLe) validCount++;
         }
       }
-      result.logs = logs;
+
+      // Sort newest first
+      logs.sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
+      result.logs = logs.slice(0, 150);
       result.stats = { totalCheckIn: userCheckins, validCount: validCount };
     }
 
@@ -530,30 +594,47 @@ var JsonCacheService = (function() {
     var logData = db.getValues(CONFIG.SHEET_LOGS);
     var logs = [], totalCheckins = 0, validCount = 0;
     if (logData && logData.length > 1) {
-      var startIdx = Math.max(1, logData.length - 200);
-      for (var i = logData.length - 1; i >= startIdx; i--) {
+      var maxRows = Math.min(logData.length, 1200);
+      for (var i = 1; i < maxRows; i++) {
         var row = logData[i];
         if (!row[0]) continue;
         var timeVal = row[2];
-        var timeStr = timeVal ? timeVal.toString() : '';
+        var timeStr = timeVal ? timeVal.toString().replace(/^'/, '') : '';
         var statusVal = row[4] ? row[4].toString() : '';
         var isHopLe = statusVal.toUpperCase().indexOf('HỢP LỆ') >= 0 && statusVal.toUpperCase().indexOf('KHÔNG') < 0;
-        
+        var ts = parseLogTimestamp(timeVal, row[7]);
+        var rowJson = null;
+        if (row[7]) {
+          try { rowJson = JSON.parse(row[7].toString()); } catch(e){}
+        }
+        var note = rowJson && rowJson.ghiChu ? rowJson.ghiChu : (rowJson && rowJson.diTre ? 'Trễ ' + rowJson.diTre + 'p' : '');
+        if (rowJson && rowJson.isCorrected) {
+          note = (note ? note + ' • ' : '') + 'Đã sửa từ ' + (rowJson.originalType || 'loại cũ');
+        }
+
         logs.push({ 
+          rowIndex: i + 1,
           fullname: row[0].toString(), 
           type: row[1] ? row[1].toString() : '', 
           time: timeStr, 
           location: row[3] ? row[3].toString() : '', 
           status: statusVal, 
           distance: row[5] ? row[5].toString() : '', 
-          image: row[6] ? row[6].toString() : '' 
+          image: row[6] ? row[6].toString() : '',
+          note: note,
+          isCorrected: !!(rowJson && rowJson.isCorrected),
+          editReason: rowJson && rowJson.correctionReason ? rowJson.correctionReason : '',
+          originalType: rowJson && rowJson.originalType ? rowJson.originalType : '',
+          claimId: rowJson && rowJson.claimId ? rowJson.claimId : '',
+          timestamp: ts
         });
-        if (row[1] && row[1].toString().toLowerCase() === 'vào ca') totalCheckins++;
+        if (row[1] && row[1].toString().toLowerCase().indexOf('vào ca') >= 0) totalCheckins++;
         if (isHopLe) validCount++;
       }
+      logs.sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
+      result.logs = logs.slice(0, 300);
+      result.stats = { totalCheckIn: totalCheckins, validCount: validCount };
     }
-    result.logs = logs;
-    result.stats = { totalCheckIn: totalCheckins, validCount: validCount };
 
     // Pending Feedback Count
     var fbData = db.getValues("Feedbacks");

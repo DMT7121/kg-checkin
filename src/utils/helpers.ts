@@ -951,3 +951,148 @@ export function fileToBase64(file: File): Promise<string> {
     reader.onerror = (error) => reject(error);
   });
 }
+
+export interface CheckInCooldownInfo {
+  isBlocked: boolean;
+  remainingSeconds: number;
+  remainingMinutesFormatted: string;
+  lastTimeStr?: string;
+  minutesSinceLast?: number;
+  lastType?: string;
+}
+
+/**
+ * Calculates whether the current user is subject to the mandatory 15-minute anti-spam cooldown.
+ */
+export function getCheckInCooldown(
+  logs: { fullname: string; type: string; time: string; timestamp?: number }[] | undefined,
+  currentUser: { fullname: string; username?: string; role?: string } | null,
+  lastCheckInTime?: number
+): CheckInCooldownInfo {
+  if (!currentUser) {
+    return { isBlocked: false, remainingSeconds: 0, remainingMinutesFormatted: '00:00' };
+  }
+
+  // Find most recent punch for this user
+  const userLogsWithDates = (logs || [])
+    .filter((l) => matchesUser(l, currentUser) && l.time)
+    .map((l) => ({ log: l, date: parseLogDate(l.time) }))
+    .filter((item): item is { log: { fullname: string; type: string; time: string }; date: Date } => item.date !== null)
+    .sort((a, b) => b.date.getTime() - a.date.getTime()); // newest first
+
+  const newestLog = userLogsWithDates[0];
+  const newestLogMs = newestLog ? newestLog.date.getTime() : 0;
+  const storeLastMs = lastCheckInTime || 0;
+  const mostRecentMs = Math.max(newestLogMs, storeLastMs);
+
+  if (mostRecentMs <= 0) {
+    return { isBlocked: false, remainingSeconds: 0, remainingMinutesFormatted: '00:00' };
+  }
+
+  const now = Date.now();
+  const diffMs = now - mostRecentMs;
+  const COOLDOWN_MS = 15 * 60 * 1000; // 15 minutes
+
+  if (diffMs < COOLDOWN_MS && diffMs >= 0) {
+    const remainingSeconds = Math.max(0, Math.ceil((COOLDOWN_MS - diffMs) / 1000));
+    const mins = Math.floor(remainingSeconds / 60);
+    const secs = remainingSeconds % 60;
+    const remainingMinutesFormatted = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    const minutesSinceLast = Math.max(0, Math.floor(diffMs / 60000));
+
+    const timeStr = newestLog
+      ? `${String(newestLog.date.getHours()).padStart(2, '0')}:${String(newestLog.date.getMinutes()).padStart(2, '0')}`
+      : undefined;
+
+    return {
+      isBlocked: remainingSeconds > 0,
+      remainingSeconds,
+      remainingMinutesFormatted,
+      lastTimeStr: timeStr,
+      minutesSinceLast,
+      lastType: newestLog ? newestLog.log.type : undefined,
+    };
+  }
+
+  return {
+    isBlocked: false,
+    remainingSeconds: 0,
+    remainingMinutesFormatted: '00:00',
+    minutesSinceLast: Math.floor(diffMs / 60000),
+    lastType: newestLog ? newestLog.log.type : undefined,
+  };
+}
+
+export interface CheckInAnomaly {
+  logTime: string;
+  fullname: string;
+  type: string;
+  issueType: 'CONSECUTIVE_IN' | 'UNMATCHED_OUT' | 'LONG_SHIFT';
+  title: string;
+  message: string;
+  suggestedType: 'Vào ca' | 'Ra ca';
+}
+
+/**
+ * Audits recent logs to detect anomalies such as consecutive 'Vào ca' or 'Ra ca' without 'Vào ca'.
+ */
+export function auditCheckInAnomalies(
+  logs: { fullname: string; type: string; time: string; isCorrected?: boolean }[] | undefined,
+  currentUser: { fullname: string; username?: string; role?: string } | null,
+  maxItems = 15
+): CheckInAnomaly[] {
+  if (!currentUser || !logs || logs.length === 0) return [];
+
+  const userLogsWithDates = logs
+    .filter((l) => matchesUser(l, currentUser) && l.time)
+    .map((l) => ({ log: l, date: parseLogDate(l.time) }))
+    .filter((item): item is { log: { fullname: string; type: string; time: string; isCorrected?: boolean }; date: Date } => item.date !== null)
+    .sort((a, b) => a.date.getTime() - b.date.getTime()) // chronological ascending
+    .slice(-maxItems);
+
+  const anomalies: CheckInAnomaly[] = [];
+  let prevAction: 'IN' | 'OUT' | null = null;
+  let prevItem: { log: any; date: Date } | null = null;
+
+  for (let i = 0; i < userLogsWithDates.length; i++) {
+    const item = userLogsWithDates[i];
+    const isIn = item.log.type.includes('Vào ca') || item.log.type.includes('IN') || item.log.type.toLowerCase().includes('vào');
+    const isOut = item.log.type.includes('Ra ca') || item.log.type.includes('OUT') || item.log.type.toLowerCase().includes('ra');
+
+    if (isIn) {
+      if (prevAction === 'IN' && prevItem) {
+        const diffHrs = (item.date.getTime() - prevItem.date.getTime()) / (1000 * 60 * 60);
+        if (diffHrs < 12) {
+          anomalies.push({
+            logTime: item.log.time,
+            fullname: item.log.fullname,
+            type: item.log.type,
+            issueType: 'CONSECUTIVE_IN',
+            title: '2 Lượt Vào Ca Liên Tiếp',
+            message: `Lượt lúc ${item.log.time} là "Vào ca" nhưng trước đó đã Vào ca lúc ${prevItem.log.time}. Có thể bạn đã bấm nhầm thay vì "Ra ca".`,
+            suggestedType: 'Ra ca',
+          });
+        }
+      }
+      prevAction = 'IN';
+      prevItem = item;
+    } else if (isOut) {
+      if (prevAction === null || prevAction === 'OUT') {
+        anomalies.push({
+          logTime: item.log.time,
+          fullname: item.log.fullname,
+          type: item.log.type,
+          issueType: 'UNMATCHED_OUT',
+          title: 'Ra Ca Chưa Có Lượt Vào Ca',
+          message: `Lượt lúc ${item.log.time} là "Ra ca" nhưng trước đó chưa ghi nhận lượt Vào ca tương ứng trong ca làm việc này.`,
+          suggestedType: 'Vào ca',
+        });
+      }
+      prevAction = 'OUT';
+      prevItem = item;
+    }
+  }
+
+  return anomalies.reverse();
+}
+

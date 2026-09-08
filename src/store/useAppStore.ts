@@ -153,12 +153,20 @@ export interface Feedback {
 }
 
 export interface LogEntry {
+  rowIndex?: number;
   fullname: string;
   type: string;
   time: string;
   status: string;
+  location?: string;
+  distance?: string;
   note?: string;
   image?: string;
+  isCorrected?: boolean;
+  editReason?: string;
+  originalType?: string;
+  claimId?: string;
+  timestamp?: number;
 }
 
 export interface AdminScheduleEntry {
@@ -282,6 +290,7 @@ interface AppState {
   setLogs: (logs: LogEntry[]) => void;
   prependLog: (log: LogEntry) => void;
   removeFirstLog: () => void;
+  updateLogType: (time: string, newType: string, reason?: string) => void;
   setStats: (stats: AppState['stats']) => void;
   setUsers: (users: User[]) => void;
   setScheduleRegistered: (v: boolean) => void;
@@ -468,6 +477,26 @@ export const useAppStore = create<AppState>((set) => ({
   setLogs: (logs) => set({ logs }),
   prependLog: (log) => set((s) => ({ logs: [log, ...s.logs] })),
   removeFirstLog: () => set((s) => ({ logs: s.logs.slice(1) })),
+  updateLogType: (time, newType, reason) =>
+    set((s) => {
+      const updatedLogs = s.logs.map((l) => {
+        if (l.time === time || l.time.replace(/^'/, '') === time.replace(/^'/, '')) {
+          const orig = l.type;
+          const noteText = (l.note ? l.note + ' • ' : '') + `Đã sửa từ ${orig}${reason ? ` (${reason})` : ''}`;
+          return {
+            ...l,
+            type: newType,
+            isCorrected: true,
+            originalType: orig,
+            editReason: reason,
+            note: noteText,
+          };
+        }
+        return l;
+      });
+      localStorage.setItem('kg_logs', JSON.stringify(updatedLogs));
+      return { logs: updatedLogs };
+    }),
   setStats: (stats) => set({ stats }),
   setUsers: (users) => set({ users }),
   setScheduleRegistered: (isScheduleRegistered) => set({ isScheduleRegistered }),

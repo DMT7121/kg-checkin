@@ -66,6 +66,7 @@ function doPost(e) {
       case 'LOGIN': return handleLogin(payload);
       case 'REGISTER': return handleRegister(payload);
       case 'CHECK_IN_OUT': return handleCheckInOut(payload);
+      case 'UPDATE_CHECKIN_TYPE': return handleUpdateCheckinType(payload);
       case 'SEND_EMAIL_NOTIFICATION': return handleSendEmailNotification(payload);
       case 'UPLOAD_CHECKIN_IMAGE': return handleUploadCheckinImage(payload);
       case 'GET_DATA': return handleGetData(payload);

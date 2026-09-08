@@ -608,6 +608,46 @@ function handleCheckInOut(payload) {
   
   // === COL B: LOẠI CHẤM CÔNG ===
   var loaiChamCong = payload.type; // "Vào ca" / "Ra ca"
+
+  // === ANTI-SPAM: 15 MINUTES COOLDOWN RULE ===
+  var isAdmin = payload.role === 'admin' || payload.role === 'tester' || (payload.username || '').toLowerCase() === 'admin';
+  if (!isAdmin && !payload.skipCooldownCheck) {
+    try {
+      var lastCheckRows = sheet.getRange(2, 1, Math.min(sheet.getLastRow() - 1, 100), 8).getValues();
+      var cleanTargetName = hoVaTen ? hoVaTen.trim().toLowerCase() : '';
+      var cleanTargetUser = payload.username ? payload.username.trim().toLowerCase() : '';
+      var nowMs = time ? time.getTime() : new Date().getTime();
+      
+      for (var ci = 0; ci < lastCheckRows.length; ci++) {
+        var cRow = lastCheckRows[ci];
+        if (!cRow[0]) continue;
+        var cName = cRow[0].toString().trim().toLowerCase();
+        var cJson = null;
+        if (cRow[7]) {
+          try { cJson = JSON.parse(cRow[7].toString()); } catch(e){}
+        }
+        var isMatch = (cleanTargetName && cName === cleanTargetName) ||
+                      (cleanTargetUser && cName === cleanTargetUser) ||
+                      (cJson && cJson.username && cJson.username.toString().toLowerCase() === cleanTargetUser);
+                      
+        if (isMatch) {
+          var lastLogTime = parseDateTimeString(cRow[2]);
+          if (lastLogTime && !isNaN(lastLogTime.getTime())) {
+            var diffMs = nowMs - lastLogTime.getTime();
+            if (diffMs >= 0 && diffMs < 15 * 60 * 1000) {
+              var remainingSecs = Math.ceil((15 * 60 * 1000 - diffMs) / 1000);
+              var remainingMins = Math.ceil(remainingSecs / 60);
+              var lastFormatted = cRow[2] ? cRow[2].toString().replace(/^'/, '') : '';
+              return jsonResponse(false, 'Hệ thống chống spam: Bạn vừa chấm công lúc ' + lastFormatted + '. Quy định tối thiểu sau 15 phút mới được chấm tiếp (còn thiếu khoảng ' + remainingMins + ' phút).');
+            }
+          }
+          break; // Đã tìm thấy lượt chấm công mới nhất của nhân viên này
+        }
+      }
+    } catch(spamErr) {
+      Logger.log('Cooldown check error: ' + spamErr.message);
+    }
+  }
   
   // === PHASE 2: Auto Shift Lookup & Late Calculation ===
   var serverShift = '';
@@ -3139,3 +3179,110 @@ function handleRejectMissedCheckin(payload) {
     return jsonResponse(false, 'Lỗi từ chối đơn: ' + e.message);
   }
 }
+
+/**
+ * Cập nhật lại Loại Chấm Công khi nhân viên hoặc quản lý chọn nhầm.
+ * Ghi vết kiểm toán vào Cột H (DATA JSON) và đổi màu hiển thị trên Sheet.
+ */
+function handleUpdateCheckinType(payload) {
+  try {
+    if (!payload.username || !payload.newType) {
+      return jsonResponse(false, 'Thiếu thông tin cập nhật loại chấm công.');
+    }
+    var ss = getSS();
+    var sheet = ss.getSheetByName(CONFIG.SHEET_LOGS);
+    if (!sheet) return jsonResponse(false, 'Không tìm thấy sheet chấm công');
+
+    var isAdmin = payload.role === 'admin' || payload.role === 'tester' || (payload.username || '').toLowerCase() === 'admin';
+    var targetRowIndex = -1;
+    var lastRow = sheet.getLastRow();
+    if (lastRow <= 1) return jsonResponse(false, 'Không có dữ liệu chấm công để cập nhật.');
+
+    var targetFullname = payload.fullname ? payload.fullname.trim().toLowerCase() : '';
+    var targetTime = payload.time ? payload.time.toString().trim().replace(/^'/, '') : '';
+
+    // 1. Kiểm tra rowIndex gửi lên nếu hợp lệ
+    if (payload.rowIndex && payload.rowIndex >= 2 && payload.rowIndex <= lastRow) {
+      var checkRow = sheet.getRange(payload.rowIndex, 1, 1, 8).getValues()[0];
+      var checkName = checkRow[0] ? checkRow[0].toString().trim().toLowerCase() : '';
+      var checkTime = checkRow[2] ? checkRow[2].toString().trim().replace(/^'/, '') : '';
+
+      if (isAdmin || checkName === targetFullname || checkName === payload.username.toLowerCase()) {
+        if (!targetTime || checkTime === targetTime) {
+          targetRowIndex = payload.rowIndex;
+        }
+      }
+    }
+
+    // 2. Fallback quét 300 dòng đầu tìm theo fullname và time
+    if (targetRowIndex === -1) {
+      var scanRows = sheet.getRange(2, 1, Math.min(lastRow - 1, 300), 8).getValues();
+      for (var r = 0; r < scanRows.length; r++) {
+        var row = scanRows[r];
+        var rName = row[0] ? row[0].toString().trim().toLowerCase() : '';
+        var rTime = row[2] ? row[2].toString().trim().replace(/^'/, '') : '';
+        if ((isAdmin || rName === targetFullname || rName === payload.username.toLowerCase()) && rTime === targetTime) {
+          targetRowIndex = r + 2;
+          break;
+        }
+      }
+    }
+
+    if (targetRowIndex === -1) {
+      return jsonResponse(false, 'Không tìm thấy dòng chấm công tương ứng hoặc bạn không có quyền sửa.');
+    }
+
+    var currentRowData = sheet.getRange(targetRowIndex, 1, 1, 8).getValues()[0];
+    var originalType = currentRowData[1] ? currentRowData[1].toString() : '';
+    var newType = payload.newType.toString().trim();
+
+    // Parse JSON
+    var dataJson = {};
+    try {
+      if (currentRowData[7]) dataJson = JSON.parse(currentRowData[7].toString());
+    } catch(ej) {}
+
+    var nowStr = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm:ss');
+    dataJson.loaiChamCong = newType;
+    dataJson.isCorrected = true;
+    dataJson.originalType = originalType;
+    dataJson.correctedAt = nowStr;
+    dataJson.correctedBy = payload.username;
+    dataJson.correctionReason = payload.reason || 'Nhân viên cập nhật lại loại chấm công';
+
+    var noteText = (dataJson.ghiChu ? dataJson.ghiChu + ' • ' : '') + 'Đã sửa từ ' + originalType + ' (' + (payload.reason || 'chọn nhầm') + ')';
+    dataJson.ghiChu = noteText;
+
+    var lock = LockService.getScriptLock();
+    try {
+      lock.waitLock(10000);
+      sheet.getRange(targetRowIndex, 2).setValue(newType);
+      sheet.getRange(targetRowIndex, 8).setValue(JSON.stringify(dataJson));
+
+      // Cập nhật lại format dòng
+      var isValid = currentRowData[4] ? currentRowData[4].toString().indexOf('Hợp lệ') >= 0 : true;
+      var imageUrl = currentRowData[6] ? currentRowData[6].toString() : '';
+      formatCheckInRow(sheet, targetRowIndex, isValid, imageUrl);
+
+      lock.releaseLock();
+    } catch (lErr) {
+      sheet.getRange(targetRowIndex, 2).setValue(newType);
+      sheet.getRange(targetRowIndex, 8).setValue(JSON.stringify(dataJson));
+    }
+
+    // Xóa cache để cập nhật ngay lập tức
+    invalidateGetDataCache(payload.username);
+
+    return jsonResponse(true, {
+      message: 'Đã cập nhật loại chấm công thành công',
+      rowIndex: targetRowIndex,
+      newType: newType,
+      originalType: originalType,
+      correctedAt: nowStr
+    });
+  } catch (err) {
+    Logger.log('handleUpdateCheckinType error: ' + err.message);
+    return jsonResponse(false, 'Lỗi cập nhật loại chấm công: ' + err.message);
+  }
+}
+

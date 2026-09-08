@@ -14,7 +14,9 @@ import {
   setLocalLastPunch,
   auditMissingCheckIns,
   MissingCheckInAlert,
-  CheckInTypeString
+  CheckInTypeString,
+  getCheckInCooldown,
+  auditCheckInAnomalies
 } from '../utils/helpers';
 import {
   MapPin,
@@ -61,6 +63,16 @@ export default function CheckIn() {
   const recommendation = getRecommendedCheckInType(store.logs, currentUser);
   const missingAlerts = auditMissingCheckIns(store.logs, currentUser);
   const [selectedMissingAlert, setSelectedMissingAlert] = useState<MissingCheckInAlert | null>(null);
+
+  // Live second ticker for real-time 15-minute countdown
+  const [cooldownTicker, setCooldownTicker] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setCooldownTicker((t) => t + 1), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const cooldown = getCheckInCooldown(store.logs, currentUser, store.lastCheckInTime);
+  const anomalies = auditCheckInAnomalies(store.logs, currentUser);
 
   // Post-capture confirmation modal & dynamic type selection state
   const [confirmCheckInModalOpen, setConfirmCheckInModalOpen] = useState(false);
@@ -682,13 +694,12 @@ export default function CheckIn() {
       return;
     }
 
-    // Anti-spam 1min check
-    const now = Date.now();
-    const lastTime = useAppStore.getState().lastCheckInTime;
-    if (now - lastTime < 1 * 60 * 1000) {
-      const remainingSecs = Math.ceil((1 * 60 * 1000 - (now - lastTime)) / 1000);
-      speak(`Vui lòng đợi thêm ${remainingSecs} giây để chấm công lại.`);
-      setSpamWarningText(`Bạn vừa mới chấm công. Vui lòng đợi thêm ${remainingSecs} giây.`);
+    // Anti-spam 15-minute cooldown check
+    const cooldownInfo = getCheckInCooldown(store.logs, currentUser, useAppStore.getState().lastCheckInTime);
+    const isAdminUser = currentUser?.role === 'admin' || currentUser?.role === 'tester';
+    if (cooldownInfo.isBlocked && !isAdminUser) {
+      speak(`Vui lòng đợi thêm ${cooldownInfo.remainingMinutesFormatted} để chấm công lại.`);
+      setSpamWarningText(`Quy định chống spam: Bạn vừa chấm công lúc ${cooldownInfo.lastTimeStr || ''} (${cooldownInfo.minutesSinceLast || 0} phút trước). Hệ thống yêu cầu sau tối thiểu 15 phút mới được chấm tiếp để tránh trùng lặp. Thời gian còn lại: ${cooldownInfo.remainingMinutesFormatted}.`);
       setSpamWarningOpen(true);
       return;
     }
@@ -1060,6 +1071,61 @@ export default function CheckIn() {
         features={['Xác thực GPS ≤20m', 'Nhận diện Live AI', 'Chống chọn nhầm ca']}
       />
 
+      {/* 15-Minute Anti-Spam Cooldown Banner */}
+      {cooldown.isBlocked && currentUser?.role !== 'admin' && (
+        <div className="bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 border border-amber-500/30 rounded-2xl p-4 text-[var(--kg-text)] shadow-xs max-w-md mx-auto animate-fade-in">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0 shadow-xs mt-0.5">
+              <Clock size={18} className="animate-spin" style={{ animationDuration: '8s' }} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+                  ⏳ Chống Spam: Giãn cách 15 phút
+                </span>
+                <span className="font-mono text-xs font-black text-amber-600 dark:text-amber-400 bg-amber-500/20 px-2 py-0.5 rounded-lg border border-amber-500/30">
+                  {cooldown.remainingMinutesFormatted}
+                </span>
+              </div>
+              <p className="text-xs font-bold text-[var(--kg-text)] mt-1">
+                Bạn vừa chấm {cooldown.lastType || 'công'} lúc {cooldown.lastTimeStr || ''} ({cooldown.minutesSinceLast || 0} phút trước).
+              </p>
+              <p className="text-[11px] text-[var(--kg-text-muted)] mt-0.5 leading-relaxed">
+                Quy định hệ thống yêu cầu sau tối thiểu 15 phút mới được chấm tiếp để tránh ghi nhận trùng lặp.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Check-In Anomaly Alert Banner */}
+      {anomalies.length > 0 && (
+        <div className="bg-gradient-to-r from-rose-500/15 via-red-500/10 to-rose-500/15 border border-rose-500/30 rounded-2xl p-3.5 text-[var(--kg-text)] shadow-xs max-w-md mx-auto animate-fade-in">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-rose-500 text-white flex items-center justify-center flex-shrink-0 mt-0.5 shadow-xs">
+                <AlertTriangle size={16} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-wider">
+                  ⚠️ Phát hiện sai loại: {anomalies[0].title}
+                </p>
+                <p className="text-xs font-bold text-[var(--kg-text)] mt-0.5 leading-snug">
+                  {anomalies[0].message}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => store.setCurrentTab('history')}
+              className="px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black shadow-xs whitespace-nowrap active:scale-95 transition-all flex-shrink-0"
+            >
+              Sửa loại →
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Missing Check-in Alerts Banner */}
       {missingAlerts.length > 0 && (
         <div className="bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 border border-amber-500/30 rounded-2xl p-3.5 sm:p-4 text-[var(--kg-text)] shadow-xs max-w-md mx-auto animate-fade-in">
@@ -1357,8 +1423,14 @@ export default function CheckIn() {
         <KgButton
           variant="primary"
           size="lg"
-          disabled={!canSubmit}
+          disabled={!canSubmit || (cooldown.isBlocked && currentUser?.role !== 'admin' && currentUser?.role !== 'tester')}
           onClick={() => {
+            if (cooldown.isBlocked && currentUser?.role !== 'admin' && currentUser?.role !== 'tester') {
+              speak(`Vui lòng đợi thêm ${cooldown.remainingMinutesFormatted} để chấm công lại.`);
+              setSpamWarningText(`Quy định chống spam: Bạn vừa chấm công lúc ${cooldown.lastTimeStr || ''}. Vui lòng đợi thêm ${cooldown.remainingMinutesFormatted} trước khi chấm công lần tiếp theo.`);
+              setSpamWarningOpen(true);
+              return;
+            }
             if (!capturedImage) {
               takePhoto();
               return;
@@ -1373,18 +1445,24 @@ export default function CheckIn() {
             setConfirmCheckInModalOpen(true);
           }}
           className={`w-full h-14 min-h-[52px] shadow-lg rounded-2xl text-[15px] font-black tracking-wider border-none active:scale-[0.97] transition-all touch-manipulation flex items-center justify-center gap-2.5 ${
-            !canSubmit
+            cooldown.isBlocked && currentUser?.role !== 'admin' && currentUser?.role !== 'tester'
+              ? 'bg-amber-600 text-white opacity-90 ring-2 ring-amber-400/30'
+              : !canSubmit
               ? 'opacity-60 cursor-not-allowed bg-slate-400 text-white'
               : 'bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-blue-600/30 ring-2 ring-blue-400/30'
           }`}
           icon={Send}
         >
-          {capturedImage ? '🚀 GỬI CHẤM CÔNG' : '📸 CHỤP ẢNH ĐỂ CHẤM CÔNG'}
+          {cooldown.isBlocked && currentUser?.role !== 'admin' && currentUser?.role !== 'tester'
+            ? `⏳ GIÃN CÁCH (${cooldown.remainingMinutesFormatted})`
+            : capturedImage ? '🚀 GỬI CHẤM CÔNG' : '📸 CHỤP ẢNH ĐỂ CHẤM CÔNG'}
         </KgButton>
 
         {!canSubmit && (
           <p className="text-[11px] text-center text-[var(--kg-text-muted)] font-medium">
-            {!capturedImage && !gps.isValid
+            {cooldown.isBlocked && currentUser?.role !== 'admin' && currentUser?.role !== 'tester'
+              ? `⏳ Cần chờ thêm ${cooldown.remainingMinutesFormatted} theo quy định giãn cách 15 phút.`
+              : !capturedImage && !gps.isValid
               ? '⚠️ Vui lòng đứng trong bán kính 20m và chụp ảnh để gửi chấm công.'
               : !gps.isValid
               ? '⚠️ Vị trí chưa hợp lệ (yêu cầu trong bán kính 20m nhà hàng).'
