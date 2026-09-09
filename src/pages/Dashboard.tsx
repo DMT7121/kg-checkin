@@ -329,15 +329,15 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
           {/* Left side: Hero card & Actions */}
           <div className="lg:col-span-7 space-y-4">
             {/* Personal Hero Card */}
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-hero p-5 sm:p-6 text-white shadow-hero border border-white/10">
-              <div className="relative z-10 flex flex-col justify-between h-full space-y-5">
-                <div className="flex items-start justify-between gap-2.5">
-                  <div className="flex items-center space-x-3 min-w-0 flex-1">
-                    <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center justify-center font-black text-xl text-white flex-shrink-0 shadow-xs">
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-hero p-4 sm:p-6 text-white shadow-hero border border-white/10">
+              <div className="relative z-10 flex flex-col justify-between h-full space-y-4 sm:space-y-5">
+                <div className="flex items-center justify-between gap-2 sm:gap-3">
+                  <div className="flex items-center space-x-2.5 sm:space-x-3 min-w-0 flex-1">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center justify-center font-black text-lg sm:text-xl text-white flex-shrink-0 shadow-xs">
                       {currentUser?.fullname.charAt(0) || 'K'}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-white/80 text-[10.5px] sm:text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 overflow-hidden">
+                      <p className="text-white/80 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 overflow-hidden">
                         <span className="whitespace-nowrap flex-shrink-0">
                           {(() => {
                             const h = new Date().getHours();
@@ -351,24 +351,26 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
                           {currentUser?.position || (currentUser?.role === 'admin' ? 'Quản lý' : 'Nhân sự')}
                         </span>
                       </p>
-                      <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white truncate mt-0.5">
+                      <h2 className="text-lg sm:text-2xl font-black tracking-tight text-white truncate mt-0.5">
                         {currentUser?.fullname || currentUser?.username}
                       </h2>
                     </div>
                   </div>
-                  <div className="text-right flex-shrink-0 flex flex-col justify-between items-end h-12">
+
+                  {/* Neatly framed, responsive Time & Date glass pill */}
+                  <div className="flex-shrink-0 bg-black/30 backdrop-blur-md border border-white/15 rounded-2xl px-2.5 py-1.5 sm:px-3 sm:py-2 flex flex-col items-end justify-center shadow-inner">
                     <div className="flex items-center gap-1.5">
                       <span className="relative flex h-2 w-2 flex-shrink-0">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                         <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
                       </span>
-                      <span className="text-sm sm:text-base font-black font-mono tracking-wider text-white leading-none">
+                      <span className="text-xs sm:text-base font-black font-mono text-white leading-none">
                         {store.currentTime ? store.currentTime.split(' ').pop() : `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}`}
                       </span>
                     </div>
-                    <span className="text-[10.5px] sm:text-[11px] font-bold text-white/75 tracking-tight whitespace-nowrap block text-right">
+                    <span className="text-[9.5px] sm:text-[11px] font-bold text-white/80 whitespace-nowrap block text-right mt-1 leading-none">
                       {(() => {
-                        const dayNames = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+                        const dayNames = ['CN', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
                         const now = new Date();
                         return `${dayNames[now.getDay()]}, ${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}`;
                       })()}

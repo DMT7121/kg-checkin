@@ -329,13 +329,19 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
         <button
           type="button"
           onClick={() => setAiOpen(true)}
-          className={`fixed bottom-20 md:bottom-6 right-3.5 md:right-6 w-11 h-11 md:w-14 md:h-14 bg-[var(--kg-primary)] rounded-full shadow-xl flex items-center justify-center text-white hover:scale-105 active:scale-95 transition-transform ${isLightboxOpen ? 'z-40' : 'z-[90]'} border-2 border-white/20`}
+          className={`fixed bottom-20 md:bottom-6 right-3.5 md:right-6 w-11 h-11 md:w-14 md:h-14 bg-[var(--kg-primary)] rounded-full shadow-xl flex items-center justify-center text-white hover:scale-110 active:scale-95 transition-transform ${isLightboxOpen ? 'z-40' : 'z-[90]'} border-2 border-white/30 animate-chatbot-halo group`}
           title="Trợ lý AI King's Grill"
+          aria-label="Trợ lý AI King's Grill"
         >
-          <Sparkles size={20} />
+          {/* Luminous pulsating outer ring */}
+          <span className="absolute -inset-1 rounded-full bg-gradient-to-tr from-amber-400/30 via-sky-400/20 to-amber-400/30 animate-ping opacity-60 pointer-events-none" />
+
+          {/* Twinkling Sparkles icon */}
+          <Sparkles size={21} className="relative z-10 text-amber-300 animate-chatbot-twinkle" />
+
           {/* Notification Dot */}
           <span className="absolute top-0 right-0 w-3 h-3 bg-[var(--kg-accent)] border-2 border-white rounded-full animate-ping"></span>
-          <span className="absolute top-0 right-0 w-3 h-3 bg-[var(--kg-accent)] border-2 border-white rounded-full"></span>
+          <span className="absolute top-0 right-0 w-3 h-3 bg-[var(--kg-accent)] border-2 border-white rounded-full shadow-xs"></span>
         </button>
       )}
 
