@@ -700,6 +700,7 @@ function sendReportEmail(ss) {
     if (!summarySheet) throw new Error('Kh\u00F4ng t\u00ECm th\u1EA5y sheet t\u1ED5ng h\u1EE3p');
 
     var sheetUrl = ss.getUrl() + '#gid=' + summarySheet.getSheetId();
+    var logoUrl = (CONFIG.WEB_APP_URL || 'https://kg-checkin.pages.dev/').replace(/\/+$/, '') + '/logo_badge_squircle.png?v=1';
     var formattedTime = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss');
     var formattedDate = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy');
     var totalRows = summarySheet.getLastRow();
@@ -781,8 +782,10 @@ function sendReportEmail(ss) {
       // Header
       + '<tr><td style="background-color:#0b1329;padding:28px 24px 24px;text-align:center;" class="header-padding">'
       + '<table border="0" cellpadding="0" cellspacing="0" width="100%"><tr><td align="center">'
-      + '<table border="0" cellpadding="0" cellspacing="0"><tr>'
-      + '<td align="center" style="width:52px;height:52px;background-color:#1e293b;border:2px solid rgba(251,191,36,0.4);border-radius:14px;color:#fbbf24;font-size:22px;font-weight:900;line-height:52px;text-align:center;">KG</td>'
+      + '<table border="0" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto;"><tr>'
+      + '<td align="center" valign="middle" style="width:62px;height:62px;text-align:center;vertical-align:middle;">'
+      + '<img src="' + logoUrl + '" alt="King\'s Grill Logo" width="62" height="62" style="display:block;width:62px;height:62px;border:0;outline:none;text-decoration:none;margin:0 auto;" />'
+      + '</td>'
       + '</tr></table>'
       + '<h1 style="margin:12px 0 2px;color:#ffffff;font-size:20px;font-weight:900;letter-spacing:0.5px;text-transform:uppercase;">KING&#39;S GRILL</h1>'
       + '<p style="margin:0;color:#94a3b8;font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;">BÁO CÁO TỔNG HỢP CHẤM CÔNG HỆ THỐNG</p>'

@@ -302,6 +302,7 @@ function handleRequestOTP(payload) {
   
   // Send Email using MailApp
   try {
+    var logoUrl = (CONFIG.WEB_APP_URL || 'https://kg-checkin.pages.dev/').replace(/\/+$/, '') + '/logo_badge_squircle.png?v=1';
     var otpHtml = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">'
       + '<html xmlns="http://www.w3.org/1999/xhtml" lang="vi">'
       + '<head>'
@@ -319,8 +320,10 @@ function handleRequestOTP(payload) {
       + '<tr><td align="center" style="padding: 24px 12px;">'
       + '<table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 500px; background-color: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08); border: 1px solid #e2e8f0;">'
       + '<tr><td style="background-color: #0b1329; padding: 24px; text-align: center;">'
-      + '<table border="0" cellpadding="0" cellspacing="0" align="center"><tr>'
-      + '<td align="center" style="width: 46px; height: 46px; background-color: #1e293b; border: 2px solid rgba(251, 191, 36, 0.4); border-radius: 12px; color: #fbbf24; font-size: 20px; font-weight: 900; line-height: 46px; text-align: center;">KG</td>'
+      + '<table border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto;"><tr>'
+      + '<td align="center" valign="middle" style="width: 58px; height: 58px; text-align: center; vertical-align: middle;">'
+      + '<img src="' + logoUrl + '" alt="King\'s Grill Logo" width="58" height="58" style="display: block; width: 58px; height: 58px; border: 0; outline: none; margin: 0 auto;" />'
+      + '</td>'
       + '</tr></table>'
       + '<h1 style="margin: 10px 0 2px; color: #ffffff; font-size: 18px; font-weight: 900; letter-spacing: 0.5px; text-transform: uppercase;">KING&#39;S GRILL</h1>'
       + '<p style="margin: 0; color: #94a3b8; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;">KHÔI PHỤC MẬT KHẨU TÀI KHOẢN</p>'
@@ -1352,6 +1355,7 @@ function buildEmailHtml(payload, formattedTimeUI, loc, distMeters, isValid, isAd
     : 'Xin chào <b>' + fullnameStr + '</b>, hệ thống đã ghi nhận và xác thực thành công lượt <b>' + typeStr + '</b> của bạn.';
 
   var dashUrl = CONFIG.WEB_APP_URL || 'https://kg-checkin.pages.dev/';
+  var logoUrl = (CONFIG.WEB_APP_URL || 'https://kg-checkin.pages.dev/').replace(/\/+$/, '') + '/logo_badge_squircle.png?v=1';
   var year = new Date().getFullYear();
 
   return '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">'
@@ -1384,8 +1388,10 @@ function buildEmailHtml(payload, formattedTimeUI, loc, distMeters, isValid, isAd
     + '<td style="background-color: #0b1329; padding: 28px 24px 24px; text-align: center;" class="header-padding">'
     + '<table border="0" cellpadding="0" cellspacing="0" width="100%">'
     + '<tr><td align="center">'
-    + '<table border="0" cellpadding="0" cellspacing="0"><tr>'
-    + '<td align="center" style="width: 52px; height: 52px; background-color: #1e293b; border: 2px solid rgba(251, 191, 36, 0.4); border-radius: 14px; color: #fbbf24; font-size: 22px; font-weight: 900; line-height: 52px; text-align: center;">KG</td>'
+    + '<table border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto;"><tr>'
+    + '<td align="center" valign="middle" style="width: 62px; height: 62px; text-align: center; vertical-align: middle;">'
+    + '<img src="' + logoUrl + '" alt="King\'s Grill Logo" width="62" height="62" style="display: block; width: 62px; height: 62px; border: 0; outline: none; text-decoration: none; margin: 0 auto;" />'
+    + '</td>'
     + '</tr></table>'
     + '<h1 style="margin: 12px 0 2px; color: #ffffff; font-size: 20px; font-weight: 900; letter-spacing: 0.5px; text-transform: uppercase;">KING&#39;S GRILL</h1>'
     + '<p style="margin: 0; color: #94a3b8; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;">HỆ THỐNG CHẤM CÔNG &amp; QUẢN TRỊ NHÂN SỰ</p>'
@@ -2084,12 +2090,16 @@ function handleTestEmail(payload) {
 
   var timeObj = new Date();
   var formattedTime = Utilities.formatDate(timeObj, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss');
+  var logoUrl = (CONFIG.WEB_APP_URL || 'https://kg-checkin.pages.dev/').replace(/\/+$/, '') + '/logo_badge_squircle.png?v=1';
   var empBody = '<!DOCTYPE html><html><head><meta charset="utf-8">'
     + '<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;600;700;800&display=swap" rel="stylesheet">'
     + '</head><body style="margin:0;padding:0;background:#f0f4f8;font-family:Libre Franklin,Arial,sans-serif;">'
     + '<div style="max-width:560px;margin:20px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.08);">'
     + '<div style="background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 50%,#7c3aed 100%);padding:32px 24px;text-align:center;">'
-    + '<div style="width:48px;height:48px;background:rgba(255,255,255,0.2);border-radius:14px;margin:0 auto 12px;line-height:48px;font-size:20px;font-weight:900;color:#fbbf24;">KG</div>'
+    + '<table border="0" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto 12px;"><tr>'
+    + '<td align="center" valign="middle" style="width:58px;height:58px;">'
+    + '<img src="' + logoUrl + '" alt="King\'s Grill Logo" width="58" height="58" style="display:block;width:58px;height:58px;border:0;outline:none;margin:0 auto;" />'
+    + '</td></tr></table>'
     + '<h1 style="color:#fff;font-size:20px;font-weight:700;margin:0 0 4px;">KING\'S GRILL HR</h1>'
     + '<p style="color:rgba(255,255,255,0.8);font-size:12px;margin:0;">Xác Nhận Chấm Công (BẢN TEST EMAIL)</p>'
     + '</div>'
