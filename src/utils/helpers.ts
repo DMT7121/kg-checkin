@@ -129,38 +129,123 @@ export function isInAppBrowser(): boolean {
   return /Zalo/i.test(ua) || /FBAN/i.test(ua) || /FBAV/i.test(ua);
 }
 
-/** Shift color classes - active state */
+/** Standardize shift identifier for color matching */
+export function normalizeShiftCode(shift: string | undefined | null): string {
+  if (!shift) return 'OFF';
+  const s = shift.trim().toUpperCase();
+  if (s === 'OFF' || s === 'OFF#' || s === 'OFF!') return s;
+  if (s.startsWith('OFF')) return 'OFF';
+  if (s.includes('15')) return '15:00';
+  if (s.includes('16')) return '16:00';
+  if (s.includes('17')) return '17:00';
+  if (s.includes('18')) return '18:00';
+  if (s.includes('19')) return '19:00';
+  if (s.includes('10') || s.includes('SÁNG') || s.includes('SANG')) return '10:00';
+  if (s.includes('RẢNH') || s.includes('RANH')) return 'RẢNH';
+  return s;
+}
+
+/** Shift color classes - active state (buttons when selected) */
 export const getActiveShiftClass = (shift: string) => {
-  if (shift === 'OFF') return 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-600 line-through';
-  if (shift === '16:00') return 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-md shadow-teal-500/30 transform scale-105 border-transparent';
-  if (shift === 'RẢNH') return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800';
-  if (shift === '18:00') return 'bg-gradient-to-r from-orange-400 to-red-500 text-white shadow-md shadow-red-500/30 transform scale-105 border-transparent';
-  if (shift === '19:00') return 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md shadow-purple-500/30 transform scale-105 border-transparent';
-  if (shift.startsWith('OFF')) return 'bg-red-50 text-red-500 dark:bg-red-900/30 dark:text-red-400';
-  return 'bg-gradient-to-r from-ocean-500 to-sky-500 text-white shadow-md shadow-ocean-500/30 transform scale-105 border-transparent';
+  const code = normalizeShiftCode(shift);
+  if (code === 'OFF') {
+    return 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200 line-through border border-slate-300 dark:border-slate-600 shadow-xs';
+  }
+  if (code === '15:00') {
+    return 'bg-blue-600 bg-gradient-to-r from-blue-600 to-sky-500 text-white shadow-md shadow-blue-500/35 transform scale-105 border-transparent font-black ring-2 ring-blue-300 dark:ring-blue-700';
+  }
+  if (code === '16:00') {
+    return 'bg-teal-500 bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-md shadow-teal-500/35 transform scale-105 border-transparent font-black ring-2 ring-teal-300 dark:ring-teal-700';
+  }
+  if (code === '17:00') {
+    return 'bg-indigo-600 bg-gradient-to-r from-indigo-600 to-violet-500 text-white shadow-md shadow-indigo-500/35 transform scale-105 border-transparent font-black ring-2 ring-indigo-300 dark:ring-indigo-700';
+  }
+  if (code === '18:00') {
+    return 'bg-orange-600 bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-md shadow-orange-500/35 transform scale-105 border-transparent font-black ring-2 ring-orange-300 dark:ring-orange-700';
+  }
+  if (code === '19:00') {
+    return 'bg-purple-600 bg-gradient-to-r from-purple-600 to-fuchsia-500 text-white shadow-md shadow-purple-500/35 transform scale-105 border-transparent font-black ring-2 ring-purple-300 dark:ring-purple-700';
+  }
+  if (code === '10:00' || code === 'RẢNH') {
+    return 'bg-emerald-600 bg-gradient-to-r from-emerald-600 to-teal-500 text-white shadow-md shadow-emerald-500/35 transform scale-105 border-transparent font-black ring-2 ring-emerald-300 dark:ring-emerald-700';
+  }
+  if (code === 'OFF#') {
+    return 'bg-amber-500 text-white shadow-md shadow-amber-500/35 transform scale-105 font-black ring-2 ring-amber-300';
+  }
+  if (code === 'OFF!') {
+    return 'bg-rose-600 text-white shadow-md shadow-rose-500/35 transform scale-105 font-black ring-2 ring-rose-300';
+  }
+  return 'bg-blue-600 bg-gradient-to-r from-blue-600 to-sky-500 text-white shadow-md shadow-blue-500/35 transform scale-105 border-transparent font-black';
 };
 
-/** Shift color classes - preview (small labels) */
+/** Shift color classes - preview (bright, luminous, high-contrast pills) */
 export const getPreviewShiftClass = (shift: string) => {
-  if (!shift || shift === 'OFF') return 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400';
-  if (shift === '16:00') return 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300 font-bold border border-teal-200 dark:border-teal-800';
-  if (shift === 'RẢNH') return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400';
-  if (shift === '18:00') return 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400';
-  if (shift === '19:00') return 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400';
-  if (shift.startsWith('OFF')) return 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400';
-  return 'bg-ocean-100 text-ocean-700 dark:bg-ocean-900/50 dark:text-ocean-300 font-bold border border-ocean-200 dark:border-ocean-800';
+  if (!shift) return 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500 border border-slate-200 dark:border-slate-700';
+  const code = normalizeShiftCode(shift);
+
+  if (code === 'OFF') {
+    return 'bg-slate-100 text-slate-600 dark:bg-slate-800/90 dark:text-slate-400 font-bold border border-slate-200 dark:border-slate-700/80';
+  }
+  if (code === '15:00') {
+    return 'bg-blue-600 bg-gradient-to-br from-blue-600 to-sky-500 text-white font-black shadow-xs shadow-blue-500/30 border border-blue-400/40';
+  }
+  if (code === '16:00') {
+    return 'bg-teal-500 bg-gradient-to-br from-teal-500 to-cyan-500 text-white font-black shadow-xs shadow-teal-500/30 border border-teal-300/40';
+  }
+  if (code === '17:00') {
+    return 'bg-indigo-600 bg-gradient-to-br from-indigo-600 to-violet-500 text-white font-black shadow-xs shadow-indigo-500/30 border border-indigo-400/40';
+  }
+  if (code === '18:00') {
+    return 'bg-orange-600 bg-gradient-to-br from-amber-500 to-orange-600 text-white font-black shadow-xs shadow-orange-500/30 border border-orange-400/40';
+  }
+  if (code === '19:00') {
+    return 'bg-purple-600 bg-gradient-to-br from-purple-600 to-fuchsia-500 text-white font-black shadow-xs shadow-purple-500/30 border border-purple-400/40';
+  }
+  if (code === '10:00' || code === 'RẢNH') {
+    return 'bg-emerald-600 bg-gradient-to-br from-emerald-600 to-teal-500 text-white font-black shadow-xs shadow-emerald-500/30 border border-emerald-400/40';
+  }
+  if (code === 'OFF#') {
+    return 'bg-amber-500 text-white font-black shadow-xs shadow-amber-500/25 border border-amber-400/40';
+  }
+  if (code === 'OFF!') {
+    return 'bg-rose-600 text-white font-black shadow-xs shadow-rose-500/25 border border-rose-400/40';
+  }
+  return 'bg-blue-600 bg-gradient-to-br from-blue-600 to-sky-500 text-white font-black shadow-xs shadow-blue-500/30 border border-blue-400/40';
 };
 
-/** Shift color classes - admin table */
+/** Shift color classes - admin table & roster */
 export const getAdminShiftClass = (shift: string) => {
-  if (shift === 'OFF') return 'bg-gray-50 text-gray-500 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700';
-  if (shift === '16:00') return 'bg-teal-50 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 border border-teal-200 dark:border-teal-800 font-bold';
-  if (shift === 'RẢNH') return 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800';
-  if (shift === '18:00') return 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400 border border-red-200 dark:border-red-800 font-bold';
-  if (shift === '19:00') return 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border border-purple-200 dark:border-purple-800 font-bold';
-  if (shift === 'OFF#') return 'bg-orange-50 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200 dark:border-orange-800';
-  if (shift === 'OFF!') return 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400 border border-red-200 dark:border-red-800';
-  return 'bg-ocean-50 text-ocean-700 dark:bg-ocean-900/30 dark:text-ocean-400 border border-ocean-200 dark:border-ocean-800 font-bold';
+  if (!shift) return 'bg-transparent text-slate-400';
+  const code = normalizeShiftCode(shift);
+
+  if (code === 'OFF') {
+    return 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700 font-bold';
+  }
+  if (code === '15:00') {
+    return 'bg-blue-600 bg-gradient-to-br from-blue-600 to-sky-500 text-white font-black shadow-xs shadow-blue-500/20 border border-blue-400/30';
+  }
+  if (code === '16:00') {
+    return 'bg-teal-500 bg-gradient-to-br from-teal-500 to-cyan-500 text-white font-black shadow-xs shadow-teal-500/20 border border-teal-300/30';
+  }
+  if (code === '17:00') {
+    return 'bg-indigo-600 bg-gradient-to-br from-indigo-600 to-violet-500 text-white font-black shadow-xs shadow-indigo-500/20 border border-indigo-400/30';
+  }
+  if (code === '18:00') {
+    return 'bg-orange-600 bg-gradient-to-br from-amber-500 to-orange-600 text-white font-black shadow-xs shadow-orange-500/20 border border-orange-400/30';
+  }
+  if (code === '19:00') {
+    return 'bg-purple-600 bg-gradient-to-br from-purple-600 to-fuchsia-500 text-white font-black shadow-xs shadow-purple-500/20 border border-purple-400/30';
+  }
+  if (code === '10:00' || code === 'RẢNH') {
+    return 'bg-emerald-600 bg-gradient-to-br from-emerald-600 to-teal-500 text-white font-black shadow-xs shadow-emerald-500/20 border border-emerald-400/30';
+  }
+  if (code === 'OFF#') {
+    return 'bg-amber-500 text-white font-black border border-amber-400 shadow-xs shadow-amber-500/20';
+  }
+  if (code === 'OFF!') {
+    return 'bg-rose-600 text-white font-black border border-rose-400 shadow-xs shadow-rose-500/20';
+  }
+  return 'bg-blue-600 bg-gradient-to-br from-blue-600 to-sky-500 text-white font-black shadow-xs shadow-blue-500/20 border border-blue-400/30';
 };
 
 /** Fetch with retry and exponential backoff */

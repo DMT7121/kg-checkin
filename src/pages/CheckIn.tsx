@@ -17,7 +17,8 @@ import {
   CheckInTypeString,
   getCheckInCooldown,
   auditCheckInAnomalies,
-  encodeOptimalCanvas
+  encodeOptimalCanvas,
+  getPreviewShiftClass
 } from '../utils/helpers';
 import {
   MapPin,
@@ -2056,7 +2057,7 @@ export default function CheckIn() {
               </div>
               <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
                 <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">💼 Ca làm việc</span>
-                <span className="inline-block bg-white dark:bg-slate-800 px-2 py-0.5 rounded-md font-bold text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700">
+                <span className={`inline-block px-2.5 py-0.5 rounded-lg font-black text-xs shadow-2xs ${getPreviewShiftClass(lastSubmittedPunch.shift)}`}>
                   {lastSubmittedPunch.shift}
                 </span>
               </div>

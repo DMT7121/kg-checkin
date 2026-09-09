@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
+import { getPreviewShiftClass } from '../utils/helpers';
 import Swal from 'sweetalert2';
 import { 
   ClipboardCheck, CheckCircle2, Circle, Clock, CheckSquare, 
@@ -724,7 +725,7 @@ export default function Checklist() {
                     {/* Header Group */}
                     <div className="flex items-center space-x-2 pt-2">
                       <span className="text-[10px] font-black uppercase bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 px-2 py-0.5 rounded-full">{group.phase}</span>
-                      <span className="text-[10px] font-black uppercase bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400 px-2 py-0.5 rounded-full">{group.shift}</span>
+                      <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full shadow-2xs ${getPreviewShiftClass(group.shift)}`}>{group.shift}</span>
                       <span className="text-xs font-extrabold text-gray-500">{group.section}</span>
                     </div>
 

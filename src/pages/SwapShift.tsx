@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
-import { DAY_NAMES, SHORT_DAY_NAMES, computeWeekInfo, ResponsiveShift } from '../utils/helpers';
+import { DAY_NAMES, SHORT_DAY_NAMES, computeWeekInfo, ResponsiveShift, getPreviewShiftClass } from '../utils/helpers';
 import Swal from 'sweetalert2';
 import { ArrowLeftRight, Send, BellRing, Copy, User, Megaphone, Inbox, Clock, HandshakeIcon, LogOut } from 'lucide-react';
 import { KgModuleHero } from '../components/KgDesignSystem';
@@ -241,8 +241,8 @@ export default function SwapShift() {
                     <div className="mb-2">
                       <span className="font-bold text-gray-800 dark:text-gray-200">{req.fullname}</span>
                       <span className="text-gray-500 text-sm mx-1">muốn</span>
-                      <span className="font-bold text-ocean-600 dark:text-ocean-400">
-                        {req.targetUsername === 'ADMIN' ? 'Xin Nghỉ Phép' : <>Đổi ca <ResponsiveShift shift={req.shift} /></>}
+                      <span className="font-bold text-ocean-600 dark:text-ocean-400 inline-flex items-center">
+                        {req.targetUsername === 'ADMIN' ? 'Xin Nghỉ Phép' : <>Đổi ca <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-black mx-1 shadow-2xs ${getPreviewShiftClass(req.shift)}`}><ResponsiveShift shift={req.shift} /></span></>}
                       </span>
                       <span className="text-gray-500 text-sm mx-1">vào</span>
                       <span className="font-bold text-gray-700 dark:text-gray-300">{req.dayName} ({req.date})</span>
@@ -311,8 +311,8 @@ export default function SwapShift() {
                 </div>
                 
                 <div className="soft3d-bg/50 rounded-xl p-3 mb-4 ">
-                  <p className="text-sm text-gray-700 dark:text-gray-300 font-medium mb-1">
-                    Cần người làm thay ca <strong className="text-teal-600 dark:text-teal-400"><ResponsiveShift shift={req.shift} /></strong>
+                  <p className="text-sm text-gray-700 dark:text-gray-300 font-medium mb-1.5 flex items-center flex-wrap">
+                    Cần người làm thay ca <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-black mx-1.5 shadow-2xs ${getPreviewShiftClass(req.shift)}`}><ResponsiveShift shift={req.shift} /></span>
                   </p>
                   <p className="text-xs text-gray-600 dark:text-gray-400 font-bold mb-2">Vào {req.dayName} ({req.date})</p>
                   <p className="text-xs text-gray-500 italic flex items-start">
@@ -369,8 +369,8 @@ export default function SwapShift() {
                   <button key={i} disabled={isOff} onClick={() => setSelectedDayIndex(i)}
                     className={`flex-shrink-0 w-20 snap-center rounded-xl p-2 border-2 transition-all ${isOff ? 'opacity-50 grayscale cursor-not-allowed border-gray-100 dark:border-gray-700' : isSelected ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20' : 'border-gray-200 dark:border-gray-700 paint-layer'}`}>
                     <div className={`text-[12px] font-bold mb-0.5 ${isSelected ? 'text-teal-600' : 'text-gray-800 dark:text-gray-200'}`}>{weekInfo.weekDates[i]}</div>
-                    <div className={`text-[10px] font-medium mb-1 ${isSelected ? 'text-teal-500' : 'text-gray-500'}`}>{shortDay}</div>
-                    <div className={`text-xs font-bold py-1 rounded ${isSelected ? 'bg-teal-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}><ResponsiveShift shift={shift} /></div>
+                    <div className={`text-[10px] font-medium mb-1.5 ${isSelected ? 'text-teal-500' : 'text-gray-500'}`}>{shortDay}</div>
+                    <div className={`text-xs font-black py-1.5 px-1 rounded-lg transition-all ${isSelected ? 'ring-2 ring-teal-500 ring-offset-1 shadow-md scale-105 ' : 'shadow-2xs '}${getPreviewShiftClass(shift)}`}><ResponsiveShift shift={shift} /></div>
                   </button>
                 );
               })}

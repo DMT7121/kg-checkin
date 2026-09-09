@@ -297,24 +297,27 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
 
   // Shared preview grid renderer
   const renderShiftGrid = (getShift: (i: number) => string) => (
-    <div className="grid grid-cols-7 gap-1">
-      {SHORT_DAY_NAMES.map((shortDayName, i) => (
-        <div
-          key={i}
-          className={`calendar-preview-day flex flex-col items-center rounded-lg px-0.5 py-1 ${weekDayMeta[i].className}`}
-          title={weekDayMeta[i].label || undefined}
-        >
-          <span className="text-[11px] font-bold text-gray-800 dark:text-gray-200">
-            {weekInfo.weekDates[i]}
-          </span>
-          <span className="text-[9px] text-gray-500 font-medium mb-1 uppercase">
-            {shortDayName}
-          </span>
-          <div className={`w-full text-center py-1.5 rounded text-xs font-bold text-white  ${getPreviewShiftClass(getShift(i))}`}>
-            <ResponsiveShift shift={getShift(i)} />
+    <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
+      {SHORT_DAY_NAMES.map((shortDayName, i) => {
+        const shiftVal = getShift(i);
+        return (
+          <div
+            key={i}
+            className={`calendar-preview-day flex flex-col items-center rounded-xl px-0.5 py-1.5 transition-all ${weekDayMeta[i].className}`}
+            title={weekDayMeta[i].label || undefined}
+          >
+            <span className="text-[11px] font-extrabold text-gray-800 dark:text-gray-200">
+              {weekInfo.weekDates[i]}
+            </span>
+            <span className="text-[9px] text-gray-500 font-bold mb-1.5 uppercase">
+              {shortDayName}
+            </span>
+            <div className={`w-full text-center py-2 px-0.5 rounded-xl text-xs font-black tracking-tight transition-all shadow-xs ${getPreviewShiftClass(shiftVal)}`}>
+              <ResponsiveShift shift={shiftVal} />
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 
@@ -879,13 +882,13 @@ ${aiInputText}
               const isChanged = registered && approved !== registered;
               return (
                 <div key={i} className="flex flex-col items-center">
-                  <span className="text-[11px] font-bold text-gray-800 dark:text-gray-200">
+                  <span className="text-[11px] font-extrabold text-gray-800 dark:text-gray-200">
                     {weekInfo.weekDates[i]}
                   </span>
-                  <span className="text-[9px] text-gray-500 font-medium mb-1 uppercase">
+                  <span className="text-[9px] text-gray-500 font-bold mb-1.5 uppercase">
                     {shortDayName}
                   </span>
-                  <div className={`w-full text-center py-1.5 rounded text-xs font-bold text-white  ${getPreviewShiftClass(approved)} ${isChanged ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}>
+                  <div className={`w-full text-center py-2 px-0.5 rounded-xl text-xs font-black tracking-tight transition-all shadow-xs ${getPreviewShiftClass(approved)} ${isChanged ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}>
                     <ResponsiveShift shift={approved} />
                   </div>
                   {isChanged && (
@@ -900,17 +903,17 @@ ${aiInputText}
 
       {/* === REGISTERED PREVIEW (not editing) === */}
       {isScheduleRegistered && !isEditing && (
-        <div className="soft3d-card p-4 rounded-2xl mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider flex items-center">
-              <Eye size={16} className="mr-2" /> Lịch đã đăng ký
+        <div className="soft3d-card p-4 sm:p-5 rounded-2xl mb-6 shadow-sm border border-slate-200/80 dark:border-slate-800">
+          <div className="flex items-center justify-between mb-3.5">
+            <h3 className="text-sm font-black text-gray-700 dark:text-gray-200 uppercase tracking-wider flex items-center">
+              <Eye size={16} className="mr-2 text-indigo-500" /> Lịch đã đăng ký
             </h3>
             {approvedShifts && approvedShifts.length > 0 ? (
-              <span className="px-2.5 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+              <span className="px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shadow-2xs">
                 ✓ Đã duyệt
               </span>
             ) : (
-              <span className="px-2.5 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-300 dark:border-amber-700 animate-pulse">
+              <span className="px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-300 dark:border-amber-700 animate-pulse shadow-2xs">
                 ⏳ Chờ duyệt
               </span>
             )}

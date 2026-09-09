@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState, useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
-import { computeWeekInfo, auditMissingCheckIns, MissingCheckInAlert, ResponsiveShift } from '../utils/helpers';
+import { computeWeekInfo, auditMissingCheckIns, MissingCheckInAlert, ResponsiveShift, getPreviewShiftClass } from '../utils/helpers';
 import { refreshAppData } from '../utils/refreshData';
 import { hasTabPermission, getTabLabel } from '../utils/permissions';
 import {
@@ -379,7 +379,15 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
                 <div className="grid grid-cols-2 gap-2 bg-black/25 backdrop-blur-md rounded-2xl p-3.5 border border-white/10 shadow-inner">
                   <div className="min-w-0">
                     <p className="text-[10px] font-black uppercase tracking-wider text-white/70">Ca làm hôm nay</p>
-                    <p className="text-xs sm:text-sm font-extrabold mt-0.5 text-white truncate"><ResponsiveShift shift={todayShift} /></p>
+                    <div className="mt-1">
+                      {!todayShift || todayShift === 'OFF' ? (
+                        <span className="text-xs sm:text-sm font-black text-white/85">Nghỉ ca (OFF)</span>
+                      ) : (
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs sm:text-sm font-black shadow-xs ${getPreviewShiftClass(todayShift)}`}>
+                          <ResponsiveShift shift={todayShift} />
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="text-right min-w-0">
                     <p className="text-[10px] font-black uppercase tracking-wider text-white/70">Trạng thái</p>
@@ -765,8 +773,11 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
                       <KgAlertCard variant="error" title="Chưa thấy chấm công vào ca" icon={AlertCircle}>
                         <div className="flex flex-wrap gap-1.5 mt-1">
                           {notArrived.map((emp, i) => (
-                            <span key={i} className="text-[10px] font-bold bg-white dark:bg-slate-900 border border-red-200 dark:border-red-900/30 px-2 py-0.5 rounded-lg text-slate-700 dark:text-slate-300">
-                              {emp.fullname} ({emp.shift})
+                            <span key={i} className="text-[10px] font-bold bg-white dark:bg-slate-900 border border-red-200 dark:border-red-900/30 px-2 py-0.5 rounded-lg text-slate-700 dark:text-slate-300 inline-flex items-center gap-1.5 shadow-2xs">
+                              <span>{emp.fullname}</span>
+                              <span className={`px-1.5 py-0.2 rounded-md text-[9px] font-black ${getPreviewShiftClass(emp.shift)}`}>
+                                <ResponsiveShift shift={emp.shift} />
+                              </span>
                             </span>
                           ))}
                         </div>
