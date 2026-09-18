@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
-import { speak, computeWeekInfo } from '../utils/helpers';
+import { speak, computeWeekInfo, getScheduleRegistrationWindow, isNextWeekScheduleRegistered } from '../utils/helpers';
 import Swal from 'sweetalert2';
 import { User, Lock, Eye, EyeOff, ChevronLeft, ArrowRight, Mail, Phone, Calendar, BadgeCheck, KeyRound } from 'lucide-react';
 import { triggerDeveloperMode } from '../utils/githubApi';
@@ -100,12 +100,27 @@ export default function Login() {
           localStorage.setItem('kg_logs', JSON.stringify(dataRes.data.logs || []));
           localStorage.setItem('kg_stats', JSON.stringify(dataRes.data.stats || { totalCheckIn: 0, validCount: 0 }));
 
-          // Show schedule reminder after data loads ONLY IF really not registered
-          if (!isReg) {
+          // Mandatory schedule registration prompt on T5, T6, T7 before 17:00
+          const regWindow = getScheduleRegistrationWindow();
+          const isStaff = res.data.role !== 'admin';
+          const isAlreadyRegistered = isReg || isNextWeekScheduleRegistered(isReg, res.data.username);
+          if (isStaff && regWindow.isMandatoryWindow && !isAlreadyRegistered) {
+            store.setCurrentTab('workforce');
             Swal.fire({
-              title: '🔔 Nhắc nhở',
-              text: 'Bạn chưa nộp Lịch đăng ký ca cho tuần tiếp theo. Vui lòng vào Tab "Đăng ký ca" để nộp nhé!',
-              icon: 'info', confirmButtonColor: '#2563eb',
+              title: '⚠️ Bắt buộc đăng ký ca tuần tới',
+              html: `
+                <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Xin chào <b>${res.data.fullname}</b>!</p>
+                <p class="text-xs text-gray-600 dark:text-gray-300 leading-relaxed mb-3">
+                  Hôm nay là thời gian bắt buộc đăng ký lịch làm cho tuần tới (Thứ 5, Thứ 6, trước 17:00 Thứ 7). Hệ thống đã tự động chuyển bạn đến trang <b>Đăng ký ca</b>.
+                </p>
+                <div class="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl text-xs text-amber-900 dark:text-amber-200 text-left">
+                  <p class="font-bold">⏰ Hạn chót: Trước 17:00 Thứ Bảy</p>
+                  <p class="text-[11px] mt-1 text-gray-600 dark:text-gray-300">Vui lòng chọn ca làm cho tất cả các ngày trong tuần và nộp lịch sớm để BQL kịp thời sắp xếp nhé!</p>
+                </div>
+              `,
+              icon: 'warning',
+              confirmButtonColor: '#059669',
+              confirmButtonText: 'Bắt đầu đăng ký ngay'
             });
           }
         }

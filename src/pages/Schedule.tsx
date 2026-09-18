@@ -4,7 +4,7 @@ import { callApi } from '../services/api';
 import { speak, computeWeekInfo, getActiveShiftClass, getPreviewShiftClass, SHIFT_OPTIONS, SHORT_DAY_NAMES, isRegistrationOpen, getAdminShiftClass, ADMIN_SHIFT_OPTIONS, generateMonthDates, formatDateShort, formatMobileShift, ResponsiveShift } from '../utils/helpers';
 import type { MonthDateInfo } from '../utils/helpers';
 import Swal from 'sweetalert2';
-import { CalendarCheck, Eye, AlertTriangle, Send, Lock, ExternalLink, Clock, RefreshCw, Pencil, CheckCheck, Inbox, LayoutGrid, CalendarRange, ChevronLeft, ChevronRight, Sparkles, X, Bot } from 'lucide-react';
+import { CalendarCheck, Eye, AlertTriangle, Send, Lock, ExternalLink, Clock, RefreshCw, Pencil, CheckCheck, Inbox, LayoutGrid, CalendarRange, ChevronLeft, ChevronRight, Sparkles, X, Bot, Info } from 'lucide-react';
 import { KgModuleHero } from '../components/KgDesignSystem';
 import { getCalendarDayMeta } from '../utils/calendarHighlights';
 import { isWorkEligible } from '../utils/employment';
@@ -144,6 +144,7 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
 
   const [hasWeekendOff, setHasWeekendOff] = useState(false);
   const [hasConsecutiveOffs, setHasConsecutiveOffs] = useState(false);
+  const [hasHolidayOff, setHasHolidayOff] = useState(false);
   const [regWindow, setRegWindow] = useState(() => isRegistrationOpen());
   const [isEditing, setIsEditing] = useState(false);
 
@@ -207,17 +208,19 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
     store.updateShiftData(key, value);
     setTimeout(() => {
       const currentData = useAppStore.getState().shiftData;
-      let weekendOff = false, consecutiveOffs = false, offCount = 0;
+      let weekendOff = false, consecutiveOffs = false, holidayOff = false, offCount = 0;
       for (let i = 0; i < 7; i++) {
         const shift = currentData[weekInfo.weekDatesKeys[i]];
         if (shift === 'OFF') {
           offCount++;
           if (offCount >= 2) consecutiveOffs = true;
           if (i >= 4) weekendOff = true;
+          if (weekDayMeta[i]?.kind === 'holiday') holidayOff = true;
         } else { offCount = 0; }
       }
       setHasWeekendOff(weekendOff);
       setHasConsecutiveOffs(consecutiveOffs);
+      setHasHolidayOff(holidayOff);
     }, 0);
   };
 
@@ -243,12 +246,32 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
 
   const submitRegistration = async () => {
     if (!isOpen) return;
-    if (Object.keys(shiftData).length < 7) {
-      Swal.fire('Chú ý', 'Vui lòng chọn đầy đủ ca cho 7 ngày.', 'warning');
+
+    // Validate all 7 days must have a valid shift selected
+    const allDaysFilled = weekInfo.weekDatesKeys.every((k) => {
+      const s = shiftData[k];
+      return typeof s === 'string' && s.trim().length > 0;
+    });
+
+    if (!allDaysFilled || Object.keys(shiftData).length < 7) {
+      Swal.fire('Chú ý', 'Vui lòng chọn đầy đủ ca cho tất cả 7 ngày trong tuần tiếp theo.', 'warning');
       return;
     }
-    if ((hasWeekendOff || hasConsecutiveOffs) && offReason.trim() === '') {
-      Swal.fire('Thiếu thông tin', 'Vui lòng nhập lý do xin nghỉ chi tiết trước khi nộp.', 'warning');
+
+    if ((hasWeekendOff || hasConsecutiveOffs || hasHolidayOff) && offReason.trim() === '') {
+      Swal.fire({
+        title: 'Thiếu lý do xin nghỉ',
+        html: `
+          <p class="text-sm text-gray-700 dark:text-gray-300">Theo quy định nhà hàng, bạn cần nhập lý do chi tiết khi:</p>
+          <ul class="text-xs text-left text-red-600 dark:text-red-400 list-disc list-inside mt-2 space-y-1">
+            ${hasWeekendOff ? '<li>Xin nghỉ (OFF) vào Thứ 6, Thứ 7 hoặc Chủ Nhật.</li>' : ''}
+            ${hasHolidayOff ? '<li>Xin nghỉ (OFF) vào ngày Lễ/Tết cao điểm.</li>' : ''}
+            ${hasConsecutiveOffs ? '<li>Xin nghỉ (OFF) từ 2 ngày liên tiếp trở lên.</li>' : ''}
+          </ul>
+        `,
+        icon: 'warning',
+        confirmButtonColor: '#f59e0b'
+      });
       return;
     }
 
@@ -256,8 +279,8 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
     const { isConfirmed } = await Swal.fire({
       title: isUpdate ? 'Xác nhận Cập Nhật' : 'Xác nhận Nộp Lịch',
       html: isUpdate
-        ? 'Bạn muốn cập nhật lại lịch đăng ký ca?'
-        : 'Bạn đã kiểm tra kỹ lịch của mình chưa?',
+        ? 'Bạn muốn cập nhật lại lịch đăng ký ca tuần tới?'
+        : 'Bạn đã kiểm tra kỹ toàn bộ ca làm trong tuần tới chưa?',
       icon: 'question', showCancelButton: true, confirmButtonColor: '#10b981', cancelButtonColor: '#6b7280',
       confirmButtonText: isUpdate ? 'Cập nhật lịch' : 'Gửi lịch',
       cancelButtonText: 'Xem lại',
@@ -284,9 +307,27 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
       store.setRegisteredShifts(shifts);
       localStorage.setItem('kg_registered_shifts', JSON.stringify(shifts));
       localStorage.setItem('kg_registered_week', weekInfo.monthSheet + '|' + weekInfo.weekLabel);
+      localStorage.setItem('kg_registered_user', currentUser?.username || '');
       localStorage.setItem('kg_schedule_registered', 'true');
       setIsEditing(false);
-      Swal.fire({ title: 'Thành công!', text: isUpdate ? 'Đã cập nhật lịch đăng ký.' : 'Đã gửi lịch đăng ký ca.', icon: 'success', confirmButtonColor: '#10b981' });
+
+      const bqlNotice = 'Lịch đăng ký ca của bạn đã được ghi nhận. BQL sẽ sắp xếp lại phù hợp theo nhu cầu của nhà hàng. Trường hợp lịch không được duyệt nhưng lịch làm trùng lịch học, thi cử quan trọng hãy gửi lịch học/thi và báo BQL duyệt nhé!';
+
+      Swal.fire({
+        title: 'Đã ghi nhận lịch đăng ký!',
+        html: `
+          <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3">${isUpdate ? 'Đã cập nhật lại lịch đăng ký ca tuần tới thành công.' : 'Lịch đăng ký ca tuần mới đã được gửi thành công!'}</p>
+          <div class="p-3.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/80 rounded-2xl text-xs text-blue-900 dark:text-blue-200 text-left leading-relaxed shadow-inner">
+            <p class="font-black flex items-center gap-1.5 text-blue-700 dark:text-blue-300 mb-1">
+              <span>📢</span> Thông báo từ BQL:
+            </p>
+            <p class="font-medium">${bqlNotice}</p>
+          </div>
+        `,
+        icon: 'success',
+        confirmButtonColor: '#10b981',
+        confirmButtonText: 'Đã hiểu'
+      });
       speak('Đăng ký lịch làm việc thành công');
     } else if (res) {
       Swal.fire('Lỗi', res.message, 'error');
@@ -920,6 +961,21 @@ ${aiInputText}
           </div>
           {renderShiftGrid((i) => registeredShifts?.[i] || shiftData[weekInfo.weekDatesKeys[i]] || 'OFF')}
 
+          {/* BQL Official Acknowledgment Notice */}
+          <div className="mt-4 p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 text-xs text-blue-900 dark:text-blue-200 leading-relaxed shadow-xs">
+            <div className="flex items-start gap-2.5">
+              <Info size={18} className="text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+              <div className="space-y-1">
+                <p className="font-extrabold text-blue-700 dark:text-blue-300">
+                  Lịch đăng ký ca của bạn đã được ghi nhận.
+                </p>
+                <p className="text-[11px] text-blue-800/90 dark:text-blue-200/90">
+                  BQL sẽ sắp xếp lại phù hợp theo nhu cầu của nhà hàng. Trường hợp lịch không được duyệt nhưng lịch làm trùng lịch học, thi cử quan trọng hãy gửi lịch học/thi và báo BQL duyệt nhé!
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Edit button - only when registration window is open */}
           {isOpen && (
             <button 
@@ -1038,7 +1094,7 @@ ${aiInputText}
           </div>
 
           {/* Warning + reason input */}
-          {(hasWeekendOff || hasConsecutiveOffs) && (
+          {(hasWeekendOff || hasConsecutiveOffs || hasHolidayOff) && (
             <div className="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 rounded-r-2xl mb-6 animate-fade-in shadow-xs">
               <div className="flex items-start">
                 <AlertTriangle size={20} className="text-red-500 mt-1 mr-3 flex-shrink-0" />
@@ -1047,6 +1103,7 @@ ${aiInputText}
                   <ul className="text-xs text-red-600 dark:text-red-300 list-disc list-inside mb-3 space-y-1 ml-2 font-medium">
                     {hasConsecutiveOffs && <li>Bạn đang chọn OFF từ 2 ngày liên tiếp trở lên.</li>}
                     {hasWeekendOff && <li>Bạn đang chọn OFF vào ngày cuối tuần (T6, T7 hoặc CN).</li>}
+                    {hasHolidayOff && <li>Bạn đang chọn OFF vào ngày Lễ/Tết cao điểm.</li>}
                   </ul>
                   <p className="text-xs font-medium text-red-700 dark:text-red-400 mb-3">
                     Vui lòng nhập lý do bên dưới VÀ gửi hình ảnh minh chứng vào nhóm Zalo lịch làm: <br />

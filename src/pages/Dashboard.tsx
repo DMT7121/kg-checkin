@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState, useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
-import { computeWeekInfo, auditMissingCheckIns, MissingCheckInAlert, ResponsiveShift, getPreviewShiftClass } from '../utils/helpers';
+import { computeWeekInfo, auditMissingCheckIns, MissingCheckInAlert, ResponsiveShift, getPreviewShiftClass, getScheduleRegistrationWindow, isNextWeekScheduleRegistered } from '../utils/helpers';
 import { refreshAppData } from '../utils/refreshData';
 import { hasTabPermission, getTabLabel } from '../utils/permissions';
 import {
@@ -18,6 +18,7 @@ import AppErrorBoundary from '../components/AppErrorBoundary';
 import KgAppShell from '../components/KgAppShell';
 import NewbieGuideModal from '../components/NewbieGuideModal';
 import MissedCheckInModal from '../components/MissedCheckInModal';
+import MandatoryScheduleModal from '../components/MandatoryScheduleModal';
 import {
   KgCard,
   KgButton,
@@ -199,6 +200,22 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
     });
   };
 
+  const regWindow = getScheduleRegistrationWindow();
+  const isStaff = currentUser?.role !== 'admin';
+  const nextWeekRegistered = isNextWeekScheduleRegistered(store.isScheduleRegistered, currentUser?.username);
+  const shouldPromptSchedule = isStaff && regWindow.isMandatoryWindow && !nextWeekRegistered;
+
+  const [isSchedulePromptOpen, setIsSchedulePromptOpen] = useState(false);
+
+  useEffect(() => {
+    if (shouldPromptSchedule) {
+      const timer = setTimeout(() => {
+        setIsSchedulePromptOpen(true);
+      }, 700);
+      return () => clearTimeout(timer);
+    }
+  }, [shouldPromptSchedule]);
+
   useEffect(() => {
     loadDashboardPendingClaims();
   }, [currentUser?.username]);
@@ -323,6 +340,49 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
 
   return (
     <div className="space-y-5 animate-fade-in pb-10">
+      {/* Mandatory Schedule Modal for Staff during T5, T6, T7 before 17:00 */}
+      <MandatoryScheduleModal
+        isOpen={isSchedulePromptOpen}
+        onClose={() => setIsSchedulePromptOpen(false)}
+        onGoToSchedule={() => {
+          setIsSchedulePromptOpen(false);
+          onTabChange('schedule');
+        }}
+        windowStatus={regWindow}
+        employeeName={currentUser?.fullname}
+      />
+
+      {/* Mandatory Schedule Alert Banner on Dashboard during T5, T6, T7 before 17:00 */}
+      {shouldPromptSchedule && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-rose-500/15 border border-amber-500/30 text-[var(--kg-text)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fade-in shadow-xs">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0">
+              <CalendarClock size={22} className="animate-bounce" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-rose-500/20 text-rose-700 dark:text-rose-300">
+                  Bắt buộc
+                </span>
+                <span className="text-xs font-black text-[var(--kg-text)]">
+                  Bạn chưa đăng ký lịch làm tuần tiếp theo!
+                </span>
+              </div>
+              <p className="text-[11px] text-[var(--kg-text-muted)] mt-0.5 font-medium">
+                {regWindow.message}. Vui lòng đăng ký đủ ca các ngày trong tuần trước 17:00 Thứ Bảy để BQL sắp xếp ca.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => onTabChange('schedule')}
+            className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white text-xs font-black shadow-xs transition active:scale-95 touch-manipulation whitespace-nowrap flex-shrink-0"
+          >
+            Đăng ký ca ngay →
+          </button>
+        </div>
+      )}
+
       {/* Render USER Today Hub */}
       {!isAdmin ? (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
@@ -1038,14 +1098,13 @@ export default function Dashboard() {
 
   const [visitedTabs, setVisitedTabs] = useState<Set<TabId>>(() => new Set([currentTab]));
 
-  useEffect(() => {
+  if (!visitedTabs.has(currentTab)) {
     setVisitedTabs(prev => {
-      if (prev.has(currentTab)) return prev;
       const next = new Set(prev);
       next.add(currentTab);
       return next;
     });
-  }, [currentTab]);
+  }
 
   const hasAccess = hasTabPermission(currentTab, currentUser);
 

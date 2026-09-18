@@ -41,7 +41,9 @@ import {
   HelpCircle,
   Check,
   PartyPopper,
-  Users
+  Users,
+  Crosshair,
+  Radio
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import {
@@ -127,6 +129,17 @@ export default function CheckIn() {
   const watchIdRef = useRef<number | null>(null);
   const gpsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevGpsValidRef = useRef<boolean | null>(null);
+  const consecutiveInvalidCountRef = useRef<number>(0);
+  const precisionScanWatchIdRef = useRef<number | null>(null);
+  const precisionScanTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [isPrecisionScanning, setIsPrecisionScanning] = useState(false);
+  const [scanProgress, setScanProgress] = useState<{ current: number; total: number; bestAcc: number | null; bestDist: number | null }>({
+    current: 0,
+    total: 4,
+    bestAcc: null,
+    bestDist: null
+  });
 
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState(false);
@@ -194,51 +207,97 @@ export default function CheckIn() {
     const rawLng = pos.coords.longitude;
     const acc = pos.coords.accuracy;
 
-    // Filter coordinates with adaptive accuracy weight
-    const filteredLat = kalmanLatRef.current.filter(rawLat, 0, acc);
-    const filteredLng = kalmanLngRef.current.filter(rawLng, 0, acc);
-
-    // If hardware accuracy is under 15m, instantly adopt raw/filtered coordinates
-    const lat = (acc <= 15 || isFastStart) ? rawLat : filteredLat;
-    const lng = (acc <= 15 || isFastStart) ? rawLng : filteredLng;
-
     const latestGpsConfig = useAppStore.getState().serverGpsConfig;
     const targetLat = latestGpsConfig?.lat ?? KG_LAT;
     const targetLng = latestGpsConfig?.lng ?? KG_LNG;
-    
-    const dist = getDist(lat, lng, targetLat, targetLng) * 1000;
+    const targetRadius = (latestGpsConfig?.radius && latestGpsConfig.radius > 0) ? latestGpsConfig.radius : KG_RADIUS_METERS; // Chuẩn 20m
     const isTestApp = useAppStore.getState().currentUser?.username === 'testapp';
-    const targetRadius = (latestGpsConfig?.radius && latestGpsConfig.radius <= 20) ? latestGpsConfig.radius : KG_RADIUS_METERS; // Chuẩn 20m
-    
+
+    const rawDist = getDist(rawLat, rawLng, targetLat, targetLng) * 1000;
+
+    // Phase 1: Fast Seed Check
+    if (isFastStart) {
+      if (rawDist <= targetRadius || isTestApp) {
+        // Fast cached position is within restaurant: lock immediately!
+        kalmanLatRef.current.filter(rawLat, 0, acc);
+        kalmanLngRef.current.filter(rawLng, 0, acc);
+        store.setGps({
+          lat: rawLat,
+          lng: rawLng,
+          isValid: true,
+          status: isTestApp ? 'Vị trí Test (Bypass)' : 'Vị trí Siêu tốc',
+          message: `Khoảng cách: ${Math.round(rawDist)}m / ${targetRadius}m (Sai số ±${Math.round(acc)}m)`,
+          accuracy: Math.round(acc),
+          distance: Math.round(rawDist)
+        });
+        if (prevGpsValidRef.current !== true) {
+          speak('Vị trí đã hợp lệ, sẵn sàng chấm công');
+          prevGpsValidRef.current = true;
+        }
+      } else {
+        // Cached position is outside. Do NOT prematurely fail or play negative audio!
+        // Show optimistic satellite loading while Tier 2 high-precision hardware lock engages.
+        store.setGps({
+          lat: rawLat,
+          lng: rawLng,
+          isValid: false,
+          status: 'Đang kết nối vệ tinh trực tiếp...',
+          message: `Đang thu nhận tín hiệu GPS chính xác (Sai số tạm: ±${Math.round(acc)}m)...`,
+          accuracy: Math.round(acc),
+          distance: Math.round(rawDist)
+        });
+      }
+      return;
+    }
+
+    // Phase 2: Live Hardware GPS Lock
+    const filteredLat = kalmanLatRef.current.filter(rawLat, 0, acc);
+    const filteredLng = kalmanLngRef.current.filter(rawLng, 0, acc);
+
+    // If hardware accuracy is high (acc <= 15m), adopt raw coordinates directly
+    const lat = (acc <= 15) ? rawLat : filteredLat;
+    const lng = (acc <= 15) ? rawLng : filteredLng;
+
+    const dist = getDist(lat, lng, targetLat, targetLng) * 1000;
+
     if (dist <= targetRadius || isTestApp) {
+      consecutiveInvalidCountRef.current = 0;
       store.setGps({
         lat,
         lng,
         isValid: true,
-        status: isTestApp ? 'Vị trí Test (Bypass)' : 'Vị trí Chính xác',
-        message: `Khoảng cách: ${Math.round(dist)}m / ${targetRadius}m (≤${targetRadius}m Hợp lệ)`
+        status: isTestApp ? 'Vị trí Test (Bypass)' : (acc <= 15 ? 'Vị trí Chính xác (GPS Vệ Tinh)' : 'Vị trí Hợp lệ'),
+        message: `Khoảng cách: ${Math.round(dist)}m / ${targetRadius}m (Sai số ±${Math.round(acc)}m)`,
+        accuracy: Math.round(acc),
+        distance: Math.round(dist)
       });
       if (prevGpsValidRef.current !== true) {
         speak('Vị trí đã hợp lệ, sẵn sàng chấm công');
         prevGpsValidRef.current = true;
       }
     } else {
-      store.setGps({
-        lat,
-        lng,
-        isValid: false,
-        status: 'Vị trí quá xa',
-        message: `Khoảng cách: ${Math.round(dist)}m / ${targetRadius}m (Quá bán kính ≤${targetRadius}m)`
-      });
-      if (prevGpsValidRef.current !== false && prevGpsValidRef.current !== null) {
-        speak('Vị trí không hợp lệ, vui lòng di chuyển lại gần');
-        prevGpsValidRef.current = false;
-      } else if (prevGpsValidRef.current === null) {
-        prevGpsValidRef.current = false;
+      // Jitter dampening: if previously valid and within small jitter tolerance (+4m) with coarse accuracy,
+      // allow grace reading to prevent momentary indoor radio spikes
+      if (prevGpsValidRef.current === true && dist <= targetRadius + 4 && acc >= 15 && consecutiveInvalidCountRef.current < 2) {
+        consecutiveInvalidCountRef.current += 1;
+      } else {
+        consecutiveInvalidCountRef.current = 0;
+        store.setGps({
+          lat,
+          lng,
+          isValid: false,
+          status: 'Vị trí quá xa',
+          message: `Khoảng cách: ${Math.round(dist)}m / ${targetRadius}m (Sai số ±${Math.round(acc)}m)`,
+          accuracy: Math.round(acc),
+          distance: Math.round(dist)
+        });
+        if (prevGpsValidRef.current !== false && prevGpsValidRef.current !== null) {
+          speak('Vị trí không hợp lệ, vui lòng di chuyển lại gần');
+          prevGpsValidRef.current = false;
+        } else if (prevGpsValidRef.current === null) {
+          prevGpsValidRef.current = false;
+        }
       }
-    }
-    if (!isFastStart && acc < 20) {
-      store.setGps({ status: 'GPS Khóa Vệ Tinh (Độ chính xác cao)' });
     }
   }, [store]);
 
@@ -274,14 +333,14 @@ export default function CheckIn() {
       return;
     }
 
-    // Tier 1: Instant Seed (<300ms) with network/cached GPS
+    // Tier 1: Instant Seed (<300ms) with network/cached GPS (short 8s cache window)
     navigator.geolocation.getCurrentPosition(
       (pos) => handleGpsSuccess(pos, true),
       () => {},
-      { enableHighAccuracy: false, timeout: 2000, maximumAge: 30000 }
+      { enableHighAccuracy: false, timeout: 1500, maximumAge: 8000 }
     );
 
-    // Tier 2: Real-time high-precision hardware GPS lock
+    // Tier 2: Real-time high-precision hardware GPS lock (zero cache)
     navigator.geolocation.getCurrentPosition(
       (pos) => handleGpsSuccess(pos, false),
       handleGpsError,
@@ -301,22 +360,189 @@ export default function CheckIn() {
         navigator.geolocation.getCurrentPosition(
           (p) => handleGpsSuccess(p, false),
           handleGpsError,
-          { enableHighAccuracy: true, timeout: 6000, maximumAge: 5000 }
+          { enableHighAccuracy: true, timeout: 6000, maximumAge: 0 }
         );
       }
     }, 5000);
   }, [handleGpsError, handleGpsSuccess, store]);
 
-  const restartGps = () => {
-    if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
-    if (gpsTimeoutRef.current) clearTimeout(gpsTimeoutRef.current);
-    watchIdRef.current = null;
-    store.setGps({ lat: null, lng: null, isValid: false, status: 'Chưa định vị', message: '', address: undefined });
-    kalmanLatRef.current.reset();
-    kalmanLngRef.current.reset();
+  const handlePrecisionRescan = useCallback(() => {
+    if (isPrecisionScanning) return;
+    setIsPrecisionScanning(true);
+    setScanProgress({ current: 0, total: 4, bestAcc: null, bestDist: null });
+
+    // Cancel existing watch & timers
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+    if (gpsTimeoutRef.current) {
+      clearTimeout(gpsTimeoutRef.current);
+      gpsTimeoutRef.current = null;
+    }
+    if (precisionScanWatchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(precisionScanWatchIdRef.current);
+      precisionScanWatchIdRef.current = null;
+    }
+    if (precisionScanTimeoutRef.current) {
+      clearTimeout(precisionScanTimeoutRef.current);
+      precisionScanTimeoutRef.current = null;
+    }
+
+    // Hard reset kalman and state
+    kalmanLatRef.current.hardReset();
+    kalmanLngRef.current.hardReset();
     prevGpsValidRef.current = null;
-    startGpsWatch();
-  };
+    consecutiveInvalidCountRef.current = 0;
+
+    store.setGps({
+      lat: null,
+      lng: null,
+      isValid: false,
+      status: 'Đang quét sóng vệ tinh...',
+      message: 'Bỏ qua cache cũ, đang thu thập mẫu vệ tinh trực tiếp...',
+      accuracy: null,
+      distance: null
+    });
+
+    if (!navigator.geolocation) {
+      setIsPrecisionScanning(false);
+      store.setGps({ status: 'Thiết bị không hỗ trợ định vị', message: 'Hãy dùng điện thoại có GPS.' });
+      return;
+    }
+
+    const latestGpsConfig = useAppStore.getState().serverGpsConfig;
+    const targetLat = latestGpsConfig?.lat ?? KG_LAT;
+    const targetLng = latestGpsConfig?.lng ?? KG_LNG;
+    const targetRadius = (latestGpsConfig?.radius && latestGpsConfig.radius > 0) ? latestGpsConfig.radius : KG_RADIUS_METERS;
+    const isTestApp = useAppStore.getState().currentUser?.username === 'testapp';
+
+    const samples: Array<{
+      lat: number;
+      lng: number;
+      acc: number;
+      dist: number;
+    }> = [];
+
+    const finishScan = () => {
+      if (precisionScanWatchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(precisionScanWatchIdRef.current);
+        precisionScanWatchIdRef.current = null;
+      }
+      if (precisionScanTimeoutRef.current) {
+        clearTimeout(precisionScanTimeoutRef.current);
+        precisionScanTimeoutRef.current = null;
+      }
+
+      if (samples.length === 0) {
+        setIsPrecisionScanning(false);
+        startGpsWatch();
+        return;
+      }
+
+      // Pick best sample:
+      // Priority 1: Samples that fall within targetRadius or test app
+      const validSamples = samples.filter((s) => s.dist <= targetRadius || isTestApp);
+      let chosen = samples[0];
+
+      if (validSamples.length > 0) {
+        validSamples.sort((a, b) => (a.acc - b.acc) || (a.dist - b.dist));
+        chosen = validSamples[0];
+      } else {
+        const sortedByAcc = [...samples].sort((a, b) => a.acc - b.acc);
+        chosen = sortedByAcc[0];
+      }
+
+      // Apply chosen to Kalman filter
+      kalmanLatRef.current.filter(chosen.lat, 0, chosen.acc);
+      kalmanLngRef.current.filter(chosen.lng, 0, chosen.acc);
+
+      const isInside = chosen.dist <= targetRadius || isTestApp;
+      store.setGps({
+        lat: chosen.lat,
+        lng: chosen.lng,
+        isValid: isInside,
+        status: isInside
+          ? (isTestApp ? 'Vị trí Test (Bypass)' : 'Vị trí Chính xác (GPS Vệ Tinh)')
+          : 'Vị trí quá xa',
+        message: isInside
+          ? `Khoảng cách: ${Math.round(chosen.dist)}m / ${targetRadius}m (Sai số ±${Math.round(chosen.acc)}m)`
+          : `Khoảng cách: ${Math.round(chosen.dist)}m / ${targetRadius}m (Sai số ±${Math.round(chosen.acc)}m)`,
+        accuracy: Math.round(chosen.acc),
+        distance: Math.round(chosen.dist)
+      });
+
+      if (isInside) {
+        speak('Vị trí đã hợp lệ, sẵn sàng chấm công');
+        prevGpsValidRef.current = true;
+        confetti({ particleCount: 35, spread: 60, origin: { y: 0.7 } });
+      } else {
+        speak(`Đã lấy vị trí vệ tinh, khoảng cách ${Math.round(chosen.dist)} mét`);
+        prevGpsValidRef.current = false;
+      }
+
+      setIsPrecisionScanning(false);
+
+      // Re-engage standard continuous watch
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        (pos) => handleGpsSuccess(pos, false),
+        handleGpsError,
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    };
+
+    const handleIncomingSample = (pos: GeolocationPosition) => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      const acc = pos.coords.accuracy;
+      const dist = getDist(lat, lng, targetLat, targetLng) * 1000;
+
+      samples.push({ lat, lng, acc, dist });
+
+      const bestAcc = Math.min(...samples.map((s) => Math.round(s.acc)));
+      const bestDist = Math.min(...samples.map((s) => Math.round(s.dist)));
+
+      setScanProgress({
+        current: samples.length,
+        total: 4,
+        bestAcc,
+        bestDist
+      });
+
+      // If we find an accurate sample within targetRadius, we can finish early!
+      if ((dist <= targetRadius || isTestApp) && acc <= 20 && samples.length >= 2) {
+        finishScan();
+        return;
+      }
+
+      if (samples.length >= 4) {
+        finishScan();
+      }
+    };
+
+    // Burst 1: getCurrentPosition zero cache
+    navigator.geolocation.getCurrentPosition(
+      handleIncomingSample,
+      () => {},
+      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+    );
+
+    // Burst 2: watchPosition stream
+    precisionScanWatchIdRef.current = navigator.geolocation.watchPosition(
+      handleIncomingSample,
+      handleGpsError,
+      { enableHighAccuracy: true, timeout: 6000, maximumAge: 0 }
+    );
+
+    // Safety timeout after 3.2 seconds
+    precisionScanTimeoutRef.current = setTimeout(() => {
+      finishScan();
+    }, 3200);
+  }, [handleGpsError, handleGpsSuccess, isPrecisionScanning, startGpsWatch, store]);
+
+  const restartGps = useCallback(() => {
+    handlePrecisionRescan();
+  }, [handlePrecisionRescan]);
 
   // Camera Logic
   const stopCamera = () => {
@@ -1150,6 +1376,8 @@ export default function CheckIn() {
       stopCamera();
       if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
       if (gpsTimeoutRef.current) clearTimeout(gpsTimeoutRef.current);
+      if (precisionScanWatchIdRef.current !== null) navigator.geolocation.clearWatch(precisionScanWatchIdRef.current);
+      if (precisionScanTimeoutRef.current) clearTimeout(precisionScanTimeoutRef.current);
     };
   }, []);
 
@@ -1445,14 +1673,19 @@ export default function CheckIn() {
               {gps.status.includes('Đang') && <div className="gps-ping absolute inset-0 rounded-2xl" />}
             </div>
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <p className="text-[10px] font-black text-[var(--kg-text-muted)] uppercase tracking-wider">Định vị GPS (≤20m)</p>
+                {gps.accuracy && (
+                  <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                    ±{gps.accuracy}m
+                  </span>
+                )}
                 <KgFeatureTip
                   title="Mẹo Định vị GPS chính xác"
                   tips={[
                     "Vị trí chuẩn: Khuôn viên nhà hàng King's Grill (bán kính ≤20m).",
                     "Cần bật Quyền truy cập vị trí và Vị trí chính xác (Precise Location) trên Safari/Chrome.",
-                    "Nếu sóng yếu hoặc báo Chưa nhận được vị trí, hãy di chuyển ra gần cửa sảnh và bấm 'Làm mới'."
+                    "Nếu sóng yếu hoặc báo Chưa nhận được vị trí, hãy bấm 'Làm mới' hoặc 'Quét lại vị trí (GPS Vệ Tinh)'."
                   ]}
                   size="sm"
                   variant="subtle"
@@ -1476,12 +1709,68 @@ export default function CheckIn() {
           <button
             type="button"
             onClick={restartGps}
-            className="text-xs bg-[var(--kg-primary)] hover:opacity-90 text-white px-3 py-2 rounded-xl transition font-black flex items-center min-h-[44px] touch-manipulation shadow-xs active:scale-95 flex-shrink-0"
+            disabled={isPrecisionScanning}
+            className="text-xs bg-[var(--kg-primary)] hover:opacity-90 text-white px-3 py-2 rounded-xl transition font-black flex items-center min-h-[44px] touch-manipulation shadow-xs active:scale-95 flex-shrink-0 disabled:opacity-60"
           >
-            <RefreshCw size={13} className={`mr-1.5 ${gps.status.includes('Đang') ? 'animate-spin' : ''}`} />
-            Làm mới
+            <RefreshCw size={13} className={`mr-1.5 ${isPrecisionScanning || gps.status.includes('Đang') ? 'animate-spin' : ''}`} />
+            {isPrecisionScanning ? 'Đang quét...' : 'Làm mới'}
           </button>
         </div>
+
+        {/* Live Multi-Sample Precision Radar Scan Feedback */}
+        {isPrecisionScanning && (
+          <div className="mt-3 p-3 bg-blue-500/10 border border-blue-500/25 rounded-2xl animate-fade-in text-xs">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <Radio size={16} className="text-blue-600 dark:text-blue-400 animate-pulse flex-shrink-0" />
+                <span className="font-black text-blue-700 dark:text-blue-300 truncate">
+                  Đang dò sóng vệ tinh ({scanProgress.current}/{scanProgress.total} mẫu)...
+                </span>
+              </div>
+              {scanProgress.bestAcc !== null && (
+                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-blue-500/20 text-blue-700 dark:text-blue-300 flex-shrink-0">
+                  Sai số: ±{scanProgress.bestAcc}m
+                </span>
+              )}
+            </div>
+            <div className="w-full bg-blue-200/50 dark:bg-blue-950/60 rounded-full h-1.5 mt-2 overflow-hidden">
+              <div
+                className="bg-blue-600 dark:bg-blue-400 h-1.5 rounded-full transition-all duration-300"
+                style={{ width: `${Math.min(100, Math.max(15, (scanProgress.current / scanProgress.total) * 100))}%` }}
+              />
+            </div>
+            <p className="text-[10px] text-[var(--kg-text-muted)] mt-1.5 font-medium">
+              Đang loại bỏ vị trí cache cũ, tự động chọn mẫu vệ tinh có sai số nhỏ nhất.
+            </p>
+          </div>
+        )}
+
+        {/* Dedicated In-Store Satellite Rescan for Staff */}
+        {!gps.isValid && gps.lat !== null && !isPrecisionScanning && (
+          <div className="mt-3 pt-2.5 border-t border-[var(--kg-border)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 bg-gradient-to-r from-blue-500/15 via-blue-500/10 to-indigo-500/10 p-3 rounded-2xl border border-blue-500/30 animate-fade-in shadow-xs">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-blue-600/15 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
+                <Crosshair size={18} className="animate-spin" style={{ animationDuration: '6s' }} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-black text-blue-700 dark:text-blue-300 leading-tight">
+                  Đang ở quán nhưng chưa nhận diện?
+                </p>
+                <p className="text-[10px] text-[var(--kg-text-muted)] mt-0.5">
+                  Lấy mẫu vệ tinh mới nhất (bỏ qua cache) để khóa vị trí chính xác
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handlePrecisionRescan}
+              className="w-full sm:w-auto px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs rounded-xl min-h-[40px] touch-manipulation flex items-center justify-center gap-1.5 flex-shrink-0 active:scale-95 transition shadow-xs whitespace-nowrap"
+            >
+              <Radio size={14} />
+              Quét lại vị trí (GPS Vệ Tinh)
+            </button>
+          </div>
+        )}
 
         {/* Admin Quick Fix Calibrate Banner */}
         {((currentUser?.role === 'admin' || currentUser?.username === 'ADMIN') && !gps.isValid && gps.lat !== null) && (

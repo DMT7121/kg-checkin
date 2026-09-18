@@ -95,32 +95,99 @@ export function computeWeekInfo(targetDate?: Date, getNextWeek: boolean = true) 
   return { weekStart, weekEnd, weekDisplay, weekDates, weekDatesKeys, sheetName, monthSheet, weekLabel };
 }
 
+export interface ScheduleRegistrationWindowStatus {
+  isMandatoryWindow: boolean; // T5, T6, T7 before 17:00
+  isOpen: boolean; // Open before Saturday 17:00
+  isClosed: boolean; // Closed Saturday 17:00+ or Sunday
+  dayOfWeek: number; // 0=Sun, 1=Mon, ..., 4=Thu, 5=Fri, 6=Sat
+  hoursRemaining: number;
+  message: string;
+}
+
+/** Check schedule registration window status
+ *  Fixed mandatory days: Thursday (T5), Friday (T6), Saturday (T7 before 17:00)
+ *  Closed: Saturday 17:00 → Sunday 23:59
+ */
+export function getScheduleRegistrationWindow(): ScheduleRegistrationWindowStatus {
+  const now = new Date();
+  const day = now.getDay();
+  const hour = now.getHours();
+  const minute = now.getMinutes();
+
+  // Saturday after 17:00 or Sunday
+  const isSatAfter17 = day === 6 && (hour > 17 || (hour === 17 && minute > 0));
+  const isSunday = day === 0;
+  const isClosed = isSatAfter17 || isSunday;
+  const isOpen = !isClosed;
+
+  // Mandatory registration window for all staff: T5, T6, T7 before 17:00
+  const isMandatoryWindow = (day === 4 || day === 5 || (day === 6 && !isSatAfter17));
+
+  let message = '';
+  let hoursRemaining = 0;
+  if (isClosed) {
+    message = 'Đăng ký ca tuần tới đã đóng lúc 17:00 Thứ Bảy. Mở lại lúc 00:00 Thứ Hai.';
+  } else if (day === 6) {
+    hoursRemaining = Math.max(0, 17 - hour);
+    message = `Hạn cuối: Hôm nay lúc 17:00 (còn ~${hoursRemaining} giờ)`;
+  } else if (day === 5) {
+    message = 'Hạn cuối: 17:00 Thứ Bảy (còn 1 ngày)';
+  } else if (day === 4) {
+    message = 'Hạn cuối: 17:00 Thứ Bảy (còn 2 ngày)';
+  } else {
+    const daysUntilSat = 6 - day;
+    message = `Mở đăng ký cố định T5, T6, T7 (Hạn cuối: 17:00 Thứ Bảy, còn ${daysUntilSat} ngày)`;
+  }
+
+  return {
+    isMandatoryWindow,
+    isOpen,
+    isClosed,
+    dayOfWeek: day,
+    hoursRemaining,
+    message
+  };
+}
+
 /** Check if schedule registration window is currently open
  *  Open: Monday 00:00 → Saturday 17:00
  *  Closed: Saturday 17:00 → Sunday 23:59
  */
 export function isRegistrationOpen(): { open: boolean; message: string } {
-  const now = new Date();
-  const day = now.getDay(); // 0=Sun, 1=Mon, ...6=Sat
-  const hour = now.getHours();
+  const status = getScheduleRegistrationWindow();
+  return { open: status.isOpen, message: status.message };
+}
 
-  // Sunday: closed all day
-  if (day === 0) {
-    return { open: false, message: 'Đăng ký đã đóng. Mở lại lúc 00:00 Thứ Hai.' };
-  }
+/** Check if schedule for the upcoming week is already registered */
+export function isNextWeekScheduleRegistered(
+  isScheduleRegisteredInStore: boolean,
+  username?: string,
+  targetWeekInfo?: { monthSheet: string; weekLabel: string }
+): boolean {
+  try {
+    const weekInfo = targetWeekInfo || computeWeekInfo();
+    const expectedKey = weekInfo.monthSheet + '|' + weekInfo.weekLabel;
+    const savedWeek = localStorage.getItem('kg_registered_week');
+    const savedShiftsStr = localStorage.getItem('kg_registered_shifts');
+    const savedUser = localStorage.getItem('kg_registered_user');
 
-  // Saturday: open if before 17:00
-  if (day === 6) {
-    if (hour >= 17) {
-      return { open: false, message: 'Đăng ký đã đóng. Mở lại lúc 00:00 Thứ Hai.' };
+    if (username && savedUser && savedUser !== username) {
+      return false;
     }
-    const remainHrs = 17 - hour;
-    return { open: true, message: `Hạn cuối: Hôm nay lúc 17:00 (còn ~${remainHrs}h)` };
-  }
 
-  // Monday - Friday: open
-  const daysUntilSat = 6 - day;
-  return { open: true, message: `Hạn cuối: 17:00 Thứ Bảy (còn ${daysUntilSat} ngày)` };
+    if (savedWeek === expectedKey && savedShiftsStr) {
+      try {
+        const shifts = JSON.parse(savedShiftsStr);
+        if (Array.isArray(shifts) && shifts.length === 7) {
+          return true;
+        }
+      } catch { /* ignore */ }
+    }
+
+    return Boolean(isScheduleRegisteredInStore && savedWeek === expectedKey);
+  } catch {
+    return false;
+  }
 }
 
 /** Detect Zalo / Facebook in-app browser */

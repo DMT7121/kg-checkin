@@ -8,6 +8,7 @@ class KalmanFilter {
   cov: number;
   x: number;
   lastTimestamp: number;
+  lastAccuracy: number;
 
   constructor(R = 1, Q = 0.0001, A = 1, B = 0, C = 1) {
     this.R = R;
@@ -18,16 +19,21 @@ class KalmanFilter {
     this.cov = NaN;
     this.x = NaN;
     this.lastTimestamp = 0;
+    this.lastAccuracy = NaN;
   }
 
   filter(z: number, u = 0, accuracy = 20): number {
     const now = Date.now();
     
-    // First measurement initialize
-    if (isNaN(this.x)) {
+    // First measurement initialize or re-seed if previous was coarse and new measurement is high precision
+    const isCoarseToHighPrecision = !isNaN(this.lastAccuracy) && this.lastAccuracy > 25 && accuracy <= 15;
+    const isStaleGap = this.lastTimestamp > 0 && (now - this.lastTimestamp > 15000);
+
+    if (isNaN(this.x) || isCoarseToHighPrecision || isStaleGap) {
       this.x = (1 / this.C) * z;
       this.cov = (1 / this.C) * this.R * (1 / this.C);
       this.lastTimestamp = now;
+      this.lastAccuracy = accuracy;
       return this.x;
     }
 
@@ -47,6 +53,7 @@ class KalmanFilter {
 
     const dt = this.lastTimestamp > 0 ? (now - this.lastTimestamp) / 1000 : 1;
     this.lastTimestamp = now;
+    this.lastAccuracy = accuracy;
 
     // Standard Kalman update
     const predX = this.A * this.x + this.B * u;
@@ -68,6 +75,11 @@ class KalmanFilter {
     this.cov = NaN;
     this.x = NaN;
     this.lastTimestamp = 0;
+    this.lastAccuracy = NaN;
+  }
+
+  hardReset() {
+    this.reset();
   }
 }
 

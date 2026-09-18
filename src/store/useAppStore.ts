@@ -209,6 +209,8 @@ interface AppState {
     status: string;
     message: string;
     address?: string;
+    accuracy?: number | null;
+    distance?: number | null;
   };
   serverGpsConfig: { lat: number; lng: number; radius: number } | null;
   serverOrgConfig: { name: string; address: string } | null;
