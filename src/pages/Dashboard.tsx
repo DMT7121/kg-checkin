@@ -205,16 +205,7 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
   const nextWeekRegistered = isNextWeekScheduleRegistered(store.isScheduleRegistered, currentUser?.username);
   const shouldPromptSchedule = isStaff && regWindow.isMandatoryWindow && !nextWeekRegistered;
 
-  const [isSchedulePromptOpen, setIsSchedulePromptOpen] = useState(false);
 
-  useEffect(() => {
-    if (shouldPromptSchedule) {
-      const timer = setTimeout(() => {
-        setIsSchedulePromptOpen(true);
-      }, 700);
-      return () => clearTimeout(timer);
-    }
-  }, [shouldPromptSchedule]);
 
   useEffect(() => {
     loadDashboardPendingClaims();
@@ -340,17 +331,7 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
 
   return (
     <div className="space-y-5 animate-fade-in pb-10">
-      {/* Mandatory Schedule Modal for Staff during T5, T6, T7 before 17:00 */}
-      <MandatoryScheduleModal
-        isOpen={isSchedulePromptOpen}
-        onClose={() => setIsSchedulePromptOpen(false)}
-        onGoToSchedule={() => {
-          setIsSchedulePromptOpen(false);
-          onTabChange('schedule');
-        }}
-        windowStatus={regWindow}
-        employeeName={currentUser?.fullname}
-      />
+
 
       {/* Mandatory Schedule Alert Banner on Dashboard during T5, T6, T7 before 17:00 */}
       {shouldPromptSchedule && (
@@ -1108,8 +1089,21 @@ export default function Dashboard() {
 
   const hasAccess = hasTabPermission(currentTab, currentUser);
 
+  const regWindow = getScheduleRegistrationWindow();
+  const isStaff = currentUser?.role !== 'admin';
+  const nextWeekRegistered = isNextWeekScheduleRegistered(store.isScheduleRegistered, currentUser?.username);
+  const shouldPromptSchedule = isStaff && regWindow.isMandatoryWindow && !nextWeekRegistered;
+  const isRegisteringSchedule = currentTab === 'schedule' || currentTab === 'workforce';
+
   return (
     <KgAppShell onPrefetch={prefetchModule}>
+      {/* Uncloseable Mandatory Schedule Modal for Staff during T5, T6, T7 before 17:00 */}
+      <MandatoryScheduleModal
+        isOpen={shouldPromptSchedule && !isRegisteringSchedule}
+        onGoToSchedule={() => handleTabChange('schedule')}
+        windowStatus={regWindow}
+        employeeName={currentUser?.fullname}
+      />
       <div className="h-full">
         {!hasAccess ? (
           <AccessDeniedPage tabTitle={getTabLabel(currentTab)} />

@@ -88,8 +88,8 @@ export default function Login() {
           store.setUsers(dataRes.data.users || []);
           if (dataRes.data.keys) store.setGroqKeys(dataRes.data.keys);
           
-          const hasLocalReg = (savedWeek === expectedWeekKey || savedWeek === weekInfo.sheetName) && !!savedShiftsStr;
-          const isReg = dataRes.data.isScheduleRegistered === true ? true : (hasLocalReg || useAppStore.getState().isScheduleRegistered);
+          const hasLocalReg = savedWeek === expectedWeekKey && !!savedShiftsStr;
+          const isReg = dataRes.data.isScheduleRegistered === true ? true : hasLocalReg;
           store.setScheduleRegistered(isReg);
           
           if (dataRes.data.approvedShifts) store.setApprovedShifts(dataRes.data.approvedShifts);
@@ -103,7 +103,7 @@ export default function Login() {
           // Mandatory schedule registration prompt on T5, T6, T7 before 17:00
           const regWindow = getScheduleRegistrationWindow();
           const isStaff = res.data.role !== 'admin';
-          const isAlreadyRegistered = isReg || isNextWeekScheduleRegistered(isReg, res.data.username);
+          const isAlreadyRegistered = isReg || isNextWeekScheduleRegistered(isReg, res.data.username, weekInfo);
           if (isStaff && regWindow.isMandatoryWindow && !isAlreadyRegistered) {
             store.setCurrentTab('workforce');
             Swal.fire({
