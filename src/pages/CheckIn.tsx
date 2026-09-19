@@ -184,6 +184,50 @@ export default function CheckIn() {
   const [feedbackTitle, setFeedbackTitle] = useState('');
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [feedbackType, setFeedbackType] = useState<'success' | 'warning' | 'info'>('info');
+
+  // Photo Expiry Timer (Strict 60-Second Window to eliminate pre-taking photos)
+  const PHOTO_EXPIRATION_SECONDS = 60;
+  const [photoCapturedAtMs, setPhotoCapturedAtMs] = useState<number | null>(null);
+  const [photoTimeLeftSeconds, setPhotoTimeLeftSeconds] = useState<number>(PHOTO_EXPIRATION_SECONDS);
+
+  const handlePhotoExpired = useCallback(() => {
+    store.setCapturedImage(null);
+    store.setCapturedTime(null);
+    setPhotoCapturedAtMs(null);
+    setPhotoTimeLeftSeconds(PHOTO_EXPIRATION_SECONDS);
+    setConfirmCheckInModalOpen(false);
+    setConfirmLateOpen(false);
+    setConfirmInvertedTypeOpen(false);
+
+    speak('Ảnh chụp đã hết hạn 60 giây. Vui lòng chụp lại ảnh mới tại nhà hàng.');
+    setFeedbackTitle('Ảnh chụp đã hết hạn (Quá 60 giây)');
+    setFeedbackMessage(
+      'Quy chuẩn chống gian lận: Ảnh chụp minh chứng chỉ có hiệu lực trong vòng 60 giây.\n\nHệ thống đã tự động hủy ảnh cũ để bảo đảm thời gian chấm công phản ánh chính xác thời điểm thực tế bạn có mặt tại nhà hàng.\n\nVui lòng chụp lại ảnh mới để tiếp tục.'
+    );
+    setFeedbackType('warning');
+    setFeedbackSheetOpen(true);
+  }, [store]);
+
+  useEffect(() => {
+    if (!capturedImage || !photoCapturedAtMs) {
+      setPhotoTimeLeftSeconds(PHOTO_EXPIRATION_SECONDS);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const elapsedSeconds = Math.floor((Date.now() - photoCapturedAtMs) / 1000);
+      const remaining = Math.max(0, PHOTO_EXPIRATION_SECONDS - elapsedSeconds);
+      setPhotoTimeLeftSeconds(remaining);
+
+      if (remaining <= 0) {
+        clearInterval(interval);
+        handlePhotoExpired();
+      }
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [capturedImage, photoCapturedAtMs, handlePhotoExpired]);
+
   const [lastSubmittedPunch, setLastSubmittedPunch] = useState<{
     type: 'Vào ca' | 'Ra ca';
     fullname: string;
@@ -1040,6 +1084,9 @@ export default function CheckIn() {
     const addr = useAppStore.getState().gps.address || useAppStore.getState().gps.status || 'Chưa rõ vị trí';
     
     drawWatermarkAndSave(canvas, ctx, exactTime, addr, modalChosenType || recommendation.recommendedType);
+    const captureTimestampMs = Date.now();
+    setPhotoCapturedAtMs(captureTimestampMs);
+    setPhotoTimeLeftSeconds(PHOTO_EXPIRATION_SECONDS);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1119,6 +1166,9 @@ export default function CheckIn() {
         const addr = useAppStore.getState().gps.address || useAppStore.getState().gps.status || 'Chưa rõ vị trí';
         
         drawWatermarkAndSave(canvas, ctx, exactTime, addr, modalChosenType || recommendation.recommendedType);
+        const captureTimestampMs = Date.now();
+        setPhotoCapturedAtMs(captureTimestampMs);
+        setPhotoTimeLeftSeconds(PHOTO_EXPIRATION_SECONDS);
       };
       img.src = event.target?.result as string;
     };
@@ -1149,6 +1199,11 @@ export default function CheckIn() {
   const submitCheck = async (type: string) => {
     if (!capturedImage || !isWithinRadius || gps.lat === null || gps.lng === null) return;
 
+    if (!photoCapturedAtMs || Date.now() - photoCapturedAtMs > PHOTO_EXPIRATION_SECONDS * 1000) {
+      handlePhotoExpired();
+      return;
+    }
+
     const isOutAction = type.includes('Ra ca') || type.includes('OUT') || type.toLowerCase().includes('ra');
     // Safety guard: If user manually chose 'Ra ca' but has no active open shift or Vào ca record
     if (isOutAction && !recommendation.isOpenShift && !recommendation.hasInToday) {
@@ -1167,6 +1222,12 @@ export default function CheckIn() {
       setFeedbackMessage('Vui lòng căn khuôn mặt giữa khung hình và chụp ảnh trước khi gửi chấm công.');
       setFeedbackType('warning');
       setFeedbackSheetOpen(true);
+      return;
+    }
+
+    // Strict 60-second photo expiration check
+    if (!photoCapturedAtMs || Date.now() - photoCapturedAtMs > PHOTO_EXPIRATION_SECONDS * 1000) {
+      handlePhotoExpired();
       return;
     }
 
@@ -1241,6 +1302,11 @@ export default function CheckIn() {
       return;
     }
 
+    if (!photoCapturedAtMs || Date.now() - photoCapturedAtMs > PHOTO_EXPIRATION_SECONDS * 1000) {
+      handlePhotoExpired();
+      return;
+    }
+
     if (!isWithinRadius) {
       speak('Từ chối chấm công: Bạn đang ở ngoài bán kính 20m.');
       setFeedbackTitle('Từ chối chấm công');
@@ -1282,8 +1348,11 @@ export default function CheckIn() {
     
     const payloadImage = capturedImage;
     const payloadTime = store.capturedTime || currentTime;
+    const capturedTimestamp = photoCapturedAtMs;
     store.setCapturedImage(null);
     store.setCapturedTime(null);
+    setPhotoCapturedAtMs(null);
+    setPhotoTimeLeftSeconds(PHOTO_EXPIRATION_SECONDS);
 
     // Ensure reliable email delivery: resolve fallback to dmt.7121@gmail.com for admin / placeholder domains
     const effectiveEmail = (currentUser.email && !currentUser.email.includes('@kingsgrill.com'))
@@ -1335,6 +1404,8 @@ export default function CheckIn() {
       location: gps.address || gps.status,
       shift: shiftString,
       lateMins: lateMinsInfo,
+      photoCapturedMs: capturedTimestamp,
+      clientNowMs: Date.now(),
       securityToken: generateLocationSecurityToken(currentUser.username, gps.lat ?? 0, gps.lng ?? 0, payloadTime)
     };
 
@@ -1575,7 +1646,7 @@ export default function CheckIn() {
     }
   };
 
-  const canSubmit = !!(capturedImage && isWithinRadius && gps.lat !== null && gps.lng !== null);
+  const canSubmit = !!(capturedImage && isWithinRadius && gps.lat !== null && gps.lng !== null && photoTimeLeftSeconds > 0);
 
   if (currentUser && !isWorkEligible(currentUser)) {
     return <EmploymentStatusNotice user={currentUser} actionLabel="chấm công tại nhà hàng" />;
@@ -2022,11 +2093,31 @@ export default function CheckIn() {
         {capturedImage && (
           <div className="absolute inset-0 bg-slate-950 z-30 flex flex-col items-center justify-center animate-fade-in">
             <img src={capturedImage} className="w-full h-full object-contain" alt="Captured with Watermark" />
+            
+            {/* Top Bar with Status & Actions */}
             <div className="absolute top-3 inset-x-3 z-40 flex items-center justify-between pointer-events-none">
-              <span className="bg-emerald-600/95 text-white text-[11px] font-black px-2.5 py-1 rounded-full backdrop-blur-md shadow-md flex items-center gap-1">
-                <CheckCircle2 size={13} />
-                <span>Đã đóng dấu HD</span>
-              </span>
+              <div className="flex items-center gap-1.5 pointer-events-none">
+                <span className="bg-emerald-600/95 text-white text-[11px] font-black px-2.5 py-1 rounded-full backdrop-blur-md shadow-md flex items-center gap-1">
+                  <CheckCircle2 size={13} />
+                  <span>Đã đóng dấu HD</span>
+                </span>
+                
+                {/* 60s Expiration Countdown Pill */}
+                <span
+                  className={`text-[11px] font-black px-2.5 py-1 rounded-full backdrop-blur-md shadow-md flex items-center gap-1 transition-all ${
+                    photoTimeLeftSeconds <= 15
+                      ? 'bg-rose-600/95 text-white animate-pulse'
+                      : photoTimeLeftSeconds <= 30
+                      ? 'bg-amber-600/95 text-white'
+                      : 'bg-black/75 text-emerald-400 border border-emerald-500/40'
+                  }`}
+                  title="Thời hạn ảnh chụp có hiệu lực"
+                >
+                  <Clock size={12} className={photoTimeLeftSeconds <= 15 ? 'animate-bounce' : 'animate-spin'} />
+                  <span>Hiệu lực: {photoTimeLeftSeconds}s</span>
+                </span>
+              </div>
+
               <div className="flex items-center gap-2 pointer-events-auto">
                 <button
                   type="button"
@@ -2041,13 +2132,31 @@ export default function CheckIn() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => store.setCapturedImage(null)}
+                  onClick={() => {
+                    store.setCapturedImage(null);
+                    setPhotoCapturedAtMs(null);
+                    setPhotoTimeLeftSeconds(PHOTO_EXPIRATION_SECONDS);
+                  }}
                   className="flex items-center space-x-1 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-full border border-white/20 backdrop-blur-md shadow-md active:scale-95 transition-all text-xs font-bold"
                 >
                   <RotateCcw size={13} />
                   <span>Chụp lại</span>
                 </button>
               </div>
+            </div>
+
+            {/* Bottom Progress Bar: 60s Visual Depletion */}
+            <div className="absolute bottom-0 inset-x-0 h-1.5 bg-black/40 overflow-hidden z-40 pointer-events-none">
+              <div
+                className={`h-full transition-all duration-500 ${
+                  photoTimeLeftSeconds <= 15
+                    ? 'bg-rose-500'
+                    : photoTimeLeftSeconds <= 30
+                    ? 'bg-amber-500'
+                    : 'bg-emerald-500'
+                }`}
+                style={{ width: `${(photoTimeLeftSeconds / PHOTO_EXPIRATION_SECONDS) * 100}%` }}
+              />
             </div>
           </div>
         )}
@@ -2094,7 +2203,7 @@ export default function CheckIn() {
         >
           {cooldown.isBlocked && currentUser?.role !== 'admin' && currentUser?.role !== 'tester'
             ? `⏳ GIÃN CÁCH (${cooldown.remainingMinutesFormatted})`
-            : capturedImage ? '🚀 GỬI CHẤM CÔNG' : '📸 CHỤP ẢNH ĐỂ CHẤM CÔNG'}
+            : capturedImage ? `🚀 GỬI CHẤM CÔNG (${photoTimeLeftSeconds}s)` : '📸 CHỤP ẢNH ĐỂ CHẤM CÔNG'}
         </KgButton>
 
         {!canSubmit && (
@@ -2105,6 +2214,8 @@ export default function CheckIn() {
               ? `⚠️ Ngoài bán kính ${targetRadius}m (${currentDist ?? 'quá'}m). Vui lòng di chuyển vào nhà hàng.`
               : !isWithinRadius
               ? `⚠️ Ngoài bán kính ${targetRadius}m (${currentDist ?? 'quá'}m). Không thể gửi chấm công.`
+              : photoTimeLeftSeconds <= 0
+              ? '⚠️ Ảnh chụp đã hết hạn 60 giây. Vui lòng chụp lại ảnh mới.'
               : '⚠️ Vui lòng nhấn nút chụp ảnh phía trên để gửi chấm công.'}
           </p>
         )}
@@ -2318,10 +2429,27 @@ export default function CheckIn() {
             const isOutSelection = modalChosenType.includes('Ra');
             const isMissingInGuard = isOutSelection && !recommendation.isOpenShift && !recommendation.hasInToday && !hasAcknowledgedMissingIn;
             const isEarlyOutGuard = isOutSelection && recommendation.isOpenShift && !recommendation.canCheckOutNow && !hasAcknowledgedEarlyOut;
-            const isSubmitDisabled = isMissingInGuard || isEarlyOutGuard || !isWithinRadius;
+            const isSubmitDisabled = isMissingInGuard || isEarlyOutGuard || !isWithinRadius || photoTimeLeftSeconds <= 0;
 
             return (
               <div className="space-y-2 pt-2">
+                {/* 60s Expiry Indicator in Modal */}
+                <div className={`p-2.5 rounded-xl border flex items-center justify-between text-xs font-bold transition-all ${
+                  photoTimeLeftSeconds <= 15
+                    ? 'bg-rose-500/15 border-rose-500/40 text-rose-600 dark:text-rose-400 animate-pulse'
+                    : photoTimeLeftSeconds <= 30
+                    ? 'bg-amber-500/15 border-amber-500/40 text-amber-600 dark:text-amber-400'
+                    : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                }`}>
+                  <div className="flex items-center gap-1.5">
+                    <Clock size={15} />
+                    <span>Thời hạn hiệu lực ảnh:</span>
+                  </div>
+                  <span className="font-mono font-black text-sm">
+                    {photoTimeLeftSeconds}s
+                  </span>
+                </div>
+
                 {!isWithinRadius && (
                   <div className="p-3 bg-rose-500/10 border-2 border-rose-500/30 rounded-2xl flex items-center gap-2 text-rose-600 dark:text-rose-400 font-bold text-xs">
                     <Lock size={16} className="flex-shrink-0" />

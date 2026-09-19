@@ -694,8 +694,47 @@ function handleCheckInOut(payload) {
     });
   }
 
+  // === 2. BẢO MẬT THỜI GIAN & CHỐNG GIAN LẬN CHỤP ẢNH TRƯỚC (ANTI-PRE-CAPTURE FRAUD) ===
+  var serverNowMs = new Date().getTime();
+  
+  // A. Kiểm tra tuổi ảnh chụp (Photo Expiration 60s + 15s grace cho độ trễ mạng/chuyển dữ liệu)
+  if (payload.photoCapturedMs && !isAuthorizedTest) {
+    var photoMs = Number(payload.photoCapturedMs);
+    if (!isNaN(photoMs) && photoMs > 0) {
+      var photoAgeSecs = Math.round((serverNowMs - photoMs) / 1000);
+      if (photoAgeSecs > 75) { // Quá 60s (+ 15s buffer mạng)
+        try {
+          recordFraudAlert(ss, payload, distMeters, allowedRadius, 'Ảnh chụp quá hạn (' + photoAgeSecs + 's trước, quy định ≤ 60s)');
+        } catch(e) {}
+        return jsonResponse(false, {
+          message: 'Từ chối chấm công: Ảnh chụp minh chứng đã hết hạn (' + photoAgeSecs + ' giây trước, quy định tối đa 60 giây). Vui lòng chụp lại ảnh mới tại nhà hàng để gửi chấm công.',
+          code: 'PHOTO_EXPIRED',
+          photoAgeSecs: photoAgeSecs
+        });
+      }
+    }
+  }
+
+  // B. Chống gian lận chỉnh đồng hồ thiết bị (Device Clock Drift > 3 phút)
+  if (payload.clientNowMs && !isAuthorizedTest) {
+    var clientMs = Number(payload.clientNowMs);
+    if (!isNaN(clientMs) && clientMs > 0) {
+      var driftMs = Math.abs(serverNowMs - clientMs);
+      if (driftMs > 180000) { // Lệch hơn 3 phút
+        return jsonResponse(false, {
+          message: 'Từ chối chấm công: Đồng hồ thiết bị của bạn bị lệch ' + Math.round(driftMs / 1000) + ' giây so với máy chủ chuẩn. Vui lòng bật chế độ "Tự động đặt giờ theo mạng" trên điện thoại.',
+          code: 'CLOCK_DESYNC'
+        });
+      }
+    }
+  }
+
   // payload: username, fullname, email, type, lat, lng, image, timestamp, location, distance
   var time = parseDateTimeString(payload.time);
+  // Nếu thời gian client gửi lên bị lệch quá 90s so với giờ máy chủ, ép buộc lấy giờ máy chủ hiện tại
+  if (time && Math.abs(serverNowMs - time.getTime()) > 90000 && !isAuthorizedTest) {
+    time = new Date();
+  }
   
   // === COL A: HỌ VÀ TÊN ===
   var hoVaTen = payload.fullname;
@@ -1023,7 +1062,7 @@ function handleSendEmailNotification(payload) {
 /**
  * Record suspicious or fraudulent check-in attempts outside the designated restaurant radius
  */
-function recordFraudAlert(ss, payload, distMeters, allowedRadius) {
+function recordFraudAlert(ss, payload, distMeters, allowedRadius, customReason) {
   try {
     var alertSheet = ss.getSheetByName('FraudAlerts');
     if (!alertSheet) {
@@ -1034,6 +1073,7 @@ function recordFraudAlert(ss, payload, distMeters, allowedRadius) {
     }
     var nowStr = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm:ss');
     var coords = (payload.lat && payload.lng) ? (payload.lat + ', ' + payload.lng) : 'Không có tọa độ';
+    var reason = customReason || ('Cố tình gửi chấm công ngoài bán kính (' + distMeters + 'm > ' + allowedRadius + 'm)');
     alertSheet.appendRow([
       nowStr,
       payload.username || 'N/A',
@@ -1042,12 +1082,12 @@ function recordFraudAlert(ss, payload, distMeters, allowedRadius) {
       distMeters + 'm',
       allowedRadius + 'm',
       coords,
-      'Cố tình gửi chấm công ngoài bán kính (' + distMeters + 'm > ' + allowedRadius + 'm)'
+      reason
     ]);
     
     // Gửi thông báo đến Admin
     try {
-      createNotification('ALL', '🚨 Cảnh báo chấm công ngoài bán kính', (payload.fullname || payload.username) + ' cố tình chấm công ngoài bán kính (' + distMeters + 'm cách nhà hàng)', 'danger', 'fraud');
+      createNotification('ALL', '🚨 Cảnh báo bảo mật chấm công', (payload.fullname || payload.username) + ': ' + reason, 'danger', 'fraud');
     } catch(eNotif) {}
   } catch(e) {
     Logger.log('recordFraudAlert error: ' + e.message);
