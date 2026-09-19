@@ -1371,25 +1371,9 @@ export default function CheckIn() {
       email: effectiveEmail
     });
 
-    // Synchronized celebratory confetti for BOTH Vào ca and Ra ca!
-    confetti({
-      particleCount: 160,
-      spread: 80,
-      origin: { y: 0.6 },
-      colors: type === 'Vào ca'
-        ? ['#10b981', '#06b6d4', '#facc15', '#3b82f6', '#ec4899']
-        : ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981']
-    });
-
-    // Synchronized voice greetings
-    if (type === 'Vào ca') {
-      speak('Ting! Chúc bạn ca làm việc vui vẻ!');
-    } else {
-      speak('Ting! Chúc mừng bạn đã hoàn thành ca làm việc!');
-    }
-
-    setFeedbackTitle(type === 'Vào ca' ? 'Điểm Danh Vào Ca Thành Công! 🎉' : 'Điểm Danh Ra Ca Thành Công! 🎊');
-    setFeedbackType('success');
+    setFeedbackTitle(type === 'Vào ca' ? 'Đang Điểm Danh Vào Ca... ⏳' : 'Đang Điểm Danh Ra Ca... ⏳');
+    setFeedbackMessage('Đang kết nối GPS và ghi nhận lượt chấm công...');
+    setFeedbackType('info');
     setFeedbackSheetOpen(true);
 
     const payload = {
@@ -1399,7 +1383,7 @@ export default function CheckIn() {
       type,
       lat: gps.lat,
       lng: gps.lng,
-      image: payloadImage ? 'PENDING' : null,
+      image: payloadImage || null,
       time: payloadTime,
       location: gps.address || gps.status,
       shift: shiftString,
@@ -1409,8 +1393,80 @@ export default function CheckIn() {
       securityToken: generateLocationSecurityToken(currentUser.username, gps.lat ?? 0, gps.lng ?? 0, payloadTime)
     };
 
-    callApi('CHECK_IN_OUT', payload, { background: true, timeoutMs: 60000, maxAttempts: 3 }).then(async (res) => {
+    callApi('CHECK_IN_OUT', payload, { background: true, timeoutMs: 45000, maxAttempts: 2 }).then(async (res) => {
       if (res?.ok) {
+        const checkinId = res.data?.checkinId;
+        const timeISO = res.data?.timeISO || new Date().toISOString();
+        const serverTime = res.data?.thoiGian || payloadTime;
+
+        // Guarantee 100% image upload to Spreadsheet & Drive:
+        // If CHECK_IN_OUT already uploaded it directly, store the URL; otherwise call UPLOAD_CHECKIN_IMAGE
+        const alreadyHasImageUrl = res.data?.imageUrl && res.data.imageUrl.indexOf('drive.google.com') >= 0;
+        if (alreadyHasImageUrl) {
+          store.updateLogImage(timeISO || serverTime, res.data.imageUrl);
+        } else if (payloadImage) {
+          setFeedbackMessage('Đang lưu trữ ảnh minh chứng lên Google Drive & Spreadsheet...');
+          try {
+            const imgRes = await callApi('UPLOAD_CHECKIN_IMAGE', {
+              checkinId,
+              username: currentUser.username,
+              fullname: currentUser.fullname,
+              timeISO,
+              time: serverTime,
+              image: payloadImage
+            }, { background: true, timeoutMs: 35000, maxAttempts: 2 });
+
+            if (imgRes?.ok) {
+              const driveUrl = imgRes.data?.url || imgRes.data?.imageUrl;
+              if (driveUrl) {
+                store.updateLogImage(timeISO || serverTime, driveUrl);
+              }
+            } else {
+              // Safety net fallback to offline queue
+              enqueueTask('UPLOAD_CHECKIN_IMAGE', {
+                checkinId,
+                username: currentUser.username,
+                fullname: currentUser.fullname,
+                timeISO,
+                time: serverTime,
+                image: payloadImage
+              }, { priority: 'high', maxAttempts: 10 });
+            }
+          } catch (imgErr) {
+            console.warn('[CheckIn] Direct photo upload error, queued to offline sync:', imgErr);
+            enqueueTask('UPLOAD_CHECKIN_IMAGE', {
+              checkinId,
+              username: currentUser.username,
+              fullname: currentUser.fullname,
+              timeISO,
+              time: serverTime,
+              image: payloadImage
+            }, { priority: 'high', maxAttempts: 10 });
+          }
+        }
+
+        // Synchronized celebratory confetti for BOTH Vào ca and Ra ca once safely stored!
+        confetti({
+          particleCount: 160,
+          spread: 80,
+          origin: { y: 0.6 },
+          colors: type === 'Vào ca'
+            ? ['#10b981', '#06b6d4', '#facc15', '#3b82f6', '#ec4899']
+            : ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981']
+        });
+
+        // Synchronized voice greetings
+        if (type === 'Vào ca') {
+          speak('Ting! Chúc bạn ca làm việc vui vẻ!');
+        } else {
+          speak('Ting! Chúc mừng bạn đã hoàn thành ca làm việc!');
+        }
+
+        setFeedbackTitle(type === 'Vào ca' ? 'Điểm Danh Vào Ca Thành Công! 🎉' : 'Điểm Danh Ra Ca Thành Công! 🎊');
+        setFeedbackMessage(payloadImage ? 'Đã lưu trữ lượt chấm công và ảnh minh chứng 100%!' : 'Đã ghi nhận lượt chấm công thành công!');
+        setFeedbackType('success');
+        setFeedbackSheetOpen(true);
+
         // Late penalty notifications using custom bottom sheets
         if (res.data?.lateMins > 5 && type === 'Vào ca') {
           const penaltyAmount = Math.max(10000, Math.floor(res.data.lateMins / 15) * 10000);
@@ -1435,6 +1491,7 @@ export default function CheckIn() {
         if (res.data) {
           callApi('SEND_EMAIL_NOTIFICATION', {
             ...payload,
+            checkinId,
             email: effectiveEmail,
             imageUrl: res.data.imageUrl,
             distMeters: res.data.distMeters,
@@ -1444,14 +1501,6 @@ export default function CheckIn() {
           }, { background: true, timeoutMs: 60000, maxAttempts: 2 }).catch(err => {
             console.warn('[CheckIn] Send email notification error:', err);
           });
-          
-          if (payloadImage) {
-            enqueueTask('UPLOAD_CHECKIN_IMAGE', {
-              fullname: currentUser!.fullname,
-              timeISO: res.data.timeISO,
-              image: payloadImage
-            }, { priority: 'high', maxAttempts: 5 });
-          }
         }
 
         // Pulse survey trigger (40% probability)

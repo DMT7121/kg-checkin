@@ -6,6 +6,7 @@ import { ScheduleRegistrationWindowStatus } from '../utils/helpers';
 interface MandatoryScheduleModalProps {
   isOpen: boolean;
   onGoToSchedule: () => void;
+  onDismiss?: () => void;
   windowStatus: ScheduleRegistrationWindowStatus;
   employeeName?: string;
 }
@@ -13,6 +14,7 @@ interface MandatoryScheduleModalProps {
 export default function MandatoryScheduleModal({
   isOpen,
   onGoToSchedule,
+  onDismiss,
   windowStatus,
   employeeName
 }: MandatoryScheduleModalProps) {
@@ -34,6 +36,21 @@ export default function MandatoryScheduleModal({
         >
           {/* Top Banner Gradient */}
           <div className="h-3 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500" />
+
+          {/* Optional top-right dismiss button */}
+          {onDismiss && (
+            <button
+              type="button"
+              onClick={onDismiss}
+              className="absolute top-4 right-4 z-10 p-1.5 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+              title="Đóng / Bỏ qua"
+              aria-label="Đóng thông báo"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
 
           <div className="p-5 sm:p-6 space-y-4">
             {/* Header with Icon and Badges */}
@@ -88,20 +105,30 @@ export default function MandatoryScheduleModal({
               </div>
             </div>
 
-            {/* Action Button - Uncloseable Single CTA */}
-            <div className="pt-2 space-y-2.5">
+            {/* Action Buttons */}
+            <div className="pt-2 space-y-2">
               <button
                 type="button"
                 onClick={onGoToSchedule}
-                className="w-full py-3.5 px-5 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-sm tracking-wide shadow-lg shadow-emerald-500/25 transition-all active:scale-[0.98] touch-manipulation flex items-center justify-center gap-2 animate-pulse"
+                className="w-full py-3 px-5 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-sm tracking-wide shadow-lg shadow-emerald-500/25 transition-all active:scale-[0.98] touch-manipulation flex items-center justify-center gap-2 animate-pulse"
               >
                 <span>ĐĂNG KÝ CA NGAY</span>
                 <ChevronRight size={18} />
               </button>
 
+              {onDismiss && (
+                <button
+                  type="button"
+                  onClick={onDismiss}
+                  className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                >
+                  Tôi đã nộp lịch / Xem lại sau
+                </button>
+              )}
+
               <div className="flex items-center justify-center gap-1.5 text-[10.5px] text-[var(--kg-text-muted)] font-medium text-center">
                 <Lock size={12} className="text-amber-500 flex-shrink-0" />
-                <span>Modal sẽ tự động tắt sau khi bạn hoàn tất và lưu ca làm tuần mới.</span>
+                <span>Modal sẽ tự động tắt khi bạn đã hoàn tất đăng ký ca tuần mới.</span>
               </div>
             </div>
           </div>

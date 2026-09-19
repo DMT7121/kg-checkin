@@ -200,10 +200,16 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
     });
   };
 
+  const [dismissedScheduleModal, setDismissedScheduleModal] = useState(false);
   const regWindow = getScheduleRegistrationWindow();
   const isStaff = currentUser?.role !== 'admin';
-  const nextWeekRegistered = isNextWeekScheduleRegistered(store.isScheduleRegistered, currentUser?.username);
-  const shouldPromptSchedule = isStaff && regWindow.isMandatoryWindow && !nextWeekRegistered;
+  const nextWeekRegistered = isNextWeekScheduleRegistered(
+    store.isScheduleRegistered,
+    currentUser?.username,
+    undefined,
+    { registeredShifts: store.registeredShifts, approvedShifts: store.approvedShifts }
+  );
+  const shouldPromptSchedule = isStaff && regWindow.isMandatoryWindow && !nextWeekRegistered && !dismissedScheduleModal;
 
 
 
@@ -1089,18 +1095,15 @@ export default function Dashboard() {
 
   const hasAccess = hasTabPermission(currentTab, currentUser);
 
-  const regWindow = getScheduleRegistrationWindow();
-  const isStaff = currentUser?.role !== 'admin';
-  const nextWeekRegistered = isNextWeekScheduleRegistered(store.isScheduleRegistered, currentUser?.username);
-  const shouldPromptSchedule = isStaff && regWindow.isMandatoryWindow && !nextWeekRegistered;
   const isRegisteringSchedule = currentTab === 'schedule' || currentTab === 'workforce';
 
   return (
     <KgAppShell onPrefetch={prefetchModule}>
-      {/* Uncloseable Mandatory Schedule Modal for Staff during T5, T6, T7 before 17:00 */}
+      {/* Mandatory Schedule Modal for Staff during T5, T6, T7 before 17:00 */}
       <MandatoryScheduleModal
         isOpen={shouldPromptSchedule && !isRegisteringSchedule}
         onGoToSchedule={() => handleTabChange('schedule')}
+        onDismiss={() => setDismissedScheduleModal(true)}
         windowStatus={regWindow}
         employeeName={currentUser?.fullname}
       />

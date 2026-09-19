@@ -305,10 +305,14 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
     if (res?.ok) {
       store.setScheduleRegistered(true);
       store.setRegisteredShifts(shifts);
+      const weekKey = weekInfo.monthSheet + '|' + weekInfo.weekLabel;
       localStorage.setItem('kg_registered_shifts', JSON.stringify(shifts));
-      localStorage.setItem('kg_registered_week', weekInfo.monthSheet + '|' + weekInfo.weekLabel);
+      localStorage.setItem('kg_registered_week', weekKey);
       localStorage.setItem('kg_registered_user', currentUser?.username || '');
       localStorage.setItem('kg_schedule_registered', 'true');
+      if (currentUser?.username) {
+        localStorage.setItem(`kg_registered_${currentUser.username.trim().toLowerCase()}_${weekKey}`, 'true');
+      }
       setIsEditing(false);
 
       const bqlNotice = 'Lịch đăng ký ca của bạn đã được ghi nhận. BQL sẽ sắp xếp lại phù hợp theo nhu cầu của nhà hàng. Trường hợp lịch không được duyệt nhưng lịch làm trùng lịch học, thi cử quan trọng hãy gửi lịch học/thi và báo BQL duyệt nhé!';
