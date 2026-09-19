@@ -64,7 +64,10 @@ export function enqueueTask(
   const queue = getQueue();
   // Filter out any identical pending task (e.g. duplicate checkin image upload)
   const filtered = queue.filter(
-    (t) => !(t.action === action && t.payload?.timeISO && t.payload?.timeISO === payload?.timeISO)
+    (t) => !(t.action === action && (
+      (payload?.checkinId && t.payload?.checkinId === payload.checkinId) ||
+      (t.payload?.timeISO && t.payload?.timeISO === payload?.timeISO)
+    ))
   );
   filtered.push(task);
   saveQueue(filtered);

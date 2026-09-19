@@ -1446,11 +1446,32 @@ export default function CheckIn() {
           });
           
           if (payloadImage) {
-            enqueueTask('UPLOAD_CHECKIN_IMAGE', {
-              fullname: currentUser!.fullname,
-              timeISO: res.data.timeISO,
+            const uploadPayload = {
+              checkinId: res.data?.checkinId,
+              username: currentUser.username,
+              fullname: currentUser.fullname,
+              timeISO: res.data?.timeISO || new Date().toISOString(),
+              time: res.data?.thoiGian || payloadTime,
               image: payloadImage
-            }, { priority: 'high', maxAttempts: 5 });
+            };
+
+            callApi('UPLOAD_CHECKIN_IMAGE', uploadPayload, {
+              background: true,
+              timeoutMs: 45000,
+              maxAttempts: 2
+            }).then((imgRes) => {
+              if (imgRes?.ok) {
+                const driveUrl = imgRes.data?.url || imgRes.data?.imageUrl;
+                if (driveUrl) {
+                  store.updateLogImage(uploadPayload.timeISO, driveUrl);
+                }
+              } else {
+                enqueueTask('UPLOAD_CHECKIN_IMAGE', uploadPayload, { priority: 'high', maxAttempts: 10 });
+              }
+            }).catch((imgErr) => {
+              console.warn('[CheckIn] Upload checkin image error, enqueued to offline queue:', imgErr);
+              enqueueTask('UPLOAD_CHECKIN_IMAGE', uploadPayload, { priority: 'high', maxAttempts: 10 });
+            });
           }
         }
 
