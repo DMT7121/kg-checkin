@@ -43,7 +43,8 @@ import {
   PartyPopper,
   Users,
   Crosshair,
-  Radio
+  Radio,
+  Lock
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import {
@@ -59,10 +60,27 @@ import EmploymentStatusNotice from '../components/EmploymentStatusNotice';
 import { enqueueTask } from '../utils/offlineQueue';
 import MissedCheckInModal from '../components/MissedCheckInModal';
 import EmployeeAttendanceMonitor from '../components/EmployeeAttendanceMonitor';
+import {
+  isAuthorizedTestUser,
+  detectGpsSpoofing,
+  generateLocationSecurityToken,
+  recordGpsSample
+} from '../utils/antiFraud';
 
 export default function CheckIn() {
   const store = useAppStore();
   const { currentUser, gps, capturedImage, currentTime, approvedShifts } = store;
+
+  // Anti-Fraud & Radius validation
+  const latestGpsConfig = store.serverGpsConfig;
+  const targetLat = latestGpsConfig?.lat ?? KG_LAT;
+  const targetLng = latestGpsConfig?.lng ?? KG_LNG;
+  const targetRadius = (latestGpsConfig?.radius && latestGpsConfig.radius > 0) ? latestGpsConfig.radius : KG_RADIUS_METERS; // 20m standard
+  const currentDist = (gps.lat !== null && gps.lng !== null)
+    ? Math.round(getDist(gps.lat, gps.lng, targetLat, targetLng) * 1000)
+    : (gps.distance ?? null);
+  const isAuthorizedTest = isAuthorizedTestUser(currentUser);
+  const isWithinRadius = isAuthorizedTest || (Boolean(gps.isValid) && (currentDist === null || currentDist <= targetRadius));
 
   // Smart check-in recommendation & state machine
   const recommendation = getRecommendedCheckInType(store.logs, currentUser);
@@ -203,6 +221,9 @@ export default function CheckIn() {
 
   // GPS Logic - Adaptive Ultra-Fast & High-Precision Lock
   const handleGpsSuccess = useCallback((pos: GeolocationPosition, isFastStart: boolean) => {
+    // Record raw sample into ring buffer for anti-spoofing heuristic analysis
+    recordGpsSample(pos);
+
     const rawLat = pos.coords.latitude;
     const rawLng = pos.coords.longitude;
     const acc = pos.coords.accuracy;
@@ -211,13 +232,13 @@ export default function CheckIn() {
     const targetLat = latestGpsConfig?.lat ?? KG_LAT;
     const targetLng = latestGpsConfig?.lng ?? KG_LNG;
     const targetRadius = (latestGpsConfig?.radius && latestGpsConfig.radius > 0) ? latestGpsConfig.radius : KG_RADIUS_METERS; // Chuẩn 20m
-    const isTestApp = useAppStore.getState().currentUser?.username === 'testapp';
+    const isAuthorizedTest = isAuthorizedTestUser(useAppStore.getState().currentUser);
 
     const rawDist = getDist(rawLat, rawLng, targetLat, targetLng) * 1000;
 
     // Phase 1: Fast Seed Check
     if (isFastStart) {
-      if (rawDist <= targetRadius || isTestApp) {
+      if (rawDist <= targetRadius || isAuthorizedTest) {
         // Fast cached position is within restaurant: lock immediately!
         kalmanLatRef.current.filter(rawLat, 0, acc);
         kalmanLngRef.current.filter(rawLng, 0, acc);
@@ -225,7 +246,7 @@ export default function CheckIn() {
           lat: rawLat,
           lng: rawLng,
           isValid: true,
-          status: isTestApp ? 'Vị trí Test (Bypass)' : 'Vị trí Siêu tốc',
+          status: isAuthorizedTest ? 'Vị trí Test (Bypass)' : 'Vị trí Siêu tốc',
           message: `Khoảng cách: ${Math.round(rawDist)}m / ${targetRadius}m (Sai số ±${Math.round(acc)}m)`,
           accuracy: Math.round(acc),
           distance: Math.round(rawDist)
@@ -260,13 +281,13 @@ export default function CheckIn() {
 
     const dist = getDist(lat, lng, targetLat, targetLng) * 1000;
 
-    if (dist <= targetRadius || isTestApp) {
+    if (dist <= targetRadius || isAuthorizedTest) {
       consecutiveInvalidCountRef.current = 0;
       store.setGps({
         lat,
         lng,
         isValid: true,
-        status: isTestApp ? 'Vị trí Test (Bypass)' : (acc <= 15 ? 'Vị trí Chính xác (GPS Vệ Tinh)' : 'Vị trí Hợp lệ'),
+        status: isAuthorizedTest ? 'Vị trí Test (Bypass)' : (acc <= 15 ? 'Vị trí Chính xác (GPS Vệ Tinh)' : 'Vị trí Hợp lệ'),
         message: `Khoảng cách: ${Math.round(dist)}m / ${targetRadius}m (Sai số ±${Math.round(acc)}m)`,
         accuracy: Math.round(acc),
         distance: Math.round(dist)
@@ -415,7 +436,7 @@ export default function CheckIn() {
     const targetLat = latestGpsConfig?.lat ?? KG_LAT;
     const targetLng = latestGpsConfig?.lng ?? KG_LNG;
     const targetRadius = (latestGpsConfig?.radius && latestGpsConfig.radius > 0) ? latestGpsConfig.radius : KG_RADIUS_METERS;
-    const isTestApp = useAppStore.getState().currentUser?.username === 'testapp';
+    const isAuthorizedTest = isAuthorizedTestUser(useAppStore.getState().currentUser);
 
     const samples: Array<{
       lat: number;
@@ -441,8 +462,8 @@ export default function CheckIn() {
       }
 
       // Pick best sample:
-      // Priority 1: Samples that fall within targetRadius or test app
-      const validSamples = samples.filter((s) => s.dist <= targetRadius || isTestApp);
+      // Priority 1: Samples that fall within targetRadius or authorized test
+      const validSamples = samples.filter((s) => s.dist <= targetRadius || isAuthorizedTest);
       let chosen = samples[0];
 
       if (validSamples.length > 0) {
@@ -457,13 +478,13 @@ export default function CheckIn() {
       kalmanLatRef.current.filter(chosen.lat, 0, chosen.acc);
       kalmanLngRef.current.filter(chosen.lng, 0, chosen.acc);
 
-      const isInside = chosen.dist <= targetRadius || isTestApp;
+      const isInside = chosen.dist <= targetRadius || isAuthorizedTest;
       store.setGps({
         lat: chosen.lat,
         lng: chosen.lng,
         isValid: isInside,
         status: isInside
-          ? (isTestApp ? 'Vị trí Test (Bypass)' : 'Vị trí Chính xác (GPS Vệ Tinh)')
+          ? (isAuthorizedTest ? 'Vị trí Test (Bypass)' : 'Vị trí Chính xác (GPS Vệ Tinh)')
           : 'Vị trí quá xa',
         message: isInside
           ? `Khoảng cách: ${Math.round(chosen.dist)}m / ${targetRadius}m (Sai số ±${Math.round(chosen.acc)}m)`
@@ -492,6 +513,7 @@ export default function CheckIn() {
     };
 
     const handleIncomingSample = (pos: GeolocationPosition) => {
+      recordGpsSample(pos);
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;
       const acc = pos.coords.accuracy;
@@ -510,7 +532,7 @@ export default function CheckIn() {
       });
 
       // If we find an accurate sample within targetRadius, we can finish early!
-      if ((dist <= targetRadius || isTestApp) && acc <= 20 && samples.length >= 2) {
+      if ((dist <= targetRadius || isAuthorizedTest) && acc <= 20 && samples.length >= 2) {
         finishScan();
         return;
       }
@@ -632,6 +654,11 @@ export default function CheckIn() {
     addr: string,
     typeToStamp: CheckInTypeString = modalChosenType || recommendation.recommendedType
   ) => {
+    if (!isWithinRadius) {
+      speak('Bạn đang ở ngoài bán kính 20m. Không thể tạo ảnh đóng dấu.');
+      return;
+    }
+
     const cardX = 24;
     const cardHeight = 300;
     const cardY = canvas.height - cardHeight - 24;
@@ -658,7 +685,7 @@ export default function CheckIn() {
         c.arcTo(x + w, y, x + w, y + h, r);
         c.arcTo(x + w, y + h, x, y + h, r);
         c.arcTo(x, y + h, x, y, r);
-        c.arcTo(x, y, x + w, y, r);
+        c.arcTo(x, y + w, y, r);
         c.closePath();
       }
     };
@@ -679,13 +706,9 @@ export default function CheckIn() {
     const currentGpsState = useAppStore.getState().gps;
     const userObj = useAppStore.getState().currentUser;
     const isCheckInType = typeToStamp.includes('Vào') || typeToStamp.includes('IN') || typeToStamp.toLowerCase().includes('vào');
-    const isValidGps = Boolean(currentGpsState.isValid);
 
     const gradBar = ctx.createLinearGradient(cardX, cardY, cardX + cardWidth, cardY);
-    if (!isValidGps) {
-      gradBar.addColorStop(0, '#EF4444');
-      gradBar.addColorStop(1, '#F59E0B');
-    } else if (isCheckInType) {
+    if (isCheckInType) {
       gradBar.addColorStop(0, '#059669');
       gradBar.addColorStop(1, '#06B6D4');
     } else {
@@ -703,14 +726,13 @@ export default function CheckIn() {
     const contentX = cardX + padX;
     const contentWidth = cardWidth - (padX * 2);
 
-    // Security Hash
-    const strForHash = `${userObj?.username || 'user'}_${exactTime}_${currentGpsState.lat?.toFixed(5)}_${currentGpsState.lng?.toFixed(5)}_KG20`;
-    let hashVal = 0;
-    for (let i = 0; i < strForHash.length; i++) {
-      hashVal = ((hashVal << 5) - hashVal) + strForHash.charCodeAt(i);
-      hashVal |= 0;
-    }
-    const securityHash = `KG#${Math.abs(hashVal).toString(36).toUpperCase().padStart(6, '0')}`;
+    // Cryptographic Security Token
+    const securityToken = generateLocationSecurityToken(
+      userObj?.username || 'user',
+      currentGpsState.lat ?? 0,
+      currentGpsState.lng ?? 0,
+      exactTime
+    );
 
     // --- HEADER SECTION (y = cardY + 16 to cardY + 62) ---
     const headerTop = cardY + 16;
@@ -774,9 +796,9 @@ export default function CheckIn() {
     ctx.fillStyle = '#94A3B8'; // Slate 400
     ctx.fillText("HỆ THỐNG CHỨNG THỰC CHẤM CÔNG GPS • KG-OS", brandTextX, headerTop + 26);
 
-    // Right Header: Status Badge Pill
+    // Right Header: Status Badge Pill (Strictly HỢP LỆ)
     const upperType = typeToStamp.toUpperCase();
-    const statusText = isValidGps ? `${upperType} • HỢP LỆ` : `${upperType} • NGOÀI BÁN KÍNH`;
+    const statusText = `${upperType} • HỢP LỆ`;
     ctx.font = 'bold 14px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     const statusWidth = ctx.measureText(statusText).width + 36;
     const statusHeight = 32;
@@ -786,24 +808,20 @@ export default function CheckIn() {
     ctx.save();
     ctx.beginPath();
     drawRoundRect(ctx, statusX, statusY, statusWidth, statusHeight, 16);
-    ctx.fillStyle = !isValidGps
-      ? 'rgba(239, 68, 68, 0.22)'
-      : isCheckInType
-        ? 'rgba(16, 185, 129, 0.22)'
-        : 'rgba(59, 130, 246, 0.22)';
+    ctx.fillStyle = isCheckInType ? 'rgba(16, 185, 129, 0.22)' : 'rgba(59, 130, 246, 0.22)';
     ctx.fill();
-    ctx.strokeStyle = !isValidGps ? '#EF4444' : isCheckInType ? '#10B981' : '#3B82F6';
+    ctx.strokeStyle = isCheckInType ? '#10B981' : '#3B82F6';
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
     // Dot indicator
     ctx.beginPath();
     ctx.arc(statusX + 16, statusY + statusHeight / 2, 4.5, 0, Math.PI * 2);
-    ctx.fillStyle = !isValidGps ? '#F87171' : isCheckInType ? '#34D399' : '#60A5FA';
+    ctx.fillStyle = isCheckInType ? '#34D399' : '#60A5FA';
     ctx.fill();
 
     // Status text
-    ctx.fillStyle = !isValidGps ? '#FCA5A5' : isCheckInType ? '#6EE7B7' : '#93C5FD';
+    ctx.fillStyle = isCheckInType ? '#6EE7B7' : '#93C5FD';
     ctx.textBaseline = 'middle';
     ctx.fillText(statusText, statusX + 27, statusY + statusHeight / 2);
     ctx.restore();
@@ -876,7 +894,7 @@ export default function CheckIn() {
       tileH,
       '🕒 THỜI GIAN GHI NHẬN',
       exactTime,
-      `Bảo mật: ${securityHash} (Hệ thống KG-OS)`,
+      `Chữ ký an ninh: ${securityToken}`,
       '#FDE047', // Vivid Gold
       '#FACC15'
     );
@@ -909,20 +927,20 @@ export default function CheckIn() {
       '#38BDF8'
     );
 
-    // Tile 4: Tiêu chuẩn Bán kính GPS (Chuẩn 20m)
+    // Tile 4: Tiêu chuẩn Bán kính GPS (Chuẩn ≤20m)
     const distText = currentGpsState.message && currentGpsState.message.includes('Khoảng cách:')
       ? currentGpsState.message
-      : `Khoảng cách: ${isValidGps ? '0m / 20m (≤20m Hợp lệ)' : 'Vượt bán kính (≤20m)'}`;
+      : `Khoảng cách: ${currentDist ?? 0}m / ${targetRadius}m (≤${targetRadius}m Hợp lệ)`;
     drawInfoTile(
       col2X,
       row2Y,
       tileW,
       tileH,
-      '🛰️ TIÊU CHUẨN BÁN KÍNH GPS (≤20M)',
+      `🛰️ TIÊU CHUẨN BÁN KÍNH GPS (≤${targetRadius}M)`,
       distText,
-      isValidGps ? '✓ Đạt chuẩn vị trí nhà hàng' : '⚠️ Vượt quá bán kính quy định (20m)',
-      isValidGps ? '#34D399' : '#F87171',
-      isValidGps ? '#10B981' : '#EF4444'
+      '✓ Đạt chuẩn vị trí nhà hàng (≤20m)',
+      '#34D399',
+      '#10B981'
     );
 
     // --- FOOTER BAR (y = row2Y + tileH + 10) ---
@@ -948,6 +966,29 @@ export default function CheckIn() {
   };
 
   const takePhoto = () => {
+    if (!isWithinRadius) {
+      speak(`Bạn đang ở ngoài bán kính chấm công. Khoảng cách ${currentDist ?? 'không xác định'} mét.`);
+      setFeedbackTitle('Ngoài bán kính chấm công (≤20m)');
+      setFeedbackMessage(
+        `Vị trí của bạn đang cách nhà hàng ${currentDist ?? 'quá'}m (quy định ≤ ${targetRadius}m).\n\nĐể đảm bảo tính minh bạch và chống gian lận, camera chụp ảnh đã được khóa. Vui lòng di chuyển vào khu vực nhà hàng để chấm công.`
+      );
+      setFeedbackType('warning');
+      setFeedbackSheetOpen(true);
+      return;
+    }
+
+    const spoofResult = detectGpsSpoofing();
+    if (spoofResult.isSuspicious && !isAuthorizedTest) {
+      speak('Cảnh báo! Phát hiện nghi vấn giả lập vị trí GPS.');
+      setFeedbackTitle('Cảnh báo Gian Lận Vị Trí (Fake GPS)');
+      setFeedbackMessage(
+        `Hệ thống an ninh KG-OS phát hiện tín hiệu vị trí bất thường:\n- ${spoofResult.reasons.join('\n- ')}\n\nVui lòng tắt tất cả ứng dụng giả lập GPS hoặc VPN/Proxy và quét lại vị trí thực tế.`
+      );
+      setFeedbackType('warning');
+      setFeedbackSheetOpen(true);
+      return;
+    }
+
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !video.videoWidth || !video.videoHeight) {
@@ -1002,6 +1043,31 @@ export default function CheckIn() {
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!isWithinRadius) {
+      speak('Bạn đang ở ngoài bán kính 20m. Không thể tải ảnh minh chứng.');
+      setFeedbackTitle('Ngoài bán kính chấm công (≤20m)');
+      setFeedbackMessage(
+        `Vị trí của bạn đang cách nhà hàng ${currentDist ?? 'quá'}m (quy định ≤ ${targetRadius}m).\n\nVui lòng di chuyển vào khu vực nhà hàng để chấm công.`
+      );
+      setFeedbackType('warning');
+      setFeedbackSheetOpen(true);
+      e.target.value = '';
+      return;
+    }
+
+    const spoofResult = detectGpsSpoofing();
+    if (spoofResult.isSuspicious && !isAuthorizedTest) {
+      speak('Cảnh báo! Phát hiện nghi vấn giả lập vị trí GPS.');
+      setFeedbackTitle('Cảnh báo Gian Lận Vị Trí (Fake GPS)');
+      setFeedbackMessage(
+        `Hệ thống an ninh KG-OS phát hiện tín hiệu vị trí bất thường:\n- ${spoofResult.reasons.join('\n- ')}\n\nVui lòng tắt ứng dụng giả lập vị trí và quét lại GPS.`
+      );
+      setFeedbackType('warning');
+      setFeedbackSheetOpen(true);
+      e.target.value = '';
+      return;
+    }
+
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
@@ -1081,7 +1147,7 @@ export default function CheckIn() {
 
   // Submit flow triggers
   const submitCheck = async (type: string) => {
-    if (!capturedImage || !gps.isValid || gps.lat === null || gps.lng === null) return;
+    if (!capturedImage || !isWithinRadius || gps.lat === null || gps.lng === null) return;
 
     const isOutAction = type.includes('Ra ca') || type.includes('OUT') || type.toLowerCase().includes('ra');
     // Safety guard: If user manually chose 'Ra ca' but has no active open shift or Vào ca record
@@ -1104,10 +1170,22 @@ export default function CheckIn() {
       return;
     }
 
-    if (!gps.isValid || gps.lat === null || gps.lng === null) {
+    if (!isWithinRadius || gps.lat === null || gps.lng === null) {
       speak('Vị trí chưa hợp lệ. Yêu cầu trong bán kính 20m.');
-      setFeedbackTitle('Vị trí chưa hợp lệ');
-      setFeedbackMessage('Bạn đang ở ngoài bán kính 20m nhà hàng hoặc GPS chưa định vị xong. Vui lòng thử lại hoặc gửi báo bổ sung công.');
+      setFeedbackTitle('Vị trí ngoài bán kính quy định (≤20m)');
+      setFeedbackMessage(`Khoảng cách hiện tại: ${currentDist ?? 'quá'}m (quy định ≤ ${targetRadius}m). Hệ thống từ chối ghi nhận lượt chấm công ngoài khu vực nhà hàng.`);
+      setFeedbackType('warning');
+      setFeedbackSheetOpen(true);
+      return;
+    }
+
+    const spoofResult = detectGpsSpoofing();
+    if (spoofResult.isSuspicious && !isAuthorizedTest) {
+      speak('Cảnh báo! Hệ thống phát hiện nghi vấn giả lập vị trí GPS.');
+      setFeedbackTitle('Cảnh báo Gian Lận Vị Trí (Fake GPS)');
+      setFeedbackMessage(
+        `Hệ thống an ninh KG-OS phát hiện tín hiệu vị trí bất thường:\n- ${spoofResult.reasons.join('\n- ')}\n\nVui lòng tắt tất cả ứng dụng giả lập GPS hoặc VPN/Proxy và quét lại vị trí thực tế.`
+      );
       setFeedbackType('warning');
       setFeedbackSheetOpen(true);
       return;
@@ -1163,6 +1241,15 @@ export default function CheckIn() {
       return;
     }
 
+    if (!isWithinRadius) {
+      speak('Từ chối chấm công: Bạn đang ở ngoài bán kính 20m.');
+      setFeedbackTitle('Từ chối chấm công');
+      setFeedbackMessage(`Khoảng cách hiện tại là ${currentDist ?? 'quá'}m (quy định ≤ ${targetRadius}m). Hệ thống không ghi nhận lượt chấm công này.`);
+      setFeedbackType('warning');
+      setFeedbackSheetOpen(true);
+      return;
+    }
+
     const now = new Date();
     const d = String(now.getDate()).padStart(2, '0');
     const m = String(now.getMonth() + 1).padStart(2, '0');
@@ -1209,8 +1296,8 @@ export default function CheckIn() {
       fullname: currentUser.fullname,
       time: payloadTime,
       location: gps.address || (gps.status === 'Đang lấy vị trí...' ? 'Nhà hàng King\'s Grill' : gps.status),
-      distMeters: typeof distMeters === 'number' ? `${Math.round(distMeters)}m` : '<= 20m',
-      isValid: gps.isValid,
+      distMeters: typeof currentDist === 'number' ? `${Math.round(currentDist)}m` : '<= 20m',
+      isValid: true,
       shift: shiftString,
       email: effectiveEmail
     });
@@ -1247,7 +1334,8 @@ export default function CheckIn() {
       time: payloadTime,
       location: gps.address || gps.status,
       shift: shiftString,
-      lateMins: lateMinsInfo
+      lateMins: lateMinsInfo,
+      securityToken: generateLocationSecurityToken(currentUser.username, gps.lat ?? 0, gps.lng ?? 0, payloadTime)
     };
 
     callApi('CHECK_IN_OUT', payload, { background: true, timeoutMs: 60000, maxAttempts: 3 }).then(async (res) => {
@@ -1487,7 +1575,7 @@ export default function CheckIn() {
     }
   };
 
-  const canSubmit = !!(capturedImage && gps.isValid && gps.lat !== null && gps.lng !== null);
+  const canSubmit = !!(capturedImage && isWithinRadius && gps.lat !== null && gps.lng !== null);
 
   if (currentUser && !isWorkEligible(currentUser)) {
     return <EmploymentStatusNotice user={currentUser} actionLabel="chấm công tại nhà hàng" />;
@@ -1815,7 +1903,7 @@ export default function CheckIn() {
       </div>
 
       {/* Camera Viewport: Responsive 4:3 camera & 3:4 HD uncropped preview */}
-      <div className={`relative bg-slate-950 rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm ${capturedImage ? 'aspect-[3/4] max-h-[460px]' : 'aspect-[4/3] max-h-[300px] sm:max-h-[380px]'} group border-[4px] sm:border-[5px] max-w-sm mx-auto transition-all ${gps.isValid ? 'border-blue-600' : 'border-red-500'}`}>
+      <div className={`relative bg-slate-950 rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm ${capturedImage ? 'aspect-[3/4] max-h-[460px]' : 'aspect-[4/3] max-h-[300px] sm:max-h-[380px]'} group border-[4px] sm:border-[5px] max-w-sm mx-auto transition-all ${isWithinRadius ? 'border-blue-600' : 'border-red-500'}`}>
         <video ref={videoRef} autoPlay muted playsInline className={`w-full h-full object-cover mirror-cam ${(cameraError || capturedImage) ? 'hidden' : ''}`} />
         <canvas ref={overlayCanvasRef} className={`absolute inset-0 w-full h-full object-cover pointer-events-none ${(cameraError || capturedImage) ? 'hidden' : ''}`} />
         <canvas ref={canvasRef} className="hidden" />
@@ -1844,8 +1932,18 @@ export default function CheckIn() {
           <div className="bg-red-500 w-2.5 h-2.5 rounded-full animate-pulse shadow-[0_0_8px_red]" />
         </div>
 
-        {/* AI Face Detection Overlays */}
-        {!cameraError && !capturedImage && cameraActive && (
+        {/* Floating Locked Notice if Out of Radius */}
+        {!isWithinRadius && !capturedImage && (
+          <div className="absolute inset-x-4 top-14 z-30 pointer-events-none flex justify-center">
+            <span className="bg-rose-600/95 text-white text-xs px-3.5 py-1.5 rounded-full backdrop-blur-sm flex items-center shadow-lg font-bold gap-1.5 border border-rose-400/40 animate-pulse">
+              <Lock size={13} className="text-white" />
+              Ngoài bán kính {targetRadius}m {currentDist !== null ? `(${currentDist}m)` : ''} • Đã khóa camera
+            </span>
+          </div>
+        )}
+
+        {/* AI Face Detection Overlays (Only when within radius) */}
+        {isWithinRadius && !cameraError && !capturedImage && cameraActive && (
           <div className="absolute inset-x-4 top-14 z-30 pointer-events-none flex justify-center">
             {!isFaceModelLoaded && !faceModelUnavailable ? (
               <span className="bg-black/70 text-white text-xs px-3.5 py-1.5 rounded-full backdrop-blur-sm flex items-center shadow-md font-semibold gap-1.5">
@@ -1879,16 +1977,39 @@ export default function CheckIn() {
             </button>
             
             {cameraActive ? (
-              <button
-                onClick={takePhoto}
-                aria-label="Chụp ảnh chấm công"
-                className="group relative touch-manipulation transition-all duration-300 scale-100 active:scale-95"
-              >
-                <div className="absolute inset-0 bg-white rounded-full opacity-35 scale-110" />
-                <div className="w-16 h-16 bg-transparent border-4 border-white rounded-full flex items-center justify-center shadow-lg">
-                  <div className={`w-11 h-11 rounded-full transition-all ${isFaceDetected ? 'bg-green-500' : 'bg-white'} group-hover:scale-105`} />
-                </div>
-              </button>
+              !isWithinRadius ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    speak(`Bạn đang ở ngoài bán kính chấm công. Khoảng cách hiện tại ${currentDist ?? 'không xác định'} mét.`);
+                    setFeedbackTitle('Ngoài bán kính chấm công (≤20m)');
+                    setFeedbackMessage(
+                      `Vị trí của bạn đang cách nhà hàng ${currentDist ?? 'quá'}m (quy định ≤ ${targetRadius}m).\n\nĐể đảm bảo tính minh bạch và chống gian lận, camera chụp ảnh chấm công đã được khóa. Vui lòng di chuyển vào khu vực nhà hàng và nhấn "Quét lại" để tiếp tục.`
+                    );
+                    setFeedbackType('warning');
+                    setFeedbackSheetOpen(true);
+                  }}
+                  aria-label="Camera bị khóa do ngoài bán kính"
+                  className="group relative touch-manipulation transition-all duration-300 scale-100 active:scale-95"
+                  title="Ngoài bán kính quy định - Đã khóa camera"
+                >
+                  <div className="absolute inset-0 bg-rose-600 rounded-full opacity-30 scale-110 animate-ping" />
+                  <div className="w-16 h-16 bg-rose-950/80 border-4 border-rose-500 rounded-full flex items-center justify-center shadow-lg backdrop-blur-md">
+                    <Lock size={22} className="text-rose-400" />
+                  </div>
+                </button>
+              ) : (
+                <button
+                  onClick={takePhoto}
+                  aria-label="Chụp ảnh chấm công"
+                  className="group relative touch-manipulation transition-all duration-300 scale-100 active:scale-95"
+                >
+                  <div className="absolute inset-0 bg-white rounded-full opacity-35 scale-110" />
+                  <div className="w-16 h-16 bg-transparent border-4 border-white rounded-full flex items-center justify-center shadow-lg">
+                    <div className={`w-11 h-11 rounded-full transition-all ${isFaceDetected ? 'bg-green-500' : 'bg-white'} group-hover:scale-105`} />
+                  </div>
+                </button>
+              )
             ) : (
               <button onClick={() => startCamera()} className="bg-white/20 backdrop-blur text-white p-4 rounded-full min-h-[44px]">
                 <RotateCcw size={20} />
@@ -1949,8 +2070,12 @@ export default function CheckIn() {
               takePhoto();
               return;
             }
-            if (!gps.isValid) {
+            if (!isWithinRadius) {
               speak('Bạn đang ở ngoài bán kính 20m nhà hàng.');
+              setFeedbackTitle('Ngoài bán kính chấm công');
+              setFeedbackMessage(`Khoảng cách hiện tại: ${currentDist ?? 'quá'}m (quy định ≤ ${targetRadius}m). Vui lòng di chuyển vào nhà hàng để chấm công.`);
+              setFeedbackType('warning');
+              setFeedbackSheetOpen(true);
               return;
             }
             // Prepare modal state
@@ -1976,10 +2101,10 @@ export default function CheckIn() {
           <p className="text-[11px] text-center text-[var(--kg-text-muted)] font-medium">
             {cooldown.isBlocked && currentUser?.role !== 'admin' && currentUser?.role !== 'tester'
               ? `⏳ Cần chờ thêm ${cooldown.remainingMinutesFormatted} theo quy định giãn cách 15 phút.`
-              : !capturedImage && !gps.isValid
-              ? '⚠️ Vui lòng đứng trong bán kính 20m và chụp ảnh để gửi chấm công.'
-              : !gps.isValid
-              ? '⚠️ Vị trí chưa hợp lệ (yêu cầu trong bán kính 20m nhà hàng).'
+              : !capturedImage && !isWithinRadius
+              ? `⚠️ Ngoài bán kính ${targetRadius}m (${currentDist ?? 'quá'}m). Vui lòng di chuyển vào nhà hàng.`
+              : !isWithinRadius
+              ? `⚠️ Ngoài bán kính ${targetRadius}m (${currentDist ?? 'quá'}m). Không thể gửi chấm công.`
               : '⚠️ Vui lòng nhấn nút chụp ảnh phía trên để gửi chấm công.'}
           </p>
         )}
@@ -2193,10 +2318,17 @@ export default function CheckIn() {
             const isOutSelection = modalChosenType.includes('Ra');
             const isMissingInGuard = isOutSelection && !recommendation.isOpenShift && !recommendation.hasInToday && !hasAcknowledgedMissingIn;
             const isEarlyOutGuard = isOutSelection && recommendation.isOpenShift && !recommendation.canCheckOutNow && !hasAcknowledgedEarlyOut;
-            const isSubmitDisabled = isMissingInGuard || isEarlyOutGuard;
+            const isSubmitDisabled = isMissingInGuard || isEarlyOutGuard || !isWithinRadius;
 
             return (
               <div className="space-y-2 pt-2">
+                {!isWithinRadius && (
+                  <div className="p-3 bg-rose-500/10 border-2 border-rose-500/30 rounded-2xl flex items-center gap-2 text-rose-600 dark:text-rose-400 font-bold text-xs">
+                    <Lock size={16} className="flex-shrink-0" />
+                    <span>Bạn đang cách nhà hàng {currentDist ?? 'quá'}m (quy định ≤ {targetRadius}m). Đã khóa gửi chấm công.</span>
+                  </div>
+                )}
+
                 <KgButton
                   variant={modalChosenType.includes('Vào') ? 'primary' : 'danger'}
                   size="lg"
@@ -2293,6 +2425,10 @@ export default function CheckIn() {
         variant="danger"
         onConfirm={() => {
           setConfirmLateOpen(false);
+          if (!isWithinRadius) {
+            speak('Từ chối chấm công: Bạn đang ở ngoài bán kính 20m.');
+            return;
+          }
           executeCheck('Vào ca', true, pendingLateMins, pendingShiftStr);
         }}
       />

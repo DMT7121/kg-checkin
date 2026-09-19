@@ -642,6 +642,58 @@ function handleCheckInOut(payload) {
   var sheet = ss.getSheetByName(CONFIG.SHEET_LOGS);
   if (!sheet) return jsonResponse(false, 'Không tìm thấy sheet chấm công');
   
+  // === 1. BẢO MẬT & KIỂM TRA BÁN KÍNH GPS (ANTI-FRAUD RADIUS ENFORCEMENT) ===
+  var cleanUser = (payload.username || '').trim().toLowerCase();
+  var isAuthorizedTest = (cleanUser === 'admin' || cleanUser === 'testapp' || cleanUser === 'tester');
+  
+  var gpsConfig = getGpsConfig();
+  var targetLat = (gpsConfig && gpsConfig.lat) ? Number(gpsConfig.lat) : 10.976083;
+  var targetLng = (gpsConfig && gpsConfig.lng) ? Number(gpsConfig.lng) : 106.664654;
+  var allowedRadius = (gpsConfig && gpsConfig.radius > 0) ? Number(gpsConfig.radius) : 20;
+
+  var distMeters = 0;
+  var hasCoordinates = (payload.lat !== undefined && payload.lat !== null && payload.lat !== '' &&
+                        payload.lng !== undefined && payload.lng !== null && payload.lng !== '');
+  
+  if (hasCoordinates) {
+    var latNum = Number(payload.lat);
+    var lngNum = Number(payload.lng);
+    var R = 6371000;
+    var dLat = (targetLat - latNum) * Math.PI / 180;
+    var dLon = (targetLng - lngNum) * Math.PI / 180;
+    var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(latNum * Math.PI / 180) * Math.cos(targetLat * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    distMeters = Math.round(R * c);
+  } else if (payload.distance !== undefined && payload.distance !== null && payload.distance !== '') {
+    distMeters = Math.round(Number(payload.distance));
+  } else {
+    // Không có tọa độ GPS hợp lệ
+    if (!isAuthorizedTest) {
+      return jsonResponse(false, {
+        message: 'Từ chối chấm công: Không nhận được dữ liệu tọa độ GPS từ thiết bị.',
+        code: 'GPS_REQUIRED'
+      });
+    }
+  }
+
+  // Chặn tuyệt đối nếu vượt quá bán kính quy định (ngoại trừ tài khoản test được cấp quyền)
+  if (!isAuthorizedTest && distMeters > allowedRadius) {
+    try {
+      recordFraudAlert(ss, payload, distMeters, allowedRadius);
+    } catch(fraudErr) {
+      Logger.log('Fraud logging error: ' + fraudErr.message);
+    }
+    
+    return jsonResponse(false, {
+      message: 'Từ chối chấm công: Bạn đang cách nhà hàng ' + distMeters + 'm (vượt quá bán kính cho phép ≤ ' + allowedRadius + 'm). Vui lòng có mặt tại nhà hàng để chấm công.',
+      code: 'OUT_OF_RADIUS',
+      distMeters: distMeters,
+      allowedRadius: allowedRadius
+    });
+  }
+
   // payload: username, fullname, email, type, lat, lng, image, timestamp, location, distance
   var time = parseDateTimeString(payload.time);
   
@@ -804,25 +856,8 @@ function handleCheckInOut(payload) {
     viTri = 'Khong xac dinh';
   }
   
-  // === COL F: KHOẢNG CÁCH (meters) ===
-  var distMeters = 0;
-  if (payload.distance !== undefined && payload.distance !== null) {
-    distMeters = Math.round(Number(payload.distance));
-  } else if (payload.lat && payload.lng) {
-    var gpsConfig = getGpsConfig();
-    var R = 6371000;
-    var dLat = (gpsConfig.lat - payload.lat) * Math.PI / 180;
-    var dLon = (gpsConfig.lng - payload.lng) * Math.PI / 180;
-    var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(payload.lat * Math.PI / 180) * Math.cos(gpsConfig.lat * Math.PI / 180) *
-            Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    distMeters = Math.round(R * c);
-  }
-  
-  // === COL E: XÁC MINH ===
-  var gpsConfig = getGpsConfig();
-  var isValid = distMeters <= gpsConfig.radius;
+  // === COL F: KHOẢNG CÁCH (meters) & COL E: XÁC MINH ===
+  var isValid = isAuthorizedTest || (distMeters <= allowedRadius);
   var xacMinh = isValid ? 'Hợp lệ' : 'Không hợp lệ';
   
   // === COL G: LINK HÌNH ẢNH ===
@@ -952,12 +987,16 @@ function handleCheckInOut(payload) {
 
 function handleSendEmailNotification(payload) {
   try {
+    var cleanUser = (payload.username || '').trim().toLowerCase();
+    var isAuthorizedTest = (cleanUser === 'admin' || cleanUser === 'testapp' || cleanUser === 'tester');
+    var isValid = (payload.isValid === true || payload.isValid === 'true');
+    if (!isValid && !isAuthorizedTest) {
+      Logger.log('Blocked sending email notification for invalid out-of-radius check-in: ' + payload.fullname);
+      return jsonResponse(false, 'Từ chối gửi email: Lượt chấm công không hợp lệ hoặc nằm ngoài bán kính.');
+    }
+
     // Reconstruct time object
     var timeObj = payload.timeISO ? new Date(payload.timeISO) : new Date();
-    
-    // CRITICAL FIX: isValid truyền qua JSON có thể bị coerce thành string
-    // String "false" là truthy trong JS → phải convert rõ ràng về boolean
-    var isValid = (payload.isValid === true || payload.isValid === 'true');
     
     // distMeters: đảm bảo là string có đơn vị
     var distMeters = payload.distMeters;
@@ -978,6 +1017,40 @@ function handleSendEmailNotification(payload) {
       getSS().getSheetByName(CONFIG.SHEET_CONFIG).appendRow(['ERR_EMAIL_ASYNC', e.message, new Date()]);
     } catch(logErr) {}
     return jsonResponse(false, e.message);
+  }
+}
+
+/**
+ * Record suspicious or fraudulent check-in attempts outside the designated restaurant radius
+ */
+function recordFraudAlert(ss, payload, distMeters, allowedRadius) {
+  try {
+    var alertSheet = ss.getSheetByName('FraudAlerts');
+    if (!alertSheet) {
+      alertSheet = ss.insertSheet('FraudAlerts');
+      alertSheet.appendRow(['Thời gian', 'Tài khoản', 'Họ và tên', 'Loại chấm công', 'Khoảng cách', 'Bán kính cho phép', 'Tọa độ gửi lên', 'Hành vi phát hiện']);
+      var headerRange = alertSheet.getRange(1, 1, 1, 8);
+      headerRange.setBackground('#991B1B').setFontColor('#FFFFFF').setFontWeight('bold');
+    }
+    var nowStr = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm:ss');
+    var coords = (payload.lat && payload.lng) ? (payload.lat + ', ' + payload.lng) : 'Không có tọa độ';
+    alertSheet.appendRow([
+      nowStr,
+      payload.username || 'N/A',
+      payload.fullname || 'N/A',
+      payload.type || 'N/A',
+      distMeters + 'm',
+      allowedRadius + 'm',
+      coords,
+      'Cố tình gửi chấm công ngoài bán kính (' + distMeters + 'm > ' + allowedRadius + 'm)'
+    ]);
+    
+    // Gửi thông báo đến Admin
+    try {
+      createNotification('ALL', '🚨 Cảnh báo chấm công ngoài bán kính', (payload.fullname || payload.username) + ' cố tình chấm công ngoài bán kính (' + distMeters + 'm cách nhà hàng)', 'danger', 'fraud');
+    } catch(eNotif) {}
+  } catch(e) {
+    Logger.log('recordFraudAlert error: ' + e.message);
   }
 }
 
