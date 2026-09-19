@@ -64,12 +64,7 @@ export function enqueueTask(
   const queue = getQueue();
   // Filter out any identical pending task (e.g. duplicate checkin image upload)
   const filtered = queue.filter(
-    (t) => !(
-      t.action === action &&
-      ((t.payload?.checkinId && t.payload?.checkinId === payload?.checkinId) ||
-       (t.payload?.timeISO && t.payload?.timeISO === payload?.timeISO) ||
-       (t.payload?.time && t.payload?.time === payload?.time && t.payload?.username === payload?.username))
-    )
+    (t) => !(t.action === action && t.payload?.timeISO && t.payload?.timeISO === payload?.timeISO)
   );
   filtered.push(task);
   saveQueue(filtered);
@@ -123,8 +118,7 @@ export async function processQueue(): Promise<void> {
           if (task.action === 'UPLOAD_CHECKIN_IMAGE') {
             const driveUrl = res.data?.url || res.data?.imageUrl;
             if (driveUrl) {
-              const matchKey = task.payload.timeISO || task.payload.time || '';
-              useAppStore.getState().updateLogImage(matchKey, driveUrl);
+              useAppStore.getState().updateLogImage(task.payload.timeISO || '', driveUrl);
             }
           }
           console.log(`[OfflineQueue] Successfully processed task: ${task.action} (${task.id})`);

@@ -899,24 +899,14 @@ function handleCheckInOut(payload) {
   var isValid = isAuthorizedTest || (distMeters <= allowedRadius);
   var xacMinh = isValid ? 'Hợp lệ' : 'Không hợp lệ';
   
-  // === COL G: LINK HÌNH ẢNH & UNIQUE CHECKIN ID ===
-  var checkinId = 'CHK_' + (payload.username ? payload.username.toString().replace(/[^a-zA-Z0-9]/g, '') : 'user') + '_' + time.getTime();
+  // === COL G: LINK HÌNH ẢNH ===
   var imageUrl = '';
-  if (payload.image && payload.image !== 'PENDING' && payload.image.length > 100) {
-    try {
-      imageUrl = uploadImageBlobToDrive(payload.image, hoVaTen);
-    } catch(imgErr) {
-      Logger.log('Direct image upload error: ' + imgErr.message);
-      imageUrl = 'Đang tải ảnh...';
-    }
-  } else if (payload.image === 'PENDING') {
+  if (payload.image === 'PENDING') {
     imageUrl = 'Đang tải ảnh...';
   }
   
   // === COL H: DATA JSON ===
   var dataJson = JSON.stringify({
-    checkinId: checkinId,
-    username: payload.username || '',
     hoVaTen: hoVaTen,
     loaiChamCong: loaiChamCong,
     thoiGian: thoiGian,
@@ -935,11 +925,7 @@ function handleCheckInOut(payload) {
   try {
     lock.waitLock(15000);
     sheet.insertRowBefore(2);
-    var colGVal = imageUrl;
-    if (imageUrl && imageUrl.indexOf('drive.google.com') >= 0) {
-      colGVal = '=HYPERLINK("' + imageUrl + '", "📷 Xem ảnh")';
-    }
-    var newRow = [hoVaTen, loaiChamCong, "'" + thoiGian, viTri, xacMinh, distMeters + 'm', colGVal, dataJson];
+    var newRow = [hoVaTen, loaiChamCong, "'" + thoiGian, viTri, xacMinh, distMeters + 'm', imageUrl, dataJson];
     sheet.getRange(2, 1, 1, 8).setValues([newRow]);
     
     // === AUTO-FORMAT THE NEW ROW ===
@@ -1008,12 +994,10 @@ function handleCheckInOut(payload) {
   
     return jsonResponse(true, {
       message: 'Chấm công thành công',
-      checkinId: checkinId,
       imageUrl: imageUrl,
       distMeters: distMeters,
       isValid: isValid,
       timeISO: time.toISOString(),
-      thoiGian: thoiGian,
       viTri: viTri,
       shift: serverShift || '',
       lateMins: serverLateMins,
@@ -1202,11 +1186,7 @@ function formatCheckInRow(sheet, row, isValid, imgUrl) {
     sheet.getRange(row, 6).setFontSize(9);
     
     if (imgUrl && imgUrl !== 'Lỗi ảnh' && imgUrl.indexOf('drive.google.com') >= 0) {
-      try {
-        sheet.getRange(row, 7).setFormula('=HYPERLINK("' + imgUrl + '", "📷 Xem ảnh")').setFontSize(9);
-      } catch (fErr) {
-        sheet.getRange(row, 7).setValue(imgUrl).setFontSize(9);
-      }
+      sheet.getRange(row, 7).setFormulaLocal('=HYPERLINK("' + imgUrl + '"; "📷 Xem ảnh")').setFontSize(9);
     }
     
     sheet.getRange(row, 8).setFontSize(7);
@@ -2967,177 +2947,86 @@ function handleSaveChecklistConfig(payload) {
 // 14. UPLOAD IMAGE (GENERAL PURPOSE)
 // =====================================================================================
 
-function uploadImageBlobToDrive(base64Data, nameHint) {
-  if (!base64Data || base64Data.length < 50) return '';
-  var mimeType = 'image/jpeg';
-  var ext = '.jpg';
-  if (base64Data.indexOf('data:image/webp') === 0) { mimeType = 'image/webp'; ext = '.webp'; }
-  else if (base64Data.indexOf('data:image/png') === 0) { mimeType = 'image/png'; ext = '.png'; }
-  
-  if (base64Data.indexOf(',') !== -1) {
-    base64Data = base64Data.split(',')[1];
-  }
-  
-  // Xóa ký tự lạ và tự động đệm '='
-  base64Data = base64Data.replace(/[^A-Za-z0-9+/=]/g, '');
-  while (base64Data.length % 4 !== 0) {
-    base64Data += '=';
-  }
-  
-  var safeName = (nameHint || 'checkin').replace(/[^a-zA-Z0-9_\u00C0-\u1EF9]/g, '_');
-  var filename = safeName + '_' + new Date().getTime() + ext;
-  
-  var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType, filename);
-  
-  var folder;
-  try {
-    folder = DriveApp.getFolderById(CONFIG.FOLDER_ID);
-  } catch (eF) {
-    folder = DriveApp.getRootFolder();
-  }
-  
-  var file = folder.createFile(blob);
-  try {
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-  } catch (eS) {}
-  
-  return file.getUrl();
-}
-
 function handleUploadCheckinImage(payload) {
-  if (!payload || !payload.image) {
-    return jsonResponse(false, 'Thiếu dữ liệu upload ảnh');
+  if (!payload || !payload.image || !payload.fullname || !payload.timeISO) {
+    return jsonResponse(false, 'Thiếu dữ liệu upload ảnh ngầm');
   }
   
-  var lock = LockService.getScriptLock();
   try {
-    // Acquire lock with 30s timeout to prevent concurrency race conditions with insertRowBefore(2)
-    lock.waitLock(30000);
+    // Decode base64
+    var base64Data = payload.image;
+    var mimeType = 'image/jpeg';
+    var ext = '.jpg';
+    if (base64Data.indexOf('data:image/webp') === 0) { mimeType = 'image/webp'; ext = '.webp'; }
+    else if (base64Data.indexOf('data:image/png') === 0) { mimeType = 'image/png'; ext = '.png'; }
     
-    var imageUrl = uploadImageBlobToDrive(payload.image, payload.fullname || payload.username);
-    if (!imageUrl) {
-      return jsonResponse(false, 'Không thể tạo file trên Google Drive');
+    if (base64Data.indexOf(',') !== -1) {
+      base64Data = base64Data.split(',')[1];
     }
     
+    // Xóa ký tự lạ và tự động đệm '='
+    base64Data = base64Data.replace(/[^A-Za-z0-9+/=]/g, '');
+    while (base64Data.length % 4 !== 0) {
+      base64Data += '=';
+    }
+    
+    var safeName = payload.fullname.replace(/[^a-zA-Z0-9_\u00C0-\u1EF9]/g, '_');
+    var filename = safeName + '_' + new Date().getTime() + ext;
+    
+    var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType, filename);
+    
+    var folder;
+    try {
+      folder = DriveApp.getFolderById(CONFIG.FOLDER_ID);
+    } catch (eF) {
+      folder = DriveApp.getRootFolder();
+    }
+    
+    var file = folder.createFile(blob);
+    var imageUrl = file.getUrl();
+    
+    try {
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (eS) {}
+    
+    // Tìm dòng tương ứng trên Sheet bằng fullname và timeISO
     var sheet = getSS().getSheetByName(CONFIG.SHEET_LOGS);
-    var data = sheet.getDataRange().getValues();
+    var data = sheet.getDataRange().getValues(); // Cache data in memory
     
-    var targetRowIdx = -1;
-    var targetDataRow = null;
+    for (var i = 1; i < data.length; i++) {
+      var row = data[i];
+      // Cột 0: Tên, Cột 6: Ảnh
+      if (row[0].toString() === payload.fullname && row[6].toString().indexOf('Đang tải ảnh') !== -1) {
+        // Cột 7: Data Json - Chứa timeISO để verify chính xác ca này
+        if (row[7] && row[7].toString().indexOf(payload.timeISO) !== -1) {
+          
+          var rowIdx = i + 1;
+          // Ghi đè Link vào Sheet
+          sheet.getRange(rowIdx, 7).setValue(imageUrl);
+          
+          // Format Link cho đẹp
+          var isValid = row[4].toString().indexOf('Hợp lệ') >= 0;
+          var linkColor = isValid ? '#10b981' : '#ef4444';
+          sheet.getRange(rowIdx, 7).setFormulaLocal('=HYPERLINK("' + imageUrl + '"; "📷 Xem ảnh")')
+               .setFontColor(linkColor)
+               .setTextDecoration('none');
+          
+          // Cập nhật lại JSON data
+          try {
+            var oldJson = JSON.parse(row[7].toString());
+            oldJson.linkAnh = imageUrl;
+            sheet.getRange(rowIdx, 8).setValue(JSON.stringify(oldJson));
+          } catch(ej){}
+          
+          return jsonResponse(true, { url: imageUrl, rowMatched: rowIdx });
+        }
+      }
+    }
     
-    var targetCheckinId = payload.checkinId ? payload.checkinId.toString().trim() : '';
-    var targetTimeISO = payload.timeISO ? payload.timeISO.toString().trim() : '';
-    var targetTimeStr = (payload.time || payload.thoiGian || '').toString().trim();
-    var cleanFullname = (payload.fullname || '').toString().trim().toLowerCase();
-    var cleanUsername = (payload.username || '').toString().trim().toLowerCase();
-
-    function normalizeName(str) {
-      if (!str) return '';
-      return str.toString().trim().toLowerCase().replace(/\s+/g, ' ');
-    }
-
-    function isSamePerson(rowName) {
-      var nRow = normalizeName(rowName);
-      if (!nRow) return false;
-      if (cleanFullname && (nRow === cleanFullname || nRow.indexOf(cleanFullname) >= 0 || cleanFullname.indexOf(nRow) >= 0)) return true;
-      if (cleanUsername && (nRow === cleanUsername || nRow.indexOf(cleanUsername) >= 0)) return true;
-      return false;
-    }
-
-    // TIER 1: Match by unique checkinId in Column H (Data JSON)
-    if (targetCheckinId) {
-      for (var i = 1; i < data.length; i++) {
-        var rowH = data[i][7] ? data[i][7].toString() : '';
-        if (rowH && rowH.indexOf(targetCheckinId) !== -1) {
-          targetRowIdx = i + 1;
-          targetDataRow = data[i];
-          break;
-        }
-      }
-    }
-
-    // TIER 2: Match by timeISO in Column H (Data JSON) + Person
-    if (targetRowIdx === -1 && targetTimeISO) {
-      for (var i = 1; i < data.length; i++) {
-        var rowH = data[i][7] ? data[i][7].toString() : '';
-        if (rowH && rowH.indexOf(targetTimeISO) !== -1) {
-          targetRowIdx = i + 1;
-          targetDataRow = data[i];
-          break;
-        }
-      }
-    }
-
-    // TIER 3: Match by exact timestamp string (Column C) + Person
-    if (targetRowIdx === -1 && targetTimeStr) {
-      for (var i = 1; i < data.length; i++) {
-        var rowC = data[i][2] ? data[i][2].toString().trim() : '';
-        if (rowC && (rowC === targetTimeStr || rowC.indexOf(targetTimeStr) >= 0 || targetTimeStr.indexOf(rowC) >= 0)) {
-          if (isSamePerson(data[i][0])) {
-            targetRowIdx = i + 1;
-            targetDataRow = data[i];
-            break;
-          }
-        }
-      }
-    }
-
-    // TIER 4: Employee Memory Fallback (Ghi nhớ theo nhân viên)
-    // Find the newest row for this specific employee where Column G is pending image
-    if (targetRowIdx === -1) {
-      for (var i = 1; i < data.length; i++) {
-        if (isSamePerson(data[i][0])) {
-          var colG = data[i][6] ? data[i][6].toString() : '';
-          var isPending = colG.indexOf('Đang tải ảnh') !== -1 || colG === 'PENDING' || colG.trim() === '';
-          if (isPending) {
-            targetRowIdx = i + 1;
-            targetDataRow = data[i];
-            break; // First match from top (i=1 downwards) is the latest check-in row!
-          }
-        }
-      }
-    }
-
-    if (targetRowIdx > 1 && targetDataRow) {
-      // 1. Write the Hyperlink formula to Column G
-      var isValid = (targetDataRow[4] ? targetDataRow[4].toString() : '').indexOf('Hợp lệ') >= 0;
-      var linkColor = isValid ? '#10b981' : '#ef4444';
-      var cellG = sheet.getRange(targetRowIdx, 7);
-      try {
-        cellG.setFormula('=HYPERLINK("' + imageUrl + '", "📷 Xem ảnh")')
-             .setFontColor(linkColor)
-             .setFontSize(9);
-      } catch (fErr) {
-        cellG.setValue(imageUrl)
-             .setFontColor(linkColor)
-             .setFontSize(9);
-      }
-      
-      // 2. Update Column H JSON
-      try {
-        var oldJsonStr = targetDataRow[7] ? targetDataRow[7].toString() : '{}';
-        var oldJson = JSON.parse(oldJsonStr);
-        oldJson.linkAnh = imageUrl;
-        if (targetCheckinId && !oldJson.checkinId) oldJson.checkinId = targetCheckinId;
-        sheet.getRange(targetRowIdx, 8).setValue(JSON.stringify(oldJson));
-      } catch (ej) {}
-      
-      SpreadsheetApp.flush();
-
-      // Invalidate cache so GET_DATA serves fresh image link immediately
-      if (payload.username) {
-        invalidateGetDataCache(payload.username);
-      }
-      
-      return jsonResponse(true, { url: imageUrl, rowMatched: targetRowIdx });
-    }
-
     return jsonResponse(false, 'Không tìm thấy dòng tương ứng để cập nhật ảnh trên Sheet');
   } catch (e) {
-    Logger.log('Lỗi upload ảnh chấm công: ' + e.message);
+    Logger.log('Lỗi upload ảnh ngầm: ' + e.message);
     return jsonResponse(false, 'Lỗi: ' + e.message);
-  } finally {
-    lock.releaseLock();
   }
 }
 

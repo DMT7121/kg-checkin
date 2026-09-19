@@ -438,9 +438,9 @@ var JsonCacheService = (function() {
     // Employment Profile
     var userData = db.getValues(CONFIG.SHEET_USERS);
     result.employmentProfile = null;
-    if (userData && cleanUsername) {
+    if (userData) {
       for (var j = 2; j < userData.length; j++) {
-        if (userData[j][0] && userData[j][0].toString().toLowerCase() === cleanUsername) {
+        if (userData[j][0] && userData[j][0].toString().toLowerCase() === username.toLowerCase()) {
           result.employmentProfile = {
             username: userData[j][0] ? userData[j][0].toString() : '',
             fullname: userData[j][2] ? userData[j][2].toString() : '',
@@ -462,10 +462,10 @@ var JsonCacheService = (function() {
     // Chat History
     var chatData = db.getValues(CONFIG.SHEET_CHAT_LOGS);
     var chatHistory = [];
-    if (chatData && chatData.length > 1 && cleanFullname) {
+    if (chatData && chatData.length > 1) {
       var si = Math.max(1, chatData.length - 50);
       for (var c = si; c < chatData.length; c++) {
-        if (chatData[c][1] && chatData[c][1].toString().toLowerCase() === cleanFullname) {
+        if (chatData[c][1] && chatData[c][1].toString().toLowerCase() === fullname.toLowerCase()) {
           chatHistory.push({ role: chatData[c][2].toString(), content: chatData[c][3].toString() });
         }
       }
@@ -481,6 +481,8 @@ var JsonCacheService = (function() {
       if (schedData && schedData.length > 0) {
         var isReg = false, appShifts = null, regShifts = null, inWeek = false;
         var cleanWL = weekLabel.replace(/[📅\s]/g, '').replace(/[–—]/g, '-').replace(/TUẦN/gi, '').trim().toLowerCase();
+        var cleanFullname = fullname ? fullname.trim().toLowerCase() : '';
+        var cleanUsername = username ? username.trim().toLowerCase() : '';
 
         for (var s = 0; s < schedData.length; s++) {
           var rawCv = schedData[s][0] ? schedData[s][0].toString() : '';
@@ -493,8 +495,7 @@ var JsonCacheService = (function() {
           if (!inWeek) continue;
 
           var rowName = rawCv.trim().toLowerCase();
-          var matchesUser = (cleanFullname && (rowName === cleanFullname || rowName.indexOf(cleanFullname) >= 0 || cleanFullname.indexOf(rowName) >= 0)) ||
-                            (cleanUsername && (rowName === cleanUsername || rowName.indexOf(cleanUsername) >= 0));
+          var matchesUser = (cleanFullname && rowName === cleanFullname) || (cleanUsername && rowName === cleanUsername);
           if (matchesUser) {
             isReg = true;
             regShifts = [];
@@ -507,10 +508,9 @@ var JsonCacheService = (function() {
             for (var d = 1; d <= 7; d++) {
               appShifts.push(schedData[s][d] ? schedData[s][d].toString().trim() : 'OFF');
             }
-            isReg = true;
           }
         }
-        result.isScheduleRegistered = isReg || (regShifts && regShifts.length > 0) || (appShifts && appShifts.length > 0);
+        result.isScheduleRegistered = isReg;
         if (regShifts) result.registeredShifts = regShifts;
         if (appShifts) result.approvedShifts = appShifts;
       }
@@ -519,11 +519,11 @@ var JsonCacheService = (function() {
     // Today Checklist Done
     var clData = db.getValues("ChecklistLogs");
     var tDone = false;
-    if (clData && clData.length > 1 && cleanUsername) {
+    if (clData && clData.length > 1) {
       var clStart = Math.max(1, clData.length - 50);
       for (var ci = clData.length - 1; ci >= clStart; ci--) {
         if (clData[ci][0] && clData[ci][0].toString() === todayStr && 
-            clData[ci][2] && clData[ci][2].toString().toLowerCase() === cleanUsername) { 
+            clData[ci][2] && clData[ci][2].toString().toLowerCase() === username.toLowerCase()) { 
           tDone = true; 
           break; 
         }
@@ -534,11 +534,11 @@ var JsonCacheService = (function() {
     // Today Handover Done
     var hoData = db.getValues("Handovers");
     var hDone = false;
-    if (hoData && hoData.length > 1 && cleanUsername) {
+    if (hoData && hoData.length > 1) {
       var hoStart = Math.max(1, hoData.length - 30);
       for (var hi = hoData.length - 1; hi >= hoStart; hi--) {
         if (hoData[hi][0] && hoData[hi][0].toString() === todayStr && 
-            hoData[hi][2] && hoData[hi][2].toString().toLowerCase() === cleanUsername) { 
+            hoData[hi][2] && hoData[hi][2].toString().toLowerCase() === username.toLowerCase()) { 
           hDone = true; 
           break; 
         }
@@ -549,9 +549,9 @@ var JsonCacheService = (function() {
     // King Coins
     var kcData = db.getValues("KING_COINS");
     var uTotal = 0, recent = [];
-    if (kcData && kcData.length > 1 && cleanUsername) {
+    if (kcData && kcData.length > 1) {
       for (var ki = kcData.length - 1; ki > 0; ki--) {
-        if (kcData[ki][1] && kcData[ki][1].toString().toLowerCase() === cleanUsername) {
+        if (kcData[ki][1] && kcData[ki][1].toString().toLowerCase() === username.toLowerCase()) {
           var pts = Number(kcData[ki][5]) || 0;
           uTotal += pts;
           if (recent.length < 10) {
@@ -570,11 +570,11 @@ var JsonCacheService = (function() {
     // Notifications
     var ntfData = db.getValues("NOTIFICATIONS");
     var unread = 0;
-    var tUser = cleanUsername;
+    var tUser = username.toLowerCase();
     if (ntfData && ntfData.length > 1) {
       for (var ni = ntfData.length - 1; ni > 0; ni--) {
         var nt = ntfData[ni][1] ? ntfData[ni][1].toString().toLowerCase() : '';
-        if ((tUser && (nt === tUser || nt === 'all') || (!tUser && nt === 'all')) && !(ntfData[ni][6] === true || ntfData[ni][6] === 'TRUE')) {
+        if ((nt === tUser || nt === 'all') && !(ntfData[ni][6] === true || ntfData[ni][6] === 'TRUE')) {
           unread++;
         }
       }
@@ -586,9 +586,9 @@ var JsonCacheService = (function() {
     var tpData = db.getValues("TRAINING_PROGRESS");
     var tTotal = tcData ? Math.max(0, tcData.length - 1) : 0;
     var tComp = 0;
-    if (tpData && tpData.length > 1 && cleanUsername) {
+    if (tpData && tpData.length > 1) {
       for (var ti = 1; ti < tpData.length; ti++) {
-        if (tpData[ti][0] && tpData[ti][0].toString().toLowerCase() === cleanUsername) {
+        if (tpData[ti][0] && tpData[ti][0].toString().toLowerCase() === username.toLowerCase()) {
           tComp++;
         }
       }

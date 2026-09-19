@@ -162,61 +162,29 @@ export function isRegistrationOpen(): { open: boolean; message: string } {
 export function isNextWeekScheduleRegistered(
   isScheduleRegisteredInStore: boolean,
   username?: string,
-  targetWeekInfo?: { monthSheet: string; weekLabel: string },
-  shiftsInfo?: { registeredShifts?: string[] | null; approvedShifts?: string[] | null }
+  targetWeekInfo?: { monthSheet: string; weekLabel: string }
 ): boolean {
   try {
-    // 1. If store already marked registered from server or previous submission, trust it!
-    if (isScheduleRegisteredInStore) {
-      return true;
-    }
-
-    // 2. If approved or registered shift array is present with valid shift data
-    if (shiftsInfo?.approvedShifts && Array.isArray(shiftsInfo.approvedShifts) && shiftsInfo.approvedShifts.length === 7) {
-      if (shiftsInfo.approvedShifts.some(s => s && s !== 'Chưa xếp ca')) {
-        return true;
-      }
-    }
-    if (shiftsInfo?.registeredShifts && Array.isArray(shiftsInfo.registeredShifts) && shiftsInfo.registeredShifts.length === 7) {
-      if (shiftsInfo.registeredShifts.some(s => s && s !== '')) {
-        return true;
-      }
-    }
-
-    // 3. Check persistent localStorage keys
     const weekInfo = targetWeekInfo || computeWeekInfo();
     const expectedKey = weekInfo.monthSheet + '|' + weekInfo.weekLabel;
     const savedWeek = localStorage.getItem('kg_registered_week');
     const savedShiftsStr = localStorage.getItem('kg_registered_shifts');
     const savedUser = localStorage.getItem('kg_registered_user');
-    const isExplicitlyRegistered = localStorage.getItem('kg_schedule_registered') === 'true';
 
-    // User-scoped key for multi-user / device sharing
-    if (username) {
-      const userKey = `kg_registered_${username.trim().toLowerCase()}_${expectedKey}`;
-      if (localStorage.getItem(userKey) === 'true') {
-        return true;
-      }
+    if (username && savedUser && savedUser !== username) {
+      return false;
     }
 
-    const userMatches = !username || !savedUser || savedUser.trim().toLowerCase() === username.trim().toLowerCase();
-
-    if (userMatches) {
-      if (savedWeek === expectedKey && savedShiftsStr) {
-        try {
-          const shifts = JSON.parse(savedShiftsStr);
-          if (Array.isArray(shifts) && shifts.length === 7) {
-            return true;
-          }
-        } catch { /* ignore */ }
-      }
-
-      if (isExplicitlyRegistered && (savedWeek === expectedKey || !savedWeek)) {
-        return true;
-      }
+    if (savedWeek === expectedKey && savedShiftsStr) {
+      try {
+        const shifts = JSON.parse(savedShiftsStr);
+        if (Array.isArray(shifts) && shifts.length === 7) {
+          return true;
+        }
+      } catch { /* ignore */ }
     }
 
-    return false;
+    return Boolean(isScheduleRegisteredInStore && savedWeek === expectedKey);
   } catch {
     return false;
   }

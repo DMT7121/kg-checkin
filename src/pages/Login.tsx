@@ -58,20 +58,17 @@ export default function Login() {
       const savedWeek = localStorage.getItem('kg_registered_week');
       const savedShiftsStr = localStorage.getItem('kg_registered_shifts');
       const expectedWeekKey = weekInfo.monthSheet + '|' + weekInfo.weekLabel;
-      const userKey = `kg_registered_${res.data.username.trim().toLowerCase()}_${expectedWeekKey}`;
-      if (((savedWeek === expectedWeekKey || savedWeek === weekInfo.sheetName) && savedShiftsStr) || localStorage.getItem(userKey) === 'true' || localStorage.getItem('kg_schedule_registered') === 'true') {
-        store.setScheduleRegistered(true);
-        if (savedShiftsStr) {
-          try {
-            const shifts = JSON.parse(savedShiftsStr);
-            if (Array.isArray(shifts) && shifts.length === 7) {
-              store.setRegisteredShifts(shifts);
-              const regShifts: Record<string, string> = {};
-              weekInfo.weekDatesKeys.forEach((k, i) => regShifts[k] = shifts[i]);
-              store.setShiftData(regShifts);
-            }
-          } catch { /* ignore */ }
-        }
+      if ((savedWeek === expectedWeekKey || savedWeek === weekInfo.sheetName) && savedShiftsStr) {
+        try {
+          const shifts = JSON.parse(savedShiftsStr);
+          if (Array.isArray(shifts) && shifts.length === 7) {
+            store.setRegisteredShifts(shifts);
+            store.setScheduleRegistered(true);
+            const regShifts: Record<string, string> = {};
+            weekInfo.weekDatesKeys.forEach((k, i) => regShifts[k] = shifts[i]);
+            store.setShiftData(regShifts);
+          }
+        } catch { /* ignore */ }
       }
 
       speak('Đăng nhập thành công. Xin chào ' + res.data.fullname);
@@ -91,9 +88,8 @@ export default function Login() {
           store.setUsers(dataRes.data.users || []);
           if (dataRes.data.keys) store.setGroqKeys(dataRes.data.keys);
           
-          const userKey = `kg_registered_${res.data.username.trim().toLowerCase()}_${expectedWeekKey}`;
-          const hasLocalReg = (savedWeek === expectedWeekKey && !!savedShiftsStr) || localStorage.getItem(userKey) === 'true' || localStorage.getItem('kg_schedule_registered') === 'true';
-          const isReg = dataRes.data.isScheduleRegistered === true ? true : (store.isScheduleRegistered || hasLocalReg);
+          const hasLocalReg = savedWeek === expectedWeekKey && !!savedShiftsStr;
+          const isReg = dataRes.data.isScheduleRegistered === true ? true : hasLocalReg;
           store.setScheduleRegistered(isReg);
           
           if (dataRes.data.approvedShifts) store.setApprovedShifts(dataRes.data.approvedShifts);
@@ -107,10 +103,7 @@ export default function Login() {
           // Mandatory schedule registration prompt on T5, T6, T7 before 17:00
           const regWindow = getScheduleRegistrationWindow();
           const isStaff = res.data.role !== 'admin';
-          const isAlreadyRegistered = isReg || isNextWeekScheduleRegistered(isReg, res.data.username, weekInfo, {
-            registeredShifts: dataRes.data.registeredShifts,
-            approvedShifts: dataRes.data.approvedShifts
-          });
+          const isAlreadyRegistered = isReg || isNextWeekScheduleRegistered(isReg, res.data.username, weekInfo);
           if (isStaff && regWindow.isMandatoryWindow && !isAlreadyRegistered) {
             store.setCurrentTab('workforce');
             Swal.fire({
