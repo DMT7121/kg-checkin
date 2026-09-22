@@ -699,7 +699,7 @@ var JsonCacheService = (function() {
         if (isHopLe) validCount++;
       }
       logs.sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
-      result.logs = logs.slice(0, 100);
+      result.logs = logs.slice(0, 60);
       result.stats = { totalCheckIn: totalCheckins, validCount: validCount };
     }
 
