@@ -71,6 +71,7 @@ function doPost(e) {
       case 'SEND_EMAIL_NOTIFICATION': return handleSendEmailNotification(payload);
       case 'UPLOAD_CHECKIN_IMAGE': return handleUploadCheckinImage(payload);
       case 'DIAGNOSE_AND_HEAL_IMAGES': return handleDiagnoseAndHealImages(payload);
+      case 'DIAGNOSE_CELLS': return handleDiagnoseCells(payload);
       case 'GET_DATA': return handleGetData(payload);
       case 'SYNC_KEYS': return handleSyncKeys(payload);
       case 'UPDATE_AI_PROMPTS': return handleUpdateAiPrompts(payload);

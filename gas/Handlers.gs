@@ -1342,19 +1342,15 @@ function formatCheckInRow(sheet, row, isValid, imgUrl) {
       var cellG = sheet.getRange(row, 7);
       var linkColor = isValid ? '#10b981' : '#ef4444';
       try {
-        cellG.setFormulaLocal('=HYPERLINK("' + imgUrl + '"; "📷 Xem ảnh")')
+        cellG.setFormula('=HYPERLINK("' + imgUrl + '"; "📷 Xem ảnh")')
              .setFontColor(linkColor)
              .setFontSize(9);
       } catch (fErr) {
         try {
-          cellG.setFormula('=HYPERLINK("' + imgUrl + '", "📷 Xem ảnh")')
-               .setFontColor(linkColor)
-               .setFontSize(9);
-        } catch (fErr2) {
           cellG.setValue(imgUrl)
                .setFontColor(linkColor)
                .setFontSize(9);
-        }
+        } catch (fErr2) {}
       }
     }
     
@@ -3676,19 +3672,15 @@ function handleUploadCheckinImage(payload) {
       var linkColor = isValid ? '#10b981' : '#ef4444';
       var cellG = sheet.getRange(targetRowIdx, 7);
       try {
-        cellG.setFormulaLocal('=HYPERLINK("' + imageUrl + '"; "📷 Xem ảnh")')
+        cellG.setFormula('=HYPERLINK("' + imageUrl + '"; "📷 Xem ảnh")')
              .setFontColor(linkColor)
              .setFontSize(9);
       } catch (fErr) {
         try {
-          cellG.setFormula('=HYPERLINK("' + imageUrl + '", "📷 Xem ảnh")')
-               .setFontColor(linkColor)
-               .setFontSize(9);
-        } catch (fErr2) {
           cellG.setValue(imageUrl)
                .setFontColor(linkColor)
                .setFontSize(9);
-        }
+        } catch (fErr2) {}
       }
       
       // 2. Cập nhật lại Cột H JSON
@@ -3732,7 +3724,7 @@ function handleDiagnoseAndHealImages(payload) {
     var lastRow = sheet.getLastRow();
     if (lastRow < 2) return jsonResponse(true, { message: 'Chưa có dữ liệu chấm công', fixedCount: 0 });
 
-    var scanLimit = (payload && payload.limit) ? Number(payload.limit) : 400;
+    var scanLimit = (payload && payload.limit) ? Number(payload.limit) : 1000;
     var scanCount = Math.min(lastRow - 1, scanLimit);
     var range = sheet.getRange(2, 1, scanCount, 8);
     var values = range.getValues();
@@ -3740,7 +3732,6 @@ function handleDiagnoseAndHealImages(payload) {
 
     var fixedCount = 0;
     var details = [];
-    var pendingRows = [];
 
     // PASS 1: Xây dựng bản đồ ảnh kiểm chứng của từng nhân viên (Employee Photo Registry)
     var employeePhotoMap = {};
@@ -3765,7 +3756,13 @@ function handleDiagnoseAndHealImages(payload) {
       }
     }
 
-    // PASS 2: Quét và sửa chữa dứt điểm toàn bộ các dòng
+    // PASS 2: Chuẩn bị mảng cập nhật hàng loạt (Batch update)
+    var newFormulas = [];
+    var newColH = [];
+    var newColors = [];
+    var newSizes = [];
+    var hasBatchChanges = false;
+
     for (var i = 0; i < values.length; i++) {
       var row = values[i];
       var rowIdx = i + 2;
@@ -3829,37 +3826,17 @@ function handleDiagnoseAndHealImages(payload) {
         } catch(eDrive) {}
       }
 
+      var rowFormula = formulaG;
+      var rowColH = colH;
+      var rowColor = linkColor;
+      var rowSize = 9;
+
       if (targetUrl) {
-        var needsFormulaFix = isPendingOrError || !formulaG || formulaG.indexOf(targetUrl) < 0 || formulaG.indexOf('#ERROR!') >= 0 || formulaHasComma;
-        if (needsFormulaFix) {
-          var cell = sheet.getRange(rowIdx, 7);
-          try {
-            // Chuẩn hóa dấu chấm phẩy ';' theo chuẩn Locale Việt Nam
-            cell.setFormulaLocal('=HYPERLINK("' + targetUrl + '"; "📷 Xem ảnh")')
-                .setFontColor(linkColor)
-                .setFontSize(9);
-          } catch(eLocal) {
-            try {
-              cell.setFormula('=HYPERLINK("' + targetUrl + '", "📷 Xem ảnh")')
-                  .setFontColor(linkColor)
-                  .setFontSize(9);
-            } catch(eSet) {
-              cell.setValue(targetUrl)
-                  .setFontColor(linkColor)
-                  .setFontSize(9);
-            }
-          }
-
-          // Cập nhật Cột H JSON
-          try {
-            var oldObj = {};
-            if (colH) {
-              try { oldObj = JSON.parse(colH); } catch(pe){}
-            }
-            oldObj.linkAnh = targetUrl;
-            sheet.getRange(rowIdx, 8).setValue(JSON.stringify(oldObj));
-          } catch(errH){}
-
+        // Chuẩn hóa dấu chấm phẩy ';' theo chuẩn Locale Việt Nam
+        var correctFormula = '=HYPERLINK("' + targetUrl + '"; "📷 Xem ảnh")';
+        if (formulaG !== correctFormula || colG.indexOf('#ERROR!') >= 0 || formulaHasComma || isPendingOrError) {
+          rowFormula = correctFormula;
+          hasBatchChanges = true;
           fixedCount++;
           details.push({
             row: rowIdx,
@@ -3867,21 +3844,40 @@ function handleDiagnoseAndHealImages(payload) {
             time: timeVal,
             url: targetUrl
           });
+
+          // Cập nhật Cột H JSON
+          try {
+            var oldObj = {};
+            if (colH) { try { oldObj = JSON.parse(colH); } catch(pe){} }
+            oldObj.linkAnh = targetUrl;
+            rowColH = JSON.stringify(oldObj);
+          } catch(errH){}
         }
       } else if (isPendingOrError) {
-        // Dòng không còn tìm thấy ảnh và đã cũ: xóa bỏ text "Đang tải ảnh..." tránh nhầm lẫn
-        var cell = sheet.getRange(rowIdx, 7);
-        cell.setValue('')
-            .setFontColor('#94a3b8')
-            .setFontSize(9);
+        rowFormula = '';
+        rowColor = '#94a3b8';
         try {
           var oldObj = {};
           if (colH) { try { oldObj = JSON.parse(colH); } catch(pe){} }
           oldObj.linkAnh = '';
-          sheet.getRange(rowIdx, 8).setValue(JSON.stringify(oldObj));
+          rowColH = JSON.stringify(oldObj);
         } catch(errH2){}
+        hasBatchChanges = true;
         fixedCount++;
       }
+
+      newFormulas.push([rowFormula]);
+      newColH.push([rowColH]);
+      newColors.push([rowColor]);
+      newSizes.push([rowSize]);
+    }
+
+    // Thực hiện Batch update đồng loạt
+    if (hasBatchChanges && values.length > 0) {
+      sheet.getRange(2, 7, values.length, 1).setFormulas(newFormulas);
+      sheet.getRange(2, 7, values.length, 1).setFontColors(newColors);
+      sheet.getRange(2, 7, values.length, 1).setFontSizes(newSizes);
+      sheet.getRange(2, 8, values.length, 1).setValues(newColH);
     }
 
     if (fixedCount > 0) {
@@ -4356,3 +4352,33 @@ function handleUpdateCheckinType(payload) {
   }
 }
 
+function handleDiagnoseCells(payload) {
+  try {
+    var ss = getSS();
+    var sheet = ss.getSheetByName(CONFIG.SHEET_LOGS);
+    var locale = ss.getSpreadsheetLocale();
+    var tz = ss.getSpreadsheetTimeZone();
+    
+    var rows = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+    var debugRows = [];
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      var cell = sheet.getRange(r, 7);
+      debugRows.push({
+        row: r,
+        name: sheet.getRange(r, 1).getDisplayValue(),
+        formula: cell.getFormula(),
+        value: cell.getValue(),
+        displayValue: cell.getDisplayValue()
+      });
+    }
+    
+    return jsonResponse(true, {
+      locale: locale,
+      timezone: tz,
+      rows: debugRows
+    });
+  } catch(e) {
+    return jsonResponse(false, e.toString());
+  }
+}
