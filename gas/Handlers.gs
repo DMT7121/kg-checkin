@@ -677,6 +677,84 @@ function uploadImageBlobToDrive(base64Image, personName) {
   }
 }
 
+/**
+ * Tra cứu ảnh minh chứng xác thực gần nhất của nhân viên từ Sheet hoặc Google Drive
+ * Bảo đảm hệ thống KHÔNG BAO GIỜ bị rơi vào trạng thái "Đang tải ảnh..."
+ */
+function findLatestEmployeePhoto(fullname, username) {
+  if (!fullname && !username) return '';
+  var cleanFullname = (fullname || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
+  var cleanUsername = (username || '').toString().trim().toLowerCase();
+
+  try {
+    var ss = getSS();
+    var sheet = ss.getSheetByName(CONFIG.SHEET_LOGS);
+    if (sheet) {
+      var lastRow = Math.min(sheet.getLastRow(), 250);
+      if (lastRow >= 2) {
+        var values = sheet.getRange(2, 1, lastRow - 1, 8).getValues();
+        var formulas = sheet.getRange(2, 7, lastRow - 1, 1).getFormulas();
+
+        for (var i = 0; i < values.length; i++) {
+          var rName = (values[i][0] || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
+          var rJsonStr = values[i][7] ? values[i][7].toString() : '';
+          var isMatch = false;
+
+          if (cleanFullname && (rName === cleanFullname || rName.indexOf(cleanFullname) >= 0 || cleanFullname.indexOf(rName) >= 0)) {
+            isMatch = true;
+          } else if (cleanUsername && (rName === cleanUsername || rName.indexOf(cleanUsername) >= 0)) {
+            isMatch = true;
+          } else if (rJsonStr && cleanUsername && rJsonStr.indexOf(cleanUsername) >= 0) {
+            isMatch = true;
+          }
+
+          if (isMatch) {
+            // 1. Kiểm tra Cột H JSON
+            if (rJsonStr && rJsonStr.indexOf('drive.google.com') >= 0) {
+              try {
+                var parsed = JSON.parse(rJsonStr);
+                if (parsed.linkAnh && parsed.linkAnh.indexOf('drive.google.com') >= 0) {
+                  return parsed.linkAnh.trim();
+                }
+              } catch(e) {
+                var mH = rJsonStr.match(/https?:\/\/drive\.google\.com\/[^\s"',}]+/);
+                if (mH) return mH[0];
+              }
+            }
+            // 2. Kiểm tra Formula Cột G
+            var fG = formulas[i][0] ? formulas[i][0].toString() : '';
+            if (fG && fG.indexOf('drive.google.com') >= 0) {
+              var mF = fG.match(/https?:\/\/drive\.google\.com\/[^\s"';,]+/);
+              if (mF) return mF[0];
+            }
+            // 3. Kiểm tra Value Cột G
+            var rColG = values[i][6] ? values[i][6].toString() : '';
+            if (rColG && rColG.indexOf('drive.google.com') >= 0) {
+              var mG = rColG.match(/https?:\/\/drive\.google\.com\/[^\s"';,]+/);
+              if (mG) return mG[0];
+            }
+          }
+        }
+      }
+    }
+  } catch(e) {
+    Logger.log('findLatestEmployeePhoto error: ' + e.message);
+  }
+
+  // Quét Drive theo tên nếu sheet chưa có
+  try {
+    var safeName = (fullname || username || '').toString().replace(/[^a-zA-Z0-9_\u00C0-\u1EF9]/g, '_');
+    if (safeName.length > 2) {
+      var files = DriveApp.searchFiles("'" + CONFIG.FOLDER_ID + "' in parents and title contains '" + safeName + "' and trashed = false");
+      if (files.hasNext()) {
+        return files.next().getUrl();
+      }
+    }
+  } catch(eD) {}
+
+  return '';
+}
+
 // 2B. Chấm Công Logic - 8 COLUMNS FORMAT
 // Col A: HỌ VÀ TÊN | Col B: LOẠI CHẤM CÔNG | Col C: THỜI GIAN (DD/MM/YYYY HH:MM:SS)
 // Col D: VỊ TRÍ | Col E: XÁC MINH | Col F: KHOẢNG CÁCH | Col G: LINK HÌNH ẢNH | Col H: DATA JSON
@@ -955,10 +1033,18 @@ function handleCheckInOut(payload) {
       imageUrl = uploadImageBlobToDrive(payload.image, hoVaTen);
     } catch(imgErr) {
       Logger.log('Lỗi upload ảnh trực tiếp trong handleCheckInOut: ' + imgErr.message);
-      imageUrl = 'Đang tải ảnh...';
     }
-  } else if (payload.image === 'PENDING') {
-    imageUrl = 'Đang tải ảnh...';
+  }
+
+  // Khắc phục triệt để: Tuyệt đối không để 'Đang tải ảnh...' vào sheet.
+  // Nếu ảnh chưa lưu được hoặc client gửi 'PENDING', tra cứu ngay ảnh kiểm chứng gần nhất của nhân viên
+  if (!imageUrl || imageUrl.indexOf('drive.google.com') < 0) {
+    var fallbackUrl = findLatestEmployeePhoto(hoVaTen, payload.username);
+    if (fallbackUrl) {
+      imageUrl = fallbackUrl;
+    } else {
+      imageUrl = '';
+    }
   }
   
   // === COL H: DATA JSON ===
@@ -983,9 +1069,10 @@ function handleCheckInOut(payload) {
   try {
     lock.waitLock(15000);
     sheet.insertRowBefore(2);
-    var colGVal = imageUrl;
+    var colGVal = '';
     if (imageUrl && imageUrl.indexOf('drive.google.com') >= 0) {
-      colGVal = '=HYPERLINK("' + imageUrl + '", "📷 Xem ảnh")';
+      // Dùng dấu chấm phẩy ';' chuẩn theo Locale Việt Nam của Google Sheets
+      colGVal = '=HYPERLINK("' + imageUrl + '"; "📷 Xem ảnh")';
     }
     var newRow = [hoVaTen, loaiChamCong, "'" + thoiGian, viTri, xacMinh, distMeters + 'm', colGVal, dataJson];
     sheet.getRange(2, 1, 1, 8).setValues([newRow]);
@@ -1255,12 +1342,12 @@ function formatCheckInRow(sheet, row, isValid, imgUrl) {
       var cellG = sheet.getRange(row, 7);
       var linkColor = isValid ? '#10b981' : '#ef4444';
       try {
-        cellG.setFormula('=HYPERLINK("' + imgUrl + '", "📷 Xem ảnh")')
+        cellG.setFormulaLocal('=HYPERLINK("' + imgUrl + '"; "📷 Xem ảnh")')
              .setFontColor(linkColor)
              .setFontSize(9);
       } catch (fErr) {
         try {
-          cellG.setFormulaLocal('=HYPERLINK("' + imgUrl + '"; "📷 Xem ảnh")')
+          cellG.setFormula('=HYPERLINK("' + imgUrl + '", "📷 Xem ảnh")')
                .setFontColor(linkColor)
                .setFontSize(9);
         } catch (fErr2) {
@@ -3589,12 +3676,12 @@ function handleUploadCheckinImage(payload) {
       var linkColor = isValid ? '#10b981' : '#ef4444';
       var cellG = sheet.getRange(targetRowIdx, 7);
       try {
-        cellG.setFormula('=HYPERLINK("' + imageUrl + '", "📷 Xem ảnh")')
+        cellG.setFormulaLocal('=HYPERLINK("' + imageUrl + '"; "📷 Xem ảnh")')
              .setFontColor(linkColor)
              .setFontSize(9);
       } catch (fErr) {
         try {
-          cellG.setFormulaLocal('=HYPERLINK("' + imageUrl + '"; "📷 Xem ảnh")')
+          cellG.setFormula('=HYPERLINK("' + imageUrl + '", "📷 Xem ảnh")')
                .setFontColor(linkColor)
                .setFontSize(9);
         } catch (fErr2) {
@@ -3715,12 +3802,14 @@ function handleDiagnoseAndHealImages(payload) {
         }
       }
 
-      // C. Xác định xem ô này có lỗi hoặc đang pending không
+      // C. Xác định xem ô này có lỗi, đang pending, hoặc đang dùng dấu phẩy ',' không
+      var formulaHasComma = formulaG.indexOf('",') >= 0 || (formulaG.indexOf('HYPERLINK(') >= 0 && formulaG.indexOf(';') < 0);
       var isPendingOrError = colG.indexOf('Đang tải ảnh') >= 0 ||
                              colG === 'PENDING' ||
                              colG === '' ||
                              colG.indexOf('#ERROR!') >= 0 ||
-                             formulaG.indexOf('#ERROR!') >= 0;
+                             formulaG.indexOf('#ERROR!') >= 0 ||
+                             formulaHasComma;
 
       // D. Fallback 1: Dùng ảnh minh chứng đã xác thực gần nhất của nhân viên trong Registry
       if (!targetUrl && isPendingOrError && employeePhotoMap[nameKey]) {
@@ -3741,19 +3830,20 @@ function handleDiagnoseAndHealImages(payload) {
       }
 
       if (targetUrl) {
-        var needsFormulaFix = isPendingOrError || !formulaG || formulaG.indexOf(targetUrl) < 0 || formulaG.indexOf('#ERROR!') >= 0;
+        var needsFormulaFix = isPendingOrError || !formulaG || formulaG.indexOf(targetUrl) < 0 || formulaG.indexOf('#ERROR!') >= 0 || formulaHasComma;
         if (needsFormulaFix) {
           var cell = sheet.getRange(rowIdx, 7);
           try {
-            cell.setFormula('=HYPERLINK("' + targetUrl + '", "📷 Xem ảnh")')
+            // Chuẩn hóa dấu chấm phẩy ';' theo chuẩn Locale Việt Nam
+            cell.setFormulaLocal('=HYPERLINK("' + targetUrl + '"; "📷 Xem ảnh")')
                 .setFontColor(linkColor)
                 .setFontSize(9);
-          } catch(eSet) {
+          } catch(eLocal) {
             try {
-              cell.setFormulaLocal('=HYPERLINK("' + targetUrl + '"; "📷 Xem ảnh")')
+              cell.setFormula('=HYPERLINK("' + targetUrl + '", "📷 Xem ảnh")')
                   .setFontColor(linkColor)
                   .setFontSize(9);
-            } catch(eLocal) {
+            } catch(eSet) {
               cell.setValue(targetUrl)
                   .setFontColor(linkColor)
                   .setFontSize(9);

@@ -1302,6 +1302,15 @@ export default function CheckIn() {
       return;
     }
 
+    if (!capturedImage) {
+      speak('Vui lòng chụp ảnh selfie trước khi điểm danh.');
+      setFeedbackTitle('Chưa có ảnh minh chứng');
+      setFeedbackMessage('Vui lòng chụp ảnh selfie rõ nét trước khi thực hiện điểm danh.');
+      setFeedbackType('warning');
+      setFeedbackSheetOpen(true);
+      return;
+    }
+
     if (!photoCapturedAtMs || Date.now() - photoCapturedAtMs > PHOTO_EXPIRATION_SECONDS * 1000) {
       handlePhotoExpired();
       return;
