@@ -4,7 +4,7 @@ import { callApi } from '../services/api';
 import { speak, computeWeekInfo, getActiveShiftClass, getPreviewShiftClass, SHIFT_OPTIONS, SHORT_DAY_NAMES, isRegistrationOpen, getAdminShiftClass, ADMIN_SHIFT_OPTIONS, generateMonthDates, formatDateShort, formatMobileShift, ResponsiveShift } from '../utils/helpers';
 import type { MonthDateInfo } from '../utils/helpers';
 import Swal from 'sweetalert2';
-import { CalendarCheck, Eye, AlertTriangle, Send, Lock, ExternalLink, Clock, RefreshCw, Pencil, CheckCheck, Inbox, LayoutGrid, CalendarRange, ChevronLeft, ChevronRight, Sparkles, X, Bot, Info } from 'lucide-react';
+import { CalendarCheck, Eye, AlertTriangle, Send, Lock, ExternalLink, Clock, RefreshCw, Pencil, CheckCheck, Inbox, LayoutGrid, CalendarRange, ChevronLeft, ChevronRight, Sparkles, X, Bot, Info, FileSpreadsheet } from 'lucide-react';
 import { KgModuleHero } from '../components/KgDesignSystem';
 import { getCalendarDayMeta } from '../utils/calendarHighlights';
 import { isWorkEligible } from '../utils/employment';
@@ -452,34 +452,95 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
     trackScheduleChange(empIndex, updated);
   };
 
+  const [isSyncingRoster, setIsSyncingRoster] = useState(false);
+
   const approveAllSchedules = async () => {
     if (adminSchedules.length === 0) return;
     const { isConfirmed } = await Swal.fire({
-      title: 'Duyệt toàn bộ lịch?', text: 'Dữ liệu sẽ được chèn/ghi đè trực tiếp lên Google Sheets.',
-      icon: 'warning', showCancelButton: true, confirmButtonColor: '#16a34a', cancelButtonColor: '#6b7280', confirmButtonText: 'Đồng ý duyệt',
+      title: 'Duyệt và nạp lịch?',
+      html: 'Lịch sẽ được duyệt trên hệ thống và <b>tự động nạp sang Sheet Lịch Làm</b> (1Vrm...).',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#16a34a',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Đồng ý duyệt & Nạp',
+      cancelButtonText: 'Hủy'
     });
     if (!isConfirmed) return;
 
-    store.setLoading(true, 'Đang duyệt lịch...');
+    store.setLoading(true, 'Đang duyệt và nạp lịch sang Sheet Lịch Làm...');
     const finalSchedules = adminSchedules.map((emp, empIdx) => {
       const origEmp = originalAdminSchedules[empIdx];
       const newShifts = [...emp.shifts];
       const newNotes = [...(emp.shiftNotes || [])];
       for (let i = 0; i < 7; i++) {
-        if (newShifts[i] && origEmp.shifts[i] !== newShifts[i]) {
-          newNotes[i] = `Sửa từ ${origEmp.shifts[i] || 'Chưa ĐK'}`;
+        if (newShifts[i] && origEmp?.shifts?.[i] !== newShifts[i]) {
+          newNotes[i] = `Sửa từ ${origEmp?.shifts?.[i] || 'Chưa ĐK'}`;
         }
       }
       return { ...emp, shifts: newShifts, shiftNotes: newNotes };
     });
 
-    const res = await callApi('APPROVE_SCHEDULES', { monthSheet: weekInfo.monthSheet, weekLabel: weekInfo.weekLabel, schedules: finalSchedules, isFinal: true });
+    const res = await callApi('APPROVE_SCHEDULES', { 
+      monthSheet: weekInfo.monthSheet, 
+      weekLabel: weekInfo.weekLabel, 
+      schedules: finalSchedules, 
+      isFinal: true,
+      weekDatesKeys: weekInfo.weekDatesKeys,
+      weekDates: weekInfo.weekDates,
+      weekStart: weekInfo.weekStart instanceof Date ? weekInfo.weekStart.toISOString() : weekInfo.weekStart,
+      weekEnd: weekInfo.weekEnd instanceof Date ? weekInfo.weekEnd.toISOString() : weekInfo.weekEnd,
+    });
     store.setLoading(false);
     if (res?.ok) {
-      Swal.fire('Thành công', 'Lịch đã được duyệt và lưu vào Google Sheets.', 'success');
+      Swal.fire({
+        title: 'Thành công',
+        text: res?.message || 'Lịch đã được duyệt và nạp sang Google Sheets thành công!',
+        icon: 'success'
+      });
       loadAdminSchedules();
     } else {
       Swal.fire('Lỗi', res?.message || 'Không thể lưu lịch làm.', 'error');
+    }
+  };
+
+  const handleManualSyncRoster = async () => {
+    const { isConfirmed } = await Swal.fire({
+      title: 'Đồng bộ sang Sheet Lịch Làm?',
+      html: `Đồng bộ lịch tuần <b>${weekInfo.weekLabel.replace('📅 ', '')}</b> sang Google Spreadsheet Lịch Làm.<br/><span class="text-xs text-gray-500 mt-2 block">Tổ trưởng nạp ở nhóm "KHÁC", nhân viên nạp tại Nhóm trực tương ứng.</span>`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#2563eb',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Đồng bộ ngay',
+      cancelButtonText: 'Hủy'
+    });
+    if (!isConfirmed) return;
+
+    setIsSyncingRoster(true);
+    store.setLoading(true, 'Đang đồng bộ sang Sheet Lịch Làm (1Vrm...)...');
+
+    try {
+      const res = await callApi('SYNC_ROSTER_SCHEDULES', {
+        monthSheet: weekInfo.monthSheet,
+        weekLabel: weekInfo.weekLabel,
+        weekDatesKeys: weekInfo.weekDatesKeys,
+        weekDates: weekInfo.weekDates,
+        schedules: adminSchedules.length > 0 ? adminSchedules : undefined
+      });
+
+      store.setLoading(false);
+      setIsSyncingRoster(false);
+
+      if (res?.ok) {
+        Swal.fire('Thành công', res?.message || res?.data?.message || 'Đồng bộ thành công sang Sheet Lịch Làm!', 'success');
+      } else {
+        Swal.fire('Lỗi', res?.message || 'Không thể đồng bộ sang Sheet Lịch Làm.', 'error');
+      }
+    } catch (err: any) {
+      store.setLoading(false);
+      setIsSyncingRoster(false);
+      Swal.fire('Lỗi kết nối', err?.message || 'Có lỗi xảy ra khi đồng bộ.', 'error');
     }
   };
 
@@ -660,9 +721,20 @@ ${aiInputText}
             <h3 className="font-bold flex items-center text-gray-800 dark:text-white">
               <CalendarCheck size={18} className="mr-2 text-indigo-600" /> Quản Lý Lịch Làm Việc Tuần Tới
             </h3>
-            <button onClick={() => viewMode === 'week' ? loadAdminSchedules() : loadMonthSchedules()} className="text-sm bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300 px-3 py-1.5 rounded-lg hover:bg-indigo-200 transition flex items-center">
-              <RefreshCw size={14} className="mr-1" /> Tải lịch
-            </button>
+            <div className="flex items-center gap-2">
+              <button 
+                type="button"
+                onClick={handleManualSyncRoster}
+                disabled={isSyncingRoster}
+                className="text-xs sm:text-sm bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 px-3 py-1.5 rounded-lg hover:bg-emerald-200 transition flex items-center font-bold disabled:opacity-50"
+                title="Đồng bộ lịch tuần này sang Google Sheet Lịch Làm (1Vrm...)"
+              >
+                <FileSpreadsheet size={14} className={`mr-1.5 ${isSyncingRoster ? 'animate-spin' : ''}`} /> Đồng bộ Sheet Lịch
+              </button>
+              <button onClick={() => viewMode === 'week' ? loadAdminSchedules() : loadMonthSchedules()} className="text-sm bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300 px-3 py-1.5 rounded-lg hover:bg-indigo-200 transition flex items-center">
+                <RefreshCw size={14} className="mr-1" /> Tải lịch
+              </button>
+            </div>
           </div>
 
           <div className="md:hidden mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 flex items-start space-x-3 text-blue-700 dark:text-blue-300">
@@ -785,7 +857,16 @@ ${aiInputText}
                   onClick={approveAllSchedules} 
                   className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3.5 rounded-xl shadow-md transition transform active:scale-98 flex items-center justify-center touch-manipulation text-xs sm:text-sm tracking-wider uppercase"
                 >
-                  <CheckCheck size={18} className="mr-2" /> XÁC NHẬN SẮP XẾP CA (GHI ĐÈ)
+                  <CheckCheck size={18} className="mr-2" /> DUYỆT &amp; ĐỒNG BỘ LỊCH LÀM
+                </button>
+                <button 
+                  type="button"
+                  onClick={handleManualSyncRoster}
+                  disabled={isSyncingRoster}
+                  className="sm:w-auto px-5 bg-blue-600 hover:bg-blue-700 text-white font-black py-3.5 rounded-xl shadow-md transition transform active:scale-98 flex items-center justify-center touch-manipulation text-xs sm:text-sm tracking-wider uppercase disabled:opacity-50"
+                  title="Đồng bộ lại sang Sheet Lịch Làm (1Vrm...)"
+                >
+                  <FileSpreadsheet size={18} className={`mr-2 ${isSyncingRoster ? 'animate-spin' : ''}`} /> ĐỒNG BỘ ROSTER
                 </button>
               </div>
             </>

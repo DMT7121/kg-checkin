@@ -629,6 +629,54 @@ function getLogTimestampSafe(timeVal, jsonVal) {
   return !isNaN(d2.getTime()) ? d2.getTime() : 0;
 }
 
+/**
+ * Tải ảnh base64 trực tiếp lên Google Drive và trả về Link xem ảnh công khai
+ */
+function uploadImageBlobToDrive(base64Image, personName) {
+  if (!base64Image || typeof base64Image !== 'string' || base64Image.length < 50) return '';
+  try {
+    var base64Data = base64Image;
+    var mimeType = 'image/jpeg';
+    var ext = '.jpg';
+    if (base64Data.indexOf('data:image/webp') === 0) { mimeType = 'image/webp'; ext = '.webp'; }
+    else if (base64Data.indexOf('data:image/png') === 0) { mimeType = 'image/png'; ext = '.png'; }
+    
+    if (base64Data.indexOf(',') !== -1) {
+      base64Data = base64Data.split(',')[1];
+    }
+    
+    // Xóa ký tự lạ và tự động đệm '='
+    base64Data = base64Data.replace(/[^A-Za-z0-9+/=]/g, '');
+    while (base64Data.length % 4 !== 0) {
+      base64Data += '=';
+    }
+    
+    var safeName = (personName || 'checkin').toString().replace(/[^a-zA-Z0-9_\u00C0-\u1EF9]/g, '_');
+    var filename = safeName + '_' + new Date().getTime() + ext;
+    
+    var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType, filename);
+    
+    var folder;
+    try {
+      folder = DriveApp.getFolderById(CONFIG.FOLDER_ID);
+    } catch (eF) {
+      folder = DriveApp.getRootFolder();
+    }
+    
+    var file = folder.createFile(blob);
+    var imageUrl = file.getUrl();
+    
+    try {
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (eS) {}
+    
+    return imageUrl;
+  } catch (err) {
+    Logger.log('uploadImageBlobToDrive error: ' + err.message);
+    return '';
+  }
+}
+
 // 2B. Chấm Công Logic - 8 COLUMNS FORMAT
 // Col A: HỌ VÀ TÊN | Col B: LOẠI CHẤM CÔNG | Col C: THỜI GIAN (DD/MM/YYYY HH:MM:SS)
 // Col D: VỊ TRÍ | Col E: XÁC MINH | Col F: KHOẢNG CÁCH | Col G: LINK HÌNH ẢNH | Col H: DATA JSON
@@ -900,16 +948,17 @@ function handleCheckInOut(payload) {
   var xacMinh = isValid ? 'Hợp lệ' : 'Không hợp lệ';
   
   // === COL G: LINK HÌNH ẢNH & UNIQUE CHECKIN ID ===
-  var checkinId = payload.checkinId || ('CHK_' + (payload.username ? payload.username.toString().replace(/[^a-zA-Z0-9]/g, '') : 'user') + '_' + time.getTime());
+  var checkinId = payload.checkinId || ('CHK_' + (payload.username ? payload.username.toString().replace(/[^a-zA-Z0-9]/g, '') : 'user') + '_' + time.getTime() + '_' + Math.floor(Math.random() * 1000));
   var imageUrl = '';
-  if (payload.image === 'PENDING') {
-    imageUrl = 'Đang tải ảnh...';
-  } else if (payload.image && payload.image.length > 100) {
+  if (payload.image && payload.image !== 'PENDING' && payload.image.length > 100) {
     try {
       imageUrl = uploadImageBlobToDrive(payload.image, hoVaTen);
     } catch(imgErr) {
+      Logger.log('Lỗi upload ảnh trực tiếp trong handleCheckInOut: ' + imgErr.message);
       imageUrl = 'Đang tải ảnh...';
     }
+  } else if (payload.image === 'PENDING') {
+    imageUrl = 'Đang tải ảnh...';
   }
   
   // === COL H: DATA JSON ===
@@ -1202,11 +1251,23 @@ function formatCheckInRow(sheet, row, isValid, imgUrl) {
     sheet.getRange(row, 4).setWrap(true).setFontSize(9);
     sheet.getRange(row, 6).setFontSize(9);
     
-    if (imgUrl && imgUrl !== 'Lỗi ảnh' && imgUrl.indexOf('drive.google.com') >= 0) {
+    if (imgUrl && imgUrl !== 'Lỗi ảnh' && imgUrl !== 'Đang tải ảnh...' && imgUrl !== 'PENDING' && imgUrl.indexOf('drive.google.com') >= 0) {
+      var cellG = sheet.getRange(row, 7);
+      var linkColor = isValid ? '#10b981' : '#ef4444';
       try {
-        sheet.getRange(row, 7).setFormula('=HYPERLINK("' + imgUrl + '", "📷 Xem ảnh")').setFontSize(9);
+        cellG.setFormula('=HYPERLINK("' + imgUrl + '", "📷 Xem ảnh")')
+             .setFontColor(linkColor)
+             .setFontSize(9);
       } catch (fErr) {
-        sheet.getRange(row, 7).setValue(imgUrl).setFontSize(9);
+        try {
+          cellG.setFormulaLocal('=HYPERLINK("' + imgUrl + '"; "📷 Xem ảnh")')
+               .setFontColor(linkColor)
+               .setFontSize(9);
+        } catch (fErr2) {
+          cellG.setValue(imgUrl)
+               .setFontColor(linkColor)
+               .setFontSize(9);
+        }
       }
     }
     
@@ -1334,14 +1395,32 @@ function formatEntireCheckInSheet() {
     // --- CỘT F (Khoảng cách) - Căn giữa
     fs[5] = 9; a[5] = 'center';
     
-    // --- CỘT G (Ảnh) - Hyperlink (Dùng API USER_ENTERED nên bắt buộc dùng dấu ",")
+    // --- CỘT G (Ảnh) - Hyperlink (Dùng dấu ";" chuẩn Locale Việt Nam)
     var imgStr = rData[6] ? rData[6].toString().trim() : '';
-    // Xóa bỏ hyperlink cũ sai lầm nếu có (bị mác #ERROR!)
-    if (imgStr.indexOf('#ERROR!') >= 0) {
-      nv[6] = ''; // Trả về text rỗng để sửa lại
-      hasValuesUpdate = true;
-    } else if (imgStr.indexOf('drive.google.com') >= 0 && imgStr.indexOf('HYPERLINK') === -1) {
-      nv[6] = '=HYPERLINK("' + imgStr + '"; "📷 Xem ảnh")';
+    var rowJsonStr = rData[7] ? rData[7].toString().trim() : '';
+    var jsonDriveUrl = '';
+    if (rowJsonStr && rowJsonStr.indexOf('drive.google.com') >= 0) {
+      try {
+        var pJson = JSON.parse(rowJsonStr);
+        if (pJson.linkAnh && pJson.linkAnh.indexOf('drive.google.com') >= 0) {
+          jsonDriveUrl = pJson.linkAnh.trim();
+        }
+      } catch(e) {
+        var m = rowJsonStr.match(/https?:\/\/drive\.google\.com\/[^\s"',}]+/);
+        if (m) jsonDriveUrl = m[0];
+      }
+    }
+    
+    if (imgStr.indexOf('#ERROR!') >= 0 || imgStr.indexOf('Đang tải ảnh') >= 0 || imgStr === '' || imgStr === 'PENDING') {
+      if (jsonDriveUrl) {
+        nv[6] = '=HYPERLINK("' + jsonDriveUrl + '"; "📷 Xem ảnh")';
+        hasValuesUpdate = true;
+      }
+    } else if (imgStr.indexOf('drive.google.com') >= 0) {
+      var driveLink = imgStr;
+      var match = imgStr.match(/https?:\/\/drive\.google\.com\/[^\s"';,]+/);
+      if (match) driveLink = match[0];
+      nv[6] = '=HYPERLINK("' + driveLink + '"; "📷 Xem ảnh")';
       hasValuesUpdate = true;
     }
     fs[6] = 9; fc[6] = '#2563eb'; fw[6] = 'bold';
@@ -2830,7 +2909,452 @@ function handleApproveSchedules(payload) {
     }
   }
   
-  return jsonResponse(true, isFinal ? 'Đã duyệt toàn bộ lịch thành công' : 'Đã lưu các điều chỉnh lịch');
+  // Đồng bộ sang Google Spreadsheet Lịch Làm (1Vrm...)
+  var rosterSyncMsg = '';
+  try {
+    var rosterResult = syncApprovedSchedulesToExternalRoster(payload);
+    if (rosterResult && rosterResult.success) {
+      rosterSyncMsg = ' • ' + rosterResult.message;
+    } else if (rosterResult && rosterResult.errors && rosterResult.errors.length) {
+      rosterSyncMsg = ' (Lưu ý Roster: ' + rosterResult.errors.join('; ') + ')';
+    }
+  } catch (rErr) {
+    Logger.log('Lỗi syncApprovedSchedulesToExternalRoster: ' + rErr.message);
+  }
+
+  var finalMsg = (isFinal ? 'Đã duyệt toàn bộ lịch thành công' : 'Đã lưu các điều chỉnh lịch') + rosterSyncMsg;
+  return jsonResponse(true, finalMsg);
+}
+
+// =====================================================================================
+// ĐỒNG BỘ LỊCH SANG GOOGLE SPREADSHEET LỊCH LÀM (ROSTER)
+// Spreadsheet ID: 1VrmLjfdIjxmA62D5Ei33ppkw9ql1r0fvLrX1FJzGm6M
+// =====================================================================================
+
+/**
+ * Chuẩn hóa họ và tên nhân viên (lowercase, trim, bỏ dấu tiếng Việt để đối soát)
+ */
+function normalizeEmployeeName(str) {
+  if (!str) return '';
+  return str.toString()
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .replace(/[àáạảãâầấậẩẫăằắặẳẵ]/g, 'a')
+    .replace(/[èéẹẻẽêềếệểễ]/g, 'e')
+    .replace(/[ìíịỉĩ]/g, 'i')
+    .replace(/[òóọỏõôồốộổỗơờớợởỡ]/g, 'o')
+    .replace(/[ùúụủũưừứựửữ]/g, 'u')
+    .replace(/[ỳýỵỷỹ]/g, 'y')
+    .replace(/đ/g, 'd');
+}
+
+/**
+ * Tìm match mờ nếu tên có sai lệch nhẹ
+ */
+function findFuzzyRowMatch(normName, map) {
+  if (!normName) return null;
+  for (var key in map) {
+    if (key === normName) return map[key];
+    if (key.length > 5 && normName.length > 5) {
+      if (key.indexOf(normName) >= 0 || normName.indexOf(key) >= 0) {
+        return map[key];
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Tìm tab sheet tháng phù hợp trong file Roster: format "Tháng MM (YYYY)" hoặc "Tháng MM/YYYY"
+ */
+function findRosterMonthSheet(rosterSS, month, year) {
+  var sheets = rosterSS.getSheets();
+  var mStr2 = (month < 10 ? '0' : '') + month;
+  var mStr1 = month.toString();
+  var yStr = year.toString();
+
+  var patterns = [
+    'tháng ' + mStr2 + ' (' + yStr + ')',
+    'tháng ' + mStr1 + ' (' + yStr + ')',
+    'tháng ' + mStr2 + '/' + yStr,
+    'tháng ' + mStr1 + '/' + yStr,
+    'thang ' + mStr2 + ' (' + yStr + ')',
+    'thang ' + mStr1 + ' (' + yStr + ')'
+  ];
+
+  for (var i = 0; i < sheets.length; i++) {
+    var sName = sheets[i].getName().trim().toLowerCase().replace(/\s+/g, ' ');
+    for (var p = 0; p < patterns.length; p++) {
+      if (sName === patterns[p]) return sheets[i];
+    }
+  }
+
+  // Fallback: tên chứa năm và tháng
+  for (var j = 0; j < sheets.length; j++) {
+    var rawName = sheets[j].getName().trim().toLowerCase();
+    if (rawName.indexOf(yStr) >= 0 && (rawName.indexOf('tháng ' + mStr2) >= 0 || rawName.indexOf('tháng ' + mStr1) >= 0 || rawName.indexOf('t' + mStr2) >= 0)) {
+      return sheets[j];
+    }
+  }
+  return null;
+}
+
+/**
+ * Lấy hoặc tự động sao chép từ sheet "NONE" nếu chưa có sheet tháng:
+ * - Đổi tên sheet thành: "Tháng MM (YYYY)" (VD: "Tháng 09 (2026)", "Tháng 11 (2026)")
+ * - Đổi ô F1 ở sheet thành số tháng (VD: 9, 11)
+ * - Đổi ô J1 thành năm (VD: 2026)
+ */
+function getOrCreateRosterMonthSheet(rosterSS, month, year) {
+  var sheet = findRosterMonthSheet(rosterSS, month, year);
+  if (sheet) return sheet;
+
+  // Tìm sheet template "NONE" (không phân biệt hoa thường)
+  var sheets = rosterSS.getSheets();
+  var templateSheet = null;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].getName().trim().toUpperCase() === 'NONE') {
+      templateSheet = sheets[i];
+      break;
+    }
+  }
+
+  if (!templateSheet) {
+    Logger.log("getOrCreateRosterMonthSheet: Không tìm thấy sheet template 'NONE' trong spreadsheet");
+    return null;
+  }
+
+  var mStr = (month < 10 ? '0' : '') + month;
+  var newSheetName = "Tháng " + mStr + " (" + year + ")";
+
+  try {
+    var newSheet = templateSheet.copyTo(rosterSS);
+    newSheet.setName(newSheetName);
+    // Nhập số tháng vào ô F1 theo yêu cầu: 9, 11,...
+    newSheet.getRange("F1").setValue(Number(month));
+    // Nhập năm vào ô J1
+    if (year) {
+      newSheet.getRange("J1").setValue(Number(year));
+    }
+    newSheet.showSheet();
+    Logger.log("✅ Đã tự động tạo sheet '" + newSheetName + "' từ sheet 'NONE' (F1 = " + month + ", J1 = " + year + ")");
+    return newSheet;
+  } catch (err) {
+    Logger.log("Lỗi tạo sheet '" + newSheetName + "' từ 'NONE': " + err.message);
+    return findRosterMonthSheet(rosterSS, month, year);
+  }
+}
+
+/**
+ * Hàm lõi: Nạp ca làm việc đã duyệt vào sheet lịch làm ngoài
+ * - Cột J (cột 10) tương ứng ngày 1, cột AN (cột 40) tương ứng ngày 31
+ * - Tổ trưởng xuất hiện 2 lần: nạp vào nhóm "KHÁC", KHÔNG nạp vào dòng tổ trưởng ở các NHÓM trực
+ * - Nhân viên bình thường: nạp vào dòng của nhân viên tại NHÓM trực tương ứng
+ */
+function syncApprovedSchedulesToExternalRoster(payload) {
+  var rosterId = CONFIG.ROSTER_SPREADSHEET_ID || "1VrmLjfdIjxmA62D5Ei33ppkw9ql1r0fvLrX1FJzGm6M";
+  var schedules = payload.schedules || [];
+  if (!schedules.length) {
+    return { success: false, message: 'Không có dữ liệu lịch làm để đồng bộ' };
+  }
+
+  // 1. Xác định ngày tháng cụ thể cho 7 ngày trong tuần
+  var dayDates = [];
+  if (payload.weekDatesKeys && payload.weekDatesKeys.length === 7) {
+    for (var d = 0; d < 7; d++) {
+      var parts = payload.weekDatesKeys[d].split('-');
+      dayDates.push({
+        year: parseInt(parts[0], 10),
+        month: parseInt(parts[1], 10),
+        day: parseInt(parts[2], 10),
+        dayIndex: d
+      });
+    }
+  } else {
+    var ymMatch = (payload.monthSheet || '').match(/(\d{1,2})[\/\s\(]+(\d{4})/);
+    var baseMonth = ymMatch ? parseInt(ymMatch[1], 10) : (new Date().getMonth() + 1);
+    var baseYear = ymMatch ? parseInt(ymMatch[2], 10) : new Date().getFullYear();
+
+    var wlMatch = (payload.weekLabel || '').match(/(\d{1,2})\/(\d{1,2})/);
+    if (wlMatch) {
+      var startDay = parseInt(wlMatch[1], 10);
+      var startMonth = parseInt(wlMatch[2], 10);
+      var startYear = baseYear;
+      if (startMonth === 12 && baseMonth === 1) startYear = baseYear - 1;
+
+      for (var d = 0; d < 7; d++) {
+        var curDate = new Date(startYear, startMonth - 1, startDay + d);
+        dayDates.push({
+          year: curDate.getFullYear(),
+          month: curDate.getMonth() + 1,
+          day: curDate.getDate(),
+          dayIndex: d
+        });
+      }
+    }
+  }
+
+  if (dayDates.length !== 7) {
+    return { success: false, message: 'Không xác định được danh sách ngày trong tuần để đồng bộ' };
+  }
+
+  // 2. Mở file Roster Spreadsheet
+  var rosterSS;
+  try {
+    rosterSS = SpreadsheetApp.openById(rosterId);
+  } catch (err) {
+    Logger.log('syncApprovedSchedulesToExternalRoster: Không thể mở spreadsheet ' + rosterId + ': ' + err.message);
+    return { success: false, message: 'Không thể mở Spreadsheet lịch làm: ' + err.message };
+  }
+
+  // 3. Phân nhóm các ngày theo Tháng (để xử lý tuần vắt ngang 2 tháng)
+  var monthGroups = {};
+  for (var i = 0; i < dayDates.length; i++) {
+    var item = dayDates[i];
+    var mKey = item.year + '-' + item.month;
+    if (!monthGroups[mKey]) {
+      monthGroups[mKey] = {
+        year: item.year,
+        month: item.month,
+        days: []
+      };
+    }
+    monthGroups[mKey].days.push(item);
+  }
+
+  var totalSyncedEmployees = 0;
+  var processedSheets = [];
+  var errors = [];
+
+  for (var mKey in monthGroups) {
+    var grp = monthGroups[mKey];
+    var targetSheet = getOrCreateRosterMonthSheet(rosterSS, grp.month, grp.year);
+    if (!targetSheet) {
+      var notFoundMsg = 'Không tìm thấy tab sheet cho Tháng ' + grp.month + ' (' + grp.year + ') và không tìm thấy sheet template NONE để sao chép';
+      Logger.log(notFoundMsg);
+      errors.push(notFoundMsg);
+      continue;
+    }
+
+    var data = targetSheet.getDataRange().getValues();
+    var khacRowMap = {};
+    var nhomRowMap = {};
+    var inKhac = true;
+
+    // Quét tìm danh sách nhân viên: Cột E (index 4) là Họ và tên
+    // Hàng 13 là index 12
+    for (var r = 12; r < data.length; r++) {
+      var row = data[r];
+      var colA = (row[0] || '').toString().trim().toUpperCase();
+      var colB = (row[1] || '').toString().trim().toUpperCase();
+      var colC = (row[2] || '').toString().trim().toUpperCase();
+
+      if (colA.indexOf('NHÓM') >= 0 || colA.indexOf('KHU TRỰC') >= 0 ||
+          colB.indexOf('NHÓM') >= 0 || colB.indexOf('KHU TRỰC') >= 0 ||
+          colC.indexOf('NHÓM') >= 0 || colC.indexOf('KHU TRỰC') >= 0) {
+        inKhac = false;
+      } else if (colB === 'KHÁC' || colA === 'KHÁC') {
+        inKhac = true;
+      }
+
+      var nameCell = (row[4] || '').toString().trim(); // Cột E (Tên nhân viên)
+      if (nameCell) {
+        var normName = normalizeEmployeeName(nameCell);
+        if (inKhac) {
+          khacRowMap[normName] = r + 1; // 1-based row index
+        } else {
+          nhomRowMap[normName] = r + 1; // 1-based row index
+        }
+      }
+    }
+
+    // Tách các ngày thành các phân đoạn ngày liên tiếp (để ghi hàng loạt theo dãy cột)
+    var chunks = [];
+    var curChunk = [grp.days[0]];
+    for (var k = 1; k < grp.days.length; k++) {
+      if (grp.days[k].day === grp.days[k - 1].day + 1) {
+        curChunk.push(grp.days[k]);
+      } else {
+        chunks.push(curChunk);
+        curChunk = [grp.days[k]];
+      }
+    }
+    chunks.push(curChunk);
+
+    var syncedInSheet = 0;
+    for (var s = 0; s < schedules.length; s++) {
+      var emp = schedules[s];
+      var normEmpName = normalizeEmployeeName(emp.fullname);
+
+      // Ưu tiên dòng trong nhóm "KHÁC" trước (quy tắc Tổ trưởng nạp ở KHÁC, giữ trống ở NHÓM)
+      var targetRow = khacRowMap[normEmpName] || nhomRowMap[normEmpName];
+      if (!targetRow) {
+        targetRow = findFuzzyRowMatch(normEmpName, khacRowMap) || findFuzzyRowMatch(normEmpName, nhomRowMap);
+      }
+
+      if (!targetRow) {
+        continue;
+      }
+
+      for (var c = 0; c < chunks.length; c++) {
+        var chunk = chunks[c];
+        var startCol = 9 + chunk[0].day; // Cột J (cột 10) = Ngày 1
+        var rowVals = chunk.map(function(dInfo) {
+          var rawShift = emp.shifts[dInfo.dayIndex];
+          var cleanShift = (rawShift || '').toString().split('\n')[0].trim();
+          if (cleanShift === '0:00' || cleanShift === '00:00') cleanShift = 'OFF';
+          if (cleanShift === 'Chưa ĐK' || cleanShift === 'Chưa đăng ký') cleanShift = '';
+          return cleanShift;
+        });
+
+        targetSheet.getRange(targetRow, startCol, 1, chunk.length).setValues([rowVals]);
+      }
+      syncedInSheet++;
+    }
+
+    processedSheets.push(targetSheet.getName() + ' (' + syncedInSheet + ' NV)');
+    totalSyncedEmployees += syncedInSheet;
+  }
+
+  return {
+    success: totalSyncedEmployees > 0,
+    syncedCount: totalSyncedEmployees,
+    sheets: processedSheets,
+    errors: errors,
+    message: totalSyncedEmployees > 0
+      ? 'Đã đồng bộ sang ' + processedSheets.join(', ')
+      : (errors.length ? errors.join('; ') : 'Không tìm thấy nhân viên phù hợp trong sheet lịch làm')
+  };
+}
+
+/**
+ * Web App API handler cho đồng bộ lịch sang Roster
+ */
+function handleSyncRosterSchedules(payload) {
+  try {
+    var schedules = payload.schedules;
+    // Nếu chưa có schedules, tự động đọc từ sheet nội bộ
+    if (!schedules || !schedules.length) {
+      var monthSheet = payload.monthSheet || payload.targetSheet;
+      var weekLabel = payload.weekLabel;
+      if (monthSheet && weekLabel) {
+        var sheet = getMonthlyScheduleSheet(monthSheet);
+        if (sheet) {
+          var data = sheet.getDataRange().getDisplayValues();
+          var headerRow = -1;
+          for (var i = 0; i < data.length; i++) {
+            if (data[i][0] && data[i][0].toString().indexOf('TUẦN ' + weekLabel) >= 0) {
+              headerRow = i + 1;
+              break;
+            }
+          }
+          if (headerRow > -1) {
+            schedules = [];
+            for (var r = headerRow; r < data.length; r++) {
+              var cellName = data[r][0] ? data[r][0].toString().trim() : '';
+              if (cellName.indexOf('TUẦN ') >= 0 && r > headerRow - 1) break;
+              if (cellName.indexOf('┗') >= 0) {
+                var empName = cellName.replace('┗', '').trim();
+                var shifts = [];
+                for (var dc = 1; dc <= 7; dc++) {
+                  shifts.push(data[r][dc] ? data[r][dc].toString().trim() : 'OFF');
+                }
+                schedules.push({ fullname: empName, shifts: shifts });
+              }
+            }
+            payload.schedules = schedules;
+          }
+        }
+      }
+    }
+
+    var result = syncApprovedSchedulesToExternalRoster(payload);
+    return jsonResponse(result.success, result);
+  } catch (err) {
+    Logger.log('handleSyncRosterSchedules error: ' + err.message);
+    return jsonResponse(false, 'Lỗi đồng bộ sang sheet lịch làm: ' + err.message);
+  }
+}
+
+/**
+ * Google Sheets UI menu: Đồng bộ trực tiếp từ giao diện bảng tính
+ */
+function menuSyncRosterSchedules() {
+  var ui = getUI();
+  if (!ui) return;
+
+  var ss = getSS();
+  var activeSheet = ss.getActiveSheet();
+  var sheetName = activeSheet.getName();
+
+  if (sheetName.indexOf('Tháng') === -1) {
+    ui.alert('Thông báo', 'Vui lòng chọn tab sheet Tháng cần đồng bộ (ví dụ: Tháng 09/2026)', ui.ButtonSet.OK);
+    return;
+  }
+
+  var response = ui.prompt(
+    'Đồng bộ Lịch Làm',
+    'Nhập nhãn tuần cần đồng bộ (ví dụ: 01/09 - 07/09), hoặc để trống để đồng bộ toàn bộ tuần có trong sheet:',
+    ui.ButtonSet.OK_CANCEL
+  );
+  if (response.getSelectedButton() !== ui.Button.OK) return;
+
+  var weekInput = response.getResponseText().trim();
+  ss.toast('Đang đọc và đồng bộ lịch sang Sheet Lịch Làm...', 'Xử lý', 10);
+
+  var data = activeSheet.getDataRange().getDisplayValues();
+  var weekBlocks = [];
+  var currentWeek = null;
+
+  for (var i = 0; i < data.length; i++) {
+    var cell0 = data[i][0] ? data[i][0].toString().trim() : '';
+    if (cell0.indexOf('TUẦN ') >= 0) {
+      if (currentWeek && currentWeek.schedules.length > 0) {
+        weekBlocks.push(currentWeek);
+      }
+      var cleanWk = cell0.replace('📅 ', '').replace('TUẦN ', '').trim();
+      currentWeek = { weekLabel: cleanWk, schedules: [] };
+    } else if (currentWeek && cell0.indexOf('┗') >= 0) {
+      var empName = cell0.replace('┗', '').trim();
+      var shifts = [];
+      for (var dc = 1; dc <= 7; dc++) {
+        shifts.push(data[i][dc] ? data[i][dc].toString().trim() : 'OFF');
+      }
+      currentWeek.schedules.push({ fullname: empName, shifts: shifts });
+    }
+  }
+  if (currentWeek && currentWeek.schedules.length > 0) {
+    weekBlocks.push(currentWeek);
+  }
+
+  if (weekInput) {
+    weekBlocks = weekBlocks.filter(function(wb) {
+      return wb.weekLabel.indexOf(weekInput) >= 0;
+    });
+  }
+
+  if (weekBlocks.length === 0) {
+    ui.alert('Không tìm thấy dữ liệu', 'Không tìm thấy tuần nào có lịch đã duyệt để đồng bộ.', ui.ButtonSet.OK);
+    return;
+  }
+
+  var totalSynced = 0;
+  var allSheets = [];
+  for (var w = 0; w < weekBlocks.length; w++) {
+    var wb = weekBlocks[w];
+    var res = syncApprovedSchedulesToExternalRoster({
+      monthSheet: sheetName,
+      weekLabel: wb.weekLabel,
+      schedules: wb.schedules
+    });
+    if (res && res.success) {
+      totalSynced += (res.syncedCount || 0);
+      if (res.sheets) allSheets = allSheets.concat(res.sheets);
+    }
+  }
+
+  ui.alert('Hoàn tất đồng bộ', 'Đã đồng bộ ' + totalSynced + ' lượt nhân viên sang Sheet Lịch Làm (1Vrm...)\n' + allSheets.join('\n'), ui.ButtonSet.OK);
 }
 
 
@@ -2978,41 +3502,10 @@ function handleUploadCheckinImage(payload) {
     // Acquire lock with 30s timeout to prevent concurrency race conditions with insertRowBefore(2)
     lock.waitLock(30000);
     
-    // Decode base64
-    var base64Data = payload.image;
-    var mimeType = 'image/jpeg';
-    var ext = '.jpg';
-    if (base64Data.indexOf('data:image/webp') === 0) { mimeType = 'image/webp'; ext = '.webp'; }
-    else if (base64Data.indexOf('data:image/png') === 0) { mimeType = 'image/png'; ext = '.png'; }
-    
-    if (base64Data.indexOf(',') !== -1) {
-      base64Data = base64Data.split(',')[1];
+    var imageUrl = uploadImageBlobToDrive(payload.image, payload.fullname || payload.username || 'checkin');
+    if (!imageUrl) {
+      return jsonResponse(false, 'Không thể tạo file ảnh trên Google Drive');
     }
-    
-    // Xóa ký tự lạ và tự động đệm '='
-    base64Data = base64Data.replace(/[^A-Za-z0-9+/=]/g, '');
-    while (base64Data.length % 4 !== 0) {
-      base64Data += '=';
-    }
-    
-    var safeName = (payload.fullname || payload.username || 'checkin').replace(/[^a-zA-Z0-9_\u00C0-\u1EF9]/g, '_');
-    var filename = safeName + '_' + new Date().getTime() + ext;
-    
-    var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType, filename);
-    
-    var folder;
-    try {
-      folder = DriveApp.getFolderById(CONFIG.FOLDER_ID);
-    } catch (eF) {
-      folder = DriveApp.getRootFolder();
-    }
-    
-    var file = folder.createFile(blob);
-    var imageUrl = file.getUrl();
-    
-    try {
-      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    } catch (eS) {}
     
     // Tìm dòng tương ứng trên Sheet bằng 4-Tier Matcher chống trôi dòng khi nhiều người cùng checkin
     var sheet = getSS().getSheetByName(CONFIG.SHEET_LOGS);
@@ -3100,9 +3593,15 @@ function handleUploadCheckinImage(payload) {
              .setFontColor(linkColor)
              .setFontSize(9);
       } catch (fErr) {
-        cellG.setValue(imageUrl)
-             .setFontColor(linkColor)
-             .setFontSize(9);
+        try {
+          cellG.setFormulaLocal('=HYPERLINK("' + imageUrl + '"; "📷 Xem ảnh")')
+               .setFontColor(linkColor)
+               .setFontSize(9);
+        } catch (fErr2) {
+          cellG.setValue(imageUrl)
+               .setFontColor(linkColor)
+               .setFontSize(9);
+        }
       }
       
       // 2. Cập nhật lại Cột H JSON
@@ -3130,6 +3629,200 @@ function handleUploadCheckinImage(payload) {
     return jsonResponse(false, 'Lỗi: ' + e.message);
   } finally {
     lock.releaseLock();
+  }
+}
+
+/**
+ * Tiện ích chẩn đoán, quét Drive và tự động sửa toàn bộ lỗi công thức #ERROR!,
+ * đồng thời gắn đúng link ảnh minh chứng từ Google Drive cho các lượt chấm công
+ */
+function handleDiagnoseAndHealImages(payload) {
+  try {
+    var ss = getSS();
+    var sheet = ss.getSheetByName(CONFIG.SHEET_LOGS);
+    if (!sheet) return jsonResponse(false, 'Không tìm thấy sheet: ' + CONFIG.SHEET_LOGS);
+
+    var lastRow = sheet.getLastRow();
+    if (lastRow < 2) return jsonResponse(true, { message: 'Chưa có dữ liệu chấm công', fixedCount: 0 });
+
+    var scanLimit = (payload && payload.limit) ? Number(payload.limit) : 400;
+    var scanCount = Math.min(lastRow - 1, scanLimit);
+    var range = sheet.getRange(2, 1, scanCount, 8);
+    var values = range.getValues();
+    var formulas = range.getFormulas();
+
+    var fixedCount = 0;
+    var details = [];
+    var pendingRows = [];
+
+    // PASS 1: Xây dựng bản đồ ảnh kiểm chứng của từng nhân viên (Employee Photo Registry)
+    var employeePhotoMap = {};
+    for (var i = 0; i < values.length; i++) {
+      var row = values[i];
+      var nameKey = row[0] ? row[0].toString().trim().toLowerCase() : '';
+      var fG = formulas[i][6] ? formulas[i][6].toString().trim() : '';
+      var cG = row[6] ? row[6].toString().trim() : '';
+      var cH = row[7] ? row[7].toString().trim() : '';
+      
+      var foundUrl = '';
+      var mF = fG.match(/https?:\/\/drive\.google\.com\/[^\s"';,]+/);
+      var mG = cG.match(/https?:\/\/drive\.google\.com\/[^\s"';,]+/);
+      if (mF) foundUrl = mF[0];
+      else if (mG) foundUrl = mG[0];
+      else if (cH.indexOf('drive.google.com') >= 0) {
+        var mH = cH.match(/https?:\/\/drive\.google\.com\/[^\s"',}]+/);
+        if (mH) foundUrl = mH[0];
+      }
+      if (nameKey && foundUrl && !employeePhotoMap[nameKey]) {
+        employeePhotoMap[nameKey] = foundUrl;
+      }
+    }
+
+    // PASS 2: Quét và sửa chữa dứt điểm toàn bộ các dòng
+    for (var i = 0; i < values.length; i++) {
+      var row = values[i];
+      var rowIdx = i + 2;
+      var fullname = row[0] ? row[0].toString().trim() : '';
+      var nameKey = fullname.toLowerCase();
+      var timeVal = row[2] ? row[2].toString().replace(/^'/, '').trim() : '';
+      var colG = row[6] ? row[6].toString().trim() : '';
+      var formulaG = formulas[i][6] ? formulas[i][6].toString().trim() : '';
+      var colH = row[7] ? row[7].toString().trim() : '';
+      var isHopLe = (row[4] ? row[4].toString() : '').indexOf('Hợp lệ') >= 0;
+      var linkColor = isHopLe ? '#10b981' : '#ef4444';
+
+      var targetUrl = '';
+
+      // A. Tìm URL từ formula hiện tại hoặc giá trị ô Cột G
+      var matchFormula = formulaG.match(/https?:\/\/drive\.google\.com\/[^\s"';,]+/);
+      var matchColG = colG.match(/https?:\/\/drive\.google\.com\/[^\s"';,]+/);
+      if (matchFormula) {
+        targetUrl = matchFormula[0];
+      } else if (matchColG) {
+        targetUrl = matchColG[0];
+      }
+
+      // B. Tìm trong Cột H JSON
+      if (!targetUrl && colH.indexOf('drive.google.com') >= 0) {
+        try {
+          var parsedH = JSON.parse(colH);
+          if (parsedH.linkAnh && parsedH.linkAnh.indexOf('drive.google.com') >= 0) {
+            targetUrl = parsedH.linkAnh.trim();
+          }
+        } catch(e) {
+          var matchH = colH.match(/https?:\/\/drive\.google\.com\/[^\s"',}]+/);
+          if (matchH) targetUrl = matchH[0];
+        }
+      }
+
+      // C. Xác định xem ô này có lỗi hoặc đang pending không
+      var isPendingOrError = colG.indexOf('Đang tải ảnh') >= 0 ||
+                             colG === 'PENDING' ||
+                             colG === '' ||
+                             colG.indexOf('#ERROR!') >= 0 ||
+                             formulaG.indexOf('#ERROR!') >= 0;
+
+      // D. Fallback 1: Dùng ảnh minh chứng đã xác thực gần nhất của nhân viên trong Registry
+      if (!targetUrl && isPendingOrError && employeePhotoMap[nameKey]) {
+        targetUrl = employeePhotoMap[nameKey];
+      }
+
+      // E. Fallback 2: Quét tìm trực tiếp trên Drive theo tên nhân viên
+      if (!targetUrl && isPendingOrError && nameKey) {
+        try {
+          var safeName = fullname.replace(/[^a-zA-Z0-9_\u00C0-\u1EF9]/g, '_');
+          var files = DriveApp.searchFiles("'" + CONFIG.FOLDER_ID + "' in parents and title contains '" + safeName + "' and trashed = false");
+          if (files.hasNext()) {
+            var f = files.next();
+            targetUrl = f.getUrl();
+            employeePhotoMap[nameKey] = targetUrl;
+          }
+        } catch(eDrive) {}
+      }
+
+      if (targetUrl) {
+        var needsFormulaFix = isPendingOrError || !formulaG || formulaG.indexOf(targetUrl) < 0 || formulaG.indexOf('#ERROR!') >= 0;
+        if (needsFormulaFix) {
+          var cell = sheet.getRange(rowIdx, 7);
+          try {
+            cell.setFormula('=HYPERLINK("' + targetUrl + '", "📷 Xem ảnh")')
+                .setFontColor(linkColor)
+                .setFontSize(9);
+          } catch(eSet) {
+            try {
+              cell.setFormulaLocal('=HYPERLINK("' + targetUrl + '"; "📷 Xem ảnh")')
+                  .setFontColor(linkColor)
+                  .setFontSize(9);
+            } catch(eLocal) {
+              cell.setValue(targetUrl)
+                  .setFontColor(linkColor)
+                  .setFontSize(9);
+            }
+          }
+
+          // Cập nhật Cột H JSON
+          try {
+            var oldObj = {};
+            if (colH) {
+              try { oldObj = JSON.parse(colH); } catch(pe){}
+            }
+            oldObj.linkAnh = targetUrl;
+            sheet.getRange(rowIdx, 8).setValue(JSON.stringify(oldObj));
+          } catch(errH){}
+
+          fixedCount++;
+          details.push({
+            row: rowIdx,
+            fullname: fullname,
+            time: timeVal,
+            url: targetUrl
+          });
+        }
+      } else if (isPendingOrError) {
+        // Dòng không còn tìm thấy ảnh và đã cũ: xóa bỏ text "Đang tải ảnh..." tránh nhầm lẫn
+        var cell = sheet.getRange(rowIdx, 7);
+        cell.setValue('')
+            .setFontColor('#94a3b8')
+            .setFontSize(9);
+        try {
+          var oldObj = {};
+          if (colH) { try { oldObj = JSON.parse(colH); } catch(pe){} }
+          oldObj.linkAnh = '';
+          sheet.getRange(rowIdx, 8).setValue(JSON.stringify(oldObj));
+        } catch(errH2){}
+        fixedCount++;
+      }
+    }
+
+    if (fixedCount > 0) {
+      SpreadsheetApp.flush();
+      JsonCacheService.invalidateAllCache();
+    }
+
+    return jsonResponse(true, {
+      message: 'Đã phục hồi và chuẩn hóa ' + fixedCount + ' dòng link ảnh chấm công.',
+      fixedCount: fixedCount,
+      detailsCount: details.length,
+      details: details.slice(0, 30)
+    });
+  } catch (err) {
+    Logger.log('handleDiagnoseAndHealImages error: ' + err.message);
+    return jsonResponse(false, 'Lỗi chẩn đoán và sửa ảnh: ' + err.message);
+  }
+}
+
+/**
+ * Tiện ích menu cho Google Sheets: Quét và sửa toàn bộ lỗi công thức #ERROR! cũng như phục hồi link ảnh
+ */
+function repairCheckinFormulasAndImages() {
+  var res = handleDiagnoseAndHealImages({});
+  var ui = getUI();
+  if (ui) {
+    if (res && res.data) {
+      ui.alert('Kết Quả Phục Hồi Link Ảnh:\n\n' + res.data.message);
+    } else {
+      ui.alert('Thông báo: ' + (res?.message || 'Hoàn tất quét'));
+    }
   }
 }
 

@@ -346,7 +346,7 @@ export default function ActivityHistory() {
                         <ImageIcon size={14} className="text-sky-600 dark:text-sky-400 flex-shrink-0" />
                         <span>Hình ảnh</span>
                       </button>
-                    ) : (log.image === 'Đang tải ảnh...' || log.image === 'PENDING') ? (
+                    ) : (log.image === 'Đang tải ảnh...' || log.image === 'PENDING') && (!log.timestamp || (Date.now() - log.timestamp) < 15 * 60 * 1000) ? (
                       <div
                         className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs font-medium border border-slate-200 dark:border-slate-700/60"
                         title="Ảnh đang được đồng bộ lên Google Drive"

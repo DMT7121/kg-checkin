@@ -40,7 +40,8 @@ var CONFIG = {
   EMAIL_RELAY_URLS: [
     "https://script.google.com/macros/s/AKfycbyvklGluH_7uQ2WN43CiY2k1WOIWtebLC9Q8E3rFNl5tb9xInDQpBcYglTb-X7XlNAxuw/exec"
   ],
-  EMAIL_RELAY_SECRET: "kg-relay-2026"
+  EMAIL_RELAY_SECRET: "kg-relay-2026",
+  ROSTER_SPREADSHEET_ID: "1VrmLjfdIjxmA62D5Ei33ppkw9ql1r0fvLrX1FJzGm6M"
 };
 
 // Backward-compatible aliases (cac ham cu van dung duoc)
@@ -69,6 +70,7 @@ function doPost(e) {
       case 'UPDATE_CHECKIN_TYPE': return handleUpdateCheckinType(payload);
       case 'SEND_EMAIL_NOTIFICATION': return handleSendEmailNotification(payload);
       case 'UPLOAD_CHECKIN_IMAGE': return handleUploadCheckinImage(payload);
+      case 'DIAGNOSE_AND_HEAL_IMAGES': return handleDiagnoseAndHealImages(payload);
       case 'GET_DATA': return handleGetData(payload);
       case 'SYNC_KEYS': return handleSyncKeys(payload);
       case 'UPDATE_AI_PROMPTS': return handleUpdateAiPrompts(payload);
@@ -82,6 +84,7 @@ function doPost(e) {
       case 'GET_ALL_SCHEDULES': return handleGetAllSchedules(payload);
       case 'GET_MONTH_SCHEDULES': return handleGetMonthSchedules(payload);
       case 'APPROVE_SCHEDULES': return handleApproveSchedules(payload);
+      case 'SYNC_ROSTER_SCHEDULES': return handleSyncRosterSchedules(payload);
       case 'UPDATE_SINGLE_SHIFT': return handleUpdateSingleShift(payload);
       case 'TEST_EMAIL': return handleTestEmail(payload);
       case 'SET_MASTER_PIN': return handleSetMasterPin(payload);
@@ -337,6 +340,8 @@ function onOpen() {
     ui.createMenu('Tiện Ích Chấm Công ⭐️')
       .addItem('⚡️ Bắt Đầu Tổng Hợp (Nhanh)', 'showSheetSelectionDialog')
       .addItem('✨ Làm đẹp Format Sheet Chấm Công', 'formatEntireCheckInSheet')
+      .addItem('🔧 Sửa lỗi Link Ảnh & Công thức (#ERROR!)', 'repairCheckinFormulasAndImages')
+      .addItem('📅 Đồng bộ Lịch sang Sheet Lịch Làm (1Vrm...)', 'menuSyncRosterSchedules')
       .addItem('⚙️ Thiết Lập Tự Động Hóa', 'setupAutomation')
       .addItem('🔄 Cấu hình tiêu đề DATA 2 dòng', 'migrateDataHeaders')
       .addToUi();
@@ -356,6 +361,8 @@ function createMenu() {
   ui.createMenu('Tiện Ích Chấm Công ⭐️')
     .addItem('⚡️ Bắt Đầu Tổng Hợp (Nhanh)', 'showSheetSelectionDialog')
     .addItem('✨ Làm đẹp Format Sheet Chấm Công', 'formatEntireCheckInSheet')
+    .addItem('🔧 Sửa lỗi Link Ảnh & Công thức (#ERROR!)', 'repairCheckinFormulasAndImages')
+    .addItem('📅 Đồng bộ Lịch sang Sheet Lịch Làm (1Vrm...)', 'menuSyncRosterSchedules')
     .addItem('⚙️ Thiết Lập Tự Động Hóa', 'setupAutomation')
     .addItem('🔄 Cấu hình tiêu đề DATA 2 dòng', 'migrateDataHeaders')
     .addToUi();

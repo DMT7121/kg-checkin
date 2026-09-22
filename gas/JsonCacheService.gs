@@ -49,8 +49,21 @@ var JsonCacheService = (function() {
   function updateCacheRecord(key, dataObj) {
     try {
       var sheet = getCacheSheet();
-      var data = sheet.getDataRange().getValues();
+      if (!sheet) return;
       var jsonStr = JSON.stringify(dataObj);
+      if (jsonStr.length > 48000) {
+        if (dataObj.logs && Array.isArray(dataObj.logs)) {
+          var trimmedObj = Object.assign({}, dataObj);
+          var limit = dataObj.logs.length;
+          while (JSON.stringify(trimmedObj).length > 48000 && limit > 15) {
+            limit -= 10;
+            trimmedObj.logs = dataObj.logs.slice(0, limit);
+          }
+          jsonStr = JSON.stringify(trimmedObj);
+        }
+        if (jsonStr.length > 49000) return;
+      }
+      var data = sheet.getDataRange().getValues();
       var timeStr = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, "dd/MM/yyyy HH:mm:ss");
       
       for (var i = 1; i < data.length; i++) {
@@ -351,7 +364,7 @@ var JsonCacheService = (function() {
     return !isNaN(d2.getTime()) ? d2.getTime() : 0;
   }
 
-  function _resolveLogImageUrl(rowCol6, rowJson) {
+  function _resolveLogImageUrl(rowCol6, rowJson, rowTime) {
     if (rowJson && rowJson.linkAnh && rowJson.linkAnh.toString().indexOf('http') >= 0) {
       return rowJson.linkAnh.toString().trim();
     }
@@ -363,6 +376,23 @@ var JsonCacheService = (function() {
       return s;
     }
     if (s.indexOf('Đang tải ảnh') >= 0 || s === 'PENDING') {
+      // Chỉ giữ 'Đang tải ảnh...' nếu lượt check-in vừa mới thực hiện trong vòng 15 phút
+      if (rowTime) {
+        try {
+          var tStr = rowTime.toString().replace(/^'/, '').trim();
+          var parts = tStr.split(' ');
+          if (parts.length >= 2) {
+            var dParts = parts[0].split('/');
+            var tParts = parts[1].split(':');
+            if (dParts.length === 3 && tParts.length >= 2) {
+              var logDate = new Date(parseInt(dParts[2], 10), parseInt(dParts[1], 10) - 1, parseInt(dParts[0], 10), parseInt(tParts[0], 10), parseInt(tParts[1], 10));
+              if (!isNaN(logDate.getTime()) && (new Date().getTime() - logDate.getTime()) > 15 * 60 * 1000) {
+                return ''; // Đã quá 15 phút, xem như không có ảnh để không hiển thị xoay vô tận
+              }
+            }
+          }
+        } catch(eTime) {}
+      }
       return 'Đang tải ảnh...';
     }
     return '';
@@ -416,7 +446,7 @@ var JsonCacheService = (function() {
             location: row[3] ? row[3].toString() : '', 
             status: statusVal, 
             distance: row[5] ? row[5].toString() : '', 
-            image: _resolveLogImageUrl(row[6], rowJson),
+            image: _resolveLogImageUrl(row[6], rowJson, timeStr),
             note: note,
             isCorrected: !!(rowJson && rowJson.isCorrected),
             editReason: rowJson && rowJson.correctionReason ? rowJson.correctionReason : '',
@@ -431,16 +461,16 @@ var JsonCacheService = (function() {
 
       // Sort newest first
       logs.sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
-      result.logs = logs.slice(0, 150);
+      result.logs = logs.slice(0, 60);
       result.stats = { totalCheckIn: userCheckins, validCount: validCount };
     }
 
     // Employment Profile
     var userData = db.getValues(CONFIG.SHEET_USERS);
     result.employmentProfile = null;
-    if (userData) {
+    if (userData && cleanUsername) {
       for (var j = 2; j < userData.length; j++) {
-        if (userData[j][0] && userData[j][0].toString().toLowerCase() === username.toLowerCase()) {
+        if (userData[j][0] && userData[j][0].toString().toLowerCase() === cleanUsername) {
           result.employmentProfile = {
             username: userData[j][0] ? userData[j][0].toString() : '',
             fullname: userData[j][2] ? userData[j][2].toString() : '',
@@ -462,10 +492,10 @@ var JsonCacheService = (function() {
     // Chat History
     var chatData = db.getValues(CONFIG.SHEET_CHAT_LOGS);
     var chatHistory = [];
-    if (chatData && chatData.length > 1) {
+    if (chatData && chatData.length > 1 && cleanFullname) {
       var si = Math.max(1, chatData.length - 50);
       for (var c = si; c < chatData.length; c++) {
-        if (chatData[c][1] && chatData[c][1].toString().toLowerCase() === fullname.toLowerCase()) {
+        if (chatData[c][1] && chatData[c][1].toString().toLowerCase() === cleanFullname) {
           chatHistory.push({ role: chatData[c][2].toString(), content: chatData[c][3].toString() });
         }
       }
@@ -478,52 +508,51 @@ var JsonCacheService = (function() {
     result.registeredShifts = null;
     if (monthSheet && weekLabel) {
       var schedData = db.getValues(monthSheet);
-      if (schedData && schedData.length > 0) {
-        var isReg = false, appShifts = null, regShifts = null, inWeek = false;
+      if (schedData && schedData.length > 1) {
         var cleanWL = weekLabel.replace(/[📅\s]/g, '').replace(/[–—]/g, '-').replace(/TUẦN/gi, '').trim().toLowerCase();
-        var cleanFullname = fullname ? fullname.trim().toLowerCase() : '';
-        var cleanUsername = username ? username.trim().toLowerCase() : '';
-
-        for (var s = 0; s < schedData.length; s++) {
-          var rawCv = schedData[s][0] ? schedData[s][0].toString() : '';
+        var targetCol = -1;
+        for (var cv = 0; cv < schedData[0].length; cv++) {
+          var rawCv = schedData[0][cv] ? schedData[0][cv].toString() : '';
           var normCv = rawCv.replace(/[📅\s]/g, '').replace(/[–—]/g, '-').toLowerCase();
-
-          if (normCv.indexOf('tuần') >= 0) {
-            inWeek = cleanWL ? normCv.indexOf(cleanWL) >= 0 : false;
-            continue;
-          }
-          if (!inWeek) continue;
-
-          var rowName = rawCv.trim().toLowerCase();
-          var matchesUser = (cleanFullname && rowName === cleanFullname) || (cleanUsername && rowName === cleanUsername);
-          if (matchesUser) {
-            isReg = true;
-            regShifts = [];
-            for (var d = 1; d <= 7; d++) {
-              regShifts.push(schedData[s][d] ? schedData[s][d].toString().trim() : 'OFF');
-            }
-          }
-          if (rawCv.indexOf('┗') >= 0 && ((cleanFullname && rowName.indexOf(cleanFullname) >= 0) || (cleanUsername && rowName.indexOf(cleanUsername) >= 0))) {
-            appShifts = [];
-            for (var d = 1; d <= 7; d++) {
-              appShifts.push(schedData[s][d] ? schedData[s][d].toString().trim() : 'OFF');
-            }
+          if (normCv && (normCv.indexOf(cleanWL) >= 0 || cleanWL.indexOf(normCv) >= 0)) {
+            targetCol = cv;
+            break;
           }
         }
-        result.isScheduleRegistered = isReg;
-        if (regShifts) result.registeredShifts = regShifts;
-        if (appShifts) result.approvedShifts = appShifts;
+        for (var sr = 1; sr < schedData.length; sr++) {
+          var rawCv = schedData[sr][0] ? schedData[sr][0].toString() : '';
+          var rowName = rawCv.trim().toLowerCase();
+          if ((cleanFullname && rowName === cleanFullname) || (cleanUsername && rowName === cleanUsername)) {
+            var val = targetCol >= 0 && schedData[sr][targetCol] ? schedData[sr][targetCol].toString() : '';
+            if (val) {
+              try {
+                var parsed = JSON.parse(val);
+                result.approvedShifts = parsed.approved || null;
+                result.registeredShifts = parsed.registered || null;
+                result.isScheduleRegistered = !!(parsed.registered || parsed.approved);
+              } catch(e) {
+                // Not json, check for raw comma-separated shift format
+                var parts = val.split(',');
+                if (parts.length === 7) {
+                  result.approvedShifts = parts;
+                  result.isScheduleRegistered = true;
+                }
+              }
+            }
+            break;
+          }
+        }
       }
     }
 
     // Today Checklist Done
     var clData = db.getValues("ChecklistLogs");
     var tDone = false;
-    if (clData && clData.length > 1) {
+    if (clData && clData.length > 1 && cleanUsername) {
       var clStart = Math.max(1, clData.length - 50);
       for (var ci = clData.length - 1; ci >= clStart; ci--) {
         if (clData[ci][0] && clData[ci][0].toString() === todayStr && 
-            clData[ci][2] && clData[ci][2].toString().toLowerCase() === username.toLowerCase()) { 
+            clData[ci][2] && clData[ci][2].toString().toLowerCase() === cleanUsername) { 
           tDone = true; 
           break; 
         }
@@ -534,11 +563,11 @@ var JsonCacheService = (function() {
     // Today Handover Done
     var hoData = db.getValues("Handovers");
     var hDone = false;
-    if (hoData && hoData.length > 1) {
+    if (hoData && hoData.length > 1 && cleanUsername) {
       var hoStart = Math.max(1, hoData.length - 30);
       for (var hi = hoData.length - 1; hi >= hoStart; hi--) {
         if (hoData[hi][0] && hoData[hi][0].toString() === todayStr && 
-            hoData[hi][2] && hoData[hi][2].toString().toLowerCase() === username.toLowerCase()) { 
+            hoData[hi][2] && hoData[hi][2].toString().toLowerCase() === cleanUsername) { 
           hDone = true; 
           break; 
         }
@@ -549,9 +578,9 @@ var JsonCacheService = (function() {
     // King Coins
     var kcData = db.getValues("KING_COINS");
     var uTotal = 0, recent = [];
-    if (kcData && kcData.length > 1) {
+    if (kcData && kcData.length > 1 && cleanUsername) {
       for (var ki = kcData.length - 1; ki > 0; ki--) {
-        if (kcData[ki][1] && kcData[ki][1].toString().toLowerCase() === username.toLowerCase()) {
+        if (kcData[ki][1] && kcData[ki][1].toString().toLowerCase() === cleanUsername) {
           var pts = Number(kcData[ki][5]) || 0;
           uTotal += pts;
           if (recent.length < 10) {
@@ -570,7 +599,7 @@ var JsonCacheService = (function() {
     // Notifications
     var ntfData = db.getValues("NOTIFICATIONS");
     var unread = 0;
-    var tUser = username.toLowerCase();
+    var tUser = cleanUsername;
     if (ntfData && ntfData.length > 1) {
       for (var ni = ntfData.length - 1; ni > 0; ni--) {
         var nt = ntfData[ni][1] ? ntfData[ni][1].toString().toLowerCase() : '';
@@ -586,16 +615,16 @@ var JsonCacheService = (function() {
     var tpData = db.getValues("TRAINING_PROGRESS");
     var tTotal = tcData ? Math.max(0, tcData.length - 1) : 0;
     var tComp = 0;
-    if (tpData && tpData.length > 1) {
+    if (tpData && tpData.length > 1 && cleanUsername) {
       for (var ti = 1; ti < tpData.length; ti++) {
-        if (tpData[ti][0] && tpData[ti][0].toString().toLowerCase() === username.toLowerCase()) {
+        if (tpData[ti][0] && tpData[ti][0].toString().toLowerCase() === cleanUsername) {
           tComp++;
         }
       }
     }
     result.trainingProgress = { total: tTotal, completed: tComp };
 
-    var key = "USER_" + username + "_" + (monthSheet || "") + "_" + (weekLabel || "");
+    var key = "USER_" + (username || '') + "_" + (monthSheet || "") + "_" + (weekLabel || "");
     updateCacheRecord(key, result);
     return result;
   }
@@ -658,7 +687,7 @@ var JsonCacheService = (function() {
           location: row[3] ? row[3].toString() : '', 
           status: statusVal, 
           distance: row[5] ? row[5].toString() : '', 
-          image: _resolveLogImageUrl(row[6], rowJson),
+          image: _resolveLogImageUrl(row[6], rowJson, timeStr),
           note: note,
           isCorrected: !!(rowJson && rowJson.isCorrected),
           editReason: rowJson && rowJson.correctionReason ? rowJson.correctionReason : '',
@@ -670,7 +699,7 @@ var JsonCacheService = (function() {
         if (isHopLe) validCount++;
       }
       logs.sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
-      result.logs = logs.slice(0, 300);
+      result.logs = logs.slice(0, 100);
       result.stats = { totalCheckIn: totalCheckins, validCount: validCount };
     }
 

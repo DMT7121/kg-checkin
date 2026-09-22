@@ -1371,35 +1371,23 @@ export default function CheckIn() {
       email: effectiveEmail
     });
 
-    // Synchronized celebratory confetti for BOTH Vào ca and Ra ca!
-    confetti({
-      particleCount: 160,
-      spread: 80,
-      origin: { y: 0.6 },
-      colors: type === 'Vào ca'
-        ? ['#10b981', '#06b6d4', '#facc15', '#3b82f6', '#ec4899']
-        : ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981']
-    });
-
-    // Synchronized voice greetings
-    if (type === 'Vào ca') {
-      speak('Ting! Chúc bạn ca làm việc vui vẻ!');
-    } else {
-      speak('Ting! Chúc mừng bạn đã hoàn thành ca làm việc!');
-    }
-
-    setFeedbackTitle(type === 'Vào ca' ? 'Điểm Danh Vào Ca Thành Công! 🎉' : 'Điểm Danh Ra Ca Thành Công! 🎊');
-    setFeedbackType('success');
+    // Open feedback sheet in loading / connecting state while image & location sync
+    setFeedbackTitle(type === 'Vào ca' ? 'Đang Điểm Danh Vào Ca... ⏳' : 'Đang Điểm Danh Ra Ca... ⏳');
+    setFeedbackMessage('Đang kết nối GPS, đồng bộ ảnh minh chứng và lưu dữ liệu...');
+    setFeedbackType('info');
     setFeedbackSheetOpen(true);
 
+    const clientCheckinId = 'CHK_' + (currentUser.username ? currentUser.username.replace(/[^a-zA-Z0-9]/g, '') : 'user') + '_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7).toUpperCase();
+
     const payload = {
+      checkinId: clientCheckinId,
       username: currentUser.username,
       fullname: currentUser.fullname,
       email: effectiveEmail,
       type,
       lat: gps.lat,
       lng: gps.lng,
-      image: payloadImage ? 'PENDING' : null,
+      image: payloadImage || null,
       time: payloadTime,
       location: gps.address || gps.status,
       shift: shiftString,
@@ -1411,6 +1399,27 @@ export default function CheckIn() {
 
     callApi('CHECK_IN_OUT', payload, { background: true, timeoutMs: 60000, maxAttempts: 3 }).then(async (res) => {
       if (res?.ok) {
+        // Synchronized celebratory confetti for BOTH Vào ca and Ra ca once confirmed!
+        confetti({
+          particleCount: 160,
+          spread: 80,
+          origin: { y: 0.6 },
+          colors: type === 'Vào ca'
+            ? ['#10b981', '#06b6d4', '#facc15', '#3b82f6', '#ec4899']
+            : ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981']
+        });
+
+        // Synchronized voice greetings
+        if (type === 'Vào ca') {
+          speak('Ting! Chúc bạn ca làm việc vui vẻ!');
+        } else {
+          speak('Ting! Chúc mừng bạn đã hoàn thành ca làm việc!');
+        }
+
+        setFeedbackTitle(type === 'Vào ca' ? 'Điểm Danh Vào Ca Thành Công! 🎉' : 'Điểm Danh Ra Ca Thành Công! 🎊');
+        setFeedbackMessage(payloadImage ? 'Đã lưu trữ lượt chấm công và ảnh minh chứng 100%!' : 'Đã ghi nhận lượt chấm công thành công!');
+        setFeedbackType('success');
+        setFeedbackSheetOpen(true);
         // Late penalty notifications using custom bottom sheets
         if (res.data?.lateMins > 5 && type === 'Vào ca') {
           const penaltyAmount = Math.max(10000, Math.floor(res.data.lateMins / 15) * 10000);
@@ -1431,26 +1440,34 @@ export default function CheckIn() {
           }, res.data?.lateMins > 5 ? 6500 : 2000);
         }
 
+        const timeISO = res.data?.timeISO || new Date().toISOString();
+        const effectiveCheckinId = res.data?.checkinId || clientCheckinId;
+        const returnedImageUrl = res.data?.imageUrl;
+
         // Background email notification trigger with generous 60s timeout
         if (res.data) {
           callApi('SEND_EMAIL_NOTIFICATION', {
             ...payload,
             email: effectiveEmail,
-            imageUrl: res.data.imageUrl,
+            imageUrl: returnedImageUrl || payload.image,
             distMeters: res.data.distMeters,
             isValid: res.data.isValid,
             viTri: res.data.viTri,
-            timeISO: res.data.timeISO || new Date().toISOString()
+            timeISO: timeISO
           }, { background: true, timeoutMs: 60000, maxAttempts: 2 }).catch(err => {
             console.warn('[CheckIn] Send email notification error:', err);
           });
           
-          if (payloadImage) {
+          // If server successfully saved and returned the Drive URL directly in CHECK_IN_OUT, sync it immediately!
+          if (returnedImageUrl && returnedImageUrl.includes('drive.google.com')) {
+            store.updateLogImage(timeISO, returnedImageUrl);
+          } else if (payloadImage) {
+            // Fallback: If server image upload in CHECK_IN_OUT didn't complete (or returned PENDING), upload via background endpoint
             const uploadPayload = {
-              checkinId: res.data?.checkinId,
+              checkinId: effectiveCheckinId,
               username: currentUser.username,
               fullname: currentUser.fullname,
-              timeISO: res.data?.timeISO || new Date().toISOString(),
+              timeISO: timeISO,
               time: res.data?.thoiGian || payloadTime,
               image: payloadImage
             };
