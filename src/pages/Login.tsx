@@ -11,7 +11,7 @@ export default function Login() {
   const store = useAppStore();
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
-  const [rememberMe, setRememberMe] = useState(() => localStorage.getItem('kg_remember') === 'true');
+  const [rememberMe, setRememberMe] = useState(() => localStorage.getItem('kg_remember') !== 'false');
   const [registerForm, setRegisterForm] = useState({ username: '', password: '', fullname: '', dob: '', email: '', phone: '' });
   
   // Forgot Password States
@@ -23,7 +23,7 @@ export default function Login() {
 
   const handleLogin = async (e?: React.FormEvent, bioCreds?: {username: string, password: string}) => {
     if (e) e.preventDefault();
-    store.setLoading(true, 'Đang kết nối Server...');
+    store.setLoading(true, 'Đang đăng nhập...');
 
     const payload = bioCreds || loginForm;
     let passwordHash = '';
@@ -34,7 +34,7 @@ export default function Login() {
     const res = await callApi('LOGIN', {
       ...payload,
       passwordHash: passwordHash || undefined
-    });
+    }, { timeoutMs: 15000, maxAttempts: 1 });
     store.setLoading(false);
 
     if (res?.ok) {

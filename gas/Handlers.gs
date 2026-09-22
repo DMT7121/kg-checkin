@@ -52,28 +52,92 @@ function isAdminUser(username) {
   return false;
 }
 
-// 1. User Authentication
-function handleLogin(payload) {
-  // Auto-migrate headers if not already migrated
-  try {
-    var ss = getSS();
-    var usersSheet = ss.getSheetByName(CONFIG.SHEET_USERS);
-    if (usersSheet && usersSheet.getRange(2, 1).getValue().toString().trim() !== 'Username') {
-      migrateDataHeadersQuietly(usersSheet);
-    }
-  } catch (e) {
-    Logger.log('Header migration error: ' + e.toString());
-  }
+// =====================================================================================
+// 1. User Authentication (Tối ưu hóa siêu nhanh với CacheService in-memory)
+// =====================================================================================
+var AUTH_CACHE_KEY = 'AUTH_USERS_REGISTRY_V2';
 
+function getCachedAuthUsers() {
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get(AUTH_CACHE_KEY);
+  if (cached) {
+    try {
+      return JSON.parse(cached);
+    } catch(e) {}
+  }
+  
+  var ss = getSS();
+  var sheet = ss.getSheetByName(CONFIG.SHEET_USERS);
+  if (!sheet) return null;
+  var data = sheet.getDataRange().getValues();
+  
+  var users = [];
+  // Row 0: Title, Row 1: Headers, Row 2+: Users
+  for (var i = 2; i < data.length; i++) {
+    var row = data[i];
+    var uName = row[0] ? row[0].toString().trim() : '';
+    if (!uName) continue;
+    
+    var status = normalizeEmploymentStatus(row[8]);
+    var statusUntil = row[9] ? row[9].toString() : '';
+    var statusReason = row[10] ? row[10].toString() : '';
+    var statusUpdatedAt = row[11] ? row[11].toString() : '';
+    
+    // Kiểm tra thời hạn đình chỉ
+    if (status === EMPLOYMENT_STATUS.SUSPENDED && statusUntil) {
+      var untilDate = new Date(statusUntil + 'T23:59:59');
+      if (!isNaN(untilDate.getTime()) && untilDate.getTime() < Date.now()) {
+        status = EMPLOYMENT_STATUS.ACTIVE;
+        statusUntil = '';
+        statusReason = 'Tự động kích hoạt lại sau thời hạn đình chỉ';
+      }
+    }
+    
+    users.push({
+      rowIndex: i + 1,
+      username: uName,
+      password: row[1] ? row[1].toString() : '',
+      fullname: row[2] ? row[2].toString().trim() : '',
+      email: row[4] ? row[4].toString().trim() : '',
+      role: row[5] ? row[5].toString().trim() : (uName.toLowerCase() === 'admin' ? 'admin' : 'user'),
+      position: row[6] ? row[6].toString().trim() : 'Phục vụ',
+      avatarUrl: row[7] ? row[7].toString().trim() : '',
+      employmentStatus: status,
+      statusUntil: statusUntil,
+      statusReason: statusReason,
+      statusUpdatedAt: statusUpdatedAt
+    });
+  }
+  
+  try {
+    // Cache 6 tiếng (21600s)
+    cache.put(AUTH_CACHE_KEY, JSON.stringify(users), 21600);
+  } catch(eC) {}
+  
+  return users;
+}
+
+function invalidateAuthUsersCache() {
+  try {
+    CacheService.getScriptCache().remove(AUTH_CACHE_KEY);
+  } catch(e) {}
+}
+
+function handleLogin(payload) {
   if (!payload || !payload.username || !payload.password) {
     return jsonResponse(false, 'Thiếu thông tin đăng nhập');
   }
-  // === TEST ACCOUNT: bypass sheet lookup ===
-  if (payload.username.toLowerCase() === 'testapp' && payload.password === '123456') {
+
+  var targetUser = payload.username.toString().trim();
+  var inputPassword = payload.password.toString();
+  var inputHash = payload.passwordHash || computePasswordHash(inputPassword);
+
+  // === FAST BYPASS CHO TESTER / SUPER ADMIN ===
+  if (targetUser.toLowerCase() === 'testapp' && inputPassword === '123456') {
     return jsonResponse(true, {
       username: 'testapp',
       fullname: 'TESTAPP',
-      email: 'ngaiviettenem@gmail.com', // Cập nhật theo yêu cầu
+      email: 'ngaiviettenem@gmail.com',
       role: 'tester',
       isTester: true,
       position: 'Tester',
@@ -82,9 +146,7 @@ function handleLogin(payload) {
       statusReason: ''
     });
   }
-  
-  // === SUPER ADMIN ACCOUNT ===
-  if (payload.username.toUpperCase() === 'ADMIN' && payload.password === 'admin1') {
+  if (targetUser.toUpperCase() === 'ADMIN' && inputPassword === 'admin1') {
     return jsonResponse(true, {
       username: 'ADMIN',
       fullname: 'SUPER ADMIN',
@@ -96,44 +158,43 @@ function handleLogin(payload) {
       statusReason: ''
     });
   }
-  
-  var ss = getSS();
-  var sheet = ss.getSheetByName(CONFIG.SHEET_USERS);
-  if (!sheet) return jsonResponse(false, 'Không tìm thấy sheet người dùng');
-  
-  var inputPassword = payload.password.toString();
-  var inputHash = payload.passwordHash || computePasswordHash(inputPassword);
 
-  var data = sheet.getDataRange().getValues();
-  for (var i = 2; i < data.length; i++) {
-    var row = data[i];
-    // Col 0: Username, Col 1: Password, Col 2: FullName, Col 3: DOB, Col 4: Email, Col 5: Role
-    if (row[0].toString().toLowerCase() === payload.username.toLowerCase()) {
-      var storedPass = row[1] ? row[1].toString() : '';
+  var users = getCachedAuthUsers();
+  if (!users) return jsonResponse(false, 'Không tìm thấy dữ liệu người dùng');
+
+  var lowerTarget = targetUser.toLowerCase();
+  for (var i = 0; i < users.length; i++) {
+    var u = users[i];
+    if (u.username.toLowerCase() === lowerTarget) {
+      var storedPass = u.password;
       var isMatched = (storedPass === inputPassword) || (storedPass === inputHash) || (computePasswordHash(storedPass) === inputHash);
 
       if (isMatched) {
-        // Auto-upgrade legacy plaintext password to secure hash in background
+        // Tự động nâng cấp hash mật khẩu nếu cần thiết
         if (storedPass === inputPassword && storedPass.length < 50) {
           try {
-            sheet.getRange(i + 1, 2).setValue(inputHash);
+            var ss = getSS();
+            var sheet = ss.getSheetByName(CONFIG.SHEET_USERS);
+            if (sheet) {
+              sheet.getRange(u.rowIndex, 2).setValue(inputHash);
+              invalidateAuthUsersCache();
+            }
           } catch (e) {
             Logger.log('Auto password hash upgrade error: ' + e.toString());
           }
         }
 
-        var employmentProfile = getEmploymentProfileByUsername(row[0].toString());
         return jsonResponse(true, {
-          username: row[0],
-          fullname: row[2],
-          email: row[4] || '',
-          role: row[5] ? row[5].toString() : (row[0].toString().toLowerCase() === 'admin' ? 'admin' : 'user'),
-          position: row[6] ? row[6].toString() : 'Phục vụ',
-          avatarUrl: row[7] ? row[7].toString() : '',
-          employmentStatus: employmentProfile ? employmentProfile.employmentStatus : normalizeEmploymentStatus(row[8]),
-          statusUntil: employmentProfile ? employmentProfile.statusUntil : (row[9] ? row[9].toString() : ''),
-          statusReason: employmentProfile ? employmentProfile.statusReason : (row[10] ? row[10].toString() : ''),
-          statusUpdatedAt: employmentProfile ? employmentProfile.statusUpdatedAt : (row[11] ? row[11].toString() : '')
+          username: u.username,
+          fullname: u.fullname,
+          email: u.email || '',
+          role: u.role || (lowerTarget === 'admin' ? 'admin' : 'user'),
+          position: u.position || 'Phục vụ',
+          avatarUrl: u.avatarUrl || '',
+          employmentStatus: u.employmentStatus,
+          statusUntil: u.statusUntil,
+          statusReason: u.statusReason,
+          statusUpdatedAt: u.statusUpdatedAt
         });
       }
     }
@@ -155,6 +216,7 @@ function handleRegister(payload) {
   
   var hashedPassword = computePasswordHash(payload.password);
   sheet.appendRow([payload.username, hashedPassword, payload.fullname, payload.dob || '', payload.email, 'user', 'Phục vụ']);
+  invalidateAuthUsersCache();
   return jsonResponse(true, 'Đăng ký thành công');
 }
 
@@ -399,6 +461,7 @@ function handleResetPassword(payload) {
   }
   
   if (updated) {
+    invalidateAuthUsersCache();
     return jsonResponse(true, 'Đặt lại mật khẩu thành công');
   } else {
     return jsonResponse(false, 'Lỗi không xác định khi cập nhật mật khẩu');
@@ -430,6 +493,7 @@ function handleForceResetPassword(payload) {
   }
   
   if (updated) {
+    invalidateAuthUsersCache();
     return jsonResponse(true, 'Đã đặt lại mật khẩu thành công');
   } else {
     return jsonResponse(false, 'Không tìm thấy User này');
@@ -456,6 +520,7 @@ function handleUpdateUserRole(payload) {
   }
   
   if (updated) {
+    invalidateAuthUsersCache();
     return jsonResponse(true, 'Cập nhật phân quyền thành công');
   } else {
     return jsonResponse(false, 'Không tìm thấy User này');
@@ -482,6 +547,7 @@ function handleUpdateUserPosition(payload) {
   }
   
   if (updated) {
+    invalidateAuthUsersCache();
     return jsonResponse(true, 'Cập nhật bộ phận thành công');
   } else {
     return jsonResponse(false, 'Không tìm thấy User này');
@@ -630,7 +696,7 @@ function getLogTimestampSafe(timeVal, jsonVal) {
 }
 
 /**
- * Tải ảnh base64 trực tiếp lên Google Drive và trả về Link xem ảnh công khai
+ * Tải ảnh base64 trực tiếp lên Google Drive siêu nhanh với Dịch vụ nâng cao (Drive API v3)
  */
 function uploadImageBlobToDrive(base64Image, personName) {
   if (!base64Image || typeof base64Image !== 'string' || base64Image.length < 50) return '';
@@ -653,9 +719,33 @@ function uploadImageBlobToDrive(base64Image, personName) {
     
     var safeName = (personName || 'checkin').toString().replace(/[^a-zA-Z0-9_\u00C0-\u1EF9]/g, '_');
     var filename = safeName + '_' + new Date().getTime() + ext;
+    var decoded = Utilities.base64Decode(base64Data);
+    var blob = Utilities.newBlob(decoded, mimeType, filename);
     
-    var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType, filename);
+    // 1. TĂNG TỐC VỚI DỊCH VỤ NÂNG CAO (Drive API v3) - SIÊU NHANH
+    try {
+      var fileMetadata = {
+        name: filename,
+        parents: [CONFIG.FOLDER_ID],
+        mimeType: mimeType
+      };
+      var createdFile = Drive.Files.create(fileMetadata, blob, {
+        fields: 'id, webViewLink'
+      });
+      if (createdFile && createdFile.id) {
+        try {
+          Drive.Permissions.create({
+            role: 'reader',
+            type: 'anyone'
+          }, createdFile.id);
+        } catch(pErr) {}
+        return 'https://drive.google.com/file/d/' + createdFile.id + '/view?usp=drivesdk';
+      }
+    } catch(advErr) {
+      Logger.log('Drive API v3 upload fallback to DriveApp: ' + advErr.message);
+    }
     
+    // 2. Fallback sang DriveApp cổ điển nếu Drive API v3 gặp sự cố
     var folder;
     try {
       folder = DriveApp.getFolderById(CONFIG.FOLDER_ID);
@@ -665,7 +755,6 @@ function uploadImageBlobToDrive(base64Image, personName) {
     
     var file = folder.createFile(blob);
     var imageUrl = file.getUrl();
-    
     try {
       file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     } catch (eS) {}
@@ -1036,15 +1125,10 @@ function handleCheckInOut(payload) {
     }
   }
 
-  // Khắc phục triệt để: Tuyệt đối không để 'Đang tải ảnh...' vào sheet.
-  // Nếu ảnh chưa lưu được hoặc client gửi 'PENDING', tra cứu ngay ảnh kiểm chứng gần nhất của nhân viên
+  // TUYỆT ĐỐI KHÔNG LẤY ẢNH CỦA LƯỢT CHẤM CÔNG KHÁC / NGƯỜI KHÁC:
+  // Nếu chưa có ảnh (hoặc client gửi PENDING), để trống để luồng UPLOAD_CHECKIN_IMAGE cập nhật đúng ảnh của lượt này
   if (!imageUrl || imageUrl.indexOf('drive.google.com') < 0) {
-    var fallbackUrl = findLatestEmployeePhoto(hoVaTen, payload.username);
-    if (fallbackUrl) {
-      imageUrl = fallbackUrl;
-    } else {
-      imageUrl = '';
-    }
+    imageUrl = '';
   }
   
   // === COL H: DATA JSON ===
@@ -2277,6 +2361,7 @@ function handleUpdateEmploymentStatus(payload) {
         cache.remove('GD_' + (payload.username || '').substring(0, 10) + '_A');
         cache.remove('GD_' + payload.targetUsername.substring(0, 10) + '_U');
       } catch (cacheErr) {}
+      invalidateAuthUsersCache();
       return jsonResponse(true, {
         profile: getEmploymentProfileByUsername(payload.targetUsername),
         message: 'Đã cập nhật trạng thái nhân sự'
@@ -3639,29 +3724,18 @@ function handleUploadCheckinImage(payload) {
       }
     }
 
-    // TIER 3: Match theo tên nhân viên và Cột G đang là 'Đang tải ảnh...' hoặc rỗng
+    // TIER 3: Match theo tên nhân viên và Cột G đang chưa có ảnh (chỉ chọn dòng chưa có link)
     if (targetRowIdx === -1) {
-      for (var i = 1; i < data.length; i++) {
+      var scanLimit = Math.min(data.length, 16);
+      for (var i = 1; i < scanLimit; i++) {
         if (isSamePerson(data[i][0])) {
-          var colG = data[i][6] ? data[i][6].toString() : '';
-          var isPending = colG.indexOf('Đang tải ảnh') !== -1 || colG === 'PENDING' || colG.trim() === '';
-          if (isPending) {
+          var colG = data[i][6] ? data[i][6].toString().trim() : '';
+          var isEmpty = colG === '' || colG === 'PENDING' || colG.indexOf('Đang tải ảnh') !== -1;
+          if (isEmpty) {
             targetRowIdx = i + 1;
             targetDataRow = data[i];
             break;
           }
-        }
-      }
-    }
-
-    // TIER 4: Fallback - Dòng gần nhất của nhân viên đó (trong 25 dòng đầu)
-    if (targetRowIdx === -1) {
-      var scanLimit = Math.min(data.length, 25);
-      for (var i = 1; i < scanLimit; i++) {
-        if (isSamePerson(data[i][0])) {
-          targetRowIdx = i + 1;
-          targetDataRow = data[i];
-          break;
         }
       }
     }
@@ -3733,30 +3807,7 @@ function handleDiagnoseAndHealImages(payload) {
     var fixedCount = 0;
     var details = [];
 
-    // PASS 1: Xây dựng bản đồ ảnh kiểm chứng của từng nhân viên (Employee Photo Registry)
-    var employeePhotoMap = {};
-    for (var i = 0; i < values.length; i++) {
-      var row = values[i];
-      var nameKey = row[0] ? row[0].toString().trim().toLowerCase() : '';
-      var fG = formulas[i][6] ? formulas[i][6].toString().trim() : '';
-      var cG = row[6] ? row[6].toString().trim() : '';
-      var cH = row[7] ? row[7].toString().trim() : '';
-      
-      var foundUrl = '';
-      var mF = fG.match(/https?:\/\/drive\.google\.com\/[^\s"';,]+/);
-      var mG = cG.match(/https?:\/\/drive\.google\.com\/[^\s"';,]+/);
-      if (mF) foundUrl = mF[0];
-      else if (mG) foundUrl = mG[0];
-      else if (cH.indexOf('drive.google.com') >= 0) {
-        var mH = cH.match(/https?:\/\/drive\.google\.com\/[^\s"',}]+/);
-        if (mH) foundUrl = mH[0];
-      }
-      if (nameKey && foundUrl && !employeePhotoMap[nameKey]) {
-        employeePhotoMap[nameKey] = foundUrl;
-      }
-    }
-
-    // PASS 2: Chuẩn bị mảng cập nhật hàng loạt (Batch update)
+    // Quét và sửa lỗi công thức hàng loạt, TUYỆT ĐỐI KHÔNG GÁN NHẦM ẢNH CỦA LƯỢT KHÁC
     var newFormulas = [];
     var newColH = [];
     var newColors = [];
@@ -3767,7 +3818,6 @@ function handleDiagnoseAndHealImages(payload) {
       var row = values[i];
       var rowIdx = i + 2;
       var fullname = row[0] ? row[0].toString().trim() : '';
-      var nameKey = fullname.toLowerCase();
       var timeVal = row[2] ? row[2].toString().replace(/^'/, '').trim() : '';
       var colG = row[6] ? row[6].toString().trim() : '';
       var formulaG = formulas[i][6] ? formulas[i][6].toString().trim() : '';
@@ -3786,7 +3836,7 @@ function handleDiagnoseAndHealImages(payload) {
         targetUrl = matchColG[0];
       }
 
-      // B. Tìm trong Cột H JSON
+      // B. Tìm trong Cột H JSON của CHÍNH DÒNG NÀY
       if (!targetUrl && colH.indexOf('drive.google.com') >= 0) {
         try {
           var parsedH = JSON.parse(colH);
@@ -3803,28 +3853,9 @@ function handleDiagnoseAndHealImages(payload) {
       var formulaHasComma = formulaG.indexOf('",') >= 0 || (formulaG.indexOf('HYPERLINK(') >= 0 && formulaG.indexOf(';') < 0);
       var isPendingOrError = colG.indexOf('Đang tải ảnh') >= 0 ||
                              colG === 'PENDING' ||
-                             colG === '' ||
                              colG.indexOf('#ERROR!') >= 0 ||
                              formulaG.indexOf('#ERROR!') >= 0 ||
                              formulaHasComma;
-
-      // D. Fallback 1: Dùng ảnh minh chứng đã xác thực gần nhất của nhân viên trong Registry
-      if (!targetUrl && isPendingOrError && employeePhotoMap[nameKey]) {
-        targetUrl = employeePhotoMap[nameKey];
-      }
-
-      // E. Fallback 2: Quét tìm trực tiếp trên Drive theo tên nhân viên
-      if (!targetUrl && isPendingOrError && nameKey) {
-        try {
-          var safeName = fullname.replace(/[^a-zA-Z0-9_\u00C0-\u1EF9]/g, '_');
-          var files = DriveApp.searchFiles("'" + CONFIG.FOLDER_ID + "' in parents and title contains '" + safeName + "' and trashed = false");
-          if (files.hasNext()) {
-            var f = files.next();
-            targetUrl = f.getUrl();
-            employeePhotoMap[nameKey] = targetUrl;
-          }
-        } catch(eDrive) {}
-      }
 
       var rowFormula = formulaG;
       var rowColH = colH;
@@ -3853,7 +3884,7 @@ function handleDiagnoseAndHealImages(payload) {
             rowColH = JSON.stringify(oldObj);
           } catch(errH){}
         }
-      } else if (isPendingOrError) {
+      } else if (isPendingOrError && (colG.indexOf('Đang tải ảnh') >= 0 || colG === 'PENDING')) {
         rowFormula = '';
         rowColor = '#94a3b8';
         try {

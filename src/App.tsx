@@ -50,8 +50,8 @@ export default function App() {
     const sessionTime = localStorage.getItem('kg_session_time');
     if (savedUser) {
       try {
-        // Check if session has expired
-        const isRemembered = localStorage.getItem('kg_remember') === 'true';
+        // Check if session has expired (remember by default)
+        const isRemembered = localStorage.getItem('kg_remember') !== 'false';
         const SESSION_DURATION = isRemembered ? (30 * 24 * 60 * 60 * 1000) : (30 * 60 * 1000); // 30 days or 30 minutes
         if (sessionTime && (Date.now() - parseInt(sessionTime)) > SESSION_DURATION) {
           // Session expired - clear everything
