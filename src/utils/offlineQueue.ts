@@ -265,10 +265,43 @@ export async function processQueue(): Promise<void> {
           } else if (task.action === 'UPLOAD_CHECKIN_IMAGE') {
             const driveUrl = res.data?.url || res.data?.imageUrl;
             if (driveUrl) {
-              useAppStore.getState().updateLogImage(task.payload.timeISO || '', driveUrl);
+              if (task.payload.time) {
+                useAppStore.getState().updateLogImage(task.payload.time, driveUrl);
+              }
+              if (task.payload.timeISO) {
+                useAppStore.getState().updateLogImage(task.payload.timeISO, driveUrl);
+              }
             }
           }
         } else {
+          // Check if server already has this check-in recorded (anti-spam cooldown triggered because row was already inserted!)
+          const isAlreadyRecorded = res?.code === 'ALREADY_CHECKED_IN' || res?.isSpamCooldown ||
+            (typeof res?.message === 'string' && (res.message.includes('chống spam') || res.message.includes('vừa chấm công') || res.message.includes('15 phút')));
+
+          if (isAlreadyRecorded && task.action === 'CHECK_IN_OUT') {
+            console.log(`[OfflineQueue] Row was already recorded on Google Sheets (${task.id}). Advancing to image upload.`);
+            markPunchVaultSynced(checkinId, res?.data);
+            notifyPunchStatus({
+              checkinId,
+              status: 'synced',
+              message: 'Đã ghi nhận trên Bảng chấm công (Google Sheets)',
+              data: res?.data
+            });
+
+            // Enqueue image upload to guarantee Column G is populated!
+            if (task.payload?.image && task.payload.image !== 'PENDING' && task.payload.image.length > 100) {
+              enqueueTask('UPLOAD_CHECKIN_IMAGE', {
+                checkinId,
+                username: task.payload.username,
+                fullname: task.payload.fullname,
+                timeISO: task.payload.timeISO,
+                time: task.payload.time,
+                image: task.payload.image
+              }, { priority: 'high', maxAttempts: 15 });
+            }
+            continue;
+          }
+
           // Server returned false or rate limit / lock busy
           const isConcurrencyOrLock = res?.code === 'LOCK_TIMEOUT' || res?.code === 'CONCURRENCY_QUEUED' || res?.message?.includes('Lock') || res?.message?.includes('bận');
           if (isConcurrencyOrLock) {

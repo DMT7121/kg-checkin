@@ -985,8 +985,12 @@ function handleCheckInOut(payload) {
             if (diffMs >= 0 && diffMs < 15 * 60 * 1000) {
               var remainingSecs = Math.ceil((15 * 60 * 1000 - diffMs) / 1000);
               var remainingMins = Math.ceil(remainingSecs / 60);
-              var lastFormatted = cRow[2] ? cRow[2].toString().replace(/^['"\s]+|['"\s]+$/g, '') : '';
-              return jsonResponse(false, 'Hệ thống chống spam: Bạn vừa chấm công lúc ' + lastFormatted + '. Quy định tối thiểu sau 15 phút mới được chấm tiếp (vui lòng đợi thêm ' + remainingMins + ' phút).');
+              return jsonResponse(false, {
+                code: 'ALREADY_CHECKED_IN',
+                isSpamCooldown: true,
+                lastTime: lastFormatted,
+                message: 'Hệ thống chống spam: Bạn vừa chấm công lúc ' + lastFormatted + '. Quy định tối thiểu sau 15 phút mới được chấm tiếp (vui lòng đợi thêm ' + remainingMins + ' phút).'
+              });
             }
           }
           break; // Đã tìm thấy lượt chấm công mới nhất của nhân viên này
@@ -3757,7 +3761,20 @@ function handleUploadCheckinImage(payload) {
       }
     }
 
-    // TIER 2: Match by timeISO in Column H (Data JSON) + đúng người
+    // TIER 2: Match by exact display time string in Column C (DD/MM/YYYY HH:MM:SS) + đúng người
+    var targetTimeStr = payload.time ? payload.time.toString().trim() : '';
+    if (targetRowIdx === -1 && targetTimeStr) {
+      for (var i = 1; i < data.length; i++) {
+        var rowTime = data[i][2] ? data[i][2].toString().replace(/^'/, '').trim() : '';
+        if (rowTime && (rowTime === targetTimeStr || rowTime.indexOf(targetTimeStr) !== -1 || targetTimeStr.indexOf(rowTime) !== -1) && isSamePerson(data[i][0])) {
+          targetRowIdx = i + 1;
+          targetDataRow = data[i];
+          break;
+        }
+      }
+    }
+
+    // TIER 3: Match by timeISO in Column H (Data JSON) + đúng người
     if (targetRowIdx === -1 && targetTimeISO) {
       for (var i = 1; i < data.length; i++) {
         var rowJsonStr = data[i][7] ? data[i][7].toString() : '';
@@ -3769,19 +3786,28 @@ function handleUploadCheckinImage(payload) {
       }
     }
 
-    // TIER 3: Match theo tên nhân viên và Cột G đang chưa có ảnh (chỉ chọn dòng chưa có link)
+    // TIER 4: Match theo tên nhân viên và Cột G đang chưa có link Drive hợp lệ (quét 60 dòng mới nhất)
     if (targetRowIdx === -1) {
-      var scanLimit = Math.min(data.length, 16);
+      var scanLimit = Math.min(data.length, 60);
       for (var i = 1; i < scanLimit; i++) {
         if (isSamePerson(data[i][0])) {
           var colG = data[i][6] ? data[i][6].toString().trim() : '';
-          var isEmpty = colG === '' || colG === 'PENDING' || colG.indexOf('Đang tải ảnh') !== -1;
-          if (isEmpty) {
+          var hasDriveLink = colG.indexOf('drive.google.com') !== -1;
+          if (!hasDriveLink) {
             targetRowIdx = i + 1;
             targetDataRow = data[i];
             break;
           }
         }
+      }
+    }
+
+    // TIER 5: Fallback - Nếu dòng 2 là của người này và Cột G chưa có link Drive
+    if (targetRowIdx === -1 && data.length > 1 && isSamePerson(data[1][0])) {
+      var colG2 = data[1][6] ? data[1][6].toString().trim() : '';
+      if (colG2.indexOf('drive.google.com') === -1) {
+        targetRowIdx = 2;
+        targetDataRow = data[1];
       }
     }
 
@@ -3793,12 +3819,16 @@ function handleUploadCheckinImage(payload) {
       try {
         cellG.setFormula('=HYPERLINK("' + imageUrl + '"; "📷 Xem ảnh")')
              .setFontColor(linkColor)
-             .setFontSize(9);
+             .setFontSize(9)
+             .setFontWeight('bold')
+             .setHorizontalAlignment('center');
       } catch (fErr) {
         try {
           cellG.setValue(imageUrl)
                .setFontColor(linkColor)
-               .setFontSize(9);
+               .setFontSize(9)
+               .setFontWeight('bold')
+               .setHorizontalAlignment('center');
         } catch (fErr2) {}
       }
       
@@ -3894,7 +3924,21 @@ function handleDiagnoseAndHealImages(payload) {
         }
       }
 
-      // C. Xác định xem ô này có lỗi, đang pending, hoặc đang dùng dấu phẩy ',' không
+      // C. Quét thư mục Google Drive tìm ảnh tương ứng của nhân viên nếu Cột G đang trống hoặc pending
+      if (!targetUrl && fullname && (colG === '' || isPendingOrError)) {
+        try {
+          var safeName = fullname.replace(/[^a-zA-Z0-9_\u00C0-\u1EF9]/g, '_');
+          if (safeName.length >= 2) {
+            var files = DriveApp.searchFiles("'" + CONFIG.FOLDER_ID + "' in parents and title contains '" + safeName + "' and trashed = false");
+            if (files.hasNext()) {
+              var f = files.next();
+              targetUrl = 'https://drive.google.com/file/d/' + f.getId() + '/view?usp=drivesdk';
+            }
+          }
+        } catch(eD) {}
+      }
+
+      // D. Xác định xem ô này có lỗi, đang pending, hoặc đang dùng dấu phẩy ',' không
       var formulaHasComma = formulaG.indexOf('",') >= 0 || (formulaG.indexOf('HYPERLINK(') >= 0 && formulaG.indexOf(';') < 0);
       var isPendingOrError = colG.indexOf('Đang tải ảnh') >= 0 ||
                              colG === 'PENDING' ||
@@ -3910,7 +3954,7 @@ function handleDiagnoseAndHealImages(payload) {
       if (targetUrl) {
         // Chuẩn hóa dấu chấm phẩy ';' theo chuẩn Locale Việt Nam
         var correctFormula = '=HYPERLINK("' + targetUrl + '"; "📷 Xem ảnh")';
-        if (formulaG !== correctFormula || colG.indexOf('#ERROR!') >= 0 || formulaHasComma || isPendingOrError) {
+        if (formulaG !== correctFormula || colG.indexOf('#ERROR!') >= 0 || formulaHasComma || isPendingOrError || colG === '') {
           rowFormula = correctFormula;
           hasBatchChanges = true;
           fixedCount++;

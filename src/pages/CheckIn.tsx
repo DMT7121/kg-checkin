@@ -1333,7 +1333,7 @@ export default function CheckIn() {
   };
 
   // Real execution call
-  const executeCheck = async (type: string, isLate: boolean, lateMinsInfo: number, shiftString: string) => {
+  const executeCheck = async (type: string, _isLate: boolean, lateMinsInfo: number, shiftString: string) => {
     if (!currentUser) {
       speak('Vui lòng đăng nhập lại để tiếp tục.');
       return;
@@ -1405,26 +1405,48 @@ export default function CheckIn() {
       ? currentUser.email
       : (currentUser.username.toLowerCase() === 'admin' ? 'dmt.7121@gmail.com' : (currentUser.email || 'dmt.7121@gmail.com'));
 
+    const isLate = Boolean(lateMinsInfo && lateMinsInfo > 5 && type === 'Vào ca');
+    const penaltyAmount = isLate ? Math.max(10000, Math.floor(lateMinsInfo / 15) * 10000) : 0;
+
     // Save details for synchronized rich feedback modal
     setLastSubmittedPunch({
       type,
       fullname: currentUser.fullname,
-      time: payloadTime,
+      time: actualTime,
       location: gps.address || (gps.status === 'Đang lấy vị trí...' ? 'Nhà hàng King\'s Grill' : gps.status),
       distMeters: typeof currentDist === 'number' ? `${Math.round(currentDist)}m` : '<= 20m',
       isValid: true,
       shift: shiftString,
       email: effectiveEmail,
-      sheetSaved: false
+      sheetSaved: false, // will update to true once sheet ack arrives in background
+      lateMins: isLate ? lateMinsInfo : 0,
+      penaltyAmount,
+      checklistPending: false
     });
 
-    // Open feedback sheet in loading / connecting state while image & location sync
-    setFeedbackTitle(type === 'Vào ca' ? 'Đang Điểm Danh Vào Ca... ⏳' : 'Đang Điểm Danh Ra Ca... ⏳');
-    setFeedbackMessage('Đang ghi nhận vào Bảng chấm công máy chủ...');
-    setFeedbackType('info');
+    // INSTANT OPTIMISTIC FEEDBACK (<100ms): Confetti + Audio + Success Sheet immediately!
+    confetti({
+      particleCount: 160,
+      spread: 80,
+      origin: { y: 0.6 },
+      colors: type === 'Vào ca'
+        ? ['#10b981', '#06b6d4', '#facc15', '#3b82f6', '#ec4899']
+        : ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981']
+    });
+
+    if (type === 'Vào ca') {
+      speak('Ting! Đã ghi nhận thành công điểm danh vào ca. Chúc bạn ca làm việc vui vẻ!');
+    } else {
+      speak('Ting! Đã ghi nhận thành công điểm danh ra ca. Chúc mừng bạn đã hoàn thành ca làm việc!');
+    }
+
+    setFeedbackTitle(type === 'Vào ca' ? 'Điểm Danh Vào Ca Thành Công! 🎉' : 'Điểm Danh Ra Ca Thành Công! 🎊');
+    setFeedbackMessage('Đã tiếp nhận lượt chấm công! Dữ liệu và hình ảnh đang được tự động đồng bộ vào Bảng chấm công.');
+    setFeedbackType('success');
     setFeedbackSheetOpen(true);
 
     const clientCheckinId = 'CHK_' + (currentUser.username ? currentUser.username.replace(/[^a-zA-Z0-9]/g, '') : 'user') + '_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7).toUpperCase();
+    const timeISO = new Date().toISOString();
 
     const payload = {
       checkinId: clientCheckinId,
@@ -1455,114 +1477,38 @@ export default function CheckIn() {
       fastSync: true
     };
 
-    callApi('CHECK_IN_OUT', fastSyncPayload, { background: true, timeoutMs: 25000, maxAttempts: 2 }).then((res) => {
-      if (res?.ok) {
+    // PIPELINE 1: Gửi chấm công lên Google Sheet chạy nền
+    callApi('CHECK_IN_OUT', fastSyncPayload, { background: true, timeoutMs: 30000, maxAttempts: 2 }).then((res) => {
+      const isAlreadyCheckedIn = res?.code === 'ALREADY_CHECKED_IN' || res?.isSpamCooldown || (typeof res?.message === 'string' && res.message.includes('chống spam'));
+      if (res?.ok || isAlreadyCheckedIn) {
         // Mark punch as synced in permanent vault
-        markPunchVaultSynced(clientCheckinId, res.data);
+        markPunchVaultSynced(clientCheckinId, res?.data);
+        setLastSubmittedPunch(prev => prev ? { ...prev, sheetSaved: true } : prev);
 
-        // Synchronized celebratory confetti for BOTH Vào ca and Ra ca once confirmed!
-        confetti({
-          particleCount: 160,
-          spread: 80,
-          origin: { y: 0.6 },
-          colors: type === 'Vào ca'
-            ? ['#10b981', '#06b6d4', '#facc15', '#3b82f6', '#ec4899']
-            : ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981']
-        });
-
-        // Synchronized voice greetings
-        if (type === 'Vào ca') {
-          speak('Ting! Đã ghi nhận thành công vào Bảng chấm công. Chúc bạn ca làm việc vui vẻ!');
-        } else {
-          speak('Ting! Đã ghi nhận thành công vào Bảng chấm công. Chúc mừng bạn đã hoàn thành ca làm việc!');
-        }
-
-        const isLate = Boolean(res.data?.lateMins && res.data.lateMins > 5 && type === 'Vào ca');
-        const penaltyAmount = isLate ? Math.max(10000, Math.floor(res.data.lateMins / 15) * 10000) : 0;
-        const isChecklistPending = Boolean(res.data?.checklistPending && type === 'Vào ca');
-
-        // Update rich unified feedback modal with verified server confirmation
-        setLastSubmittedPunch({
-          type,
-          fullname: currentUser.fullname,
-          time: res.data?.thoiGian || payloadTime,
-          location: res.data?.viTri || gps.address || (gps.status === 'Đang lấy vị trí...' ? 'Nhà hàng King\'s Grill' : gps.status),
-          distMeters: typeof res.data?.distMeters === 'number' ? `${Math.round(res.data.distMeters)}m` : (res.data?.distMeters || (typeof currentDist === 'number' ? `${Math.round(currentDist)}m` : '<= 20m')),
-          isValid: res.data?.isValid ?? true,
-          shift: res.data?.shift || shiftString,
-          email: effectiveEmail,
-          sheetSaved: true,
-          lateMins: isLate ? res.data.lateMins : 0,
-          penaltyAmount,
-          checklistPending: isChecklistPending
-        });
-
-        setFeedbackTitle(type === 'Vào ca' ? 'Điểm Danh Vào Ca Thành Công! 🎉' : 'Điểm Danh Ra Ca Thành Công! 🎊');
-        setFeedbackMessage('Đã ghi nhận thành công 100% vào Bảng chấm công (Google Sheets)!');
-        setFeedbackType('success');
-        setFeedbackSheetOpen(true);
+        // Update local log status
+        store.setLogs(store.logs.map(l => l.time === actualTime ? { ...l, status: 'Hợp lệ' } : l));
 
         // Queue pulse survey to open smoothly AFTER user finishes reading shift summary
         if (isClockInType && Math.random() < 0.4) {
           setPendingSurveyAfterPunch(true);
         }
 
-        const timeISO = res.data?.timeISO || new Date().toISOString();
-        const effectiveCheckinId = res.data?.checkinId || clientCheckinId;
-        const returnedImageUrl = res.data?.imageUrl;
-
-        // Pipeline stage 1: Staggered background upload of selfie after 800ms
-        if (returnedImageUrl && returnedImageUrl.includes('drive.google.com')) {
-          store.updateLogImage(timeISO, returnedImageUrl);
-        } else if (payloadImage) {
-          setTimeout(() => {
-            const uploadPayload = {
-              checkinId: effectiveCheckinId,
-              username: currentUser.username,
-              fullname: currentUser.fullname,
-              timeISO: timeISO,
-              time: res.data?.thoiGian || payloadTime,
-              image: payloadImage
-            };
-
-            callApi('UPLOAD_CHECKIN_IMAGE', uploadPayload, {
-              background: true,
-              timeoutMs: 45000,
-              maxAttempts: 2
-            }).then((imgRes) => {
-              if (imgRes?.ok) {
-                const driveUrl = imgRes.data?.url || imgRes.data?.imageUrl;
-                if (driveUrl) {
-                  store.updateLogImage(uploadPayload.timeISO, driveUrl);
-                }
-              } else {
-                enqueueTask('UPLOAD_CHECKIN_IMAGE', uploadPayload, { priority: 'high', maxAttempts: 10 });
-              }
-            }).catch((imgErr) => {
-              console.warn('[CheckIn] Upload checkin image error, enqueued to offline queue:', imgErr);
-              enqueueTask('UPLOAD_CHECKIN_IMAGE', uploadPayload, { priority: 'high', maxAttempts: 10 });
-            });
-          }, 800);
-        }
-
-        // Pipeline stage 2: Staggered background email notification after 2,200ms
-        if (res.data) {
+        // Staggered background email notification after 1,800ms
+        if (effectiveEmail) {
           setTimeout(() => {
             callApi('SEND_EMAIL_NOTIFICATION', {
               ...payload,
               email: effectiveEmail,
-              imageUrl: returnedImageUrl || payload.image,
-              distMeters: res.data.distMeters,
-              isValid: res.data.isValid,
-              viTri: res.data.viTri,
+              imageUrl: res?.data?.imageUrl || payload.image,
+              distMeters: res?.data?.distMeters || currentDist,
+              isValid: true,
+              viTri: res?.data?.viTri || payload.location,
               timeISO: timeISO
-            }, { background: true, timeoutMs: 60000, maxAttempts: 2 }).catch(err => {
-              console.warn('[CheckIn] Send email notification error:', err);
-            });
-          }, 2200);
+            }, { background: true, timeoutMs: 60000, maxAttempts: 2 }).catch(() => {});
+          }, 1800);
         }
 
-        // Pipeline stage 3: Staggered background sync of logs and stats after 3,500ms
+        // Staggered background sync of logs and stats after 3,000ms
         setTimeout(() => {
           const weekInfo = computeWeekInfo();
           callApi('GET_DATA', {
@@ -1581,28 +1527,51 @@ export default function CheckIn() {
               localStorage.setItem('kg_stats', JSON.stringify(dataRes.data.stats));
             }
           }).catch(() => {});
-        }, 3500);
+        }, 3000);
 
         store.setLastCheckInTime(Date.now());
         localStorage.setItem('kg_last_checkin', Date.now().toString());
       } else {
         // RESILIENT OFFLINE/CONCURRENCY SYNC: Enqueue to background queue instead of discarding!
         enqueueTask('CHECK_IN_OUT', payload, { priority: 'high', maxAttempts: 20 });
-        speak('Đã ghi nhận lượt chấm công của bạn. Hệ thống đang đồng bộ máy chủ.');
-        setFeedbackTitle('Đã Ghi Nhận Lượt Chấm Công! ⏳');
-        setFeedbackMessage(`Máy chủ đang xử lý nhiều lượt chấm công cùng lúc. Lượt của bạn lúc ${payloadTime} đã được lưu trữ 100% trên thiết bị và đang tự động xếp hàng đồng bộ vào Bảng chấm công. Bạn có thể an tâm tiếp tục ca làm việc!`);
-        setFeedbackType('info');
-        setFeedbackSheetOpen(true);
       }
     }).catch(() => {
       // Network timeout / connection error fallback: Enqueue and preserve
       enqueueTask('CHECK_IN_OUT', payload, { priority: 'high', maxAttempts: 20 });
-      speak('Đã lưu trữ chấm công trên thiết bị, sẽ tự động đồng bộ khi có mạng.');
-      setFeedbackTitle('Đã Lưu Trữ Chấm Công! 📶');
-      setFeedbackMessage(`Kết nối mạng không ổn định. Lượt chấm công lúc ${payloadTime} đã được bảo vệ 100% trong bộ nhớ thiết bị và sẽ tự động đồng bộ lên Google Sheets ngay khi có kết nối.`);
-      setFeedbackType('info');
-      setFeedbackSheetOpen(true);
     });
+
+    // PIPELINE 2: Upload ảnh selfie lên Google Drive (chạy nền độc lập 100%, không bị phụ thuộc vào CHECK_IN_OUT)
+    if (payloadImage) {
+      const uploadPayload = {
+        checkinId: clientCheckinId,
+        username: currentUser.username,
+        fullname: currentUser.fullname,
+        timeISO: timeISO,
+        time: actualTime, // Chuỗi thời gian DD/MM/YYYY HH:mm:ss khớp 100% với Cột C trên Sheet
+        image: payloadImage
+      };
+
+      setTimeout(() => {
+        callApi('UPLOAD_CHECKIN_IMAGE', uploadPayload, {
+          background: true,
+          timeoutMs: 45000,
+          maxAttempts: 2
+        }).then((imgRes) => {
+          if (imgRes?.ok) {
+            const driveUrl = imgRes.data?.url || imgRes.data?.imageUrl;
+            if (driveUrl) {
+              store.updateLogImage(uploadPayload.time, driveUrl);
+              store.updateLogImage(uploadPayload.timeISO, driveUrl);
+            }
+          } else {
+            enqueueTask('UPLOAD_CHECKIN_IMAGE', uploadPayload, { priority: 'high', maxAttempts: 15 });
+          }
+        }).catch((imgErr) => {
+          console.warn('[CheckIn] Upload checkin image error, enqueued to offline queue:', imgErr);
+          enqueueTask('UPLOAD_CHECKIN_IMAGE', uploadPayload, { priority: 'high', maxAttempts: 15 });
+        });
+      }, 600);
+    }
   };
 
   // Submit survey action
@@ -2718,8 +2687,12 @@ export default function CheckIn() {
                   <CheckCircle2 size={15} className="text-emerald-600 dark:text-emerald-400" />
                   Bảng Chấm Công (Google Sheets)
                 </span>
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-600 text-white shadow-2xs">
-                  ✓ ĐÃ GHI NHẬN 100%
+                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-2xs ${
+                  lastSubmittedPunch.sheetSaved
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-blue-600 text-white animate-pulse'
+                }`}>
+                  {lastSubmittedPunch.sheetSaved ? '✓ ĐÃ GHI NHẬN 100%' : '⚡ ĐÃ TIẾP NHẬN • ĐANG ĐỒNG BỘ'}
                 </span>
               </div>
 
