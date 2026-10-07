@@ -22,20 +22,51 @@ var JsonCacheService = (function() {
     return sheet;
   }
 
+  function getRawCacheString(data, key) {
+    if (!data) return null;
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][0] === key) {
+        return data[i][1] ? String(data[i][1]) : null;
+      }
+    }
+    return null;
+  }
+
   /**
    * Reads a cached record from the JSON_CACHE sheet.
-   * Returns parsed object or null if not found.
+   * Supports both single cell and multi-chunk storage.
    */
   function getCacheRecord(key) {
     try {
-      var sheet = getCacheSheet();
-      var data = sheet.getDataRange().getValues();
-      for (var i = 1; i < data.length; i++) {
-        if (data[i][0] === key) {
-          if (data[i][1]) {
-            return JSON.parse(data[i][1]);
+      var ssId = getSpreadsheetId();
+      var data;
+      try {
+        var res = Sheets.Spreadsheets.Values.get(ssId, CACHE_SHEET_NAME + "!A:B");
+        data = res.values;
+      } catch(apiErr) {
+        var sheet = getCacheSheet();
+        data = sheet.getDataRange().getValues();
+      }
+      if (!data) return null;
+
+      var raw = getRawCacheString(data, key);
+      if (!raw) return null;
+
+      try {
+        var parsed = JSON.parse(raw);
+        if (parsed && parsed.__chunked && parsed.count) {
+          var fullStr = "";
+          for (var c = 0; c < parsed.count; c++) {
+            var part = getRawCacheString(data, key + "__part_" + c);
+            if (part) fullStr += part;
+          }
+          if (fullStr) {
+            return JSON.parse(fullStr);
           }
         }
+        return parsed;
+      } catch (parseErr) {
+        return null;
       }
     } catch (e) {
       Logger.log("getCacheRecord error for key " + key + ": " + e.toString());
@@ -43,36 +74,62 @@ var JsonCacheService = (function() {
     return null;
   }
 
+  function writeSingleCacheRow(rowKey, rowVal) {
+    var sheet = getCacheSheet();
+    var data = sheet.getDataRange().getValues();
+    var timeStr = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, "dd/MM/yyyy HH:mm:ss");
+
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][0] === rowKey) {
+        try {
+          Sheets.Spreadsheets.Values.update(
+            { values: [[rowVal, timeStr]] },
+            getSpreadsheetId(),
+            sheet.getName() + "!B" + (i + 1) + ":C" + (i + 1),
+            { valueInputOption: "USER_ENTERED" }
+          );
+        } catch(apiErr) {
+          sheet.getRange(i + 1, 2, 1, 2).setValues([[rowVal, timeStr]]);
+        }
+        return;
+      }
+    }
+    try {
+      Sheets.Spreadsheets.Values.append(
+        { values: [[rowKey, rowVal, timeStr]] },
+        getSpreadsheetId(),
+        sheet.getName() + "!A:C",
+        { valueInputOption: "USER_ENTERED" }
+      );
+    } catch(apiErr) {
+      sheet.appendRow([rowKey, rowVal, timeStr]);
+    }
+  }
+
   /**
    * Writes a cached record to the JSON_CACHE sheet.
+   * Splits into 45,000 char chunks if object exceeds cell limit, preventing data truncation.
    */
   function updateCacheRecord(key, dataObj) {
     try {
       var sheet = getCacheSheet();
       if (!sheet) return;
       var jsonStr = JSON.stringify(dataObj);
-      if (jsonStr.length > 48000) {
-        if (dataObj.logs && Array.isArray(dataObj.logs)) {
-          var trimmedObj = Object.assign({}, dataObj);
-          var limit = dataObj.logs.length;
-          while (JSON.stringify(trimmedObj).length > 48000 && limit > 15) {
-            limit -= 10;
-            trimmedObj.logs = dataObj.logs.slice(0, limit);
-          }
-          jsonStr = JSON.stringify(trimmedObj);
+      var CHUNK_SIZE = 45000;
+
+      if (jsonStr.length > CHUNK_SIZE) {
+        var parts = [];
+        for (var p = 0; p < jsonStr.length; p += CHUNK_SIZE) {
+          parts.push(jsonStr.substring(p, p + CHUNK_SIZE));
         }
-        if (jsonStr.length > 49000) return;
-      }
-      var data = sheet.getDataRange().getValues();
-      var timeStr = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, "dd/MM/yyyy HH:mm:ss");
-      
-      for (var i = 1; i < data.length; i++) {
-        if (data[i][0] === key) {
-          sheet.getRange(i + 1, 2, 1, 2).setValues([[jsonStr, timeStr]]);
-          return;
+        writeSingleCacheRow(key, JSON.stringify({ __chunked: true, count: parts.length }));
+        for (var i = 0; i < parts.length; i++) {
+          writeSingleCacheRow(key + "__part_" + i, parts[i]);
         }
+        return;
       }
-      sheet.appendRow([key, jsonStr, timeStr]);
+
+      writeSingleCacheRow(key, jsonStr);
     } catch (e) {
       Logger.log("updateCacheRecord error for key " + key + ": " + e.toString());
     }
@@ -148,10 +205,15 @@ var JsonCacheService = (function() {
    */
   function invalidateAllCache() {
     try {
-      var sheet = getCacheSheet();
-      var lastRow = sheet.getLastRow();
-      if (lastRow > 1) {
-        sheet.deleteRows(2, lastRow - 1);
+      var ssId = getSpreadsheetId();
+      try {
+        Sheets.Spreadsheets.Values.clear({}, ssId, CACHE_SHEET_NAME + "!A2:C");
+      } catch(apiErr) {
+        var sheet = getCacheSheet();
+        var lastRow = sheet.getLastRow();
+        if (lastRow > 1) {
+          sheet.deleteRows(2, lastRow - 1);
+        }
       }
     } catch (e) {
       Logger.log("invalidateAllCache error: " + e.toString());

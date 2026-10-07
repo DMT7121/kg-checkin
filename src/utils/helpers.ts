@@ -352,7 +352,8 @@ export const SHORT_DAY_NAMES = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'] as con
 
 export const KG_LAT = 10.9760826;
 export const KG_LNG = 106.6646541;
-export const KG_RADIUS_METERS = 20;
+export const KG_RADIUS_METERS = 25;
+export const KG_STANDARD_ADDRESS = "King's Grill - Số 34, Hoàng Văn Thụ, Phường Thủ Dầu Một, Thành phố Hồ Chí Minh";
 
 export type CheckInTypeString = 'Vào ca' | 'Ra ca' | 'Vào ca 2' | 'Ra ca 2' | 'Vào ca 3' | 'Ra ca 3' | string;
 

@@ -34,14 +34,21 @@ export default function App() {
     store.setShiftName(isNight ? 'Ca Tối' : 'Ca Sáng');
 
     // Clock - updates every 10 seconds (display shows HH:MM only), also checks for shift change
-    store.setCurrentTime(getCurrentTimeString());
+    const initialTime = getCurrentTimeString();
+    if (useAppStore.getState().currentTime !== initialTime) {
+      store.setCurrentTime(initialTime);
+    }
     const timer = setInterval(() => {
-      store.setCurrentTime(getCurrentTimeString());
+      const newTime = getCurrentTimeString();
+      const current = useAppStore.getState().currentTime;
+      if (current !== newTime) {
+        useAppStore.getState().setCurrentTime(newTime);
+      }
       const currentHour = new Date().getHours();
       const newShift = (currentHour >= 6 && currentHour < 17) ? 'Ca Sáng' : 'Ca Tối';
       const currentShift = useAppStore.getState().shiftName;
       if (currentShift !== newShift) {
-        store.setShiftName(newShift);
+        useAppStore.getState().setShiftName(newShift);
       }
     }, 10000);
 

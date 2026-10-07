@@ -201,6 +201,15 @@ function generateAndWriteSummarySheet(ss, sourceName, processedData, x2Days, x3D
   var styleMeta = [];
   var currentRow = 0; // 0-indexed cho mảng
 
+  // 0. Bảng tra cứu ngày lễ (x2, x3) - Khởi tạo sớm để inject formula cột K
+  var lookupData = [['Ngày', 'Loại', 'Hệ Số']];
+  if (x2Days && x2Days.forEach) {
+    x2Days.forEach(function(d) { lookupData.push([d, 'x2', 2]); });
+  }
+  if (x3Days && x3Days.forEach) {
+    x3Days.forEach(function(d) { lookupData.push([d, 'x3', 3]); });
+  }
+
   // ═══ PREMIUM REPORT HEADER ═══
   // Row 1: Company branding
   allValues.push([
@@ -238,9 +247,9 @@ function generateAndWriteSummarySheet(ss, sourceName, processedData, x2Days, x3D
     var datesMap = entry[1];
     empIndex++;
 
-    // Header NV - Premium
+    // Header NV - Premium (liên kết động với tên nhân viên ở dòng đầu tiên)
     allValues.push([
-      '👤 NHÂN VIÊN ' + empIndex + '/' + timesheetSize + ': ' + empName.toUpperCase(),
+      '=IF(A' + (currentRow + 3) + '<>""; "NHÂN VIÊN ' + empIndex + '/' + timesheetSize + ': " & UPPER(A' + (currentRow + 3) + '); "NHÂN VIÊN ' + empIndex + '/' + timesheetSize + ': ' + empName.toUpperCase() + '")',
       '', '', '', '', '', '', '', '', '', ''
     ]);
     styleMeta.push({ r: currentRow, c: 0, type: 'empHeader' });
@@ -280,12 +289,22 @@ function generateAndWriteSummarySheet(ss, sourceName, processedData, x2Days, x3D
       var sheetRow = currentRow + 1; // Sheet is 1-indexed
       var finalRow = item.values.slice(); // Clone array
 
-      // Inject Dynamic Formulas
-      // Giờ Tăng Ca (Col I - index 8)
-      finalRow[8] = '=IF(AND(C' + sheetRow + '="";D' + sheetRow + '="");"-";IF((OR(C' + sheetRow + '=D' + sheetRow + ';C' + sheetRow + '="";D' + sheetRow + '=""));"KIỂM TRA";IF((D' + sheetRow + '-C' + sheetRow + ')*24*K' + sheetRow + '>0;((D' + sheetRow + '-C' + sheetRow + ')*24*K' + sheetRow + ');(((D' + sheetRow + '-C' + sheetRow + ')*24*K' + sheetRow + ')+24))))';
+      // Dòng tên đầu tiên giữ tên nhân viên gốc; các dòng tiếp theo link theo ô đầu tiên
+      if (ri > 0) {
+        finalRow[0] = '=$A$' + (startDataRow + 1);
+      }
 
-      // Giờ Theo Ca (Col J - index 9)
-      finalRow[9] = '=IF(AND(E' + sheetRow + '="";F' + sheetRow + '="");"OFF";IF((OR(E' + sheetRow + '=F' + sheetRow + ';E' + sheetRow + '="";F' + sheetRow + '=""));"KIỂM TRA";IF(((H' + sheetRow + '-G' + sheetRow + ')+(F' + sheetRow + '-E' + sheetRow + '))*24*K' + sheetRow + '>0;(((H' + sheetRow + '-G' + sheetRow + ')+(F' + sheetRow + '-E' + sheetRow + '))*24*K' + sheetRow + ');(((H' + sheetRow + '-G' + sheetRow + ')+(F' + sheetRow + '-E' + sheetRow + '))*24*K' + sheetRow + ')+24)))';
+      // Inject Dynamic Formulas
+      // Giờ Tăng Ca (Col I - index 8): Sửa lỗi âm giờ & nhân đúng hệ số cho ca đêm
+      finalRow[8] = '=IF(AND(C' + sheetRow + '="";D' + sheetRow + '="");"-";IF(OR(C' + sheetRow + '=D' + sheetRow + ';C' + sheetRow + '="";D' + sheetRow + '="");"KIỂM TRA";(IF(D' + sheetRow + '<C' + sheetRow + ';D' + sheetRow + '-C' + sheetRow + '+1;D' + sheetRow + '-C' + sheetRow + '))*24*K' + sheetRow + '))';
+
+      // Giờ Theo Ca (Col J - index 9): Sửa lỗi ca đêm qua 00:00 và nhân đúng hệ số x2/x3 (khắc phục lỗi -9,07)
+      finalRow[9] = '=IF(AND(E' + sheetRow + '="";F' + sheetRow + '="";G' + sheetRow + '="";H' + sheetRow + '="");"OFF";IF(OR(AND(E' + sheetRow + '<>"";F' + sheetRow + '="");AND(E' + sheetRow + '="";F' + sheetRow + '<>"");AND(E' + sheetRow + '<>"";E' + sheetRow + '=F' + sheetRow + ');AND(G' + sheetRow + '<>"";H' + sheetRow + '="");AND(G' + sheetRow + '="";H' + sheetRow + '<>"");AND(G' + sheetRow + '<>"";G' + sheetRow + '=H' + sheetRow + '));"KIỂM TRA";(IF(AND(E' + sheetRow + '<>"";F' + sheetRow + '<>"");IF(F' + sheetRow + '<E' + sheetRow + ';F' + sheetRow + '-E' + sheetRow + '+1;F' + sheetRow + '-E' + sheetRow + ');0)+IF(AND(G' + sheetRow + '<>"";H' + sheetRow + '<>"");IF(H' + sheetRow + '<G' + sheetRow + ';H' + sheetRow + '-G' + sheetRow + '+1;H' + sheetRow + '-G' + sheetRow + ');0))*24*K' + sheetRow + '))';
+
+      // Hệ Số (Col K - index 10): Tra cứu linh hoạt theo bảng M:O nếu có, dự phòng multiplier
+      if (lookupData.length > 1) {
+        finalRow[10] = '=IFERROR(VLOOKUP(B' + sheetRow + ';$M$2:$O$' + lookupData.length + ';3;FALSE);' + item.values[10] + ')';
+      }
 
       allValues.push(finalRow);
 
@@ -301,22 +320,23 @@ function generateAndWriteSummarySheet(ss, sourceName, processedData, x2Days, x3D
     // Integrated Summary
     var sumStartRow = startDataRow + 1; // 1-based cho formula (dòng data đầu tiên)
     var sumEndRow = endDataRow + 1;     // 1-based cho formula (dòng data cuối cùng)
+    var sumTargetRef = '$A$' + sumStartRow;
 
     allValues.push([
-      'THỐNG KÊ CHI TIẾT - ' + empName.toUpperCase(),
+      '=IF(' + sumTargetRef + '<>""; "THỐNG KÊ CHI TIẾT - " & UPPER(' + sumTargetRef + '); "THỐNG KÊ CHI TIẾT - ' + empName.toUpperCase() + '")',
       '', '', '', '', '', '', '', '', '', ''
     ]);
     styleMeta.push({ r: currentRow, c: 0, type: 'sumHeader' });
     currentRow++;
 
-    // Summary Content Rows
+    // Summary Content Rows (Liên kết động theo ô tên nhân viên $A$sumStartRow)
     var summaryData = [
-      ['Số ngày làm trong tháng:', '=COUNTIFS(A' + sumStartRow + ':A' + sumEndRow + ';"' + empName + '";J' + sumStartRow + ':J' + sumEndRow + ';">3")'],
-      ['Số ngày vào ca 14:30-15:15:', '=IFERROR(SUMPRODUCT((A' + sumStartRow + ':A' + sumEndRow + '="' + empName + '")*(E' + sumStartRow + ':E' + sumEndRow + '<>"")*(E' + sumStartRow + ':E' + sumEndRow + '>=TIME(14;30;0))*(E' + sumStartRow + ':E' + sumEndRow + '<=TIME(15;15;0)));0)'],
-      ['Tổng giờ tăng ca (có hệ số):', '=SUMIFS(I' + sumStartRow + ':I' + sumEndRow + ';A' + sumStartRow + ':A' + sumEndRow + ';"' + empName + '";I' + sumStartRow + ':I' + sumEndRow + ';">0")'],
-      ['Tổng giờ theo ca (có hệ số):', '=SUMIFS(J' + sumStartRow + ':J' + sumEndRow + ';A' + sumStartRow + ':A' + sumEndRow + ';"' + empName + '";J' + sumStartRow + ':J' + sumEndRow + ';">0")'],
-      ['Đánh giá CCNV1 (≥26 ngày):', '=IF(COUNTIFS(A' + sumStartRow + ':A' + sumEndRow + ';"' + empName + '";J' + sumStartRow + ':J' + sumEndRow + ';">3")>=26;"✅ Đạt CCNV1";"❌ Chưa đạt CCNV1")'],
-      ['Đánh giá CCNV2 (≥15 buổi ca 15h):', '=IF(IFERROR(SUMPRODUCT((A' + sumStartRow + ':A' + sumEndRow + '="' + empName + '")*(E' + sumStartRow + ':E' + sumEndRow + '<>"")*(E' + sumStartRow + ':E' + sumEndRow + '>=TIME(14;30;0))*(E' + sumStartRow + ':E' + sumEndRow + '<=TIME(15;15;0)));0)>=15;"✅ Đạt CCNV2";"❌ Chưa đạt CCNV2")']
+      ['Số ngày làm trong tháng:', '=COUNTIFS(A' + sumStartRow + ':A' + sumEndRow + ';' + sumTargetRef + ';J' + sumStartRow + ':J' + sumEndRow + '; ">3")'],
+      ['Số ngày vào ca 14:30-15:15:', '=IFERROR(SUMPRODUCT((A' + sumStartRow + ':A' + sumEndRow + '=' + sumTargetRef + ')*(E' + sumStartRow + ':E' + sumEndRow + '<>"")*(E' + sumStartRow + ':E' + sumEndRow + '>=TIME(14;30;0))*(E' + sumStartRow + ':E' + sumEndRow + '<=TIME(15;15;0)));0)'],
+      ['Tổng giờ tăng ca (có hệ số):', '=SUMIFS(I' + sumStartRow + ':I' + sumEndRow + ';A' + sumStartRow + ':A' + sumEndRow + ';' + sumTargetRef + ';I' + sumStartRow + ':I' + sumEndRow + '; ">0")'],
+      ['Tổng giờ theo ca (có hệ số):', '=SUMIFS(J' + sumStartRow + ':J' + sumEndRow + ';A' + sumStartRow + ':A' + sumEndRow + ';' + sumTargetRef + ';J' + sumStartRow + ':J' + sumEndRow + '; ">0")'],
+      ['Đánh giá CCNV1 (≥26 ngày):', '=IF(' + sumTargetRef + '=""; "' + empName.replace(/"/g, '""') + '"; IF(COUNTIFS(A' + sumStartRow + ':A' + sumEndRow + ';' + sumTargetRef + ';J' + sumStartRow + ':J' + sumEndRow + '; ">3")>=26; "✅ Đạt CCNV1"; "❌ Chưa đạt CCNV1"))'],
+      ['Đánh giá CCNV2 (≥15 buổi ca 15h):', '=IF(' + sumTargetRef + '=""; "' + empName.replace(/"/g, '""') + '"; IF(IFERROR(SUMPRODUCT((A' + sumStartRow + ':A' + sumEndRow + '=' + sumTargetRef + ')*(E' + sumStartRow + ':E' + sumEndRow + '<>"")*(E' + sumStartRow + ':E' + sumEndRow + '>=TIME(14;30;0))*(E' + sumStartRow + ':E' + sumEndRow + '<=TIME(15;15;0))); 0)>=15; "✅ Đạt CCNV2"; "❌ Chưa đạt CCNV2"))']
     ];
 
     for (var si = 0; si < summaryData.length; si++) {
@@ -354,10 +374,7 @@ function generateAndWriteSummarySheet(ss, sourceName, processedData, x2Days, x3D
   styleMeta.push({ r: currentRow, c: 0, type: 'footer' });
   currentRow++;
 
-  // 3. Lookup Table (Góc phải)
-  var lookupData = [['Ngày', 'Loại', 'Hệ Số']];
-  x2Days.forEach(function(d) { lookupData.push([d, 'x2', 2]); });
-  x3Days.forEach(function(d) { lookupData.push([d, 'x3', 3]); });
+  // 3. Lookup Table (Góc phải) - dữ liệu lookupData đã được khởi tạo ở đầu hàm
 
   // ---- THỰC HIỆN GHI (EXECUTION PHASE) ----
 
@@ -502,22 +519,27 @@ function generateAndWriteSummarySheet(ss, sourceName, processedData, x2Days, x3D
 
     // 5. Borders & Merges
     try {
-      // Merge headers
+      // Merge headers & dividers
       for (var hm = 0; hm < styleMeta.length; hm++) {
         var hMeta = styleMeta[hm];
-        if (hMeta.type === 'brandHeader' || hMeta.type === 'reportHeader' || hMeta.type === 'reportMeta' || hMeta.type === 'empHeader' || hMeta.type === 'sumHeader' || hMeta.type === 'footerLine' || hMeta.type === 'footer') {
+        if (hMeta.type === 'brandHeader' || hMeta.type === 'reportHeader' || hMeta.type === 'reportMeta' || hMeta.type === 'empHeader' || hMeta.type === 'sumHeader' || hMeta.type === 'footerLine' || hMeta.type === 'footer' || hMeta.type === 'sep') {
           targetSheet.getRange(hMeta.r + 1, 1, 1, 11).merge();
+        }
+        if (hMeta.type === 'sep') {
+          targetSheet.getRange(hMeta.r + 1, 1, 1, 11).setBorder(false, false, false, false, false, false);
+          // Hai dòng trống ngay sau dòng sep cũng đảm bảo không bị dính border
+          targetSheet.getRange(hMeta.r + 2, 1, 2, 11).setBorder(false, false, false, false, false, false);
         }
       }
 
-      // Borders cho data blocks
+      // Borders cho data blocks (Chuẩn xác từ colHeader đến hết dòng Đánh giá CCNV2)
       for (var bm = 0; bm < styleMeta.length; bm++) {
         var bMeta = styleMeta[bm];
         if (bMeta.type === 'dataTableBody') {
           var bStartR = bMeta.r; // col header row (0-indexed) → sheet row = bMeta.r (vì col header row là bMeta.r - 1 + 1)
           var bDataRows = (bMeta.rEnd - bMeta.r) + 1;
-          var bTotalRows = bDataRows + 2 + 6; // data + colHeader(đã tính) + sumHeader + 6 sum rows
-          targetSheet.getRange(bStartR, 1, bTotalRows + 1, 11)
+          var bTotalRows = bDataRows + 2 + 6; // data + colHeader(1) + sumHeader(1) + 6 sum rows = bDataRows + 8
+          targetSheet.getRange(bStartR, 1, bTotalRows, 11)
             .setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID_THICK);
         }
       }
@@ -570,6 +592,1211 @@ function generateAndWriteSummarySheet(ss, sourceName, processedData, x2Days, x3D
       targetSheet.hideColumns(13, 3);
     }
   }
+}
+
+// =====================================================================================
+// NÂNG CẤP: THÊM BẢNG TỔNG HỢP & SỬA CÔNG THỨC TOÀN DIỆN
+// =====================================================================================
+
+/**
+ * Thêm một hoặc nhiều bảng tổng hợp nhân viên mới vào một sheet tổng hợp bất kỳ.
+ * Đáp ứng đầy đủ quy tắc King's Grill:
+ * - Để trống ô tên đầu tiên (dưới "Họ và Tên") để nhập tên nhân viên mới.
+ * - Các dòng ngày còn lại tự động link theo tên nhập này: =$A$firstDataRow
+ * - Tiêu đề nhân viên và Thống kê chi tiết tự động hiển thị tên theo ô này.
+ * - Các công thức thống kê (Số ngày làm, ca 15h, tăng ca, theo ca, CCNV1, CCNV2) tự động tính theo tên này.
+ * - Tự động tính đúng hệ số x2/x3 cho ca đêm và các ngày lễ (không bị âm giờ).
+ * - Giữ nguyên layout, border, style, và vị trí Footer cuối báo cáo.
+ *
+ * @param {string} sheetName - Tên sheet cần thêm bảng (nếu rỗng sẽ lấy sheet hiện tại)
+ * @param {number} numTables - Số lượng bảng nhân viên muốn thêm (mặc định 1)
+ * @param {number} customMonth - Tháng tùy chọn (1-12) nếu sheet chưa có bảng mẫu
+ * @param {number} customYear - Năm tùy chọn nếu sheet chưa có bảng mẫu
+ * @returns {object} { success: boolean, message: string, addedCount: number }
+ */
+function addNewSummaryTables(sheetName, numTables, customMonth, customYear, optNames) {
+  try {
+    var ss = getSS();
+    var sheet = sheetName ? ss.getSheetByName(sheetName) : ss.getActiveSheet();
+    if (!sheet) {
+      throw new Error('Không tìm thấy sheet: ' + (sheetName || '(sheet hiện tại)'));
+    }
+
+    if (Array.isArray(customMonth)) {
+      optNames = customMonth;
+      customMonth = undefined;
+    } else if (Array.isArray(customYear)) {
+      optNames = customYear;
+      customYear = undefined;
+    }
+    optNames = (typeof optNames !== 'undefined' && Array.isArray(optNames)) ? optNames : [];
+
+    numTables = Math.max(1, parseInt(numTables, 10) || 1);
+    var lastRow = sheet.getLastRow();
+    var existingEmpHeaders = [];
+    var footerRowIndex = 0;
+    var templateDates = [];
+    var detectedMonth = 0;
+    var detectedYear = 0;
+
+    // 1. Quét tìm các bảng nhân viên đã có và footer
+    var colAValues = [];
+    if (lastRow > 0) {
+      colAValues = sheet.getRange(1, 1, lastRow, 1).getValues();
+      for (var r = 0; r < colAValues.length; r++) {
+        var val = String(colAValues[r][0] || '').trim();
+        if (val.indexOf('NHÂN VIÊN') >= 0 && (val.indexOf('👤') >= 0 || val.indexOf('NHÂN VIÊN ') >= 0)) {
+          existingEmpHeaders.push({ row: r + 1, text: val });
+        }
+        if (val.indexOf('KẾT THÚC BÁO CÁO') >= 0 || val.indexOf('Hệ thống chấm công tự động') >= 0) {
+          if (!footerRowIndex) footerRowIndex = r + 1;
+        }
+      }
+    }
+
+    var maxEmpIndex = 0;
+    for (var eh = 0; eh < existingEmpHeaders.length; eh++) {
+      var mIdx = existingEmpHeaders[eh].text.match(/NHÂN VIÊN\s+(\d+)/i);
+      if (mIdx) maxEmpIndex = Math.max(maxEmpIndex, parseInt(mIdx[1], 10));
+    }
+    var existingEmpCount = Math.max(existingEmpHeaders.length, maxEmpIndex);
+
+    // 2. Lấy danh sách ngày mẫu (templateDates) bằng Sheets API V4
+    if (existingEmpCount > 0) {
+      var firstEmpHeaderRow = existingEmpHeaders[0].row;
+      var firstDataRowInFirstEmp = firstEmpHeaderRow + 2;
+      var dateBlockRows = Math.min(35, lastRow - firstDataRowInFirstEmp + 1);
+      var safeSheetName = "'" + sheet.getName().replace(/'/g, "''") + "'";
+
+      var blockVals = sheetsApiFastRead(ss.getId(), safeSheetName + '!A' + firstDataRowInFirstEmp + ':K' + (firstDataRowInFirstEmp + dateBlockRows - 1));
+      if (!blockVals || blockVals.length === 0) {
+        blockVals = sheet.getRange(firstDataRowInFirstEmp, 1, dateBlockRows, 11).getValues();
+      }
+      var bBackgrounds = sheet.getRange(firstDataRowInFirstEmp, 2, dateBlockRows, 1).getBackgrounds();
+
+      for (var idx = 0; idx < blockVals.length; idx++) {
+        var rowVal = blockVals[idx];
+        var cellA = String(rowVal[0] || '').trim();
+        if (cellA.indexOf('THỐNG KÊ CHI TIẾT') >= 0 || cellA.indexOf('NHÂN VIÊN') >= 0) {
+          break;
+        }
+        var cellB = rowVal[1];
+        if (!cellB) break;
+
+        var dateStr = '';
+        var dateObj = null;
+        if (cellB instanceof Date) {
+          dateStr = Utilities.formatDate(cellB, Session.getScriptTimeZone(), 'dd/MM/yyyy');
+          dateObj = cellB;
+        } else {
+          dateStr = String(cellB).trim();
+          dateObj = parseDDMMYYYY(dateStr);
+        }
+
+        if (!dateStr || dateStr.length < 5) break;
+
+        var cellK = rowVal[10];
+        var mult = Number(cellK) || 1;
+
+        var isW = false;
+        if (dateObj && !isNaN(dateObj.getTime())) {
+          var dow = dateObj.getDay();
+          isW = (dow === 0 || dow === 5 || dow === 6);
+          if (!detectedYear) {
+            detectedYear = dateObj.getFullYear();
+            detectedMonth = dateObj.getMonth() + 1;
+          }
+        }
+
+        var bgB = (bBackgrounds[idx] && bBackgrounds[idx][0]) ? bBackgrounds[idx][0] : '';
+        var isSpecial = (bgB === '#fef08a' || mult > 1);
+
+        templateDates.push({
+          dateStr: dateStr,
+          isWeekend: isW,
+          multiplier: mult,
+          isSpecial: isSpecial
+        });
+      }
+    }
+
+    // Nếu sheet chưa có bảng mẫu (sheet mới hoặc trống)
+    if (templateDates.length === 0) {
+      var currentYear = Number(customYear) || new Date().getFullYear();
+      var currentMonth = Number(customMonth) || (new Date().getMonth() + 1);
+
+      var nameMatch = sheet.getName().match(/(\d{1,2})[\/\-_](\d{4})/);
+      if (nameMatch) {
+        currentMonth = parseInt(nameMatch[1], 10);
+        currentYear = parseInt(nameMatch[2], 10);
+      } else {
+        var tMatch = sheet.getName().match(/T(\d{1,2})/i);
+        if (tMatch) currentMonth = parseInt(tMatch[1], 10);
+      }
+
+      detectedMonth = currentMonth;
+      detectedYear = currentYear;
+
+      var daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+      var storedTags = getStoredSpecialDaysTags();
+      var x2Days = parseSpecialDaysForCurrentYear(storedTags.x2Days.join('\n'), currentYear);
+      var x3Days = parseSpecialDaysForCurrentYear(storedTags.x3Days.join('\n'), currentYear);
+
+      for (var d = 1; d <= daysInMonth; d++) {
+        var dObj = new Date(Date.UTC(currentYear, currentMonth - 1, d));
+        var dStr = formatDateUTC(dObj);
+        var shortDate = dStr.substring(0, 5);
+        var isX2 = false;
+        var isX3 = false;
+        x2Days.forEach(function(x) { if (x === dStr || x.substring(0, 5) === shortDate) isX2 = true; });
+        x3Days.forEach(function(x) { if (x === dStr || x.substring(0, 5) === shortDate) isX3 = true; });
+
+        var mult = isX3 ? 3 : (isX2 ? 2 : 1);
+        var dow = dObj.getUTCDay();
+        var isW = (dow === 0 || dow === 5 || dow === 6);
+
+        templateDates.push({
+          dateStr: dStr,
+          isWeekend: isW,
+          multiplier: mult,
+          isSpecial: (mult > 1)
+        });
+      }
+
+      if (lastRow === 0) {
+        var generatedTime = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss');
+        var initHeaders = [
+          ["KING'S GRILL — HỆ THỐNG CHẤM CÔNG NHÂN SỰ", '', '', '', '', '', '', '', '', '', ''],
+          ['📊 BÁO CÁO TỔNG HỢP CHẤM CÔNG — THÁNG ' + currentMonth + '/' + currentYear, '', '', '', '', '', '', '', '', '', ''],
+          ['📋 Nguồn: ' + sheet.getName() + '  |  📆 Kỳ: Tháng ' + currentMonth + '/' + currentYear + '  |  🕐 Tạo lúc: ' + generatedTime + '  |  👥 Nhân viên: ' + numTables, '', '', '', '', '', '', '', '', '', ''],
+          createEmptyRow()
+        ];
+        sheet.getRange(1, 1, initHeaders.length, 11).setValues(initHeaders);
+        sheet.getRange(1, 1, 1, 11).merge().setBackground('#0f172a').setFontColor('#fbbf24').setFontWeight('bold').setHorizontalAlignment('center');
+        sheet.getRange(2, 1, 1, 11).merge().setBackground('#1e3a5f').setFontColor('#ffffff').setFontWeight('bold').setHorizontalAlignment('center');
+        sheet.getRange(3, 1, 1, 11).merge().setBackground('#334155').setFontColor('#e2e8f0').setFontWeight('normal').setHorizontalAlignment('center');
+        lastRow = 4;
+      }
+    }
+
+    var numDays = templateDates.length;
+    if (numDays === 0) throw new Error('Không thể xác định số ngày cho bảng tổng hợp.');
+
+    // 3. Xác định vị trí kết thúc của nhân viên cuối cùng hiện tại
+    var lastEmpEndRow = 0;
+    if (existingEmpHeaders.length > 0) {
+      var lastEmpHeaderRow = existingEmpHeaders[existingEmpHeaders.length - 1].row;
+      for (var sr = lastEmpHeaderRow + 1; sr <= lastRow; sr++) {
+        var rValA = String(colAValues[sr - 1][0] || '').trim();
+        if (rValA.indexOf('THỐNG KÊ CHI TIẾT') >= 0) {
+          lastEmpEndRow = sr + 6; // Dòng Đánh giá CCNV2
+          break;
+        }
+        if (rValA.indexOf('KẾT THÚC BÁO CÁO') >= 0 || rValA.indexOf('Hệ thống chấm công tự động') >= 0) {
+          break;
+        }
+      }
+      if (!lastEmpEndRow) {
+        lastEmpEndRow = (footerRowIndex > 0) ? (footerRowIndex - 1) : lastRow;
+      }
+    }
+
+    // 4. Xác định vị trí ghi bắt đầu:
+    // Nếu sheet đã có bảng nhân viên, bắt đầu ghi ngay sau dòng cuối của nhân viên cuối cùng (lastEmpEndRow + 1).
+    // Tại vị trí này sẽ ghi đúng 3 dòng ngăn cách (1 sep + 2 empty) rồi mới đến bảng nhân viên mới!
+    // Nhờ đó bảng mới KHÔNG BAO GIỜ BỊ DÍNH với bảng nhân viên cuối đang có.
+    var startWriteRow = (existingEmpCount > 0) ? (lastEmpEndRow + 1) : Math.max(sheet.getLastRow() + 1, 5);
+
+    // 5. Chuẩn bị mảng dữ liệu batch và styleMeta
+    var newValues = [];
+    var newStyleMeta = [];
+    var currentBatchRow = 0;
+    var firstCreatedDataRowGlobal = 0;
+    var createdFirstDataRows = [];
+
+    // Nếu đã có nhân viên trên sheet, chèn đúng 3 dòng ngăn cách chuẩn theo cấu hình tạo bảng tổng hợp
+    if (existingEmpCount > 0) {
+      newValues.push(['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', '', '', '', '', '', '', '', '', '', '']);
+      newStyleMeta.push({ r: currentBatchRow, type: 'sep' });
+      currentBatchRow++;
+
+      newValues.push(createEmptyRow());
+      currentBatchRow++;
+
+      newValues.push(createEmptyRow());
+      currentBatchRow++;
+    }
+
+    for (var t = 0; t < numTables; t++) {
+      var empIndex = existingEmpCount + t + 1;
+      var empHeaderSheetRow = startWriteRow + currentBatchRow;
+      var colHeaderSheetRow = empHeaderSheetRow + 1;
+      var firstDataSheetRow = colHeaderSheetRow + 1;
+      var lastDataSheetRow = firstDataSheetRow + numDays - 1;
+      var sumHeaderSheetRow = lastDataSheetRow + 1;
+      var sumDataStartSheetRow = sumHeaderSheetRow + 1;
+      var sumDataEndSheetRow = sumDataStartSheetRow + 5;
+
+      if (!firstCreatedDataRowGlobal) {
+        firstCreatedDataRowGlobal = firstDataSheetRow;
+      }
+      createdFirstDataRows.push(firstDataSheetRow);
+
+      var empNameForNewTable = (optNames && optNames[t] && String(optNames[t]).trim() && String(optNames[t]).trim() !== '(CHƯA NHẬP TÊN)') ? String(optNames[t]).trim() : '';
+      var nameInFormula = empNameForNewTable ? empNameForNewTable.replace(/"/g, '""') : 'Chưa nhập tên';
+
+      // 5.1 Header NV (Công thức động theo tên ô firstDataSheetRow - bỏ icon 👤)
+      newValues.push([
+        '=IF(A' + firstDataSheetRow + '<>""; "NHÂN VIÊN ' + empIndex + ': " & UPPER(A' + firstDataSheetRow + '); "NHÂN VIÊN ' + empIndex + ': (CHƯA NHẬP TÊN)")',
+        '', '', '', '', '', '', '', '', '', ''
+      ]);
+      newStyleMeta.push({ r: currentBatchRow, type: 'empHeader' });
+      currentBatchRow++;
+
+      // 5.2 Column Header
+      newValues.push(['Họ và Tên', 'Ngày', 'Vào #', 'Ra #', 'Vào 1', 'Ra 1', 'Vào 2', 'Ra 2', 'Giờ Tăng Ca', 'Giờ Theo Ca', 'Hệ Số']);
+      newStyleMeta.push({ r: currentBatchRow, type: 'colHeader' });
+      currentBatchRow++;
+
+      // 5.3 Data Rows
+      var batchDataStart = currentBatchRow;
+      for (var d = 0; d < numDays; d++) {
+        var tDate = templateDates[d];
+        var sheetRow = firstDataSheetRow + d;
+
+        // Cột A: Dòng đầu tiên nhận tên (nếu có) hoặc để trống; các dòng sau link động theo dòng đầu tiên
+        var nameCell = (d === 0) ? empNameForNewTable : ('=IF($A$' + firstDataSheetRow + '<>""; $A$' + firstDataSheetRow + '; "")');
+
+        // Cột I: Giờ Tăng Ca (sửa lỗi âm giờ & nhân đúng hệ số cho ca đêm)
+        var formulaI = '=IF(AND(C' + sheetRow + '="";D' + sheetRow + '="");"-";IF(OR(C' + sheetRow + '=D' + sheetRow + ';C' + sheetRow + '="";D' + sheetRow + '="");"KIỂM TRA";(IF(D' + sheetRow + '<C' + sheetRow + ';D' + sheetRow + '-C' + sheetRow + '+1;D' + sheetRow + '-C' + sheetRow + '))*24*K' + sheetRow + '))';
+
+        // Cột J: Giờ Theo Ca (sửa lỗi ca đêm qua 00:00 & tự động nhân hệ số x2/x3)
+        var formulaJ = '=IF(AND(E' + sheetRow + '="";F' + sheetRow + '="";G' + sheetRow + '="";H' + sheetRow + '="");"OFF";IF(OR(AND(E' + sheetRow + '<>"";F' + sheetRow + '="");AND(E' + sheetRow + '="";F' + sheetRow + '<>"");AND(E' + sheetRow + '<>"";E' + sheetRow + '=F' + sheetRow + ');AND(G' + sheetRow + '<>"";H' + sheetRow + '="");AND(G' + sheetRow + '="";H' + sheetRow + '<>"");AND(G' + sheetRow + '<>"";G' + sheetRow + '=H' + sheetRow + '));"KIỂM TRA";(IF(AND(E' + sheetRow + '<>"";F' + sheetRow + '<>"");IF(F' + sheetRow + '<E' + sheetRow + ';F' + sheetRow + '-E' + sheetRow + '+1;F' + sheetRow + '-E' + sheetRow + ');0)+IF(AND(G' + sheetRow + '<>"";H' + sheetRow + '<>"");IF(H' + sheetRow + '<G' + sheetRow + ';H' + sheetRow + '-G' + sheetRow + '+1;H' + sheetRow + '-G' + sheetRow + ');0))*24*K' + sheetRow + '))';
+
+        // Cột K: Hệ số
+        var formulaK = '=IFERROR(VLOOKUP(B' + sheetRow + ';$M$2:$O$50;3;FALSE);' + tDate.multiplier + ')';
+
+        newValues.push([
+          nameCell,
+          tDate.dateStr,
+          '', '', '', '', '', '',
+          formulaI,
+          formulaJ,
+          formulaK
+        ]);
+
+        if (tDate.isWeekend) newStyleMeta.push({ r: currentBatchRow, c: 1, type: 'weekend' });
+        if (tDate.isSpecial) newStyleMeta.push({ r: currentBatchRow, c: 1, type: 'x2' });
+
+        currentBatchRow++;
+      }
+      var batchDataEnd = currentBatchRow - 1;
+      newStyleMeta.push({ r: batchDataStart, rEnd: batchDataEnd, type: 'dataTableBody' });
+
+      // 5.4 Summary Header
+      newValues.push([
+        '=IF(A' + firstDataSheetRow + '<>""; "THỐNG KÊ CHI TIẾT - " & UPPER(A' + firstDataSheetRow + '); "THỐNG KÊ CHI TIẾT")',
+        '', '', '', '', '', '', '', '', '', ''
+      ]);
+      newStyleMeta.push({ r: currentBatchRow, type: 'sumHeader' });
+      currentBatchRow++;
+
+      // 5.5 Summary 6 Rows (Động theo $A$firstDataSheetRow)
+      var targetRef = '$A$' + firstDataSheetRow;
+
+      var sumRows = [
+        ['Số ngày làm trong tháng:', '=IF(' + targetRef + '=""; 0; COUNTIFS(A' + firstDataSheetRow + ':A' + lastDataSheetRow + '; ' + targetRef + '; J' + firstDataSheetRow + ':J' + lastDataSheetRow + '; ">3"))'],
+        ['Số ngày vào ca 14:30-15:15:', '=IF(' + targetRef + '=""; 0; IFERROR(SUMPRODUCT((A' + firstDataSheetRow + ':A' + lastDataSheetRow + '=' + targetRef + ')*(E' + firstDataSheetRow + ':E' + lastDataSheetRow + '<>"")*(E' + firstDataSheetRow + ':E' + lastDataSheetRow + '>=TIME(14;30;0))*(E' + firstDataSheetRow + ':E' + lastDataSheetRow + '<=TIME(15;15;0))); 0))'],
+        ['Tổng giờ tăng ca (có hệ số):', '=IF(' + targetRef + '=""; 0; SUMIFS(I' + firstDataSheetRow + ':I' + lastDataSheetRow + '; A' + firstDataSheetRow + ':A' + lastDataSheetRow + '; ' + targetRef + '; I' + firstDataSheetRow + ':I' + lastDataSheetRow + '; ">0"))'],
+        ['Tổng giờ theo ca (có hệ số):', '=IF(' + targetRef + '=""; 0; SUMIFS(J' + firstDataSheetRow + ':J' + lastDataSheetRow + '; A' + firstDataSheetRow + ':A' + lastDataSheetRow + '; ' + targetRef + '; J' + firstDataSheetRow + ':J' + lastDataSheetRow + '; ">0"))'],
+        ['Đánh giá CCNV1 (≥26 ngày):', '=IF(' + targetRef + '=""; "' + nameInFormula + '"; IF(COUNTIFS(A' + firstDataSheetRow + ':A' + lastDataSheetRow + '; ' + targetRef + '; J' + firstDataSheetRow + ':J' + lastDataSheetRow + '; ">3")>=26; "✅ Đạt CCNV1"; "❌ Chưa đạt CCNV1"))'],
+        ['Đánh giá CCNV2 (≥15 buổi ca 15h):', '=IF(' + targetRef + '=""; "' + nameInFormula + '"; IF(IFERROR(SUMPRODUCT((A' + firstDataSheetRow + ':A' + lastDataSheetRow + '=' + targetRef + ')*(E' + firstDataSheetRow + ':E' + lastDataSheetRow + '<>"")*(E' + firstDataSheetRow + ':E' + lastDataSheetRow + '>=TIME(14;30;0))*(E' + firstDataSheetRow + ':E' + lastDataSheetRow + '<=TIME(15;15;0))); 0)>=15; "✅ Đạt CCNV2"; "❌ Chưa đạt CCNV2"))']
+      ];
+
+      for (var si = 0; si < sumRows.length; si++) {
+        newValues.push([sumRows[si][0], sumRows[si][1], '', '', '', '', '', '', '', '', '']);
+        newStyleMeta.push({ r: currentBatchRow, c: 0, type: si < 4 ? 'sumValue' : 'sumEval' });
+        currentBatchRow++;
+      }
+
+      // 5.6 Giữa các bảng mới thêm (nếu thêm từ 2 bảng trở lên), chèn đúng 3 dòng ngăn cách
+      if (t < numTables - 1) {
+        newValues.push(['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', '', '', '', '', '', '', '', '', '', '']);
+        newStyleMeta.push({ r: currentBatchRow, type: 'sep' });
+        currentBatchRow++;
+
+        newValues.push(createEmptyRow());
+        currentBatchRow++;
+
+        newValues.push(createEmptyRow());
+        currentBatchRow++;
+      }
+    }
+
+    // 6. Thêm Footer chuẩn ở cuối (1 dòng trống + dòng gạch footerLine + dòng bản quyền)
+    var yearNow = detectedYear || new Date().getFullYear();
+    var timeNow = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss');
+    newValues.push(createEmptyRow());
+    currentBatchRow++;
+    newValues.push(['━━━━━━━━━━━  KẾT THÚC BÁO CÁO  ━━━━━━━━━━━', '', '', '', '', '', '', '', '', '', '']);
+    newStyleMeta.push({ r: currentBatchRow, type: 'footerLine' });
+    currentBatchRow++;
+    newValues.push(["KING'S GRILL © " + yearNow + "  |  Hệ thống chấm công tự động  |  Cập nhật lúc: " + timeNow, '', '', '', '', '', '', '', '', '', '']);
+    newStyleMeta.push({ r: currentBatchRow, type: 'footer' });
+    currentBatchRow++;
+
+    // 7. Ghi dữ liệu vào Sheet (Dọn sạch các dòng thừa phía sau nếu có)
+    var totalNewRows = newValues.length;
+    var writeEndRow = startWriteRow + totalNewRows - 1;
+    var oldLastRow = sheet.getLastRow();
+    if (oldLastRow > writeEndRow) {
+      sheet.getRange(writeEndRow + 1, 1, oldLastRow - writeEndRow, 11).clear();
+    }
+
+    var targetRange = sheet.getRange(startWriteRow, 1, totalNewRows, 11);
+    var writeSuccess = sheetsApiWrite(
+      ss.getId(),
+      "'" + sheet.getName().replace(/'/g, "''") + "'!A" + startWriteRow + ":K" + writeEndRow,
+      newValues,
+      'USER_ENTERED'
+    );
+    if (!writeSuccess) {
+      targetRange.setValues(newValues);
+    }
+
+    // 8. Định dạng Style hàng loạt (Batch Styling)
+    var backgrounds = [];
+    var fontWeights = [];
+    var fontColors = [];
+    var aligns = [];
+    var fonts = [];
+
+    for (var br = 0; br < totalNewRows; br++) {
+      backgrounds[br] = [];
+      fontWeights[br] = [];
+      fontColors[br] = [];
+      aligns[br] = [];
+      fonts[br] = [];
+      for (var bc = 0; bc < 11; bc++) {
+        backgrounds[br][bc] = '#ffffff';
+        fontWeights[br][bc] = 'normal';
+        fontColors[br][bc] = '#000000';
+        aligns[br][bc] = 'center';
+        fonts[br][bc] = 'Roboto Slab';
+      }
+    }
+
+    for (var sm = 0; sm < newStyleMeta.length; sm++) {
+      var meta = newStyleMeta[sm];
+      var mr = meta.r;
+      if (mr >= totalNewRows) continue;
+
+      switch (meta.type) {
+        case 'empHeader':
+          fillRowStyle(mr, 0, 11, backgrounds, '#065f46', fontColors, '#d1fae5', fontWeights, 'bold');
+          break;
+        case 'colHeader':
+          fillRowStyle(mr, 0, 11, backgrounds, '#1e40af', fontColors, '#ffffff', fontWeights, 'bold');
+          break;
+        case 'dataTableBody':
+          for (var di = meta.r; di <= meta.rEnd; di++) {
+            if (di >= totalNewRows) break;
+            var bg = (di % 2 === 0) ? '#f1f5f9' : '#ffffff';
+            for (var dj = 0; dj < 11; dj++) backgrounds[di][dj] = bg;
+          }
+          break;
+        case 'weekend':
+          fontColors[mr][1] = '#dc2626';
+          fontWeights[mr][1] = 'bold';
+          break;
+        case 'x2':
+        case 'x3':
+          backgrounds[mr][1] = '#fef08a';
+          fontWeights[mr][1] = 'bold';
+          break;
+        case 'sumHeader':
+          fillRowStyle(mr, 0, 11, backgrounds, '#7f1d1d', fontColors, '#fef2f2', fontWeights, 'bold');
+          break;
+        case 'sumValue':
+          backgrounds[mr][0] = '#eff6ff';
+          fontWeights[mr][0] = 'bold';
+          aligns[mr][0] = 'left';
+          backgrounds[mr][1] = '#f0fdf4';
+          fontWeights[mr][1] = 'bold';
+          break;
+        case 'sumEval':
+          backgrounds[mr][0] = '#eff6ff';
+          fontWeights[mr][0] = 'bold';
+          aligns[mr][0] = 'left';
+          backgrounds[mr][1] = '#fffbeb';
+          fontWeights[mr][1] = 'bold';
+          break;
+        case 'sep':
+          fillRowStyle(mr, 0, 11, backgrounds, '#f8fafc', fontColors, '#cbd5e1', fontWeights, 'normal');
+          aligns[mr][0] = 'center';
+          break;
+        case 'footerLine':
+          fillRowStyle(mr, 0, 11, backgrounds, '#1e293b', fontColors, '#94a3b8', fontWeights, 'bold');
+          break;
+        case 'footer':
+          fillRowStyle(mr, 0, 11, backgrounds, '#0f172a', fontColors, '#64748b', fontWeights, 'normal');
+          break;
+      }
+    }
+
+    targetRange.setFontFamilies(fonts);
+    targetRange.setBackgrounds(backgrounds);
+    targetRange.setFontColors(fontColors);
+    targetRange.setFontWeights(fontWeights);
+    targetRange.setHorizontalAlignments(aligns);
+
+    var vAligns = [];
+    for (var vi = 0; vi < totalNewRows; vi++) {
+      vAligns[vi] = [];
+      for (var vj = 0; vj < 11; vj++) vAligns[vi][vj] = 'middle';
+    }
+    targetRange.setVerticalAlignments(vAligns);
+    targetRange.setWrap(true);
+
+    // Merges & Borders
+    try {
+      for (var hm = 0; hm < newStyleMeta.length; hm++) {
+        var hMeta = newStyleMeta[hm];
+        if (hMeta.type === 'empHeader' || hMeta.type === 'sumHeader' || hMeta.type === 'footerLine' || hMeta.type === 'footer' || hMeta.type === 'sep') {
+          sheet.getRange(startWriteRow + hMeta.r, 1, 1, 11).merge();
+        }
+        if (hMeta.type === 'sep') {
+          sheet.getRange(startWriteRow + hMeta.r, 1, 1, 11).setBorder(false, false, false, false, false, false);
+          // Hai dòng trống ngay sau dòng sep cũng đảm bảo không bị dính border cũ
+          sheet.getRange(startWriteRow + hMeta.r + 1, 1, 2, 11).setBorder(false, false, false, false, false, false);
+        }
+      }
+
+      for (var bm = 0; bm < newStyleMeta.length; bm++) {
+        var bMeta = newStyleMeta[bm];
+        if (bMeta.type === 'dataTableBody') {
+          var bStartR = startWriteRow + bMeta.r - 1;
+          var bTotalBlockRows = (bMeta.rEnd - bMeta.r) + 1 + 1 + 1 + 6;
+          sheet.getRange(bStartR, 1, bTotalBlockRows, 11)
+            .setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID_THICK);
+        }
+      }
+    } catch(e) {
+      Logger.log('Lỗi format borders/merges: ' + e.message);
+    }
+
+    // Number format cho cột I, J
+    sheet.getRange(startWriteRow, 9, totalNewRows, 2).setNumberFormat('0.00');
+
+    // Data Validation cho các ô nhập tên nhân viên (ô đầu tiên của mỗi bảng mới)
+    try {
+      var dataSheet = ss.getSheetByName('DATA');
+      var dvBuilder = SpreadsheetApp.newDataValidation();
+      var hasDv = false;
+      if (dataSheet && dataSheet.getLastRow() >= 3) {
+        dvBuilder.requireValueInRange(dataSheet.getRange('C3:C' + dataSheet.getLastRow()), true)
+          .setAllowInvalid(true);
+        hasDv = true;
+      }
+
+      if (hasDv && createdFirstDataRows.length > 0) {
+        var dvRule = dvBuilder.build();
+        for (var vi = 0; vi < createdFirstDataRows.length; vi++) {
+          sheet.getRange(createdFirstDataRows[vi], 1).setDataValidation(dvRule);
+        }
+      }
+    } catch(e) {
+      Logger.log('Lỗi set DataValidation: ' + e.message);
+    }
+
+    // 9. Cập nhật dòng metadata Row 3 nếu có
+    try {
+      if (lastRow >= 3) {
+        var metaCell = sheet.getRange(3, 1).getValue();
+        if (typeof metaCell === 'string' && metaCell.indexOf('👥 Nhân viên:') >= 0) {
+          var newTotalEmployees = existingEmpCount + numTables;
+          var updatedMeta = metaCell.replace(/👥\s*Nhân viên:\s*\d+/g, '👥 Nhân viên: ' + newTotalEmployees);
+          sheet.getRange(3, 1).setValue(updatedMeta);
+        }
+      }
+    } catch(e) {}
+
+    // 10. Focus con trỏ vào ô nhập tên đầu tiên
+    if (firstCreatedDataRowGlobal > 0) {
+      sheet.setActiveRange(sheet.getRange(firstCreatedDataRowGlobal, 1));
+    }
+
+    return {
+      success: true,
+      message: 'Đã thêm thành công ' + numTables + ' bảng tổng hợp mới vào sheet "' + sheet.getName() + '"! Bạn có thể nhập tên nhân viên vào ô ngay dưới "Họ và Tên".',
+      addedCount: numTables,
+      sheetName: sheet.getName(),
+      firstRow: firstCreatedDataRowGlobal
+    };
+
+  } catch(err) {
+    Logger.log('Lỗi addNewSummaryTables: ' + err.message);
+    throw err;
+  }
+}
+
+/**
+ * Chuẩn hóa khoảng cách và bố cục giữa các bảng tổng hợp nhân viên:
+ * - Khắc phục triệt để lỗi bảng nhân viên bị dính vào bảng nhân viên phía trước (gap = 0).
+ * - Khắc phục khoảng cách thừa/thiếu (đảm bảo đúng chuẩn 3 dòng: 1 dòng sep gạch mờ + 2 dòng trống).
+ * - Merge dòng sep gạch mờ trên toàn bộ 11 cột, loại bỏ tình trạng chữ bị rớt dòng thành sọc đen.
+ * - Loại bỏ viền đen bị tràn vào các dòng khoảng cách.
+ * - Chuẩn hóa lại footer cuối trang đúng 1 dòng trống trước footer.
+ */
+function repairSummarySheetLayoutAndSpacing(sheetName) {
+  var ss = getSS();
+  var sheet = sheetName ? ss.getSheetByName(sheetName) : ss.getActiveSheet();
+  if (!sheet) throw new Error('Không tìm thấy sheet: ' + (sheetName || '(sheet hiện hành)'));
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 7) return { success: true, message: 'Sheet không có đủ dữ liệu để chuẩn hóa khoảng cách.' };
+
+  var safeSheetName = "'" + sheet.getName().replace(/'/g, "''") + "'";
+  var colA = sheetsApiFastRead(ss.getId(), safeSheetName + '!A1:A' + lastRow);
+  if (!colA || colA.length === 0) {
+    colA = sheet.getRange(1, 1, lastRow, 1).getValues();
+  }
+  var empBlocks = [];
+  var currentBlock = null;
+
+  for (var r = 0; r < lastRow; r++) {
+    var rowNum = r + 1;
+    var valA = String(colA[r][0] || '').trim();
+
+    if (valA.indexOf('NHÂN VIÊN') >= 0 && (valA.indexOf('👤') >= 0 || valA.indexOf('NHÂN VIÊN ') >= 0)) {
+      if (currentBlock) empBlocks.push(currentBlock);
+      currentBlock = {
+        headerRow: rowNum,
+        sumHeaderRow: 0,
+        ccn2Row: 0
+      };
+    } else if (currentBlock) {
+      if (valA.indexOf('THỐNG KÊ CHI TIẾT') >= 0) {
+        currentBlock.sumHeaderRow = rowNum;
+        currentBlock.ccn2Row = rowNum + 6;
+      }
+    }
+  }
+  if (currentBlock) empBlocks.push(currentBlock);
+
+  if (empBlocks.length === 0) {
+    return { success: true, message: 'Không tìm thấy bảng nhân viên nào trên sheet.' };
+  }
+
+  // Duyệt từ DƯỚI LÊN TRÊN để khi chèn/xóa dòng không làm lệch chỉ số dòng của các block phía trên
+  for (var i = empBlocks.length - 2; i >= 0; i--) {
+    var cur = empBlocks[i];
+    var next = empBlocks[i + 1];
+
+    if (!cur.ccn2Row || !next.headerRow) continue;
+
+    var curEnd = cur.ccn2Row;
+    var nextStart = next.headerRow;
+    var gap = nextStart - curEnd - 1;
+
+    if (gap < 3) {
+      var rowsToInsert = 3 - gap;
+      sheet.insertRowsBefore(nextStart, rowsToInsert);
+      // Cập nhật vị trí các block phía dưới
+      for (var k = i + 1; k < empBlocks.length; k++) {
+        empBlocks[k].headerRow += rowsToInsert;
+        if (empBlocks[k].sumHeaderRow > 0) empBlocks[k].sumHeaderRow += rowsToInsert;
+        if (empBlocks[k].ccn2Row > 0) empBlocks[k].ccn2Row += rowsToInsert;
+      }
+    } else if (gap > 3) {
+      var rowsToDelete = gap - 3;
+      sheet.deleteRows(curEnd + 4, rowsToDelete);
+      for (var k = i + 1; k < empBlocks.length; k++) {
+        empBlocks[k].headerRow -= rowsToDelete;
+        if (empBlocks[k].sumHeaderRow > 0) empBlocks[k].sumHeaderRow -= rowsToDelete;
+        if (empBlocks[k].ccn2Row > 0) empBlocks[k].ccn2Row -= rowsToDelete;
+      }
+    }
+
+    // Format đúng chuẩn 3 dòng ngăn cách giữa 2 block:
+    // Dòng 1: sep (merged A:K, nền #f8fafc, màu #cbd5e1, căn giữa, không viền)
+    var sepRow = curEnd + 1;
+    var sepRange = sheet.getRange(sepRow, 1, 1, 11);
+    try { sepRange.breakApart(); } catch(e) {}
+    sepRange.setBorder(false, false, false, false, false, false);
+    sepRange.setValue('');
+    sheet.getRange(sepRow, 1).setValue('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    sepRange.merge();
+    sepRange.setBackground('#f8fafc');
+    sepRange.setFontColor('#cbd5e1');
+    sepRange.setHorizontalAlignment('center');
+    sepRange.setVerticalAlignment('middle');
+    sepRange.setFontWeight('normal');
+    sepRange.setFontFamily('Roboto Slab');
+    sepRange.setWrap(false);
+
+    // Dòng 2 & 3: Hai dòng trống trắng (#ffffff), không viền, không nội dung
+    var emptyRange = sheet.getRange(curEnd + 2, 1, 2, 11);
+    try { emptyRange.breakApart(); } catch(e) {}
+    emptyRange.setBorder(false, false, false, false, false, false);
+    emptyRange.clearContent();
+    emptyRange.setBackground('#ffffff');
+  }
+
+  // Chuẩn hóa Footer sau nhân viên cuối cùng
+  var lastEmp = empBlocks[empBlocks.length - 1];
+  if (lastEmp && lastEmp.ccn2Row > 0) {
+    var lastEmpEnd = lastEmp.ccn2Row;
+    var curLastRow = sheet.getLastRow();
+
+    // Dòng lastEmpEnd + 1: Dòng trống
+    var bufRange = sheet.getRange(lastEmpEnd + 1, 1, 1, 11);
+    try { bufRange.breakApart(); } catch(e) {}
+    bufRange.setBorder(false, false, false, false, false, false);
+    bufRange.clearContent();
+    bufRange.setBackground('#ffffff');
+
+    // Dòng lastEmpEnd + 2: Dòng gạch FooterLine
+    var footerLineRange = sheet.getRange(lastEmpEnd + 2, 1, 1, 11);
+    try { footerLineRange.breakApart(); } catch(e) {}
+    footerLineRange.setBorder(false, false, false, false, false, false);
+    footerLineRange.setValue('');
+    sheet.getRange(lastEmpEnd + 2, 1).setValue('━━━━━━━━━━━  KẾT THÚC BÁO CÁO  ━━━━━━━━━━━');
+    footerLineRange.merge();
+    footerLineRange.setBackground('#1e293b');
+    footerLineRange.setFontColor('#94a3b8');
+    footerLineRange.setFontWeight('bold');
+    footerLineRange.setHorizontalAlignment('center');
+    footerLineRange.setVerticalAlignment('middle');
+    footerLineRange.setWrap(false);
+
+    // Dòng lastEmpEnd + 3: Dòng bản quyền
+    var yearNow = new Date().getFullYear();
+    var timeNow = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss');
+    var footerRange = sheet.getRange(lastEmpEnd + 3, 1, 1, 11);
+    try { footerRange.breakApart(); } catch(e) {}
+    footerRange.setBorder(false, false, false, false, false, false);
+    footerRange.setValue('');
+    sheet.getRange(lastEmpEnd + 3, 1).setValue("KING'S GRILL © " + yearNow + "  |  Hệ thống chấm công tự động  |  Cập nhật lúc: " + timeNow);
+    footerRange.merge();
+    footerRange.setBackground('#0f172a');
+    footerRange.setFontColor('#64748b');
+    footerRange.setFontWeight('normal');
+    footerRange.setHorizontalAlignment('center');
+    footerRange.setVerticalAlignment('middle');
+    footerRange.setWrap(false);
+
+    // Xóa bỏ bất kỳ dòng thừa nào phía sau footer
+    if (curLastRow > lastEmpEnd + 3) {
+      sheet.getRange(lastEmpEnd + 4, 1, curLastRow - (lastEmpEnd + 3), 11).clear();
+    }
+  }
+
+  // Khắc phục viền đen: viền data block chuẩn chỉ từ colHeader đến hết ccn2Row
+  for (var b = 0; b < empBlocks.length; b++) {
+    var eb = empBlocks[b];
+    if (eb.headerRow > 0 && eb.ccn2Row > 0) {
+      var colHeaderRow = eb.headerRow + 1;
+      var totalBlockRows = eb.ccn2Row - colHeaderRow + 1;
+      sheet.getRange(colHeaderRow, 1, totalBlockRows, 11)
+        .setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID_THICK);
+    }
+  }
+
+  return { success: true, message: 'Đã chuẩn hóa thành công khoảng cách và bố cục cho ' + empBlocks.length + ' bảng nhân viên!' };
+}
+
+/**
+ * Quét và sửa chữa toàn bộ công thức trên sheet tổng hợp:
+ * - Tự động chuẩn hóa khoảng cách giữa các bảng (khắc phục dính bảng, lệch dòng).
+ * - Khắc phục lỗi âm giờ (-9.07) ngày 02/09 hoặc bất kỳ ngày nào có ca đêm và nhân hệ số x2/x3.
+ * - Sửa công thức Giờ Tăng Ca (Cột I) và Giờ Theo Ca (Cột J) sang chuẩn an toàn toán học.
+ * - Tự động cập nhật công thức Thống kê chi tiết liên kết theo ô tên nhân viên.
+ *
+ * @param {string} sheetName - Tên sheet cần sửa (mặc định sheet hiện hành)
+ * @returns {object} { success: boolean, message: string, fixedRowsCount: number }
+ */
+function repairSummarySheetFormulas(sheetName) {
+  try {
+    var ss = getSS();
+    var sheet = sheetName ? ss.getSheetByName(sheetName) : ss.getActiveSheet();
+    if (!sheet) throw new Error('Không tìm thấy sheet: ' + (sheetName || '(sheet hiện hành)'));
+
+    var lastRow = sheet.getLastRow();
+    if (lastRow < 7) throw new Error('Sheet không có đủ dữ liệu bảng tổng hợp để sửa.');
+
+    // 0. Chuẩn hóa khoảng cách và bố cục giữa các bảng trước khi sửa công thức
+    try {
+      repairSummarySheetLayoutAndSpacing(sheet.getName());
+      lastRow = sheet.getLastRow();
+    } catch(layoutErr) {
+      Logger.log('repairSummarySheetLayoutAndSpacing info: ' + layoutErr.message);
+    }
+
+    var safeSheetName = "'" + sheet.getName().replace(/'/g, "''") + "'";
+    var abData = sheetsApiFastRead(ss.getId(), safeSheetName + '!A1:B' + lastRow);
+    var colA = [];
+    var colB = [];
+    if (abData && abData.length >= lastRow) {
+      for (var r = 0; r < lastRow; r++) {
+        colA.push([abData[r][0] !== undefined ? abData[r][0] : '']);
+        colB.push([abData[r][1] !== undefined ? abData[r][1] : '']);
+      }
+    } else {
+      colA = sheet.getRange(1, 1, lastRow, 1).getValues();
+      colB = sheet.getRange(1, 2, lastRow, 1).getValues();
+    }
+
+    var fixedRowsCount = 0;
+    var empBlocks = [];
+    var currentEmp = null;
+
+    // 1. Nhận diện các block nhân viên
+    for (var r = 0; r < lastRow; r++) {
+      var rowNum = r + 1;
+      var valA = String(colA[r][0] || '').trim();
+      var valB = colB[r][0];
+
+      if (valA.indexOf('NHÂN VIÊN') >= 0 && (valA.indexOf('👤') >= 0 || valA.indexOf('NHÂN VIÊN ') >= 0)) {
+        if (currentEmp) empBlocks.push(currentEmp);
+        currentEmp = {
+          headerRow: rowNum,
+          colHeaderRow: rowNum + 1,
+          firstDataRow: rowNum + 2,
+          dataRows: [],
+          sumHeaderRow: 0,
+          sumRows: []
+        };
+      } else if (currentEmp) {
+        if (valA.indexOf('THỐNG KÊ CHI TIẾT') >= 0) {
+          currentEmp.sumHeaderRow = rowNum;
+        } else if (currentEmp.sumHeaderRow > 0 && rowNum <= currentEmp.sumHeaderRow + 6) {
+          currentEmp.sumRows.push(rowNum);
+        } else if (currentEmp.sumHeaderRow === 0 && rowNum >= currentEmp.firstDataRow) {
+          var bStr = (valB instanceof Date) ? Utilities.formatDate(valB, Session.getScriptTimeZone(), 'dd/MM/yyyy') : String(valB || '');
+          if (bStr.match(/\d{1,2}[\/\-_]\d{1,2}/)) {
+            currentEmp.dataRows.push(rowNum);
+          }
+        }
+      }
+    }
+    if (currentEmp) empBlocks.push(currentEmp);
+
+    if (empBlocks.length === 0) {
+      throw new Error('Không tìm thấy bảng nhân viên nào trên sheet "' + sheet.getName() + '"');
+    }
+
+    // 2. Chuẩn bị dữ liệu cập nhật công thức hàng loạt (Sheets API V4 Batch Write)
+    var batchUpdates = [];
+
+    for (var b = 0; b < empBlocks.length; b++) {
+      var block = empBlocks[b];
+      var fdr = block.firstDataRow;
+      var numDays = block.dataRows.length;
+      if (numDays === 0) continue;
+
+      var lastDr = block.dataRows[numDays - 1];
+
+      // Sửa công thức Data Rows (Cột I & Cột J)
+      var ijFormulas = [];
+      for (var d = 0; d < numDays; d++) {
+        var sRow = block.dataRows[d];
+        var formulaI = '=IF(AND(C' + sRow + '="";D' + sRow + '="");"-";IF(OR(C' + sRow + '=D' + sRow + ';C' + sRow + '="";D' + sRow + '="");"KIỂM TRA";(IF(D' + sRow + '<C' + sRow + ';D' + sRow + '-C' + sRow + '+1;D' + sRow + '-C' + sRow + '))*24*K' + sRow + '))';
+        var formulaJ = '=IF(AND(E' + sRow + '="";F' + sRow + '="";G' + sRow + '="";H' + sRow + '="");"OFF";IF(OR(AND(E' + sRow + '<>"";F' + sRow + '="");AND(E' + sRow + '="";F' + sRow + '<>"");AND(E' + sRow + '<>"";E' + sRow + '=F' + sRow + ');AND(G' + sRow + '<>"";H' + sRow + '="");AND(G' + sRow + '="";H' + sRow + '<>"");AND(G' + sRow + '<>"";G' + sRow + '=H' + sRow + '));"KIỂM TRA";(IF(AND(E' + sRow + '<>"";F' + sRow + '<>"");IF(F' + sRow + '<E' + sRow + ';F' + sRow + '-E' + sRow + '+1;F' + sRow + '-E' + sRow + ');0)+IF(AND(G' + sRow + '<>"";H' + sRow + '<>"");IF(H' + sRow + '<G' + sRow + ';H' + sRow + '-G' + sRow + '+1;H' + sRow + '-G' + sRow + ');0))*24*K' + sRow + '))';
+        ijFormulas.push([formulaI, formulaJ]);
+        fixedRowsCount++;
+      }
+      batchUpdates.push({
+        range: safeSheetName + '!I' + fdr + ':J' + lastDr,
+        values: ijFormulas
+      });
+
+      // Liên kết tên nhân viên động ở cột A từ ngày thứ 2 trở đi
+      if (numDays > 1) {
+        var aFormulas = [];
+        for (var d = 1; d < numDays; d++) {
+          aFormulas.push(['=IF($A$' + fdr + '<>""; $A$' + fdr + '; "")']);
+        }
+        batchUpdates.push({
+          range: safeSheetName + '!A' + (fdr + 1) + ':A' + lastDr,
+          values: aFormulas
+        });
+      }
+
+      // Sửa công thức Summary Rows (Thống kê chi tiết)
+      if (block.sumRows.length >= 6) {
+        var targetRef = '$A$' + fdr;
+        var s1 = block.sumRows[0];
+        var s6 = block.sumRows[5];
+
+        // Lấy tên nhân viên thực tế để đưa vào công thức
+        var empNameVal = (colA[fdr - 1] && colA[fdr - 1][0]) ? String(colA[fdr - 1][0]).trim() : '';
+        if (!empNameVal || empNameVal === '(CHƯA NHẬP TÊN)' || empNameVal.indexOf('=') === 0) {
+          if (block.headerRow > 0 && colA[block.headerRow - 1]) {
+            var hVal = String(colA[block.headerRow - 1][0] || '').trim();
+            var mName = hVal.match(/NHÂN VIÊN\s*\d*(?:\/\d*)?:\s*(.+)$/i);
+            if (mName && mName[1] && mName[1].indexOf('(') < 0) {
+              empNameVal = mName[1].trim();
+            }
+          }
+        }
+        var empNameStr = (empNameVal && empNameVal !== '(CHƯA NHẬP TÊN)' && empNameVal.indexOf('=') !== 0)
+          ? empNameVal.replace(/"/g, '""')
+          : 'Chưa nhập tên';
+
+        var sumFormulas = [
+          ['=IF(' + targetRef + '=""; 0; COUNTIFS(A' + fdr + ':A' + lastDr + '; ' + targetRef + '; J' + fdr + ':J' + lastDr + '; ">3"))'],
+          ['=IF(' + targetRef + '=""; 0; IFERROR(SUMPRODUCT((A' + fdr + ':A' + lastDr + '=' + targetRef + ')*(E' + fdr + ':E' + lastDr + '<>"")*(E' + fdr + ':E' + lastDr + '>=TIME(14;30;0))*(E' + fdr + ':E' + lastDr + '<=TIME(15;15;0))); 0))'],
+          ['=IF(' + targetRef + '=""; 0; SUMIFS(I' + fdr + ':I' + lastDr + '; A' + fdr + ':A' + lastDr + '; ' + targetRef + '; I' + fdr + ':I' + lastDr + '; ">0"))'],
+          ['=IF(' + targetRef + '=""; 0; SUMIFS(J' + fdr + ':J' + lastDr + '; A' + fdr + ':A' + lastDr + '; ' + targetRef + '; J' + fdr + ':J' + lastDr + '; ">0"))'],
+          ['=IF(' + targetRef + '=""; "' + empNameStr + '"; IF(COUNTIFS(A' + fdr + ':A' + lastDr + '; ' + targetRef + '; J' + fdr + ':J' + lastDr + '; ">3")>=26; "✅ Đạt CCNV1"; "❌ Chưa đạt CCNV1"))'],
+          ['=IF(' + targetRef + '=""; "' + empNameStr + '"; IF(IFERROR(SUMPRODUCT((A' + fdr + ':A' + lastDr + '=' + targetRef + ')*(E' + fdr + ':E' + lastDr + '<>"")*(E' + fdr + ':E' + lastDr + '>=TIME(14;30;0))*(E' + fdr + ':E' + lastDr + '<=TIME(15;15;0))); 0)>=15; "✅ Đạt CCNV2"; "❌ Chưa đạt CCNV2"))']
+        ];
+        batchUpdates.push({
+          range: safeSheetName + '!B' + s1 + ':B' + s6,
+          values: sumFormulas
+        });
+      }
+
+      // Đảm bảo tiêu đề NV và Thống kê chi tiết link theo $A$fdr (bỏ icon 👤)
+      if (block.headerRow > 0) {
+        batchUpdates.push({
+          range: safeSheetName + '!A' + block.headerRow,
+          values: [['=IF(A' + fdr + '<>""; "NHÂN VIÊN ' + (b + 1) + ': " & UPPER(A' + fdr + '); "NHÂN VIÊN ' + (b + 1) + ': (CHƯA NHẬP TÊN)")']]
+        });
+      }
+      if (block.sumHeaderRow > 0) {
+        batchUpdates.push({
+          range: safeSheetName + '!A' + block.sumHeaderRow,
+          values: [['=IF(A' + fdr + '<>""; "THỐNG KÊ CHI TIẾT - " & UPPER(A' + fdr + '); "THỐNG KÊ CHI TIẾT")']]
+        });
+      }
+    }
+
+    // 3. Thực thi cập nhật đồng loạt bằng Sheets API V4 (1 Request duy nhất)
+    var batchSuccess = sheetsApiBatchWrite(ss.getId(), batchUpdates);
+    if (!batchSuccess) {
+      Logger.log('Falling back to range setFormulas...');
+      for (var u = 0; u < batchUpdates.length; u++) {
+        try {
+          var item = batchUpdates[u];
+          var pureRange = item.range.replace(safeSheetName + '!', '');
+          sheet.getRange(pureRange).setFormulas(item.values);
+        } catch(fe) {
+          Logger.log('Fallback formula item error: ' + fe.message);
+        }
+      }
+    }
+
+    sheet.getRange(1, 9, lastRow, 2).setNumberFormat('0.00');
+
+    return {
+      success: true,
+      message: 'Đã chuẩn hóa bố cục và sửa chữa thành công ' + fixedRowsCount + ' dòng công thức trên sheet "' + sheet.getName() + '"! Khoảng cách giữa các bảng và giờ tính toán đã chuẩn xác.',
+      fixedRowsCount: fixedRowsCount,
+      empCount: empBlocks.length
+    };
+  } catch(err) {
+    Logger.log('Lỗi repairSummarySheetFormulas: ' + err.message);
+    throw err;
+  }
+}
+
+/**
+ * Lấy thông tin về sheet để hiển thị preview trong giao diện thêm bảng tổng hợp
+ */
+function getSummarySheetInfo(sheetName) {
+  try {
+    var ss = getSS();
+    var sheet = sheetName ? ss.getSheetByName(sheetName) : ss.getActiveSheet();
+    if (!sheet) return { success: false, message: 'Sheet không tồn tại' };
+
+    var lastRow = sheet.getLastRow();
+    var empCount = 0;
+    var maxEmpIndex = 0;
+    if (lastRow > 0) {
+      var colA = sheet.getRange(1, 1, lastRow, 1).getValues();
+      for (var r = 0; r < colA.length; r++) {
+        var val = String(colA[r][0] || '').trim();
+        if (val.indexOf('NHÂN VIÊN') >= 0 && (val.indexOf('👤') >= 0 || val.indexOf('NHÂN VIÊN ') >= 0)) {
+          empCount++;
+          var m = val.match(/NHÂN VIÊN\s+(\d+)/i);
+          if (m) maxEmpIndex = Math.max(maxEmpIndex, parseInt(m[1], 10));
+        }
+      }
+    }
+
+    var effectiveCount = Math.max(empCount, maxEmpIndex);
+
+    return {
+      success: true,
+      sheetName: sheet.getName(),
+      empCount: effectiveCount,
+      lastRow: lastRow,
+      isSummarySheet: empCount > 0
+    };
+  } catch(e) {
+    return { success: false, message: e.message };
+  }
+}
+
+/**
+ * Tìm sheet dữ liệu chấm công nguồn từ tên sheet tổng hợp
+ * Ví dụ: '📊 TỔNG HỢP T9' -> 'T9', '📊 TỔNG HỢP Tháng 9' -> 'Tháng 9'
+ */
+function getSourceSheetForSummarySheet(ss, summarySheetName) {
+  var cleanName = summarySheetName.replace('📊 TỔNG HỢP', '').trim();
+  var sheet = ss.getSheetByName(cleanName);
+  if (sheet) return sheet;
+
+  var allSheets = ss.getSheets();
+  for (var i = 0; i < allSheets.length; i++) {
+    var name = allSheets[i].getName().trim();
+    if (name.toLowerCase() === cleanName.toLowerCase()) {
+      return allSheets[i];
+    }
+  }
+  for (var j = 0; j < allSheets.length; j++) {
+    var sName = allSheets[j].getName().trim().toLowerCase();
+    var cLower = cleanName.toLowerCase();
+    if (sName.indexOf(cLower) >= 0 || cLower.indexOf(sName) >= 0) {
+      if (sName.indexOf('tổng hợp') < 0 && sName !== 'data' && sName.indexOf('api') < 0) {
+        return allSheets[j];
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Cập nhật công thức đánh giá CCNV1 & CCNV2 cho một bảng nhân viên
+ * Thay thế chuỗi "Chưa nhập tên" bằng chính tên nhân viên vừa nhập/chọn,
+ * tự động đồng bộ theo tên nhân viên ở ô firstDataRow (cột A).
+ * Sử dụng Sheets API V4 batch write để thực thi tức thì (< 0.5s).
+ */
+function updateEmployeeSummaryFormulas(summarySheet, firstDataRow, employeeName) {
+  try {
+    var ss = summarySheet.getParent();
+    var ssId = ss.getId();
+    var sheetName = summarySheet.getName();
+    var safeSheetName = "'" + sheetName.replace(/'/g, "''") + "'";
+
+    var cleanName = (employeeName || '').toString().trim();
+    var empNameStr = (cleanName && cleanName !== '(CHƯA NHẬP TÊN)')
+      ? cleanName.replace(/"/g, '""')
+      : 'Chưa nhập tên';
+
+    // 1. Đọc cột B từ firstDataRow để xác định số ngày trong tháng bằng Sheets API V4
+    var bVals = sheetsApiFastRead(ssId, safeSheetName + '!B' + firstDataRow + ':B' + (firstDataRow + 35));
+    if (!bVals || bVals.length === 0) {
+      bVals = summarySheet.getRange(firstDataRow, 2, 31, 1).getValues();
+    }
+
+    var numDays = 0;
+    for (var r = 0; r < bVals.length; r++) {
+      var dCell = bVals[r][0];
+      var dStr = (dCell instanceof Date) ? Utilities.formatDate(dCell, Session.getScriptTimeZone(), 'dd/MM/yyyy') : String(dCell || '').trim();
+      if (dStr.match(/\d{1,2}[\/\-_]\d{1,2}/)) {
+        numDays++;
+      } else {
+        break;
+      }
+    }
+    if (numDays === 0) numDays = 31;
+
+    var lastDr = firstDataRow + numDays - 1;
+    var targetRef = '$A$' + firstDataRow;
+    var sumHeaderRow = lastDr + 1;
+    var ccnv1Row = lastDr + 6;
+    var ccnv2Row = lastDr + 7;
+
+    var formulaCCNV1 = '=IF(' + targetRef + '=""; "' + empNameStr + '"; IF(COUNTIFS(A' + firstDataRow + ':A' + lastDr + '; ' + targetRef + '; J' + firstDataRow + ':J' + lastDr + '; ">3")>=26; "✅ Đạt CCNV1"; "❌ Chưa đạt CCNV1"))';
+    var formulaCCNV2 = '=IF(' + targetRef + '=""; "' + empNameStr + '"; IF(IFERROR(SUMPRODUCT((A' + firstDataRow + ':A' + lastDr + '=' + targetRef + ')*(E' + firstDataRow + ':E' + lastDr + '<>"")*(E' + firstDataRow + ':E' + lastDr + '>=TIME(14;30;0))*(E' + firstDataRow + ':E' + lastDr + '<=TIME(15;15;0))); 0)>=15; "✅ Đạt CCNV2"; "❌ Chưa đạt CCNV2"))';
+
+    var batchItems = [
+      {
+        range: safeSheetName + '!B' + ccnv1Row + ':B' + ccnv2Row,
+        values: [[formulaCCNV1], [formulaCCNV2]]
+      }
+    ];
+
+    // Cập nhật công thức link tên cột A cho các ngày sau
+    if (numDays > 1) {
+      var aFormulas = [];
+      for (var d = 1; d < numDays; d++) {
+        aFormulas.push(['=IF($A$' + firstDataRow + '<>""; $A$' + firstDataRow + '; "")']);
+      }
+      batchItems.push({
+        range: safeSheetName + '!A' + (firstDataRow + 1) + ':A' + lastDr,
+        values: aFormulas
+      });
+    }
+
+    // Cập nhật tiêu đề THỐNG KÊ CHI TIẾT
+    batchItems.push({
+      range: safeSheetName + '!A' + sumHeaderRow,
+      values: [['=IF(A' + firstDataRow + '<>""; "THỐNG KÊ CHI TIẾT - " & UPPER(A' + firstDataRow + '); "THỐNG KÊ CHI TIẾT")']]
+    });
+
+    var ok = sheetsApiBatchWrite(ssId, batchItems);
+    if (!ok) {
+      summarySheet.getRange(ccnv1Row, 2).setFormula(formulaCCNV1);
+      summarySheet.getRange(ccnv2Row, 2).setFormula(formulaCCNV2);
+    }
+
+    Logger.log('✅ Đã cập nhật công thức CCNV1/CCNV2 cho ' + empNameStr + ' tại B' + ccnv1Row + ':B' + ccnv2Row);
+    return true;
+  } catch (err) {
+    Logger.log('Lỗi updateEmployeeSummaryFormulas: ' + err.message);
+    return false;
+  }
+}
+
+/**
+ * Tự động nạp dữ liệu chấm công cho một bảng nhân viên trên Sheet Tổng Hợp
+ * Khi người dùng nhập/chọn tên nhân viên ở ô firstDataRow (cột A),
+ * hàm này đọc dữ liệu từ sheet chấm công nguồn, bóc tách giờ vào/ra,
+ * và ghi vào các cột C đến H (Vào#, Ra#, Vào 1, Ra 1, Vào 2, Ra 2) bằng Sheets API V4.
+ */
+function populateEmployeeAttendanceInSummaryTable(summarySheet, firstDataRow, employeeName) {
+  try {
+    var ss = summarySheet.getParent();
+    var sheetName = summarySheet.getName();
+    if (!employeeName || !employeeName.trim()) return false;
+    employeeName = employeeName.trim();
+
+    // 1. Luôn cập nhật công thức CCNV1/CCNV2 với tên nhân viên này trước tiên
+    updateEmployeeSummaryFormulas(summarySheet, firstDataRow, employeeName);
+
+    var sourceSheet = getSourceSheetForSummarySheet(ss, sheetName);
+    if (!sourceSheet) {
+      Logger.log('Không tìm thấy sheet nguồn cho: ' + sheetName);
+      return false;
+    }
+
+    var ssId = ss.getId();
+    var sourceData = sheetsApiFastRead(ssId, "'" + sourceSheet.getName().replace(/'/g, "''") + "'!A1:E");
+    if (!sourceData || sourceData.length < 2) {
+      sourceData = sourceSheet.getDataRange().getValues();
+    }
+    if (!sourceData || sourceData.length < 2) return false;
+
+    var processed = processTimesheetDataWithDominantMonth(sourceData);
+    var timesheet = processed.timesheet;
+    var year = processed.year;
+    var month = processed.month;
+
+    var targetDatesMap = null;
+    var normTargetName = normalizeEmployeeName(employeeName);
+
+    for (var empEntry of timesheet.entries()) {
+      var eName = empEntry[0];
+      if (normalizeEmployeeName(eName) === normTargetName) {
+        targetDatesMap = empEntry[1];
+        break;
+      }
+    }
+
+    if (!targetDatesMap) {
+      Logger.log('Nhân viên "' + employeeName + '" chưa có dữ liệu chấm công trong sheet ' + sourceSheet.getName());
+      return false;
+    }
+
+    var storedTags = getStoredSpecialDaysTags();
+    var x2Days = parseSpecialDaysForCurrentYear(storedTags.x2Days.join('\n'), year);
+    var x3Days = parseSpecialDaysForCurrentYear(storedTags.x3Days.join('\n'), year);
+
+    var dateRangeValues = sheetsApiFastRead(ssId, "'" + sheetName.replace(/'/g, "''") + "'!B" + firstDataRow + ":B" + (firstDataRow + 35));
+    if (!dateRangeValues || dateRangeValues.length === 0) {
+      dateRangeValues = summarySheet.getRange(firstDataRow, 2, 31, 1).getValues();
+    }
+
+    var numDays = 0;
+    var datesList = [];
+    for (var r = 0; r < dateRangeValues.length; r++) {
+      var dCell = dateRangeValues[r][0];
+      var dStr = (dCell instanceof Date) ? Utilities.formatDate(dCell, Session.getScriptTimeZone(), 'dd/MM/yyyy') : String(dCell || '').trim();
+      if (dStr.match(/\d{1,2}[\/\-_]\d{1,2}/)) {
+        numDays++;
+        datesList.push(dStr);
+      } else {
+        break;
+      }
+    }
+
+    if (numDays === 0) return false;
+
+    var chValues = [];
+    for (var d = 0; d < numDays; d++) {
+      var dStr = datesList[d];
+      var dObj = parseDateUTC(dStr) || new Date(Date.UTC(year, month - 1, d + 1));
+      var rowData = createRowData(employeeName, dStr, dObj, targetDatesMap, x2Days, x3Days);
+      chValues.push([
+        rowData[2] || '',
+        rowData[3] || '',
+        rowData[4] || '',
+        rowData[5] || '',
+        rowData[6] || '',
+        rowData[7] || ''
+      ]);
+    }
+
+    var updateRange = "'" + sheetName.replace(/'/g, "''") + "'!C" + firstDataRow + ":H" + (firstDataRow + numDays - 1);
+    var writeSuccess = sheetsApiWrite(ssId, updateRange, chValues, 'USER_ENTERED');
+    if (!writeSuccess) {
+      summarySheet.getRange(firstDataRow, 3, numDays, 6).setValues(chValues);
+    }
+
+    Logger.log('✅ Đã nạp thành công dữ liệu chấm công cho: ' + employeeName + ' (' + numDays + ' ngày)');
+    return true;
+  } catch (err) {
+    Logger.log('Lỗi populateEmployeeAttendanceInSummaryTable: ' + err.message);
+    return false;
+  }
+}
+
+/**
+ * Quét toàn bộ các bảng nhân viên trên Sheet Tổng Hợp:
+ * Tự động nạp dữ liệu chấm công từ sheet nguồn vào các bảng nhân viên đã nhập tên.
+ * Sử dụng Sheets API V4 để tăng tốc xử lý toàn diện.
+ */
+function populateAllNewEmployeesInSummarySheet(sheetName) {
+  var ss = getSS();
+  var sheet = sheetName ? ss.getSheetByName(sheetName) : ss.getActiveSheet();
+  if (!sheet) throw new Error('Không tìm thấy sheet: ' + (sheetName || '(sheet hiện hành)'));
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 5) return { success: false, message: 'Sheet không có dữ liệu.' };
+
+  var safeSheetName = "'" + sheet.getName().replace(/'/g, "''") + "'";
+  var colA = sheetsApiFastRead(ss.getId(), safeSheetName + '!A1:A' + lastRow);
+  if (!colA || colA.length === 0) {
+    colA = sheet.getRange(1, 1, lastRow, 1).getValues();
+  }
+  var updatedEmployees = [];
+
+  for (var r = 0; r < colA.length; r++) {
+    var valA = String(colA[r][0] || '').trim();
+    if (valA.indexOf('NHÂN VIÊN') >= 0 && (valA.indexOf('👤') >= 0 || valA.indexOf('NHÂN VIÊN ') >= 0)) {
+      var fdr = r + 3; // Row chứa tên đầu tiên (1-based)
+      if (fdr <= lastRow) {
+        var empName = String(colA[fdr - 1][0] || '').trim();
+        if (empName && empName !== '(CHƯA NHẬP TÊN)' && empName.indexOf('=') !== 0) {
+          var ok = populateEmployeeAttendanceInSummaryTable(sheet, fdr, empName);
+          if (ok) updatedEmployees.push(empName);
+        }
+      }
+    }
+  }
+
+  return {
+    success: true,
+    updatedCount: updatedEmployees.length,
+    updatedEmployees: updatedEmployees,
+    message: updatedEmployees.length > 0 
+      ? 'Đã nạp thành công dữ liệu chấm công cho ' + updatedEmployees.length + ' nhân viên: ' + updatedEmployees.join(', ') + '. Toàn bộ giờ tăng ca, theo ca và Đánh giá CCNV1/CCNV2 đã được tính chuẩn xác!'
+      : 'Tất cả bảng nhân viên đã có đầy đủ dữ liệu hoặc chưa có lượt chấm công nào trong sheet nguồn.'
+  };
 }
 
 // =====================================================================================
@@ -1136,6 +2363,40 @@ function handleSubmitHandover(payload) {
   recordKingCoins(payload.username || '', payload.fullname || payload.username || '', 'Bàn giao ca đầy đủ', 15, 'Handover');
   
   return jsonResponse(true, "Đã ghi nhận bàn giao ca");
+}
+
+function handleGetHandovers(payload) {
+  try {
+    var ss = getSS();
+    var sheet = ss.getSheetByName("Handovers");
+    if (!sheet) {
+      return jsonResponse(true, { handovers: [] });
+    }
+    var data = sheet.getDataRange().getValues();
+    if (!data || data.length <= 1) {
+      return jsonResponse(true, { handovers: [] });
+    }
+    var handovers = [];
+    var startIdx = Math.max(1, data.length - 20);
+    for (var i = data.length - 1; i >= startIdx; i--) {
+      var row = data[i];
+      if (row[0]) {
+        handovers.push({
+          id: String(row[0]),
+          date: String(row[1] || ''),
+          shift: String(row[2] || ''),
+          username: String(row[3] || ''),
+          cashAmount: String(row[4] || ''),
+          note: String(row[5] || ''),
+          timestamp: String(row[6] || '')
+        });
+      }
+    }
+    return jsonResponse(true, { handovers: handovers });
+  } catch (e) {
+    Logger.log("handleGetHandovers error: " + e.toString());
+    return jsonResponse(false, "Lỗi nạp nhật ký bàn giao ca: " + e.toString());
+  }
 }
 
 function handleSubmitIncident(payload) {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { Sun, Moon, Power, Clock, MoreHorizontal, GraduationCap, Sparkles } from 'lucide-react';
 import NotificationBell from './NotificationBell';
@@ -40,10 +40,24 @@ export default function KgAppShell({
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'tester';
   const allowedModules = navigationModules.filter(module => hasTabPermission(module.id, currentUser));
-  const bottomTabs = allowedModules.filter(module => module.bottom);
+
+  const bottomTabs = useMemo(() => {
+    if (isAdmin) {
+      const adminBottomIds: TabId[] = ['dashboard', 'admin_workforce', 'admin_work', 'admin_people'];
+      return adminBottomIds
+        .map(id => allowedModules.find(m => m.id === id))
+        .filter((m): m is (typeof navigationModules)[number] => Boolean(m));
+    }
+    const staffBottomIds: TabId[] = ['dashboard', 'checkin', 'work', 'workforce'];
+    return staffBottomIds
+      .map(id => allowedModules.find(m => m.id === id))
+      .filter((m): m is (typeof navigationModules)[number] => Boolean(m));
+  }, [isAdmin, allowedModules]);
+
   const moreActions = allowedModules
-    .filter(module => !module.bottom)
+    .filter(module => !bottomTabs.some(b => b.id === module.id))
     .map(module => ({
       ...module,
       onClick: () => handleTabChange(module.id),
@@ -111,7 +125,7 @@ export default function KgAppShell({
           <NotificationBell />
           <button
             type="button"
-            onClick={() => store.toggleDarkMode()}
+            onClick={() => toggleDarkMode()}
             className="w-10 h-10 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] active:scale-95 transition-all touch-manipulation"
             aria-label="Chuyển chế độ sáng/tối"
           >
@@ -233,7 +247,7 @@ export default function KgAppShell({
             <NotificationBell />
             <button
               type="button"
-              onClick={() => store.toggleDarkMode()}
+              onClick={() => toggleDarkMode()}
               className="w-9 h-9 rounded-lg border border-[var(--kg-border)] bg-[var(--kg-surface)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] flex items-center justify-center active:scale-95 transition-all shadow-sm"
               title="Đổi giao diện"
             >

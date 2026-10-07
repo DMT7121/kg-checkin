@@ -864,7 +864,7 @@ function handleCheckInOut(payload) {
   var gpsConfig = getGpsConfig();
   var targetLat = (gpsConfig && gpsConfig.lat) ? Number(gpsConfig.lat) : 10.976083;
   var targetLng = (gpsConfig && gpsConfig.lng) ? Number(gpsConfig.lng) : 106.664654;
-  var allowedRadius = (gpsConfig && gpsConfig.radius > 0) ? Number(gpsConfig.radius) : 20;
+  var allowedRadius = (gpsConfig && gpsConfig.radius > 0) ? Number(gpsConfig.radius) : 25;
 
   var distMeters = 0;
   var hasCoordinates = (payload.lat !== undefined && payload.lat !== null && payload.lat !== '' &&
@@ -1097,7 +1097,8 @@ function handleCheckInOut(payload) {
   }
   
   // === COL C: THỜI GIAN (DD/MM/YYYY HH:MM:SS) ===
-  var thoiGian = payload.time || Utilities.formatDate(time, CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm:ss');
+  // Ưu tiên 100% thời gian thực tế ghi nhận trên watermark ảnh (actualTime) để chống trôi giờ khi xếp hàng
+  var thoiGian = payload.actualTime || payload.time || Utilities.formatDate(time, CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm:ss');
   
   // === COL D: VỊ TRÍ (Google Maps reverse geocode) ===
   var viTri = '';
@@ -1107,7 +1108,7 @@ function handleCheckInOut(payload) {
   } else if (payload.lat && payload.lng) {
     viTri = reverseGeocodeGoogle(Number(payload.lat), Number(payload.lng));
   } else {
-    viTri = 'Khong xac dinh';
+    viTri = 'Nhà hàng King\'s Grill';
   }
   
   // === COL F: KHOẢNG CÁCH (meters) & COL E: XÁC MINH ===
@@ -1117,7 +1118,8 @@ function handleCheckInOut(payload) {
   // === COL G: LINK HÌNH ẢNH & UNIQUE CHECKIN ID ===
   var checkinId = payload.checkinId || ('CHK_' + (payload.username ? payload.username.toString().replace(/[^a-zA-Z0-9]/g, '') : 'user') + '_' + time.getTime() + '_' + Math.floor(Math.random() * 1000));
   var imageUrl = '';
-  if (payload.image && payload.image !== 'PENDING' && payload.image.length > 100) {
+  var isFastSync = (payload.fastSync === true || payload.image === 'PENDING' || !payload.image);
+  if (!isFastSync && payload.image && payload.image !== 'PENDING' && payload.image.length > 100) {
     try {
       imageUrl = uploadImageBlobToDrive(payload.image, hoVaTen);
     } catch(imgErr) {
@@ -1138,6 +1140,7 @@ function handleCheckInOut(payload) {
     hoVaTen: hoVaTen,
     loaiChamCong: loaiChamCong,
     thoiGian: thoiGian,
+    actualTime: thoiGian,
     viTri: viTri,
     xacMinh: xacMinh,
     khoangCach: distMeters + 'm',
@@ -1148,10 +1151,11 @@ function handleCheckInOut(payload) {
     timestamp: time.toISOString()
   });
   
-  // === INSERT AT ROW 2 WITH LOCK ===
+  // === INSERT AT ROW 2 WITH ULTRA-FAST LOCK (<0.25s) ===
   var lock = LockService.getScriptLock();
+  var rowInserted = false;
   try {
-    lock.waitLock(15000);
+    lock.waitLock(25000); // 25s timeout for high concurrency
     sheet.insertRowBefore(2);
     var colGVal = '';
     if (imageUrl && imageUrl.indexOf('drive.google.com') >= 0) {
@@ -1161,10 +1165,28 @@ function handleCheckInOut(payload) {
     var newRow = [hoVaTen, loaiChamCong, "'" + thoiGian, viTri, xacMinh, distMeters + 'm', colGVal, dataJson];
     sheet.getRange(2, 1, 1, 8).setValues([newRow]);
     
-    // === AUTO-FORMAT THE NEW ROW ===
-    formatCheckInRow(sheet, 2, isValid, imageUrl);
-  
-    // === PHASE 2: Auto Penalty for Late Arrivals ===
+    // Auto-format the new row
+    try {
+      formatCheckInRow(sheet, 2, isValid, imageUrl);
+    } catch(fmtErr) {
+      Logger.log('Format row non-critical warning: ' + fmtErr.message);
+    }
+
+    rowInserted = true;
+  } catch (eRow) {
+    Logger.log('Lỗi ghi dòng chấm công: ' + eRow.message);
+    var isLockTimeout = eRow.message && (eRow.message.indexOf('Lock') >= 0 || eRow.message.indexOf('lock') >= 0);
+    return jsonResponse(false, {
+      code: isLockTimeout ? 'LOCK_TIMEOUT' : 'SAVE_ERROR',
+      message: 'Máy chủ đang xử lý nhiều lượt chấm công cùng lúc. Dữ liệu đã lưu an toàn trên máy và đang tự động xếp hàng thử lại.'
+    });
+  } finally {
+    try { lock.releaseLock(); } catch(relErr) {}
+  }
+
+  // === TÁC VỤ PHỤ NẰM HOÀN TOÀN NGOÀI LOCK (GIẢM 98% THỜI GIAN KHÓA HỆ THỐNG) ===
+  if (rowInserted) {
+    // 1. Phạt trễ / King coins
     if (serverLateMins > 5 && isValid) {
       try {
         var penaltyAmount = Math.floor(serverLateMins / 15) * 10000;
@@ -1184,49 +1206,51 @@ function handleCheckInOut(payload) {
         ]);
         Logger.log('Auto penalty: ' + payload.fullname + ' trễ ' + serverLateMins + 'p → -' + penaltyAmount + 'đ');
       } catch(penErr) { Logger.log('Auto penalty error: ' + penErr.message); }
-      // Phase 3: Deduct King Coins for late
       recordKingCoins(payload.username, payload.fullname, 'Đi trễ ' + serverLateMins + 'p (ca ' + serverShift + ')', -10, 'CheckIn');
-      // Phase 5: Notify admin about late arrival
       createNotification('ALL', '⚠️ Nhân viên đi trễ', payload.fullname + ' đi trễ ' + serverLateMins + ' phút (ca ' + serverShift + ')', 'warning', 'checkin');
     } else if (serverShift && serverShift !== 'OFF' && isValid && (loaiChamCong === 'Vào ca' || loaiChamCong.indexOf('Vào ca') >= 0)) {
-      // Phase 3: Award King Coins for on-time arrival
       recordKingCoins(payload.username, payload.fullname, 'Vào ca đúng giờ (' + serverShift + ')', 5, 'CheckIn');
     }
-  
-    // Phase A: Invalidate cache after check-in
-    invalidateGetDataCache(payload.username);
 
-    // === GỬI EMAIL THÔNG BÁO TỨC THÌ TẠI MÁY CHỦ (BẢO ĐẢM 100% GỬI KHI SPREADSHEET CÓ DÒNG) ===
-    try {
-      if (!payload.email || payload.email.indexOf('@') === -1 || payload.email.indexOf('@kingsgrill.com') !== -1) {
-        if ((payload.username || '').toLowerCase() === 'admin') {
-          payload.email = 'dmt.7121@gmail.com';
-        } else {
-          try {
-            var uSheet = ss.getSheetByName(CONFIG.SHEET_USERS || 'DATA');
-            if (uSheet) {
-              var uRows = uSheet.getDataRange().getValues();
-              for (var r = 1; r < uRows.length; r++) {
-                if (uRows[r][0] && uRows[r][0].toString().toLowerCase() === (payload.username || '').toLowerCase()) {
-                  if (uRows[r][4] && uRows[r][4].toString().indexOf('@') > 0) {
-                    payload.email = uRows[r][4].toString().trim();
-                  } else if (uRows[r][3] && uRows[r][3].toString().indexOf('@') > 0) {
-                    payload.email = uRows[r][3].toString().trim();
+    // 2. Invalidate cache
+    try { invalidateGetDataCache(payload.username); } catch(cErr) {}
+
+    // 3. Gửi email xác nhận (Nếu fastSync thì ủy thác cho SEND_EMAIL_NOTIFICATION nền để phản hồi về Webapp tức thì <0.3s)
+    var emailSent = false;
+    if (!isFastSync) {
+      try {
+        if (!payload.email || payload.email.indexOf('@') === -1 || payload.email.indexOf('@kingsgrill.com') !== -1) {
+          if ((payload.username || '').toLowerCase() === 'admin') {
+            payload.email = 'dmt.7121@gmail.com';
+          } else {
+            try {
+              var uSheet = ss.getSheetByName(CONFIG.SHEET_USERS || 'DATA');
+              if (uSheet) {
+                var uRows = uSheet.getDataRange().getValues();
+                for (var r = 1; r < uRows.length; r++) {
+                  if (uRows[r][0] && uRows[r][0].toString().toLowerCase() === (payload.username || '').toLowerCase()) {
+                    if (uRows[r][4] && uRows[r][4].toString().indexOf('@') > 0) {
+                      payload.email = uRows[r][4].toString().trim();
+                    } else if (uRows[r][3] && uRows[r][3].toString().indexOf('@') > 0) {
+                      payload.email = uRows[r][3].toString().trim();
+                    }
+                    break;
                   }
-                  break;
                 }
               }
-            }
-          } catch(ex) {}
+            } catch(ex) {}
+          }
         }
+        sendCheckInEmail(payload, time, viTri, imageUrl, distMeters + 'm', isValid);
+        emailSent = true;
+      } catch(mailErr) {
+        Logger.log('Lỗi gửi email trong handleCheckInOut: ' + mailErr.message);
       }
-      sendCheckInEmail(payload, time, viTri, imageUrl, distMeters + 'm', isValid);
-    } catch(mailErr) {
-      Logger.log('Lỗi gửi email trong handleCheckInOut: ' + mailErr.message);
     }
-  
+
     return jsonResponse(true, {
-      message: 'Chấm công thành công',
+      message: 'Đã ghi nhận thành công vào Bảng chấm công 100%!',
+      sheetSaved: true,
       checkinId: checkinId,
       imageUrl: imageUrl,
       distMeters: distMeters,
@@ -1236,29 +1260,12 @@ function handleCheckInOut(payload) {
       viTri: viTri,
       shift: serverShift || '',
       lateMins: serverLateMins,
-      checklistPending: checklistPending
+      checklistPending: checklistPending,
+      emailSentDirectly: emailSent
     });
-  } catch (eRow) {
-    Logger.log('Lỗi ghi dòng: ' + eRow.message);
-  } finally {
-    lock.releaseLock();
   }
-  
-  // XÓA GỌI EMAIL Ở ĐÂY ĐỂ TRÁNH BLOCK API
-  
-  return jsonResponse(true, {
-    message: 'Chấm công thành công',
-    checkinId: checkinId,
-    imageUrl: imageUrl,
-    distMeters: distMeters,
-    isValid: isValid,
-    timeISO: time.toISOString(),
-    thoiGian: thoiGian,
-    viTri: viTri,
-    shift: serverShift || '',
-    lateMins: serverLateMins,
-    checklistPending: checklistPending
-  });
+
+  return jsonResponse(false, 'Không thể ghi nhận chấm công. Vui lòng thử lại.');
 }
 
 function handleSendEmailNotification(payload) {
@@ -3134,6 +3141,19 @@ function findFuzzyRowMatch(normName, map) {
 }
 
 /**
+ * Chuyển đổi số thứ tự cột (1-indexed) sang chữ cái A1 (A, B, ..., Z, AA, AB...)
+ */
+function colIndexToA1(col) {
+  var s = '';
+  while (col > 0) {
+    var m = (col - 1) % 26;
+    s = String.fromCharCode(65 + m) + s;
+    col = Math.floor((col - m) / 26);
+  }
+  return s;
+}
+
+/**
  * Tìm tab sheet tháng phù hợp trong file Roster: format "Tháng MM (YYYY)" hoặc "Tháng MM/YYYY"
  */
 function findRosterMonthSheet(rosterSS, month, year) {
@@ -3351,6 +3371,7 @@ function syncApprovedSchedulesToExternalRoster(payload) {
     chunks.push(curChunk);
 
     var syncedInSheet = 0;
+    var rosterBatchData = [];
     for (var s = 0; s < schedules.length; s++) {
       var emp = schedules[s];
       var normEmpName = normalizeEmployeeName(emp.fullname);
@@ -3376,9 +3397,33 @@ function syncApprovedSchedulesToExternalRoster(payload) {
           return cleanShift;
         });
 
-        targetSheet.getRange(targetRow, startCol, 1, chunk.length).setValues([rowVals]);
+        var startL = colIndexToA1(startCol);
+        var endL = colIndexToA1(startCol + chunk.length - 1);
+        rosterBatchData.push({
+          range: "'" + targetSheet.getName().replace(/'/g, "''") + "'!" + startL + targetRow + ":" + endL + targetRow,
+          values: [rowVals]
+        });
       }
       syncedInSheet++;
+    }
+
+    // Ghi đồng thời toàn bộ dữ liệu phân ca bằng Sheets API V4 (1 request duy nhất)
+    if (rosterBatchData.length > 0) {
+      try {
+        Sheets.Spreadsheets.Values.batchUpdate({
+          valueInputOption: 'USER_ENTERED',
+          data: rosterBatchData
+        }, rosterSS.getId());
+      } catch (batchErr) {
+        Logger.log('Sheets API v4 batchUpdate roster failed, fallback: ' + batchErr.message);
+        for (var bi = 0; bi < rosterBatchData.length; bi++) {
+          try {
+            var item = rosterBatchData[bi];
+            var pureRange = item.range.replace("'" + targetSheet.getName().replace(/'/g, "''") + "'!", "");
+            targetSheet.getRange(pureRange).setValues(item.values);
+          } catch(fe) {}
+        }
+      }
     }
 
     processedSheets.push(targetSheet.getName() + ' (' + syncedInSheet + ' NV)');

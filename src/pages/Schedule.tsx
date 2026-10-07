@@ -4,7 +4,7 @@ import { callApi } from '../services/api';
 import { speak, computeWeekInfo, getActiveShiftClass, getPreviewShiftClass, SHIFT_OPTIONS, SHORT_DAY_NAMES, isRegistrationOpen, getAdminShiftClass, ADMIN_SHIFT_OPTIONS, generateMonthDates, formatDateShort, formatMobileShift, ResponsiveShift } from '../utils/helpers';
 import type { MonthDateInfo } from '../utils/helpers';
 import Swal from 'sweetalert2';
-import { CalendarCheck, Eye, AlertTriangle, Send, Lock, ExternalLink, Clock, RefreshCw, Pencil, CheckCheck, Inbox, LayoutGrid, CalendarRange, ChevronLeft, ChevronRight, Sparkles, X, Bot, Info, FileSpreadsheet } from 'lucide-react';
+import { CalendarCheck, Eye, AlertTriangle, Send, Lock, ExternalLink, Clock, RefreshCw, Pencil, CheckCheck, Inbox, LayoutGrid, CalendarRange, ChevronLeft, ChevronRight, Sparkles, X, Bot, Info, FileSpreadsheet, Search } from 'lucide-react';
 import { KgModuleHero } from '../components/KgDesignSystem';
 import { getCalendarDayMeta } from '../utils/calendarHighlights';
 import { isWorkEligible } from '../utils/employment';
@@ -14,8 +14,17 @@ import MonthDayVisibility from '../components/MonthDayVisibility';
 import { useMonthDayVisibility } from '../hooks/useMonthDayVisibility';
 
 export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' }) {
-  const store = useAppStore();
-  const { currentUser, isScheduleRegistered, shiftData, offReason, approvedShifts, registeredShifts, adminSchedules, originalAdminSchedules } = store;
+  const currentUser = useAppStore(state => state.currentUser);
+  const isScheduleRegistered = useAppStore(state => state.isScheduleRegistered);
+  const shiftData = useAppStore(state => state.shiftData);
+  const offReason = useAppStore(state => state.offReason);
+  const approvedShifts = useAppStore(state => state.approvedShifts);
+  const registeredShifts = useAppStore(state => state.registeredShifts);
+  const adminSchedules = useAppStore(state => state.adminSchedules);
+  const originalAdminSchedules = useAppStore(state => state.originalAdminSchedules);
+  const storeUsers = useAppStore(state => state.users);
+  const storeMonthSchedules = useAppStore(state => state.monthSchedules);
+  const store = useAppStore.getState();
   const isManagerView = mode === 'admin' && (currentUser?.role === 'admin' || currentUser?.role === 'tester');
 
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
@@ -45,9 +54,10 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
   } = useMonthDayVisibility('kg_schedule_visible_days', monthDates);
   
   const [monthData, setMonthData] = useState<any[]>(() => {
-    return Array.isArray(store.monthSchedules) ? store.monthSchedules : [];
+    return Array.isArray(storeMonthSchedules) ? storeMonthSchedules : [];
   });
   const [isMonthRefreshing, setIsMonthRefreshing] = useState(false);
+  const [empSearchQuery, setEmpSearchQuery] = useState('');
 
   const changeWeek = (offset: number) => {
     const d = new Date(currentDate);
@@ -138,8 +148,29 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
     }
   };
 
-  // Add users mapping logic for Month View
-  const users = store.users && store.users.length > 0 ? store.users.filter(isWorkEligible) : [];
+  // Memoized users, filtered list, and lookup map for Month View matrix (B12)
+  const users = useMemo(() => {
+    return storeUsers && storeUsers.length > 0 ? storeUsers.filter(isWorkEligible) : [];
+  }, [storeUsers]);
+
+  const filteredUsers = useMemo(() => {
+    if (!empSearchQuery.trim()) return users;
+    const q = empSearchQuery.trim().toLowerCase();
+    return users.filter(u => u.fullname?.toLowerCase().includes(q) || u.username?.toLowerCase().includes(q));
+  }, [users, empSearchQuery]);
+
+  const empMonthMap = useMemo(() => {
+    const map: Record<string, Record<string, string>> = {};
+    monthData?.forEach(week => {
+      week?.schedules?.forEach((emp: any) => {
+        if (!map[emp.fullname]) map[emp.fullname] = {};
+        emp?.shifts?.forEach((s: string, i: number) => {
+          map[emp.fullname][`${week.weekLabel}_${i}`] = s;
+        });
+      });
+    });
+    return map;
+  }, [monthData]);
 
 
   const [hasWeekendOff, setHasWeekendOff] = useState(false);
@@ -884,62 +915,91 @@ ${aiInputText}
                 visibleKeys={visibleMonthDateKeys}
                 onChange={setVisibleMonthDateKeys}
               />
-              <div className="overflow-x-auto w-full soft3d-bg rounded-xl border border-gray-200 dark:border-gray-700 mb-4 pb-20 custom-scrollbar">
-              {(() => {
-                const empMonthMap: Record<string, Record<string, string>> = {};
-                monthData?.forEach(week => {
-                  week?.schedules?.forEach((emp: any) => {
-                    if (!empMonthMap[emp.fullname]) empMonthMap[emp.fullname] = {};
-                    emp?.shifts?.forEach((s: string, i: number) => {
-                      empMonthMap[emp.fullname][`${week.weekLabel}_${i}`] = s;
-                    });
-                  });
-                });
 
-                return (
-                  <table className="w-full text-sm text-left whitespace-nowrap">
-                    <thead className="text-[10px] text-gray-500 dark:text-gray-400 uppercase bg-gray-200 dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700">
+              {/* Employee search & summary bar */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 bg-gray-50 dark:bg-gray-800/60 p-2.5 rounded-xl border border-gray-200 dark:border-gray-700">
+                <div className="relative flex-1 max-w-sm">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    value={empSearchQuery}
+                    onChange={(e) => setEmpSearchQuery(e.target.value)}
+                    placeholder="Tìm tên nhân viên..."
+                    className="w-full pl-9 pr-8 py-2 text-xs font-medium rounded-lg bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-amber-500 text-gray-800 dark:text-gray-100 placeholder-gray-400"
+                  />
+                  {empSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setEmpSearchQuery('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+                <div className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 flex items-center justify-between sm:justify-end gap-3 px-1">
+                  <span>Hiển thị: <b className="text-amber-600 dark:text-amber-400">{filteredUsers.length}</b>/{users.length} nhân viên</span>
+                  <span className="hidden md:inline text-gray-400">• Cuộn ngang để xem đủ 30 ngày</span>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto w-full bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 mb-4 pb-20 custom-scrollbar shadow-sm">
+                <table className="w-full text-sm text-left whitespace-nowrap border-collapse">
+                  <thead className="text-[10px] text-gray-500 dark:text-gray-400 uppercase bg-gray-100 dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700">
+                    <tr>
+                      <th className="px-3 py-3 sticky left-0 bg-gray-100 dark:bg-gray-800 z-30 font-bold border-r border-gray-300 dark:border-gray-700 shadow-[2px_0_5px_rgba(0,0,0,0.06)] min-w-[130px] sm:min-w-[160px]">
+                        Nhân Viên
+                      </th>
+                      {visibleMonthDates.map((mDate) => {
+                        const dayMeta = getCalendarDayMeta(mDate.dateKey);
+                        return (
+                          <th
+                            key={mDate.dateKey}
+                            className={`px-1 py-2 text-center border-r border-gray-200 dark:border-gray-700 min-w-[66px] sm:min-w-[74px] ${dayMeta.className}`}
+                            title={dayMeta.label || undefined}
+                          >
+                            <div className="font-bold text-gray-700 dark:text-gray-300 text-[12px] sm:text-[13px]">{formatDateShort(mDate.date)}</div>
+                            <div className="text-[10px] font-normal opacity-70 mt-0.5">{SHORT_DAY_NAMES[mDate.dayIndex]}</div>
+                          </th>
+                        );
+                      })}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredUsers.length === 0 ? (
                       <tr>
-                        <th className="px-3 py-3 sticky left-0 bg-gray-200 dark:bg-gray-800 z-20 font-bold border-r dark:border-gray-700">Nhân Viên</th>
-                        {visibleMonthDates.map((mDate) => {
-                          const dayMeta = getCalendarDayMeta(mDate.dateKey);
-                          return (
-                            <th
-                              key={mDate.dateKey}
-                              className={`px-1 py-2 text-center border-r dark:border-gray-700 min-w-[70px] ${dayMeta.className}`}
-                              title={dayMeta.label || undefined}
-                            >
-                              <div className="font-bold text-gray-700 dark:text-gray-300 text-[13px]">{formatDateShort(mDate.date)}</div>
-                              <div className="text-[10px] font-normal opacity-70 mt-0.5">{SHORT_DAY_NAMES[mDate.dayIndex]}</div>
-                            </th>
-                          );
-                        })}
+                        <td colSpan={visibleMonthDates.length + 1} className="py-8 text-center text-gray-400 dark:text-gray-500 text-xs">
+                          Không tìm thấy nhân viên nào khớp với "{empSearchQuery}"
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {users.map((emp, empIdx) => (
-                        <tr key={empIdx} className="soft3d-card border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                          <td className="px-3 py-3 sticky left-0 soft3d-card z-10 font-bold text-gray-800 dark:text-gray-200 shadow-[1px_0_0_0_rgba(0,0,0,0.05)] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.05)] border-r dark:border-gray-700 text-xs">
-                            <SmartPersonName fullname={emp.fullname} className="max-w-[150px] font-bold" />
+                    ) : (
+                      filteredUsers.map((emp, empIdx) => (
+                        <tr key={emp.username || empIdx} className="border-b border-gray-200 dark:border-gray-700 hover:bg-amber-50/40 dark:hover:bg-amber-950/20 transition-colors">
+                          <td className="px-3 py-2.5 sticky left-0 bg-white dark:bg-gray-900 z-20 font-bold text-gray-800 dark:text-gray-200 border-r border-gray-200 dark:border-gray-700 shadow-[2px_0_5px_rgba(0,0,0,0.06)] text-xs">
+                            <SmartPersonName fullname={emp.fullname} className="max-w-[120px] sm:max-w-[150px] font-bold truncate block" />
                           </td>
                           {visibleMonthDates.map((mDate) => {
                             const shift = empMonthMap[emp.fullname]?.[`${mDate.weekLabel}_${mDate.dayIndex}`] || '';
-                            const isOff = shift === 'OFF' || !shift;
                             const dayMeta = getCalendarDayMeta(mDate.dateKey);
                             return (
                               <td
                                 key={mDate.dateKey}
-                                className={`px-1 py-1 relative border-r dark:border-gray-700 ${dayMeta.className}`}
+                                className={`px-1 py-1 relative border-r border-gray-100 dark:border-gray-700/60 ${dayMeta.className}`}
                                 title={dayMeta.label || undefined}
                               >
                                 <div className="relative">
-                                  <select value={shift} onChange={(e) => updateSingleMonthShift(emp.fullname, mDate, e.target.value)}
-                                    className={`text-[10px] font-bold rounded-lg border focus:outline-none p-1 w-full cursor-pointer appearance-none text-center transition-all ${
-                                      'border-gray-200 dark:border-gray-600 focus:ring-1 focus:ring-indigo-500 ' + getAdminShiftClass(shift)
-                                    }`}>
-                                    <option value="">OFF</option>
+                                  <select
+                                    value={shift}
+                                    onChange={(e) => updateSingleMonthShift(emp.fullname, mDate, e.target.value)}
+                                    className={`text-xs font-black rounded-lg border focus:outline-none py-1.5 px-1 min-h-[38px] w-full min-w-[58px] sm:min-w-[64px] cursor-pointer appearance-none text-center transition-all touch-manipulation shadow-sm ${
+                                      'border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-amber-500 ' + getAdminShiftClass(shift)
+                                    }`}
+                                  >
+                                    <option value="" className="bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-200">OFF</option>
                                     {ADMIN_SHIFT_OPTIONS.map((opt) => (
-                                      <option key={opt} value={opt} className="bg-white text-gray-800">{formatMobileShift(opt)}</option>
+                                      <option key={opt} value={opt} className="bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200">
+                                        {formatMobileShift(opt)}
+                                      </option>
                                     ))}
                                   </select>
                                 </div>
@@ -947,11 +1007,10 @@ ${aiInputText}
                             );
                           })}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                );
-              })()}
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
             ) : (

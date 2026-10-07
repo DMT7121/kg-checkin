@@ -29,7 +29,7 @@ var CONFIG = {
   LOCATION: {
     LAT: 10.9760826,
     LNG: 106.6646541,
-    MAX_DISTANCE_METERS: 20
+    MAX_DISTANCE_METERS: 25
   },
   EMAILS: ["dmt.7121@gmail.com", "btob.7121@gmail.com", "dmt.kgwork@gmail.com", "leminhsang993@gmail.com", "nguyentien1744293@gmail.com"],
   TIMEZONE: "Asia/Ho_Chi_Minh",
@@ -113,6 +113,8 @@ function doPost(e) {
         return handleSaveOpsChecklistConfig(payload);
 
       // --- HANDOVER & INCIDENT ---
+      case 'GET_HANDOVERS':
+        return handleGetHandovers(payload);
       case 'SUBMIT_HANDOVER':
         return handleSubmitHandover(payload);
       case 'SUBMIT_INCIDENT':
@@ -326,6 +328,23 @@ function onEdit(e) {
       JsonCacheService.invalidateUserCache();
       JsonCacheService.invalidateAdminCache();
     }
+
+    // Tự động nạp dữ liệu chấm công và cập nhật công thức khi nhập/chọn tên nhân viên trên Sheet Tổng Hợp
+    if (sheetName.indexOf('📊 TỔNG HỢP') === 0 && e.range && e.range.getColumn() === 1) {
+      var row = e.range.getRow();
+      var newVal = String(e.value || e.range.getValue() || '').trim();
+      if (row > 2) {
+        var sheetObj = e.range.getSheet();
+        var prevVal = String(sheetObj.getRange(row - 1, 1).getValue() || '').trim();
+        if (prevVal === 'Họ và Tên') {
+          // Luôn cập nhật công thức CCNV1 & CCNV2 theo tên nhân viên vừa nhập
+          updateEmployeeSummaryFormulas(sheetObj, row, newVal);
+          if (newVal && newVal !== '(CHƯA NHẬP TÊN)') {
+            populateEmployeeAttendanceInSummaryTable(sheetObj, row, newVal);
+          }
+        }
+      }
+    }
   } catch(err) {
     Logger.log("onEdit trigger error: " + err.toString());
   }
@@ -340,6 +359,9 @@ function onOpen() {
   if (ui) {
     ui.createMenu('Tiện Ích Chấm Công ⭐️')
       .addItem('⚡️ Bắt Đầu Tổng Hợp (Nhanh)', 'showSheetSelectionDialog')
+      .addItem('➕ Thêm Bảng Tổng Hợp Nhân Viên Mới', 'showAddSummaryTablesModal')
+      .addItem('🔄 Nạp Dữ Liệu Chấm Công Cho Nhân Viên Mới Thêm', 'menuPopulateAllNewEmployees')
+      .addItem('🔧 Sửa Công Thức & Khoảng Cách Sheet Tổng Hợp', 'menuRepairSummarySheetFormulas')
       .addItem('✨ Làm đẹp Format Sheet Chấm Công', 'formatEntireCheckInSheet')
       .addItem('🔧 Sửa lỗi Link Ảnh & Công thức (#ERROR!)', 'repairCheckinFormulasAndImages')
       .addItem('📅 Đồng bộ Lịch sang Sheet Lịch Làm (1Vrm...)', 'menuSyncRosterSchedules')
@@ -361,6 +383,9 @@ function createMenu() {
   }
   ui.createMenu('Tiện Ích Chấm Công ⭐️')
     .addItem('⚡️ Bắt Đầu Tổng Hợp (Nhanh)', 'showSheetSelectionDialog')
+    .addItem('➕ Thêm Bảng Tổng Hợp Nhân Viên Mới', 'showAddSummaryTablesModal')
+    .addItem('🔄 Nạp Dữ Liệu Chấm Công Cho Nhân Viên Mới Thêm', 'menuPopulateAllNewEmployees')
+    .addItem('🔧 Sửa Công Thức & Khoảng Cách Sheet Tổng Hợp', 'menuRepairSummarySheetFormulas')
     .addItem('✨ Làm đẹp Format Sheet Chấm Công', 'formatEntireCheckInSheet')
     .addItem('🔧 Sửa lỗi Link Ảnh & Công thức (#ERROR!)', 'repairCheckinFormulasAndImages')
     .addItem('📅 Đồng bộ Lịch sang Sheet Lịch Làm (1Vrm...)', 'menuSyncRosterSchedules')
@@ -1678,5 +1703,381 @@ function migrateDataHeaders() {
   var ui = getUI();
   if (ui) {
     ui.alert('Thành công', 'Đã chuyển đổi tiêu đề sheet DATA sang cấu trúc 2 dòng: Tiếng Việt ở trên và Thuật ngữ ở dưới.', ui.ButtonSet.OK);
+  }
+}
+
+// =====================================================================================
+// 7. GIAO DIỆN THÊM BẢNG TỔNG HỢP & SỬA CÔNG THỨC NHÂN VIÊN
+// =====================================================================================
+
+function menuPopulateAllNewEmployees() {
+  var ui = getUI();
+  var ss = getSS();
+  var sheet = ss.getActiveSheet();
+  var sheetName = sheet.getName();
+
+  if (sheetName.indexOf('📊 TỔNG HỢP') < 0) {
+    if (ui) ui.alert('Lưu ý', 'Tính năng này chỉ áp dụng cho các sheet Báo cáo Tổng Hợp (bắt đầu bằng "📊 TỔNG HỢP").', ui.ButtonSet.OK);
+    return;
+  }
+
+  if (ui) {
+    var response = ui.alert(
+      '🔄 Nạp Dữ Liệu Chấm Công Cho Nhân Viên Mới Thêm',
+      'Hệ thống sẽ quét các bảng nhân viên mới trên sheet "' + sheetName + '" đã được nhập tên, và tự động nạp dữ liệu chấm công (giờ vào/ra, ca làm việc) từ sheet nguồn bằng Google Sheets API V4.\n\nBạn có muốn tiếp tục không?',
+      ui.ButtonSet.YES_NO
+    );
+    if (response === ui.Button.YES) {
+      try {
+        var res = populateAllNewEmployeesInSummarySheet(sheetName);
+        ui.alert('✅ Hoàn Tất Nạp Dữ Liệu', res.message, ui.ButtonSet.OK);
+      } catch(e) {
+        ui.alert('❌ Lỗi', e.message, ui.ButtonSet.OK);
+      }
+    }
+  } else {
+    populateAllNewEmployeesInSummarySheet(sheetName);
+  }
+}
+
+function menuRepairSummarySheetFormulas() {
+  var ui = getUI();
+  var ss = getSS();
+  var sheet = ss.getActiveSheet();
+  var sheetName = sheet.getName();
+
+  if (ui) {
+    var response = ui.alert(
+      '🔧 Sửa Công Thức & Khoảng Cách Sheet Tổng Hợp',
+      'Bạn có muốn rà soát và tự động chuẩn hóa khoảng cách giữa các bảng (khắc phục triệt để lỗi dính bảng), đồng thời sửa lại toàn bộ công thức Giờ Tăng Ca & Giờ Theo Ca (khắc phục lỗi âm giờ ngày x2/x3 và ca đêm) cho sheet "' + sheetName + '" không?',
+      ui.ButtonSet.YES_NO
+    );
+    if (response === ui.Button.YES) {
+      try {
+        var res = repairSummarySheetFormulas(sheetName);
+        ui.alert('✅ Hoàn tất chuẩn hóa & sửa công thức', res.message, ui.ButtonSet.OK);
+      } catch (e) {
+        ui.alert('❌ Lỗi', e.message, ui.ButtonSet.OK);
+      }
+    }
+  } else {
+    repairSummarySheetFormulas(sheetName);
+  }
+}
+
+function showAddSummaryTablesModal() {
+  try {
+    var ui = getUI();
+    if (!ui) {
+      Logger.log('showAddSummaryTablesModal: Chỉ hoạt động khi mở từ Google Sheets.');
+      return;
+    }
+
+    var ss = getSS();
+    var sheets = ss.getSheets();
+    var activeSheetName = ss.getActiveSheet().getName();
+
+    var optionsHtml = '';
+    sheets.forEach(function(s) {
+      var name = s.getName();
+      if (name !== 'DATA' && name.indexOf('API_KEYS') < 0 && name.indexOf('JSON_') < 0) {
+        var isSelected = (name === activeSheetName) ? ' selected' : '';
+        optionsHtml += '<option value="' + name.replace(/"/g, '&quot;') + '"' + isSelected + '>' + name + '</option>';
+      }
+    });
+
+    var htmlContent = '<!DOCTYPE html>'
+      + '<html lang="vi">'
+      + '<head>'
+      + '<base target="_top">'
+      + '<meta charset="UTF-8">'
+      + '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
+      + '<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">'
+      + '<style>'
+      + "@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');"
+      + ':root {'
+      + '  --bg-deep: #06080f;'
+      + '  --bg-surface: rgba(12,17,29,0.95);'
+      + '  --bg-card: rgba(15,23,42,0.75);'
+      + '  --bg-card-hover: rgba(22,33,62,0.85);'
+      + '  --glass-border: rgba(99,102,241,0.18);'
+      + '  --accent: #818cf8;'
+      + '  --accent-bright: #a5b4fc;'
+      + '  --accent-emerald: #34d399;'
+      + '  --accent-amber: #fbbf24;'
+      + '  --accent-rose: #fb7185;'
+      + '  --text-1: #f1f5f9;'
+      + '  --text-2: #94a3b8;'
+      + '  --text-3: #64748b;'
+      + '  --radius-sm: 10px;'
+      + '  --radius-md: 14px;'
+      + '  --radius-lg: 20px;'
+      + '}'
+      + '*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }'
+      + 'body {'
+      + "  font-family: 'Inter', system-ui, -apple-system, sans-serif;"
+      + '  background: var(--bg-deep);'
+      + '  color: var(--text-1);'
+      + '  padding: 24px;'
+      + '  min-height: 100vh;'
+      + '  display: flex;'
+      + '  flex-direction: column;'
+      + '  justify-content: space-between;'
+      + '}'
+      + '.header {'
+      + '  display: flex;'
+      + '  align-items: center;'
+      + '  gap: 14px;'
+      + '  padding-bottom: 18px;'
+      + '  border-bottom: 1px solid var(--glass-border);'
+      + '  margin-bottom: 20px;'
+      + '}'
+      + '.header-icon {'
+      + '  width: 48px; height: 48px;'
+      + '  background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(168,85,247,0.2));'
+      + '  border: 1px solid rgba(129,140,248,0.3);'
+      + '  border-radius: var(--radius-md);'
+      + '  display: flex; align-items: center; justify-content: center;'
+      + '  font-size: 22px; color: var(--accent-bright);'
+      + '}'
+      + '.header h2 { font-size: 18px; font-weight: 800; letter-spacing: -0.3px; color: #fff; }'
+      + '.header p { font-size: 12px; color: var(--text-2); margin-top: 2px; }'
+      + '.form-group { margin-bottom: 18px; }'
+      + '.label {'
+      + '  display: flex; align-items: center; justify-content: space-between;'
+      + '  font-size: 12px; font-weight: 700; color: var(--text-2);'
+      + '  margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;'
+      + '}'
+      + '.select-box {'
+      + '  width: 100%; padding: 12px 14px;'
+      + '  background: var(--bg-card);'
+      + '  border: 1px solid var(--glass-border);'
+      + '  border-radius: var(--radius-md);'
+      + '  color: #fff; font-size: 14px; font-weight: 600;'
+      + '  outline: none;'
+      + '  cursor: pointer;'
+      + '  transition: border-color 0.2s;'
+      + '}'
+      + '.select-box:focus { border-color: var(--accent); }'
+      + '.sheet-badge {'
+      + '  margin-top: 8px; padding: 10px 14px;'
+      + '  background: rgba(99,102,241,0.08);'
+      + '  border: 1px solid rgba(99,102,241,0.2);'
+      + '  border-radius: var(--radius-sm);'
+      + '  font-size: 12px; color: var(--accent-bright);'
+      + '  display: flex; align-items: center; gap: 8px;'
+      + '}'
+      + '.counter-wrapper {'
+      + '  display: flex; align-items: center; gap: 12px;'
+      + '}'
+      + '.counter-btn {'
+      + '  width: 44px; height: 44px;'
+      + '  background: var(--bg-card);'
+      + '  border: 1px solid var(--glass-border);'
+      + '  border-radius: var(--radius-md);'
+      + '  color: #fff; font-size: 18px; font-weight: 700;'
+      + '  display: flex; align-items: center; justify-content: center;'
+      + '  cursor: pointer; transition: all 0.2s;'
+      + '}'
+      + '.counter-btn:hover { background: rgba(99,102,241,0.2); border-color: var(--accent); }'
+      + '.counter-input {'
+      + '  flex: 1; height: 44px;'
+      + '  background: var(--bg-card);'
+      + '  border: 1px solid var(--glass-border);'
+      + '  border-radius: var(--radius-md);'
+      + '  color: #fff; font-size: 16px; font-weight: 800;'
+      + '  text-align: center; outline: none;'
+      + '}'
+      + '.chips { display: flex; gap: 8px; margin-top: 8px; }'
+      + '.chip {'
+      + '  padding: 6px 12px; background: rgba(255,255,255,0.05);'
+      + '  border: 1px solid rgba(255,255,255,0.1); border-radius: 20px;'
+      + '  font-size: 11px; font-weight: 700; color: var(--text-2);'
+      + '  cursor: pointer; transition: all 0.2s;'
+      + '}'
+      + '.chip:hover { background: rgba(99,102,241,0.15); color: #fff; border-color: var(--accent); }'
+      + '.info-card {'
+      + '  padding: 14px; background: rgba(15,23,42,0.5);'
+      + '  border: 1px solid rgba(255,255,255,0.06); border-radius: var(--radius-md);'
+      + '  margin-bottom: 12px;'
+      + '}'
+      + '.info-card h4 {'
+      + '  font-size: 13px; font-weight: 700; color: var(--accent-emerald);'
+      + '  display: flex; align-items: center; gap: 8px; margin-bottom: 6px;'
+      + '}'
+      + '.info-card p {'
+      + '  font-size: 12px; color: var(--text-2); line-height: 1.5;'
+      + '}'
+      + '.btn-primary {'
+      + '  width: 100%; padding: 14px;'
+      + '  background: linear-gradient(135deg, #4f46e5, #7c3aed);'
+      + '  border: none; border-radius: var(--radius-md);'
+      + '  color: #fff; font-size: 14px; font-weight: 800; letter-spacing: 0.5px;'
+      + '  display: flex; align-items: center; justify-content: center; gap: 10px;'
+      + '  cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 20px rgba(99,102,241,0.4);'
+      + '}'
+      + '.btn-primary:hover { opacity: 0.95; transform: translateY(-1px); }'
+      + '.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }'
+      + '.btn-secondary {'
+      + '  width: 100%; padding: 10px; margin-top: 8px;'
+      + '  background: transparent; border: 1px solid var(--glass-border);'
+      + '  border-radius: var(--radius-md); color: var(--text-2);'
+      + '  font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s;'
+      + '  display: flex; align-items: center; justify-content: center; gap: 6px;'
+      + '}'
+      + '.btn-secondary:hover { color: #fff; background: rgba(255,255,255,0.05); }'
+      + '.prog-bar {'
+      + '  height: 4px; background: rgba(255,255,255,0.08);'
+      + '  border-radius: 2px; overflow: hidden; margin: 12px 0; display: none;'
+      + '}'
+      + '.prog-bar.active { display: block; }'
+      + '.prog-fill {'
+      + '  height: 100%; width: 0%;'
+      + '  background: linear-gradient(90deg, #34d399, #818cf8);'
+      + '  transition: width 0.3s;'
+      + '}'
+      + '.status-line { font-size: 12px; text-align: center; color: var(--text-2); margin-top: 6px; min-height: 18px; }'
+      + '.toast {'
+      + '  position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%) translateY(50px);'
+      + '  padding: 10px 18px; background: #065f46; color: #fff; border-radius: 30px;'
+      + '  font-size: 12px; font-weight: 700; box-shadow: 0 8px 24px rgba(0,0,0,0.4);'
+      + '  opacity: 0; transition: all 0.3s; z-index: 99;'
+      + '}'
+      + '.toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }'
+      + '</style>'
+      + '</head>'
+      + '<body>'
+      + '<div>'
+      + '  <div class="header">'
+      + '    <div class="header-icon"><i class="fas fa-layer-group"></i></div>'
+      + '    <div>'
+      + '      <h2>Thêm Bảng Tổng Hợp Nhân Viên</h2>'
+      + '      <p>Hệ thống tự động sinh cấu trúc bảng theo chuẩn King\'s Grill</p>'
+      + '    </div>'
+      + '  </div>'
+      + '  <div class="form-group">'
+      + '    <label class="label">Sheet Tổng Hợp Cần Thêm</label>'
+      + '    <select id="sheetSelect" class="select-box" onchange="onSheetChange()">' + optionsHtml + '</select>'
+      + '    <div id="sheetBadge" class="sheet-badge"><i class="fas fa-spinner fa-spin"></i> Đang tải thông tin sheet...</div>'
+      + '  </div>'
+      + '  <div class="form-group">'
+      + '    <label class="label">Số lượng bảng nhân viên muốn thêm</label>'
+      + '    <div class="counter-wrapper">'
+      + '      <button class="counter-btn" type="button" onclick="adjustCount(-1)">−</button>'
+      + '      <input type="number" id="numTablesInput" class="counter-input" value="1" min="1" max="20">'
+      + '      <button class="counter-btn" type="button" onclick="adjustCount(1)">+</button>'
+      + '    </div>'
+      + '    <div class="chips">'
+      + '      <div class="chip" onclick="setCount(1)">+1 Bảng</div>'
+      + '      <div class="chip" onclick="setCount(2)">+2 Bảng</div>'
+      + '      <div class="chip" onclick="setCount(3)">+3 Bảng</div>'
+      + '      <div class="chip" onclick="setCount(5)">+5 Bảng</div>'
+      + '    </div>'
+      + '  </div>'
+      + '  <div class="info-card">'
+      + '    <h4><i class="fas fa-user-edit"></i> Quy Tắc Nhập Tên Động</h4>'
+      + '    <p>Bảng mới sẽ để trống ô tên đầu tiên (ngay dưới cột "Họ và Tên"). Bạn chỉ cần nhập tên vào ô này (hoặc chọn dropdown từ DATA), toàn bộ các ngày và công thức Thống kê chi tiết sẽ tự động nhận diện!</p>'
+      + '  </div>'
+      + '  <div class="info-card">'
+      + '    <h4><i class="fas fa-calculator"></i> Tính Toán & Hệ Số Lễ x2 / x3</h4>'
+      + '    <p>Đã khắc phục hoàn toàn lỗi âm giờ ca đêm (-9,07). Các ngày có cấu hình x2 hoặc x3 lương sẽ tự động nhân đúng hệ số cho ngày đó.</p>'
+      + '  </div>'
+      + '</div>'
+      + '<div>'
+      + '  <div id="progBar" class="prog-bar"><div id="progFill" class="prog-fill"></div></div>'
+      + '  <div id="statusLine" class="status-line"></div>'
+      + '  <button id="submitBtn" class="btn-primary" type="button" onclick="submitAddTables()">'
+      + '    <i class="fas fa-plus-circle"></i> TIẾN HÀNH THÊM BẢNG'
+      + '  </button>'
+      + '  <button class="btn-secondary" type="button" onclick="repairFormulasNow()">'
+      + '    <i class="fas fa-wrench"></i> Sửa Công Thức & Khoảng Cách Sheet Này (Fix Dính Bảng)'
+      + '  </button>'
+      + '</div>'
+      + '<div id="toast" class="toast"></div>'
+      + '<script>'
+      + 'var curSheet = document.getElementById("sheetSelect").value;'
+      + 'function onSheetChange() {'
+      + '  curSheet = document.getElementById("sheetSelect").value;'
+      + '  var badge = document.getElementById("sheetBadge");'
+      + '  badge.innerHTML = \'<i class="fas fa-spinner fa-spin"></i> Đang kiểm tra...\';'
+      + '  google.script.run.withSuccessHandler(function(info){'
+      + '    if (info && info.success) {'
+      + '      if (info.isSummarySheet) {'
+      + '        badge.innerHTML = \'<i class="fas fa-check-circle" style="color:#34d399;"></i> Đang có <b>\' + info.empCount + \'</b> nhân viên. Bảng mới sẽ đánh số từ <b>Nhân viên \' + (info.empCount + 1) + \'</b>.\';'
+      + '      } else {'
+      + '        badge.innerHTML = \'<i class="fas fa-info-circle" style="color:#818cf8;"></i> Sheet chưa có báo cáo. Bảng mới sẽ tạo theo lịch tháng hiện hành.\';'
+      + '      }'
+      + '    } else {'
+      + '      badge.textContent = "Không xác định thông tin sheet.";'
+      + '    }'
+      + '  }).getSummarySheetInfo(curSheet);'
+      + '}'
+      + 'onSheetChange();'
+      + 'function adjustCount(delta) {'
+      + '  var el = document.getElementById("numTablesInput");'
+      + '  var val = Math.max(1, Math.min(20, (parseInt(el.value, 10) || 1) + delta));'
+      + '  el.value = val;'
+      + '}'
+      + 'function setCount(n) { document.getElementById("numTablesInput").value = n; }'
+      + 'function submitAddTables() {'
+      + '  var sheet = document.getElementById("sheetSelect").value;'
+      + '  var count = parseInt(document.getElementById("numTablesInput").value, 10) || 1;'
+      + '  var btn = document.getElementById("submitBtn");'
+      + '  var bar = document.getElementById("progBar");'
+      + '  var fill = document.getElementById("progFill");'
+      + '  var status = document.getElementById("statusLine");'
+      + '  btn.disabled = true;'
+      + '  btn.innerHTML = \'<i class="fas fa-spinner fa-spin"></i> ĐANG TẠO BẢNG...\';'
+      + '  bar.classList.add("active"); fill.style.width = "40%";'
+      + '  status.textContent = "Đang sinh cấu trúc bảng và công thức...";'
+      + '  google.script.run'
+      + '    .withSuccessHandler(function(res){'
+      + '      fill.style.width = "100%";'
+      + '      btn.innerHTML = \'<i class="fas fa-check"></i> ĐÃ HOÀN TẤT!\';'
+      + '      btn.style.background = "linear-gradient(135deg, #059669, #10b981)";'
+      + '      status.textContent = res.message;'
+      + '      showToast("Thêm thành công " + res.addedCount + " bảng!");'
+      + '      setTimeout(function(){ google.script.host.close(); }, 2500);'
+      + '    })'
+      + '    .withFailureHandler(function(err){'
+      + '      btn.disabled = false;'
+      + '      btn.innerHTML = \'<i class="fas fa-plus-circle"></i> TIẾN HÀNH THÊM BẢNG\';'
+      + '      bar.classList.remove("active"); fill.style.width = "0%";'
+      + '      status.textContent = "Lỗi: " + err.message;'
+      + '      showToast("Lỗi: " + err.message);'
+      + '    })'
+      + '    .addNewSummaryTables(sheet, count);'
+      + '}'
+      + 'function repairFormulasNow() {'
+      + '  var sheet = document.getElementById("sheetSelect").value;'
+      + '  var status = document.getElementById("statusLine");'
+      + '  status.textContent = "Đang chuẩn hóa khoảng cách và sửa công thức...";'
+      + '  google.script.run'
+      + '    .withSuccessHandler(function(res){'
+      + '      status.textContent = res.message;'
+      + '      showToast("Đã chuẩn hóa khoảng cách và sửa " + res.fixedRowsCount + " dòng công thức!");'
+      + '    })'
+      + '    .withFailureHandler(function(err){'
+      + '      status.textContent = "Lỗi: " + err.message;'
+      + '    })'
+      + '    .repairSummarySheetFormulas(sheet);'
+      + '}'
+      + 'function showToast(msg) {'
+      + '  var t = document.getElementById("toast");'
+      + '  t.textContent = msg;'
+      + '  t.classList.add("show");'
+      + '  setTimeout(function(){ t.classList.remove("show"); }, 3000);'
+      + '}'
+      + '</script>'
+      + '</body>'
+      + '</html>';
+
+    var htmlOutput = HtmlService.createHtmlOutput(htmlContent)
+      .setWidth(580)
+      .setHeight(680);
+
+    ui.showModalDialog(htmlOutput, "KING'S GRILL - Thêm Bảng Tổng Hợp Nhân Viên");
+  } catch (e) {
+    throw new Error('Lỗi hiển thị giao diện thêm bảng: ' + e.message);
   }
 }

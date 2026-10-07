@@ -320,6 +320,66 @@ var SheetService = (function() {
     }
   }
 
+  /**
+   * Đọc đồng thời nhiều sheets/ranges qua Sheets API v4 batchGet
+   * @param {string[]} ranges - Mảng các range hoặc tên sheet (ví dụ ['DATA!A1:D50', 'Users!A:Z'])
+   * @return {object} Key là range hoặc sheetName, Value là mảng 2D values
+   */
+  function batchGetSheetsData(ranges) {
+    var ssId = getSpreadsheetId();
+    try {
+      var response = Sheets.Spreadsheets.Values.batchGet(ssId, { ranges: ranges });
+      var result = {};
+      if (response && response.valueRanges) {
+        response.valueRanges.forEach(function(vr) {
+          result[vr.range] = vr.values || [];
+        });
+      }
+      return result;
+    } catch (e) {
+      Logger.log("Sheets API v4 batchGet failed, falling back: " + e.toString());
+      var ss = getSpreadsheet();
+      var fallbackRes = {};
+      ranges.forEach(function(r) {
+        try {
+          var rng = ss.getRange(r);
+          fallbackRes[r] = rng.getValues();
+        } catch(fe) {
+          fallbackRes[r] = [];
+        }
+      });
+      return fallbackRes;
+    }
+  }
+
+  /**
+   * Ghi đồng thời nhiều range qua Sheets API v4 batchUpdate
+   * @param {Array<{range: string, values: Array[]}>} dataArray
+   * @return {boolean}
+   */
+  function batchUpdateValues(dataArray) {
+    var ssId = getSpreadsheetId();
+    try {
+      var batchData = dataArray.map(function(item) {
+        return {
+          range: item.range,
+          values: item.values
+        };
+      });
+      Sheets.Spreadsheets.Values.batchUpdate(
+        {
+          data: batchData,
+          valueInputOption: "USER_ENTERED"
+        },
+        ssId
+      );
+      return true;
+    } catch(e) {
+      Logger.log("Sheets API v4 batchUpdate failed: " + e.toString());
+      return false;
+    }
+  }
+
   return {
     getSpreadsheetId: getSpreadsheetId,
     getSpreadsheet: getSpreadsheet,
@@ -327,6 +387,8 @@ var SheetService = (function() {
     getSheetDataAsObjects: getSheetDataAsObjects,
     setSheetDataFromObjects: setSheetDataFromObjects,
     appendRowFromObject: appendRowFromObject,
-    updateCellByLookup: updateCellByLookup
+    updateCellByLookup: updateCellByLookup,
+    batchGetSheetsData: batchGetSheetsData,
+    batchUpdateValues: batchUpdateValues
   };
 })();
