@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import { auditAllEmployeesAttendance, EmployeeAttendanceStatus, ResponsiveShift, getPreviewShiftClass } from '../utils/helpers';
+import { auditAllEmployeesAttendance, type EmployeeAttendanceStatus, ResponsiveShift, getPreviewShiftClass } from '../utils/helpers';
 import {
   Users,
   Search,
@@ -49,16 +49,16 @@ export default function EmployeeAttendanceMonitor({
     let dayIdx = today.getDay() - 1; // 0=Mon, 6=Sun
     if (dayIdx === -1) dayIdx = 6;
 
-    // Check if store has allSchedules or admin schedules
-    if (store.allSchedules) {
-      Object.entries(store.allSchedules).forEach(([username, sched]) => {
+    // Check if store has admin schedules
+    if (store.adminSchedules?.length) {
+      store.adminSchedules.forEach((sched) => {
         if (sched && sched.shifts && sched.shifts[dayIdx]) {
-          map[username] = sched.shifts[dayIdx];
+          map[sched.username || sched.fullname] = sched.shifts[dayIdx];
         }
       });
     }
     return map;
-  }, [approvedShifts, store.allSchedules, ticker]);
+  }, [approvedShifts, store.adminSchedules, ticker]);
 
   // Compute live attendance status
   const attendanceList = useMemo(() => {

@@ -1,7 +1,7 @@
 import React from 'react';
 import { CalendarClock, AlertTriangle, Clock, ChevronRight, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ScheduleRegistrationWindowStatus } from '../utils/helpers';
+import { type ScheduleRegistrationWindowStatus } from '../utils/helpers';
 
 interface MandatoryScheduleModalProps {
   isOpen: boolean;

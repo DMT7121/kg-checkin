@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import KalmanFilter from '../utils/kalman';
@@ -14,8 +14,8 @@ import {
   getRecommendedCheckInType,
   setLocalLastPunch,
   auditMissingCheckIns,
-  MissingCheckInAlert,
-  CheckInTypeString,
+  type MissingCheckInAlert,
+  type CheckInTypeString,
   getCheckInCooldown,
   auditCheckInAnomalies,
   encodeOptimalCanvas,
@@ -240,7 +240,7 @@ export default function CheckIn() {
   }, [capturedImage, photoCapturedAtMs, handlePhotoExpired]);
 
   const [lastSubmittedPunch, setLastSubmittedPunch] = useState<{
-    type: 'Vào ca' | 'Ra ca';
+    type: 'Vào ca' | 'Ra ca' | string;
     fullname: string;
     time: string;
     location: string;
@@ -766,7 +766,7 @@ export default function CheckIn() {
         c.arcTo(x + w, y, x + w, y + h, r);
         c.arcTo(x + w, y + h, x, y + h, r);
         c.arcTo(x, y + h, x, y, r);
-        c.arcTo(x, y + w, y, r);
+        c.arcTo(x, y, x + r, y, r);
         c.closePath();
       }
     };

@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState, useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
-import { computeWeekInfo, auditMissingCheckIns, MissingCheckInAlert, ResponsiveShift, getPreviewShiftClass, getScheduleRegistrationWindow, isNextWeekScheduleRegistered } from '../utils/helpers';
+import { computeWeekInfo, auditMissingCheckIns, type MissingCheckInAlert, ResponsiveShift, getPreviewShiftClass, getScheduleRegistrationWindow, isNextWeekScheduleRegistered } from '../utils/helpers';
 import { refreshAppData } from '../utils/refreshData';
 import { hasTabPermission, getTabLabel } from '../utils/permissions';
 import {
@@ -159,24 +159,53 @@ const TabFallback = () => (
   </div>
 );
 
-const ModuleRecoverFallback = () => (
-  <div className="p-4 md:p-6">
-    <div className="soft3d-card p-5 md:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-      <div>
-        <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Module đang được tải lại</h3>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-          Hệ thống đang giữ nguyên màn hình hiện tại và thử nạp lại giao diện.
-        </p>
+const ModuleRecoverFallback = ({ onRetry, onGoHome }: { onRetry?: () => void; onGoHome?: () => void }) => {
+  const store = useAppStore();
+  return (
+    <div className="p-4 md:p-6">
+      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-5 md:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+        <div>
+          <h3 className="text-base font-extrabold text-[var(--kg-text)]">Khôi phục giao diện module</h3>
+          <p className="text-sm text-[var(--kg-text-muted)] mt-1">
+            Đã xảy ra sự cố khi tải dữ liệu module. Bạn có thể thử nạp lại hoặc quay lại trang Hôm nay.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {onRetry ? (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="px-4 py-2 text-xs sm:text-sm font-bold rounded-xl bg-[var(--kg-primary)] text-white hover:brightness-105 active:scale-98 transition inline-flex items-center justify-center gap-2 shadow-xs"
+            >
+              <RefreshCw size={15} /> Thử nạp lại
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 text-xs sm:text-sm font-bold rounded-xl bg-[var(--kg-primary)] text-white hover:brightness-105 active:scale-98 transition inline-flex items-center justify-center gap-2 shadow-xs"
+            >
+              <RefreshCw size={15} /> Làm mới
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              if (onGoHome) onGoHome();
+              else {
+                store.setCurrentTab('dashboard');
+                window.scrollTo({ top: 0, behavior: 'instant' });
+              }
+            }}
+            className="px-4 py-2 text-xs sm:text-sm font-bold rounded-xl bg-[var(--kg-surface-soft)] text-[var(--kg-text)] border border-[var(--kg-border)] hover:bg-[var(--kg-border)]/30 active:scale-98 transition"
+          >
+            Về Hôm nay
+          </button>
+        </div>
       </div>
-      <button
-        onClick={() => window.location.reload()}
-        className="soft3d-btn-primary px-4 py-2.5 text-sm font-bold inline-flex items-center justify-center gap-2"
-      >
-        <RefreshCw size={16} /> Làm mới
-      </button>
     </div>
-  </div>
-);
+  );
+};
 
 const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void }) => {
   const store = useAppStore();
@@ -1111,7 +1140,12 @@ export default function Dashboard() {
           <>
             {/* Dedicated mounting for CheckIn to cleanly manage camera stream */}
             {currentTab === 'checkin' && (
-              <AppErrorBoundary resetKey="checkin" fallback={<ModuleRecoverFallback />}>
+              <AppErrorBoundary
+                resetKey="checkin"
+                fallback={({ reset }) => (
+                  <ModuleRecoverFallback onRetry={reset} onGoHome={() => handleTabChange('dashboard')} />
+                )}
+              >
                 <Suspense fallback={<TabFallback />}>
                   <CheckIn />
                 </Suspense>
@@ -1128,7 +1162,12 @@ export default function Dashboard() {
                   className={isSelected ? 'block h-full animate-fade-in' : 'hidden'}
                   style={{ display: isSelected ? 'block' : 'none' }}
                 >
-                  <AppErrorBoundary resetKey={tabId} fallback={<ModuleRecoverFallback />}>
+                  <AppErrorBoundary
+                    resetKey={tabId}
+                    fallback={({ reset }) => (
+                      <ModuleRecoverFallback onRetry={reset} onGoHome={() => handleTabChange('dashboard')} />
+                    )}
+                  >
                     <Suspense fallback={<TabFallback />}>
                       {tabId === 'dashboard' && <DashboardOverview onTabChange={handleTabChange} />}
                       {tabId === 'attendance' && <AttendanceHub />}

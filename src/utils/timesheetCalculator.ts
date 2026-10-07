@@ -46,6 +46,11 @@ export interface UserMonthSummary {
   totalRegularHours: number;
   totalOvertimeHours: number;
   workedDaysCount: number;
+  // Aliases for compatibility
+  workedDays?: number;
+  totalHours?: number;
+  regularHours?: number;
+  overtimeHours?: number;
 }
 
 /**
@@ -101,11 +106,28 @@ const EARLY_MORNING_LIMIT_MINUTES = 6 * 60; // 06:00 in minutes
  */
 export function calculateEmployeeMonthTimesheet(
   fullname: string,
-  userDates: Record<string, RawLogItem[]>,
-  daysInMonth: number,
-  month: number,
-  year: number
+  userDatesOrTimesheetData: Record<string, RawLogItem[]> | any,
+  daysInMonthParam?: number,
+  monthParam?: number,
+  yearParam?: number
 ): UserMonthSummary {
+  let userDates: Record<string, RawLogItem[]> = {};
+  let daysInMonth = daysInMonthParam || 31;
+  let month = monthParam || (new Date().getMonth() + 1);
+  let year = yearParam || new Date().getFullYear();
+
+  if (userDatesOrTimesheetData && typeof userDatesOrTimesheetData === 'object') {
+    if ('timesheet' in userDatesOrTimesheetData) {
+      const tsObj = userDatesOrTimesheetData;
+      daysInMonth = tsObj.daysInMonth || daysInMonth;
+      month = tsObj.month || month;
+      year = tsObj.year || year;
+      userDates = (tsObj.timesheet && (tsObj.timesheet[fullname] || {})) || {};
+    } else {
+      userDates = userDatesOrTimesheetData;
+    }
+  }
+
   const dayResults: Record<number, DayCalculationResult> = {};
   const consumedEarlyOutTimes = new Set<number>();
 
@@ -289,5 +311,9 @@ export function calculateEmployeeMonthTimesheet(
     totalRegularHours,
     totalOvertimeHours,
     workedDaysCount,
+    workedDays: workedDaysCount,
+    totalHours: totalMonthHours,
+    regularHours: totalRegularHours,
+    overtimeHours: totalOvertimeHours,
   };
 }

@@ -7,7 +7,7 @@ import { CalendarClock, Clock, ListOrdered, Calendar, FileClock, Search, List, E
 import Swal from 'sweetalert2';
 import { KgModuleHero, KgInput, KgCard, KgButton } from '../components/KgDesignSystem';
 import { saveModuleCache } from '../utils/refreshData';
-import { calculateEmployeeMonthTimesheet, formatDayDateKey, UserMonthSummary } from '../utils/timesheetCalculator';
+import { calculateEmployeeMonthTimesheet, formatDayDateKey, type UserMonthSummary } from '../utils/timesheetCalculator';
 
 type ViewMode = 'HOURS' | 'TIMESTAMPS';
 type DetailMobileView = 'CALENDAR' | 'LIST';

@@ -25,7 +25,9 @@ import {
   Trophy,
   Users,
   UtensilsCrossed,
+  RefreshCw,
 } from 'lucide-react';
+import AppErrorBoundary from '../components/AppErrorBoundary';
 import { useAppStore } from '../store/useAppStore';
 import { hasTabPermission } from '../utils/permissions';
 import { prefetchHubData } from '../utils/refreshData';
@@ -80,6 +82,30 @@ function HubFallback() {
     <div className="flex items-center justify-center gap-2.5 py-20 text-xs font-bold text-[var(--kg-text-muted)]">
       <span className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--kg-primary)] border-t-transparent" />
       <span>Đang tải phân hệ...</span>
+    </div>
+  );
+}
+
+function SubmoduleErrorFallback({ label, onRetry }: { label: string; onRetry: () => void }) {
+  return (
+    <div className="p-4 sm:p-6">
+      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+        <div>
+          <h4 className="text-sm sm:text-base font-extrabold text-[var(--kg-text)]">
+            Không thể tải phân hệ {label}
+          </h4>
+          <p className="text-xs sm:text-sm text-[var(--kg-text-muted)] mt-1">
+            Đã có sự cố khi kết nối dữ liệu phân hệ này. Bạn có thể thử nạp lại.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="px-4 py-2 text-xs sm:text-sm font-bold rounded-xl bg-[var(--kg-primary)] text-white hover:brightness-105 active:scale-98 transition inline-flex items-center justify-center gap-2 shadow-xs"
+        >
+          <RefreshCw size={15} /> Thử lại
+        </button>
+      </div>
     </div>
   );
 }
@@ -147,9 +173,14 @@ function ModuleHub({ tabs, initialTab }: { tabs: HubTab[]; initialTab?: string }
               className={isSelected ? 'block' : 'hidden'}
               style={{ display: isSelected ? 'block' : 'none' }}
             >
-              <Suspense fallback={<HubFallback />}>
-                <Component />
-              </Suspense>
+              <AppErrorBoundary
+                resetKey={tab.id}
+                fallback={({ reset }) => <SubmoduleErrorFallback label={tab.label} onRetry={reset} />}
+              >
+                <Suspense fallback={<HubFallback />}>
+                  <Component />
+                </Suspense>
+              </AppErrorBoundary>
             </div>
           );
         })}

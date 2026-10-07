@@ -396,11 +396,11 @@ export default function Checklist() {
   };
 
   // Handle Supplies Change
-  const handleSupplyChange = (key: string, checked: boolean) => {
+  const handleSupplyChange = (key: string, value: any) => {
     const currentSupply = pendingSupply || areaData.supply || {};
     setPendingSupply({
       ...currentSupply,
-      [key]: checked,
+      [key]: value,
       by: sessionName,
       savedAt: new Date().toISOString()
     });

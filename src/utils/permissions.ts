@@ -2,7 +2,7 @@
 // permissions.ts - Centralized Role and Position Based Access Control (RBAC)
 // ============================================
 
-import { User } from '../store/useAppStore';
+import type { User } from '../store/useAppStore';
 import type { TabId } from '../types/navigation';
 import { moduleLabel, navigationModules } from '../config/moduleRegistry';
 export type { TabId } from '../types/navigation';

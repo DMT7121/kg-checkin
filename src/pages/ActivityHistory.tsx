@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAppStore, LogEntry } from '../store/useAppStore';
+import { useAppStore, type LogEntry } from '../store/useAppStore';
 import { openPreview } from '../components/ImagePreview';
 import { speak, fetchWithRetry, auditCheckInAnomalies } from '../utils/helpers';
 import { escapeHtml } from '../utils/security';

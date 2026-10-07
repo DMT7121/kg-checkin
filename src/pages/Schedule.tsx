@@ -438,7 +438,7 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
         ));
       }
       users.forEach(u => {
-        if (!cleanSchedules.find(s => s.fullname === u.fullname)) {
+        if (!cleanSchedules.find((s: any) => s.fullname === u.fullname)) {
           cleanSchedules.push({
             fullname: u.fullname,
             username: u.username,
@@ -828,7 +828,7 @@ ${aiInputText}
                           const hasNote = emp.shiftNotes && emp.shiftNotes[dayIdx];
                           const tooltipText = isChanged 
                             ? `Sửa từ ${originalAdminSchedules[empIdx]?.shifts[dayIdx] || 'Chưa ĐK'}` 
-                            : (hasNote ? emp.shiftNotes[dayIdx] : '');
+                            : (hasNote && emp.shiftNotes ? emp.shiftNotes[dayIdx] : '');
                             
                           return (
                             <td

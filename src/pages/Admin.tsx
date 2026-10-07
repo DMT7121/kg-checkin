@@ -5,7 +5,7 @@ import { speak, fetchWithRetry, computeWeekInfo, DAY_NAMES, ADMIN_SHIFT_OPTIONS,
 import { sha256, ADMIN_PIN_HASH, MASTER_PIN_HASH, escapeHtml, checkRateLimit, recordFailedAttempt, resetFailedAttempts } from '../utils/security';
 import Swal from 'sweetalert2';
 import { Lock, Key, CalendarCheck, RefreshCw, Inbox, CheckCheck, Wand2, Cpu, CloudUpload, Eye, Loader2, Users, KeyRound, ArrowLeftRight, ExternalLink, Plus, Trash2, Edit2, Check, X, ShieldAlert } from 'lucide-react';
-import { AIPrompt } from '../store/useAppStore';
+import { type AIPrompt } from '../store/useAppStore';
 import { KgModuleHero } from '../components/KgDesignSystem';
 
 export default function Admin() {

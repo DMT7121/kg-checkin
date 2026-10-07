@@ -109,33 +109,6 @@ export default function Roster() {
     return activeUsers.filter(u => u.position === selectedRole);
   }, [activeUsers, selectedRole]);
   
-  const renderWeekView = () => {
-    // Find the week data in monthData
-    const weekData = monthData.find(w => w.weekLabel === weekInfo.weekLabel);
-    const schedules = weekData ? weekData.schedules : [];
-    
-    const dailyWaitstaffCounts = [0, 0, 0, 0, 0, 0, 0];
-    schedules.forEach((emp: any) => {
-      const user = activeUsers.find(u => u.fullname === emp.fullname);
-      const isWaitstaff = user?.position?.toLowerCase().includes('phục vụ') || false;
-      (emp.shifts || []).forEach((shift: string, idx: number) => {
-        if (shift && shift !== 'OFF') {
-          if (isWaitstaff) dailyWaitstaffCounts[idx]++;
-        }
-      });
-    });
-
-    // Map to ensure all filteredUsers exist
-    const rosterToRender = filteredUsers.map(u => {
-      const found = schedules.find((s: any) => s.fullname === u.fullname);
-      return {
-        fullname: u.fullname,
-        username: u.username,
-        shifts: found ? found.shifts : ['', '', '', '', '', '', '']
-      };
-    });
-
-  
   const showDayDetails = (mDate: MonthDateInfo, empMonthMap: Record<string, Record<string, string>>) => {
     const dayShifts = filteredUsers.map(u => ({
       name: u.fullname,
@@ -210,7 +183,33 @@ export default function Roster() {
     );
   };
 
-  return (
+  const renderWeekView = () => {
+    // Find the week data in monthData
+    const weekData = monthData.find(w => w.weekLabel === weekInfo.weekLabel);
+    const schedules = weekData ? weekData.schedules : [];
+    
+    const dailyWaitstaffCounts = [0, 0, 0, 0, 0, 0, 0];
+    schedules.forEach((emp: any) => {
+      const user = activeUsers.find(u => u.fullname === emp.fullname);
+      const isWaitstaff = user?.position?.toLowerCase().includes('phục vụ') || false;
+      (emp.shifts || []).forEach((shift: string, idx: number) => {
+        if (shift && shift !== 'OFF') {
+          if (isWaitstaff) dailyWaitstaffCounts[idx]++;
+        }
+      });
+    });
+
+    // Map to ensure all filteredUsers exist
+    const rosterToRender = filteredUsers.map(u => {
+      const found = schedules.find((s: any) => s.fullname === u.fullname);
+      return {
+        fullname: u.fullname,
+        username: u.username,
+        shifts: found ? found.shifts : ['', '', '', '', '', '', '']
+      };
+    });
+
+    return (
       <div className="relative w-full rounded-2xl overflow-hidden border border-[var(--kg-border)] bg-[var(--kg-surface)]">
         <div className="overflow-x-auto w-full pb-6 custom-scrollbar">
           <table className="w-full text-xs sm:text-sm text-left whitespace-nowrap">

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import { hasTabPermission, getTabLabel, TabId } from '../utils/permissions';
+import { hasTabPermission, getTabLabel, type TabId } from '../utils/permissions';
 import {
   BookOpen, Search, Check, ChevronRight, HelpCircle,
   LayoutDashboard, Camera, Calendar, DollarSign, History,

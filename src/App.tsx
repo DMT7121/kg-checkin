@@ -7,6 +7,7 @@ import LoadingScreen from './components/LoadingScreen';
 import ZaloWarning from './components/ZaloWarning';
 import ImagePreview from './components/ImagePreview';
 import AppErrorBoundary from './components/AppErrorBoundary';
+import type { TabId } from './types/navigation';
 
 const AIAssistant = lazy(() => import('./components/AIAssistant'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));

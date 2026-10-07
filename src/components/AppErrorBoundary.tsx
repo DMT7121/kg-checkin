@@ -3,7 +3,7 @@ import React from 'react';
 interface Props {
   children: React.ReactNode;
   resetKey?: string;
-  fallback?: React.ReactNode;
+  fallback?: React.ReactNode | ((props: { error: Error; reset: () => void }) => React.ReactNode);
 }
 
 interface State {
@@ -24,7 +24,8 @@ export default class AppErrorBoundary extends React.Component<Props, State> {
     return { error };
   }
 
-  componentDidCatch(error: Error) {
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('[AppErrorBoundary] Caught render error in module:', error, errorInfo);
     const message = error?.message || '';
     if (CHUNK_ERROR_RE.test(message)) {
       const reloadKey = getBuildReloadKey();
@@ -42,8 +43,17 @@ export default class AppErrorBoundary extends React.Component<Props, State> {
     }
   }
 
+  handleReset = () => {
+    this.setState({ error: null });
+  };
+
   render() {
-    if (this.state.error) return this.props.fallback ?? null;
+    if (this.state.error) {
+      if (typeof this.props.fallback === 'function') {
+        return this.props.fallback({ error: this.state.error, reset: this.handleReset });
+      }
+      return this.props.fallback ?? null;
+    }
     return this.props.children;
   }
 }

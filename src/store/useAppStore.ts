@@ -180,6 +180,7 @@ export interface AdminScheduleEntry {
   reason?: string;
   note?: string;
   hasApproved?: boolean;
+  isRegistered?: boolean;
 }
 
 interface AppState {
@@ -213,8 +214,8 @@ interface AppState {
     distance?: number | null;
   };
   serverGpsConfig: { lat: number; lng: number; radius: number } | null;
-  serverOrgConfig: { name: string; address: string } | null;
-  serverPayrollConfig: { baseFormula: string; maxAdvancePercent: number; mealAllowance: number } | null;
+  serverOrgConfig: { name: string; address: string; roles?: any[]; orgStructure?: any[] } | null;
+  serverPayrollConfig: { baseFormula: string; maxAdvancePercent: number; mealAllowance: number; allowances?: any[]; deductions?: any[] } | null;
 
   // Data
   logs: LogEntry[];
