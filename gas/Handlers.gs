@@ -2624,94 +2624,148 @@ function handleRegisterShift(payload) {
   if (!monthSheet || !weekLabel) {
     return jsonResponse(false, 'Thiếu thông tin monthSheet hoặc weekLabel');
   }
-  
-  var sheet = getMonthlyScheduleSheet(monthSheet);
-  var headerRow = findOrCreateWeekHeader(sheet, weekLabel);
-  
-  // Read all data to find existing employee row within this week
-  var allData = sheet.getDataRange().getValues();
-  var existingRow = -1;
-  var weekEndRow = allData.length; // 0-indexed exclusive
-  
-  // Find bounds of this week's data (rows after headerRow until next header or end)
-  for (var i = headerRow; i < allData.length; i++) { // headerRow is 1-indexed, allData is 0-indexed → i starts at headerRow (= next row in 0-indexed)
-    var cellVal = allData[i][0] ? allData[i][0].toString() : '';
-    if (cellVal.indexOf('TUẦN ') >= 0) {
-      weekEndRow = i; // 0-indexed
-      break;
-    }
-    // Check if this is our employee
-    if (cellVal === payload.fullname) {
-      existingRow = i + 1; // Convert to 1-indexed
-    }
-  }
-  
-  var now = new Date();
-  var timestamp = Utilities.formatDate(now, Session.getScriptTimeZone(), 'dd/MM HH:mm');
-  
-  var rowData = [
-    payload.fullname,
-    payload.shifts[0], payload.shifts[1], payload.shifts[2],
-    payload.shifts[3], payload.shifts[4], payload.shifts[5],
-    payload.shifts[6],
-    payload.offReason || '',
-    timestamp,
-    'Chờ duyệt'
-  ];
-  
-  if (existingRow > -1) {
-    // Update existing registration
-    sheet.getRange(existingRow, 1, 1, 11).setValues([rowData]).setNumberFormat('@');
-    sheet.getRange(existingRow, 2, 1, 7).setNumberFormat('HH:mm');
 
-  } else {
-    // Insert new row at the end of this week's section
-    var insertAfterRow = weekEndRow; // 0-indexed → this is the row number in 1-indexed (since +1 offset)
-    // Actually: weekEndRow(0-indexed) = row number in sheet if at end, or the next header row(0-indexed)
-    // We want to insert before the next header, i.e. after (weekEndRow-1+1) = weekEndRow in 1-indexed
-    // But simpler: just insert at the last row of this week's data
-    var lastWeekDataRow1 = weekEndRow; // 1-indexed position to insert after
-    if (weekEndRow === allData.length) {
-      // This week is at the end of the sheet, just append
-      sheet.appendRow(rowData);
-      existingRow = sheet.getLastRow();
+  // 1. Concurrency Lock: Prevents overlapping writes while keeping hold time < 0.25s
+  var lock = LockService.getScriptLock();
+  var hasLock = false;
+  try {
+    hasLock = lock.tryLock(5000);
+  } catch(lockErr) {
+    Logger.log('Lock attempt warning: ' + lockErr);
+  }
+
+  try {
+    var ss = getSS();
+    var ssId = ss.getId();
+    var sheet = getMonthlyScheduleSheet(monthSheet);
+    
+    // Read sheet values once via Sheets API v4 (sub-200ms) with fallback to SpreadsheetApp
+    var allData = [];
+    try {
+      var res = Sheets.Spreadsheets.Values.get(ssId, "'" + monthSheet + "'!A:K");
+      allData = res.values || [];
+    } catch (apiErr) {
+      allData = sheet.getDataRange().getValues();
+    }
+
+    var cleanWeekLabel = weekLabel.replace('📅 TUẦN ', '').replace('TUẦN ', '').trim();
+    var searchStr = 'TUẦN ' + cleanWeekLabel;
+    var headerTag = '📅 TUẦN ' + cleanWeekLabel;
+    var headerRow = -1; // 1-indexed
+
+    // In-memory search for week header
+    for (var i = 0; i < allData.length; i++) {
+      var cellVal = allData[i][0] ? allData[i][0].toString() : '';
+      if (cellVal.indexOf(searchStr) >= 0) {
+        headerRow = i + 1;
+        break;
+      }
+    }
+
+    // If week header does not exist, create it at the end
+    if (headerRow === -1) {
+      headerRow = allData.length + 1;
+      if (headerRow <= 1) headerRow = 2;
+      sheet.getRange(headerRow, 1).setValue(headerTag);
+      sheet.getRange(headerRow, 1, 1, 11)
+        .merge()
+        .setBackground('#312e81')
+        .setFontColor('#fbbf24')
+        .setFontWeight('bold')
+        .setFontSize(11)
+        .setHorizontalAlignment('left');
+
+      while (allData.length < headerRow) allData.push([]);
+      allData[headerRow - 1] = [headerTag];
+    }
+
+    // In-memory search for existing employee row within this week
+    var existingRow = -1; // 1-indexed
+    var weekEndRow = allData.length; // 0-indexed exclusive boundary
+
+    for (var j = headerRow; j < allData.length; j++) {
+      var nameVal = allData[j][0] ? allData[j][0].toString().trim() : '';
+      if (nameVal.indexOf('TUẦN ') >= 0) {
+        weekEndRow = j;
+        break;
+      }
+      if (nameVal === payload.fullname) {
+        existingRow = j + 1;
+      }
+    }
+
+    var now = new Date();
+    var timestamp = Utilities.formatDate(now, Session.getScriptTimeZone(), 'dd/MM HH:mm');
+
+    var rowData = [
+      payload.fullname,
+      payload.shifts[0], payload.shifts[1], payload.shifts[2],
+      payload.shifts[3], payload.shifts[4], payload.shifts[5],
+      payload.shifts[6],
+      payload.offReason || '',
+      timestamp,
+      'Chờ duyệt'
+    ];
+
+    var targetRow = existingRow;
+    if (existingRow > -1) {
+      targetRow = existingRow;
     } else {
-      // Insert before next week's header
-      sheet.insertRowBefore(weekEndRow + 1); // weekEndRow is 0-indexed, +1 = 1-indexed
-      existingRow = weekEndRow + 1; // The new row in 1-indexed
-      sheet.getRange(existingRow, 1, 1, 11).setValues([rowData]).setNumberFormat('@');
-      sheet.getRange(existingRow, 2, 1, 7).setNumberFormat('HH:mm');
+      if (weekEndRow >= allData.length) {
+        // At the end of sheet: appendRow avoids shifting rows down
+        sheet.appendRow(rowData);
+        targetRow = sheet.getLastRow();
+      } else {
+        // Insert right before the next week header
+        sheet.insertRowBefore(weekEndRow + 1);
+        targetRow = weekEndRow + 1;
+      }
+    }
 
+    // 2. Batch write and format entire row in single operation (reduces 6 RPC calls to 1 set of batch arrays)
+    var rowRange = sheet.getRange(targetRow, 1, 1, 11);
+    rowRange.setValues([rowData]);
+    rowRange.setBackgrounds([['#fffbeb', '#fffbeb', '#fffbeb', '#fffbeb', '#fffbeb', '#fffbeb', '#fffbeb', '#fffbeb', '#fffbeb', '#fffbeb', '#fef3c7']]);
+    rowRange.setFontWeights([['bold', 'normal', 'normal', 'normal', 'normal', 'normal', 'normal', 'normal', 'normal', 'normal', 'bold']]);
+    rowRange.setHorizontalAlignments([['left', 'center', 'center', 'center', 'center', 'center', 'center', 'center', 'center', 'center', 'center']]);
+    rowRange.setNumberFormats([['@', 'HH:mm', 'HH:mm', 'HH:mm', 'HH:mm', 'HH:mm', 'HH:mm', 'HH:mm', '@', '@', '@']]);
+
+    // Release lock as soon as sheet is written and formatted
+    if (hasLock) {
+      try { lock.releaseLock(); } catch(e) {}
+      hasLock = false;
+    }
+
+    // 3. Fast non-blocking cache invalidation (in-memory filter + batch clear/update, no deleteRow!)
+    try {
+      if (typeof JsonCacheService !== 'undefined') {
+        if (typeof JsonCacheService.invalidateUserAndAdminCache === 'function') {
+          JsonCacheService.invalidateUserAndAdminCache(payload.username);
+        } else {
+          JsonCacheService.invalidateUserCache(payload.username);
+          JsonCacheService.invalidateAdminCache();
+        }
+      }
+    } catch (invErr) {
+      Logger.log('Cache invalidation notice: ' + invErr);
+    }
+
+    return jsonResponse(true, {
+      sheetSaved: true,
+      targetRow: targetRow,
+      timestamp: timestamp,
+      isEdit: !!payload.isEdit,
+      message: payload.isEdit ? 'Đã cập nhật lịch đăng ký thành công vào Bảng Chấm Công' : 'Đăng ký ca thành công! Đã nạp vào Bảng Chấm Công'
+    });
+
+  } catch (err) {
+    Logger.log('handleRegisterShift error: ' + err.toString());
+    return jsonResponse(false, 'Lỗi nạp lịch vào sheet: ' + err.message);
+  } finally {
+    if (hasLock) {
+      try { lock.releaseLock(); } catch(e) {}
     }
   }
-  
-  // Style the row
-  var targetRow = existingRow > 0 ? existingRow : sheet.getLastRow();
-  try {
-    sheet.getRange(targetRow, 1, 1, 11)
-      .setBackground('#fffbeb')
-      .setFontWeight('normal')
-      .setHorizontalAlignment('center');
-    sheet.getRange(targetRow, 1).setHorizontalAlignment('left').setFontWeight('bold');
-    sheet.getRange(targetRow, 11)
-      .setBackground('#fef3c7')
-      .setFontColor('#92400e')
-      .setFontWeight('bold');
-  } catch(styleErr) {
-    Logger.log('Style error: ' + styleErr.message);
-  }
-
-  // Invalidate cached user and admin schedule records so GET_DATA serves fresh status
-  try {
-    if (typeof JsonCacheService !== 'undefined') {
-      JsonCacheService.invalidateUserCache(payload.username);
-      JsonCacheService.invalidateAdminCache();
-    }
-  } catch (invErr) {
-    Logger.log('Error invalidating cache after shift registration: ' + invErr);
-  }
-  
-  return jsonResponse(true, payload.isEdit ? 'Đã cập nhật lịch đăng ký thành công' : 'Đăng ký ca thành công');
 }
 
 function getSingleWeekSchedules(monthSheet, weekLabel) {

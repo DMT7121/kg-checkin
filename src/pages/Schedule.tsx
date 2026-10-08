@@ -58,6 +58,7 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
   });
   const [isMonthRefreshing, setIsMonthRefreshing] = useState(false);
   const [empSearchQuery, setEmpSearchQuery] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const changeWeek = (offset: number) => {
     const d = new Date(currentDate);
@@ -312,13 +313,16 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
       html: isUpdate
         ? 'Bạn muốn cập nhật lại lịch đăng ký ca tuần tới?'
         : 'Bạn đã kiểm tra kỹ toàn bộ ca làm trong tuần tới chưa?',
-      icon: 'question', showCancelButton: true, confirmButtonColor: '#10b981', cancelButtonColor: '#6b7280',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#10b981',
+      cancelButtonColor: '#6b7280',
       confirmButtonText: isUpdate ? 'Cập nhật lịch' : 'Gửi lịch',
       cancelButtonText: 'Xem lại',
     });
     if (!isConfirmed) return;
 
-    store.setLoading(true, 'Đang kết nối Server...');
+    setIsSubmitting(true);
     const shifts = weekInfo.weekDatesKeys.map((key: string) => shiftData[key] || 'OFF');
     const payload = {
       username: currentUser!.username,
@@ -330,40 +334,71 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
       isEdit: isUpdate,
     };
 
-    const res = await callApi('REGISTER_SHIFT', payload);
-    store.setLoading(false);
+    try {
+      const res = await callApi('REGISTER_SHIFT', payload, { timeoutMs: 20000 });
 
-    if (res?.ok) {
-      store.setScheduleRegistered(true);
-      store.setRegisteredShifts(shifts);
-      localStorage.setItem('kg_registered_shifts', JSON.stringify(shifts));
-      localStorage.setItem('kg_registered_week', weekInfo.monthSheet + '|' + weekInfo.weekLabel);
-      localStorage.setItem('kg_registered_user', currentUser?.username || '');
-      localStorage.setItem('kg_schedule_registered', 'true');
-      setIsEditing(false);
+      if (res?.ok) {
+        store.setScheduleRegistered(true);
+        store.setRegisteredShifts(shifts);
+        localStorage.setItem('kg_registered_shifts', JSON.stringify(shifts));
+        localStorage.setItem('kg_registered_week', weekInfo.monthSheet + '|' + weekInfo.weekLabel);
+        localStorage.setItem('kg_registered_user', currentUser?.username || '');
+        localStorage.setItem('kg_schedule_registered', 'true');
+        setIsEditing(false);
 
-      const bqlNotice = 'Lịch đăng ký ca của bạn đã được ghi nhận. BQL sẽ sắp xếp lại phù hợp theo nhu cầu của nhà hàng. Trường hợp lịch không được duyệt nhưng lịch làm trùng lịch học, thi cử quan trọng hãy gửi lịch học/thi và báo BQL duyệt nhé!';
+        const bqlNotice = 'Lịch đăng ký ca của bạn đã được ghi nhận vào Bảng Chấm Công (Google Sheets). BQL sẽ sắp xếp lại phù hợp theo nhu cầu của nhà hàng. Trường hợp lịch không được duyệt nhưng lịch làm trùng lịch học, thi cử quan trọng hãy gửi lịch học/thi và báo BQL duyệt nhé!';
+        const syncTimestamp = res?.data?.timestamp || new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 
-      Swal.fire({
-        title: 'Đã ghi nhận lịch đăng ký!',
-        html: `
-          <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3">${isUpdate ? 'Đã cập nhật lại lịch đăng ký ca tuần tới thành công.' : 'Lịch đăng ký ca tuần mới đã được gửi thành công!'}</p>
-          <div class="p-3.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/80 rounded-2xl text-xs text-blue-900 dark:text-blue-200 text-left leading-relaxed shadow-inner">
-            <p class="font-black flex items-center gap-1.5 text-blue-700 dark:text-blue-300 mb-1">
-              <span>📢</span> Thông báo từ BQL:
-            </p>
-            <p class="font-medium">${bqlNotice}</p>
-          </div>
-        `,
-        icon: 'success',
-        confirmButtonColor: '#10b981',
-        confirmButtonText: 'Đã hiểu'
-      });
-      speak('Đăng ký lịch làm việc thành công');
-    } else if (res) {
-      Swal.fire('Lỗi', res.message, 'error');
-    } else {
-      Swal.fire('Lỗi', 'Không thể gửi lịch lúc này.', 'error');
+        Swal.fire({
+          title: '✓ ĐÃ NẠP VÀO SHEET THÀNH CÔNG!',
+          html: `
+            <div class="space-y-3 text-left">
+              <div class="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-2xl flex items-center justify-between shadow-xs">
+                <div class="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-black text-xs sm:text-sm">
+                  <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span>Google Sheets: <b>Đã đồng bộ 100%</b></span>
+                </div>
+                <span class="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/60 px-2 py-0.5 rounded-lg">
+                  ${syncTimestamp}
+                </span>
+              </div>
+
+              <p class="text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-200 leading-snug">
+                ${isUpdate ? 'Lịch làm việc tuần mới đã được cập nhật thành công vào Bảng Chấm Công.' : 'Lịch đăng ký ca 7 ngày đã được gửi và nạp thành công vào Bảng Chấm Công!'}
+              </p>
+
+              <div class="p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/80 rounded-2xl text-xs text-blue-900 dark:text-blue-200 leading-relaxed shadow-inner">
+                <p class="font-black flex items-center gap-1.5 text-blue-700 dark:text-blue-300 mb-1">
+                  <span>📢</span> Thông báo từ BQL:
+                </p>
+                <p class="font-medium text-[11px] leading-relaxed">${bqlNotice}</p>
+              </div>
+            </div>
+          `,
+          icon: 'success',
+          confirmButtonColor: '#10b981',
+          confirmButtonText: 'Đã hiểu'
+        });
+        speak('Đăng ký lịch làm việc thành công, đã nạp vào Google Sheets');
+
+        // Silent background refresh to sync full state without blocking
+        callApi('GET_DATA', {
+          username: currentUser?.username,
+          fullname: currentUser?.fullname,
+          role: currentUser?.role,
+          monthSheet: weekInfo.monthSheet,
+          weekLabel: weekInfo.weekLabel,
+          forceRefresh: true
+        }, { background: true }).catch(() => {});
+      } else if (res) {
+        Swal.fire('Lỗi', res.message || 'Không thể ghi vào sheet lúc này.', 'error');
+      } else {
+        Swal.fire('Lỗi mạng', 'Không thể kết nối đến máy chủ Google Sheets. Vui lòng thử lại.', 'error');
+      }
+    } catch (err: any) {
+      Swal.fire('Lỗi', err?.message || 'Có lỗi xảy ra khi nạp lịch làm việc.', 'error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -1266,10 +1301,13 @@ ${aiInputText}
           {/* Submit */}
           <button 
             type="button"
+            disabled={isSubmitting}
             onClick={submitRegistration} 
-            className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black py-4 rounded-2xl shadow-md transition-all transform active:scale-95 flex items-center justify-center touch-manipulation text-sm sm:text-base tracking-wide uppercase"
+            className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black py-4 rounded-2xl shadow-md transition-all transform active:scale-95 flex items-center justify-center touch-manipulation text-sm sm:text-base tracking-wide uppercase disabled:opacity-75 disabled:pointer-events-none"
           >
-            {isScheduleRegistered ? (
+            {isSubmitting ? (
+              <><RefreshCw size={18} className="animate-spin mr-2" /> ĐANG ĐẨY VÀO GOOGLE SHEETS...</>
+            ) : isScheduleRegistered ? (
               <><RefreshCw size={18} className="mr-2" /> CẬP NHẬT LỊCH ĐĂNG KÝ</>
             ) : (
               <><Send size={18} className="mr-2" /> GỬI LỊCH ĐĂNG KÝ</>
