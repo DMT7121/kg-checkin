@@ -143,22 +143,39 @@ export default function ActivityHistory() {
 
       {/* Anomaly Detection Banner */}
       {anomalies.length > 0 && (
-        <div className="bg-gradient-to-r from-rose-500/15 via-red-500/10 to-rose-500/15 border border-rose-500/30 rounded-2xl p-4 text-[var(--kg-text)] shadow-xs animate-fade-in space-y-2">
-          <div className="flex items-start gap-3">
-            <div className="w-9 h-9 rounded-xl bg-rose-500 text-white flex items-center justify-center flex-shrink-0 mt-0.5 shadow-xs">
-              <CircleAlert size={18} />
+        <div className="bg-gradient-to-r from-rose-500/15 via-red-500/10 to-rose-500/15 border border-rose-500/30 rounded-2xl p-3 text-[var(--kg-text)] shadow-xs animate-fade-in">
+          <div className="flex items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <div className="w-8 h-8 rounded-xl bg-rose-500 text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+                <CircleAlert size={16} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-wider bg-rose-500/20 px-1.5 py-0.5 rounded">
+                    ⚠️ Cần kiểm tra: {anomalies[0].title}
+                  </span>
+                  <span className="text-xs font-bold text-[var(--kg-text)] font-mono">
+                    {anomalies[0].logTime}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 mt-1 text-xs font-semibold text-[var(--kg-text)] flex-wrap">
+                  <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/15 px-1.5 py-0.5 rounded-md">
+                    <span>✔</span> "{anomalies[0].suggestedType}"
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded-md text-[11px]">
+                    <span>✘</span> "{anomalies[0].type}"
+                  </span>
+                  {anomalies.length > 1 && (
+                    <span className="text-[10px] text-[var(--kg-text-muted)] font-medium">
+                      (+{anomalies.length - 1} ca khác)
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <h4 className="text-xs font-black text-rose-600 dark:text-rose-400 uppercase tracking-wider">
-                ⚠️ Phát hiện nghi vấn chọn sai loại ({anomalies.length} lượt)
-              </h4>
-              <p className="text-xs font-bold text-[var(--kg-text)] mt-1">
-                {anomalies[0].title}: {anomalies[0].message}
-              </p>
-              <p className="text-[11px] text-[var(--kg-text-muted)] mt-1 leading-relaxed">
-                Nếu bạn chọn nhầm loại, vui lòng bấm nút <span className="font-bold text-ocean-600 dark:text-ocean-400">✏️ Sửa loại</span> trên thẻ tương ứng bên dưới để đồng bộ lại dữ liệu chuẩn xác.
-              </p>
-            </div>
+            <p className="text-[11px] text-ocean-600 dark:text-ocean-400 font-bold whitespace-nowrap hidden sm:block">
+              ✏️ Bấm "Sửa loại ca" bên dưới
+            </p>
           </div>
         </div>
       )}

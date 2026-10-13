@@ -1873,21 +1873,36 @@ export default function CheckIn() {
         </div>
       )}
 
-      {/* Check-In Anomaly Alert Banner */}
+      {/* Check-In Anomaly Alert Banner - Compact & Icon-Driven */}
       {anomalies.length > 0 && (
-        <div className="bg-gradient-to-r from-rose-500/15 via-red-500/10 to-rose-500/15 border border-rose-500/30 rounded-2xl p-3.5 text-[var(--kg-text)] shadow-xs max-w-md mx-auto animate-fade-in">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-start gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-rose-500 text-white flex items-center justify-center flex-shrink-0 mt-0.5 shadow-xs">
+        <div className="bg-gradient-to-r from-rose-500/15 via-red-500/10 to-rose-500/15 border border-rose-500/30 rounded-2xl p-3 text-[var(--kg-text)] shadow-xs max-w-md mx-auto animate-fade-in">
+          <div className="flex items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <div className="w-8 h-8 rounded-xl bg-rose-500 text-white flex items-center justify-center flex-shrink-0 shadow-xs">
                 <AlertTriangle size={16} />
               </div>
-              <div className="min-w-0">
-                <p className="text-[11px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-wider">
-                  ⚠️ Phát hiện sai loại: {anomalies[0].title}
-                </p>
-                <p className="text-xs font-bold text-[var(--kg-text)] mt-0.5 leading-snug">
-                  {anomalies[0].message}
-                </p>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-wider bg-rose-500/20 px-1.5 py-0.5 rounded">
+                    ⚠️ Cần kiểm tra
+                  </span>
+                  <span className="text-xs font-bold text-[var(--kg-text)] font-mono">
+                    {anomalies[0].logTime}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 mt-1 text-xs font-semibold text-[var(--kg-text)] flex-wrap">
+                  <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/15 px-1.5 py-0.5 rounded-md">
+                    <span>✔</span> "{anomalies[0].suggestedType}"
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded-md text-[11px]">
+                    <span>✘</span> "{anomalies[0].type}"
+                  </span>
+                  {anomalies.length > 1 && (
+                    <span className="text-[10px] text-[var(--kg-text-muted)] font-medium">
+                      (+{anomalies.length - 1} ca khác)
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
             <button
@@ -1901,24 +1916,33 @@ export default function CheckIn() {
         </div>
       )}
 
-      {/* Missing Check-in Alerts Banner */}
+      {/* Missing Check-in Alerts Banner - Compact & Icon-Driven */}
       {missingAlerts.length > 0 && (
-        <div className="bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 border border-amber-500/30 rounded-2xl p-3.5 sm:p-4 text-[var(--kg-text)] shadow-xs max-w-md mx-auto animate-fade-in">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-start gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0 shadow-xs mt-0.5">
-                <AlertTriangle size={17} />
+        <div className="bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 border border-amber-500/30 rounded-2xl p-3 text-[var(--kg-text)] shadow-xs max-w-md mx-auto animate-fade-in">
+          <div className="flex items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+                <AlertTriangle size={16} />
               </div>
-              <div className="min-w-0">
-                <p className="text-[11px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider">
-                  ⚠️ Phát hiện {missingAlerts.length} ca chưa hoàn tất
-                </p>
-                <p className="text-xs font-bold text-[var(--kg-text)] mt-0.5 leading-snug">
-                  {missingAlerts[0].message}
-                </p>
-                <p className="text-[10px] text-[var(--kg-text-muted)] mt-0.5">
-                  Bổ sung ngay để đảm bảo chuẩn công và tính lương đầy đủ.
-                </p>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider bg-amber-500/20 px-1.5 py-0.5 rounded">
+                    ⚠️ Cần kiểm tra
+                  </span>
+                  <span className="text-xs font-bold text-[var(--kg-text)]">
+                    {missingAlerts[0].dateStr}{missingAlerts[0].timeStr ? ` (${missingAlerts[0].timeStr})` : ''}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 mt-1 text-xs font-semibold text-[var(--kg-text)] flex-wrap">
+                  <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-300 font-bold bg-amber-500/15 px-1.5 py-0.5 rounded-md">
+                    <span>✘</span> Thiếu lượt "{missingAlerts[0].missingType}"
+                  </span>
+                  {missingAlerts.length > 1 && (
+                    <span className="text-[10px] text-[var(--kg-text-muted)] font-medium">
+                      (+{missingAlerts.length - 1} ca khác)
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
             <button
@@ -1927,7 +1951,7 @@ export default function CheckIn() {
                 setSelectedMissingAlert(missingAlerts[0]);
                 setMissedModalOpen(true);
               }}
-              className="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-black shadow-xs whitespace-nowrap active:scale-95 transition-all flex-shrink-0"
+              className="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl text-xs shadow-xs whitespace-nowrap active:scale-95 transition-all flex-shrink-0"
             >
               Báo ngay →
             </button>
@@ -2149,8 +2173,8 @@ export default function CheckIn() {
         )}
       </div>
 
-      {/* Camera Viewport: Responsive 4:3 camera & 3:4 HD uncropped preview */}
-      <div className={`relative bg-slate-950 rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm ${capturedImage ? 'aspect-[3/4] max-h-[460px]' : 'aspect-[4/3] max-h-[300px] sm:max-h-[380px]'} group border-[4px] sm:border-[5px] max-w-sm mx-auto transition-all ${isWithinRadius ? 'border-blue-600' : 'border-red-500'}`}>
+      {/* Camera Viewport: Extended Vertical Height (x2 height, 9:16 portrait format) */}
+      <div className={`relative bg-slate-950 rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm aspect-[9/16] min-h-[520px] max-h-[580px] sm:max-h-[620px] group border-[4px] sm:border-[5px] max-w-sm mx-auto transition-all ${isWithinRadius ? 'border-blue-600' : 'border-red-500'}`}>
         <video ref={videoRef} autoPlay muted playsInline {...{ 'webkit-playsinline': 'true' }} className={`w-full h-full object-cover mirror-cam ${(cameraError || capturedImage) ? 'hidden' : ''}`} />
         <canvas ref={overlayCanvasRef} className={`absolute inset-0 w-full h-full object-cover pointer-events-none ${(cameraError || capturedImage) ? 'hidden' : ''}`} />
         <canvas ref={canvasRef} className="hidden" />
