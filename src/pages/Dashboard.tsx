@@ -1123,6 +1123,15 @@ export default function Dashboard() {
 
   const hasAccess = hasTabPermission(currentTab, currentUser);
 
+  const regWindow = getScheduleRegistrationWindow();
+  const isStaff = currentUser?.role !== 'admin' && currentUser?.role !== 'tester';
+  const nextWeekRegistered = isNextWeekScheduleRegistered(
+    store.isScheduleRegistered,
+    currentUser?.username,
+    undefined,
+    store.registeredShifts
+  );
+  const shouldPromptSchedule = isStaff && regWindow.isMandatoryWindow && !nextWeekRegistered;
   const isRegisteringSchedule = currentTab === 'schedule' || currentTab === 'workforce';
 
   return (
