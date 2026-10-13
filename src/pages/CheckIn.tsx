@@ -45,7 +45,8 @@ import {
   Users,
   Crosshair,
   Radio,
-  Lock
+  Lock,
+  Maximize2
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import {
@@ -685,6 +686,27 @@ export default function CheckIn() {
       }
 
       const constraintsList: MediaStreamConstraints[] = [
+        {
+          video: {
+            facingMode: { ideal: 'user' },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 }
+          }
+        },
+        {
+          video: {
+            facingMode: { ideal: 'user' },
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
+        },
+        {
+          video: {
+            facingMode: 'user' as const,
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
+        },
         { video: { facingMode: { ideal: 'user' } } },
         { video: { facingMode: 'user' as const } },
         { video: { facingMode: 'environment' as const } },
@@ -797,11 +819,11 @@ export default function CheckIn() {
       return;
     }
 
-    const cardX = 24;
-    const cardHeight = 300;
-    const cardY = canvas.height - cardHeight - 24;
+    const cardX = 28;
+    const cardHeight = 310;
+    const cardY = canvas.height - cardHeight - 32;
     const cardWidth = canvas.width - (cardX * 2);
-    const radius = 22;
+    const radius = 24;
 
     // Reset shadow & filter for ultra-crisp stamp graphics
     ctx.filter = 'none';
@@ -1096,8 +1118,8 @@ export default function CheckIn() {
     ctx.fillText(rightFooterText, contentX + contentWidth - rightFooterWidth, footerY);
     ctx.restore();
 
-    // Save image with high-efficiency WebP encoding (crisp watermark text, natural skin tone, 35-50% smaller size)
-    const dataUrl = encodeOptimalCanvas(canvas, 0.83);
+    // Save image with high-efficiency WebP encoding (crisp watermark text, natural skin tone, super HD sharpness)
+    const dataUrl = encodeOptimalCanvas(canvas, 0.90);
     
     store.setCapturedImage(dataUrl);
     store.setCapturedTime(exactTime);
@@ -1136,8 +1158,8 @@ export default function CheckIn() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Upgraded resolution for HD sharpness: 960x1280 (3:4 ratio)
-    const targetWidth = 960, targetHeight = 1280;
+    // Upgraded resolution for Super HD sharpness: 1080x1920 (9:16 portrait ratio, matching camera view)
+    const targetWidth = 1080, targetHeight = 1920;
     canvas.width = targetWidth; canvas.height = targetHeight;
     const vw = video.videoWidth, vh = video.videoHeight;
     const canvasRatio = targetWidth / targetHeight, videoRatio = vw / vh;
@@ -1149,7 +1171,7 @@ export default function CheckIn() {
     ctx.save();
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    ctx.filter = 'contrast(1.04) saturate(1.03) brightness(1.01)';
+    ctx.filter = 'contrast(1.05) saturate(1.03) brightness(1.01)';
     ctx.translate(targetWidth, 0); ctx.scale(-1, 1);
     ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
     ctx.restore();
@@ -1220,8 +1242,8 @@ export default function CheckIn() {
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
         
-        // Upgraded resolution for HD sharpness: 960x1280 (3:4 ratio)
-        const targetWidth = 960, targetHeight = 1280;
+        // Upgraded resolution for Super HD sharpness: 1080x1920 (9:16 portrait ratio, matching camera view)
+        const targetWidth = 1080, targetHeight = 1920;
         canvas.width = targetWidth; canvas.height = targetHeight;
         const vw = img.width, vh = img.height;
         const canvasRatio = targetWidth / targetHeight, imgRatio = vw / vh;
@@ -1232,7 +1254,7 @@ export default function CheckIn() {
         ctx.save();
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
-        ctx.filter = 'contrast(1.04) saturate(1.03) brightness(1.01)';
+        ctx.filter = 'contrast(1.05) saturate(1.03) brightness(1.01)';
         ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
         ctx.restore();
 
@@ -2289,59 +2311,69 @@ export default function CheckIn() {
           </div>
         )}
 
-        {/* Captured image display with 100% uncropped full watermark */}
+        {/* Captured image display with 100% full-fill uncropped watermark */}
         {capturedImage && (
           <div className="absolute inset-0 bg-slate-950 z-30 flex flex-col items-center justify-center animate-fade-in">
-            <img src={capturedImage} className="w-full h-full object-contain" alt="Captured with Watermark" />
+            <img
+              src={capturedImage}
+              className="w-full h-full object-cover rounded-2xl"
+              alt="Ảnh chấm công có đóng dấu"
+            />
             
-            {/* Top Bar with Status & Actions */}
-            <div className="absolute top-3 inset-x-3 z-40 flex items-center justify-between pointer-events-none">
-              <div className="flex items-center gap-1.5 pointer-events-none">
-                <span className="bg-emerald-600/95 text-white text-[11px] font-black px-2.5 py-1 rounded-full backdrop-blur-md shadow-md flex items-center gap-1">
-                  <CheckCircle2 size={13} />
-                  <span>Đã đóng dấu HD</span>
-                </span>
-                
-                {/* 60s Expiration Countdown Pill */}
-                <span
-                  className={`text-[11px] font-black px-2.5 py-1 rounded-full backdrop-blur-md shadow-md flex items-center gap-1 transition-all ${
-                    photoTimeLeftSeconds <= 15
-                      ? 'bg-rose-600/95 text-white animate-pulse'
-                      : photoTimeLeftSeconds <= 30
-                      ? 'bg-amber-600/95 text-white'
-                      : 'bg-black/75 text-emerald-400 border border-emerald-500/40'
-                  }`}
-                  title="Thời hạn ảnh chụp có hiệu lực"
-                >
-                  <Clock size={12} className={photoTimeLeftSeconds <= 15 ? 'animate-bounce' : 'animate-spin'} />
-                  <span>Hiệu lực: {photoTimeLeftSeconds}s</span>
-                </span>
-              </div>
+            {/* Top Floating Glass Dock with Status & Fast Actions */}
+            <div className="absolute top-2.5 inset-x-2.5 z-40 pointer-events-auto">
+              <div className="bg-slate-950/80 backdrop-blur-md border border-white/20 rounded-2xl px-2.5 py-1.5 flex items-center justify-between shadow-2xl shadow-black/70">
+                {/* Left: Status Badges (Always single line, no wrap) */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[11px] font-bold shadow-sm whitespace-nowrap shrink-0">
+                    <CheckCircle2 size={12} className="text-emerald-400 shrink-0" />
+                    <span>Đã đóng dấu HD</span>
+                  </span>
 
-              <div className="flex items-center gap-2 pointer-events-auto">
-                <button
-                  type="button"
-                  onClick={() => {
-                    store.setPreviewImageUrl(capturedImage);
-                    store.setPreviewOpen(true);
-                  }}
-                  className="flex items-center space-x-1 px-3 py-1.5 bg-black/75 hover:bg-black text-white rounded-full border border-white/20 backdrop-blur-md shadow-md active:scale-95 transition-all text-xs font-bold"
-                  title="Xem toàn màn hình"
-                >
-                  <span>🔍 Xem to</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    store.setCapturedImage(null);
-                    setPhotoCapturedAtMs(null);
-                    setPhotoTimeLeftSeconds(PHOTO_EXPIRATION_SECONDS);
-                  }}
-                  className="flex items-center space-x-1 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-full border border-white/20 backdrop-blur-md shadow-md active:scale-95 transition-all text-xs font-bold"
-                >
-                  <RotateCcw size={13} />
-                  <span>Chụp lại</span>
-                </button>
+                  {/* 60s Expiration Countdown Pill */}
+                  <span
+                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-xl text-[11px] font-mono font-bold whitespace-nowrap shrink-0 shadow-sm transition-all ${
+                      photoTimeLeftSeconds <= 15
+                        ? 'bg-rose-500/30 border border-rose-400/60 text-rose-300 animate-pulse'
+                        : photoTimeLeftSeconds <= 30
+                        ? 'bg-amber-500/25 border border-amber-400/40 text-amber-300'
+                        : 'bg-white/10 border border-white/10 text-slate-300'
+                    }`}
+                    title="Thời hạn ảnh chụp có hiệu lực"
+                  >
+                    <Clock size={11} className={photoTimeLeftSeconds <= 15 ? 'animate-bounce text-rose-400' : 'text-slate-400 shrink-0'} />
+                    <span>{photoTimeLeftSeconds}s</span>
+                  </span>
+                </div>
+
+                {/* Right: Fast Actions (Clean, elegant, no wrap) */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      store.setPreviewImageUrl(capturedImage);
+                      store.setPreviewOpen(true);
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-white/10 hover:bg-white/20 active:scale-95 text-white rounded-xl border border-white/15 backdrop-blur-sm transition-all text-xs font-semibold whitespace-nowrap shrink-0"
+                    title="Xem toàn màn hình"
+                  >
+                    <Maximize2 size={12} className="shrink-0" />
+                    <span>Xem to</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      store.setCapturedImage(null);
+                      setPhotoCapturedAtMs(null);
+                      setPhotoTimeLeftSeconds(PHOTO_EXPIRATION_SECONDS);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-xl border border-rose-400/30 shadow-md transition-all text-xs font-bold whitespace-nowrap shrink-0"
+                    title="Chụp lại ảnh"
+                  >
+                    <RotateCcw size={12} className="shrink-0" />
+                    <span>Chụp lại</span>
+                  </button>
+                </div>
               </div>
             </div>
 
