@@ -88,9 +88,15 @@ export default function Login() {
           store.setUsers(dataRes.data.users || []);
           if (dataRes.data.keys) store.setGroqKeys(dataRes.data.keys);
           
-          const hasLocalReg = savedWeek === expectedWeekKey && !!savedShiftsStr;
+          const hasLocalReg = (savedWeek === expectedWeekKey || savedWeek === weekInfo.sheetName) && !!savedShiftsStr;
           const isReg = dataRes.data.isScheduleRegistered === true ? true : hasLocalReg;
-          store.setScheduleRegistered(isReg);
+          store.setScheduleRegistered(isReg, expectedWeekKey);
+          if (isReg) {
+            localStorage.setItem('kg_registered_week', expectedWeekKey);
+            localStorage.setItem('kg_schedule_registered', expectedWeekKey);
+            localStorage.setItem('kg_registered_user', res.data.username);
+            localStorage.setItem(`kg_registered_week_${res.data.username}`, expectedWeekKey);
+          }
           
           if (dataRes.data.approvedShifts) store.setApprovedShifts(dataRes.data.approvedShifts);
           if (dataRes.data.registeredShifts) store.setRegisteredShifts(dataRes.data.registeredShifts);
@@ -100,28 +106,13 @@ export default function Login() {
           localStorage.setItem('kg_logs', JSON.stringify(dataRes.data.logs || []));
           localStorage.setItem('kg_stats', JSON.stringify(dataRes.data.stats || { totalCheckIn: 0, validCount: 0 }));
 
-          // Mandatory schedule registration prompt on T5, T6, T7 before 17:00
+          // Mandatory schedule registration guidance on T5, T6, T7 before 17:00
           const regWindow = getScheduleRegistrationWindow();
-          const isStaff = res.data.role !== 'admin';
-          const isAlreadyRegistered = isReg || isNextWeekScheduleRegistered(isReg, res.data.username, weekInfo);
+          const isStaff = res.data.role !== 'admin' && res.data.role !== 'tester';
+          const isAlreadyRegistered = isReg || isNextWeekScheduleRegistered(isReg, res.data.username, weekInfo, dataRes.data.registeredShifts);
           if (isStaff && regWindow.isMandatoryWindow && !isAlreadyRegistered) {
+            // Smoothly direct staff to workforce tab to register their shifts
             store.setCurrentTab('workforce');
-            Swal.fire({
-              title: '⚠️ Bắt buộc đăng ký ca tuần tới',
-              html: `
-                <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Xin chào <b>${res.data.fullname}</b>!</p>
-                <p class="text-xs text-gray-600 dark:text-gray-300 leading-relaxed mb-3">
-                  Hôm nay là thời gian bắt buộc đăng ký lịch làm cho tuần tới (Thứ 5, Thứ 6, trước 17:00 Thứ 7). Hệ thống đã tự động chuyển bạn đến trang <b>Đăng ký ca</b>.
-                </p>
-                <div class="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl text-xs text-amber-900 dark:text-amber-200 text-left">
-                  <p class="font-bold">⏰ Hạn chót: Trước 17:00 Thứ Bảy</p>
-                  <p class="text-[11px] mt-1 text-gray-600 dark:text-gray-300">Vui lòng chọn ca làm cho tất cả các ngày trong tuần và nộp lịch sớm để BQL kịp thời sắp xếp nhé!</p>
-                </div>
-              `,
-              icon: 'warning',
-              confirmButtonColor: '#059669',
-              confirmButtonText: 'Bắt đầu đăng ký ngay'
-            });
           }
         }
       });

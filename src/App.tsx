@@ -97,12 +97,19 @@ export default function App() {
               const shifts = JSON.parse(savedShiftsStr);
               if (Array.isArray(shifts) && shifts.length === 7) {
                 store.setRegisteredShifts(shifts);
-                store.setScheduleRegistered(true);
+                store.setScheduleRegistered(true, expectedWeekKey);
                 const regShifts: Record<string, string> = {};
                 weekInfo.weekDatesKeys.forEach((k, i) => regShifts[k] = shifts[i]);
                 store.setShiftData(regShifts);
               }
             } catch { /* ignore parse errors */ }
+          } else if (savedWeek && savedWeek !== expectedWeekKey && savedWeek !== weekInfo.sheetName) {
+            // Week rollover: clear previous week registration
+            localStorage.removeItem('kg_registered_shifts');
+            localStorage.removeItem('kg_registered_week');
+            localStorage.removeItem('kg_schedule_registered');
+            store.setScheduleRegistered(false);
+            store.setRegisteredShifts([]);
           }
 
           // Refresh session timestamp (extend session on reload)

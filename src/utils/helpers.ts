@@ -17,14 +17,22 @@ export function getDist(lat1: number, lon1: number, lat2: number, lon2: number):
   return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
 
-/** Text-to-speech Vietnamese */
+/** Text-to-speech Vietnamese with iOS Safari audio protection */
 export function speak(text: string) {
-  if ('speechSynthesis' in window) {
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'vi-VN';
-    utterance.rate = 1.1;
-    window.speechSynthesis.speak(utterance);
+  try {
+    if ('speechSynthesis' in window) {
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'vi-VN';
+      utterance.rate = 1.1;
+      utterance.onerror = () => { /* Prevent uncaught audio lock on iOS */ };
+      window.speechSynthesis.speak(utterance);
+    }
+  } catch {
+    // Safari / WebKit audio restriction fallback
   }
 }
 
@@ -158,33 +166,53 @@ export function isRegistrationOpen(): { open: boolean; message: string } {
   return { open: status.isOpen, message: status.message };
 }
 
-/** Check if schedule for the upcoming week is already registered */
+/** Check if schedule for the upcoming week is already registered
+ *  - Validates localStorage record against target week key (prevents cross-week stale flags)
+ *  - Accepts server-hydrated store registration state (handles cross-device & cache clear)
+ *  - Accepts populated registeredShifts array (7 shifts)
+ */
 export function isNextWeekScheduleRegistered(
   isScheduleRegisteredInStore: boolean,
   username?: string,
-  targetWeekInfo?: { monthSheet: string; weekLabel: string }
+  targetWeekInfo?: { monthSheet: string; weekLabel: string },
+  storeRegisteredShifts?: string[] | null
 ): boolean {
   try {
     const weekInfo = targetWeekInfo || computeWeekInfo();
     const expectedKey = weekInfo.monthSheet + '|' + weekInfo.weekLabel;
     const savedWeek = localStorage.getItem('kg_registered_week');
+    const savedRegKey = localStorage.getItem('kg_schedule_registered');
     const savedShiftsStr = localStorage.getItem('kg_registered_shifts');
     const savedUser = localStorage.getItem('kg_registered_user');
 
-    if (username && savedUser && savedUser !== username) {
-      return false;
+    const isMatchingUser = !username || !savedUser || savedUser === username;
+
+    // Condition 1: LocalStorage record exists for this exact target week
+    if (isMatchingUser && (savedWeek === expectedKey || savedRegKey === expectedKey)) {
+      if (savedShiftsStr) {
+        try {
+          const shifts = JSON.parse(savedShiftsStr);
+          if (Array.isArray(shifts) && shifts.length === 7) {
+            return true;
+          }
+        } catch { /* ignore parse errors */ }
+      }
+      return true;
     }
 
-    if (savedWeek === expectedKey && savedShiftsStr) {
-      try {
-        const shifts = JSON.parse(savedShiftsStr);
-        if (Array.isArray(shifts) && shifts.length === 7) {
-          return true;
-        }
-      } catch { /* ignore */ }
+    // Condition 2: Zustand store / Server has confirmed registration for target week
+    // Since GET_DATA explicitly queries Google Sheets with target week's monthSheet & weekLabel,
+    // if the server returned isScheduleRegistered: true, the user has already submitted on Sheets.
+    if (isScheduleRegisteredInStore === true) {
+      return true;
     }
 
-    return Boolean(isScheduleRegisteredInStore && savedWeek === expectedKey);
+    // Condition 3: Store has 7 shifts registered from server
+    if (Array.isArray(storeRegisteredShifts) && storeRegisteredShifts.length === 7) {
+      return true;
+    }
+
+    return false;
   } catch {
     return false;
   }

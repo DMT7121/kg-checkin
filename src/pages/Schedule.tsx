@@ -338,12 +338,16 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
       const res = await callApi('REGISTER_SHIFT', payload, { timeoutMs: 20000 });
 
       if (res?.ok) {
-        store.setScheduleRegistered(true);
+        const expectedWeekKey = weekInfo.monthSheet + '|' + weekInfo.weekLabel;
+        store.setScheduleRegistered(true, expectedWeekKey);
         store.setRegisteredShifts(shifts);
         localStorage.setItem('kg_registered_shifts', JSON.stringify(shifts));
-        localStorage.setItem('kg_registered_week', weekInfo.monthSheet + '|' + weekInfo.weekLabel);
+        localStorage.setItem('kg_registered_week', expectedWeekKey);
         localStorage.setItem('kg_registered_user', currentUser?.username || '');
-        localStorage.setItem('kg_schedule_registered', 'true');
+        if (currentUser?.username) {
+          localStorage.setItem(`kg_registered_week_${currentUser.username}`, expectedWeekKey);
+        }
+        localStorage.setItem('kg_schedule_registered', expectedWeekKey);
         setIsEditing(false);
 
         const bqlNotice = 'Lịch đăng ký ca của bạn đã được ghi nhận vào Bảng Chấm Công (Google Sheets). BQL sẽ sắp xếp lại phù hợp theo nhu cầu của nhà hàng. Trường hợp lịch không được duyệt nhưng lịch làm trùng lịch học, thi cử quan trọng hãy gửi lịch học/thi và báo BQL duyệt nhé!';

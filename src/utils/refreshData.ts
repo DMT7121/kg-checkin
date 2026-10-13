@@ -51,8 +51,11 @@ export function restoreFromCache(): void {
         stats: data.stats ?? state.stats,
         users: data.users ?? state.users,
         isScheduleRegistered: (() => {
+          const weekInfo = computeWeekInfo();
+          const expectedWeekKey = weekInfo.monthSheet + '|' + weekInfo.weekLabel;
           const direct = localStorage.getItem('kg_schedule_registered');
-          if (direct === 'true') return true;
+          const savedWeek = localStorage.getItem('kg_registered_week');
+          if (direct === expectedWeekKey || savedWeek === expectedWeekKey) return true;
           if (data.isScheduleRegistered !== undefined) return data.isScheduleRegistered;
           return state.isScheduleRegistered;
         })(),
@@ -249,9 +252,42 @@ function hydrateStore(data: any): void {
     chatHistory: data.chatHistory ?? state.chatHistory,
     aiPrompts: data.aiPrompts ?? state.aiPrompts,
     isScheduleRegistered: (() => {
-      if (data.isScheduleRegistered === true) return true;
-      const hasLocalReg = localStorage.getItem('kg_schedule_registered') === 'true' || !!localStorage.getItem('kg_registered_shifts');
-      if (hasLocalReg || state.isScheduleRegistered) return true;
+      const weekInfo = computeWeekInfo();
+      const expectedWeekKey = weekInfo.monthSheet + '|' + weekInfo.weekLabel;
+      const currentUser = useAppStore.getState().currentUser;
+
+      if (data.isScheduleRegistered === true) {
+        try {
+          localStorage.setItem('kg_schedule_registered', expectedWeekKey);
+          localStorage.setItem('kg_registered_week', expectedWeekKey);
+          if (currentUser?.username) {
+            localStorage.setItem('kg_registered_user', currentUser.username);
+            localStorage.setItem(`kg_registered_week_${currentUser.username}`, expectedWeekKey);
+          }
+          if (Array.isArray(data.registeredShifts) && data.registeredShifts.length === 7) {
+            localStorage.setItem('kg_registered_shifts', JSON.stringify(data.registeredShifts));
+          }
+        } catch { /* ignore storage errors */ }
+        return true;
+      }
+
+      if (data.isScheduleRegistered === false) {
+        const savedWeek = localStorage.getItem('kg_registered_week');
+        const savedRegKey = localStorage.getItem('kg_schedule_registered');
+        const savedShifts = localStorage.getItem('kg_registered_shifts');
+        const savedUser = localStorage.getItem('kg_registered_user');
+        const isMatchingUser = !currentUser?.username || !savedUser || savedUser === currentUser.username;
+
+        if (isMatchingUser && (savedWeek === expectedWeekKey || savedRegKey === expectedWeekKey) && savedShifts) {
+          return true;
+        }
+        try {
+          if (savedRegKey !== expectedWeekKey) localStorage.removeItem('kg_schedule_registered');
+          if (savedWeek !== expectedWeekKey) localStorage.removeItem('kg_registered_week');
+        } catch { /* ignore */ }
+        return false;
+      }
+
       return data.isScheduleRegistered ?? state.isScheduleRegistered;
     })(),
     approvedShifts: data.approvedShifts ?? state.approvedShifts,

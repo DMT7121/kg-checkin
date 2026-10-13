@@ -230,8 +230,13 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
   };
 
   const regWindow = getScheduleRegistrationWindow();
-  const isStaff = currentUser?.role !== 'admin';
-  const nextWeekRegistered = isNextWeekScheduleRegistered(store.isScheduleRegistered, currentUser?.username);
+  const isStaff = currentUser?.role !== 'admin' && currentUser?.role !== 'tester';
+  const nextWeekRegistered = isNextWeekScheduleRegistered(
+    store.isScheduleRegistered,
+    currentUser?.username,
+    undefined,
+    store.registeredShifts
+  );
   const shouldPromptSchedule = isStaff && regWindow.isMandatoryWindow && !nextWeekRegistered;
 
 
@@ -1118,10 +1123,6 @@ export default function Dashboard() {
 
   const hasAccess = hasTabPermission(currentTab, currentUser);
 
-  const regWindow = getScheduleRegistrationWindow();
-  const isStaff = currentUser?.role !== 'admin';
-  const nextWeekRegistered = isNextWeekScheduleRegistered(store.isScheduleRegistered, currentUser?.username);
-  const shouldPromptSchedule = isStaff && regWindow.isMandatoryWindow && !nextWeekRegistered;
   const isRegisteringSchedule = currentTab === 'schedule' || currentTab === 'workforce';
 
   return (
@@ -1132,6 +1133,7 @@ export default function Dashboard() {
         onGoToSchedule={() => handleTabChange('schedule')}
         windowStatus={regWindow}
         employeeName={currentUser?.fullname}
+        targetWeekDisplay={computeWeekInfo().weekDisplay}
       />
       <div className="h-full">
         {!hasAccess ? (

@@ -8,13 +8,15 @@ interface MandatoryScheduleModalProps {
   onGoToSchedule: () => void;
   windowStatus: ScheduleRegistrationWindowStatus;
   employeeName?: string;
+  targetWeekDisplay?: string;
 }
 
 export default function MandatoryScheduleModal({
   isOpen,
   onGoToSchedule,
   windowStatus,
-  employeeName
+  employeeName,
+  targetWeekDisplay
 }: MandatoryScheduleModalProps) {
   if (!isOpen) return null;
 
@@ -50,7 +52,7 @@ export default function MandatoryScheduleModal({
                   <AlertTriangle size={11} /> Bắt buộc hoàn tất
                 </div>
                 <h3 className="text-base sm:text-lg font-black text-[var(--kg-text)] leading-tight">
-                  Đăng ký ca làm tuần tiếp theo
+                  Đăng ký ca làm tuần tiếp theo {targetWeekDisplay ? `(${targetWeekDisplay})` : ''}
                 </h3>
                 {employeeName && (
                   <p className="text-xs text-[var(--kg-text-muted)] mt-0.5 font-medium">
@@ -101,7 +103,7 @@ export default function MandatoryScheduleModal({
 
               <div className="flex items-center justify-center gap-1.5 text-[10.5px] text-[var(--kg-text-muted)] font-medium text-center">
                 <Lock size={12} className="text-amber-500 flex-shrink-0" />
-                <span>Modal sẽ tự động tắt sau khi bạn hoàn tất và lưu ca làm tuần mới.</span>
+                <span>Modal sẽ tự động tắt ngay sau khi bạn gửi ca làm tuần tới và không hiển thị lại trong tuần này.</span>
               </div>
             </div>
           </div>

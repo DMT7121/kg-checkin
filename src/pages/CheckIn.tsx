@@ -427,11 +427,16 @@ export default function CheckIn() {
   }, [store]);
 
   const handleGpsError = useCallback((err: GeolocationPositionError) => {
+    // Reset watchIdRef so subsequent manual click on "Làm mới" will re-arm watchPosition
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
     if (err.code === err.PERMISSION_DENIED) {
       store.setGps({
         isValid: false,
         status: 'Chưa được cấp quyền vị trí',
-        message: 'Bật quyền Vị trí cho trình duyệt rồi nhấn “Thử lại”.'
+        message: 'Bật quyền Vị trí cho trình duyệt rồi nhấn “Làm mới”.'
       });
       return;
     }
@@ -439,14 +444,14 @@ export default function CheckIn() {
       store.setGps({
         isValid: false,
         status: 'Chưa nhận được vị trí',
-        message: 'Ra khu vực thoáng hơn rồi thử lại.'
+        message: 'Ra khu vực thoáng hơn rồi nhấn “Làm mới”.'
       });
       return;
     }
     store.setGps({
       isValid: false,
       status: 'Không thể xác định vị trí',
-      message: 'Kiểm tra GPS và kết nối mạng rồi thử lại.'
+      message: 'Kiểm tra GPS và kết nối mạng rồi nhấn “Làm mới”.'
     });
   }, [store]);
 
@@ -458,18 +463,18 @@ export default function CheckIn() {
       return;
     }
 
-    // Tier 1: Instant seed from cached location (short 15s window) - non-blocking
+    // Tier 1: Instant seed from cached location (short 20s window) - non-blocking
     navigator.geolocation.getCurrentPosition(
       (pos) => handleGpsSuccess(pos, true),
       () => {},
-      { enableHighAccuracy: false, timeout: 1200, maximumAge: 15000 }
+      { enableHighAccuracy: false, timeout: 3000, maximumAge: 20000 }
     );
 
     // Tier 2: Single persistent high-precision hardware GPS stream (clean single thread, zero conflict)
     watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => handleGpsSuccess(pos, false),
       handleGpsError,
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 3000 }
     );
   }, [handleGpsError, handleGpsSuccess, store]);
 
@@ -679,7 +684,12 @@ export default function CheckIn() {
         return;
       }
 
-      const constraintsList = [{ video: { facingMode: 'user' as const } }, { video: { facingMode: 'environment' as const } }, { video: true }];
+      const constraintsList: MediaStreamConstraints[] = [
+        { video: { facingMode: { ideal: 'user' } } },
+        { video: { facingMode: 'user' as const } },
+        { video: { facingMode: 'environment' as const } },
+        { video: true }
+      ];
 
       for (const constraint of constraintsList) {
         try {
@@ -688,20 +698,67 @@ export default function CheckIn() {
           streamRef.current = stream;
           const video = videoRef.current;
           if (!video) continue;
+
+          // Critical iOS Safari / WebKit properties: must set before srcObject & play
+          video.setAttribute('playsinline', 'true');
+          video.setAttribute('webkit-playsinline', 'true');
+          video.muted = true;
+          video.playsInline = true;
           video.srcObject = stream;
 
           await new Promise<void>((resolve, reject) => {
-            video.onloadedmetadata = () => {
+            let settled = false;
+            const timeoutId = setTimeout(() => {
+              if (!settled) {
+                settled = true;
+                reject(new Error('Camera initialization timeout'));
+              }
+            }, 4500);
+
+            const tryPlay = () => {
+              if (settled) return;
               video.play().then(() => {
-                setTimeout(() => {
+                const pollStart = Date.now();
+                const pollInterval = setInterval(() => {
+                  if (settled) {
+                    clearInterval(pollInterval);
+                    return;
+                  }
                   if (video.videoWidth > 0 && !video.paused) {
+                    settled = true;
+                    clearInterval(pollInterval);
+                    clearTimeout(timeoutId);
                     setCameraActive(true);
                     resolve();
-                  } else reject('Video stream empty');
-                }, 500);
-              }).catch(reject);
+                  } else if (Date.now() - pollStart > 2500) {
+                    settled = true;
+                    clearInterval(pollInterval);
+                    clearTimeout(timeoutId);
+                    reject(new Error('Video stream empty'));
+                  }
+                }, 100);
+              }).catch((playErr) => {
+                if (!settled) {
+                  settled = true;
+                  clearTimeout(timeoutId);
+                  reject(playErr);
+                }
+              });
             };
-            video.onerror = () => reject('Video error');
+
+            if (video.readyState >= 1) {
+              tryPlay();
+            } else {
+              video.onloadedmetadata = () => tryPlay();
+            }
+
+            video.onerror = () => {
+              if (!settled) {
+                settled = true;
+                clearTimeout(timeoutId);
+                reject(new Error('Video element error'));
+              }
+            };
           });
           
           isStartingCameraRef.current = false;
@@ -1620,6 +1677,44 @@ export default function CheckIn() {
     };
   }, []);
 
+  // iOS Safari / Mobile Lifecycle: auto-resume camera and GPS when returning from background, phone lock, or app switch
+  useEffect(() => {
+    const handleVisibilityResume = () => {
+      if (document.visibilityState === 'visible') {
+        const video = videoRef.current;
+        const stream = streamRef.current;
+        const isStreamDead = !stream || stream.getTracks().some(t => t.readyState === 'ended' || t.muted);
+        const isVideoPaused = video && (video.paused || video.ended);
+
+        // Revive camera if inactive or frozen
+        if (!capturedImage && (isStreamDead || isVideoPaused || !cameraActive)) {
+          startCamera();
+        }
+
+        // Restart GPS watch if it was suspended or cleared
+        if (watchIdRef.current === null && !isPrecisionScanning) {
+          startGpsWatch();
+        }
+      }
+    };
+
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted || document.visibilityState === 'visible') {
+        handleVisibilityResume();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityResume);
+    window.addEventListener('pageshow', handlePageShow);
+    window.addEventListener('focus', handleVisibilityResume);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityResume);
+      window.removeEventListener('pageshow', handlePageShow);
+      window.removeEventListener('focus', handleVisibilityResume);
+    };
+  }, [cameraActive, capturedImage, isPrecisionScanning, startCamera, startGpsWatch]);
+
   // AI bounding box detection loop - throttled to 800ms to save CPU & battery
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | undefined;
@@ -2056,7 +2151,7 @@ export default function CheckIn() {
 
       {/* Camera Viewport: Responsive 4:3 camera & 3:4 HD uncropped preview */}
       <div className={`relative bg-slate-950 rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm ${capturedImage ? 'aspect-[3/4] max-h-[460px]' : 'aspect-[4/3] max-h-[300px] sm:max-h-[380px]'} group border-[4px] sm:border-[5px] max-w-sm mx-auto transition-all ${isWithinRadius ? 'border-blue-600' : 'border-red-500'}`}>
-        <video ref={videoRef} autoPlay muted playsInline className={`w-full h-full object-cover mirror-cam ${(cameraError || capturedImage) ? 'hidden' : ''}`} />
+        <video ref={videoRef} autoPlay muted playsInline {...{ 'webkit-playsinline': 'true' }} className={`w-full h-full object-cover mirror-cam ${(cameraError || capturedImage) ? 'hidden' : ''}`} />
         <canvas ref={overlayCanvasRef} className={`absolute inset-0 w-full h-full object-cover pointer-events-none ${(cameraError || capturedImage) ? 'hidden' : ''}`} />
         <canvas ref={canvasRef} className="hidden" />
 

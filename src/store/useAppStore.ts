@@ -4,6 +4,7 @@
 import { create } from 'zustand';
 import type { TabId } from '../types/navigation';
 import { clearApiCache } from '../services/api';
+import { computeWeekInfo } from '../utils/helpers';
 
 export interface User {
   username: string;
@@ -300,7 +301,7 @@ interface AppState {
   updateLogImage: (timeOrIso: string, imageUrl: string) => void;
   setStats: (stats: AppState['stats']) => void;
   setUsers: (users: User[]) => void;
-  setScheduleRegistered: (v: boolean) => void;
+  setScheduleRegistered: (v: boolean, weekKey?: string) => void;
   setApprovedShifts: (v: string[] | null) => void;
   setRegisteredShifts: (v: string[]) => void;
   setShiftData: (data: Record<string, string>) => void;
@@ -413,13 +414,25 @@ export const useAppStore = create<AppState>((set) => ({
   todayHandoverDone: false,
   feedbacks: [],
 
-  // Schedule (Restored from persistent storage)
+  // Schedule (Restored from persistent storage with target week matching)
   isScheduleRegistered: (() => {
     try {
+      const weekInfo = computeWeekInfo();
+      const expectedWeekKey = weekInfo.monthSheet + '|' + weekInfo.weekLabel;
       const savedWeek = localStorage.getItem('kg_registered_week');
+      const savedRegKey = localStorage.getItem('kg_schedule_registered');
       const savedShifts = localStorage.getItem('kg_registered_shifts');
-      const isExplicitlyRegistered = localStorage.getItem('kg_schedule_registered') === 'true';
-      return Boolean((savedWeek && savedShifts) || isExplicitlyRegistered);
+      const savedUser = localStorage.getItem('kg_registered_user');
+      const initialUser = restoreInitialUser();
+
+      if (initialUser?.username && savedUser && savedUser !== initialUser.username) {
+        return false;
+      }
+
+      if ((savedWeek === expectedWeekKey || savedRegKey === expectedWeekKey) && savedShifts) {
+        return true;
+      }
+      return false;
     } catch {
       return false;
     }
@@ -568,12 +581,23 @@ export const useAppStore = create<AppState>((set) => ({
     }),
   setStats: (stats) => set({ stats }),
   setUsers: (users) => set({ users }),
-  setScheduleRegistered: (isScheduleRegistered) => {
+  setScheduleRegistered: (isScheduleRegistered, weekKey) => {
     try {
       if (isScheduleRegistered) {
-        localStorage.setItem('kg_schedule_registered', 'true');
+        const key = weekKey || (() => {
+          try {
+            const w = computeWeekInfo();
+            return w.monthSheet + '|' + w.weekLabel;
+          } catch {
+            return 'true';
+          }
+        })();
+        localStorage.setItem('kg_schedule_registered', key);
+        localStorage.setItem('kg_registered_week', key);
       } else {
         localStorage.removeItem('kg_schedule_registered');
+        localStorage.removeItem('kg_registered_week');
+        localStorage.removeItem('kg_registered_shifts');
       }
     } catch {}
     set({ isScheduleRegistered });
