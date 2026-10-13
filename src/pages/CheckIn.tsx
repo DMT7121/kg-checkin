@@ -2321,40 +2321,37 @@ export default function CheckIn() {
             />
             
             {/* Top Floating Glass Dock with Status & Fast Actions */}
-            <div className="absolute top-2.5 inset-x-2.5 z-40 pointer-events-auto">
-              <div className="bg-slate-950/80 backdrop-blur-md border border-white/20 rounded-2xl px-2.5 py-1.5 flex items-center justify-between shadow-2xl shadow-black/70">
-                {/* Left: Status Badges (Always single line, no wrap) */}
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[11px] font-bold shadow-sm whitespace-nowrap shrink-0">
-                    <CheckCircle2 size={12} className="text-emerald-400 shrink-0" />
-                    <span>Đã đóng dấu HD</span>
-                  </span>
-
-                  {/* 60s Expiration Countdown Pill */}
+            <div className="absolute top-2 inset-x-2 z-40 pointer-events-auto">
+              <div className="bg-slate-950/85 backdrop-blur-md border border-white/20 rounded-2xl px-2 py-1.5 flex items-center justify-between shadow-2xl shadow-black/70">
+                {/* Left: Combined Status & Live Countdown Chip */}
+                <div className="inline-flex items-center gap-1 px-2 py-1 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[11px] font-bold shadow-sm whitespace-nowrap shrink-0">
+                  <CheckCircle2 size={12} className="text-emerald-400 shrink-0" />
+                  <span>Đã đóng dấu HD</span>
+                  <span className="text-emerald-400/50 font-normal">•</span>
                   <span
-                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-xl text-[11px] font-mono font-bold whitespace-nowrap shrink-0 shadow-sm transition-all ${
+                    className={`inline-flex items-center gap-0.5 font-mono ${
                       photoTimeLeftSeconds <= 15
-                        ? 'bg-rose-500/30 border border-rose-400/60 text-rose-300 animate-pulse'
+                        ? 'text-rose-400 animate-pulse font-black'
                         : photoTimeLeftSeconds <= 30
-                        ? 'bg-amber-500/25 border border-amber-400/40 text-amber-300'
-                        : 'bg-white/10 border border-white/10 text-slate-300'
+                        ? 'text-amber-300'
+                        : 'text-slate-300'
                     }`}
                     title="Thời hạn ảnh chụp có hiệu lực"
                   >
-                    <Clock size={11} className={photoTimeLeftSeconds <= 15 ? 'animate-bounce text-rose-400' : 'text-slate-400 shrink-0'} />
+                    <Clock size={10} className={photoTimeLeftSeconds <= 15 ? 'animate-bounce text-rose-400 shrink-0' : 'text-slate-400 shrink-0'} />
                     <span>{photoTimeLeftSeconds}s</span>
                   </span>
                 </div>
 
-                {/* Right: Fast Actions (Clean, elegant, no wrap) */}
-                <div className="flex items-center gap-1.5 shrink-0">
+                {/* Right: Fast Actions (Full text visible, zero clipping) */}
+                <div className="flex items-center gap-1 shrink-0">
                   <button
                     type="button"
                     onClick={() => {
                       store.setPreviewImageUrl(capturedImage);
                       store.setPreviewOpen(true);
                     }}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-white/10 hover:bg-white/20 active:scale-95 text-white rounded-xl border border-white/15 backdrop-blur-sm transition-all text-xs font-semibold whitespace-nowrap shrink-0"
+                    className="inline-flex items-center gap-1 px-2 py-1 bg-white/10 hover:bg-white/20 active:scale-95 text-white rounded-xl border border-white/15 backdrop-blur-sm transition-all text-xs font-semibold whitespace-nowrap shrink-0"
                     title="Xem toàn màn hình"
                   >
                     <Maximize2 size={12} className="shrink-0" />
@@ -2367,7 +2364,7 @@ export default function CheckIn() {
                       setPhotoCapturedAtMs(null);
                       setPhotoTimeLeftSeconds(PHOTO_EXPIRATION_SECONDS);
                     }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-xl border border-rose-400/30 shadow-md transition-all text-xs font-bold whitespace-nowrap shrink-0"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-xl border border-rose-400/40 shadow-md transition-all text-xs font-bold whitespace-nowrap shrink-0"
                     title="Chụp lại ảnh"
                   >
                     <RotateCcw size={12} className="shrink-0" />
@@ -2396,47 +2393,64 @@ export default function CheckIn() {
 
       {/* Primary Action Button: Triggers Smart Confirmation Modal */}
       <div className="max-w-sm mx-auto space-y-2.5">
-        <KgButton
-          variant="primary"
-          size="lg"
-          disabled={!canSubmit || (cooldown.isBlocked && currentUser?.role !== 'admin' && currentUser?.role !== 'tester')}
-          onClick={() => {
-            if (cooldown.isBlocked && currentUser?.role !== 'admin' && currentUser?.role !== 'tester') {
-              speak(`Vui lòng đợi thêm ${cooldown.remainingMinutesFormatted} để chấm công lại.`);
-              setSpamWarningText(`Quy định chống spam: Bạn vừa chấm công lúc ${cooldown.lastTimeStr || ''}. Vui lòng đợi thêm ${cooldown.remainingMinutesFormatted} trước khi chấm công lần tiếp theo.`);
-              setSpamWarningOpen(true);
-              return;
-            }
-            if (!capturedImage) {
-              takePhoto();
-              return;
-            }
-            if (!isWithinRadius) {
-              speak('Bạn đang ở ngoài bán kính 20m nhà hàng.');
-              setFeedbackTitle('Ngoài bán kính chấm công');
-              setFeedbackMessage(`Khoảng cách hiện tại: ${currentDist ?? 'quá'}m (quy định ≤ ${targetRadius}m). Vui lòng di chuyển vào nhà hàng để chấm công.`);
-              setFeedbackType('warning');
-              setFeedbackSheetOpen(true);
-              return;
-            }
-            // Prepare modal state
-            setModalChosenType(recommendation.recommendedType);
-            setHasAcknowledgedMissingIn(false);
-            setConfirmCheckInModalOpen(true);
-          }}
-          className={`w-full h-14 min-h-[52px] shadow-lg rounded-2xl text-[15px] font-black tracking-wider border-none active:scale-[0.97] transition-all touch-manipulation flex items-center justify-center gap-2.5 ${
-            cooldown.isBlocked && currentUser?.role !== 'admin' && currentUser?.role !== 'tester'
-              ? 'bg-amber-600 text-white opacity-90'
-              : !canSubmit
-              ? 'opacity-60 cursor-not-allowed bg-slate-400 text-white'
-              : 'bg-[var(--kg-primary)] hover:opacity-90 text-white shadow-md'
-          }`}
-          icon={Send}
-        >
-          {cooldown.isBlocked && currentUser?.role !== 'admin' && currentUser?.role !== 'tester'
-            ? `⏳ GIÃN CÁCH (${cooldown.remainingMinutesFormatted})`
-            : capturedImage ? `🚀 GỬI CHẤM CÔNG (${photoTimeLeftSeconds}s)` : '📸 CHỤP ẢNH ĐỂ CHẤM CÔNG'}
-        </KgButton>
+        <div className="flex items-center gap-2">
+          {capturedImage && (
+            <button
+              type="button"
+              onClick={() => {
+                store.setCapturedImage(null);
+                setPhotoCapturedAtMs(null);
+                setPhotoTimeLeftSeconds(PHOTO_EXPIRATION_SECONDS);
+              }}
+              className="h-14 px-3.5 bg-rose-500/10 hover:bg-rose-500/20 active:scale-95 text-rose-600 dark:text-rose-400 rounded-2xl border border-rose-500/30 flex items-center justify-center gap-1.5 text-xs font-bold transition-all shadow-sm shrink-0 touch-manipulation"
+              title="Chụp lại ảnh mới"
+            >
+              <RotateCcw size={15} />
+              <span>Chụp lại</span>
+            </button>
+          )}
+          <KgButton
+            variant="primary"
+            size="lg"
+            disabled={!canSubmit || (cooldown.isBlocked && currentUser?.role !== 'admin' && currentUser?.role !== 'tester')}
+            onClick={() => {
+              if (cooldown.isBlocked && currentUser?.role !== 'admin' && currentUser?.role !== 'tester') {
+                speak(`Vui lòng đợi thêm ${cooldown.remainingMinutesFormatted} để chấm công lại.`);
+                setSpamWarningText(`Quy định chống spam: Bạn vừa chấm công lúc ${cooldown.lastTimeStr || ''}. Vui lòng đợi thêm ${cooldown.remainingMinutesFormatted} trước khi chấm công lần tiếp theo.`);
+                setSpamWarningOpen(true);
+                return;
+              }
+              if (!capturedImage) {
+                takePhoto();
+                return;
+              }
+              if (!isWithinRadius) {
+                speak('Bạn đang ở ngoài bán kính 20m nhà hàng.');
+                setFeedbackTitle('Ngoài bán kính chấm công');
+                setFeedbackMessage(`Khoảng cách hiện tại: ${currentDist ?? 'quá'}m (quy định ≤ ${targetRadius}m). Vui lòng di chuyển vào nhà hàng để chấm công.`);
+                setFeedbackType('warning');
+                setFeedbackSheetOpen(true);
+                return;
+              }
+              // Prepare modal state
+              setModalChosenType(recommendation.recommendedType);
+              setHasAcknowledgedMissingIn(false);
+              setConfirmCheckInModalOpen(true);
+            }}
+            className={`flex-1 w-full h-14 min-h-[52px] shadow-lg rounded-2xl text-[15px] font-black tracking-wider border-none active:scale-[0.97] transition-all touch-manipulation flex items-center justify-center gap-2.5 ${
+              cooldown.isBlocked && currentUser?.role !== 'admin' && currentUser?.role !== 'tester'
+                ? 'bg-amber-600 text-white opacity-90'
+                : !canSubmit
+                ? 'opacity-60 cursor-not-allowed bg-slate-400 text-white'
+                : 'bg-[var(--kg-primary)] hover:opacity-90 text-white shadow-md'
+            }`}
+            icon={Send}
+          >
+            {cooldown.isBlocked && currentUser?.role !== 'admin' && currentUser?.role !== 'tester'
+              ? `⏳ GIÃN CÁCH (${cooldown.remainingMinutesFormatted})`
+              : capturedImage ? `🚀 GỬI CHẤM CÔNG (${photoTimeLeftSeconds}s)` : '📸 CHỤP ẢNH ĐỂ CHẤM CÔNG'}
+          </KgButton>
+        </div>
 
         {!canSubmit && (
           <p className="text-[11px] text-center text-[var(--kg-text-muted)] font-medium">
