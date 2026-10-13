@@ -2322,14 +2322,14 @@ export default function CheckIn() {
             
             {/* Top Floating Glass Dock with Status & Fast Actions */}
             <div className="absolute top-2 inset-x-2 z-40 pointer-events-auto">
-              <div className="bg-slate-950/85 backdrop-blur-md border border-white/20 rounded-2xl px-2 py-1.5 flex items-center justify-between shadow-2xl shadow-black/70">
+              <div className="bg-slate-950/85 backdrop-blur-md border border-white/20 rounded-xl px-2 py-1 flex items-center justify-between shadow-2xl shadow-black/70">
                 {/* Left: Combined Status & Live Countdown Chip */}
-                <div className="inline-flex items-center gap-1 px-2 py-1 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[11px] font-bold shadow-sm whitespace-nowrap shrink-0">
-                  <CheckCircle2 size={12} className="text-emerald-400 shrink-0" />
-                  <span>Đã đóng dấu HD</span>
+                <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[10.5px] font-bold shadow-sm whitespace-nowrap shrink-0">
+                  <CheckCircle2 size={11} className="text-emerald-400 shrink-0" />
+                  <span>Đã đóng dấu</span>
                   <span className="text-emerald-400/50 font-normal">•</span>
                   <span
-                    className={`inline-flex items-center gap-0.5 font-mono ${
+                    className={`font-mono ${
                       photoTimeLeftSeconds <= 15
                         ? 'text-rose-400 animate-pulse font-black'
                         : photoTimeLeftSeconds <= 30
@@ -2338,8 +2338,7 @@ export default function CheckIn() {
                     }`}
                     title="Thời hạn ảnh chụp có hiệu lực"
                   >
-                    <Clock size={10} className={photoTimeLeftSeconds <= 15 ? 'animate-bounce text-rose-400 shrink-0' : 'text-slate-400 shrink-0'} />
-                    <span>{photoTimeLeftSeconds}s</span>
+                    {photoTimeLeftSeconds}s
                   </span>
                 </div>
 
@@ -2351,10 +2350,10 @@ export default function CheckIn() {
                       store.setPreviewImageUrl(capturedImage);
                       store.setPreviewOpen(true);
                     }}
-                    className="inline-flex items-center gap-1 px-2 py-1 bg-white/10 hover:bg-white/20 active:scale-95 text-white rounded-xl border border-white/15 backdrop-blur-sm transition-all text-xs font-semibold whitespace-nowrap shrink-0"
+                    className="inline-flex items-center gap-1 px-2 py-1 bg-white/10 hover:bg-white/20 active:scale-95 text-white rounded-lg border border-white/15 backdrop-blur-sm transition-all text-[11px] font-semibold whitespace-nowrap shrink-0"
                     title="Xem toàn màn hình"
                   >
-                    <Maximize2 size={12} className="shrink-0" />
+                    <Maximize2 size={11} className="shrink-0" />
                     <span>Xem to</span>
                   </button>
                   <button
@@ -2364,10 +2363,10 @@ export default function CheckIn() {
                       setPhotoCapturedAtMs(null);
                       setPhotoTimeLeftSeconds(PHOTO_EXPIRATION_SECONDS);
                     }}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-xl border border-rose-400/40 shadow-md transition-all text-xs font-bold whitespace-nowrap shrink-0"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-lg border border-rose-400/40 shadow-md transition-all text-[11px] font-bold whitespace-nowrap shrink-0"
                     title="Chụp lại ảnh"
                   >
-                    <RotateCcw size={12} className="shrink-0" />
+                    <RotateCcw size={11} className="shrink-0" />
                     <span>Chụp lại</span>
                   </button>
                 </div>
