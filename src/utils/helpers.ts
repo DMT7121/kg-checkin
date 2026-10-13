@@ -2,6 +2,21 @@
 // helpers.ts - Shared utility functions
 // ============================================
 import { callApi } from '../services/api';
+import {
+  playPosSuccess,
+  playPosWarning,
+  playPosError,
+  playPreRecordedAudio,
+  speakWithVietnameseLock
+} from './soundEffects';
+
+export {
+  playPosSuccess,
+  playPosWarning,
+  playPosError,
+  playPreRecordedAudio,
+  speakWithVietnameseLock
+};
 
 /** Haversine distance in km */
 export function getDist(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -17,22 +32,116 @@ export function getDist(lat1: number, lon1: number, lat2: number, lon2: number):
   return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
 
-/** Text-to-speech Vietnamese with iOS Safari audio protection */
-export function speak(text: string) {
-  try {
-    if ('speechSynthesis' in window) {
-      if (window.speechSynthesis.paused) {
-        window.speechSynthesis.resume();
-      }
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'vi-VN';
-      utterance.rate = 1.1;
-      utterance.onerror = () => { /* Prevent uncaught audio lock on iOS */ };
-      window.speechSynthesis.speak(utterance);
+/** Map messages to studio pre-recorded audio files & Web Audio Chimes */
+function resolveAudioNotification(text: string, customKey?: string): { clipKey?: string; chimeType: 'success' | 'warning' | 'error' | 'none' } {
+  if (customKey) {
+    if (customKey.includes('success') || customKey.includes('in') || customKey.includes('out') || customKey.includes('approved')) {
+      return { clipKey: customKey, chimeType: 'success' };
     }
+    if (customKey.includes('warning') || customKey.includes('range') || customKey.includes('invalid')) {
+      return { clipKey: customKey, chimeType: 'warning' };
+    }
+    return { clipKey: customKey, chimeType: 'error' };
+  }
+
+  const lower = text.toLowerCase();
+
+  // Checkin In Success
+  if (lower.includes('vào ca') && (lower.includes('thành công') || lower.includes('chúc bạn') || lower.includes('ghi nhận'))) {
+    return { clipKey: 'checkin_in', chimeType: 'success' };
+  }
+  // Checkin Out Success
+  if (lower.includes('ra ca') && (lower.includes('thành công') || lower.includes('chúc mừng') || lower.includes('ghi nhận'))) {
+    return { clipKey: 'checkin_out', chimeType: 'success' };
+  }
+  // Outside range
+  if (lower.includes('ngoài bán kính') || lower.includes('bán kính 20m')) {
+    return { clipKey: 'outside_range', chimeType: 'warning' };
+  }
+  // GPS valid
+  if (lower.includes('vị trí đã hợp lệ') || lower.includes('sẵn sàng chấm công') || lower.includes('vị trí vệ tinh')) {
+    return { clipKey: 'gps_valid', chimeType: 'success' };
+  }
+  // GPS invalid
+  if (lower.includes('vị trí không hợp lệ') || lower.includes('vị trí chưa hợp lệ')) {
+    return { clipKey: 'gps_invalid', chimeType: 'warning' };
+  }
+  // Fake GPS warning
+  if (lower.includes('giả lập') || lower.includes('nghi vấn giả lập')) {
+    return { clipKey: 'gps_fake_warning', chimeType: 'error' };
+  }
+  // Expired photo
+  if (lower.includes('ảnh chụp đã hết hạn') || lower.includes('hết hạn 60')) {
+    return { clipKey: 'expired_photo', chimeType: 'error' };
+  }
+  // Missing photo
+  if (lower.includes('chưa có ảnh chụp') || lower.includes('chụp ảnh trước khi gửi') || lower.includes('chụp ảnh selfie')) {
+    return { clipKey: 'missing_photo', chimeType: 'warning' };
+  }
+  // Login success
+  if (lower.includes('đăng nhập thành công')) {
+    return { clipKey: 'login_success', chimeType: 'success' };
+  }
+  // Login fail
+  if (lower.includes('đăng nhập thất bại')) {
+    return { clipKey: 'login_fail', chimeType: 'error' };
+  }
+  // Schedule success
+  if (lower.includes('đăng ký lịch') && (lower.includes('thành công') || lower.includes('nạp vào'))) {
+    return { clipKey: 'schedule_success', chimeType: 'success' };
+  }
+  // Schedule approved
+  if (lower.includes('lịch làm việc đã được admin duyệt') || lower.includes('đã được admin duyệt')) {
+    return { clipKey: 'schedule_approved', chimeType: 'success' };
+  }
+  // Camera error
+  if (lower.includes('không thể mở máy ảnh') || lower.includes('quyền truy cập')) {
+    return { clipKey: 'camera_error', chimeType: 'error' };
+  }
+
+  // General chime determination if no specific pre-recorded clip
+  if (lower.includes('thành công') || lower.includes('hợp lệ')) {
+    return { chimeType: 'success' };
+  }
+  if (lower.includes('cảnh báo') || lower.includes('vui lòng') || lower.includes('nhắc nhở')) {
+    return { chimeType: 'warning' };
+  }
+  if (lower.includes('lỗi') || lower.includes('thất bại') || lower.includes('từ chối')) {
+    return { chimeType: 'error' };
+  }
+
+  return { chimeType: 'none' };
+}
+
+/**
+ * Hybrid Smart Audio Engine:
+ * 1. Play instantaneous Web Audio Chime (POS Ting / Warning / Error) + Haptic Feedback
+ * 2. If pre-recorded studio Vietnamese audio clip exists -> Play it (100% stable Vietnamese voice across all devices)
+ * 3. If dynamic text -> Only speak if Vietnamese voice exists on OS (Strict Voice Lock)
+ *    NEVER allow browser to fall back to English/foreign voice for Vietnamese text!
+ */
+export function speak(text: string, customAudioKey?: string) {
+  try {
+    const { clipKey, chimeType } = resolveAudioNotification(text, customAudioKey);
+
+    // Tầng 1: Web Audio Chime (<10ms instantaneous feedback)
+    if (chimeType === 'success') playPosSuccess();
+    else if (chimeType === 'warning') playPosWarning();
+    else if (chimeType === 'error') playPosError();
+
+    // Tầng 2A: Pre-recorded Vietnamese Studio Audio
+    if (clipKey) {
+      playPreRecordedAudio(clipKey).catch(() => {
+        // If audio blocked or failed, try speaking with Vietnamese voice lock
+        speakWithVietnameseLock(text);
+      });
+      return;
+    }
+
+    // Tầng 2B: Strict Vietnamese Voice Lock for dynamic speech
+    speakWithVietnameseLock(text);
   } catch {
-    // Safari / WebKit audio restriction fallback
+    // Fail-safe audio boundary
   }
 }
 

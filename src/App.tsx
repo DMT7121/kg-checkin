@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { useAppStore } from './store/useAppStore';
 import { isInAppBrowser, computeWeekInfo, getCurrentTimeString } from './utils/helpers';
+import { setupAudioUnlock, preloadAudioClips } from './utils/soundEffects';
 import { refreshAppData, restoreFromCache } from './utils/refreshData';
 import { initOfflineQueueSync } from './utils/offlineQueue';
 import LoadingScreen from './components/LoadingScreen';
@@ -19,6 +20,18 @@ export default function App() {
 
   // Init on mount - matches original initApp()
   useEffect(() => {
+    // Hybrid Smart Audio: Unlock Web Audio on first gesture and preload core notification audio
+    setupAudioUnlock();
+    preloadAudioClips([
+      'checkin_in',
+      'checkin_out',
+      'outside_range',
+      'gps_valid',
+      'gps_invalid',
+      'expired_photo',
+      'login_success'
+    ]);
+
     // Force clear outdated GAS URL configurations
     const storedGas = localStorage.getItem('kg_gas_url');
     const targetGas = 'https://script.google.com/macros/s/AKfycbyQ4Y5cQ0BCHBlmzftWq0dPVP2qNgc-PaYMklh44raSX4hDOCIyFi0bV-G6QdUbb-3D/exec';
