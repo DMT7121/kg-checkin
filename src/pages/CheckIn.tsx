@@ -2392,64 +2392,47 @@ export default function CheckIn() {
 
       {/* Primary Action Button: Triggers Smart Confirmation Modal */}
       <div className="max-w-sm mx-auto space-y-2.5">
-        <div className="flex items-center gap-2">
-          {capturedImage && (
-            <button
-              type="button"
-              onClick={() => {
-                store.setCapturedImage(null);
-                setPhotoCapturedAtMs(null);
-                setPhotoTimeLeftSeconds(PHOTO_EXPIRATION_SECONDS);
-              }}
-              className="h-14 px-3.5 bg-rose-500/10 hover:bg-rose-500/20 active:scale-95 text-rose-600 dark:text-rose-400 rounded-2xl border border-rose-500/30 flex items-center justify-center gap-1.5 text-xs font-bold transition-all shadow-sm shrink-0 touch-manipulation"
-              title="Chụp lại ảnh mới"
-            >
-              <RotateCcw size={15} />
-              <span>Chụp lại</span>
-            </button>
-          )}
-          <KgButton
-            variant="primary"
-            size="lg"
-            disabled={!canSubmit || (cooldown.isBlocked && currentUser?.role !== 'admin' && currentUser?.role !== 'tester')}
-            onClick={() => {
-              if (cooldown.isBlocked && currentUser?.role !== 'admin' && currentUser?.role !== 'tester') {
-                speak(`Vui lòng đợi thêm ${cooldown.remainingMinutesFormatted} để chấm công lại.`);
-                setSpamWarningText(`Quy định chống spam: Bạn vừa chấm công lúc ${cooldown.lastTimeStr || ''}. Vui lòng đợi thêm ${cooldown.remainingMinutesFormatted} trước khi chấm công lần tiếp theo.`);
-                setSpamWarningOpen(true);
-                return;
-              }
-              if (!capturedImage) {
-                takePhoto();
-                return;
-              }
-              if (!isWithinRadius) {
-                speak('Bạn đang ở ngoài bán kính 20m nhà hàng.');
-                setFeedbackTitle('Ngoài bán kính chấm công');
-                setFeedbackMessage(`Khoảng cách hiện tại: ${currentDist ?? 'quá'}m (quy định ≤ ${targetRadius}m). Vui lòng di chuyển vào nhà hàng để chấm công.`);
-                setFeedbackType('warning');
-                setFeedbackSheetOpen(true);
-                return;
-              }
-              // Prepare modal state
-              setModalChosenType(recommendation.recommendedType);
-              setHasAcknowledgedMissingIn(false);
-              setConfirmCheckInModalOpen(true);
-            }}
-            className={`flex-1 w-full h-14 min-h-[52px] shadow-lg rounded-2xl text-[15px] font-black tracking-wider border-none active:scale-[0.97] transition-all touch-manipulation flex items-center justify-center gap-2.5 ${
-              cooldown.isBlocked && currentUser?.role !== 'admin' && currentUser?.role !== 'tester'
-                ? 'bg-amber-600 text-white opacity-90'
-                : !canSubmit
-                ? 'opacity-60 cursor-not-allowed bg-slate-400 text-white'
-                : 'bg-[var(--kg-primary)] hover:opacity-90 text-white shadow-md'
-            }`}
+        <KgButton
+          variant="primary"
+          size="lg"
+          disabled={!canSubmit || (cooldown.isBlocked && currentUser?.role !== 'admin' && currentUser?.role !== 'tester')}
+          onClick={() => {
+            if (cooldown.isBlocked && currentUser?.role !== 'admin' && currentUser?.role !== 'tester') {
+              speak(`Vui lòng đợi thêm ${cooldown.remainingMinutesFormatted} để chấm công lại.`);
+              setSpamWarningText(`Quy định chống spam: Bạn vừa chấm công lúc ${cooldown.lastTimeStr || ''}. Vui lòng đợi thêm ${cooldown.remainingMinutesFormatted} trước khi chấm công lần tiếp theo.`);
+              setSpamWarningOpen(true);
+              return;
+            }
+            if (!capturedImage) {
+              takePhoto();
+              return;
+            }
+            if (!isWithinRadius) {
+              speak('Bạn đang ở ngoài bán kính 20m nhà hàng.');
+              setFeedbackTitle('Ngoài bán kính chấm công');
+              setFeedbackMessage(`Khoảng cách hiện tại: ${currentDist ?? 'quá'}m (quy định ≤ ${targetRadius}m). Vui lòng di chuyển vào nhà hàng để chấm công.`);
+              setFeedbackType('warning');
+              setFeedbackSheetOpen(true);
+              return;
+            }
+            // Prepare modal state
+            setModalChosenType(recommendation.recommendedType);
+            setHasAcknowledgedMissingIn(false);
+            setConfirmCheckInModalOpen(true);
+          }}
+          className={`w-full h-14 min-h-[52px] shadow-lg rounded-2xl text-[15px] font-black tracking-wider border-none active:scale-[0.97] transition-all touch-manipulation flex items-center justify-center gap-2.5 ${
+            cooldown.isBlocked && currentUser?.role !== 'admin' && currentUser?.role !== 'tester'
+              ? 'bg-amber-600 text-white opacity-90'
+              : !canSubmit
+              ? 'opacity-60 cursor-not-allowed bg-slate-400 text-white'
+              : 'bg-[var(--kg-primary)] hover:opacity-90 text-white shadow-md'
+          }`}
             icon={Send}
           >
             {cooldown.isBlocked && currentUser?.role !== 'admin' && currentUser?.role !== 'tester'
               ? `⏳ GIÃN CÁCH (${cooldown.remainingMinutesFormatted})`
               : capturedImage ? `🚀 GỬI CHẤM CÔNG (${photoTimeLeftSeconds}s)` : '📸 CHỤP ẢNH ĐỂ CHẤM CÔNG'}
           </KgButton>
-        </div>
 
         {!canSubmit && (
           <p className="text-[11px] text-center text-[var(--kg-text-muted)] font-medium">
