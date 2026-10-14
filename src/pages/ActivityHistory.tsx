@@ -54,7 +54,8 @@ export default function ActivityHistory() {
   };
 
   const analyzeMyProductivity = async () => {
-    const apiKey = groqKeys.length > 0 ? groqKeys[Math.floor(Math.random() * groqKeys.length)] : null;
+    const selectedKey = groqKeys.length > 0 ? groqKeys[Math.floor(Math.random() * groqKeys.length)] : null;
+    const apiKey = typeof selectedKey === 'string' ? selectedKey : selectedKey?.key;
     if (!apiKey) { Swal.fire('Cảnh báo', 'Hệ thống chưa đồng bộ Groq API Key.', 'warning'); return; }
     if (logs.length === 0) { Swal.fire('Chú ý', 'Bạn chưa có dữ liệu chấm công.', 'info'); return; }
 

@@ -15,6 +15,7 @@ import { useMonthDayVisibility } from '../hooks/useMonthDayVisibility';
 
 
 import { saveModuleCache } from '../utils/refreshData';
+import { escapeHtml } from '../utils/security';
 
 export default function Roster() {
   const store = useAppStore();
@@ -44,7 +45,8 @@ export default function Roster() {
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
   const loadSchedules = useCallback(async () => {
-    const hasData = monthData.length > 0 || (Array.isArray(store.monthSchedules) && store.monthSchedules.length > 0);
+    const currentStore = useAppStore.getState();
+    const hasData = (Array.isArray(currentStore.monthSchedules) && currentStore.monthSchedules.length > 0);
     if (!hasData) {
       setIsRefreshing(true);
     }
@@ -63,7 +65,7 @@ export default function Roster() {
       
       if (res?.ok && res.data?.weeks) {
         setMonthData(res.data.weeks);
-        store.setMonthSchedules(res.data.weeks);
+        useAppStore.getState().setMonthSchedules(res.data.weeks);
         saveModuleCache('roster', res.data.weeks);
       } else if (!hasData) {
         Swal.fire('Lỗi', 'Không thể tải lịch làm việc', 'error');
@@ -71,7 +73,7 @@ export default function Roster() {
     } catch {
       setIsRefreshing(false);
     }
-  }, [selectedMonth, selectedYear, monthDates, store, monthData.length]);
+  }, [selectedMonth, selectedYear, monthDates]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -125,12 +127,13 @@ export default function Roster() {
         grouped[item.shift].push(item.name);
       });
       Object.entries(grouped).forEach(([shift, names]) => {
+        const safeShift = escapeHtml(shift);
         html += `<div class="mb-4 paint-layer p-3 rounded-xl ">
           <div class="font-bold text-indigo-600 dark:text-indigo-400 border-b border-indigo-100 dark:border-indigo-900/50 mb-2 pb-1 text-sm flex items-center">
-            <span class="w-2 h-2 rounded-full bg-indigo-500 mr-2"></span>${shift}
+            <span class="w-2 h-2 rounded-full bg-indigo-500 mr-2"></span>${safeShift}
           </div>
           <div class="text-sm text-gray-700 dark:text-gray-300 pl-1 grid grid-cols-2 gap-1">
-            ${names.map(n => `<div class="flex items-center"><span class="text-gray-400 mr-1.5">•</span>${n}</div>`).join('')}
+            ${names.map(n => `<div class="flex items-center"><span class="text-gray-400 mr-1.5">•</span>${escapeHtml(n)}</div>`).join('')}
           </div>
         </div>`;
       });

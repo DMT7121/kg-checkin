@@ -212,24 +212,24 @@ export function KgInput({
   return (
     <div className={`space-y-1.5 w-full ${className}`}>
       {label && (
-        <label className="block text-xs font-bold text-[#64748b] dark:text-[#98a2b3] uppercase tracking-wide pl-1">
+        <label className="block text-xs font-bold text-[var(--kg-text-muted)] uppercase tracking-wide pl-1">
           {label}
         </label>
       )}
       <div className="relative w-full">
         {Icon && (
-          <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9AA1AA] pointer-events-none">
+          <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--kg-text-soft)] pointer-events-none">
             <Icon size={16} />
           </div>
         )}
         <input
           className={`w-full px-4 py-2.5 ${
             Icon ? 'pl-11' : ''
-          } text-sm bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-xl focus:border-[#2563eb] dark:focus:border-[#7c3aed] focus:ring-2 focus:ring-[#2563eb]/10 focus:outline-none transition-all placeholder-[#9AA1AA] text-[#0f172a] dark:text-white`}
+          } text-sm bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 focus:outline-none transition-all placeholder-[var(--kg-text-soft)] text-[var(--kg-text)]`}
           {...props}
         />
       </div>
-      {error && <p className="text-xs text-[#ef4444] dark:text-[#ef4444] font-semibold pl-1">{error}</p>}
+      {error && <p className="text-xs text-[var(--kg-danger)] font-semibold pl-1">{error}</p>}
     </div>
   );
 }
@@ -249,17 +249,17 @@ export function KgSelect({
   return (
     <div className={`space-y-1.5 w-full ${className}`}>
       {label && (
-        <label className="block text-xs font-bold text-[#64748b] dark:text-[#98a2b3] uppercase tracking-wide pl-1">
+        <label className="block text-xs font-bold text-[var(--kg-text-muted)] uppercase tracking-wide pl-1">
           {label}
         </label>
       )}
       <select
-        className="w-full px-4 py-2.5 text-sm bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-xl focus:border-[#2563eb] dark:focus:border-[#7c3aed] focus:ring-2 focus:ring-[#2563eb]/10 focus:outline-none transition-all text-[#0f172a] dark:text-white"
+        className="w-full px-4 py-2.5 text-sm bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 focus:outline-none transition-all text-[var(--kg-text)]"
         {...props}
       >
         {children}
       </select>
-      {error && <p className="text-xs text-[#ef4444] dark:text-[#ef4444] font-semibold pl-1">{error}</p>}
+      {error && <p className="text-xs text-[var(--kg-danger)] font-semibold pl-1">{error}</p>}
     </div>
   );
 }
@@ -277,15 +277,15 @@ export function KgTextarea({
   return (
     <div className={`space-y-1.5 w-full ${className}`}>
       {label && (
-        <label className="block text-xs font-bold text-[#64748b] dark:text-[#98a2b3] uppercase tracking-wide pl-1">
+        <label className="block text-xs font-bold text-[var(--kg-text-muted)] uppercase tracking-wide pl-1">
           {label}
         </label>
       )}
       <textarea
-        className="w-full px-4 py-2.5 text-sm bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] rounded-xl focus:border-[#2563eb] dark:focus:border-[#7c3aed] focus:ring-2 focus:ring-[#2563eb]/10 focus:outline-none transition-all placeholder-[#9AA1AA] text-[#0f172a] dark:text-white min-h-[100px]"
+        className="w-full px-4 py-2.5 text-sm bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 focus:outline-none transition-all placeholder-[var(--kg-text-soft)] text-[var(--kg-text)] min-h-[100px]"
         {...props}
       />
-      {error && <p className="text-xs text-[#ef4444] dark:text-[#ef4444] font-semibold pl-1">{error}</p>}
+      {error && <p className="text-xs text-[var(--kg-danger)] font-semibold pl-1">{error}</p>}
     </div>
   );
 }

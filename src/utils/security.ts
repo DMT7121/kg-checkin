@@ -15,9 +15,6 @@ export async function sha256(text: string): Promise<string> {
 }
 
 // Pre-computed SHA-256 hashes of PINs (never store plaintext in code)
-// sha256('712121') = '...'
-// sha256('DMTAPIKEY') = '...'
-// These are computed once at build time for comparison
 export const ADMIN_PIN_HASH = '9fc7d2573162923a909a04340bdcd59b435b93ddaf6318117ec3a3013e20d142';
 export const MASTER_PIN_HASH = '9ca8cf2cdf177498cdcb49d96416243362f33b2b3976758fc09fc119a653138a';
 
@@ -35,7 +32,7 @@ export async function hashPassword(password: string): Promise<string> {
  * Used before injecting AI responses into Swal.fire({ html: ... })
  */
 export function escapeHtml(unsafe: string): string {
-  return unsafe
+  return String(unsafe ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -56,12 +53,33 @@ export function sanitizeInput(input: string): string {
 }
 
 /**
- * Rate limiter for brute-force protection on PIN entry
+ * Rate limiter for brute-force protection on PIN entry (persisted in sessionStorage)
  */
-const failedAttempts: { count: number; lastAttempt: number } = { count: 0, lastAttempt: 0 };
+const RATE_LIMIT_KEY = 'kg_pin_attempts_v1';
+
+function getAttemptState(): { count: number; lastAttempt: number } {
+  try {
+    const raw = sessionStorage.getItem(RATE_LIMIT_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        count: Number(parsed.count) || 0,
+        lastAttempt: Number(parsed.lastAttempt) || 0,
+      };
+    }
+  } catch { /* ignore */ }
+  return { count: 0, lastAttempt: 0 };
+}
+
+function saveAttemptState(state: { count: number; lastAttempt: number }) {
+  try {
+    sessionStorage.setItem(RATE_LIMIT_KEY, JSON.stringify(state));
+  } catch { /* ignore */ }
+}
 
 export function checkRateLimit(): { allowed: boolean; waitSeconds: number } {
   const now = Date.now();
+  const failedAttempts = getAttemptState();
   const cooldownMs = failedAttempts.count >= 5 ? 300000 : // 5 min after 5 fails
                      failedAttempts.count >= 3 ? 60000 :   // 1 min after 3 fails
                      0;
@@ -74,11 +92,10 @@ export function checkRateLimit(): { allowed: boolean; waitSeconds: number } {
 }
 
 export function recordFailedAttempt() {
-  failedAttempts.count++;
-  failedAttempts.lastAttempt = Date.now();
+  const current = getAttemptState();
+  saveAttemptState({ count: current.count + 1, lastAttempt: Date.now() });
 }
 
 export function resetFailedAttempts() {
-  failedAttempts.count = 0;
-  failedAttempts.lastAttempt = 0;
+  saveAttemptState({ count: 0, lastAttempt: 0 });
 }

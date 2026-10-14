@@ -11,11 +11,11 @@ export const getGasUrl = () => {
     ? '/api'
     : 'https://script.google.com/macros/s/AKfycbyQ4Y5cQ0BCHBlmzftWq0dPVP2qNgc-PaYMklh44raSX4hDOCIyFi0bV-G6QdUbb-3D/exec';
   
-  if (stored && stored.trim() !== fallbackUrl && stored.trim() !== 'https://script.google.com/macros/s/AKfycbyQ4Y5cQ0BCHBlmzftWq0dPVP2qNgc-PaYMklh44raSX4hDOCIyFi0bV-G6QdUbb-3D/exec') {
+  if (stored && !stored.trim().startsWith('https://script.google.com/macros/s/') && stored.trim() !== '/api') {
     localStorage.removeItem('kg_gas_url');
     return fallbackUrl;
   }
-  return stored || import.meta.env.VITE_GAS_URL || fallbackUrl;
+  return stored?.trim() || import.meta.env.VITE_GAS_URL || fallbackUrl;
 };
 
 export const setGasUrl = (url: string) => {

@@ -43,8 +43,8 @@ function formatNotificationTime(timeStr?: string): string {
 }
 
 export default function NotificationBell() {
-  const store = useAppStore();
-  const { currentUser } = store;
+  const currentUser = useAppStore((s) => s.currentUser);
+  const setCurrentTab = useAppStore((s) => s.setCurrentTab);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   // Phase B: Use mega-fetch cached count initially
   const cachedUnread = parseInt(localStorage.getItem('kg_notif_unread') || '0', 10);
@@ -54,7 +54,7 @@ export default function NotificationBell() {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const fetchNotifications = useCallback(async () => {
-    if (!currentUser) return;
+    if (!currentUser || (typeof document !== 'undefined' && document.visibilityState === 'hidden')) return;
     const res = await callApi('GET_NOTIFICATIONS', { username: currentUser.username }, { background: true });
     if (res?.ok) {
       setNotifications(res.data.notifications || []);
@@ -117,7 +117,7 @@ export default function NotificationBell() {
       >
         <Bell size={18} />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[19px] h-[19px] flex items-center justify-center bg-red-550 text-white text-[10px] font-black rounded-full px-1 shadow-md border-2 border-[var(--kg-surface)] animate-pulse">
+          <span className="absolute -top-1 -right-1 min-w-[19px] h-[19px] flex items-center justify-center bg-red-500 text-white text-[10px] font-black rounded-full px-1 shadow-md border-2 border-[var(--kg-surface)] animate-pulse">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
@@ -187,7 +187,16 @@ export default function NotificationBell() {
                 return (
                   <div
                     key={n.id}
-                    onClick={() => { if (!n.isRead) handleMarkRead(n.id); }}
+                    onClick={() => {
+                      if (!n.isRead) handleMarkRead(n.id);
+                      if (n.link) {
+                        const cleanLink = n.link.replace(/^\?tab=/, '').trim();
+                        if (cleanLink) {
+                          setCurrentTab(cleanLink as any);
+                          setIsOpen(false);
+                        }
+                      }
+                    }}
                     className={`flex items-start gap-3 p-3.5 cursor-pointer transition-all ${
                       n.isRead 
                         ? 'opacity-65 hover:opacity-100 hover:bg-[var(--kg-surface-soft)]' 

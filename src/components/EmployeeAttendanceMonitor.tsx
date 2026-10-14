@@ -26,20 +26,24 @@ export default function EmployeeAttendanceMonitor({
   onClose,
   isModal = false
 }: EmployeeAttendanceMonitorProps) {
-  const store = useAppStore();
-  const { users, logs, approvedShifts } = store;
+  const users = useAppStore((s) => s.users);
+  const logs = useAppStore((s) => s.logs);
+  const approvedShifts = useAppStore((s) => s.approvedShifts);
+  const adminSchedules = useAppStore((s) => s.adminSchedules);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTab, setFilterTab] = useState<'ALL' | 'IN_SHIFT' | 'NOT_IN_YET' | 'COMPLETED' | 'OFF'>('ALL');
   const [ticker, setTicker] = useState(0);
 
-  // Auto-tick every 30s to keep elapsed minutes real-time
+  // Auto-tick every 30s to keep elapsed minutes real-time only when visible
   useEffect(() => {
+    if (isModal && !isOpen) return;
     const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
       setTicker((t) => t + 1);
     }, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isModal, isOpen]);
 
   // Map today's approved shifts by username/fullname
   const shiftsMap = useMemo(() => {
@@ -50,15 +54,15 @@ export default function EmployeeAttendanceMonitor({
     if (dayIdx === -1) dayIdx = 6;
 
     // Check if store has admin schedules
-    if (store.adminSchedules?.length) {
-      store.adminSchedules.forEach((sched) => {
+    if (adminSchedules?.length) {
+      adminSchedules.forEach((sched) => {
         if (sched && sched.shifts && sched.shifts[dayIdx]) {
           map[sched.username || sched.fullname] = sched.shifts[dayIdx];
         }
       });
     }
     return map;
-  }, [approvedShifts, store.adminSchedules, ticker]);
+  }, [approvedShifts, adminSchedules, ticker]);
 
   // Compute live attendance status
   const attendanceList = useMemo(() => {

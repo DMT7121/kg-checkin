@@ -345,7 +345,7 @@ const restoreInitialUser = (): User | null => {
     const savedUser = localStorage.getItem('kg_user');
     const sessionTime = Number(localStorage.getItem('kg_session_time') || 0);
     if (!savedUser || !sessionTime) return null;
-    const isRemembered = localStorage.getItem('kg_remember') === 'true';
+    const isRemembered = localStorage.getItem('kg_remember') !== 'false';
     const sessionDuration = isRemembered ? 30 * 24 * 60 * 60 * 1000 : 30 * 60 * 1000;
     if (Date.now() - sessionTime > sessionDuration) return null;
     return JSON.parse(savedUser) as User;
@@ -354,10 +354,30 @@ const restoreInitialUser = (): User | null => {
   }
 };
 
+function persistLogsSafely(logs: LogEntry[]): void {
+  try {
+    // Strip heavy inline base64 images on older logs when persisting to localStorage to prevent 5MB QuotaExceededError
+    const compactLogs = logs.slice(0, 300).map((l, idx) => {
+      if (idx >= 2 && l.image && l.image.startsWith('data:image/')) {
+        return { ...l, image: 'Đang tải ảnh...' };
+      }
+      return l;
+    });
+    localStorage.setItem('kg_logs', JSON.stringify(compactLogs));
+  } catch {
+    try {
+      const ultraCompact = logs.slice(0, 150).map((l) =>
+        l.image && l.image.startsWith('data:image/') ? { ...l, image: 'Đang tải ảnh...' } : l
+      );
+      localStorage.setItem('kg_logs', JSON.stringify(ultraCompact));
+    } catch { /* ignore storage quota error */ }
+  }
+}
+
 export const useAppStore = create<AppState>((set) => ({
   // Auth
   currentUser: restoreInitialUser(),
-  rememberMe: localStorage.getItem('kg_remember') === 'true',
+  rememberMe: localStorage.getItem('kg_remember') !== 'false',
 
   // UI
   isDark: false,
@@ -512,7 +532,65 @@ export const useAppStore = create<AppState>((set) => ({
   setLoading: (loading, loadingText) =>
     set({ loading, loadingText: loadingText ?? 'Đang xử lý...' }),
   setUpdating: (isUpdating) => set({ isUpdating }),
-  setCurrentTab: (currentTab) => set({ currentTab }),
+  setCurrentTab: (rawTab) => {
+    const TAB_ALIAS_MAP: Partial<Record<TabId, { hub: TabId; subTab: string }>> = {
+      schedule: { hub: 'workforce', subTab: 'schedule' },
+      roster: { hub: 'workforce', subTab: 'roster' },
+      swap: { hub: 'workforce', subTab: 'swap' },
+      history: { hub: 'attendance', subTab: 'history' },
+      timesheet: { hub: 'attendance', subTab: 'timesheet' },
+      payroll: { hub: 'attendance', subTab: 'payroll' },
+      advance: { hub: 'attendance', subTab: 'advance' },
+      reward: { hub: 'income', subTab: 'reward' },
+      discipline: { hub: 'income', subTab: 'discipline' },
+      checklist: { hub: 'work', subTab: 'checklist' },
+      operations: { hub: 'work', subTab: 'operations' },
+      handover: { hub: 'work', subTab: 'handover' },
+      soldout: { hub: 'work', subTab: 'soldout' },
+      news: { hub: 'communications', subTab: 'news' },
+      feedback: { hub: 'communications', subTab: 'feedback' },
+      training: { hub: 'knowledge', subTab: 'training' },
+      guide: { hub: 'knowledge', subTab: 'guide' },
+      hr_list: { hub: 'admin_people', subTab: 'employees' },
+      admin_org: { hub: 'admin_people', subTab: 'organization' },
+      admin_shift: { hub: 'admin_workforce', subTab: 'settings' },
+      admin_operations: { hub: 'admin_work', subTab: 'operations' },
+      admin_checklist: { hub: 'admin_work', subTab: 'checklist' },
+      admin_payroll: { hub: 'admin_income', subTab: 'config' },
+      admin_analytics: { hub: 'admin_system', subTab: 'analytics' },
+      admin: { hub: 'admin_system', subTab: 'ai' },
+    };
+
+    const alias = TAB_ALIAS_MAP[rawTab];
+    const targetHub = alias ? alias.hub : rawTab;
+    const targetSub = alias ? alias.subTab : undefined;
+
+    if (typeof window !== 'undefined') {
+      try {
+        if (targetSub) {
+          sessionStorage.setItem(`kg_hub_subtab_${targetHub}`, targetSub);
+          window.dispatchEvent(new CustomEvent('kg:subtab-select', { detail: { hub: targetHub, subTab: targetSub } }));
+        }
+        const url = new URL(window.location.href);
+        const currentUrlTab = url.searchParams.get('tab');
+        const currentUrlSub = url.searchParams.get('sub');
+        const effectiveSub = targetSub || sessionStorage.getItem(`kg_hub_subtab_${targetHub}`) || '';
+        if (targetHub === 'dashboard') {
+          url.searchParams.delete('tab');
+          url.searchParams.delete('sub');
+        } else {
+          url.searchParams.set('tab', targetHub);
+          if (effectiveSub) url.searchParams.set('sub', effectiveSub);
+          else url.searchParams.delete('sub');
+        }
+        if (currentUrlTab !== url.searchParams.get('tab') || currentUrlSub !== url.searchParams.get('sub')) {
+          window.history.pushState({ tab: targetHub, sub: effectiveSub || undefined }, '', url.toString());
+        }
+      } catch { /* ignore history/storage errors */ }
+    }
+
+    set({ currentTab: targetHub });
+  },
   setShiftName: (shiftName) => set({ shiftName }),
   setCurrentTime: (currentTime) => set({ currentTime }),
   setAiOpen: (isAiOpen) => set({ isAiOpen }),
@@ -536,12 +614,12 @@ export const useAppStore = create<AppState>((set) => ({
         }
         return finalImage !== newLog.image ? { ...newLog, image: finalImage } : newLog;
       });
-      localStorage.setItem('kg_logs', JSON.stringify(mergedLogs));
+      persistLogsSafely(mergedLogs);
       return { logs: mergedLogs };
     }),
   prependLog: (log) => set((s) => {
     const updatedLogs = [log, ...s.logs];
-    localStorage.setItem('kg_logs', JSON.stringify(updatedLogs));
+    persistLogsSafely(updatedLogs);
     return { logs: updatedLogs };
   }),
   removeFirstLog: () => set((s) => ({ logs: s.logs.slice(1) })),
@@ -556,7 +634,7 @@ export const useAppStore = create<AppState>((set) => ({
         }
         return l;
       });
-      localStorage.setItem('kg_logs', JSON.stringify(updatedLogs));
+      persistLogsSafely(updatedLogs);
       return { logs: updatedLogs };
     }),
   updateLogType: (time, newType, reason) =>
@@ -576,7 +654,7 @@ export const useAppStore = create<AppState>((set) => ({
         }
         return l;
       });
-      localStorage.setItem('kg_logs', JSON.stringify(updatedLogs));
+      persistLogsSafely(updatedLogs);
       return { logs: updatedLogs };
     }),
   setStats: (stats) => set({ stats }),

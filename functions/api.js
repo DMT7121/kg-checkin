@@ -51,17 +51,31 @@ export async function onRequest(context) {
       }
     }
 
-    // Call GAS Web App
+    // Call GAS Web App with timeout protection
     const gasResponse = await fetch(targetGasUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'text/plain;charset=utf-8',
       },
       body: bodyText,
+      signal: typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(28000) : undefined,
     });
 
     const responseBody = await gasResponse.text();
-    
+
+    // Verify response is valid JSON with ok === true before edge caching
+    let isValidSuccessJson = false;
+    if (gasResponse.ok) {
+      try {
+        const parsed = JSON.parse(responseBody);
+        isValidSuccessJson = Boolean(parsed && parsed.ok === true);
+      } catch {
+        isValidSuccessJson = false;
+      }
+    }
+
+    const shouldCacheResponse = isCacheable && isValidSuccessJson;
+
     // Build response to return
     const responseHeaders = {
       'Content-Type': 'application/json;charset=utf-8',
@@ -69,19 +83,19 @@ export async function onRequest(context) {
       'X-Proxy-Cache': 'MISS',
     };
 
-    if (isCacheable) {
-      // Cache on Cloudflare Edge for 10 seconds max
+    if (shouldCacheResponse) {
+      // Cache valid responses on Cloudflare Edge for 10 seconds max
       responseHeaders['Cache-Control'] = 'public, max-age=10, s-maxage=10';
     } else {
       responseHeaders['Cache-Control'] = 'no-store, no-cache, must-revalidate';
     }
 
     const response = new Response(responseBody, {
-      status: 200,
+      status: isValidSuccessJson ? 200 : (gasResponse.status >= 400 ? gasResponse.status : 200),
       headers: responseHeaders,
     });
 
-    if (isCacheable) {
+    if (shouldCacheResponse && cacheKey) {
       context.waitUntil(cache.put(cacheKey, response.clone()));
     }
 

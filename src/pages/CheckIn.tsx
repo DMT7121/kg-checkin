@@ -59,7 +59,7 @@ import {
 } from '../components/KgDesignSystem';
 import { isWorkEligible } from '../utils/employment';
 import EmploymentStatusNotice from '../components/EmploymentStatusNotice';
-import { enqueueTask, savePunchToVault, markPunchVaultSynced, subscribePunchStatus } from '../utils/offlineQueue';
+import { enqueueTask, savePunchToVault, markPunchVaultSynced, markPunchVaultImageUploaded, subscribePunchStatus } from '../utils/offlineQueue';
 import MissedCheckInModal from '../components/MissedCheckInModal';
 import EmployeeAttendanceMonitor from '../components/EmployeeAttendanceMonitor';
 import {
@@ -654,7 +654,10 @@ export default function CheckIn() {
   }, [handlePrecisionRescan]);
 
   // Camera Logic
+  const cameraSessionRef = useRef(0);
+
   const stopCamera = () => {
+    cameraSessionRef.current += 1;
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
@@ -670,6 +673,7 @@ export default function CheckIn() {
   const startCamera = async () => {
     if (isStartingCameraRef.current) return;
     isStartingCameraRef.current = true;
+    const sessionId = ++cameraSessionRef.current;
     setCameraError(false);
     setCameraErrorMessage('');
     
@@ -715,11 +719,22 @@ export default function CheckIn() {
 
       for (const constraint of constraintsList) {
         try {
-          if (streamRef.current) stopCamera();
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach((t) => t.stop());
+            streamRef.current = null;
+          }
           const stream = await navigator.mediaDevices.getUserMedia(constraint);
+          if (cameraSessionRef.current !== sessionId) {
+            stream.getTracks().forEach((t) => t.stop());
+            return;
+          }
           streamRef.current = stream;
           const video = videoRef.current;
-          if (!video) continue;
+          if (!video) {
+            stream.getTracks().forEach((t) => t.stop());
+            streamRef.current = null;
+            continue;
+          }
 
           // Critical iOS Safari / WebKit properties: must set before srcObject & play
           video.setAttribute('playsinline', 'true');
@@ -742,7 +757,7 @@ export default function CheckIn() {
               video.play().then(() => {
                 const pollStart = Date.now();
                 const pollInterval = setInterval(() => {
-                  if (settled) {
+                  if (settled || cameraSessionRef.current !== sessionId) {
                     clearInterval(pollInterval);
                     return;
                   }
@@ -815,7 +830,7 @@ export default function CheckIn() {
     typeToStamp: CheckInTypeString = modalChosenType || recommendation.recommendedType
   ) => {
     if (!isWithinRadius) {
-      speak('Bạn đang ở ngoài bán kính 20m. Không thể tạo ảnh đóng dấu.');
+      speak(`Bạn đang ở ngoài bán kính ${targetRadius}m. Không thể tạo ảnh đóng dấu.`);
       return;
     }
 
@@ -1433,7 +1448,7 @@ export default function CheckIn() {
     }
 
     if (!isWithinRadius) {
-      speak('Từ chối chấm công: Bạn đang ở ngoài bán kính 20m.');
+      speak(`Từ chối chấm công: Bạn đang ở ngoài bán kính ${targetRadius}m.`);
       setFeedbackTitle('Từ chối chấm công');
       setFeedbackMessage(`Khoảng cách hiện tại là ${currentDist ?? 'quá'}m (quy định ≤ ${targetRadius}m). Hệ thống không ghi nhận lượt chấm công này.`);
       setFeedbackType('warning');
@@ -1472,12 +1487,19 @@ export default function CheckIn() {
     if (isClockInType) store.setStats({ ...store.stats, totalCheckIn: store.stats.totalCheckIn + 1 });
     
     const payloadImage = capturedImage;
-    const payloadTime = store.capturedTime || currentTime;
+    const payloadTime = actualTime;
     const capturedTimestamp = photoCapturedAtMs;
     store.setCapturedImage(null);
     store.setCapturedTime(null);
     setPhotoCapturedAtMs(null);
     setPhotoTimeLeftSeconds(PHOTO_EXPIRATION_SECONDS);
+
+    // Release 1080x1920 offscreen canvas memory once punch is submitted
+    if (cleanCanvasRef.current) {
+      cleanCanvasRef.current.width = 0;
+      cleanCanvasRef.current.height = 0;
+      cleanCanvasRef.current = null;
+    }
 
     // Ensure reliable email delivery: resolve fallback to dmt.7121@gmail.com for admin / placeholder domains
     const effectiveEmail = (currentUser.email && !currentUser.email.includes('@kingsgrill.com'))
@@ -1493,7 +1515,7 @@ export default function CheckIn() {
       fullname: currentUser.fullname,
       time: actualTime,
       location: gps.address || (gps.status === 'Đang lấy vị trí...' ? 'Nhà hàng King\'s Grill' : gps.status),
-      distMeters: typeof currentDist === 'number' ? `${Math.round(currentDist)}m` : '<= 20m',
+      distMeters: typeof currentDist === 'number' ? `${Math.round(currentDist)}m` : `<= ${targetRadius}m`,
       isValid: true,
       shift: shiftString,
       email: effectiveEmail,
@@ -1546,7 +1568,7 @@ export default function CheckIn() {
       securityToken: generateLocationSecurityToken(currentUser.username, gps.lat ?? 0, gps.lng ?? 0, payloadTime)
     };
 
-    // ZERO-LOSS VAULT: Save immediately to persistent storage before network call (with full image)
+    // ZERO-LOSS VAULT: Save immediately to persistent storage before network call (with quota-safe image compaction)
     savePunchToVault(payload);
 
     // FAST SYNC: Send lightweight payload without heavy base64 to guarantee sub-second (<0.5s) Google Sheet write
@@ -1556,7 +1578,7 @@ export default function CheckIn() {
       fastSync: true
     };
 
-    // PIPELINE 1: Gửi chấm công lên Google Sheet chạy nền
+    // PIPELINE 1 -> 2 SEQUENCED: Gửi chấm công lên Google Sheet trước, sau khi dòng đã tạo xong mới tải ảnh lên Drive (tránh tranh chấp LockService & tránh tải trùng ảnh)
     callApi('CHECK_IN_OUT', fastSyncPayload, { background: true, timeoutMs: 30000, maxAttempts: 2 }).then((res) => {
       const isAlreadyCheckedIn = res?.code === 'ALREADY_CHECKED_IN' || res?.isSpamCooldown || (typeof res?.message === 'string' && res.message.includes('chống spam'));
       if (res?.ok || isAlreadyCheckedIn) {
@@ -1565,11 +1587,44 @@ export default function CheckIn() {
         setLastSubmittedPunch(prev => prev ? { ...prev, sheetSaved: true } : prev);
 
         // Update local log status
-        store.setLogs(store.logs.map(l => l.time === actualTime ? { ...l, status: 'Hợp lệ' } : l));
+        const currentState = useAppStore.getState();
+        currentState.setLogs(currentState.logs.map(l => l.time === actualTime ? { ...l, status: 'Hợp lệ' } : l));
 
         // Queue pulse survey to open smoothly AFTER user finishes reading shift summary
         if (isClockInType && Math.random() < 0.4) {
           setPendingSurveyAfterPunch(true);
+        }
+
+        // PIPELINE 2: Upload ảnh selfie lên Google Drive ngay sau khi CHECK_IN_OUT đã tạo dòng trên Sheet
+        if (payloadImage) {
+          const uploadPayload = {
+            checkinId: clientCheckinId,
+            username: currentUser.username,
+            fullname: currentUser.fullname,
+            timeISO: res?.data?.timeISO || timeISO,
+            time: res?.data?.thoiGian || actualTime,
+            image: payloadImage
+          };
+
+          callApi('UPLOAD_CHECKIN_IMAGE', uploadPayload, {
+            background: true,
+            timeoutMs: 45000,
+            maxAttempts: 2
+          }).then((imgRes) => {
+            if (imgRes?.ok) {
+              const driveUrl = imgRes.data?.url || imgRes.data?.imageUrl;
+              if (driveUrl) {
+                markPunchVaultImageUploaded(clientCheckinId, driveUrl);
+                useAppStore.getState().updateLogImage(uploadPayload.time, driveUrl);
+                useAppStore.getState().updateLogImage(uploadPayload.timeISO, driveUrl);
+              }
+            } else {
+              enqueueTask('UPLOAD_CHECKIN_IMAGE', uploadPayload, { priority: 'high', maxAttempts: 15 });
+            }
+          }).catch((imgErr) => {
+            console.warn('[CheckIn] Upload checkin image error, enqueued to offline queue:', imgErr);
+            enqueueTask('UPLOAD_CHECKIN_IMAGE', uploadPayload, { priority: 'high', maxAttempts: 15 });
+          });
         }
 
         // Staggered background email notification after 1,800ms
@@ -1587,7 +1642,7 @@ export default function CheckIn() {
           }, 1800);
         }
 
-        // Staggered background sync of logs and stats after 3,000ms
+        // Staggered background sync of logs and stats after 3,500ms
         setTimeout(() => {
           const weekInfo = computeWeekInfo();
           callApi('GET_DATA', {
@@ -1600,57 +1655,28 @@ export default function CheckIn() {
             cacheBuster: Date.now()
           }, { background: true, cacheTtlMs: 0 }).then((dataRes) => {
             if (dataRes?.ok) {
-              store.setLogs(dataRes.data.logs || []);
-              store.setStats(dataRes.data.stats || store.stats);
-              localStorage.setItem('kg_logs', JSON.stringify(dataRes.data.logs || []));
-              localStorage.setItem('kg_stats', JSON.stringify(dataRes.data.stats));
+              const latestStore = useAppStore.getState();
+              latestStore.setLogs(dataRes.data.logs || []);
+              latestStore.setStats(dataRes.data.stats || latestStore.stats);
+              try {
+                localStorage.setItem('kg_stats', JSON.stringify(dataRes.data.stats));
+              } catch {}
             }
           }).catch(() => {});
-        }, 3000);
+        }, 3500);
 
         store.setLastCheckInTime(Date.now());
-        localStorage.setItem('kg_last_checkin', Date.now().toString());
+        try {
+          localStorage.setItem('kg_last_checkin', Date.now().toString());
+        } catch {}
       } else {
-        // RESILIENT OFFLINE/CONCURRENCY SYNC: Enqueue to background queue instead of discarding!
+        // RESILIENT OFFLINE/CONCURRENCY SYNC: Enqueue to background queue (offlineQueue will automatically upload payload.image after CHECK_IN_OUT syncs)
         enqueueTask('CHECK_IN_OUT', payload, { priority: 'high', maxAttempts: 20 });
       }
     }).catch(() => {
       // Network timeout / connection error fallback: Enqueue and preserve
       enqueueTask('CHECK_IN_OUT', payload, { priority: 'high', maxAttempts: 20 });
     });
-
-    // PIPELINE 2: Upload ảnh selfie lên Google Drive (chạy nền độc lập 100%, không bị phụ thuộc vào CHECK_IN_OUT)
-    if (payloadImage) {
-      const uploadPayload = {
-        checkinId: clientCheckinId,
-        username: currentUser.username,
-        fullname: currentUser.fullname,
-        timeISO: timeISO,
-        time: actualTime, // Chuỗi thời gian DD/MM/YYYY HH:mm:ss khớp 100% với Cột C trên Sheet
-        image: payloadImage
-      };
-
-      setTimeout(() => {
-        callApi('UPLOAD_CHECKIN_IMAGE', uploadPayload, {
-          background: true,
-          timeoutMs: 45000,
-          maxAttempts: 2
-        }).then((imgRes) => {
-          if (imgRes?.ok) {
-            const driveUrl = imgRes.data?.url || imgRes.data?.imageUrl;
-            if (driveUrl) {
-              store.updateLogImage(uploadPayload.time, driveUrl);
-              store.updateLogImage(uploadPayload.timeISO, driveUrl);
-            }
-          } else {
-            enqueueTask('UPLOAD_CHECKIN_IMAGE', uploadPayload, { priority: 'high', maxAttempts: 15 });
-          }
-        }).catch((imgErr) => {
-          console.warn('[CheckIn] Upload checkin image error, enqueued to offline queue:', imgErr);
-          enqueueTask('UPLOAD_CHECKIN_IMAGE', uploadPayload, { priority: 'high', maxAttempts: 15 });
-        });
-      }, 600);
-    }
   };
 
   // Submit survey action
@@ -2953,7 +2979,7 @@ export default function CheckIn() {
                 onClick={() => setSurveyEmotion(item.val)}
                 className={`flex flex-col items-center justify-center p-3 rounded-2xl border active:scale-95 transition-all gap-1.5 ${
                   surveyEmotion === item.val
-                    ? 'border-teal-500 bg-teal-50/50 dark:bg-teal-950/30 text-teal-650'
+                    ? 'border-teal-500 bg-teal-50/50 dark:bg-teal-950/30 text-teal-600'
                     : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
                 }`}
               >

@@ -59,31 +59,6 @@ const AdminWorkHub = lazyWithRetry(moduleLoaders.admin_work);
 const AdminIncomeHub = lazyWithRetry(moduleLoaders.admin_income);
 const AdminSystemHub = lazyWithRetry(moduleLoaders.admin_system);
 const CheckIn = lazyWithRetry(moduleLoaders.checkin);
-const Schedule = lazyWithRetry(moduleLoaders.schedule);
-const ActivityHistory = lazyWithRetry(moduleLoaders.history);
-const SwapShift = lazyWithRetry(moduleLoaders.swap);
-const NewsFeed = lazyWithRetry(moduleLoaders.news);
-const Training = lazyWithRetry(moduleLoaders.training);
-const SoldOut = lazyWithRetry(moduleLoaders.soldout);
-const Roster = lazyWithRetry(moduleLoaders.roster);
-const Checklist = lazyWithRetry(moduleLoaders.checklist);
-const Operations = lazyWithRetry(moduleLoaders.operations);
-const Handover = lazyWithRetry(moduleLoaders.handover);
-const Feedback = lazyWithRetry(moduleLoaders.feedback);
-const Admin = lazyWithRetry(moduleLoaders.admin);
-const HrList = lazyWithRetry(moduleLoaders.hr_list);
-const AdminShift = lazyWithRetry(moduleLoaders.admin_shift);
-const AdminOperations = lazyWithRetry(moduleLoaders.admin_operations);
-const AdminOrg = lazyWithRetry(moduleLoaders.admin_org);
-const AdminPayroll = lazyWithRetry(moduleLoaders.admin_payroll);
-const AdminChecklistConfig = lazyWithRetry(moduleLoaders.admin_checklist);
-const AdminAnalytics = lazyWithRetry(moduleLoaders.admin_analytics);
-const Advance = lazyWithRetry(moduleLoaders.advance);
-const Discipline = lazyWithRetry(moduleLoaders.discipline);
-const Payroll = lazyWithRetry(moduleLoaders.payroll);
-const Reward = lazyWithRetry(moduleLoaders.reward);
-const Timesheet = lazyWithRetry(moduleLoaders.timesheet);
-const Guide = lazyWithRetry(moduleLoaders.guide);
 const Profile = lazyWithRetry(moduleLoaders.profile);
 
 const prefetchedModules = new Set<string>();
@@ -115,7 +90,7 @@ const AccessDeniedPage = ({ tabTitle }: { tabTitle: string }) => (
     <div className="w-20 h-20 rounded-2xl bg-red-50 dark:bg-red-950/20 flex items-center justify-center mb-5 shadow-sm border border-red-200/50 dark:border-red-900/30">
       <ShieldAlert size={36} className="text-red-500" />
     </div>
-    <h2 className="text-xl font-black text-slate-850 dark:text-white mb-2">Không Có Quyền Truy Cập</h2>
+    <h2 className="text-xl font-black text-slate-900 dark:text-white mb-2">Không Có Quyền Truy Cập</h2>
     <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm leading-relaxed">
       Vị trí làm việc hoặc phân quyền tài khoản của bạn hiện tại không được phép truy cập phân hệ <b>{tabTitle}</b>.
     </p>
@@ -127,14 +102,14 @@ const AccessDeniedPage = ({ tabTitle }: { tabTitle: string }) => (
 
 const TabFallback = () => (
   <div className="p-4 md:p-6 space-y-4">
-    <div className="bg-white dark:bg-[#111827] border border-[#e2e8f0]/60 dark:border-slate-850 rounded-3xl p-5 md:p-6 overflow-hidden">
+    <div className="bg-white dark:bg-[#111827] border border-[#e2e8f0]/60 dark:border-slate-800 rounded-3xl p-5 md:p-6 overflow-hidden">
       <div className="flex items-center justify-between gap-4 mb-5">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-950/20 flex items-center justify-center">
             <RefreshCw size={18} className="animate-spin text-blue-600 dark:text-indigo-400" />
           </div>
           <div>
-            <p className="text-sm font-extrabold text-slate-850 dark:text-white">Đang mở module</p>
+            <p className="text-sm font-extrabold text-slate-800 dark:text-white">Đang mở module</p>
             <p className="text-xs text-slate-500 dark:text-slate-400">Dữ liệu giao diện đang được tải nhanh...</p>
           </div>
         </div>
@@ -728,12 +703,12 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
               <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Lối tắt nhanh</h3>
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-3 lg:grid-cols-4 gap-2">
                 {[
-                  { icon: Newspaper, label: 'Bảng tin', tab: 'news' as any, color: 'text-blue-650 bg-blue-50 dark:bg-blue-950/20' },
-                  { icon: UtensilsCrossed, label: 'Món hết', tab: 'soldout' as any, color: 'text-amber-650 bg-amber-50 dark:bg-amber-950/20' },
-                  { icon: Award, label: 'King Coins', tab: 'reward' as any, color: 'text-yellow-650 bg-yellow-50 dark:bg-yellow-950/20' },
-                  { icon: Banknote, label: 'Phiếu lương', tab: 'payroll' as any, color: 'text-emerald-650 bg-emerald-50 dark:bg-emerald-950/20' },
-                  { icon: MessageSquareWarning, label: 'Góp ý', tab: 'feedback' as any, color: 'text-red-650 bg-red-50 dark:bg-red-950/20' },
-                  { icon: Calendar, label: 'Lịch làm', tab: 'schedule' as any, color: 'text-indigo-650 bg-indigo-50 dark:bg-indigo-950/20' },
+                  { icon: Newspaper, label: 'Bảng tin', tab: 'news' as any, color: 'text-blue-600 bg-blue-50 dark:bg-blue-950/20' },
+                  { icon: UtensilsCrossed, label: 'Món hết', tab: 'soldout' as any, color: 'text-amber-600 bg-amber-50 dark:bg-amber-950/20' },
+                  { icon: Award, label: 'King Coins', tab: 'reward' as any, color: 'text-yellow-600 bg-yellow-50 dark:bg-yellow-950/20' },
+                  { icon: Banknote, label: 'Phiếu lương', tab: 'payroll' as any, color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20' },
+                  { icon: MessageSquareWarning, label: 'Góp ý', tab: 'feedback' as any, color: 'text-red-600 bg-red-50 dark:bg-red-950/20' },
+                  { icon: Calendar, label: 'Lịch làm', tab: 'schedule' as any, color: 'text-indigo-600 bg-indigo-50 dark:bg-indigo-950/20' },
                 ].filter(act => hasTabPermission(act.tab, currentUser)).map((act, i) => (
                   <button
                     key={i}
@@ -766,7 +741,7 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
                     return (
                       <div key={i} className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800">
                         <div className="flex items-center space-x-2.5 min-w-0">
-                          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0 text-xs ${isCheckin ? 'bg-emerald-550' : 'bg-red-550'}`}>
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0 text-xs ${isCheckin ? 'bg-emerald-500' : 'bg-red-500'}`}>
                             {isCheckin ? '→' : '←'}
                           </div>
                           <div className="min-w-0">
@@ -830,7 +805,7 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
               {/* Discrepancy details */}
               {(notArrived.length > 0 || lateArrived.length > 0) && (
                 <KgCard className="p-5 border-slate-100 dark:border-slate-800">
-                  <h3 className="text-sm font-black text-slate-850 dark:text-white uppercase tracking-wider mb-4 border-b border-slate-100 dark:border-slate-800 pb-2 flex items-center">
+                  <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-wider mb-4 border-b border-slate-100 dark:border-slate-800 pb-2 flex items-center">
                     <ShieldAlert size={16} className="text-amber-500 mr-2 flex-shrink-0" />
                     Cảnh báo vận hành hôm nay
                   </h3>
@@ -870,14 +845,14 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
                 <KgCard className="p-4 text-left hover:shadow-sm transition-all flex flex-col justify-between min-h-[140px]">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-2">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.todayChecklistDone ? 'bg-emerald-50 text-emerald-650 dark:bg-emerald-950/20 dark:text-emerald-400' : 'bg-amber-50 text-amber-650 dark:bg-amber-950/20 dark:text-amber-400'}`}>
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.todayChecklistDone ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400' : 'bg-amber-50 text-amber-600 dark:bg-amber-950/20 dark:text-amber-400'}`}>
                         <ClipboardCheck size={16} />
                       </div>
                       <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Checklist Vận Hành</span>
                     </div>
                   </div>
                   <div>
-                    <p className="text-lg font-black text-slate-850 dark:text-white leading-tight">
+                    <p className="text-lg font-black text-slate-800 dark:text-white leading-tight">
                       {store.todayChecklistDone ? 'Tất cả đã nộp' : 'Đang chờ nộp'}
                     </p>
                     <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold mt-1">
@@ -893,14 +868,14 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
                 <KgCard className="p-4 text-left hover:shadow-sm transition-all flex flex-col justify-between min-h-[140px]">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-2">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.todayHandoverDone ? 'bg-emerald-50 text-emerald-650 dark:bg-emerald-950/20 dark:text-emerald-400' : 'bg-red-50 text-red-650 dark:bg-red-950/20 dark:text-red-400'}`}>
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${store.todayHandoverDone ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400' : 'bg-red-50 text-red-600 dark:bg-red-950/20 dark:text-red-400'}`}>
                         <Repeat size={16} />
                       </div>
                       <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Sổ Bàn Giao Ca</span>
                     </div>
                   </div>
                   <div>
-                    <p className="text-lg font-black text-slate-850 dark:text-white leading-tight">
+                    <p className="text-lg font-black text-slate-800 dark:text-white leading-tight">
                       {store.todayHandoverDone ? 'Đã ghi nhận' : 'Chưa ghi bàn giao'}
                     </p>
                     <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold mt-1">
@@ -948,23 +923,23 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
                 <KgCard className="p-4 border-red-100 dark:border-red-950/20 bg-red-50/30 dark:bg-red-950/10">
                   <div className="flex items-center space-x-2 mb-3 border-b border-slate-100 dark:border-slate-800 pb-2">
                     <BellRing size={16} className="text-red-500 animate-pulse" />
-                    <h3 className="text-xs font-bold text-slate-850 dark:text-white uppercase tracking-wider">Cần duyệt gấp</h3>
+                    <h3 className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider">Cần duyệt gấp</h3>
                   </div>
                   <div className="grid grid-cols-1 gap-2">
                     {pendingSwaps.length > 0 && (
-                      <button onClick={() => onTabChange('swap')} className="flex items-center justify-between p-3 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-100/50 dark:border-emerald-900/10 text-emerald-600 dark:text-emerald-450 hover:bg-emerald-100/30 transition-all text-xs font-bold">
+                      <button onClick={() => onTabChange('swap')} className="flex items-center justify-between p-3 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-100/50 dark:border-emerald-900/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100/30 transition-all text-xs font-bold">
                         <span>Đổi ca ({pendingSwaps.length})</span>
                         <span>Chi tiết →</span>
                       </button>
                     )}
                     {pendingLeaves.length > 0 && (
-                      <button onClick={() => onTabChange('swap')} className="flex items-center justify-between p-3 rounded-xl bg-red-50/60 dark:bg-red-950/20 border border-red-100/50 dark:border-red-900/10 text-red-650 dark:text-red-400 hover:bg-red-100/30 transition-all text-xs font-bold">
+                      <button onClick={() => onTabChange('swap')} className="flex items-center justify-between p-3 rounded-xl bg-red-50/60 dark:bg-red-950/20 border border-red-100/50 dark:border-red-900/10 text-red-600 dark:text-red-400 hover:bg-red-100/30 transition-all text-xs font-bold">
                         <span>Yêu cầu xin nghỉ ({pendingLeaves.length})</span>
                         <span>Chi tiết →</span>
                       </button>
                     )}
                     {pendingAdvances.length > 0 && (
-                      <button onClick={() => onTabChange('advance')} className="flex items-center justify-between p-3 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-100/50 dark:border-amber-900/10 text-amber-650 dark:text-amber-405 hover:bg-amber-100/30 transition-all text-xs font-bold">
+                      <button onClick={() => onTabChange('advance')} className="flex items-center justify-between p-3 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-100/50 dark:border-amber-900/10 text-amber-600 dark:text-amber-400 hover:bg-amber-100/30 transition-all text-xs font-bold">
                         <span>Ứng lương ({pendingAdvances.length})</span>
                         <span>Chi tiết →</span>
                       </button>
@@ -974,7 +949,7 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
               ) : (
                 <KgCard className="p-4 text-center py-6 border-dashed border-slate-100 dark:border-slate-800">
                   <CheckCircle2 size={24} className="mx-auto mb-2 text-emerald-500 opacity-80" />
-                  <p className="text-xs font-bold text-slate-850 dark:text-slate-200">Không có yêu cầu chờ duyệt</p>
+                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Không có yêu cầu chờ duyệt</p>
                   <p className="text-[10px] text-slate-500 mt-0.5">Tả cả ca làm, ứng lương đã được giải quyết gọn gàng!</p>
                 </KgCard>
               )}
@@ -989,7 +964,7 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
                         <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-white text-[8px] font-bold flex items-center justify-center">{store.pendingFeedbackCount}</span>
                       </div>
                       <div>
-                        <p className="font-bold text-slate-850 dark:text-slate-200">Góp ý chưa xử lý</p>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">Góp ý chưa xử lý</p>
                         <p className="text-[10px] text-slate-500 mt-0.5">{store.pendingFeedbackCount} phản hồi cần trả lời</p>
                       </div>
                     </div>
@@ -1005,7 +980,7 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
                   {[
                     { label: 'Phân ca', icon: CalendarRange, tab: 'schedule' as any, color: 'text-blue-600 bg-blue-50 dark:bg-blue-950/20' },
                     { label: 'Bảng công', icon: CalendarClock, tab: 'timesheet' as any, color: 'text-amber-600 bg-amber-50 dark:bg-amber-950/20' },
-                    { label: 'Bảng lương', icon: Banknote, tab: 'payroll' as any, color: 'text-emerald-650 bg-emerald-50 dark:bg-emerald-950/20' },
+                    { label: 'Bảng lương', icon: Banknote, tab: 'payroll' as any, color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20' },
                     { label: 'Nhân sự', icon: Users, tab: 'hr_list' as any, color: 'text-red-500 bg-red-50 dark:bg-red-950/20' },
                   ].map((item, i) => (
                     <button
@@ -1057,7 +1032,9 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
 export default function Dashboard() {
   const currentTab = useAppStore(state => state.currentTab);
   const currentUser = useAppStore(state => state.currentUser);
-  const store = useAppStore();
+  const isScheduleRegistered = useAppStore(state => state.isScheduleRegistered);
+  const registeredShifts = useAppStore(state => state.registeredShifts);
+  const setCurrentTab = useAppStore(state => state.setCurrentTab);
 
   useEffect(() => {
     const connection = (navigator as Navigator & {
@@ -1075,37 +1052,10 @@ export default function Dashboard() {
   }, [currentUser?.role]);
 
   const handleTabChange = (tab: TabId) => {
-    const aliases: Partial<Record<TabId, TabId>> = {
-      schedule: 'workforce',
-      roster: 'workforce',
-      swap: 'workforce',
-      history: 'attendance',
-      timesheet: 'attendance',
-      payroll: 'attendance',
-      advance: 'attendance',
-      reward: 'income',
-      discipline: 'income',
-      checklist: 'work',
-      operations: 'work',
-      handover: 'work',
-      news: 'communications',
-      soldout: 'work',
-      feedback: 'communications',
-      training: 'knowledge',
-      guide: 'knowledge',
-      hr_list: 'admin_people',
-      admin_org: 'admin_people',
-      admin_shift: 'admin_workforce',
-      admin_operations: 'admin_work',
-      admin_checklist: 'admin_work',
-      admin_payroll: 'admin_income',
-      admin_analytics: 'admin_system',
-      admin: 'admin_system',
-    };
-    const destination = aliases[tab] || tab;
-    prefetchModule(destination);
-    store.setCurrentTab(destination);
+    prefetchModule(tab);
+    setCurrentTab(tab);
     window.scrollTo({ top: 0, behavior: 'instant' });
+    const destination = useAppStore.getState().currentTab;
     if (destination === 'attendance' || destination === 'admin_system' || destination === 'dashboard') {
       refreshAppData();
     }
@@ -1113,23 +1063,38 @@ export default function Dashboard() {
 
   const [visitedTabs, setVisitedTabs] = useState<Set<TabId>>(() => new Set([currentTab]));
 
-  if (!visitedTabs.has(currentTab)) {
+  useEffect(() => {
     setVisitedTabs(prev => {
+      if (prev.has(currentTab)) return prev;
       const next = new Set(prev);
       next.add(currentTab);
       return next;
     });
-  }
+  }, [currentTab]);
+
+  useEffect(() => {
+    const onPopState = () => {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const tabParam = (urlParams.get('tab') as TabId | null) || 'dashboard';
+        if (useAppStore.getState().currentTab !== tabParam) {
+          useAppStore.setState({ currentTab: tabParam });
+        }
+      } catch { /* ignore */ }
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
 
   const hasAccess = hasTabPermission(currentTab, currentUser);
 
   const regWindow = getScheduleRegistrationWindow();
   const isStaff = currentUser?.role !== 'admin' && currentUser?.role !== 'tester';
   const nextWeekRegistered = isNextWeekScheduleRegistered(
-    store.isScheduleRegistered,
+    isScheduleRegistered,
     currentUser?.username,
     undefined,
-    store.registeredShifts
+    registeredShifts
   );
   const shouldPromptSchedule = isStaff && regWindow.isMandatoryWindow && !nextWeekRegistered;
   const isRegisteringSchedule = currentTab === 'schedule' || currentTab === 'workforce';
@@ -1192,32 +1157,7 @@ export default function Dashboard() {
                       {tabId === 'admin_work' && <AdminWorkHub />}
                       {tabId === 'admin_income' && <AdminIncomeHub />}
                       {tabId === 'admin_system' && <AdminSystemHub />}
-                      {tabId === 'schedule' && <Schedule />}
-                      {tabId === 'swap' && <SwapShift />}
-                      {tabId === 'roster' && <Roster />}
                       {tabId === 'profile' && <Profile />}
-                      {tabId === 'checklist' && <Checklist />}
-                      {tabId === 'operations' && <Operations />}
-                      {tabId === 'handover' && <Handover />}
-                      {tabId === 'feedback' && <Feedback />}
-                      {tabId === 'news' && <NewsFeed />}
-                      {tabId === 'soldout' && <SoldOut />}
-                      {tabId === 'training' && <Training />}
-                      {tabId === 'advance' && <Advance />}
-                      {tabId === 'discipline' && <Discipline />}
-                      {tabId === 'payroll' && <Payroll />}
-                      {tabId === 'reward' && <Reward />}
-                      {tabId === 'timesheet' && <Timesheet />}
-                      {tabId === 'history' && <ActivityHistory />}
-                      {tabId === 'admin' && <Admin />}
-                      {tabId === 'admin_shift' && <AdminShift />}
-                      {tabId === 'admin_operations' && <AdminOperations />}
-                      {tabId === 'admin_org' && <AdminOrg />}
-                      {tabId === 'admin_payroll' && <AdminPayroll />}
-                      {tabId === 'admin_checklist' && <AdminChecklistConfig />}
-                      {tabId === 'admin_analytics' && <AdminAnalytics />}
-                      {tabId === 'hr_list' && <HrList />}
-                      {tabId === 'guide' && <Guide />}
                     </Suspense>
                   </AppErrorBoundary>
                 </div>

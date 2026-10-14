@@ -286,7 +286,7 @@ export default function Operations() {
                               </span>
                             )}
                             {assignment.isVirtual && (
-                              <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-black uppercase text-violet-750 dark:bg-violet-950/30 dark:text-violet-400">
+                              <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-black uppercase text-violet-700 dark:bg-violet-950/30 dark:text-violet-400">
                                 ✨ Tự động
                               </span>
                             )}
@@ -452,7 +452,7 @@ export default function Operations() {
                                     {task.frequency}
                                   </span>
                                   {isTeammate && assigneeName && (
-                                    <span className="inline-block text-[9px] font-black text-violet-750 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 px-2 py-0.5 rounded-full">
+                                    <span className="inline-block text-[9px] font-black text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 px-2 py-0.5 rounded-full">
                                       Phụ trách: {assigneeName}
                                     </span>
                                   )}

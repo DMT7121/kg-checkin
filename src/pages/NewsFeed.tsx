@@ -8,7 +8,9 @@ import { KgModuleHero } from '../components/KgDesignSystem';
 
 
 export default function NewsFeed() {
-  const { currentUser, news: posts, setNews: setPosts } = useAppStore();
+  const currentUser = useAppStore((s) => s.currentUser);
+  const posts = useAppStore((s) => s.news);
+  const setPosts = useAppStore((s) => s.setNews);
   const [loading, setLoading] = useState(false);
   const [activeCommentPostId, setActiveCommentPostId] = useState<number | null>(null);
   const [commentInput, setCommentInput] = useState('');
@@ -19,15 +21,20 @@ export default function NewsFeed() {
   const [newPostImagePreview, setNewPostImagePreview] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
 
-  // Lấy dữ liệu bài đăng thực tế khi mở tab và auto-refresh
+  // Lấy dữ liệu bài đăng thực tế khi mở tab và auto-refresh khi đang xem
   useEffect(() => {
     const fetchPosts = async (isBackground = false) => {
+      if (isBackground) {
+        const activeTab = useAppStore.getState().currentTab;
+        if (activeTab !== 'communications' || (typeof document !== 'undefined' && document.visibilityState !== 'visible')) {
+          return;
+        }
+      }
       if (!isBackground) setLoading(true);
       const res = await callApi('GET_POSTS', {}, { background: isBackground });
       if (res?.ok && res.data) {
         setPosts(res.data);
       } else if (!isBackground) {
-        // Fallback mock nếu chưa setup Backend (Trải nghiệm mượt mà)
         if (posts.length === 0) {
           setPosts([
             {
@@ -43,10 +50,10 @@ export default function NewsFeed() {
     
     fetchPosts(false); // Initial load
 
-    // Polling every 15 seconds for real-time feel
+    // Poll every 45 seconds only when user is actively viewing communications
     const interval = setInterval(() => {
       fetchPosts(true);
-    }, 15000);
+    }, 45000);
 
     return () => clearInterval(interval);
   }, []);

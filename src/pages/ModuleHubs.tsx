@@ -110,14 +110,31 @@ function SubmoduleErrorFallback({ label, onRetry }: { label: string; onRetry: ()
   );
 }
 
-function ModuleHub({ tabs, initialTab }: { tabs: HubTab[]; initialTab?: string }) {
+function ModuleHub({ hubId, tabs, initialTab }: { hubId: string; tabs: HubTab[]; initialTab?: string }) {
   const currentUser = useAppStore(state => state.currentUser);
   const allowedTabs = tabs.filter(tab => hasTabPermission(tab.id as TabId, currentUser));
-  const [activeId, setActiveId] = useState(initialTab || tabs[0].id);
-  const active = allowedTabs.find(tab => tab.id === activeId) || allowedTabs[0];
-  const [visitedTabs, setVisitedTabs] = useState<Set<string>>(() => new Set([initialTab || tabs[0]?.id || '']));
 
-  const handleSelectTab = (tabId: string) => {
+  const resolveInitialSubTab = () => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlTab = urlParams.get('tab');
+      const urlSub = urlParams.get('sub');
+      if (urlTab === hubId && urlSub && tabs.some(t => t.id === urlSub)) {
+        return urlSub;
+      }
+      const savedSub = sessionStorage.getItem(`kg_hub_subtab_${hubId}`);
+      if (savedSub && tabs.some(t => t.id === savedSub)) {
+        return savedSub;
+      }
+    } catch { /* ignore */ }
+    return initialTab || tabs[0]?.id || '';
+  };
+
+  const [activeId, setActiveId] = useState(resolveInitialSubTab);
+  const active = allowedTabs.find(tab => tab.id === activeId) || allowedTabs[0];
+  const [visitedTabs, setVisitedTabs] = useState<Set<string>>(() => new Set([resolveInitialSubTab()]));
+
+  const handleSelectTab = (tabId: string, updateUrl = true) => {
     setActiveId(tabId);
     setVisitedTabs(prev => {
       if (prev.has(tabId)) return prev;
@@ -125,7 +142,40 @@ function ModuleHub({ tabs, initialTab }: { tabs: HubTab[]; initialTab?: string }
       next.add(tabId);
       return next;
     });
+    try {
+      sessionStorage.setItem(`kg_hub_subtab_${hubId}`, tabId);
+      if (updateUrl) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('tab', hubId);
+        url.searchParams.set('sub', tabId);
+        window.history.replaceState({ tab: hubId, sub: tabId }, '', url.toString());
+      }
+    } catch { /* ignore */ }
   };
+
+  useEffect(() => {
+    const onSubTabSelect = (e: Event) => {
+      const detail = (e as CustomEvent<{ hub: string; subTab: string }>).detail;
+      if (detail && detail.hub === hubId && detail.subTab) {
+        handleSelectTab(detail.subTab, false);
+      }
+    };
+    const onPopState = () => {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const sub = urlParams.get('sub');
+        if (urlParams.get('tab') === hubId && sub) {
+          handleSelectTab(sub, false);
+        }
+      } catch { /* ignore */ }
+    };
+    window.addEventListener('kg:subtab-select', onSubTabSelect);
+    window.addEventListener('popstate', onPopState);
+    return () => {
+      window.removeEventListener('kg:subtab-select', onSubTabSelect);
+      window.removeEventListener('popstate', onPopState);
+    };
+  }, [hubId]);
 
   if (!active) return null;
 
@@ -141,7 +191,7 @@ function ModuleHub({ tabs, initialTab }: { tabs: HubTab[]; initialTab?: string }
                 type="button"
                 key={tab.id}
                 onClick={(e) => {
-                  handleSelectTab(tab.id);
+                  handleSelectTab(tab.id, true);
                   e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
                 }}
                 className={`kg-module-tab relative inline-flex min-w-max flex-1 items-center justify-center gap-2 rounded-xl px-3.5 sm:px-4 py-2 text-xs transition-all duration-150 active:scale-98 select-none touch-manipulation min-h-[40px] ${
@@ -194,7 +244,7 @@ export function AttendanceHub() {
     prefetchHubData('attendance');
   }, []);
 
-  return <ModuleHub tabs={[
+  return <ModuleHub hubId="attendance" tabs={[
     { id: 'payroll', label: 'Phiếu lương', shortLabel: 'Phiếu lương', icon: Banknote, component: UserPayroll },
     { id: 'timesheet', label: 'Bảng công', icon: Clock3, component: Timesheet },
     { id: 'history', label: 'Lịch sử', icon: History, component: ActivityHistory },
@@ -207,7 +257,7 @@ export function WorkforceHub() {
     prefetchHubData('workforce');
   }, []);
 
-  return <ModuleHub tabs={[
+  return <ModuleHub hubId="workforce" tabs={[
     { id: 'schedule', label: 'Lịch của tôi', shortLabel: 'Lịch tôi', icon: CalendarDays, component: UserSchedule },
     { id: 'roster', label: 'Lịch tổng', shortLabel: 'Lịch tổng', icon: CalendarRange, component: Roster },
     { id: 'swap', label: 'Đổi ca', shortLabel: 'Đổi ca', icon: Repeat2, component: SwapShift },
@@ -215,7 +265,7 @@ export function WorkforceHub() {
 }
 
 export function WorkHub() {
-  return <ModuleHub tabs={[
+  return <ModuleHub hubId="work" tabs={[
     { id: 'checklist', label: 'Checklist phân khu', shortLabel: 'Checklist', icon: ClipboardCheck, component: Checklist },
     { id: 'operations', label: 'Phân công trực', shortLabel: 'Phân công', icon: Network, component: Operations },
     { id: 'handover', label: 'Bàn giao', shortLabel: 'Bàn giao', icon: Repeat2, component: Handover },
@@ -224,49 +274,49 @@ export function WorkHub() {
 }
 
 export function IncomeHub() {
-  return <ModuleHub tabs={[
+  return <ModuleHub hubId="income" tabs={[
     { id: 'reward', label: 'Ghi nhận', shortLabel: 'Ghi nhận', icon: Trophy, component: Reward },
     { id: 'discipline', label: 'Kỷ luật', shortLabel: 'Kỷ luật', icon: ShieldAlert, component: UserDiscipline },
   ]} />;
 }
 
 export function CommunicationsHub() {
-  return <ModuleHub tabs={[
+  return <ModuleHub hubId="communications" tabs={[
     { id: 'news', label: 'Bảng tin', shortLabel: 'Bảng tin', icon: Newspaper, component: NewsFeed },
     { id: 'feedback', label: 'Góp ý', shortLabel: 'Góp ý', icon: MessageSquareText, component: Feedback },
   ]} />;
 }
 
 export function KnowledgeHub() {
-  return <ModuleHub tabs={[
+  return <ModuleHub hubId="knowledge" tabs={[
     { id: 'training', label: 'Đào tạo', shortLabel: 'Đào tạo', icon: GraduationCap, component: Training },
     { id: 'guide', label: 'Hướng dẫn', shortLabel: 'Hướng dẫn', icon: BookOpen, component: Guide },
   ]} />;
 }
 
 export function AdminPeopleHub() {
-  return <ModuleHub tabs={[
+  return <ModuleHub hubId="admin_people" tabs={[
     { id: 'employees', label: 'Hồ sơ nhân sự', shortLabel: 'Hồ sơ', icon: Users, component: HrList },
     { id: 'organization', label: 'Tổ chức & quyền', shortLabel: 'Cơ cấu', icon: KeyRound, component: AdminOrg },
   ]} />;
 }
 
 export function AdminWorkforceHub() {
-  return <ModuleHub tabs={[
+  return <ModuleHub hubId="admin_workforce" tabs={[
     { id: 'schedule', label: 'Xếp lịch', shortLabel: 'Xếp lịch', icon: CalendarRange, component: AdminSchedule },
     { id: 'settings', label: 'Ca & GPS', shortLabel: 'Ca & GPS', icon: MapPinned, component: AdminShift },
   ]} />;
 }
 
 export function AdminWorkHub() {
-  return <ModuleHub tabs={[
+  return <ModuleHub hubId="admin_work" tabs={[
     { id: 'checklist', label: 'Cấu hình Checklist', shortLabel: 'Checklist', icon: ClipboardCheck, component: AdminChecklist },
     { id: 'operations', label: 'Khu trực & Điều phối', shortLabel: 'Khu trực', icon: Network, component: AdminOperations },
   ]} />;
 }
 
 export function AdminIncomeHub() {
-  return <ModuleHub tabs={[
+  return <ModuleHub hubId="admin_income" tabs={[
     { id: 'config', label: 'Cấu hình lương', shortLabel: 'Cấu hình', icon: Settings2, component: AdminPayroll },
     { id: 'payroll', label: 'Bảng lương', shortLabel: 'Bảng lương', icon: Banknote, component: PayrollAdmin },
     { id: 'advance', label: 'Ứng lương', shortLabel: 'Ứng lương', icon: HandCoins, component: AdminAdvance },
@@ -275,7 +325,7 @@ export function AdminIncomeHub() {
 }
 
 export function AdminSystemHub() {
-  return <ModuleHub tabs={[
+  return <ModuleHub hubId="admin_system" tabs={[
     { id: 'analytics', label: 'Báo cáo', shortLabel: 'Báo cáo', icon: BarChart3, component: AdminAnalytics },
     { id: 'ai', label: 'AI & API', shortLabel: 'AI & API', icon: Sparkles, component: Admin },
     { id: 'organization', label: 'Doanh nghiệp', shortLabel: 'Doanh nghiệp', icon: Building2, component: AdminOrg },

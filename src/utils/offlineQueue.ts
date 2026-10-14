@@ -67,8 +67,39 @@ function saveQueue(queue: QueuedTask[]) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(queue));
   } catch (e) {
-    console.warn('[OfflineQueue] Error saving queue:', e);
+    console.warn('[OfflineQueue] Quota warning saving queue, compacting older images:', e);
+    try {
+      let pendingImagesKept = 0;
+      const compacted = queue.map((t) => {
+        const hasHeavyImg = typeof t.payload?.image === 'string' && t.payload.image.startsWith('data:image/');
+        if (hasHeavyImg) {
+          pendingImagesKept++;
+          if (pendingImagesKept > 3) {
+            return { ...t, payload: { ...t.payload, image: 'PENDING' } };
+          }
+        }
+        return t;
+      });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(compacted));
+    } catch { /* ignore */ }
   }
+}
+
+function compactVaultEntries(entries: any[]): any[] {
+  let base64KeptCount = 0;
+  return entries.slice(0, 50).map((item: any) => {
+    const isBase64 = typeof item?.image === 'string' && item.image.startsWith('data:image/');
+    if (!isBase64) return item;
+    if (item.syncStatus === 'synced' && item.imageUploaded) {
+      return { ...item, image: item.imageUrl || '[UPLOADED]' };
+    }
+    base64KeptCount++;
+    // Only retain raw base64 on at most the 3 newest unsynced punches so localStorage (5MB) never overflows
+    if (base64KeptCount > 3) {
+      return { ...item, image: '[COMPACTED_FOR_QUOTA]' };
+    }
+    return item;
+  });
 }
 
 /**
@@ -78,18 +109,28 @@ export function savePunchToVault(payload: Record<string, any>): void {
   try {
     const raw = localStorage.getItem(PUNCH_VAULT_KEY);
     const vault = raw ? JSON.parse(raw) : [];
-    // Keep last 50 punches locally for history audit
-    const updated = [
+    const updated = compactVaultEntries([
       {
         ...payload,
         vaultSavedAt: Date.now(),
         syncStatus: 'pending'
       },
       ...vault.filter((item: any) => item.checkinId !== payload.checkinId)
-    ].slice(0, 50);
+    ]);
     localStorage.setItem(PUNCH_VAULT_KEY, JSON.stringify(updated));
   } catch (e) {
-    console.warn('[OfflineQueue] Error saving to punch vault:', e);
+    console.warn('[OfflineQueue] Error saving to punch vault, stripping base64 fallback:', e);
+    try {
+      const raw = localStorage.getItem(PUNCH_VAULT_KEY);
+      const vault = raw ? JSON.parse(raw) : [];
+      const stripped = [
+        { ...payload, image: '[COMPACTED_FOR_QUOTA]', vaultSavedAt: Date.now(), syncStatus: 'pending' },
+        ...vault
+          .filter((item: any) => item.checkinId !== payload.checkinId)
+          .map((item: any) => (typeof item?.image === 'string' && item.image.startsWith('data:image/') ? { ...item, image: '[COMPACTED_FOR_QUOTA]' } : item))
+      ].slice(0, 30);
+      localStorage.setItem(PUNCH_VAULT_KEY, JSON.stringify(stripped));
+    } catch { /* ignore */ }
   }
 }
 
@@ -101,16 +142,43 @@ export function markPunchVaultSynced(checkinId: string, serverData?: any): void 
     const raw = localStorage.getItem(PUNCH_VAULT_KEY);
     if (!raw) return;
     const vault = JSON.parse(raw);
-    const updated = vault.map((item: any) => {
+    const updated = compactVaultEntries(vault.map((item: any) => {
       if (item.checkinId === checkinId) {
-        return { ...item, syncStatus: 'synced', serverData, syncedAt: Date.now() };
+        const driveUrl = serverData?.imageUrl || serverData?.url;
+        const hasDriveUrl = typeof driveUrl === 'string' && driveUrl.startsWith('http');
+        return {
+          ...item,
+          syncStatus: 'synced',
+          serverData,
+          syncedAt: Date.now(),
+          ...(hasDriveUrl ? { image: driveUrl, imageUrl: driveUrl, imageUploaded: true } : {})
+        };
       }
       return item;
-    });
+    }));
     localStorage.setItem(PUNCH_VAULT_KEY, JSON.stringify(updated));
   } catch (e) {
     console.warn('[OfflineQueue] Error updating punch vault:', e);
   }
+}
+
+/**
+ * Release heavy base64 image in vault once Google Drive URL is confirmed
+ */
+export function markPunchVaultImageUploaded(checkinId: string, imageUrl: string): void {
+  if (!checkinId || !imageUrl) return;
+  try {
+    const raw = localStorage.getItem(PUNCH_VAULT_KEY);
+    if (!raw) return;
+    const vault = JSON.parse(raw);
+    const updated = compactVaultEntries(vault.map((item: any) => {
+      if (item.checkinId === checkinId) {
+        return { ...item, image: imageUrl, imageUrl, imageUploaded: true };
+      }
+      return item;
+    }));
+    localStorage.setItem(PUNCH_VAULT_KEY, JSON.stringify(updated));
+  } catch { /* ignore */ }
 }
 
 /**
@@ -265,6 +333,7 @@ export async function processQueue(): Promise<void> {
           } else if (task.action === 'UPLOAD_CHECKIN_IMAGE') {
             const driveUrl = res.data?.url || res.data?.imageUrl;
             if (driveUrl) {
+              markPunchVaultImageUploaded(checkinId, driveUrl);
               if (task.payload.time) {
                 useAppStore.getState().updateLogImage(task.payload.time, driveUrl);
               }

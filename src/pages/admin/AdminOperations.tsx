@@ -51,14 +51,12 @@ export default function AdminOperations() {
   const [taskLogs, setTaskLogs] = useState<OperationTaskLog[]>([]);
   const [section, setSection] = useState<Section>('overview');
   const [selectedTeamId, setSelectedTeamId] = useState('');
-  const [prevSelectedTeamId, setPrevSelectedTeamId] = useState('');
   const [selectedZoneId, setSelectedZoneId] = useState('');
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
 
-  if (selectedTeamId !== prevSelectedTeamId) {
-    setPrevSelectedTeamId(selectedTeamId);
+  useEffect(() => {
     setMemberSearchQuery('');
-  }
+  }, [selectedTeamId]);
   const [evalSearchQuery, setEvalSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -916,7 +914,7 @@ export default function AdminOperations() {
                                       <span className="block truncate text-[10px] text-slate-400">
                                         {employee.position || 'Nhân viên'} · {operationScore(evaluation).toFixed(1)}/5
                                       </span>
-                                      <span className="mt-0.5 inline-block text-[9px] font-bold text-cyan-750 dark:text-cyan-400">
+                                      <span className="mt-0.5 inline-block text-[9px] font-bold text-cyan-700 dark:text-cyan-400">
                                         Đang ở: {otherTeam?.name || 'Nhóm khác'}
                                       </span>
                                     </span>
@@ -1101,7 +1099,7 @@ export default function AdminOperations() {
                           </p>
                         </div>
                         {assignment.isVirtual ? (
-                          <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase text-violet-750 dark:text-violet-400 bg-violet-100 dark:bg-violet-950/30 px-2.5 py-1 rounded-lg justify-self-end">
+                          <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase text-violet-700 dark:text-violet-400 bg-violet-100 dark:bg-violet-950/30 px-2.5 py-1 rounded-lg justify-self-end">
                             ✨ Tự động
                           </span>
                         ) : (

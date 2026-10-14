@@ -4,7 +4,6 @@ import { callApi } from '../services/api';
 import { speak, computeWeekInfo, getScheduleRegistrationWindow, isNextWeekScheduleRegistered } from '../utils/helpers';
 import Swal from 'sweetalert2';
 import { User, Lock, Eye, EyeOff, ChevronLeft, ArrowRight, Mail, Phone, Calendar, BadgeCheck, KeyRound } from 'lucide-react';
-import { triggerDeveloperMode } from '../utils/githubApi';
 import { hashPassword } from '../utils/security';
 
 export default function Login() {
@@ -19,7 +18,6 @@ export default function Login() {
   const [forgotStep, setForgotStep] = useState<1 | 2>(1);
   const [resetForm, setResetForm] = useState({ otp: '', newPassword: '' });
   const [showPass, setShowPass] = useState(false);
-  const [clickCount, setClickCount] = useState(0);
 
   const handleLogin = async (e?: React.FormEvent, bioCreds?: {username: string, password: string}) => {
     if (e) e.preventDefault();
@@ -42,11 +40,7 @@ export default function Login() {
       // Persist session
       localStorage.setItem('kg_user', JSON.stringify(res.data));
       localStorage.setItem('kg_session_time', Date.now().toString());
-      if (rememberMe) {
-        localStorage.setItem('kg_remember', 'true');
-      } else {
-        localStorage.removeItem('kg_remember');
-      }
+      localStorage.setItem('kg_remember', rememberMe ? 'true' : 'false');
 
       // Init week schedule data
       const weekInfo = computeWeekInfo();
@@ -103,8 +97,8 @@ export default function Login() {
           if (dataRes.data.gpsConfig) store.setServerGpsConfig(dataRes.data.gpsConfig);
           if (dataRes.data.orgConfig) store.setServerOrgConfig(dataRes.data.orgConfig);
           if (dataRes.data.payrollConfig) store.setServerPayrollConfig(dataRes.data.payrollConfig);
-          localStorage.setItem('kg_logs', JSON.stringify(dataRes.data.logs || []));
           localStorage.setItem('kg_stats', JSON.stringify(dataRes.data.stats || { totalCheckIn: 0, validCount: 0 }));
+          store.setLastFetchTime(Date.now());
 
           // Mandatory schedule registration guidance on T5, T6, T7 before 17:00
           const regWindow = getScheduleRegistrationWindow();
@@ -162,11 +156,7 @@ export default function Login() {
         setForgotStep(2);
         Swal.fire('Thành công', 'Mã OTP đã được gửi đến Email của bạn', 'success');
       } else {
-        // Fallback for mock if API fails
-        setTimeout(() => {
-          setForgotStep(2);
-          Swal.fire('Thành công', 'Mã OTP đã được gửi đến Email của bạn (Mock)', 'success');
-        }, 500);
+        Swal.fire('Không thể gửi OTP', res?.message || 'Không tìm thấy Email hoặc máy chủ đang bận. Vui lòng kiểm tra lại.', 'error');
       }
     } else {
       if (!resetForm.otp || !resetForm.newPassword) {
@@ -221,17 +211,7 @@ export default function Login() {
           <div className="login-logo-card inline-flex rounded-3xl bg-[var(--kg-surface)] border border-[var(--kg-border)] p-4 shadow-sm">
             <img src="/LOGO.png?v=3" alt="King's Grill Logo" className="w-[120px] h-auto object-contain" />
           </div>
-          <p 
-            className="text-[var(--kg-primary)] dark:text-[var(--kg-accent)] font-extrabold text-xs tracking-wider uppercase cursor-pointer"
-            onClick={() => {
-              const newCount = clickCount + 1;
-              setClickCount(newCount);
-              if (newCount >= 5) {
-                setClickCount(0);
-                triggerDeveloperMode();
-              }
-            }}
-          >
+          <p className="text-[var(--kg-primary)] dark:text-[var(--kg-accent)] font-extrabold text-xs tracking-wider uppercase select-none">
             KING'S GRILL STAFF OS
           </p>
           <h1 className="text-3xl sm:text-4xl font-extrabold text-[var(--kg-text)] leading-tight">

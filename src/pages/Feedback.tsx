@@ -73,10 +73,7 @@ export default function Feedback() {
         setContent('');
         fetchFeedbacks();
       } else {
-        setTimeout(() => {
-          Swal.fire('Thành công', 'Đã gửi góp ý thành công (Mock)', 'success');
-          setContent('');
-        }, 1000);
+        Swal.fire('Không thể gửi góp ý', res?.message || 'Máy chủ đang bận hoặc mất kết nối. Nội dung của bạn vẫn được giữ nguyên, vui lòng thử lại.', 'error');
       }
     } catch (err) {
       Swal.fire('Lỗi', 'Không thể gửi góp ý', 'error');
@@ -103,11 +100,7 @@ export default function Feedback() {
         setReplyingTo(null);
         fetchFeedbacks();
       } else {
-        setTimeout(() => {
-          Swal.fire('Thành công', 'Đã phản hồi (Mock)', 'success');
-          setReplyContent('');
-          setReplyingTo(null);
-        }, 1000);
+        Swal.fire('Không thể gửi phản hồi', res?.message || 'Máy chủ đang bận hoặc mất kết nối. Vui lòng thử lại.', 'error');
       }
     } catch (err) {
       Swal.fire('Lỗi', 'Không thể gửi phản hồi', 'error');

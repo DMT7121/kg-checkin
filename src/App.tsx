@@ -15,11 +15,12 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Login = lazy(() => import('./pages/Login'));
 
 export default function App() {
-  const store = useAppStore();
-  const { currentUser } = store;
+  const currentUser = useAppStore((s) => s.currentUser);
 
   // Init on mount - matches original initApp()
   useEffect(() => {
+    const store = useAppStore.getState();
+
     // Hybrid Smart Audio: Unlock Web Audio on first gesture and preload core notification audio
     setupAudioUnlock();
     preloadAudioClips([
@@ -32,10 +33,9 @@ export default function App() {
       'login_success'
     ]);
 
-    // Force clear outdated GAS URL configurations
+    // Validate stored GAS URL configuration (preserve valid custom GAS Web App URLs)
     const storedGas = localStorage.getItem('kg_gas_url');
-    const targetGas = 'https://script.google.com/macros/s/AKfycbyQ4Y5cQ0BCHBlmzftWq0dPVP2qNgc-PaYMklh44raSX4hDOCIyFi0bV-G6QdUbb-3D/exec';
-    if (storedGas && storedGas.trim() !== targetGas) {
+    if (storedGas && !storedGas.trim().startsWith('https://script.google.com/macros/s/')) {
       localStorage.removeItem('kg_gas_url');
     }
 
@@ -47,24 +47,23 @@ export default function App() {
     store.setDark(savedTheme ? savedTheme === 'dark' : (isNight || prefersDark));
     store.setShiftName(isNight ? 'Ca Tối' : 'Ca Sáng');
 
-    // Clock - updates every 10 seconds (display shows HH:MM only), also checks for shift change
+    // Clock - checks every 15 seconds (display shows HH:MM only), only updates store when minute or shift changes
     const initialTime = getCurrentTimeString();
     if (useAppStore.getState().currentTime !== initialTime) {
       store.setCurrentTime(initialTime);
     }
     const timer = setInterval(() => {
+      const state = useAppStore.getState();
       const newTime = getCurrentTimeString();
-      const current = useAppStore.getState().currentTime;
-      if (current !== newTime) {
-        useAppStore.getState().setCurrentTime(newTime);
+      if (state.currentTime !== newTime) {
+        state.setCurrentTime(newTime);
       }
       const currentHour = new Date().getHours();
       const newShift = (currentHour >= 6 && currentHour < 17) ? 'Ca Sáng' : 'Ca Tối';
-      const currentShift = useAppStore.getState().shiftName;
-      if (currentShift !== newShift) {
-        useAppStore.getState().setShiftName(newShift);
+      if (state.shiftName !== newShift) {
+        state.setShiftName(newShift);
       }
-    }, 10000);
+    }, 15000);
 
     // Restore saved user session (with 30-minute expiry)
     const savedUser = localStorage.getItem('kg_user');

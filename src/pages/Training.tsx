@@ -728,7 +728,7 @@ export default function Training() {
                 <button
                   type="button"
                   onClick={() => setIsMobileCategoryOpen(true)}
-                  className="w-full flex items-center justify-between p-3.5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-sm active:scale-[0.99] transition-all font-bold text-sm text-slate-850 dark:text-white"
+                  className="w-full flex items-center justify-between p-3.5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-sm active:scale-[0.99] transition-all font-bold text-sm text-slate-800 dark:text-white"
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
                     {activeSopSection && <i className={`${activeSopSection.icon} text-blue-600 dark:text-indigo-400 text-sm flex-shrink-0`} />}
@@ -799,7 +799,7 @@ export default function Training() {
                   {activeSopSection && (
                     <>
                       <i className={`${activeSopSection.icon} text-lg text-blue-600 dark:text-indigo-400`} />
-                      <h3 className="text-base font-extrabold text-slate-850 dark:text-white Truculenta">
+                      <h3 className="text-base font-extrabold text-slate-800 dark:text-white truncate">
                         {activeSopSection.title}
                       </h3>
                     </>
@@ -833,7 +833,7 @@ export default function Training() {
                         >
                           <div className="space-y-1">
                             {getQuickSopList(item.details).map((text, idx) => (
-                              <div key={idx} className="flex items-start gap-2 text-xs font-semibold text-slate-650 dark:text-[#9AA1AA] leading-relaxed">
+                              <div key={idx} className="flex items-start gap-2 text-xs font-semibold text-slate-600 dark:text-[#9AA1AA] leading-relaxed">
                                 <span className="text-blue-500 dark:text-indigo-400 select-none flex-shrink-0">•</span>
                                 <span className="line-clamp-1">{text}</span>
                               </div>
@@ -912,7 +912,7 @@ export default function Training() {
                       <div className="flex items-center min-w-0">
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center mr-3 flex-shrink-0 ${
                           isCompleted
-                            ? 'bg-emerald-50 text-emerald-650 dark:bg-emerald-950/20 dark:text-emerald-400'
+                            ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400'
                             : 'bg-amber-50 text-amber-600 dark:bg-amber-950/20 dark:text-amber-400'
                         }`}>
                           {isCompleted ? <CheckCircle2 size={20} /> : <BookOpen size={20} />}
@@ -924,7 +924,7 @@ export default function Training() {
                           </p>
                         </div>
                       </div>
-                      <ChevronRight size={18} className={`text-gray-450 transition-transform flex-shrink-0 ${isActive ? 'rotate-90' : ''}`} />
+                      <ChevronRight size={18} className={`text-gray-400 transition-transform flex-shrink-0 ${isActive ? 'rotate-90' : ''}`} />
                     </button>
 
                     {/* Lesson Content */}
@@ -943,7 +943,7 @@ export default function Training() {
                               setQuizMode(lesson.id);
                               setAnswers({});
                             }}
-                            className="w-full bg-blue-600 hover:bg-blue-750 text-white"
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                             icon={Award}
                           >
                             Làm bài kiểm tra (+{lesson.points} 🪙)
@@ -966,7 +966,7 @@ export default function Training() {
                       >
                         <div className="flex items-center gap-2 mb-4">
                           <Award size={18} className="text-amber-500" />
-                          <h4 className="font-extrabold text-slate-850 dark:text-white text-sm">Trắc nghiệm: {lesson.title}</h4>
+                          <h4 className="font-extrabold text-slate-800 dark:text-white text-sm">Trắc nghiệm: {lesson.title}</h4>
                         </div>
 
                         <div className="space-y-5">
@@ -1077,10 +1077,10 @@ export default function Training() {
                   >
                     {/* Header */}
                     <div className="p-4 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/20">
-                      <span className="text-[11px] font-black tracking-wider uppercase px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600 dark:bg-blue-955/35 dark:text-blue-400">
+                      <span className="text-[11px] font-black tracking-wider uppercase px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600 dark:bg-blue-950/35 dark:text-blue-400">
                         Bước {stepItem.step < 10 ? `0${stepItem.step}` : stepItem.step}
                       </span>
-                      <h4 className="font-extrabold text-slate-850 dark:text-white text-xs truncate max-w-[180px]">
+                      <h4 className="font-extrabold text-slate-800 dark:text-white text-xs truncate max-w-[180px]">
                         {stepItem.title}
                       </h4>
                     </div>
@@ -1099,7 +1099,7 @@ export default function Training() {
                         loading="lazy"
                       />
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
-                        <span className="bg-white/90 dark:bg-slate-900/90 text-slate-850 dark:text-white text-[11px] font-bold px-3 py-1.5 rounded-xl shadow-md flex items-center gap-1.5 backdrop-blur-sm">
+                        <span className="bg-white/90 dark:bg-slate-900/90 text-slate-800 dark:text-white text-[11px] font-bold px-3 py-1.5 rounded-xl shadow-md flex items-center gap-1.5 backdrop-blur-sm">
                           <Eye size={12} /> Xem ảnh rõ nét
                         </span>
                       </div>
@@ -1107,7 +1107,7 @@ export default function Training() {
 
                     {/* Description */}
                     <div className="p-4 flex-1 flex flex-col justify-between">
-                      <p className="text-xs text-slate-650 dark:text-slate-350 leading-relaxed font-semibold mb-4 min-h-[48px]">
+                      <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-semibold mb-4 min-h-[48px]">
                         {stepItem.description}
                       </p>
                       <button
@@ -1115,7 +1115,7 @@ export default function Training() {
                         onClick={() => {
                           setActiveCukcukIndex(originalIndex);
                         }}
-                        className="w-full py-2.5 text-center text-xs font-black text-blue-600 dark:text-blue-400 bg-blue-50/50 hover:bg-blue-50 dark:bg-blue-955/20 dark:hover:bg-blue-955/35 rounded-xl transition-all duration-200"
+                        className="w-full py-2.5 text-center text-xs font-black text-blue-600 dark:text-blue-400 bg-blue-50/50 hover:bg-blue-50 dark:bg-blue-950/20 dark:hover:bg-blue-950/35 rounded-xl transition-all duration-200"
                       >
                         Phóng to chi tiết
                       </button>
@@ -1152,7 +1152,7 @@ export default function Training() {
                   className={`w-full flex items-center p-3 rounded-xl text-left text-xs font-bold transition-all gap-3 active:scale-98 ${
                     selectedSection === section.id
                       ? 'bg-blue-600 text-white shadow-md'
-                      : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-105 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                      : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40'
                   }`}
                 >
                   <i className={`${section.icon} w-5 text-center flex-shrink-0 ${selectedSection === section.id ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`} />
@@ -1178,7 +1178,7 @@ export default function Training() {
                   className={`w-full flex items-center p-3 rounded-xl text-left text-xs font-bold transition-all gap-3 active:scale-98 ${
                     selectedSection === section.id
                       ? 'bg-blue-600 text-white shadow-md'
-                      : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-105 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                      : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40'
                   }`}
                 >
                   <i className={`${section.icon} w-5 text-center flex-shrink-0 ${selectedSection === section.id ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`} />
@@ -1214,7 +1214,7 @@ export default function Training() {
                 onClick={() => {
                   setActiveCukcukIndex(null);
                 }}
-                className="p-2 bg-slate-850 hover:bg-slate-700 active:scale-95 rounded-xl transition-all"
+                className="p-2 bg-slate-800 hover:bg-slate-700 active:scale-95 rounded-xl transition-all"
                 title="Đóng (Esc)"
               >
                 <X size={20} />
@@ -1256,7 +1256,7 @@ export default function Training() {
               <button
                 type="button"
                 onClick={() => setShowDescription(true)}
-                className="bg-slate-900/90 hover:bg-slate-850 text-slate-200 text-xs font-bold px-4 py-2.5 rounded-xl shadow-md border border-slate-800 flex items-center gap-2 backdrop-blur-sm transition-all active:scale-95 animate-fade-in"
+                className="bg-slate-900/90 hover:bg-slate-800 text-slate-200 text-xs font-bold px-4 py-2.5 rounded-xl shadow-md border border-slate-800 flex items-center gap-2 backdrop-blur-sm transition-all active:scale-95 animate-fade-in"
               >
                 <BookOpen size={14} className="text-blue-400" />
                 Đọc hướng dẫn, mô tả
@@ -1286,7 +1286,7 @@ export default function Training() {
                     setActiveCukcukIndex(activeCukcukIndex - 1);
                   }
                 }}
-                className="p-2 bg-slate-850 hover:bg-slate-800 disabled:opacity-40 disabled:pointer-events-none active:scale-95 rounded-xl transition-all text-white"
+                className="p-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none active:scale-95 rounded-xl transition-all text-white"
                 title="Bước trước"
               >
                 <ChevronRight size={18} className="rotate-180" />
@@ -1327,7 +1327,7 @@ export default function Training() {
                     setActiveCukcukIndex(activeCukcukIndex + 1);
                   }
                 }}
-                className="p-2 bg-slate-850 hover:bg-slate-800 disabled:opacity-40 disabled:pointer-events-none active:scale-95 rounded-xl transition-all text-white"
+                className="p-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none active:scale-95 rounded-xl transition-all text-white"
                 title="Bước sau"
               >
                 <ChevronRight size={18} />

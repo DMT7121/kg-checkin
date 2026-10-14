@@ -410,7 +410,7 @@ export default function Guide() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setSelectedGuideId(null)}
-              className="inline-flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-slate-850 dark:hover:text-white bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl transition-all active:scale-95"
+              className="inline-flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl transition-all active:scale-95"
             >
               <ArrowLeft size={14} /> Quay lại danh sách
             </button>
@@ -425,7 +425,7 @@ export default function Guide() {
                 </div>
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-lg md:text-xl font-extrabold text-slate-850 dark:text-white leading-tight">
+                    <h2 className="text-lg md:text-xl font-extrabold text-slate-800 dark:text-white leading-tight">
                       {selectedGuide.title}
                     </h2>
                     <KgStatusBadge variant={
@@ -463,7 +463,7 @@ export default function Guide() {
                 <h3 className="text-sm font-black uppercase tracking-wider text-blue-600 dark:text-indigo-400">
                   1. Giới thiệu phân hệ
                 </h3>
-                <p className="text-sm text-slate-850 dark:text-slate-200 leading-relaxed font-medium">
+                <p className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed font-medium">
                   {selectedGuide.description}
                 </p>
               </div>
@@ -479,7 +479,7 @@ export default function Guide() {
                       <div className="absolute -left-[31px] top-0.5 w-6 h-6 rounded-full bg-blue-600 dark:bg-indigo-500 text-white flex items-center justify-center text-xs font-bold shadow-sm">
                         {index + 1}
                       </div>
-                      <p className="text-xs md:text-sm text-slate-850 dark:text-slate-250 font-semibold leading-relaxed">
+                      <p className="text-xs md:text-sm text-slate-800 dark:text-slate-200 font-semibold leading-relaxed">
                         {step}
                       </p>
                     </div>
@@ -668,7 +668,7 @@ export default function Guide() {
                             <GuideIcon size={18} />
                           </div>
                           <div>
-                            <h3 className="text-xs font-black text-slate-850 dark:text-white leading-tight">
+                            <h3 className="text-xs font-black text-slate-800 dark:text-white leading-tight">
                               {guide.title}
                             </h3>
                             <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold">
@@ -715,7 +715,7 @@ export default function Guide() {
           ) : (
             <div className="text-center py-12 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl">
               <HelpCircle size={32} className="mx-auto text-slate-400 mb-2" />
-              <p className="text-sm font-bold text-slate-850 dark:text-white">Không tìm thấy hướng dẫn nào</p>
+              <p className="text-sm font-bold text-slate-800 dark:text-white">Không tìm thấy hướng dẫn nào</p>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Vui lòng thử từ khoá tìm kiếm khác.</p>
             </div>
           )}

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Bot, X, Send, Loader2, Maximize2, Minimize2, Sparkles, AlertCircle } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { fetchWithRetry } from '../utils/helpers';
+import { escapeHtml } from '../utils/security';
 import { callApi } from '../services/api';
 import Swal from 'sweetalert2';
 import { sopData } from '../pages/sopData';
@@ -13,8 +14,20 @@ interface Message {
 }
 
 export default function AIAssistant() {
-  const store = useAppStore();
-  const { groqKeys, currentUser, logs, shiftData, checklistItems, adminSchedules, chatHistory, aiPrompts, payrollData, checklistLogs, approvedShifts, shiftName, isAiOpen, setAiOpen } = store;
+  const currentUser = useAppStore((s) => s.currentUser);
+  const groqKeys = useAppStore((s) => s.groqKeys);
+  const logs = useAppStore((s) => s.logs);
+  const shiftData = useAppStore((s) => s.shiftData);
+  const checklistItems = useAppStore((s) => s.checklistItems);
+  const adminSchedules = useAppStore((s) => s.adminSchedules);
+  const chatHistory = useAppStore((s) => s.chatHistory);
+  const aiPrompts = useAppStore((s) => s.aiPrompts);
+  const payrollData = useAppStore((s) => s.payrollData);
+  const checklistLogs = useAppStore((s) => s.checklistLogs);
+  const approvedShifts = useAppStore((s) => s.approvedShifts);
+  const shiftName = useAppStore((s) => s.shiftName);
+  const isAiOpen = useAppStore((s) => s.isAiOpen);
+  const setAiOpen = useAppStore((s) => s.setAiOpen);
   
   const [isExpanded, setIsExpanded] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -29,19 +42,20 @@ export default function AIAssistant() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const historyLoaded = useRef(false);
 
-  // Check if a lightbox/guideline is open
+  // Check if a lightbox/guideline is open without observing every subtree mutation
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   useEffect(() => {
     const checkOverlay = () => {
       const open = document.getElementById('cukcuk-lightbox') !== null;
-      setIsLightboxOpen(open);
+      setIsLightboxOpen((prev) => (prev === open ? prev : open));
     };
 
     checkOverlay();
 
+    // Only observe direct children of document.body (where lightboxes/modals mount)
     const observer = new MutationObserver(checkOverlay);
-    observer.observe(document.body, { childList: true, subtree: true });
+    observer.observe(document.body, { childList: true, subtree: false });
 
     return () => {
       observer.disconnect();
@@ -306,10 +320,10 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
     }
   };
 
-  // Hàm render Markdown cơ bản
+  // Hàm render Markdown cơ bản (đã escape HTML chống XSS)
   const renderFormattedText = (text: string) => {
-    // Chuyển markdown cơ bản thành HTML
-    let html = text
+    const safeText = escapeHtml(text);
+    const html = safeText
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold
       .replace(/\*(.*?)\*/g, '<em>$1</em>') // Italic
       .replace(/\n/g, '<br />') // Newlines
