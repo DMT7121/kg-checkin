@@ -274,8 +274,18 @@ function handleSubmitSurvey(payload) {
 
 function jsonResponse(ok, msgOrData, extra) {
   var obj = { ok: ok };
-  if (typeof msgOrData === 'string') obj.message = msgOrData;
-  else if (msgOrData) obj.data = msgOrData;
+  if (typeof msgOrData === 'string') {
+    obj.message = msgOrData;
+  } else if (msgOrData) {
+    obj.data = msgOrData;
+    if (typeof msgOrData === 'object') {
+      if (msgOrData.message && !obj.message) obj.message = msgOrData.message;
+      if (msgOrData.code && !obj.code) obj.code = msgOrData.code;
+      if (msgOrData.isSpamCooldown !== undefined && obj.isSpamCooldown === undefined) {
+        obj.isSpamCooldown = msgOrData.isSpamCooldown;
+      }
+    }
+  }
   if (extra) {
     for (var k in extra) obj[k] = extra[k];
   }

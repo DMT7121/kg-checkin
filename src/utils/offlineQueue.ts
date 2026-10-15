@@ -234,11 +234,93 @@ function scheduleNextQueueProcessing(delayMs: number = 2000) {
 }
 
 /**
+ * Recover any punches saved in the permanent vault that were interrupted
+ * (e.g., iOS Safari screen lock / app switch / tab kill mid-flight) before
+ * reaching the synced state or completing their Drive image upload.
+ */
+export function recoverOrphanedVaultPunches(): void {
+  try {
+    const raw = localStorage.getItem(PUNCH_VAULT_KEY);
+    if (!raw) return;
+    const vault = JSON.parse(raw);
+    if (!Array.isArray(vault) || vault.length === 0) return;
+
+    const queue = getQueue();
+    const now = Date.now();
+    let queueModified = false;
+
+    for (const item of vault) {
+      if (!item || !item.checkinId) continue;
+      const ageMs = now - (item.vaultSavedAt || 0);
+
+      // 1. Recover unsynced CHECK_IN_OUT punches older than 12s (not currently in-flight)
+      if (item.syncStatus === 'pending' && ageMs > 12000 && ageMs < 24 * 3600 * 1000) {
+        const alreadyQueued = queue.some(
+          (t) =>
+            t.action === 'CHECK_IN_OUT' &&
+            (t.payload?.checkinId === item.checkinId || (item.timeISO && t.payload?.timeISO === item.timeISO))
+        );
+        if (!alreadyQueued) {
+          queue.push({
+            id: item.checkinId,
+            action: 'CHECK_IN_OUT',
+            payload: item,
+            createdAt: item.vaultSavedAt || now,
+            attempts: 0,
+            maxAttempts: 20,
+            priority: 'high',
+          });
+          queueModified = true;
+        }
+      }
+
+      // 2. Recover synced punches whose Drive image upload was interrupted on iOS
+      const syncAgeMs = now - (item.syncedAt || item.vaultSavedAt || 0);
+      const hasRawBase64 = typeof item.image === 'string' && item.image.startsWith('data:image/') && item.image.length > 100;
+      if (item.syncStatus === 'synced' && !item.imageUploaded && hasRawBase64 && syncAgeMs > 15000 && syncAgeMs < 24 * 3600 * 1000) {
+        const uploadAlreadyQueued = queue.some(
+          (t) =>
+            t.action === 'UPLOAD_CHECKIN_IMAGE' &&
+            (t.payload?.checkinId === item.checkinId || (item.timeISO && t.payload?.timeISO === item.timeISO))
+        );
+        if (!uploadAlreadyQueued) {
+          queue.push({
+            id: `img_${item.checkinId}`,
+            action: 'UPLOAD_CHECKIN_IMAGE',
+            payload: {
+              checkinId: item.checkinId,
+              username: item.username,
+              fullname: item.fullname,
+              timeISO: item.serverData?.timeISO || item.timeISO,
+              time: item.serverData?.thoiGian || item.time,
+              image: item.image,
+            },
+            createdAt: now,
+            attempts: 0,
+            maxAttempts: 12,
+            priority: 'high',
+          });
+          queueModified = true;
+        }
+      }
+    }
+
+    if (queueModified) {
+      saveQueue(queue);
+    }
+  } catch (e) {
+    console.warn('[OfflineQueue] Error recovering orphaned vault punches:', e);
+  }
+}
+
+/**
  * Process all pending items in the offline queue
  */
 export async function processQueue(): Promise<void> {
   if (isProcessing) return;
   if (!navigator.onLine) return;
+
+  recoverOrphanedVaultPunches();
 
   const queue = getQueue();
   if (queue.length === 0) return;
@@ -272,11 +354,18 @@ export async function processQueue(): Promise<void> {
 
       try {
         let effectivePayload = task.payload;
-        if (task.action === 'CHECK_IN_OUT' && task.payload?.image && task.payload.image.length > 100) {
+        if (task.action === 'CHECK_IN_OUT') {
+          const nowMs = Date.now();
+          const origClientMs = Number(task.payload?.clientNowMs) || nowMs;
+          const origPhotoMs = Number(task.payload?.photoCapturedMs) || origClientMs;
+          const captureDeltaMs = Math.min(45000, Math.max(500, origClientMs - origPhotoMs));
           effectivePayload = {
             ...task.payload,
-            image: 'PENDING',
-            fastSync: true
+            image: task.payload?.image && task.payload.image.length > 100 ? 'PENDING' : task.payload?.image,
+            fastSync: true,
+            isOfflineRetry: true,
+            clientNowMs: nowMs,
+            photoCapturedMs: nowMs - captureDeltaMs,
           };
         }
 
@@ -317,16 +406,17 @@ export async function processQueue(): Promise<void> {
               }, { priority: 'high', maxAttempts: 10 });
             }
 
-            // Trigger background email notification if needed
-            if (task.payload?.email && (!res.data?.emailSentDirectly)) {
+            // Trigger lightweight background email notification if needed (strip raw base64 image!)
+            if (task.payload?.email && !task.payload?.emailNotificationSent && !res.data?.emailSentDirectly) {
+              const { image: _rawImg, ...cleanEmailPayload } = task.payload;
               callApi('SEND_EMAIL_NOTIFICATION', {
-                ...task.payload,
-                imageUrl: returnedImgUrl || task.payload.image,
-                distMeters: res.data?.distMeters || task.payload.distMeters,
+                ...cleanEmailPayload,
+                imageUrl: returnedImgUrl || '',
+                distMeters: res.data?.distMeters ?? task.payload.distMeters,
                 isValid: res.data?.isValid ?? true,
                 viTri: res.data?.viTri || task.payload.location,
                 timeISO: res.data?.timeISO || task.payload.timeISO
-              }, { background: true, timeoutMs: 35000, maxAttempts: 2 }).catch((err) => {
+              }, { background: true, timeoutMs: 25000, maxAttempts: 2 }).catch((err) => {
                 console.warn('[OfflineQueue] Email notification background error:', err);
               });
             }
@@ -367,6 +457,25 @@ export async function processQueue(): Promise<void> {
                 time: task.payload.time,
                 image: task.payload.image
               }, { priority: 'high', maxAttempts: 15 });
+            }
+            continue;
+          }
+
+          // Check for permanent validation rejection (do not retry infinitely)
+          const isPermanentRejection =
+            res?.code === 'OUT_OF_RADIUS' ||
+            res?.code === 'SPOOF_DETECTED' ||
+            res?.code === 'SECURITY_TOKEN_MISMATCH' ||
+            res?.code === 'UNAUTHORIZED';
+
+          if (isPermanentRejection) {
+            console.warn(`[OfflineQueue] Task ${task.action} permanently rejected (${res?.code}): ${res?.message}`);
+            if (task.action === 'CHECK_IN_OUT') {
+              notifyPunchStatus({
+                checkinId,
+                status: 'failed',
+                message: res?.message || 'Dữ liệu chấm công không hợp lệ theo quy định máy chủ.'
+              });
             }
             continue;
           }
@@ -426,7 +535,7 @@ export async function processQueue(): Promise<void> {
 }
 
 /**
- * Auto-initialize online event listener and periodic check
+ * Auto-initialize online event listener, iOS visibility recovery, and periodic check
  */
 export function initOfflineQueueSync(): () => void {
   const onOnline = () => {
@@ -434,14 +543,31 @@ export function initOfflineQueueSync(): () => void {
     processQueue();
   };
 
-  window.addEventListener('online', onOnline);
-
-  // Periodic flush every 30 seconds if online
-  const intervalId = setInterval(() => {
-    if (navigator.onLine && getQueue().length > 0) {
+  const onVisibilityChange = () => {
+    if (document.visibilityState === 'visible' && navigator.onLine) {
       processQueue();
     }
-  }, 30000);
+  };
+
+  const onPageShow = () => {
+    if (navigator.onLine) {
+      processQueue();
+    }
+  };
+
+  window.addEventListener('online', onOnline);
+  document.addEventListener('visibilitychange', onVisibilityChange);
+  window.addEventListener('pageshow', onPageShow);
+
+  // Periodic flush every 20 seconds if online
+  const intervalId = setInterval(() => {
+    if (navigator.onLine) {
+      recoverOrphanedVaultPunches();
+      if (getQueue().length > 0) {
+        processQueue();
+      }
+    }
+  }, 20000);
 
   // Initial trigger on mount
   if (navigator.onLine) {
@@ -450,6 +576,8 @@ export function initOfflineQueueSync(): () => void {
 
   return () => {
     window.removeEventListener('online', onOnline);
+    document.removeEventListener('visibilitychange', onVisibilityChange);
+    window.removeEventListener('pageshow', onPageShow);
     clearInterval(intervalId);
     if (retryTimeoutId) clearTimeout(retryTimeoutId);
   };

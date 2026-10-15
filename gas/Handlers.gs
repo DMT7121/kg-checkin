@@ -893,8 +893,13 @@ function handleCheckInOut(payload) {
     }
   }
 
+  // Tính toán sai số GPS trong nhà (indoor multipath allowance tối đa 10m, đồng bộ 100% với client)
+  var gpsAcc = Number(payload.gpsAccuracy) || 0;
+  var indoorAllowance = Math.min(Math.max(0, gpsAcc) * 0.35, 10);
+  var effectiveDist = Math.max(0, distMeters - indoorAllowance);
+
   // Chặn tuyệt đối nếu vượt quá bán kính quy định (ngoại trừ tài khoản test được cấp quyền)
-  if (!isAuthorizedTest && distMeters > allowedRadius) {
+  if (!isAuthorizedTest && effectiveDist > allowedRadius) {
     try {
       recordFraudAlert(ss, payload, distMeters, allowedRadius);
     } catch(fraudErr) {
@@ -911,13 +916,28 @@ function handleCheckInOut(payload) {
 
   // === 2. BẢO MẬT THỜI GIAN & CHỐNG GIAN LẬN CHỤP ẢNH TRƯỚC (ANTI-PRE-CAPTURE FRAUD) ===
   var serverNowMs = new Date().getTime();
-  
-  // A. Kiểm tra tuổi ảnh chụp (Photo Expiration 60s + 15s grace cho độ trễ mạng/chuyển dữ liệu)
-  if (payload.photoCapturedMs && !isAuthorizedTest) {
+  var isOfflineRetry = (payload.isOfflineRetry === true || payload.isOfflineRetry === 'true');
+  var clientMs = payload.clientNowMs ? Number(payload.clientNowMs) : 0;
+
+  // B. Chống gian lận chỉnh đồng hồ thiết bị (Device Clock Drift > 3 phút) - chỉ kiểm tra ở lượt gửi trực tiếp
+  if (!isOfflineRetry && clientMs > 0 && !isAuthorizedTest) {
+    var driftMs = Math.abs(serverNowMs - clientMs);
+    if (driftMs > 180000) { // Lệch hơn 3 phút
+      return jsonResponse(false, {
+        message: 'Từ chối chấm công: Đồng hồ thiết bị của bạn bị lệch ' + Math.round(driftMs / 1000) + ' giây so với máy chủ chuẩn. Vui lòng bật chế độ "Tự động đặt giờ theo mạng" trên điện thoại.',
+        code: 'CLOCK_DESYNC'
+      });
+    }
+  }
+
+  // A. Kiểm tra tuổi ảnh chụp (Photo Expiration 60s + 30s grace cho độ trễ mạng di động/iOS)
+  if (!isOfflineRetry && payload.photoCapturedMs && !isAuthorizedTest) {
     var photoMs = Number(payload.photoCapturedMs);
     if (!isNaN(photoMs) && photoMs > 0) {
-      var photoAgeSecs = Math.round((serverNowMs - photoMs) / 1000);
-      if (photoAgeSecs > 75) { // Quá 60s (+ 15s buffer mạng)
+      // Dùng clientMs (nếu đã xác thực đồng hồ lệch < 3p) để không bị phạt oan do lệch nhẹ đồng hồ máy chủ
+      var referenceNowMs = (clientMs > 0 && Math.abs(serverNowMs - clientMs) <= 180000) ? clientMs : serverNowMs;
+      var photoAgeSecs = Math.round((referenceNowMs - photoMs) / 1000);
+      if (photoAgeSecs > 90) { // Quá 60s (+ 30s buffer mạng)
         try {
           recordFraudAlert(ss, payload, distMeters, allowedRadius, 'Ảnh chụp quá hạn (' + photoAgeSecs + 's trước, quy định ≤ 60s)');
         } catch(e) {}
@@ -930,24 +950,10 @@ function handleCheckInOut(payload) {
     }
   }
 
-  // B. Chống gian lận chỉnh đồng hồ thiết bị (Device Clock Drift > 3 phút)
-  if (payload.clientNowMs && !isAuthorizedTest) {
-    var clientMs = Number(payload.clientNowMs);
-    if (!isNaN(clientMs) && clientMs > 0) {
-      var driftMs = Math.abs(serverNowMs - clientMs);
-      if (driftMs > 180000) { // Lệch hơn 3 phút
-        return jsonResponse(false, {
-          message: 'Từ chối chấm công: Đồng hồ thiết bị của bạn bị lệch ' + Math.round(driftMs / 1000) + ' giây so với máy chủ chuẩn. Vui lòng bật chế độ "Tự động đặt giờ theo mạng" trên điện thoại.',
-          code: 'CLOCK_DESYNC'
-        });
-      }
-    }
-  }
-
   // payload: username, fullname, email, type, lat, lng, image, timestamp, location, distance
   var time = parseDateTimeString(payload.time);
-  // Nếu thời gian client gửi lên bị lệch quá 90s so với giờ máy chủ, ép buộc lấy giờ máy chủ hiện tại
-  if (time && Math.abs(serverNowMs - time.getTime()) > 90000 && !isAuthorizedTest) {
+  // Nếu thời gian client gửi lên bị lệch quá 90s so với giờ máy chủ (và không phải đồng bộ bù offline), lấy giờ máy chủ hiện tại
+  if (time && !isOfflineRetry && Math.abs(serverNowMs - time.getTime()) > 90000 && !isAuthorizedTest) {
     time = new Date();
   }
   
@@ -983,6 +989,7 @@ function handleCheckInOut(payload) {
           if (lastLogTs > 0) {
             var diffMs = nowMs - lastLogTs;
             if (diffMs >= 0 && diffMs < 15 * 60 * 1000) {
+              var lastFormatted = cRow[2] ? cRow[2].toString().replace(/^'/, '') : '';
               var remainingSecs = Math.ceil((15 * 60 * 1000 - diffMs) / 1000);
               var remainingMins = Math.ceil(remainingSecs / 60);
               return jsonResponse(false, {
@@ -1219,9 +1226,9 @@ function handleCheckInOut(payload) {
     // 2. Invalidate cache
     try { invalidateGetDataCache(payload.username); } catch(cErr) {}
 
-    // 3. Gửi email xác nhận (Nếu fastSync thì ủy thác cho SEND_EMAIL_NOTIFICATION nền để phản hồi về Webapp tức thì <0.3s)
+    // 3. Gửi email xác nhận (Hỗ trợ gửi trực tiếp trong cùng request khi sendEmailInline=true để chống iOS ngắt kết nối nền)
     var emailSent = false;
-    if (!isFastSync) {
+    if (!isFastSync || payload.sendEmailInline === true) {
       try {
         if (!payload.email || payload.email.indexOf('@') === -1 || payload.email.indexOf('@kingsgrill.com') !== -1) {
           if ((payload.username || '').toLowerCase() === 'admin') {

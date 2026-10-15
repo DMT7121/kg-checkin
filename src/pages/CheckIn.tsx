@@ -66,14 +66,25 @@ import {
   isAuthorizedTestUser,
   detectGpsSpoofing,
   generateLocationSecurityToken,
-  recordGpsSample
+  recordGpsSample,
+  clearGpsSamples
 } from '../utils/antiFraud';
 
 export default function CheckIn() {
   const store = useAppStore();
   const { currentUser, gps, capturedImage, currentTime, approvedShifts } = store;
 
-  // Anti-Fraud & Radius validation
+  // Snapshot of GPS coordinates at the exact moment the photo is taken (prevents indoor GPS drift during modal confirmation)
+  const [capturedGps, setCapturedGps] = useState<{
+    lat: number;
+    lng: number;
+    acc: number;
+    dist: number;
+    address: string;
+    message: string;
+  } | null>(null);
+
+  // Anti-Fraud & Radius validation (synchronized with indoor GPS multipath allowance)
   const latestGpsConfig = store.serverGpsConfig;
   const targetLat = latestGpsConfig?.lat ?? KG_LAT;
   const targetLng = latestGpsConfig?.lng ?? KG_LNG;
@@ -81,8 +92,11 @@ export default function CheckIn() {
   const currentDist = (gps.lat !== null && gps.lng !== null)
     ? Math.round(getDist(gps.lat, gps.lng, targetLat, targetLng) * 1000)
     : (gps.distance ?? null);
+  const liveIndoorAllowance = Math.min((gps.accuracy || 0) * 0.35, 10);
+  const effectiveCurrentDist = currentDist !== null ? Math.max(0, currentDist - liveIndoorAllowance) : null;
   const isAuthorizedTest = isAuthorizedTestUser(currentUser);
-  const isWithinRadius = isAuthorizedTest || (Boolean(gps.isValid) && (currentDist === null || currentDist <= targetRadius));
+  const isLiveWithinRadius = isAuthorizedTest || (Boolean(gps.isValid) && (effectiveCurrentDist === null || effectiveCurrentDist <= targetRadius));
+  const isWithinRadius = Boolean(capturedImage && capturedGps) ? true : isLiveWithinRadius;
 
   // Smart check-in recommendation & state machine
   const recommendation = getRecommendedCheckInType(store.logs, currentUser);
@@ -205,6 +219,7 @@ export default function CheckIn() {
   const handlePhotoExpired = useCallback(() => {
     store.setCapturedImage(null);
     store.setCapturedTime(null);
+    setCapturedGps(null);
     setPhotoCapturedAtMs(null);
     setPhotoTimeLeftSeconds(PHOTO_EXPIRATION_SECONDS);
     setConfirmCheckInModalOpen(false);
@@ -268,6 +283,7 @@ export default function CheckIn() {
   useEffect(() => {
     const unsubscribe = subscribePunchStatus((update) => {
       if (update.status === 'synced') {
+        setLastSubmittedPunch((prev) => (prev ? { ...prev, sheetSaved: true } : prev));
         const weekInfo = computeWeekInfo();
         const user = useAppStore.getState().currentUser;
         if (user) {
@@ -286,6 +302,11 @@ export default function CheckIn() {
             }
           });
         }
+      } else if (update.status === 'failed') {
+        setFeedbackTitle('Chấm công chưa được máy chủ ghi nhận');
+        setFeedbackMessage(update.message || 'Không thể lưu dữ liệu chấm công lên Google Sheets. Vui lòng kiểm tra kết nối và thử lại.');
+        setFeedbackType('warning');
+        setFeedbackSheetOpen(true);
       }
     });
     return unsubscribe;
@@ -321,7 +342,12 @@ export default function CheckIn() {
   // GPS Logic - Adaptive Ultra-Fast & High-Precision Lock
   const handleGpsSuccess = useCallback((pos: GeolocationPosition, isFastStart: boolean) => {
     // Record raw sample into ring buffer for anti-spoofing heuristic analysis
-    recordGpsSample(pos);
+    recordGpsSample(pos, isFastStart);
+
+    // If a slow coarse fast-start callback arrives AFTER live watchPosition has already locked a valid GPS fix, ignore it!
+    if (isFastStart && prevGpsValidRef.current === true) {
+      return;
+    }
 
     const rawLat = pos.coords.latitude;
     const rawLng = pos.coords.longitude;
@@ -502,7 +528,8 @@ export default function CheckIn() {
       precisionScanTimeoutRef.current = null;
     }
 
-    // Hard reset kalman and state
+    // Hard reset kalman, anti-fraud sample buffer, and state
+    clearGpsSamples();
     kalmanLatRef.current.hardReset();
     kalmanLngRef.current.hardReset();
     prevGpsValidRef.current = null;
@@ -827,9 +854,10 @@ export default function CheckIn() {
     ctx: CanvasRenderingContext2D,
     exactTime: string,
     addr: string,
-    typeToStamp: CheckInTypeString = modalChosenType || recommendation.recommendedType
+    typeToStamp: CheckInTypeString = modalChosenType || recommendation.recommendedType,
+    gpsOverride?: { lat: number; lng: number; acc: number; dist: number; address: string; message: string } | null
   ) => {
-    if (!isWithinRadius) {
+    if (!isWithinRadius && !gpsOverride) {
       speak(`Bạn đang ở ngoài bán kính ${targetRadius}m. Không thể tạo ảnh đóng dấu.`);
       return;
     }
@@ -879,6 +907,12 @@ export default function CheckIn() {
 
     // Top subtle gradient bar to add sleek accent
     const currentGpsState = useAppStore.getState().gps;
+    const activeGpsSnap = gpsOverride || capturedGps;
+    const stampLat = activeGpsSnap?.lat ?? currentGpsState.lat ?? 0;
+    const stampLng = activeGpsSnap?.lng ?? currentGpsState.lng ?? 0;
+    const stampDist = activeGpsSnap?.dist ?? currentDist ?? 0;
+    const stampMsg = activeGpsSnap?.message || currentGpsState.message || '';
+
     const userObj = useAppStore.getState().currentUser;
     const isCheckInType = typeToStamp.includes('Vào') || typeToStamp.includes('IN') || typeToStamp.toLowerCase().includes('vào');
 
@@ -901,11 +935,11 @@ export default function CheckIn() {
     const contentX = cardX + padX;
     const contentWidth = cardWidth - (padX * 2);
 
-    // Cryptographic Security Token
+    // Cryptographic Security Token (locked to capturedGps snapshot)
     const securityToken = generateLocationSecurityToken(
       userObj?.username || 'user',
-      currentGpsState.lat ?? 0,
-      currentGpsState.lng ?? 0,
+      stampLat,
+      stampLng,
       exactTime
     );
 
@@ -1103,9 +1137,9 @@ export default function CheckIn() {
     );
 
     // Tile 4: Tiêu chuẩn Bán kính GPS (Chuẩn ≤20m)
-    const distText = currentGpsState.message && currentGpsState.message.includes('Khoảng cách:')
-      ? currentGpsState.message
-      : `Khoảng cách: ${currentDist ?? 0}m / ${targetRadius}m (≤${targetRadius}m Hợp lệ)`;
+    const distText = stampMsg && stampMsg.includes('Khoảng cách:')
+      ? stampMsg
+      : `Khoảng cách: ${stampDist}m / ${targetRadius}m (≤${targetRadius}m Hợp lệ)`;
     drawInfoTile(
       col2X,
       row2Y,
@@ -1125,7 +1159,7 @@ export default function CheckIn() {
     ctx.fillStyle = '#64748B'; // Slate 500
     ctx.textBaseline = 'top';
 
-    const coordsText = `🛰️ TỌA ĐỘ: ${currentGpsState.lat?.toFixed(6) || '10.976083'}, ${currentGpsState.lng?.toFixed(6) || '106.664654'}`;
+    const coordsText = `🛰️ TỌA ĐỘ: ${stampLat ? stampLat.toFixed(6) : '10.976083'}, ${stampLng ? stampLng.toFixed(6) : '106.664654'}`;
     ctx.fillText(coordsText, contentX, footerY);
 
     const rightFooterText = `BÁN KÍNH TIÊU CHUẨN: ≤ 20M  •  KING'S GRILL CHÍNH THỨC`;
@@ -1133,7 +1167,7 @@ export default function CheckIn() {
     ctx.fillText(rightFooterText, contentX + contentWidth - rightFooterWidth, footerY);
     ctx.restore();
 
-    // Save image with high-efficiency WebP encoding (crisp watermark text, natural skin tone, super HD sharpness)
+    // Save image with optimal encoding (skips slow WebP->PNG fallback on iOS Safari)
     const dataUrl = encodeOptimalCanvas(canvas, 0.90);
     
     store.setCapturedImage(dataUrl);
@@ -1183,10 +1217,11 @@ export default function CheckIn() {
     if (videoRatio > canvasRatio) { sHeight = vh; sWidth = vh * canvasRatio; sx = (vw - sWidth) / 2; sy = 0; }
     else { sWidth = vw; sHeight = vw / canvasRatio; sx = 0; sy = (vh - sHeight) / 2; }
 
+    // Note: Do NOT apply CSS ctx.filter on iOS WebKit <video> drawImage, as WebKit hardware video buffers can fail or render black
     ctx.save();
+    ctx.filter = 'none';
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    ctx.filter = 'contrast(1.05) saturate(1.03) brightness(1.01)';
     ctx.translate(targetWidth, 0); ctx.scale(-1, 1);
     ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
     ctx.restore();
@@ -1212,12 +1247,33 @@ export default function CheckIn() {
     const s = String(now.getSeconds()).padStart(2, '0');
     const exactTime = `${d}/${m}/${y} ${h}:${min}:${s}`;
     
-    const addr = useAppStore.getState().gps.address || useAppStore.getState().gps.status || 'Chưa rõ vị trí';
-    
-    drawWatermarkAndSave(canvas, ctx, exactTime, addr, modalChosenType || recommendation.recommendedType);
+    const currentGps = useAppStore.getState().gps;
+    const addr = currentGps.address || KG_STANDARD_ADDRESS;
+    const snapGps = {
+      lat: currentGps.lat ?? targetLat,
+      lng: currentGps.lng ?? targetLng,
+      acc: currentGps.accuracy ?? 10,
+      dist: currentDist ?? 0,
+      address: addr,
+      message: currentGps.message || ''
+    };
+    setCapturedGps(snapGps);
+
+    const activeType = recommendation.recommendedType;
+    setModalChosenType(activeType);
+    setHasAcknowledgedMissingIn(false);
+    setHasAcknowledgedEarlyOut(false);
+
+    drawWatermarkAndSave(canvas, ctx, exactTime, addr, activeType, snapGps);
     const captureTimestampMs = Date.now();
     setPhotoCapturedAtMs(captureTimestampMs);
     setPhotoTimeLeftSeconds(PHOTO_EXPIRATION_SECONDS);
+
+    // Immediately open confirmation bottom sheet for seamless 2-tap iPhone check-in flow
+    const isAdminOrTester = currentUser?.role === 'admin' || currentUser?.role === 'tester';
+    if (!cooldown.isBlocked || isAdminOrTester) {
+      setConfirmCheckInModalOpen(true);
+    }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1267,9 +1323,9 @@ export default function CheckIn() {
         else { sWidth = vw; sHeight = vw / canvasRatio; sx = 0; sy = (vh - sHeight) / 2; }
         
         ctx.save();
+        ctx.filter = 'none';
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
-        ctx.filter = 'contrast(1.05) saturate(1.03) brightness(1.01)';
         ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
         ctx.restore();
 
@@ -1294,12 +1350,32 @@ export default function CheckIn() {
         const s = String(now.getSeconds()).padStart(2, '0');
         const exactTime = `${d}/${m}/${y} ${h}:${min}:${s}`;
         
-        const addr = useAppStore.getState().gps.address || useAppStore.getState().gps.status || 'Chưa rõ vị trí';
-        
-        drawWatermarkAndSave(canvas, ctx, exactTime, addr, modalChosenType || recommendation.recommendedType);
+        const currentGps = useAppStore.getState().gps;
+        const addr = currentGps.address || KG_STANDARD_ADDRESS;
+        const snapGps = {
+          lat: currentGps.lat ?? targetLat,
+          lng: currentGps.lng ?? targetLng,
+          acc: currentGps.accuracy ?? 10,
+          dist: currentDist ?? 0,
+          address: addr,
+          message: currentGps.message || ''
+        };
+        setCapturedGps(snapGps);
+
+        const activeType = recommendation.recommendedType;
+        setModalChosenType(activeType);
+        setHasAcknowledgedMissingIn(false);
+        setHasAcknowledgedEarlyOut(false);
+
+        drawWatermarkAndSave(canvas, ctx, exactTime, addr, activeType, snapGps);
         const captureTimestampMs = Date.now();
         setPhotoCapturedAtMs(captureTimestampMs);
         setPhotoTimeLeftSeconds(PHOTO_EXPIRATION_SECONDS);
+
+        const isAdminOrTester = currentUser?.role === 'admin' || currentUser?.role === 'tester';
+        if (!cooldown.isBlocked || isAdminOrTester) {
+          setConfirmCheckInModalOpen(true);
+        }
       };
       img.src = event.target?.result as string;
     };
@@ -1312,7 +1388,7 @@ export default function CheckIn() {
     setHasAcknowledgedMissingIn(false);
     setHasAcknowledgedEarlyOut(false);
     
-    // Re-render watermark in real-time onto canvas
+    // Re-render watermark in real-time onto canvas using locked capturedGps snapshot
     const canvas = canvasRef.current;
     const cleanCanvas = cleanCanvasRef.current;
     if (canvas && cleanCanvas) {
@@ -1320,15 +1396,17 @@ export default function CheckIn() {
       if (ctx) {
         ctx.drawImage(cleanCanvas, 0, 0);
         const exactTime = store.capturedTime || `${String(new Date().getDate()).padStart(2, '0')}/${String(new Date().getMonth() + 1).padStart(2, '0')}/${new Date().getFullYear()} ${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}:${String(new Date().getSeconds()).padStart(2, '0')}`;
-        const addr = useAppStore.getState().gps.address || useAppStore.getState().gps.status || 'Chưa rõ vị trí';
-        drawWatermarkAndSave(canvas, ctx, exactTime, addr, newType);
+        const addr = capturedGps?.address || useAppStore.getState().gps.address || KG_STANDARD_ADDRESS;
+        drawWatermarkAndSave(canvas, ctx, exactTime, addr, newType, capturedGps);
       }
     }
   };
 
   // Submit flow triggers
   const submitCheck = async (type: string) => {
-    if (!capturedImage || !isWithinRadius || gps.lat === null || gps.lng === null) return;
+    const activeLat = capturedGps?.lat ?? gps.lat;
+    const activeLng = capturedGps?.lng ?? gps.lng;
+    if (!capturedImage || !isWithinRadius || activeLat === null || activeLng === null) return;
 
     if (!photoCapturedAtMs || Date.now() - photoCapturedAtMs > PHOTO_EXPIRATION_SECONDS * 1000) {
       handlePhotoExpired();
@@ -1338,7 +1416,7 @@ export default function CheckIn() {
     const isOutAction = type.includes('Ra ca') || type.includes('OUT') || type.toLowerCase().includes('ra');
     // Safety guard: If user manually chose 'Ra ca' but has no active open shift or Vào ca record
     if (isOutAction && !recommendation.isOpenShift && !recommendation.hasInToday) {
-      setPendingTypeToSubmit(type);
+      setPendingTypeToSubmit(type as CheckInTypeString);
       setConfirmInvertedTypeOpen(true);
       return;
     }
@@ -1362,7 +1440,9 @@ export default function CheckIn() {
       return;
     }
 
-    if (!isWithinRadius || gps.lat === null || gps.lng === null) {
+    const activeLat = capturedGps?.lat ?? gps.lat;
+    const activeLng = capturedGps?.lng ?? gps.lng;
+    if (!isWithinRadius || activeLat === null || activeLng === null) {
       speak('Vị trí chưa hợp lệ. Yêu cầu trong bán kính 20m.');
       setFeedbackTitle('Vị trí ngoài bán kính quy định (≤20m)');
       setFeedbackMessage(`Khoảng cách hiện tại: ${currentDist ?? 'quá'}m (quy định ≤ ${targetRadius}m). Hệ thống từ chối ghi nhận lượt chấm công ngoài khu vực nhà hàng.`);
@@ -1412,6 +1492,7 @@ export default function CheckIn() {
             speak(`Cảnh báo, bạn đang vào ca trễ ${lateMinsInfo} phút.`);
             
             // Set late variables and open bottom confirmation sheet instead of SweetAlert
+            setPendingTypeToSubmit(type as CheckInTypeString);
             setPendingLateMins(lateMinsInfo);
             setPendingShiftStr(todayShift);
             setConfirmLateOpen(true);
@@ -1447,10 +1528,16 @@ export default function CheckIn() {
       return;
     }
 
-    if (!isWithinRadius) {
+    const activeLat = capturedGps?.lat ?? gps.lat;
+    const activeLng = capturedGps?.lng ?? gps.lng;
+    const activeAcc = capturedGps?.acc ?? gps.accuracy ?? 10;
+    const activeDist = capturedGps?.dist ?? currentDist ?? 0;
+    const activeLocation = capturedGps?.address || gps.address || gps.status || KG_STANDARD_ADDRESS;
+
+    if (!isWithinRadius || activeLat === null || activeLng === null) {
       speak(`Từ chối chấm công: Bạn đang ở ngoài bán kính ${targetRadius}m.`);
       setFeedbackTitle('Từ chối chấm công');
-      setFeedbackMessage(`Khoảng cách hiện tại là ${currentDist ?? 'quá'}m (quy định ≤ ${targetRadius}m). Hệ thống không ghi nhận lượt chấm công này.`);
+      setFeedbackMessage(`Khoảng cách hiện tại là ${activeDist ?? 'quá'}m (quy định ≤ ${targetRadius}m). Hệ thống không ghi nhận lượt chấm công này.`);
       setFeedbackType('warning');
       setFeedbackSheetOpen(true);
       return;
@@ -1467,6 +1554,7 @@ export default function CheckIn() {
 
     // Exactly use the photo's captured time, guaranteeing 100% match with the watermark
     const actualTime = store.capturedTime || fallbackExactTime;
+    const previousLastCheckInTime = store.lastCheckInTime;
     const tempLog = {
       fullname: currentUser.fullname,
       type,
@@ -1491,6 +1579,7 @@ export default function CheckIn() {
     const capturedTimestamp = photoCapturedAtMs;
     store.setCapturedImage(null);
     store.setCapturedTime(null);
+    setCapturedGps(null);
     setPhotoCapturedAtMs(null);
     setPhotoTimeLeftSeconds(PHOTO_EXPIRATION_SECONDS);
 
@@ -1506,7 +1595,7 @@ export default function CheckIn() {
       ? currentUser.email
       : (currentUser.username.toLowerCase() === 'admin' ? 'dmt.7121@gmail.com' : (currentUser.email || 'dmt.7121@gmail.com'));
 
-    const isLate = Boolean(lateMinsInfo && lateMinsInfo > 5 && type === 'Vào ca');
+    const isLate = Boolean(lateMinsInfo && lateMinsInfo > 5 && type.includes('Vào'));
     const penaltyAmount = isLate ? Math.max(10000, Math.floor(lateMinsInfo / 15) * 10000) : 0;
 
     // Save details for synchronized rich feedback modal
@@ -1514,8 +1603,8 @@ export default function CheckIn() {
       type,
       fullname: currentUser.fullname,
       time: actualTime,
-      location: gps.address || (gps.status === 'Đang lấy vị trí...' ? 'Nhà hàng King\'s Grill' : gps.status),
-      distMeters: typeof currentDist === 'number' ? `${Math.round(currentDist)}m` : `<= ${targetRadius}m`,
+      location: activeLocation,
+      distMeters: typeof activeDist === 'number' ? `${Math.round(activeDist)}m` : `<= ${targetRadius}m`,
       isValid: true,
       shift: shiftString,
       email: effectiveEmail,
@@ -1530,18 +1619,18 @@ export default function CheckIn() {
       particleCount: 160,
       spread: 80,
       origin: { y: 0.6 },
-      colors: type === 'Vào ca'
+      colors: type.includes('Vào')
         ? ['#10b981', '#06b6d4', '#facc15', '#3b82f6', '#ec4899']
         : ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981']
     });
 
-    if (type === 'Vào ca') {
+    if (type.includes('Vào')) {
       speak('Ting! Đã ghi nhận thành công điểm danh vào ca. Chúc bạn ca làm việc vui vẻ!');
     } else {
       speak('Ting! Đã ghi nhận thành công điểm danh ra ca. Chúc mừng bạn đã hoàn thành ca làm việc!');
     }
 
-    setFeedbackTitle(type === 'Vào ca' ? 'Điểm Danh Vào Ca Thành Công! 🎉' : 'Điểm Danh Ra Ca Thành Công! 🎊');
+    setFeedbackTitle(type.includes('Vào') ? 'Điểm Danh Vào Ca Thành Công! 🎉' : 'Điểm Danh Ra Ca Thành Công! 🎊');
     setFeedbackMessage('Đã tiếp nhận lượt chấm công! Dữ liệu và hình ảnh đang được tự động đồng bộ vào Bảng chấm công.');
     setFeedbackType('success');
     setFeedbackSheetOpen(true);
@@ -1555,27 +1644,31 @@ export default function CheckIn() {
       fullname: currentUser.fullname,
       email: effectiveEmail,
       type,
-      lat: gps.lat,
-      lng: gps.lng,
+      lat: activeLat,
+      lng: activeLng,
+      gpsAccuracy: activeAcc,
+      distance: activeDist,
       image: payloadImage || null,
       time: payloadTime,
       actualTime: actualTime, // Guaranteed 100% match with photo watermark timestamp
-      location: gps.address || gps.status || KG_STANDARD_ADDRESS,
+      location: activeLocation,
       shift: shiftString,
       lateMins: lateMinsInfo,
       photoCapturedMs: capturedTimestamp,
       clientNowMs: Date.now(),
-      securityToken: generateLocationSecurityToken(currentUser.username, gps.lat ?? 0, gps.lng ?? 0, payloadTime)
+      sendEmailInline: true,
+      securityToken: generateLocationSecurityToken(currentUser.username, activeLat ?? 0, activeLng ?? 0, payloadTime)
     };
 
     // ZERO-LOSS VAULT: Save immediately to persistent storage before network call (with quota-safe image compaction)
     savePunchToVault(payload);
 
-    // FAST SYNC: Send lightweight payload without heavy base64 to guarantee sub-second (<0.5s) Google Sheet write
+    // FAST SYNC: Send lightweight payload without heavy base64 to guarantee sub-second (<0.5s) Google Sheet write with keepalive=true
     const fastSyncPayload = {
       ...payload,
       image: 'PENDING',
-      fastSync: true
+      fastSync: true,
+      sendEmailInline: true
     };
 
     // PIPELINE 1 -> 2 SEQUENCED: Gửi chấm công lên Google Sheet trước, sau khi dòng đã tạo xong mới tải ảnh lên Drive (tránh tranh chấp LockService & tránh tải trùng ảnh)
@@ -1584,7 +1677,13 @@ export default function CheckIn() {
       if (res?.ok || isAlreadyCheckedIn) {
         // Mark punch as synced in permanent vault
         markPunchVaultSynced(clientCheckinId, res?.data);
-        setLastSubmittedPunch(prev => prev ? { ...prev, sheetSaved: true } : prev);
+        setLastSubmittedPunch(prev => prev ? {
+          ...prev,
+          sheetSaved: true,
+          shift: res?.data?.shift || prev.shift,
+          lateMins: res?.data?.lateMins ?? prev.lateMins,
+          checklistPending: Boolean(res?.data?.checklistPending)
+        } : prev);
 
         // Update local log status
         const currentState = useAppStore.getState();
@@ -1593,6 +1692,21 @@ export default function CheckIn() {
         // Queue pulse survey to open smoothly AFTER user finishes reading shift summary
         if (isClockInType && Math.random() < 0.4) {
           setPendingSurveyAfterPunch(true);
+        }
+
+        // Immediate lightweight Email Notification fallback (if server didn't already send inline)
+        // Stripping base64 image ensures <1KB payload so fetch keepalive=true completes even if iPhone screen locks!
+        if (effectiveEmail && !res?.data?.emailSentDirectly) {
+          const { image: _rawImg, ...cleanEmailPayload } = payload;
+          callApi('SEND_EMAIL_NOTIFICATION', {
+            ...cleanEmailPayload,
+            email: effectiveEmail,
+            imageUrl: res?.data?.imageUrl || '',
+            distMeters: res?.data?.distMeters ?? activeDist,
+            isValid: true,
+            viTri: res?.data?.viTri || activeLocation,
+            timeISO: res?.data?.timeISO || timeISO
+          }, { background: true, timeoutMs: 25000, maxAttempts: 2 }).catch(() => {});
         }
 
         // PIPELINE 2: Upload ảnh selfie lên Google Drive ngay sau khi CHECK_IN_OUT đã tạo dòng trên Sheet
@@ -1627,22 +1741,7 @@ export default function CheckIn() {
           });
         }
 
-        // Staggered background email notification after 1,800ms
-        if (effectiveEmail) {
-          setTimeout(() => {
-            callApi('SEND_EMAIL_NOTIFICATION', {
-              ...payload,
-              email: effectiveEmail,
-              imageUrl: res?.data?.imageUrl || payload.image,
-              distMeters: res?.data?.distMeters || currentDist,
-              isValid: true,
-              viTri: res?.data?.viTri || payload.location,
-              timeISO: timeISO
-            }, { background: true, timeoutMs: 60000, maxAttempts: 2 }).catch(() => {});
-          }, 1800);
-        }
-
-        // Staggered background sync of logs and stats after 3,500ms
+        // Background sync of logs and stats after 2,500ms
         setTimeout(() => {
           const weekInfo = computeWeekInfo();
           callApi('GET_DATA', {
@@ -1663,13 +1762,43 @@ export default function CheckIn() {
               } catch {}
             }
           }).catch(() => {});
-        }, 3500);
+        }, 2500);
 
         store.setLastCheckInTime(Date.now());
         try {
           localStorage.setItem('kg_last_checkin', Date.now().toString());
         } catch {}
       } else {
+        const isPermanentValidationError =
+          res?.code === 'OUT_OF_RADIUS' ||
+          res?.code === 'PHOTO_EXPIRED' ||
+          res?.code === 'CLOCK_DESYNC' ||
+          res?.code === 'SPOOF_DETECTED' ||
+          res?.code === 'GPS_REQUIRED' ||
+          res?.code === 'SECURITY_TOKEN_MISMATCH';
+
+        if (isPermanentValidationError) {
+          // Roll back optimistic log & cooldown so user can immediately retry properly
+          const currentState = useAppStore.getState();
+          currentState.setLogs(currentState.logs.filter(l => l.time !== actualTime));
+          currentState.setLastCheckInTime(previousLastCheckInTime);
+          try {
+            if (previousLastCheckInTime) {
+              localStorage.setItem('kg_last_checkin', String(previousLastCheckInTime));
+            } else {
+              localStorage.removeItem('kg_last_checkin');
+            }
+          } catch {}
+
+          speak('Chấm công bị từ chối bởi máy chủ. Vui lòng kiểm tra thông báo.');
+          setLastSubmittedPunch(null);
+          setFeedbackTitle('Từ chối chấm công từ máy chủ');
+          setFeedbackMessage(res?.message || 'Máy chủ từ chối ghi nhận lượt chấm công này. Vui lòng chụp lại ảnh mới và thử lại.');
+          setFeedbackType('warning');
+          setFeedbackSheetOpen(true);
+          return;
+        }
+
         // RESILIENT OFFLINE/CONCURRENCY SYNC: Enqueue to background queue (offlineQueue will automatically upload payload.image after CHECK_IN_OUT syncs)
         enqueueTask('CHECK_IN_OUT', payload, { priority: 'high', maxAttempts: 20 });
       }
@@ -1870,7 +1999,12 @@ export default function CheckIn() {
     }
   };
 
-  const canSubmit = !!(capturedImage && isWithinRadius && gps.lat !== null && gps.lng !== null && photoTimeLeftSeconds > 0);
+  const activeLat = capturedGps?.lat ?? gps.lat;
+  const activeLng = capturedGps?.lng ?? gps.lng;
+  const canCapture = Boolean(!capturedImage && isWithinRadius && gps.lat !== null && gps.lng !== null && (cameraActive || cameraError));
+  const canSubmit = Boolean(capturedImage && isWithinRadius && activeLat !== null && activeLng !== null && photoTimeLeftSeconds > 0);
+  const isCooldownBlocked = Boolean(cooldown.isBlocked && currentUser?.role !== 'admin' && currentUser?.role !== 'tester');
+  const isPrimaryActionReady = capturedImage ? canSubmit : canCapture;
 
   if (currentUser && !isWorkEligible(currentUser)) {
     return <EmploymentStatusNotice user={currentUser} actionLabel="chấm công tại nhà hàng" />;
@@ -2386,6 +2520,8 @@ export default function CheckIn() {
                     type="button"
                     onClick={() => {
                       store.setCapturedImage(null);
+                      store.setCapturedTime(null);
+                      setCapturedGps(null);
                       setPhotoCapturedAtMs(null);
                       setPhotoTimeLeftSeconds(PHOTO_EXPIRATION_SECONDS);
                     }}
@@ -2397,6 +2533,40 @@ export default function CheckIn() {
                   </button>
                 </div>
               </div>
+            </div>
+
+            {/* Bottom Floating Quick-Submit CTA inside Camera Frame (Ergonomic 1-Thumb Access on iPhone without scrolling) */}
+            <div className="absolute bottom-3 inset-x-3 z-40 pointer-events-auto">
+              <button
+                type="button"
+                disabled={!canSubmit || isCooldownBlocked}
+                onClick={() => {
+                  if (isCooldownBlocked) {
+                    speak(`Vui lòng đợi thêm ${cooldown.remainingMinutesFormatted} để chấm công lại.`);
+                    setSpamWarningText(`Quy định chống spam: Bạn vừa chấm công lúc ${cooldown.lastTimeStr || ''}. Vui lòng đợi thêm ${cooldown.remainingMinutesFormatted} trước khi chấm công lần tiếp theo.`);
+                    setSpamWarningOpen(true);
+                    return;
+                  }
+                  setModalChosenType(recommendation.recommendedType);
+                  setHasAcknowledgedMissingIn(false);
+                  setHasAcknowledgedEarlyOut(false);
+                  setConfirmCheckInModalOpen(true);
+                }}
+                className={`w-full py-3 px-4 rounded-xl font-black text-xs sm:text-sm tracking-wide shadow-2xl border flex items-center justify-center gap-2 active:scale-[0.98] transition-all touch-manipulation ${
+                  isCooldownBlocked
+                    ? 'bg-amber-600/95 border-amber-400/40 text-white'
+                    : canSubmit
+                    ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 border-emerald-400/50 text-white shadow-emerald-950/60'
+                    : 'bg-slate-800/90 border-white/15 text-slate-300 opacity-75'
+                }`}
+              >
+                <Send size={15} className="shrink-0" />
+                <span>
+                  {isCooldownBlocked
+                    ? `⏳ Giãn cách (${cooldown.remainingMinutesFormatted})`
+                    : `XÁC NHẬN & GỬI ${recommendation.recommendedType.toUpperCase()} (${photoTimeLeftSeconds}s)`}
+                </span>
+              </button>
             </div>
 
             {/* Bottom Progress Bar: 60s Visual Depletion */}
@@ -2416,21 +2586,25 @@ export default function CheckIn() {
         )}
       </div>
 
-      {/* Primary Action Button: Triggers Smart Confirmation Modal */}
+      {/* Primary Action Button: Triggers Capture (when no photo yet) or Smart Confirmation Modal (when photo captured) */}
       <div className="max-w-sm mx-auto space-y-2.5">
         <KgButton
           variant="primary"
           size="lg"
-          disabled={!canSubmit || (cooldown.isBlocked && currentUser?.role !== 'admin' && currentUser?.role !== 'tester')}
+          disabled={!isPrimaryActionReady || isCooldownBlocked}
           onClick={() => {
-            if (cooldown.isBlocked && currentUser?.role !== 'admin' && currentUser?.role !== 'tester') {
+            if (isCooldownBlocked) {
               speak(`Vui lòng đợi thêm ${cooldown.remainingMinutesFormatted} để chấm công lại.`);
               setSpamWarningText(`Quy định chống spam: Bạn vừa chấm công lúc ${cooldown.lastTimeStr || ''}. Vui lòng đợi thêm ${cooldown.remainingMinutesFormatted} trước khi chấm công lần tiếp theo.`);
               setSpamWarningOpen(true);
               return;
             }
             if (!capturedImage) {
-              takePhoto();
+              if (cameraError) {
+                fileInputRef.current?.click();
+              } else {
+                takePhoto();
+              }
               return;
             }
             if (!isWithinRadius) {
@@ -2444,25 +2618,26 @@ export default function CheckIn() {
             // Prepare modal state
             setModalChosenType(recommendation.recommendedType);
             setHasAcknowledgedMissingIn(false);
+            setHasAcknowledgedEarlyOut(false);
             setConfirmCheckInModalOpen(true);
           }}
           className={`w-full h-14 min-h-[52px] shadow-lg rounded-2xl text-[15px] font-black tracking-wider border-none active:scale-[0.97] transition-all touch-manipulation flex items-center justify-center gap-2.5 ${
-            cooldown.isBlocked && currentUser?.role !== 'admin' && currentUser?.role !== 'tester'
+            isCooldownBlocked
               ? 'bg-amber-600 text-white opacity-90'
-              : !canSubmit
+              : !isPrimaryActionReady
               ? 'opacity-60 cursor-not-allowed bg-slate-400 text-white'
               : 'bg-[var(--kg-primary)] hover:opacity-90 text-white shadow-md'
           }`}
-            icon={Send}
+            icon={capturedImage ? Send : Camera}
           >
-            {cooldown.isBlocked && currentUser?.role !== 'admin' && currentUser?.role !== 'tester'
+            {isCooldownBlocked
               ? `⏳ GIÃN CÁCH (${cooldown.remainingMinutesFormatted})`
               : capturedImage ? `🚀 GỬI CHẤM CÔNG (${photoTimeLeftSeconds}s)` : '📸 CHỤP ẢNH ĐỂ CHẤM CÔNG'}
           </KgButton>
 
         {!canSubmit && (
           <p className="text-[11px] text-center text-[var(--kg-text-muted)] font-medium">
-            {cooldown.isBlocked && currentUser?.role !== 'admin' && currentUser?.role !== 'tester'
+            {isCooldownBlocked
               ? `⏳ Cần chờ thêm ${cooldown.remainingMinutesFormatted} theo quy định giãn cách 15 phút.`
               : !capturedImage && !isWithinRadius
               ? `⚠️ Ngoài bán kính ${targetRadius}m (${currentDist ?? 'quá'}m). Vui lòng di chuyển vào nhà hàng.`
@@ -2470,7 +2645,7 @@ export default function CheckIn() {
               ? `⚠️ Ngoài bán kính ${targetRadius}m (${currentDist ?? 'quá'}m). Không thể gửi chấm công.`
               : photoTimeLeftSeconds <= 0
               ? '⚠️ Ảnh chụp đã hết hạn 60 giây. Vui lòng chụp lại ảnh mới.'
-              : '⚠️ Vui lòng nhấn nút chụp ảnh phía trên để gửi chấm công.'}
+              : '💡 Nhấn nút chụp ảnh tròn trên khung hình hoặc nút "📸 CHỤP ẢNH ĐỂ CHẤM CÔNG" để tiếp tục.'}
           </p>
         )}
       </div>
@@ -2809,9 +2984,13 @@ export default function CheckIn() {
           setConfirmLateOpen(false);
           if (!isWithinRadius) {
             speak('Từ chối chấm công: Bạn đang ở ngoài bán kính 20m.');
+            setFeedbackTitle('Ngoài bán kính chấm công');
+            setFeedbackMessage(`Khoảng cách hiện tại: ${currentDist ?? 'quá'}m (quy định ≤ ${targetRadius}m). Vui lòng di chuyển vào nhà hàng để chấm công.`);
+            setFeedbackType('warning');
+            setFeedbackSheetOpen(true);
             return;
           }
-          executeCheck('Vào ca', true, pendingLateMins, pendingShiftStr);
+          executeCheck(pendingTypeToSubmit || 'Vào ca', true, pendingLateMins, pendingShiftStr);
         }}
       />
 

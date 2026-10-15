@@ -1202,20 +1202,38 @@ export async function uploadImageToDrive(base64Image: string, filename?: string)
   }
 }
 
+let cachedWebpEncodingSupported: boolean | null = null;
+
+function isWebpCanvasSupported(): boolean {
+  if (cachedWebpEncodingSupported !== null) return cachedWebpEncodingSupported;
+  try {
+    const testCanvas = document.createElement('canvas');
+    testCanvas.width = 1;
+    testCanvas.height = 1;
+    const data = testCanvas.toDataURL('image/webp', 0.5);
+    cachedWebpEncodingSupported = Boolean(data && data.startsWith('data:image/webp'));
+  } catch {
+    cachedWebpEncodingSupported = false;
+  }
+  return cachedWebpEncodingSupported;
+}
+
 /**
  * Encode canvas to highest visual sharpness with minimal byte footprint.
  * Uses WebP at optimal compression (0.83) with transparent fallback to JPEG (0.82).
- * WebP provides 35-50% smaller file size than JPEG while maintaining superior
- * edge sharpness on faces and text elements without compression artifacts.
+ * On iOS Safari (where WebP encoding is unsupported and falls back to slow PNG),
+ * skips straight to JPEG to prevent double-encoding latency and memory spikes.
  */
 export function encodeOptimalCanvas(canvas: HTMLCanvasElement, quality = 0.83): string {
-  try {
-    const webpData = canvas.toDataURL('image/webp', quality);
-    if (webpData && webpData.startsWith('data:image/webp')) {
-      return webpData;
+  if (isWebpCanvasSupported()) {
+    try {
+      const webpData = canvas.toDataURL('image/webp', quality);
+      if (webpData && webpData.startsWith('data:image/webp')) {
+        return webpData;
+      }
+    } catch {
+      // fallback
     }
-  } catch {
-    // fallback
   }
   return canvas.toDataURL('image/jpeg', Math.min(quality, 0.82));
 }

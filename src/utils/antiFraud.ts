@@ -11,6 +11,7 @@ export interface GpsSamplePoint {
   speed: number | null;
   timestamp: number; // pos.timestamp from hardware sensor
   receivedAt: number; // Date.now() when browser received
+  isFastStart?: boolean;
 }
 
 export interface SpoofCheckResult {
@@ -48,7 +49,22 @@ export function isAuthorizedTestUser(currentUser?: { username?: string; role?: s
 /**
  * Record a raw GPS sample from navigator.geolocation
  */
-export function recordGpsSample(pos: GeolocationPosition): void {
+export function recordGpsSample(pos: GeolocationPosition, isFastStart = false): void {
+  const now = Date.now();
+  const prev = recentSamples[recentSamples.length - 1];
+
+  // iOS CoreLocation often re-emits the exact same cached CLLocation when stationary.
+  // Avoid pushing duplicate cached fixes as separate satellite readings.
+  if (
+    prev &&
+    prev.lat === pos.coords.latitude &&
+    prev.lng === pos.coords.longitude &&
+    prev.acc === pos.coords.accuracy &&
+    (prev.timestamp === pos.timestamp || now - prev.receivedAt < 400)
+  ) {
+    return;
+  }
+
   const sample: GpsSamplePoint = {
     lat: pos.coords.latitude,
     lng: pos.coords.longitude,
@@ -56,7 +72,8 @@ export function recordGpsSample(pos: GeolocationPosition): void {
     alt: pos.coords.altitude,
     speed: pos.coords.speed,
     timestamp: pos.timestamp,
-    receivedAt: Date.now(),
+    receivedAt: now,
+    isFastStart,
   };
 
   recentSamples.push(sample);
@@ -120,58 +137,65 @@ export function detectGpsSpoofing(currentPos?: GeolocationPosition): SpoofCheckR
   const latest = recentSamples[recentSamples.length - 1];
 
   // 2. Check Accuracy Anomaly
-  // Fake GPS apps commonly return 0, 0.001, or fixed integer 1.0, 5.0 without variation
+  // Fake GPS apps commonly return <= 0 or exact 1.0m accuracy
   if (latest.acc <= 0) {
     details.accuracyAnomaly = true;
     score += 50;
     reasons.push(`Sai số GPS phi thực tế (accuracy = ${latest.acc}m).`);
   } else if (latest.acc === 1) {
-    // 1 meter accuracy is virtually impossible on civilian smartphone GPS in Vietnam
-    score += 30;
+    // 1 meter exact integer accuracy is abnormal on civilian GPS
+    score += 25;
     reasons.push('Độ chính xác 1.0m bất thường (nghi vấn Mock Location).');
   }
 
   // 3. Hardware vs System Timestamp Discrepancy
-  // Mock providers often inject timestamps that drift significantly from Date.now()
-  const timeDelta = Math.abs(latest.receivedAt - latest.timestamp);
-  if (timeDelta > 30000) {
+  // Note: iOS CoreLocation caches stationary fixes for several minutes while standing still.
+  // Only flag extreme drift (> 10 minutes old) or future timestamps (> 60s ahead).
+  const futureDelta = latest.timestamp - latest.receivedAt;
+  const staleDelta = latest.receivedAt - latest.timestamp;
+  if (futureDelta > 60000 || staleDelta > 600000) {
     details.timestampAnomaly = true;
-    score += 30;
-    reasons.push(`Đồng hồ phần cứng GPS lệch ${Math.round(timeDelta / 1000)}s so với hệ thống.`);
+    score += 20;
+    const diffSec = Math.round(Math.abs(latest.receivedAt - latest.timestamp) / 1000);
+    reasons.push(`Đồng hồ phần cứng GPS lệch ${diffSec}s so với hệ thống.`);
   }
 
-  // 4. Zero-Jitter Analysis (requires at least 3 samples)
-  // Real satellite signals naturally oscillate at 6th-8th decimal place due to atmospheric noise.
-  // Fake GPS injects an exact constant floating point number across multiple queries.
-  if (recentSamples.length >= 3) {
-    const last3 = recentSamples.slice(-3);
-    const latMatch = last3.every((s) => s.lat === last3[0].lat);
-    const lngMatch = last3.every((s) => s.lng === last3[0].lng);
-    const accMatch = last3.every((s) => s.acc === last3[0].acc);
+  // 4. Zero-Jitter Analysis (requires at least 4 distinct high-accuracy samples)
+  // On iOS CoreLocation, stationary filtering can hold coordinates constant; only flag when
+  // accuracy is also a synthetic exact integer (<= 3m) across 4 distinct hardware timestamps.
+  const highAccSamples = recentSamples.filter((s) => !s.isFastStart && s.acc <= 35);
+  if (highAccSamples.length >= 4) {
+    const last4 = highAccSamples.slice(-4);
+    const latMatch = last4.every((s) => s.lat === last4[0].lat);
+    const lngMatch = last4.every((s) => s.lng === last4[0].lng);
+    const accMatch = last4.every((s) => s.acc === last4[0].acc);
+    const distinctTimestamps = new Set(last4.map((s) => s.timestamp)).size >= 3;
+    const syntheticIntegerAcc = Number.isInteger(last4[0].acc) && last4[0].acc <= 3;
 
-    // If coordinates and accuracy are 100% bitwise identical across distinct readings separated by time
-    const timeSpread = last3[2].receivedAt - last3[0].receivedAt;
-    if (latMatch && lngMatch && accMatch && timeSpread >= 1500) {
+    const timeSpread = last4[3].receivedAt - last4[0].receivedAt;
+    if (latMatch && lngMatch && accMatch && distinctTimestamps && syntheticIntegerAcc && timeSpread >= 2500) {
       details.zeroJitter = true;
-      score += 40;
+      score += 30;
       reasons.push('Tọa độ đứng yên tuyệt đối không có dao động vi mô vệ tinh (Zero-jitter).');
     }
   }
 
   // 5. Teleportation / Unrealistic Speed Check
-  // Compare recent consecutive samples for superhuman speed (> 150 km/h = ~42 m/s)
-  if (recentSamples.length >= 2) {
-    const p1 = recentSamples[recentSamples.length - 2];
-    const p2 = recentSamples[recentSamples.length - 1];
-    const dtSeconds = Math.max(0.5, (p2.receivedAt - p1.receivedAt) / 1000);
-    const distMeters = calculateDistanceMeters(p1.lat, p1.lng, p2.lat, p2.lng);
-    const speedMps = distMeters / dtSeconds;
-    const speedKmh = speedMps * 3.6;
+  // Only compare two consecutive high-accuracy satellite fixes (never coarse Wi-Fi fast-start vs GPS lock!)
+  if (highAccSamples.length >= 2) {
+    const p1 = highAccSamples[highAccSamples.length - 2];
+    const p2 = highAccSamples[highAccSamples.length - 1];
+    if (p1.acc <= 25 && p2.acc <= 25) {
+      const dtSeconds = Math.max(1.0, (p2.receivedAt - p1.receivedAt) / 1000);
+      const distMeters = calculateDistanceMeters(p1.lat, p1.lng, p2.lat, p2.lng);
+      const speedMps = distMeters / dtSeconds;
+      const speedKmh = speedMps * 3.6;
 
-    if (distMeters > 50 && speedKmh > 180) {
-      details.teleportation = true;
-      score += 60;
-      reasons.push(`Tọa độ dịch chuyển bất thường (${Math.round(distMeters)}m trong ${dtSeconds.toFixed(1)}s, ~${Math.round(speedKmh)} km/h).`);
+      if (distMeters > 150 && speedKmh > 250) {
+        details.teleportation = true;
+        score += 60;
+        reasons.push(`Tọa độ dịch chuyển bất thường (${Math.round(distMeters)}m trong ${dtSeconds.toFixed(1)}s, ~${Math.round(speedKmh)} km/h).`);
+      }
     }
   }
 

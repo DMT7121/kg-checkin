@@ -93,12 +93,14 @@ export async function callApi(
       const timeoutMs = options?.timeoutMs !== undefined ? options.timeoutMs : (bg ? 15000 : 35000);
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
+      const useKeepalive = !isReadAction && bodyStr.length < 55000 && attempt === 0;
       const response = await fetch(getGasUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         redirect: 'follow',
         body: bodyStr,
         signal: controller.signal,
+        ...(useKeepalive ? { keepalive: true } : {}),
       });
       clearTimeout(timeoutId);
 
@@ -113,13 +115,26 @@ export async function callApi(
         throw new Error('Server returned invalid response');
       }
 
+      // Normalize GAS jsonResponse(false, { message, code }) where fields are nested inside result.data
+      if (result && typeof result === 'object' && !result.ok && result.data && typeof result.data === 'object') {
+        if (!result.message && typeof result.data.message === 'string') {
+          result.message = result.data.message;
+        }
+        if (!result.code && typeof result.data.code === 'string') {
+          result.code = result.data.code;
+        }
+        if (result.isSpamCooldown === undefined && result.data.isSpamCooldown !== undefined) {
+          result.isSpamCooldown = result.data.isSpamCooldown;
+        }
+      }
+
       if (!bg) {
         options?.onLoadingEnd?.();
       }
 
       // Log failed API calls for debugging
       if (!result.ok) {
-        console.warn(`[API] ${action} failed:`, result.message);
+        console.warn(`[API] ${action} failed:`, result.message || result.code || result.data);
       } else if (canUseCache) {
         const defaultTtl = action === 'GET_DATA'
           ? 5 * 60_000
