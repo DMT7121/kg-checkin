@@ -2,7 +2,8 @@ import { Loader2 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 
 export default function LoadingScreen() {
-  const { loading, loadingText } = useAppStore();
+  const loading = useAppStore((s) => s.loading);
+  const loadingText = useAppStore((s) => s.loadingText);
   if (!loading) return null;
 
   return (

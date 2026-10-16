@@ -8,7 +8,9 @@ import MissedCheckInModal from '../../components/MissedCheckInModal';
 
 
 export default function AdminShift() {
-  const { serverGpsConfig, currentUser, setServerGpsConfig } = useAppStore();
+  const serverGpsConfig = useAppStore((s) => s.serverGpsConfig);
+  const currentUser = useAppStore((s) => s.currentUser);
+  const setServerGpsConfig = useAppStore((s) => s.setServerGpsConfig);
   const [isMissedModalOpen, setIsMissedModalOpen] = useState(false);
   const [kgLat, setKgLat] = useState('10.9760826');
   const [kgLng, setKgLng] = useState('106.6646541');

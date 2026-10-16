@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useAppStore, type LogEntry } from '../store/useAppStore';
 import { openPreview } from '../components/ImagePreview';
 import { speak, fetchWithRetry, auditCheckInAnomalies } from '../utils/helpers';
@@ -28,7 +29,16 @@ import {
 import { KgModuleHero, KgBottomSheet, KgButton, KgTextarea } from '../components/KgDesignSystem';
 
 export default function ActivityHistory() {
-  const { logs, stats, currentUser, isUpdating, groqKeys, users } = useAppStore();
+  const { logs, stats, currentUser, isUpdating, groqKeys, users } = useAppStore(
+    useShallow((s) => ({
+      logs: s.logs,
+      stats: s.stats,
+      currentUser: s.currentUser,
+      isUpdating: s.isUpdating,
+      groqKeys: s.groqKeys,
+      users: s.users,
+    }))
+  );
   const [selectedUser, setSelectedUser] = useState<string>('ALL');
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'tester';
 

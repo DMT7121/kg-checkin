@@ -8,7 +8,10 @@ import MonthlySalaryManager from '../../components/MonthlySalaryManager';
 
 
 export default function AdminPayroll() {
-  const { serverPayrollConfig, currentUser, users, setServerPayrollConfig } = useAppStore();
+  const serverPayrollConfig = useAppStore((s) => s.serverPayrollConfig);
+  const currentUser = useAppStore((s) => s.currentUser);
+  const users = useAppStore((s) => s.users);
+  const setServerPayrollConfig = useAppStore((s) => s.setServerPayrollConfig);
   const setCurrentTab = useAppStore(s => s.setCurrentTab);
   const [formulaLocked, setFormulaLocked] = useState(true);
   const [advanceLimit, setAdvanceLimit] = useState('50');

@@ -32,8 +32,9 @@ interface NewbieGuideModalProps {
 type GuideTabKey = 'start' | 'checkin' | 'schedule' | 'checklist' | 'payroll' | 'criteria';
 
 export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: NewbieGuideModalProps) {
-  const store = useAppStore();
-  const { currentUser } = store;
+  const currentUser = useAppStore((s) => s.currentUser);
+  const setCurrentTab = useAppStore((s) => s.setCurrentTab);
+  const store = { setCurrentTab };
   const [activeTab, setActiveTab] = useState<GuideTabKey>('start');
   const [dontShowAgain, setDontShowAgain] = useState(false);
 

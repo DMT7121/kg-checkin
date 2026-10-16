@@ -192,9 +192,12 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
   // Show registration form when: not registered, OR explicitly editing
   const showRegistrationForm = isOpen && (!isScheduleRegistered || isEditing);
 
-  // Refresh registration window every minute
+  // Refresh registration window every minute (skip when document hidden)
   useEffect(() => {
-    const timer = setInterval(() => setRegWindow(isRegistrationOpen()), 60000);
+    const timer = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      setRegWindow(isRegistrationOpen());
+    }, 60000);
     return () => clearInterval(timer);
   }, []);
 
@@ -213,10 +216,13 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
     }
   }, [isManagerView, viewMode, weekInfo.weekLabel]);
 
-  // Auto-check approval when pending (every 2 minutes)
+  // Auto-check approval when pending (every 2 minutes, only when visible and on schedule/workforce tab)
   useEffect(() => {
     if (scheduleStatus !== 'pending' || !currentUser || isManagerView) return;
     const timer = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      const activeTab = useAppStore.getState().currentTab;
+      if (activeTab !== 'workforce' && activeTab !== 'schedule') return;
       callApi('GET_DATA', {
         username: currentUser.username,
         fullname: currentUser.fullname,

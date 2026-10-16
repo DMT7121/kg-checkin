@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import KalmanFilter from '../utils/kalman';
@@ -18,9 +19,9 @@ import {
   type CheckInTypeString,
   getCheckInCooldown,
   auditCheckInAnomalies,
-  encodeOptimalCanvas,
   getPreviewShiftClass
 } from '../utils/helpers';
+import { renderCheckInWatermarkCanvas } from '../utils/checkinWatermark';
 import {
   MapPin,
   RefreshCw,
@@ -71,7 +72,33 @@ import {
 } from '../utils/antiFraud';
 
 export default function CheckIn() {
-  const store = useAppStore();
+  const store = useAppStore(
+    useShallow((s) => ({
+      currentUser: s.currentUser,
+      gps: s.gps,
+      capturedImage: s.capturedImage,
+      capturedTime: s.capturedTime,
+      currentTime: s.currentTime,
+      approvedShifts: s.approvedShifts,
+      serverGpsConfig: s.serverGpsConfig,
+      logs: s.logs,
+      lastCheckInTime: s.lastCheckInTime,
+      stats: s.stats,
+      setCapturedImage: s.setCapturedImage,
+      setCapturedTime: s.setCapturedTime,
+      setCurrentTime: s.setCurrentTime,
+      setLogs: s.setLogs,
+      setStats: s.setStats,
+      setGps: s.setGps,
+      prependLog: s.prependLog,
+      setLastCheckInTime: s.setLastCheckInTime,
+      setLoading: s.setLoading,
+      setServerGpsConfig: s.setServerGpsConfig,
+      setCurrentTab: s.setCurrentTab,
+      setPreviewImageUrl: s.setPreviewImageUrl,
+      setPreviewOpen: s.setPreviewOpen,
+    }))
+  );
   const { currentUser, gps, capturedImage, currentTime, approvedShifts } = store;
 
   // Snapshot of GPS coordinates at the exact moment the photo is taken (prevents indoor GPS drift during modal confirmation)
@@ -217,8 +244,9 @@ export default function CheckIn() {
   const [photoTimeLeftSeconds, setPhotoTimeLeftSeconds] = useState<number>(PHOTO_EXPIRATION_SECONDS);
 
   const handlePhotoExpired = useCallback(() => {
-    store.setCapturedImage(null);
-    store.setCapturedTime(null);
+    const s = useAppStore.getState();
+    s.setCapturedImage(null);
+    s.setCapturedTime(null);
     setCapturedGps(null);
     setPhotoCapturedAtMs(null);
     setPhotoTimeLeftSeconds(PHOTO_EXPIRATION_SECONDS);
@@ -233,7 +261,7 @@ export default function CheckIn() {
     );
     setFeedbackType('warning');
     setFeedbackSheetOpen(true);
-  }, [store]);
+  }, []);
 
   useEffect(() => {
     if (!capturedImage || !photoCapturedAtMs) {
@@ -274,10 +302,11 @@ export default function CheckIn() {
   // Clock initialization
   useEffect(() => {
     const cur = getCurrentTimeString();
-    if (useAppStore.getState().currentTime !== cur) {
-      store.setCurrentTime(cur);
+    const s = useAppStore.getState();
+    if (s.currentTime !== cur) {
+      s.setCurrentTime(cur);
     }
-  }, [store]);
+  }, []);
 
   // Listen to background Punch Vault sync updates
   useEffect(() => {
@@ -297,8 +326,9 @@ export default function CheckIn() {
             cacheBuster: Date.now()
           }, { background: true, cacheTtlMs: 0 }).then((dataRes) => {
             if (dataRes?.ok) {
-              store.setLogs(dataRes.data.logs || []);
-              store.setStats(dataRes.data.stats || store.stats);
+              const s = useAppStore.getState();
+              s.setLogs(dataRes.data.logs || []);
+              s.setStats(dataRes.data.stats || s.stats);
             }
           });
         }
@@ -310,7 +340,7 @@ export default function CheckIn() {
       }
     });
     return unsubscribe;
-  }, [store]);
+  }, []);
 
   // Reverse Geocoding - Zero network overhead for restaurant vicinity
   const lastGeocodeRef = useRef<{lat: number, lng: number} | null>(null);
@@ -320,8 +350,8 @@ export default function CheckIn() {
       const distToKg = getDist(gps.lat, gps.lng, KG_LAT, KG_LNG) * 1000;
       if (distToKg <= 60) {
         if (gps.address !== KG_STANDARD_ADDRESS) {
-          const currentGps = useAppStore.getState().gps;
-          store.setGps({ ...currentGps, address: KG_STANDARD_ADDRESS });
+          const s = useAppStore.getState();
+          s.setGps({ ...s.gps, address: KG_STANDARD_ADDRESS });
         }
         return;
       }
@@ -331,13 +361,13 @@ export default function CheckIn() {
         lastGeocodeRef.current = { lat: gps.lat, lng: gps.lng };
         callApi('GEOCODE', { lat: gps.lat, lng: gps.lng }, { background: true }).then((res) => {
           if (res?.ok && res.data?.address) {
-            const currentGps = useAppStore.getState().gps;
-            store.setGps({ ...currentGps, address: res.data.address });
+            const s = useAppStore.getState();
+            s.setGps({ ...s.gps, address: res.data.address });
           }
         });
       }
     }
-  }, [gps.lat, gps.lng, gps.isValid, gps.address, store]);
+  }, [gps.lat, gps.lng, gps.isValid, gps.address]);
 
   // GPS Logic - Adaptive Ultra-Fast & High-Precision Lock
   const handleGpsSuccess = useCallback((pos: GeolocationPosition, isFastStart: boolean) => {
@@ -353,11 +383,12 @@ export default function CheckIn() {
     const rawLng = pos.coords.longitude;
     const acc = pos.coords.accuracy;
 
-    const latestGpsConfig = useAppStore.getState().serverGpsConfig;
+    const s = useAppStore.getState();
+    const latestGpsConfig = s.serverGpsConfig;
     const targetLat = latestGpsConfig?.lat ?? KG_LAT;
     const targetLng = latestGpsConfig?.lng ?? KG_LNG;
     const targetRadius = (latestGpsConfig?.radius && latestGpsConfig.radius > 0) ? latestGpsConfig.radius : KG_RADIUS_METERS; // Chuẩn 25m
-    const isAuthorizedTest = isAuthorizedTestUser(useAppStore.getState().currentUser);
+    const isAuthorizedTest = isAuthorizedTestUser(s.currentUser);
 
     const rawDist = getDist(rawLat, rawLng, targetLat, targetLng) * 1000;
     // Indoor tolerance: Compensate for structural signal attenuation (max 10m deduction if accuracy is coarse)
@@ -370,7 +401,7 @@ export default function CheckIn() {
         // Fast cached position is within restaurant: lock immediately!
         kalmanLatRef.current.filter(rawLat, 0, acc);
         kalmanLngRef.current.filter(rawLng, 0, acc);
-        store.setGps({
+        s.setGps({
           lat: rawLat,
           lng: rawLng,
           isValid: true,
@@ -387,7 +418,7 @@ export default function CheckIn() {
       } else {
         // Cached position is outside. Do NOT prematurely fail or play negative audio!
         // Show optimistic satellite loading while continuous high-precision hardware lock engages.
-        store.setGps({
+        s.setGps({
           lat: rawLat,
           lng: rawLng,
           isValid: false,
@@ -414,7 +445,7 @@ export default function CheckIn() {
 
     if (isLiveValid) {
       consecutiveInvalidCountRef.current = 0;
-      store.setGps({
+      s.setGps({
         lat,
         lng,
         isValid: true,
@@ -434,7 +465,7 @@ export default function CheckIn() {
         consecutiveInvalidCountRef.current += 1;
       } else {
         consecutiveInvalidCountRef.current = 0;
-        store.setGps({
+        s.setGps({
           lat,
           lng,
           isValid: false,
@@ -451,16 +482,17 @@ export default function CheckIn() {
         }
       }
     }
-  }, [store]);
+  }, []);
 
   const handleGpsError = useCallback((err: GeolocationPositionError) => {
+    const s = useAppStore.getState();
     // Reset watchIdRef so subsequent manual click on "Làm mới" will re-arm watchPosition
     if (watchIdRef.current !== null) {
       navigator.geolocation.clearWatch(watchIdRef.current);
       watchIdRef.current = null;
     }
     if (err.code === err.PERMISSION_DENIED) {
-      store.setGps({
+      s.setGps({
         isValid: false,
         status: 'Chưa được cấp quyền vị trí',
         message: 'Bật quyền Vị trí cho trình duyệt rồi nhấn “Làm mới”.'
@@ -468,25 +500,26 @@ export default function CheckIn() {
       return;
     }
     if (err.code === err.TIMEOUT) {
-      store.setGps({
+      s.setGps({
         isValid: false,
         status: 'Chưa nhận được vị trí',
         message: 'Ra khu vực thoáng hơn rồi nhấn “Làm mới”.'
       });
       return;
     }
-    store.setGps({
+    s.setGps({
       isValid: false,
       status: 'Không thể xác định vị trí',
       message: 'Kiểm tra GPS và kết nối mạng rồi nhấn “Làm mới”.'
     });
-  }, [store]);
+  }, []);
 
   const startGpsWatch = useCallback(() => {
     if (watchIdRef.current !== null) return;
-    store.setGps({ isValid: false, status: 'Đang định vị siêu tốc...', message: 'Khóa vệ tinh trong giây lát.' });
+    const s = useAppStore.getState();
+    s.setGps({ isValid: false, status: 'Đang định vị siêu tốc...', message: 'Khóa vệ tinh trong giây lát.' });
     if (!navigator.geolocation) {
-      store.setGps({ status: 'Thiết bị không hỗ trợ định vị', message: 'Hãy dùng điện thoại có GPS.' });
+      s.setGps({ status: 'Thiết bị không hỗ trợ định vị', message: 'Hãy dùng điện thoại có GPS.' });
       return;
     }
 
@@ -503,7 +536,7 @@ export default function CheckIn() {
       handleGpsError,
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 3000 }
     );
-  }, [handleGpsError, handleGpsSuccess, store]);
+  }, [handleGpsError, handleGpsSuccess]);
 
   const handlePrecisionRescan = useCallback(() => {
     if (isPrecisionScanning) return;
@@ -535,7 +568,8 @@ export default function CheckIn() {
     prevGpsValidRef.current = null;
     consecutiveInvalidCountRef.current = 0;
 
-    store.setGps({
+    const s = useAppStore.getState();
+    s.setGps({
       lat: null,
       lng: null,
       isValid: false,
@@ -547,15 +581,15 @@ export default function CheckIn() {
 
     if (!navigator.geolocation) {
       setIsPrecisionScanning(false);
-      store.setGps({ status: 'Thiết bị không hỗ trợ định vị', message: 'Hãy dùng điện thoại có GPS.' });
+      s.setGps({ status: 'Thiết bị không hỗ trợ định vị', message: 'Hãy dùng điện thoại có GPS.' });
       return;
     }
 
-    const latestGpsConfig = useAppStore.getState().serverGpsConfig;
+    const latestGpsConfig = s.serverGpsConfig;
     const targetLat = latestGpsConfig?.lat ?? KG_LAT;
     const targetLng = latestGpsConfig?.lng ?? KG_LNG;
     const targetRadius = (latestGpsConfig?.radius && latestGpsConfig.radius > 0) ? latestGpsConfig.radius : KG_RADIUS_METERS; // Chuẩn 25m
-    const isAuthorizedTest = isAuthorizedTestUser(useAppStore.getState().currentUser);
+    const isAuthorizedTest = isAuthorizedTestUser(s.currentUser);
 
     const samples: Array<{
       lat: number;
@@ -583,7 +617,7 @@ export default function CheckIn() {
 
       // Pick best sample:
       // Priority 1: Samples that fall within targetRadius (or effectiveDist) or authorized test
-      const validSamples = samples.filter((s) => s.dist <= targetRadius || s.effectiveDist <= targetRadius || isAuthorizedTest);
+      const validSamples = samples.filter((samp) => samp.dist <= targetRadius || samp.effectiveDist <= targetRadius || isAuthorizedTest);
       let chosen = samples[0];
 
       if (validSamples.length > 0) {
@@ -599,7 +633,7 @@ export default function CheckIn() {
       kalmanLngRef.current.filter(chosen.lng, 0, chosen.acc);
 
       const isInside = (chosen.dist <= targetRadius || chosen.effectiveDist <= targetRadius || isAuthorizedTest);
-      store.setGps({
+      useAppStore.getState().setGps({
         lat: chosen.lat,
         lng: chosen.lng,
         isValid: isInside,
@@ -642,8 +676,8 @@ export default function CheckIn() {
 
       samples.push({ lat, lng, acc, dist, effectiveDist });
 
-      const bestAcc = Math.min(...samples.map((s) => Math.round(s.acc)));
-      const bestDist = Math.min(...samples.map((s) => Math.round(s.dist)));
+      const bestAcc = Math.min(...samples.map((samp) => Math.round(samp.acc)));
+      const bestDist = Math.min(...samples.map((samp) => Math.round(samp.dist)));
 
       setScanProgress({
         current: samples.length,
@@ -674,7 +708,7 @@ export default function CheckIn() {
     precisionScanTimeoutRef.current = setTimeout(() => {
       finishScan();
     }, 5500);
-  }, [handleGpsError, handleGpsSuccess, isPrecisionScanning, startGpsWatch, store]);
+  }, [handleGpsError, handleGpsSuccess, isPrecisionScanning, startGpsWatch]);
 
   const restartGps = useCallback(() => {
     handlePrecisionRescan();
@@ -862,314 +896,29 @@ export default function CheckIn() {
       return;
     }
 
-    const cardX = 28;
-    const cardHeight = 310;
-    const cardY = canvas.height - cardHeight - 32;
-    const cardWidth = canvas.width - (cardX * 2);
-    const radius = 24;
-
-    // Reset shadow & filter for ultra-crisp stamp graphics
-    ctx.filter = 'none';
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    ctx.shadowColor = 'transparent';
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
-
-    const drawRoundRect = (c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) => {
-      if (typeof c.roundRect === 'function') {
-        c.roundRect(x, y, w, h, r);
-      } else {
-        if (w < 2 * r) r = w / 2;
-        if (h < 2 * r) r = h / 2;
-        c.beginPath();
-        c.moveTo(x + r, y);
-        c.arcTo(x + w, y, x + w, y + h, r);
-        c.arcTo(x + w, y + h, x, y + h, r);
-        c.arcTo(x, y + h, x, y, r);
-        c.arcTo(x, y, x + r, y, r);
-        c.closePath();
-      }
-    };
-
-    // 1. Draw Card Background with sleek dark glassmorphism
-    ctx.save();
-    ctx.fillStyle = 'rgba(10, 18, 34, 0.95)';
-    ctx.beginPath();
-    drawRoundRect(ctx, cardX, cardY, cardWidth, cardHeight, radius);
-    ctx.fill();
-
-    // Subtle premium border
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-
-    // Top subtle gradient bar to add sleek accent
     const currentGpsState = useAppStore.getState().gps;
     const activeGpsSnap = gpsOverride || capturedGps;
     const stampLat = activeGpsSnap?.lat ?? currentGpsState.lat ?? 0;
     const stampLng = activeGpsSnap?.lng ?? currentGpsState.lng ?? 0;
     const stampDist = activeGpsSnap?.dist ?? currentDist ?? 0;
     const stampMsg = activeGpsSnap?.message || currentGpsState.message || '';
-
     const userObj = useAppStore.getState().currentUser;
-    const isCheckInType = typeToStamp.includes('Vào') || typeToStamp.includes('IN') || typeToStamp.toLowerCase().includes('vào');
 
-    const gradBar = ctx.createLinearGradient(cardX, cardY, cardX + cardWidth, cardY);
-    if (isCheckInType) {
-      gradBar.addColorStop(0, '#059669');
-      gradBar.addColorStop(1, '#06B6D4');
-    } else {
-      gradBar.addColorStop(0, '#2563EB');
-      gradBar.addColorStop(1, '#8B5CF6');
-    }
-    ctx.beginPath();
-    drawRoundRect(ctx, cardX, cardY, cardWidth, 4, 2);
-    ctx.fillStyle = gradBar;
-    ctx.fill();
-    ctx.restore();
-
-    // Padding
-    const padX = 20;
-    const contentX = cardX + padX;
-    const contentWidth = cardWidth - (padX * 2);
-
-    // Cryptographic Security Token (locked to capturedGps snapshot)
-    const securityToken = generateLocationSecurityToken(
-      userObj?.username || 'user',
+    const dataUrl = renderCheckInWatermarkCanvas({
+      canvas,
+      ctx,
+      exactTime,
+      addr,
+      typeToStamp,
       stampLat,
       stampLng,
-      exactTime
-    );
+      stampDist,
+      stampMsg,
+      targetRadius,
+      user: userObj,
+      logoImg: logoImgRef.current
+    });
 
-    // --- HEADER SECTION (y = cardY + 16 to cardY + 62) ---
-    const headerTop = cardY + 16;
-    const logoSize = 44;
-    const logoX = contentX;
-    const logoY = headerTop;
-
-    // Logo backdrop rounded container - Luminous White Badge that POPS out from the dark card
-    ctx.save();
-    // Vibrant radiant outer glow
-    ctx.shadowColor = 'rgba(56, 189, 248, 0.75)';
-    ctx.shadowBlur = 12;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
-
-    // Crisp white badge background with subtle bevel
-    const badgeGrad = ctx.createLinearGradient(logoX, logoY, logoX, logoY + logoSize);
-    badgeGrad.addColorStop(0, '#FFFFFF');
-    badgeGrad.addColorStop(1, '#F1F5F9');
-    ctx.fillStyle = badgeGrad;
-    ctx.beginPath();
-    drawRoundRect(ctx, logoX, logoY, logoSize, logoSize, 12);
-    ctx.fill();
-
-    // High-visibility border ring
-    ctx.strokeStyle = '#38BDF8';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    // Reset shadow for crisp image rendering inside
-    ctx.shadowColor = 'transparent';
-    ctx.shadowBlur = 0;
-
-    // Draw webapp logo image
-    if (logoImgRef.current && logoImgRef.current.complete && logoImgRef.current.naturalWidth > 0) {
-      ctx.save();
-      ctx.beginPath();
-      drawRoundRect(ctx, logoX + 2, logoY + 2, logoSize - 4, logoSize - 4, 10);
-      ctx.clip();
-      ctx.drawImage(logoImgRef.current, logoX + 2, logoY + 2, logoSize - 4, logoSize - 4);
-      ctx.restore();
-    } else {
-      // Vector fallback with sharp King's Grill emblem
-      ctx.fillStyle = '#0369A1';
-      ctx.font = '900 18px "Plus Jakarta Sans", system-ui, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('KG', logoX + logoSize / 2, logoY + logoSize / 2);
-    }
-    ctx.restore();
-
-    // Brand Title beside Logo
-    const brandTextX = logoX + logoSize + 12;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    ctx.font = '900 19px "Plus Jakarta Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillText("KING'S GRILL", brandTextX, headerTop + 3);
-
-    ctx.font = '700 11px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = '#94A3B8'; // Slate 400
-    ctx.fillText("HỆ THỐNG CHỨNG THỰC CHẤM CÔNG GPS • KG-OS", brandTextX, headerTop + 26);
-
-    // Right Header: Status Badge Pill (Strictly HỢP LỆ)
-    const upperType = typeToStamp.toUpperCase();
-    const statusText = `${upperType} • HỢP LỆ`;
-    ctx.font = 'bold 14px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    const statusWidth = ctx.measureText(statusText).width + 36;
-    const statusHeight = 32;
-    const statusX = cardX + cardWidth - padX - statusWidth;
-    const statusY = headerTop + 5;
-
-    ctx.save();
-    ctx.beginPath();
-    drawRoundRect(ctx, statusX, statusY, statusWidth, statusHeight, 16);
-    ctx.fillStyle = isCheckInType ? 'rgba(16, 185, 129, 0.22)' : 'rgba(59, 130, 246, 0.22)';
-    ctx.fill();
-    ctx.strokeStyle = isCheckInType ? '#10B981' : '#3B82F6';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-
-    // Dot indicator
-    ctx.beginPath();
-    ctx.arc(statusX + 16, statusY + statusHeight / 2, 4.5, 0, Math.PI * 2);
-    ctx.fillStyle = isCheckInType ? '#34D399' : '#60A5FA';
-    ctx.fill();
-
-    // Status text
-    ctx.fillStyle = isCheckInType ? '#6EE7B7' : '#93C5FD';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(statusText, statusX + 27, statusY + statusHeight / 2);
-    ctx.restore();
-
-    // Divider Line below Header
-    const divY = headerTop + logoSize + 10;
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(contentX, divY);
-    ctx.lineTo(contentX + contentWidth, divY);
-    ctx.stroke();
-
-    // --- 2x2 MODULAR INFORMATION TILES (y = divY + 10) ---
-    const tileGap = 14;
-    const tileW = (contentWidth - tileGap) / 2;
-    const tileH = 70;
-    const tileR = 12;
-    const col1X = contentX;
-    const col2X = contentX + tileW + tileGap;
-    const row1Y = divY + 10;
-    const row2Y = row1Y + tileH + 10;
-
-    const drawInfoTile = (
-      x: number,
-      y: number,
-      w: number,
-      h: number,
-      iconLabel: string,
-      mainValue: string,
-      subValue: string = '',
-      mainColor: string = '#FFFFFF',
-      iconColor: string = '#94A3B8'
-    ) => {
-      // Tile background
-      ctx.save();
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
-      ctx.beginPath();
-      drawRoundRect(ctx, x, y, w, h, tileR);
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-
-      // Top label
-      ctx.font = 'bold 11px system-ui, -apple-system, sans-serif';
-      ctx.fillStyle = iconColor;
-      ctx.textBaseline = 'top';
-      ctx.fillText(iconLabel, x + 14, y + 10);
-
-      // Main value
-      ctx.font = 'bold 15px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
-      ctx.fillStyle = mainColor;
-      ctx.fillText(mainValue, x + 14, y + 27);
-
-      // Sub value if exists
-      if (subValue) {
-        ctx.font = '500 12px system-ui, -apple-system, sans-serif';
-        ctx.fillStyle = '#CBD5E1';
-        ctx.fillText(subValue, x + 14, y + 47);
-      }
-      ctx.restore();
-    };
-
-    // Tile 1: Thời gian ghi nhận
-    drawInfoTile(
-      col1X,
-      row1Y,
-      tileW,
-      tileH,
-      '🕒 THỜI GIAN GHI NHẬN',
-      exactTime,
-      `Chữ ký an ninh: ${securityToken}`,
-      '#FDE047', // Vivid Gold
-      '#FACC15'
-    );
-
-    // Tile 2: Nhân sự chấm công
-    const roleTitle = userObj?.role === 'admin' ? 'Quản lý' : (userObj?.position || 'Nhân sự');
-    const personName = `${userObj?.fullname || 'Nhân sự'} (${userObj?.username || ''})`;
-    drawInfoTile(
-      col2X,
-      row1Y,
-      tileW,
-      tileH,
-      '👤 NHÂN SỰ CHẤM CÔNG',
-      personName,
-      `Vị trí công tác: ${roleTitle}`,
-      '#FFFFFF',
-      '#93C5FD'
-    );
-
-    // Tile 3: Địa điểm & Trạng thái vệ tinh
-    drawInfoTile(
-      col1X,
-      row2Y,
-      tileW,
-      tileH,
-      '📍 ĐỊA ĐIỂM & ĐỊNH VỊ',
-      addr.length > 38 ? addr.slice(0, 36) + '...' : addr,
-      'Khóa vệ tinh GPS chính xác cao',
-      '#E2E8F0',
-      '#38BDF8'
-    );
-
-    // Tile 4: Tiêu chuẩn Bán kính GPS (Chuẩn ≤20m)
-    const distText = stampMsg && stampMsg.includes('Khoảng cách:')
-      ? stampMsg
-      : `Khoảng cách: ${stampDist}m / ${targetRadius}m (≤${targetRadius}m Hợp lệ)`;
-    drawInfoTile(
-      col2X,
-      row2Y,
-      tileW,
-      tileH,
-      `🛰️ TIÊU CHUẨN BÁN KÍNH GPS (≤${targetRadius}M)`,
-      distText,
-      '✓ Đạt chuẩn vị trí nhà hàng (≤20m)',
-      '#34D399',
-      '#10B981'
-    );
-
-    // --- FOOTER BAR (y = row2Y + tileH + 10) ---
-    const footerY = row2Y + tileH + 10;
-    ctx.save();
-    ctx.font = '500 12px system-ui, -apple-system, sans-serif';
-    ctx.fillStyle = '#64748B'; // Slate 500
-    ctx.textBaseline = 'top';
-
-    const coordsText = `🛰️ TỌA ĐỘ: ${stampLat ? stampLat.toFixed(6) : '10.976083'}, ${stampLng ? stampLng.toFixed(6) : '106.664654'}`;
-    ctx.fillText(coordsText, contentX, footerY);
-
-    const rightFooterText = `BÁN KÍNH TIÊU CHUẨN: ≤ 20M  •  KING'S GRILL CHÍNH THỨC`;
-    const rightFooterWidth = ctx.measureText(rightFooterText).width;
-    ctx.fillText(rightFooterText, contentX + contentWidth - rightFooterWidth, footerY);
-    ctx.restore();
-
-    // Save image with optimal encoding (skips slow WebP->PNG fallback on iOS Safari)
-    const dataUrl = encodeOptimalCanvas(canvas, 0.90);
-    
     store.setCapturedImage(dataUrl);
     store.setCapturedTime(exactTime);
   };

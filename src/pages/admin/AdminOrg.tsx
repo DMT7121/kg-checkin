@@ -7,7 +7,10 @@ import { KgModuleHero } from '../../components/KgDesignSystem';
 
 
 export default function AdminOrg() {
-  const { serverOrgConfig, currentUser, setServerOrgConfig, setCurrentTab } = useAppStore();
+  const serverOrgConfig = useAppStore((s) => s.serverOrgConfig);
+  const currentUser = useAppStore((s) => s.currentUser);
+  const setServerOrgConfig = useAppStore((s) => s.setServerOrgConfig);
+  const setCurrentTab = useAppStore((s) => s.setCurrentTab);
   const [companyName, setCompanyName] = useState('King\'s Grill');
   const [companyAddress, setCompanyAddress] = useState('Dĩ An, Bình Dương');
   const [roles, setRoles] = useState<any[]>([

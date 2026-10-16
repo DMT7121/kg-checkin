@@ -28,7 +28,10 @@ export function getDirectDriveImageUrl(url: string): { direct: string; thumbnail
 
 /** Image preview modal - Ultra-fast instant preview with direct image loading & zoom */
 export default function ImagePreview() {
-  const { isPreviewOpen, previewImageUrl, setPreviewOpen, setPreviewImageUrl } = useAppStore();
+  const isPreviewOpen = useAppStore((s) => s.isPreviewOpen);
+  const previewImageUrl = useAppStore((s) => s.previewImageUrl);
+  const setPreviewOpen = useAppStore((s) => s.setPreviewOpen);
+  const setPreviewImageUrl = useAppStore((s) => s.setPreviewImageUrl);
   const [zoom, setZoom] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [useFallback, setUseFallback] = useState(false);
@@ -38,15 +41,23 @@ export default function ImagePreview() {
   const fileId = !isBase64 ? extractDriveFileId(previewImageUrl) : null;
   const driveInfo = fileId ? getDirectDriveImageUrl(previewImageUrl) : null;
 
-  // Reset state when preview closes or opens
+  // Reset state when preview closes or opens + handle Escape key
   useEffect(() => {
     if (isPreviewOpen) {
       setZoom(1);
       setIsLoading(!isBase64);
       setUseFallback(false);
       setErrorCount(0);
+
+      const onKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          setPreviewOpen(false);
+        }
+      };
+      document.addEventListener('keydown', onKeyDown);
+      return () => document.removeEventListener('keydown', onKeyDown);
     }
-  }, [isPreviewOpen, previewImageUrl, isBase64]);
+  }, [isPreviewOpen, previewImageUrl, isBase64, setPreviewOpen]);
 
   if (!isPreviewOpen) return null;
 

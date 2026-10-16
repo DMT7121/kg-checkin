@@ -17,7 +17,8 @@ interface ChecklistTemplateItem {
 }
 
 export default function AdminChecklistConfig() {
-  const store = useAppStore();
+  const setCurrentTab = useAppStore((s) => s.setCurrentTab);
+  const store = { setCurrentTab };
   const [items, setItems] = useState<ChecklistTemplateItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);

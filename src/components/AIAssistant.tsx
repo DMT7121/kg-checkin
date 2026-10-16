@@ -16,16 +16,7 @@ interface Message {
 export default function AIAssistant() {
   const currentUser = useAppStore((s) => s.currentUser);
   const groqKeys = useAppStore((s) => s.groqKeys);
-  const logs = useAppStore((s) => s.logs);
-  const shiftData = useAppStore((s) => s.shiftData);
-  const checklistItems = useAppStore((s) => s.checklistItems);
-  const adminSchedules = useAppStore((s) => s.adminSchedules);
   const chatHistory = useAppStore((s) => s.chatHistory);
-  const aiPrompts = useAppStore((s) => s.aiPrompts);
-  const payrollData = useAppStore((s) => s.payrollData);
-  const checklistLogs = useAppStore((s) => s.checklistLogs);
-  const approvedShifts = useAppStore((s) => s.approvedShifts);
-  const shiftName = useAppStore((s) => s.shiftName);
   const isAiOpen = useAppStore((s) => s.isAiOpen);
   const setAiOpen = useAppStore((s) => s.setAiOpen);
   
@@ -62,7 +53,8 @@ export default function AIAssistant() {
     };
   }, []);
 
-  const useGeminiFallback = groqKeys.length === 0;
+  const nonGeminiGroqKeys = groqKeys.filter((k) => k.key && !k.key.startsWith('AIza'));
+  const useGeminiFallback = nonGeminiGroqKeys.length === 0;
 
   // Auto load history
   useEffect(() => {
@@ -109,6 +101,18 @@ export default function AIAssistant() {
   };
 
   const generateSystemPrompt = (userQuery?: string) => {
+    const {
+      logs,
+      shiftData,
+      checklistItems,
+      adminSchedules,
+      aiPrompts,
+      payrollData,
+      checklistLogs,
+      approvedShifts,
+      shiftName,
+    } = useAppStore.getState();
+
     const today = new Date().toLocaleDateString('vi-VN');
     let prompt = `Bạn là King's Grill AI Assistant - Trợ lý AI chuyên nghiệp của nhà hàng King's Grill. Hôm nay là ngày ${today}, đang là ${shiftName}.
 Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || 'Ẩn danh'}, vai trò: ${currentUser?.role || 'Nhân viên'}, chức vụ: ${currentUser?.position || 'Phục vụ'}) trong công việc.
@@ -222,8 +226,16 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
       let aiText = '';
 
       if (useGeminiFallback) {
-        // Fallback to Gemini 2.5 Flash using hardcoded API key
-        const apiKey = "AIzaSyBimS3f8NyESLsYS8bgwThM9scpl5_2WvI";
+        // Resolve Gemini API key from environment variable or Admin-configured keys
+        const configuredGeminiKey = groqKeys.find((k) => k.key?.startsWith('AIza'))?.key;
+        const apiKey =
+          import.meta.env.VITE_GEMINI_API_KEY ||
+          configuredGeminiKey ||
+          localStorage.getItem('kg_gemini_api_key') ||
+          '';
+        if (!apiKey) {
+          throw new Error('Missing Gemini API key');
+        }
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
 
         // Map roles to gemini model format
@@ -265,7 +277,7 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
 
       } else {
         // Use configured Groq keys
-        const selectedKey = groqKeys[Math.floor(Math.random() * groqKeys.length)];
+        const selectedKey = nonGeminiGroqKeys[Math.floor(Math.random() * nonGeminiGroqKeys.length)];
         const apiKey = selectedKey ? selectedKey.key : null;
         if (!apiKey) throw new Error('No Groq API key available');
 

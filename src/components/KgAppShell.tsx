@@ -1,17 +1,14 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import { Sun, Moon, Power, Clock, MoreHorizontal, GraduationCap, Sparkles } from 'lucide-react';
+import { Sun, Moon, Power, Clock, MoreHorizontal, GraduationCap, Search } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 import NewbieGuideModal from './NewbieGuideModal';
-import { KgActionSheet } from './KgDesignSystem';
+import KgCommandPalette from './KgCommandPalette';
+import { KgActionSheet, KgSyncStatus } from './KgDesignSystem';
 import { getTabLabel, hasTabPermission } from '../utils/permissions';
 import { navigationModules, type NavigationGroup } from '../config/moduleRegistry';
+import { getQueue } from '../utils/offlineQueue';
 import type { TabId } from '../types/navigation';
-
-interface KgAppShellProps {
-  children: React.ReactNode;
-  onPrefetch?: (tab: TabId) => void;
-}
 
 export default function KgAppShell({
   children,
@@ -29,6 +26,27 @@ export default function KgAppShell({
   const toggleDarkMode = useAppStore(state => state.toggleDarkMode);
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const [isCommandOpen, setIsCommandOpen] = useState(false);
+  const [pendingSyncCount, setPendingSyncCount] = useState(() => getQueue().length);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandOpen(prev => !prev);
+      }
+    };
+    const handleQueueUpdate = (e: Event) => {
+      const detail = (e as CustomEvent<{ count?: number }>).detail;
+      setPendingSyncCount(typeof detail?.count === 'number' ? detail.count : getQueue().length);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('kg:offline-queue-updated', handleQueueUpdate);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('kg:offline-queue-updated', handleQueueUpdate);
+    };
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -95,9 +113,16 @@ export default function KgAppShell({
             <img src="/android-chrome-192x192.png?v=3" alt="Logo" className="w-6 h-6 object-contain" />
           </div>
           <div>
-            <h1 className="font-extrabold text-sm tracking-tight leading-tight text-[var(--kg-text)]">
-              KG Staff OS
-            </h1>
+            <div className="flex items-center gap-1.5">
+              <h1 className="font-extrabold text-sm tracking-tight leading-tight text-[var(--kg-text)]">
+                KG Staff OS
+              </h1>
+              {pendingSyncCount > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] text-[9px] font-black">
+                  Chờ đồng bộ ({pendingSyncCount})
+                </span>
+              )}
+            </div>
             <p className="text-[10px] font-bold text-[var(--kg-text-muted)] truncate max-w-[170px]">
               {(() => {
                 if (!currentUser) return 'Nhân sự';
@@ -113,6 +138,15 @@ export default function KgAppShell({
           </div>
         </div>
         <div className="flex items-center space-x-1.5">
+          <button
+            type="button"
+            onClick={() => setIsCommandOpen(true)}
+            className="w-10 h-10 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] flex items-center justify-center active:scale-95 transition-all shadow-xs touch-manipulation"
+            title="Tìm nhanh phân hệ"
+            aria-label="Tìm nhanh phân hệ"
+          >
+            <Search size={17} />
+          </button>
           <button
             type="button"
             onClick={() => setIsGuideOpen(true)}
@@ -236,14 +270,6 @@ export default function KgAppShell({
         {/* Sidebar Footer */}
         <div className="p-4 border-t border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex items-center justify-between">
           <div className="flex items-center space-x-1.5">
-            <button
-              type="button"
-              onClick={() => setIsGuideOpen(true)}
-              className="w-9 h-9 rounded-lg border border-[var(--kg-border)] bg-[var(--kg-surface)] text-[var(--kg-text)] flex items-center justify-center active:scale-95 transition-all shadow-xs hover:border-[var(--kg-primary)]"
-              title="Hướng dẫn cho người mới"
-            >
-              <GraduationCap size={16} />
-            </button>
             <NotificationBell />
             <button
               type="button"
@@ -280,17 +306,21 @@ export default function KgAppShell({
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => setIsGuideOpen(true)}
-              className="px-3 py-1.5 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-text)] text-xs font-bold flex items-center gap-1.5 hover:border-[var(--kg-primary)] transition-all active:scale-95 shadow-xs"
+              onClick={() => setIsCommandOpen(true)}
+              className="px-3 py-1.5 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:border-[var(--kg-primary)] text-xs font-bold flex items-center gap-2 transition-all active:scale-95 shadow-xs"
+              title="Tìm nhanh phân hệ (Ctrl+K)"
             >
-              <Sparkles size={13} className="text-[var(--kg-accent)]" />
-              <span>Hướng dẫn người mới</span>
+              <Search size={13} className="text-[var(--kg-primary)]" />
+              <span>Tìm nhanh...</span>
+              <kbd className="px-1.5 py-0.5 rounded bg-[var(--kg-surface)] border border-[var(--kg-border)] text-[10px] font-black text-[var(--kg-text-muted)]">
+                Ctrl K
+              </kbd>
             </button>
+            <KgSyncStatus isSyncing={false} pendingCount={pendingSyncCount} />
             <div className="text-xs font-semibold text-[var(--kg-text-muted)] flex items-center gap-1.5">
               <Clock size={13} className="text-[var(--kg-primary)] dark:text-[var(--kg-accent)]" />
               <span>Ca hiện tại: <b>{shiftName}</b></span>
             </div>
-            <div className="w-1.5 h-1.5 bg-[#10b981] rounded-full animate-ping" />
           </div>
         </div>
 
@@ -389,6 +419,14 @@ export default function KgAppShell({
         isOpen={isGuideOpen}
         onClose={() => setIsGuideOpen(false)}
         onNavigateTab={handleTabChange}
+      />
+
+      {/* Global Command Palette (Ctrl+K / Cmd+K) */}
+      <KgCommandPalette
+        isOpen={isCommandOpen}
+        onClose={() => setIsCommandOpen(false)}
+        onNavigateTab={handleTabChange}
+        onOpenGuide={() => setIsGuideOpen(true)}
       />
     </div>
   );

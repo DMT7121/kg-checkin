@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import { speak, fetchWithRetry, computeWeekInfo, DAY_NAMES, ADMIN_SHIFT_OPTIONS, getAdminShiftClass } from '../utils/helpers';
@@ -9,7 +10,24 @@ import { type AIPrompt } from '../store/useAppStore';
 import { KgModuleHero } from '../components/KgDesignSystem';
 
 export default function Admin() {
-  const store = useAppStore();
+  const store = useAppStore(
+    useShallow((s) => ({
+      isAdminUnlocked: s.isAdminUnlocked,
+      adminSchedules: s.adminSchedules,
+      originalAdminSchedules: s.originalAdminSchedules,
+      groqKeysInput: s.groqKeysInput,
+      groqKeys: s.groqKeys,
+      aiPrompts: s.aiPrompts,
+      logs: s.logs,
+      users: s.users,
+      isUpdating: s.isUpdating,
+      swapRequests: s.swapRequests,
+      setGroqKeysInput: s.setGroqKeysInput,
+      setLoading: s.setLoading,
+      setGroqKeys: s.setGroqKeys,
+      setAiPrompts: s.setAiPrompts,
+    }))
+  );
   const { isAdminUnlocked, adminSchedules, originalAdminSchedules, groqKeysInput, groqKeys, aiPrompts, logs, users, isUpdating, swapRequests } = store;
   const weekInfo = computeWeekInfo();
   

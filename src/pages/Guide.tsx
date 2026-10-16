@@ -24,8 +24,7 @@ interface GuideItem {
 }
 
 export default function Guide() {
-  const store = useAppStore();
-  const { currentUser } = store;
+  const currentUser = useAppStore((s) => s.currentUser);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'personal' | 'operation' | 'admin'>('all');

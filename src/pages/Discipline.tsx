@@ -7,8 +7,12 @@ import { KgModuleHero } from '../components/KgDesignSystem';
 
 
 export default function Discipline({ mode = 'user' }: { mode?: 'user' | 'admin' }) {
-  const store = useAppStore();
-  const { currentUser, bonusPenalties, users } = store;
+  const currentUser = useAppStore((s) => s.currentUser);
+  const bonusPenalties = useAppStore((s) => s.bonusPenalties);
+  const users = useAppStore((s) => s.users);
+  const setBonusPenalties = useAppStore((s) => s.setBonusPenalties);
+  const setLoading = useAppStore((s) => s.setLoading);
+  const store = { setBonusPenalties, setLoading };
   const isManagerView = mode === 'admin' && (currentUser?.role === 'admin' || currentUser?.role === 'tester');
   
   const [type, setType] = useState<'BONUS' | 'PENALTY'>('BONUS');

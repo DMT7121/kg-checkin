@@ -24,7 +24,7 @@ export function KgSection({ children, title, className = '' }: { children: React
   return (
     <section className={`space-y-3 ${className}`}>
       {title && (
-        <h3 className="text-xs font-bold uppercase tracking-wider text-[#6F7785] dark:text-[#9AA1AA] pl-1">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--kg-text-muted)] pl-1">
           {title}
         </h3>
       )}
@@ -45,19 +45,19 @@ export function KgPageHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[var(--kg-border)] pb-4">
       <div className="flex items-center gap-3">
         {Icon && (
-          <div className="kg-section-icon w-10 h-10 rounded-xl bg-blue-50 dark:bg-slate-800/40 flex items-center justify-center text-blue-600 dark:text-indigo-400 flex-shrink-0">
+          <div className="kg-section-icon w-10 h-10 rounded-xl bg-[var(--kg-accent-soft)] flex items-center justify-center text-[var(--kg-primary)] flex-shrink-0">
             <Icon size={20} />
           </div>
         )}
         <div className="min-w-0">
-          <h2 className="text-lg md:text-xl font-extrabold text-[#172033] dark:text-white leading-tight truncate">
+          <h2 className="text-lg md:text-xl font-extrabold text-[var(--kg-text)] leading-tight truncate">
             {title}
           </h2>
           {description && (
-            <p className="text-xs text-[#6F7785] dark:text-[#A0ABC0] mt-0.5 truncate max-w-[280px] sm:max-w-md">
+            <p className="text-xs text-[var(--kg-text-muted)] mt-0.5 truncate max-w-[280px] sm:max-w-md">
               {description}
             </p>
           )}
@@ -418,7 +418,7 @@ export function KgAlertCard({
 }
 
 export function KgSkeleton({ className = '' }: { className?: string }) {
-  return <div className={`animate-pulse bg-slate-200 dark:bg-slate-800 rounded-xl ${className}`} />;
+  return <div className={`animate-pulse bg-[var(--kg-surface-soft)] rounded-xl ${className}`} />;
 }
 
 export function KgEmptyState({
@@ -438,14 +438,14 @@ export function KgEmptyState({
       : null;
 
   return (
-    <div className="flex flex-col items-center justify-center text-center p-6 py-10 bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] border-dashed rounded-3xl">
+    <div className="flex flex-col items-center justify-center text-center p-6 py-10 bg-[var(--kg-surface)] border border-[var(--kg-border)] border-dashed rounded-3xl">
       {Icon && (
-        <div className="w-12 h-12 rounded-2xl bg-[#f3f6ff] dark:bg-[#122F48] flex items-center justify-center text-[#9AA1AA] dark:text-[#718096] mb-4">
+        <div className="w-12 h-12 rounded-2xl bg-[var(--kg-surface-soft)] flex items-center justify-center text-[var(--kg-text-muted)] mb-4">
           <Icon size={22} />
         </div>
       )}
-      <h4 className="text-sm font-bold text-[#0f172a] dark:text-white">{title}</h4>
-      <p className="text-xs text-[#64748b] dark:text-[#98a2b3] mt-1 max-w-[280px] leading-relaxed">
+      <h4 className="text-sm font-bold text-[var(--kg-text)]">{title}</h4>
+      <p className="text-xs text-[var(--kg-text-muted)] mt-1 max-w-[280px] leading-relaxed">
         {description}
       </p>
       {action && (
@@ -466,9 +466,9 @@ export function KgEmptyState({
 export function KgLoadingOverlay({ text = 'Đang xử lý...' }: { text?: string }) {
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-5 rounded-2xl flex items-center gap-4 max-w-xs shadow-2xl">
-        <RefreshCw className="w-5 h-5 text-blue-600 dark:text-indigo-400 animate-spin flex-shrink-0" />
-        <span className="text-sm font-bold text-[#172033] dark:text-white leading-tight">
+      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-5 rounded-2xl flex items-center gap-4 max-w-xs shadow-2xl">
+        <RefreshCw className="w-5 h-5 text-[var(--kg-primary)] animate-spin flex-shrink-0" />
+        <span className="text-sm font-bold text-[var(--kg-text)] leading-tight">
           {text}
         </span>
       </div>
@@ -501,10 +501,10 @@ export function KgToast({
   }, [message, onClose]);
 
   const typeStyles = {
-    success: 'border-emerald-100 bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/10',
-    error: 'border-rose-100 bg-rose-50 text-rose-600 dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900/10',
-    warning: 'border-amber-100 bg-amber-50 text-amber-600 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900/10',
-    info: 'border-blue-100 bg-blue-50 text-blue-600 dark:bg-indigo-950/20 dark:text-indigo-400 dark:border-indigo-900/10'
+    success: 'border-[var(--kg-success)]/20 bg-[var(--kg-success-soft)] text-[var(--kg-success)]',
+    error: 'border-[var(--kg-danger)]/20 bg-[var(--kg-danger-soft)] text-[var(--kg-danger)]',
+    warning: 'border-[var(--kg-warning)]/20 bg-[var(--kg-warning-soft)] text-[var(--kg-warning)]',
+    info: 'border-[var(--kg-primary)]/20 bg-[var(--kg-accent-soft)] text-[var(--kg-primary)]'
   };
 
   const icons = {
@@ -543,6 +543,18 @@ export function KgBottomSheet({
   title: string;
   children: React.ReactNode;
 }) {
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -557,22 +569,27 @@ export function KgBottomSheet({
           />
           {/* Sheet */}
           <motion.div
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
+            role="dialog"
+            aria-modal="true"
+            aria-label={title}
+            initial={{ y: '100%', opacity: 0.95 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: '100%', opacity: 0.95 }}
             transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-            className="fixed left-0 right-0 bottom-0 max-h-[85vh] bg-[var(--kg-surface)] text-[var(--kg-text)] z-[999] rounded-t-3xl border-t border-[var(--kg-border)] shadow-2xl flex flex-col pointer-events-auto overflow-hidden pb-safe-bottom"
+            className="fixed left-0 right-0 bottom-0 md:left-1/2 md:right-auto md:bottom-auto md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-lg max-h-[85vh] bg-[var(--kg-surface)] text-[var(--kg-text)] z-[999] rounded-t-3xl md:rounded-3xl border-t md:border border-[var(--kg-border)] shadow-2xl flex flex-col pointer-events-auto overflow-hidden pb-safe-bottom"
           >
             {/* Handle bar */}
-            <div className="w-12 h-1 bg-[var(--kg-border-strong)] rounded-full mx-auto my-3 flex-shrink-0" />
+            <div className="w-12 h-1 bg-[var(--kg-border-strong)] rounded-full mx-auto my-3 flex-shrink-0 md:hidden" />
             
             {/* Header */}
-            <div className="px-5 pb-3 border-b border-[var(--kg-border)] flex items-center justify-between flex-shrink-0">
+            <div className="px-5 pt-3 md:pt-4 pb-3 border-b border-[var(--kg-border)] flex items-center justify-between flex-shrink-0">
               <h3 className="text-sm font-black uppercase tracking-wider text-[var(--kg-text)]">
                 {title}
               </h3>
               <button
+                type="button"
                 onClick={onClose}
+                aria-label="Đóng hộp thoại"
                 className="w-8 h-8 rounded-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition-colors"
               >
                 <X size={16} />
@@ -614,7 +631,7 @@ export function KgConfirmSheet({
   return (
     <KgBottomSheet isOpen={isOpen} onClose={onClose} title={title}>
       <div className="space-y-5 py-2">
-        <p className="text-sm text-[#6F7785] dark:text-[#A0ABC0] leading-relaxed font-medium">
+        <p className="text-sm text-[var(--kg-text-muted)] leading-relaxed font-medium">
           {message}
         </p>
         <div className="flex gap-3">
@@ -655,15 +672,15 @@ export function KgSyncStatus({
   }, []);
 
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white dark:bg-[#0E273C] border border-[#E8DED1] dark:border-[#1E3F57] text-xs font-bold text-[#6F7785] dark:text-[#A0ABC0] select-none">
+    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--kg-surface)] border border-[var(--kg-border)] text-xs font-bold text-[var(--kg-text-muted)] select-none">
       {isOnline ? (
-        <Wifi size={13} className="text-[#4F8A5B]" />
+        <Wifi size={13} className="text-[var(--kg-success)]" />
       ) : (
-        <WifiOff size={13} className="text-[#C94335] animate-pulse" />
+        <WifiOff size={13} className="text-[var(--kg-danger)] animate-pulse" />
       )}
       <span className="truncate">
         {pendingCount > 0 ? (
-          <span className="text-[#D8A23A]">Chờ đồng bộ ({pendingCount})</span>
+          <span className="text-[var(--kg-warning)]">Chờ đồng bộ ({pendingCount})</span>
         ) : isSyncing ? (
           'Đang cập nhật...'
         ) : lastSyncTime ? (
@@ -676,7 +693,7 @@ export function KgSyncStatus({
         <button
           onClick={onRefresh}
           disabled={isSyncing}
-          className="ml-1 text-[#6F7785] hover:text-[#172033] dark:hover:text-white transition-colors"
+          className="ml-1 text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition-colors"
         >
           <RefreshCw size={12} className={isSyncing ? 'animate-spin' : ''} />
         </button>
@@ -695,12 +712,12 @@ export function KgErrorState({
   onRetry?: () => void;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center text-center p-6 py-12 bg-[#FFF0EE] border border-[#FFF0EE] dark:bg-[#D8584B]/15 rounded-2xl">
-      <div className="w-12 h-12 rounded-2xl bg-white dark:bg-[#0E273C] flex items-center justify-center text-[#C94335] mb-4 shadow-sm">
+    <div className="flex flex-col items-center justify-center text-center p-6 py-12 bg-[var(--kg-danger-soft)] border border-[var(--kg-danger)]/20 rounded-2xl">
+      <div className="w-12 h-12 rounded-2xl bg-[var(--kg-surface)] flex items-center justify-center text-[var(--kg-danger)] mb-4 shadow-sm">
         <AlertCircle size={22} />
       </div>
-      <h4 className="text-sm font-bold text-[#172033] dark:text-white">{title}</h4>
-      <p className="text-xs text-[#6F7785] dark:text-[#A0ABC0] mt-1 max-w-[280px] leading-relaxed">
+      <h4 className="text-sm font-bold text-[var(--kg-text)]">{title}</h4>
+      <p className="text-xs text-[var(--kg-text-muted)] mt-1 max-w-[280px] leading-relaxed">
         {description}
       </p>
       {onRetry && (
@@ -773,13 +790,13 @@ export function KgActionSheet({
                   className={`kg-action-tile flex flex-col items-center justify-center p-3 rounded-2xl active:scale-95 transition-all gap-2 min-h-[96px] ${
                     act.active
                       ? 'kg-action-tile--active text-white'
-                      : 'text-[var(--kg-text-muted)] hover:bg-white dark:hover:bg-[#0E273C]'
+                      : 'text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)]'
                   }`}
                 >
                   <div className={`w-11 h-11 rounded-xl border flex items-center justify-center shadow-sm ${
                     act.active
                       ? 'kg-action-icon--active'
-                      : 'kg-section-icon bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800'
+                      : 'kg-section-icon bg-[var(--kg-surface)] border-[var(--kg-border)]'
                   }`}>
                     <act.icon size={20} />
                   </div>

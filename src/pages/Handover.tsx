@@ -27,6 +27,8 @@ interface HandoverRecord {
   cashAmount: string;
   note: string;
   timestamp: string;
+  ackBy?: string;
+  ackAt?: string;
 }
 
 export default function Handover() {
@@ -34,6 +36,7 @@ export default function Handover() {
   const shiftName = useAppStore(state => state.shiftName);
   const setUpdating = useAppStore(state => state.setUpdating);
   const setLoading = useAppStore(state => state.setLoading);
+  const setTodayHandoverDone = useAppStore(state => state.setTodayHandoverDone);
 
   const [activeTab, setActiveTab] = useState<'handover' | 'incident' | 'history'>('handover');
 
@@ -50,6 +53,14 @@ export default function Handover() {
   const [loadingHandovers, setLoadingHandovers] = useState(false);
   const [ackHandoverId, setAckHandoverId] = useState<string | null>(() => {
     return localStorage.getItem('kg_ack_handover_id');
+  });
+  const [ackMap, setAckMap] = useState<Record<string, { ackBy: string; ackAt: string }>>(() => {
+    try {
+      const raw = localStorage.getItem('kg_ack_handover_map');
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
   });
 
   const loadHandovers = useCallback(async () => {
@@ -81,12 +92,38 @@ export default function Handover() {
     setCashAmount(num.toLocaleString('vi-VN'));
   };
 
-  const handleAcknowledgeCash = (handover: HandoverRecord) => {
+  const handleAcknowledgeCash = async (handover: HandoverRecord) => {
+    const ackBy = currentUser?.fullname || currentUser?.username || 'Nhân viên ca sau';
+    const now = new Date();
+    const ackAt = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')} ${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}`;
+
     localStorage.setItem('kg_ack_handover_id', handover.id);
     setAckHandoverId(handover.id);
+
+    const nextMap = { ...ackMap, [handover.id]: { ackBy, ackAt } };
+    setAckMap(nextMap);
+    try {
+      localStorage.setItem('kg_ack_handover_map', JSON.stringify(nextMap));
+    } catch { /* ignore */ }
+
+    setHandovers((prev) =>
+      prev.map((item) => (item.id === handover.id ? { ...item, ackBy, ackAt } : item))
+    );
+
+    // Sync 2-way acknowledgment to backend
+    callApi(
+      'ACKNOWLEDGE_HANDOVER',
+      {
+        handoverId: handover.id,
+        ackBy,
+        username: currentUser?.username,
+      },
+      { background: true }
+    ).catch(() => {});
+
     Swal.fire({
       title: 'Đã xác nhận kiểm đếm!',
-      text: `Bạn đã xác nhận nhận đủ ${handover.cashAmount}đ từ ca trước (${handover.username}).`,
+      text: `Bạn (${ackBy}) đã xác nhận nhận đủ ${handover.cashAmount}đ từ ca trước (${handover.username}).`,
       icon: 'success',
       confirmButtonColor: '#10b981'
     });
@@ -111,6 +148,7 @@ export default function Handover() {
       });
 
       if (res?.ok) {
+        setTodayHandoverDone(true);
         Swal.fire({
           title: 'Thành công!',
           text: 'Đã ghi nhận bàn giao két tiền lên hệ thống.',
@@ -277,9 +315,17 @@ export default function Handover() {
                         </p>
                       </div>
 
-                      {ackHandoverId === latestHandover.id ? (
-                        <div className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-extrabold text-xs">
-                          <CheckCheck size={16} /> Đã xác nhận kiểm đếm đủ
+                      {Boolean(latestHandover.ackBy || ackMap[latestHandover.id] || ackHandoverId === latestHandover.id) ? (
+                        <div className="inline-flex flex-col sm:items-end gap-0.5 px-3.5 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300">
+                          <span className="inline-flex items-center gap-1.5 font-extrabold text-xs">
+                            <CheckCheck size={16} /> Đã xác nhận kiểm đếm đủ
+                          </span>
+                          {(latestHandover.ackBy || ackMap[latestHandover.id]?.ackBy) && (
+                            <span className="text-[10px] font-semibold opacity-85">
+                              Người nhận: {latestHandover.ackBy || ackMap[latestHandover.id]?.ackBy}
+                              {(latestHandover.ackAt || ackMap[latestHandover.id]?.ackAt) ? ` (${latestHandover.ackAt || ackMap[latestHandover.id]?.ackAt})` : ''}
+                            </span>
+                          )}
                         </div>
                       ) : (
                         <button
@@ -402,37 +448,49 @@ export default function Handover() {
                   </div>
                 ) : (
                   <div className="space-y-2.5">
-                    {handovers.map((item, idx) => (
-                      <div
-                        key={item.id || idx}
-                        className="p-3 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex flex-col sm:flex-row sm:items-center justify-between gap-2"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 font-bold text-xs">
-                            #{idx + 1}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono font-black text-sm text-[var(--kg-text)]">
-                                {item.cashAmount} đ
-                              </span>
-                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-700 dark:text-blue-300">
-                                {item.shift || 'Ca trực'}
-                              </span>
+                    {handovers.map((item, idx) => {
+                      const itemAckBy = item.ackBy || ackMap[item.id]?.ackBy;
+                      const itemAckAt = item.ackAt || ackMap[item.id]?.ackAt;
+                      const isAcked = Boolean(itemAckBy || ackHandoverId === item.id);
+                      return (
+                        <div
+                          key={item.id || idx}
+                          className="p-3 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 font-bold text-xs">
+                              #{idx + 1}
                             </div>
-                            <p className="text-[11px] text-[var(--kg-text-muted)] mt-0.5 font-medium">
-                              Bởi: <b className="text-[var(--kg-text)]">{item.username}</b> • Ngày: {item.date}
-                            </p>
+                            <div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-mono font-black text-sm text-[var(--kg-text)]">
+                                  {item.cashAmount} đ
+                                </span>
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-700 dark:text-blue-300">
+                                  {item.shift || 'Ca trực'}
+                                </span>
+                                {isAcked && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                                    <CheckCheck size={11} />
+                                    {itemAckBy ? `Đã nhận: ${itemAckBy}` : 'Đã đối soát'}
+                                    {itemAckAt ? ` (${itemAckAt})` : ''}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-[var(--kg-text-muted)] mt-0.5 font-medium">
+                                Bởi: <b className="text-[var(--kg-text)]">{item.username}</b> • Ngày: {item.date}
+                              </p>
+                            </div>
                           </div>
-                        </div>
 
-                        {item.note && (
-                          <div className="text-xs text-[var(--kg-text-muted)] italic sm:text-right max-w-xs truncate">
-                            "{item.note}"
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                          {item.note && (
+                            <div className="text-xs text-[var(--kg-text-muted)] italic sm:text-right max-w-xs truncate">
+                              "{item.note}"
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </motion.div>

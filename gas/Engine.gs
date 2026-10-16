@@ -2388,7 +2388,9 @@ function handleGetHandovers(payload) {
           username: String(row[3] || ''),
           cashAmount: String(row[4] || ''),
           note: String(row[5] || ''),
-          timestamp: String(row[6] || '')
+          timestamp: String(row[6] || ''),
+          ackBy: String(row[7] || ''),
+          ackAt: String(row[8] || '')
         });
       }
     }
@@ -2396,6 +2398,32 @@ function handleGetHandovers(payload) {
   } catch (e) {
     Logger.log("handleGetHandovers error: " + e.toString());
     return jsonResponse(false, "Lỗi nạp nhật ký bàn giao ca: " + e.toString());
+  }
+}
+
+function handleAcknowledgeHandover(payload) {
+  try {
+    var handoverId = String(payload.handoverId || '').trim();
+    var ackBy = String(payload.ackBy || payload.username || '').trim();
+    if (!handoverId) {
+      return jsonResponse(false, "Thiếu mã bàn giao ca");
+    }
+    var ss = getSS();
+    var sheet = ss.getSheetByName("Handovers");
+    if (!sheet) {
+      return jsonResponse(false, "Chưa có sổ bàn giao ca");
+    }
+    var data = sheet.getDataRange().getValues();
+    var ackAt = Utilities.formatDate(new Date(), CONFIG.TIMEZONE || "Asia/Ho_Chi_Minh", "dd/MM/yyyy HH:mm");
+    for (var i = data.length - 1; i >= 1; i--) {
+      if (String(data[i][0]) === handoverId) {
+        sheet.getRange(i + 1, 8, 1, 2).setValues([[ackBy, ackAt]]);
+        return jsonResponse(true, { handoverId: handoverId, ackBy: ackBy, ackAt: ackAt, message: "Đã xác nhận nhận bàn giao két tiền" });
+      }
+    }
+    return jsonResponse(false, "Không tìm thấy bản ghi bàn giao ca");
+  } catch (e) {
+    return jsonResponse(false, "Lỗi xác nhận bàn giao: " + e.toString());
   }
 }
 

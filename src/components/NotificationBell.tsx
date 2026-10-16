@@ -42,54 +42,114 @@ function formatNotificationTime(timeStr?: string): string {
   }
 }
 
+// Shared singleton state across mobile & desktop NotificationBell instances to prevent duplicate polling
+let sharedNotifications: Notification[] = [];
+let sharedUnreadCount: number = parseInt(localStorage.getItem('kg_notif_unread') || '0', 10) || 0;
+let sharedHasFetched = false;
+let lastPollAtMs = 0;
+let activeFetchPromise: Promise<void> | null = null;
+const bellSubscribers = new Set<() => void>();
+
+function notifyBellSubscribers() {
+  bellSubscribers.forEach((listener) => listener());
+}
+
 export default function NotificationBell() {
   const currentUser = useAppStore((s) => s.currentUser);
   const setCurrentTab = useAppStore((s) => s.setCurrentTab);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  // Phase B: Use mega-fetch cached count initially
-  const cachedUnread = parseInt(localStorage.getItem('kg_notif_unread') || '0', 10);
-  const [unreadCount, setUnreadCount] = useState(cachedUnread);
+  const [notifications, setNotifications] = useState<Notification[]>(sharedNotifications);
+  const [unreadCount, setUnreadCount] = useState<number>(sharedUnreadCount);
   const [isOpen, setIsOpen] = useState(false);
-  const [hasFetched, setHasFetched] = useState(false);
+  const [hasFetched, setHasFetched] = useState(sharedHasFetched);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const fetchNotifications = useCallback(async () => {
+  useEffect(() => {
+    const syncFromShared = () => {
+      setNotifications(sharedNotifications);
+      setUnreadCount(sharedUnreadCount);
+      setHasFetched(sharedHasFetched);
+    };
+    bellSubscribers.add(syncFromShared);
+    syncFromShared();
+    return () => {
+      bellSubscribers.delete(syncFromShared);
+    };
+  }, []);
+
+  const fetchNotifications = useCallback(async (force = false) => {
     if (!currentUser || (typeof document !== 'undefined' && document.visibilityState === 'hidden')) return;
-    const res = await callApi('GET_NOTIFICATIONS', { username: currentUser.username }, { background: true });
-    if (res?.ok) {
-      setNotifications(res.data.notifications || []);
-      setUnreadCount(res.data.unreadCount || 0);
-      setHasFetched(true);
-    }
+    const now = Date.now();
+    if (!force && now - lastPollAtMs < 110000) return;
+    if (activeFetchPromise) return activeFetchPromise;
+
+    lastPollAtMs = now;
+    activeFetchPromise = (async () => {
+      try {
+        const res = await callApi('GET_NOTIFICATIONS', { username: currentUser.username }, { background: true });
+        if (res?.ok) {
+          sharedNotifications = res.data.notifications || [];
+          sharedUnreadCount = res.data.unreadCount || 0;
+          sharedHasFetched = true;
+          try {
+            localStorage.setItem('kg_notif_unread', String(sharedUnreadCount));
+          } catch { /* ignore */ }
+          notifyBellSubscribers();
+        }
+      } finally {
+        activeFetchPromise = null;
+      }
+    })();
+
+    return activeFetchPromise;
   }, [currentUser]);
 
-  // Only poll every 2 minutes, and lazy-fetch on open
+  // Only poll every 2 minutes (deduplicated across instances), and lazy-fetch on open
   useEffect(() => {
-    const interval = setInterval(fetchNotifications, 120000);
+    const interval = setInterval(() => {
+      fetchNotifications(false);
+    }, 120000);
     return () => clearInterval(interval);
   }, [currentUser?.username, fetchNotifications]);
 
-  // Close dropdown on outside click
+  // Close dropdown on outside click or Escape key
   useEffect(() => {
+    if (!isOpen) return;
     const handleClick = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setIsOpen(false);
       }
     };
-    if (isOpen) document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, [isOpen]);
 
   const handleMarkRead = async (id: string) => {
     await callApi('MARK_NOTIFICATION_READ', { notificationId: id, username: currentUser?.username }, { background: true });
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
-    setUnreadCount(prev => Math.max(0, prev - 1));
+    sharedNotifications = sharedNotifications.map(n => n.id === id ? { ...n, isRead: true } : n);
+    sharedUnreadCount = Math.max(0, sharedUnreadCount - 1);
+    try {
+      localStorage.setItem('kg_notif_unread', String(sharedUnreadCount));
+    } catch { /* ignore */ }
+    notifyBellSubscribers();
   };
 
   const handleMarkAllRead = async () => {
     await callApi('MARK_NOTIFICATION_READ', { markAll: true, username: currentUser?.username }, { background: true });
-    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-    setUnreadCount(0);
+    sharedNotifications = sharedNotifications.map(n => ({ ...n, isRead: true }));
+    sharedUnreadCount = 0;
+    try {
+      localStorage.setItem('kg_notif_unread', '0');
+    } catch { /* ignore */ }
+    notifyBellSubscribers();
   };
 
   const typeConfig: Record<string, { icon: any; color: string; bg: string; border: string }> = {
@@ -108,9 +168,11 @@ export default function NotificationBell() {
           const nextOpen = !isOpen;
           setIsOpen(nextOpen);
           if (nextOpen && !hasFetched) {
-            fetchNotifications();
+            fetchNotifications(true);
           }
         }}
+        aria-expanded={isOpen}
+        aria-haspopup="dialog"
         className="relative w-10 h-10 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] active:scale-95 transition-all shadow-sm"
         aria-label="Thông báo"
         title="Thông báo hệ thống"
@@ -133,7 +195,12 @@ export default function NotificationBell() {
 
       {/* Dropdown Container */}
       {isOpen && (
-        <div className="fixed inset-x-3 top-16 max-w-sm mx-auto md:absolute md:inset-x-auto md:right-0 md:top-full md:mt-2 md:w-96 md:max-w-none bg-[var(--kg-surface)] rounded-2xl shadow-2xl border border-[var(--kg-border)] overflow-hidden z-[100] animate-fade-in text-[var(--kg-text)]">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Thông báo hệ thống"
+          className="fixed inset-x-3 top-16 max-w-sm mx-auto md:absolute md:inset-x-auto md:right-0 md:top-full md:mt-2 md:w-96 md:max-w-none bg-[var(--kg-surface)] rounded-2xl shadow-2xl border border-[var(--kg-border)] overflow-hidden z-[100] animate-fade-in text-[var(--kg-text)]"
+        >
           {/* Header */}
           <div className="flex items-center justify-between p-3.5 border-b border-[var(--kg-border)] bg-[var(--kg-surface-soft)]">
             <div className="flex items-center gap-2">

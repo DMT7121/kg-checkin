@@ -7,7 +7,7 @@ import { User, Lock, Eye, EyeOff, ChevronLeft, ArrowRight, Mail, Phone, Calendar
 import { hashPassword } from '../utils/security';
 
 export default function Login() {
-  const store = useAppStore();
+  const store = useAppStore.getState();
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [rememberMe, setRememberMe] = useState(() => localStorage.getItem('kg_remember') !== 'false');

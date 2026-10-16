@@ -53,8 +53,9 @@ interface SavedAreaState {
 }
 
 export default function Checklist() {
-  const store = useAppStore();
-  const { currentUser } = store;
+  const currentUser = useAppStore((s) => s.currentUser);
+  const setGlobalLoading = useAppStore((s) => s.setLoading);
+  const store = { setLoading: setGlobalLoading };
   
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -297,26 +298,14 @@ export default function Checklist() {
     };
 
     if (saveMode === 'single') {
-      const detail = hasSubtasks ? ' và các việc con?' : '?';
-      Swal.fire({
-        title: `Đánh dấu hoàn thành?`,
-        text: `Đánh dấu hoàn thành Hạng mục ${item.no}${detail}`,
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: 'Đồng ý',
-        cancelButtonText: 'Hủy'
-      }).then(async (result) => {
-        if (result.isConfirmed) {
-          const updatedItems = {
-            ...areaData.items,
-            [item.id]: {
-              ...(areaData.items[item.id] || {}),
-              ...stateUpdate
-            } as SavedItemState
-          };
-          await syncToServer(selectedArea, areaData.participants, updatedItems, areaData.supply, areaData.signatures);
-        }
-      });
+      const updatedItems = {
+        ...areaData.items,
+        [item.id]: {
+          ...(areaData.items[item.id] || {}),
+          ...stateUpdate
+        } as SavedItemState
+      };
+      await syncToServer(selectedArea, areaData.participants, updatedItems, areaData.supply, areaData.signatures);
     } else {
       setPending(prev => ({
         ...prev,

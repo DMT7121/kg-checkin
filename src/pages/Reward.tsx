@@ -23,8 +23,7 @@ interface LeaderboardEntry {
 }
 
 export default function Reward() {
-  const store = useAppStore();
-  const { currentUser } = store;
+  const currentUser = useAppStore((s) => s.currentUser);
   const [totalPoints, setTotalPoints] = useState(0);
   const [coinHistory, setCoinHistory] = useState<CoinEntry[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);

@@ -19,7 +19,7 @@ interface AnalyticsData {
 }
 
 export default function AdminAnalytics() {
-  const { currentUser } = useAppStore();
+  const currentUser = useAppStore((s) => s.currentUser);
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
 

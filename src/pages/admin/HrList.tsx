@@ -4,14 +4,17 @@ import { callApi } from '../../services/api';
 import Swal from 'sweetalert2';
 import { KeyRound, Loader2, Mail, Briefcase, UserCog, Search, Calendar, ChevronDown, ChevronUp, X, Camera, Activity, PauseCircle, Ban, UserX } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { KgModuleHero } from '../../components/KgDesignSystem';
+import { KgBottomSheet, KgButton, KgInput, KgModuleHero, KgSelect, KgTextarea } from '../../components/KgDesignSystem';
 import { employmentStatuses, getEmploymentStatusMeta, normalizeEmploymentStatus, type EmploymentStatus } from '../../utils/employment';
 import { encodeOptimalCanvas } from '../../utils/helpers';
 
 
 export default function HrList() {
-  const store = useAppStore();
-  const { users, currentUser } = store;
+  const users = useAppStore((s) => s.users);
+  const currentUser = useAppStore((s) => s.currentUser);
+  const setUsers = useAppStore((s) => s.setUsers);
+  const setCurrentTab = useAppStore((s) => s.setCurrentTab);
+  const store = { setUsers, setCurrentTab };
   const [updatingUser, setUpdatingUser] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPosition, setFilterPosition] = useState('all');
@@ -21,6 +24,13 @@ export default function HrList() {
   const [uploadingAvatar, setUploadingAvatar] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [avatarTarget, setAvatarTarget] = useState<string | null>(null);
+  const [statusModalUser, setStatusModalUser] = useState<typeof users[number] | null>(null);
+  const [statusDraft, setStatusDraft] = useState<{
+    employmentStatus: EmploymentStatus;
+    statusUntil: string;
+    statusReason: string;
+  }>({ employmentStatus: 'active', statusUntil: '', statusReason: '' });
+  const [statusError, setStatusError] = useState('');
 
   const POSITIONS = ['Phục vụ', 'Tổ trưởng', 'Quản lý', 'Thu ngân', 'Bếp', 'Pha chế', 'Tạp vụ', 'Bảo vệ'];
   const ROLES = [
@@ -126,50 +136,44 @@ export default function HrList() {
     } else Swal.fire('Lỗi', res?.message || 'Không thể cập nhật', 'error');
   };
 
-  const handleUpdateEmploymentStatus = async (user: typeof users[number]) => {
+  const handleUpdateEmploymentStatus = (user: typeof users[number]) => {
     if (currentUser?.role !== 'admin') {
       Swal.fire('Không có quyền', 'Chỉ admin được thay đổi trạng thái hoạt động.', 'warning');
       return;
     }
     const currentStatus = normalizeEmploymentStatus(user.employmentStatus);
-    const { value, isConfirmed } = await Swal.fire({
-      title: `Trạng thái của ${user.fullname}`,
-      html: `
-        <label style="display:block;text-align:left;font-size:12px;font-weight:700;margin:8px 2px 4px">Trạng thái hoạt động</label>
-        <select id="employment-status" class="swal2-select" style="width:100%;margin:0">
-          ${employmentStatuses.map(item => `<option value="${item.value}" ${item.value === currentStatus ? 'selected' : ''}>${item.label}</option>`).join('')}
-        </select>
-        <label style="display:block;text-align:left;font-size:12px;font-weight:700;margin:14px 2px 4px">Ngày kết thúc (bắt buộc khi đình chỉ)</label>
-        <input id="status-until" class="swal2-input" type="date" value="${user.statusUntil || ''}" style="width:100%;margin:0">
-        <label style="display:block;text-align:left;font-size:12px;font-weight:700;margin:14px 2px 4px">Lý do / ghi chú</label>
-        <textarea id="status-reason" class="swal2-textarea" maxlength="500" placeholder="Nêu lý do tạm nghỉ, đình chỉ hoặc nghỉ việc..." style="width:100%;margin:0">${user.statusReason || ''}</textarea>
-      `,
-      showCancelButton: true,
-      confirmButtonText: 'Cập nhật trạng thái',
-      cancelButtonText: 'Hủy',
-      confirmButtonColor: '#0e7490',
-      preConfirm: () => {
-        const employmentStatus = (document.getElementById('employment-status') as HTMLSelectElement).value as EmploymentStatus;
-        const statusUntil = (document.getElementById('status-until') as HTMLInputElement).value;
-        const statusReason = (document.getElementById('status-reason') as HTMLTextAreaElement).value.trim();
-        if (employmentStatus === 'suspended' && !statusUntil) {
-          Swal.showValidationMessage('Đình chỉ cần có ngày kết thúc');
-          return false;
-        }
-        if (employmentStatus !== 'active' && !statusReason) {
-          Swal.showValidationMessage('Vui lòng nhập lý do thay đổi trạng thái');
-          return false;
-        }
-        return { employmentStatus, statusUntil, statusReason };
-      },
+    setStatusDraft({
+      employmentStatus: currentStatus,
+      statusUntil: user.statusUntil || '',
+      statusReason: user.statusReason || '',
     });
-    if (!isConfirmed || !value) return;
-    setUpdatingUser(user.username);
+    setStatusError('');
+    setStatusModalUser(user);
+  };
+
+  const submitEmploymentStatus = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!statusModalUser || !currentUser) return;
+    const { employmentStatus, statusUntil } = statusDraft;
+    const statusReason = statusDraft.statusReason.trim();
+    if (employmentStatus === 'suspended' && !statusUntil) {
+      setStatusError('Đình chỉ cần có ngày kết thúc');
+      return;
+    }
+    if (employmentStatus !== 'active' && !statusReason) {
+      setStatusError('Vui lòng nhập lý do thay đổi trạng thái');
+      return;
+    }
+    const targetUser = statusModalUser;
+    setStatusModalUser(null);
+    setUpdatingUser(targetUser.username);
     const res = await callApi('UPDATE_EMPLOYMENT_STATUS', {
       role: currentUser.role,
       username: currentUser.username,
-      targetUsername: user.username,
-      ...value,
+      targetUsername: targetUser.username,
+      employmentStatus,
+      statusUntil,
+      statusReason,
     });
     setUpdatingUser(null);
     if (!res?.ok) {
@@ -177,12 +181,12 @@ export default function HrList() {
       return;
     }
     store.setUsers(users.map(item => (
-      item.username === user.username ? { ...item, ...res.data.profile } : item
+      item.username === targetUser.username ? { ...item, ...res.data.profile } : item
     )));
     Swal.fire({
       icon: 'success',
       title: 'Đã cập nhật trạng thái',
-      text: `${user.fullname}: ${getEmploymentStatusMeta(value.employmentStatus).label}`,
+      text: `${targetUser.fullname}: ${getEmploymentStatusMeta(employmentStatus).label}`,
       timer: 1800,
       showConfirmButton: false,
     });
@@ -411,6 +415,61 @@ export default function HrList() {
           <Loader2 size={14} className="animate-spin" /> {uploadingAvatar ? 'Đang upload ảnh...' : 'Đang cập nhật...'}
         </div>
       )}
+
+      {/* Modal: Cập nhật trạng thái hoạt động */}
+      <KgBottomSheet
+        isOpen={Boolean(statusModalUser)}
+        onClose={() => setStatusModalUser(null)}
+        title={statusModalUser ? `Trạng thái của ${statusModalUser.fullname}` : 'Trạng thái hoạt động'}
+      >
+        <form onSubmit={submitEmploymentStatus} className="space-y-4">
+          <KgSelect
+            label="Trạng thái hoạt động"
+            value={statusDraft.employmentStatus}
+            onChange={e => {
+              setStatusDraft(prev => ({ ...prev, employmentStatus: e.target.value as EmploymentStatus }));
+              if (statusError) setStatusError('');
+            }}
+          >
+            {employmentStatuses.map(item => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
+          </KgSelect>
+
+          <KgInput
+            label="Ngày kết thúc (bắt buộc khi đình chỉ)"
+            type="date"
+            value={statusDraft.statusUntil}
+            onChange={e => {
+              setStatusDraft(prev => ({ ...prev, statusUntil: e.target.value }));
+              if (statusError) setStatusError('');
+            }}
+          />
+
+          <KgTextarea
+            label="Lý do / ghi chú"
+            maxLength={500}
+            placeholder="Nêu lý do tạm nghỉ, đình chỉ hoặc nghỉ việc..."
+            value={statusDraft.statusReason}
+            onChange={e => {
+              setStatusDraft(prev => ({ ...prev, statusReason: e.target.value }));
+              if (statusError) setStatusError('');
+            }}
+            error={statusError}
+          />
+
+          <div className="flex gap-3 pt-2">
+            <KgButton variant="secondary" className="flex-1" onClick={() => setStatusModalUser(null)}>
+              Hủy
+            </KgButton>
+            <KgButton type="submit" variant="primary" className="flex-1">
+              Cập nhật trạng thái
+            </KgButton>
+          </div>
+        </form>
+      </KgBottomSheet>
     </div>
   );
 }

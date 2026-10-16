@@ -70,8 +70,9 @@ export default function MissedCheckInModal({
   defaultShift,
   onSuccess
 }: MissedCheckInModalProps) {
-  const store = useAppStore();
-  const { currentUser } = store;
+  const currentUser = useAppStore((s) => s.currentUser);
+  const setLoading = useAppStore((s) => s.setLoading);
+  const store = { setLoading };
   const isAdmin = currentUser?.role === 'admin' || currentUser?.username === 'ADMIN' || currentUser?.role === 'tester';
 
   const [activeTab, setActiveTab] = useState<'create' | 'guide' | 'history' | 'admin'>('create');

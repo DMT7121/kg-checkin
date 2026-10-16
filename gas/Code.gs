@@ -117,6 +117,8 @@ function doPost(e) {
         return handleGetHandovers(payload);
       case 'SUBMIT_HANDOVER':
         return handleSubmitHandover(payload);
+      case 'ACKNOWLEDGE_HANDOVER':
+        return handleAcknowledgeHandover(payload);
       case 'SUBMIT_INCIDENT':
         return handleSubmitIncident(payload);
 

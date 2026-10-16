@@ -8,8 +8,12 @@ import { KgModuleHero } from '../components/KgDesignSystem';
 
 
 export default function Feedback() {
-  const store = useAppStore();
-  const { currentUser, feedbacks } = store;
+  const currentUser = useAppStore((s) => s.currentUser);
+  const feedbacks = useAppStore((s) => s.feedbacks);
+  const setFeedbacks = useAppStore((s) => s.setFeedbacks);
+  const setUpdating = useAppStore((s) => s.setUpdating);
+  const setGlobalLoading = useAppStore((s) => s.setLoading);
+  const store = { setFeedbacks, setUpdating, setLoading: setGlobalLoading };
   const [loading, setLoading] = useState(true);
   
   // Form states

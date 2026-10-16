@@ -83,6 +83,9 @@ function saveQueue(queue: QueuedTask[]) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(compacted));
     } catch { /* ignore */ }
   }
+  try {
+    window.dispatchEvent(new CustomEvent('kg:offline-queue-updated', { detail: { count: queue.length } }));
+  } catch { /* ignore */ }
 }
 
 function compactVaultEntries(entries: any[]): any[] {

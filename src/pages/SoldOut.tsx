@@ -7,8 +7,11 @@ import { KgModuleHero } from '../components/KgDesignSystem';
 
 
 export default function SoldOut() {
-  const store = useAppStore();
-  const { currentUser, soldOutItems } = store;
+  const currentUser = useAppStore((s) => s.currentUser);
+  const soldOutItems = useAppStore((s) => s.soldOutItems);
+  const isUpdating = useAppStore((s) => s.isUpdating);
+  const setSoldOutItems = useAppStore((s) => s.setSoldOutItems);
+  const store = { isUpdating, setSoldOutItems };
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [newItemName, setNewItemName] = useState('');

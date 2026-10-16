@@ -77,8 +77,9 @@ export default function Training() {
     document.head.appendChild(stylesheet);
   }, []);
 
-  const store = useAppStore();
-  const { currentUser } = store;
+  const currentUser = useAppStore((s) => s.currentUser);
+  const setAiOpen = useAppStore((s) => s.setAiOpen);
+  const store = { setAiOpen };
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
   const [activeLesson, setActiveLesson] = useState<string | null>(null);

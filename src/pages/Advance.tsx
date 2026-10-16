@@ -7,8 +7,11 @@ import { KgModuleHero } from '../components/KgDesignSystem';
 import { BadgeDollarSign, Send, History, CheckCheck, XCircle, Clock, Banknote, Wallet } from 'lucide-react';
 
 export default function Advance({ mode = 'user' }: { mode?: 'user' | 'admin' }) {
-  const store = useAppStore();
-  const { currentUser, advances } = store;
+  const currentUser = useAppStore((s) => s.currentUser);
+  const advances = useAppStore((s) => s.advances);
+  const setAdvances = useAppStore((s) => s.setAdvances);
+  const setLoading = useAppStore((s) => s.setLoading);
+  const store = { setAdvances, setLoading };
   const isManagerView = mode === 'admin' && (currentUser?.role === 'admin' || currentUser?.role === 'tester');
   
   const [amount, setAmount] = useState('');

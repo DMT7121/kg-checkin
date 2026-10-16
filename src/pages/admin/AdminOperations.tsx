@@ -17,7 +17,7 @@ import {
   UsersRound,
 } from 'lucide-react';
 import Swal from 'sweetalert2';
-import { KgModuleHero } from '../../components/KgDesignSystem';
+import { KgBottomSheet, KgButton, KgInput, KgModuleHero, KgSelect, KgTextarea } from '../../components/KgDesignSystem';
 import { callApi } from '../../services/api';
 import { useAppStore } from '../../store/useAppStore';
 import type {
@@ -67,6 +67,21 @@ export default function AdminOperations() {
     zoneId: '',
     shift: 'Cả ngày',
     note: '',
+  });
+  const [activeModal, setActiveModal] = useState<'team' | 'zone' | 'task' | null>(null);
+  const [modalError, setModalError] = useState('');
+  const [teamDraft, setTeamDraft] = useState({ name: '', description: '' });
+  const [zoneDraft, setZoneDraft] = useState({ name: '', description: '' });
+  const [taskDraft, setTaskDraft] = useState<{
+    title: string;
+    description: string;
+    priority: OperationTask['priority'];
+    frequency: string;
+  }>({
+    title: '',
+    description: '',
+    priority: 'normal',
+    frequency: 'Mỗi ca',
   });
 
   const employees = useMemo(
@@ -138,31 +153,24 @@ export default function AdminOperations() {
     });
   };
 
-  const createTeam = async () => {
-    const { value } = await Swal.fire({
-      title: 'Tạo nhóm trực',
-      html: `
-        <input id="team-name" class="swal2-input" placeholder="Tên nhóm, ví dụ: Nhóm A">
-        <textarea id="team-desc" class="swal2-textarea" placeholder="Mô tả phạm vi hoặc thế mạnh của nhóm"></textarea>
-      `,
-      showCancelButton: true,
-      confirmButtonText: 'Tạo nhóm',
-      cancelButtonText: 'Hủy',
-      preConfirm: () => {
-        const name = (document.getElementById('team-name') as HTMLInputElement)?.value.trim();
-        const description = (document.getElementById('team-desc') as HTMLTextAreaElement)?.value.trim();
-        if (!name) {
-          Swal.showValidationMessage('Vui lòng nhập tên nhóm');
-          return false;
-        }
-        return { name, description };
-      },
-    });
-    if (!value) return;
+  const createTeam = () => {
+    setTeamDraft({ name: '', description: '' });
+    setModalError('');
+    setActiveModal('team');
+  };
+
+  const submitCreateTeam = (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = teamDraft.name.trim();
+    const description = teamDraft.description.trim();
+    if (!name) {
+      setModalError('Vui lòng nhập tên nhóm');
+      return;
+    }
     const team: OperationTeam = {
       id: newId('TEAM'),
-      name: value.name,
-      description: value.description,
+      name,
+      description,
       color: teamColors[config.teams.length % teamColors.length],
       leaderUsername: '',
       memberUsernames: [],
@@ -171,85 +179,68 @@ export default function AdminOperations() {
     setSelectedTeamId(team.id);
     setAssignmentDraft(current => ({ ...current, teamId: current.teamId || team.id }));
     setSection('teams');
+    setActiveModal(null);
   };
 
-  const createZone = async () => {
-    const { value } = await Swal.fire({
-      title: 'Tạo khu trực',
-      html: `
-        <input id="zone-name" class="swal2-input" placeholder="Ví dụ: Sảnh A, Quầy bar, Khu VIP">
-        <textarea id="zone-desc" class="swal2-textarea" placeholder="Mô tả phạm vi, bàn hoặc thiết bị phụ trách"></textarea>
-      `,
-      showCancelButton: true,
-      confirmButtonText: 'Tạo khu',
-      cancelButtonText: 'Hủy',
-      preConfirm: () => {
-        const name = (document.getElementById('zone-name') as HTMLInputElement)?.value.trim();
-        const description = (document.getElementById('zone-desc') as HTMLTextAreaElement)?.value.trim();
-        if (!name) {
-          Swal.showValidationMessage('Vui lòng nhập tên khu trực');
-          return false;
-        }
-        return { name, description };
-      },
-    });
-    if (!value) return;
+  const createZone = () => {
+    setZoneDraft({ name: '', description: '' });
+    setModalError('');
+    setActiveModal('zone');
+  };
+
+  const submitCreateZone = (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = zoneDraft.name.trim();
+    const description = zoneDraft.description.trim();
+    if (!name) {
+      setModalError('Vui lòng nhập tên khu trực');
+      return;
+    }
     const zone: OperationZone = {
       id: newId('ZONE'),
-      name: value.name,
-      description: value.description,
+      name,
+      description,
       color: teamColors[config.zones.length % teamColors.length],
     };
     patchConfig(current => ({ ...current, zones: [...current.zones, zone] }));
     setSelectedZoneId(zone.id);
     setAssignmentDraft(current => ({ ...current, zoneId: current.zoneId || zone.id }));
     setSection('zones');
+    setActiveModal(null);
   };
 
-  const createTask = async () => {
+  const createTask = () => {
     if (!selectedZoneId) {
       Swal.fire('Chưa có khu trực', 'Hãy tạo hoặc chọn khu trực trước.', 'info');
       return;
     }
-    const { value } = await Swal.fire({
-      title: 'Thêm công việc cho khu',
-      html: `
-        <input id="task-title" class="swal2-input" placeholder="Tên công việc">
-        <textarea id="task-desc" class="swal2-textarea" placeholder="Tiêu chuẩn hoặc hướng dẫn thực hiện"></textarea>
-        <select id="task-priority" class="swal2-select">
-          <option value="normal">Thông thường</option>
-          <option value="important">Quan trọng</option>
-          <option value="critical">Bắt buộc ưu tiên</option>
-        </select>
-        <input id="task-frequency" class="swal2-input" placeholder="Tần suất, ví dụ: Đầu ca / Mỗi 60 phút">
-      `,
-      showCancelButton: true,
-      confirmButtonText: 'Thêm công việc',
-      cancelButtonText: 'Hủy',
-      preConfirm: () => {
-        const title = (document.getElementById('task-title') as HTMLInputElement)?.value.trim();
-        if (!title) {
-          Swal.showValidationMessage('Vui lòng nhập tên công việc');
-          return false;
-        }
-        return {
-          title,
-          description: (document.getElementById('task-desc') as HTMLTextAreaElement)?.value.trim(),
-          priority: (document.getElementById('task-priority') as HTMLSelectElement)?.value,
-          frequency: (document.getElementById('task-frequency') as HTMLInputElement)?.value.trim() || 'Mỗi ca',
-        };
-      },
+    setTaskDraft({
+      title: '',
+      description: '',
+      priority: 'normal',
+      frequency: 'Mỗi ca',
     });
-    if (!value) return;
+    setModalError('');
+    setActiveModal('task');
+  };
+
+  const submitCreateTask = (e: React.FormEvent) => {
+    e.preventDefault();
+    const title = taskDraft.title.trim();
+    if (!title) {
+      setModalError('Vui lòng nhập tên công việc');
+      return;
+    }
     const task: OperationTask = {
       id: newId('TASK'),
       zoneId: selectedZoneId,
-      title: value.title,
-      description: value.description,
-      priority: value.priority,
-      frequency: value.frequency,
+      title,
+      description: taskDraft.description.trim(),
+      priority: taskDraft.priority,
+      frequency: taskDraft.frequency.trim() || 'Mỗi ca',
     };
     patchConfig(current => ({ ...current, tasks: [...current.tasks, task] }));
+    setActiveModal(null);
   };
 
   const toggleMember = (teamId: string, username: string) => {
@@ -1242,6 +1233,128 @@ export default function AdminOperations() {
           {saving ? 'Đang lưu' : 'Lưu cấu hình'}
         </button>
       </div>
+
+      {/* Modal: Tạo nhóm trực */}
+      <KgBottomSheet
+        isOpen={activeModal === 'team'}
+        onClose={() => setActiveModal(null)}
+        title="Tạo nhóm trực"
+      >
+        <form onSubmit={submitCreateTeam} className="space-y-4">
+          <KgInput
+            label="Tên nhóm trực *"
+            placeholder="Ví dụ: Nhóm A, Tổ Phục vụ Sáng..."
+            value={teamDraft.name}
+            onChange={e => {
+              setTeamDraft(prev => ({ ...prev, name: e.target.value }));
+              if (modalError) setModalError('');
+            }}
+            error={modalError}
+            autoFocus
+          />
+          <KgTextarea
+            label="Mô tả phạm vi hoặc thế mạnh"
+            placeholder="Mô tả phạm vi phụ trách hoặc thế mạnh của nhóm..."
+            value={teamDraft.description}
+            onChange={e => setTeamDraft(prev => ({ ...prev, description: e.target.value }))}
+          />
+          <div className="flex gap-3 pt-2">
+            <KgButton variant="secondary" className="flex-1" onClick={() => setActiveModal(null)}>
+              Hủy
+            </KgButton>
+            <KgButton type="submit" variant="primary" className="flex-1" icon={Plus}>
+              Tạo nhóm
+            </KgButton>
+          </div>
+        </form>
+      </KgBottomSheet>
+
+      {/* Modal: Tạo khu trực */}
+      <KgBottomSheet
+        isOpen={activeModal === 'zone'}
+        onClose={() => setActiveModal(null)}
+        title="Tạo khu trực"
+      >
+        <form onSubmit={submitCreateZone} className="space-y-4">
+          <KgInput
+            label="Tên khu trực *"
+            placeholder="Ví dụ: Sảnh A, Quầy bar, Khu VIP..."
+            value={zoneDraft.name}
+            onChange={e => {
+              setZoneDraft(prev => ({ ...prev, name: e.target.value }));
+              if (modalError) setModalError('');
+            }}
+            error={modalError}
+            autoFocus
+          />
+          <KgTextarea
+            label="Mô tả phạm vi phụ trách"
+            placeholder="Mô tả phạm vi, bàn hoặc thiết bị phụ trách..."
+            value={zoneDraft.description}
+            onChange={e => setZoneDraft(prev => ({ ...prev, description: e.target.value }))}
+          />
+          <div className="flex gap-3 pt-2">
+            <KgButton variant="secondary" className="flex-1" onClick={() => setActiveModal(null)}>
+              Hủy
+            </KgButton>
+            <KgButton type="submit" variant="primary" className="flex-1" icon={Plus}>
+              Tạo khu
+            </KgButton>
+          </div>
+        </form>
+      </KgBottomSheet>
+
+      {/* Modal: Thêm công việc cho khu */}
+      <KgBottomSheet
+        isOpen={activeModal === 'task'}
+        onClose={() => setActiveModal(null)}
+        title="Thêm công việc cho khu"
+      >
+        <form onSubmit={submitCreateTask} className="space-y-4">
+          <KgInput
+            label="Tên công việc *"
+            placeholder="Nhập tên công việc cần thực hiện..."
+            value={taskDraft.title}
+            onChange={e => {
+              setTaskDraft(prev => ({ ...prev, title: e.target.value }));
+              if (modalError) setModalError('');
+            }}
+            error={modalError}
+            autoFocus
+          />
+          <KgTextarea
+            label="Tiêu chuẩn hoặc hướng dẫn thực hiện"
+            placeholder="Mô tả chi tiết tiêu chuẩn hoàn thành..."
+            value={taskDraft.description}
+            onChange={e => setTaskDraft(prev => ({ ...prev, description: e.target.value }))}
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <KgSelect
+              label="Mức độ ưu tiên"
+              value={taskDraft.priority}
+              onChange={e => setTaskDraft(prev => ({ ...prev, priority: e.target.value as OperationTask['priority'] }))}
+            >
+              <option value="normal">Thông thường</option>
+              <option value="important">Quan trọng</option>
+              <option value="critical">Bắt buộc ưu tiên</option>
+            </KgSelect>
+            <KgInput
+              label="Tần suất thực hiện"
+              placeholder="Ví dụ: Đầu ca / Mỗi 60 phút"
+              value={taskDraft.frequency}
+              onChange={e => setTaskDraft(prev => ({ ...prev, frequency: e.target.value }))}
+            />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <KgButton variant="secondary" className="flex-1" onClick={() => setActiveModal(null)}>
+              Hủy
+            </KgButton>
+            <KgButton type="submit" variant="primary" className="flex-1" icon={Plus}>
+              Thêm công việc
+            </KgButton>
+          </div>
+        </form>
+      </KgBottomSheet>
     </div>
   );
 }

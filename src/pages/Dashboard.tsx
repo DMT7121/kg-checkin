@@ -1,4 +1,5 @@
 import { lazy, Suspense, useState, useEffect } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import { computeWeekInfo, auditMissingCheckIns, type MissingCheckInAlert, ResponsiveShift, getPreviewShiftClass, getScheduleRegistrationWindow, isNextWeekScheduleRegistered } from '../utils/helpers';
@@ -135,7 +136,7 @@ const TabFallback = () => (
 );
 
 const ModuleRecoverFallback = ({ onRetry, onGoHome }: { onRetry?: () => void; onGoHome?: () => void }) => {
-  const store = useAppStore();
+  const setCurrentTab = useAppStore((s) => s.setCurrentTab);
   return (
     <div className="p-4 md:p-6">
       <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-5 md:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
@@ -168,7 +169,7 @@ const ModuleRecoverFallback = ({ onRetry, onGoHome }: { onRetry?: () => void; on
             onClick={() => {
               if (onGoHome) onGoHome();
               else {
-                store.setCurrentTab('dashboard');
+                setCurrentTab('dashboard');
                 window.scrollTo({ top: 0, behavior: 'instant' });
               }
             }}
@@ -183,7 +184,26 @@ const ModuleRecoverFallback = ({ onRetry, onGoHome }: { onRetry?: () => void; on
 };
 
 const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void }) => {
-  const store = useAppStore();
+  const store = useAppStore(
+    useShallow((s) => ({
+      currentUser: s.currentUser,
+      stats: s.stats,
+      logs: s.logs,
+      approvedShifts: s.approvedShifts,
+      isScheduleRegistered: s.isScheduleRegistered,
+      registeredShifts: s.registeredShifts,
+      setSwapRequests: s.setSwapRequests,
+      setAdvances: s.setAdvances,
+      users: s.users,
+      swapRequests: s.swapRequests,
+      advances: s.advances,
+      currentTime: s.currentTime,
+      todayChecklistDone: s.todayChecklistDone,
+      todayHandoverDone: s.todayHandoverDone,
+      soldOutItems: s.soldOutItems,
+      pendingFeedbackCount: s.pendingFeedbackCount,
+    }))
+  );
   const { currentUser } = store;
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'tester';
   const { stats, logs, approvedShifts } = store;

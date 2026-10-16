@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import { DAY_NAMES, SHORT_DAY_NAMES, computeWeekInfo, ResponsiveShift, getPreviewShiftClass } from '../utils/helpers';
@@ -8,7 +9,19 @@ import { KgModuleHero } from '../components/KgDesignSystem';
 
 
 export default function SwapShift() {
-  const store = useAppStore();
+  const store = useAppStore(
+    useShallow((s) => ({
+      currentUser: s.currentUser,
+      users: s.users,
+      approvedShifts: s.approvedShifts,
+      swapRequests: s.swapRequests,
+      hasNewSwaps: s.hasNewSwaps,
+      isScheduleRegistered: s.isScheduleRegistered,
+      setSwapRequests: s.setSwapRequests,
+      setHasNewSwaps: s.setHasNewSwaps,
+      setLoading: s.setLoading,
+    }))
+  );
   const { currentUser, users, approvedShifts, swapRequests } = store;
   const [weekInfo] = useState(() => computeWeekInfo());
   
@@ -232,25 +245,25 @@ export default function SwapShift() {
           {/* Admin Approval Section */}
           {currentUser?.role === 'admin' && swapRequests.filter(req => req.status === 'Pending_Admin').length > 0 && (
             <div className="mb-8">
-              <h3 className="font-bold text-gray-800 dark:text-white mb-3 flex items-center">
-                <Inbox size={18} className="mr-2 text-ocean-600" /> Cần Admin Duyệt
+              <h3 className="font-bold text-[var(--kg-text)] mb-3 flex items-center">
+                <Inbox size={18} className="mr-2 text-[var(--kg-primary)]" /> Cần Admin Duyệt
               </h3>
               <div className="space-y-3">
                 {swapRequests.filter(req => req.status === 'Pending_Admin').map((req) => (
-                  <div key={req.id} className="bg-orange-50 dark:bg-orange-900/10 border border-orange-200 dark:border-orange-800 rounded-2xl p-4  animate-fade-in">
+                  <div key={req.id} className="bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/30 rounded-2xl p-4 animate-fade-in">
                     <div className="mb-2">
-                      <span className="font-bold text-gray-800 dark:text-gray-200">{req.fullname}</span>
-                      <span className="text-gray-500 text-sm mx-1">muốn</span>
-                      <span className="font-bold text-ocean-600 dark:text-ocean-400 inline-flex items-center">
+                      <span className="font-bold text-[var(--kg-text)]">{req.fullname}</span>
+                      <span className="text-[var(--kg-text-muted)] text-sm mx-1">muốn</span>
+                      <span className="font-bold text-[var(--kg-primary)] inline-flex items-center">
                         {req.targetUsername === 'ADMIN' ? 'Xin Nghỉ Phép' : <>Đổi ca <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-black mx-1 shadow-2xs ${getPreviewShiftClass(req.shift)}`}><ResponsiveShift shift={req.shift} /></span></>}
                       </span>
-                      <span className="text-gray-500 text-sm mx-1">vào</span>
-                      <span className="font-bold text-gray-700 dark:text-gray-300">{req.dayName} ({req.date})</span>
+                      <span className="text-[var(--kg-text-muted)] text-sm mx-1">vào</span>
+                      <span className="font-bold text-[var(--kg-text)]">{req.dayName} ({req.date})</span>
                     </div>
-                    <div className="soft3d-card p-3 rounded-xl mb-3 text-sm border border-orange-100 dark:border-orange-800/50">
-                      <p className="mb-1"><span className="text-gray-500">Lý do:</span> {req.reason}</p>
+                    <div className="soft3d-card p-3 rounded-xl mb-3 text-sm border border-[var(--kg-border)]">
+                      <p className="mb-1"><span className="text-[var(--kg-text-muted)]">Lý do:</span> {req.reason}</p>
                       {req.targetUsername !== 'ADMIN' && (
-                        <p><span className="text-gray-500">Người nhận thay:</span> <span className="font-bold text-teal-600 dark:text-teal-400">{req.targetFullname}</span></p>
+                        <p><span className="text-[var(--kg-text-muted)]">Người nhận thay:</span> <span className="font-bold text-[var(--kg-primary)]">{req.targetFullname}</span></p>
                       )}
                     </div>
                     <div className="flex space-x-2">
@@ -263,7 +276,7 @@ export default function SwapShift() {
                             loadSwapRequests();
                           }
                         });
-                      }} className="flex-1 bg-teal-500 hover:bg-teal-600 text-white font-bold py-2.5 rounded-xl text-sm transition">
+                      }} className="flex-1 bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-bold py-2.5 rounded-xl text-sm transition">
                         Phê duyệt
                       </button>
                       <button onClick={() => {
@@ -275,7 +288,7 @@ export default function SwapShift() {
                             loadSwapRequests();
                           }
                         });
-                      }} className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-2.5 rounded-xl text-sm transition">
+                      }} className="flex-1 bg-[var(--kg-danger)] hover:brightness-95 text-white font-bold py-2.5 rounded-xl text-sm transition">
                         Từ chối
                       </button>
                     </div>
@@ -285,47 +298,47 @@ export default function SwapShift() {
             </div>
           )}
 
-          <h3 className="font-bold text-gray-800 dark:text-white mb-3">Tất cả bài đăng</h3>
+          <h3 className="font-bold text-[var(--kg-text)] mb-3">Tất cả bài đăng</h3>
           {swapRequests.length === 0 ? (
-            <div className="soft3d-card p-8 text-center  ">
-              <Inbox size={48} className="mx-auto text-gray-300 dark:text-gray-600 mb-4" />
-              <h3 className="text-gray-500 dark:text-gray-400 font-bold mb-1">Chưa có ai cần đổi ca</h3>
-              <p className="text-xs text-gray-400">Những yêu cầu đổi ca sẽ xuất hiện ở đây.</p>
+            <div className="soft3d-card p-8 text-center">
+              <Inbox size={48} className="mx-auto text-[var(--kg-text-soft)] mb-4" />
+              <h3 className="text-[var(--kg-text-muted)] font-bold mb-1">Chưa có ai cần đổi ca</h3>
+              <p className="text-xs text-[var(--kg-text-soft)]">Những yêu cầu đổi ca sẽ xuất hiện ở đây.</p>
             </div>
           ) : (
             swapRequests.map((req) => (
-              <div key={req.id} className="soft3d-card p-5  border border-teal-100 dark:border-teal-900 relative overflow-hidden animate-fade-in group">
+              <div key={req.id} className="soft3d-card p-5 border border-[var(--kg-border)] relative overflow-hidden animate-fade-in group">
                 {req.username === currentUser?.username && (
-                  <div className="absolute top-0 right-0 bg-teal-500 text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg">Của bạn</div>
+                  <div className="absolute top-0 right-0 bg-[var(--kg-primary)] text-white text-[10px] font-bold px-2.5 py-1 rounded-bl-lg">Của bạn</div>
                 )}
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex items-center">
-                    <div className="w-10 h-10 rounded-full bg-teal-100 dark:bg-teal-900/50 text-teal-600 flex items-center justify-center font-bold text-lg mr-3  border border-teal-200 dark:border-teal-800">
+                    <div className="w-10 h-10 rounded-full bg-[var(--kg-accent-soft)] text-[var(--kg-primary)] flex items-center justify-center font-bold text-lg mr-3 border border-[var(--kg-primary)]/20">
                       {req.fullname.charAt(0)}
                     </div>
                     <div>
-                      <h4 className="font-bold text-gray-800 dark:text-white text-sm">{req.fullname}</h4>
-                      <p className="text-[10px] text-gray-500 flex items-center mt-0.5"><Clock size={10} className="mr-1" /> Vừa xong</p>
+                      <h4 className="font-bold text-[var(--kg-text)] text-sm">{req.fullname}</h4>
+                      <p className="text-[10px] text-[var(--kg-text-muted)] flex items-center mt-0.5"><Clock size={10} className="mr-1" /> Vừa xong</p>
                     </div>
                   </div>
                 </div>
                 
-                <div className="soft3d-bg/50 rounded-xl p-3 mb-4 ">
-                  <p className="text-sm text-gray-700 dark:text-gray-300 font-medium mb-1.5 flex items-center flex-wrap">
+                <div className="bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl p-3 mb-4">
+                  <p className="text-sm text-[var(--kg-text)] font-medium mb-1.5 flex items-center flex-wrap">
                     Cần người làm thay ca <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-black mx-1.5 shadow-2xs ${getPreviewShiftClass(req.shift)}`}><ResponsiveShift shift={req.shift} /></span>
                   </p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 font-bold mb-2">Vào {req.dayName} ({req.date})</p>
-                  <p className="text-xs text-gray-500 italic flex items-start">
-                    <span className="font-semibold not-italic mr-1 text-gray-600 dark:text-gray-400">Lý do:</span> {req.reason}
+                  <p className="text-xs text-[var(--kg-text-muted)] font-bold mb-2">Vào {req.dayName} ({req.date})</p>
+                  <p className="text-xs text-[var(--kg-text-muted)] italic flex items-start">
+                    <span className="font-semibold not-italic mr-1 text-[var(--kg-text)]">Lý do:</span> {req.reason}
                   </p>
                 </div>
 
                 {req.username !== currentUser?.username && req.status === 'Pending_User' ? (
-                  <button onClick={() => handleAcceptSwap(req)} className="w-full bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 font-bold py-3 rounded-xl border border-teal-200 dark:border-teal-800 hover:bg-teal-100 dark:hover:bg-teal-800/50 transition-all flex items-center justify-center text-sm">
+                  <button onClick={() => handleAcceptSwap(req)} className="w-full bg-[var(--kg-accent-soft)] text-[var(--kg-primary)] font-bold py-3 rounded-xl border border-[var(--kg-primary)]/25 hover:bg-[var(--kg-primary)] hover:text-white transition-all flex items-center justify-center text-sm">
                     <HandshakeIcon size={16} className="mr-2" /> Nhận làm thay ca này
                   </button>
                 ) : req.status === 'Pending_Admin' ? (
-                  <div className="w-full bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 font-bold py-2.5 rounded-xl border border-orange-200 dark:border-orange-800 text-center text-xs">
+                  <div className="w-full bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] font-bold py-2.5 rounded-xl border border-[var(--kg-warning)]/25 text-center text-xs">
                     ⏳ Đang chờ Admin duyệt (Người nhận: {req.targetFullname})
                   </div>
                 ) : req.username === currentUser?.username ? (
@@ -335,7 +348,7 @@ export default function SwapShift() {
                       store.setLoading(false);
                       loadSwapRequests();
                     });
-                  }} className="w-full bg-red-50 dark:bg-red-900/20 text-red-500 font-bold py-2.5 rounded-xl border border-red-200 dark:border-red-800 hover:bg-red-100 transition-all text-xs">
+                  }} className="w-full bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] font-bold py-2.5 rounded-xl border border-[var(--kg-danger)]/25 hover:brightness-95 transition-all text-xs">
                     Xóa bài đăng
                   </button>
                 ) : null}
@@ -349,15 +362,15 @@ export default function SwapShift() {
       {(viewTab === 'post' || viewTab === 'leave') && (
         <div className="animate-fade-in">
           {store.isScheduleRegistered && (!approvedShifts || approvedShifts.length === 0) && (
-            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 mb-4 flex items-center space-x-3">
-              <Clock size={20} className="text-amber-500 flex-shrink-0" />
-              <p className="text-xs text-amber-700 dark:text-amber-300 font-medium">
+            <div className="bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/30 rounded-2xl p-4 mb-4 flex items-center space-x-3">
+              <Clock size={20} className="text-[var(--kg-warning)] flex-shrink-0" />
+              <p className="text-xs text-[var(--kg-warning)] font-medium">
                 Lịch làm việc tuần tới đang ở trạng thái <strong>Chờ duyệt</strong>. Bạn có thể đổi ca hoặc xin nghỉ sau khi quản lý phê duyệt lịch.
               </p>
             </div>
           )}
           <div className="soft3d-card p-5 mb-6">
-            <h3 className="font-bold text-gray-800 dark:text-white mb-4">
+            <h3 className="font-bold text-[var(--kg-text)] mb-4">
               1. Chọn ca của bạn muốn {viewTab === 'leave' ? 'xin nghỉ' : 'đổi'}
             </h3>
             <div className="flex overflow-x-auto space-x-2 pb-2 snap-x">
@@ -367,10 +380,10 @@ export default function SwapShift() {
                 const isOff = shift === 'OFF';
                 return (
                   <button key={i} disabled={isOff} onClick={() => setSelectedDayIndex(i)}
-                    className={`flex-shrink-0 w-20 snap-center rounded-xl p-2 border-2 transition-all ${isOff ? 'opacity-50 grayscale cursor-not-allowed border-gray-100 dark:border-gray-700' : isSelected ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20' : 'border-gray-200 dark:border-gray-700 paint-layer'}`}>
-                    <div className={`text-[12px] font-bold mb-0.5 ${isSelected ? 'text-teal-600' : 'text-gray-800 dark:text-gray-200'}`}>{weekInfo.weekDates[i]}</div>
-                    <div className={`text-[10px] font-medium mb-1.5 ${isSelected ? 'text-teal-500' : 'text-gray-500'}`}>{shortDay}</div>
-                    <div className={`text-xs font-black py-1.5 px-1 rounded-lg transition-all ${isSelected ? 'ring-2 ring-teal-500 ring-offset-1 shadow-md scale-105 ' : 'shadow-2xs '}${getPreviewShiftClass(shift)}`}><ResponsiveShift shift={shift} /></div>
+                    className={`flex-shrink-0 w-20 snap-center rounded-xl p-2 border-2 transition-all ${isOff ? 'opacity-50 grayscale cursor-not-allowed border-[var(--kg-border)]' : isSelected ? 'border-[var(--kg-primary)] bg-[var(--kg-accent-soft)]' : 'border-[var(--kg-border)] paint-layer'}`}>
+                    <div className={`text-[12px] font-bold mb-0.5 ${isSelected ? 'text-[var(--kg-primary)]' : 'text-[var(--kg-text)]'}`}>{weekInfo.weekDates[i]}</div>
+                    <div className={`text-[10px] font-medium mb-1.5 ${isSelected ? 'text-[var(--kg-primary)]' : 'text-[var(--kg-text-muted)]'}`}>{shortDay}</div>
+                    <div className={`text-xs font-black py-1.5 px-1 rounded-lg transition-all ${isSelected ? 'ring-2 ring-[var(--kg-primary)] ring-offset-1 shadow-md scale-105 ' : 'shadow-2xs '}${getPreviewShiftClass(shift)}`}><ResponsiveShift shift={shift} /></div>
                   </button>
                 );
               })}
@@ -379,41 +392,41 @@ export default function SwapShift() {
 
           {viewTab === 'post' && (
             <div className="soft3d-card p-5 mb-6">
-              <h3 className="font-bold text-gray-800 dark:text-white mb-4">2. Chọn người làm thay</h3>
+              <h3 className="font-bold text-[var(--kg-text)] mb-4">2. Chọn người làm thay</h3>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <User size={16} className="text-gray-400" />
+                  <User size={16} className="text-[var(--kg-text-soft)]" />
                 </div>
-                <select value={targetUsername} onChange={(e) => setTargetUsername(e.target.value)} className="w-full soft3d-bg border border-gray-200 dark:border-gray-700 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-800 dark:text-white appearance-none">
-                  <option value="ALL" className="font-bold text-teal-600">🌍 Tất cả mọi người (Đăng lên Chợ)</option>
+                <select value={targetUsername} onChange={(e) => setTargetUsername(e.target.value)} className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)] appearance-none">
+                  <option value="ALL" className="font-bold text-[var(--kg-primary)]">🌍 Tất cả mọi người (Đăng lên Chợ)</option>
                   {users.filter(u => u.username !== currentUser?.username).map(u => (
                     <option key={u.username} value={u.username}>👤 {u.fullname}</option>
                   ))}
                 </select>
               </div>
 
-              <h3 className="font-bold text-gray-800 dark:text-white mt-5 mb-3">Lý do đổi ca</h3>
-              <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Nhập lý do..." className="w-full soft3d-bg border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-800 dark:text-white" />
+              <h3 className="font-bold text-[var(--kg-text)] mt-5 mb-3">Lý do đổi ca</h3>
+              <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Nhập lý do..." className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)]" />
             </div>
           )}
 
           {viewTab === 'leave' && (
             <div className="soft3d-card p-5 mb-6">
-              <h3 className="font-bold text-gray-800 dark:text-white mb-3">2. Lý do xin nghỉ phép</h3>
-              <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Nhập lý do xin nghỉ..." className="w-full soft3d-bg border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-800 dark:text-white" />
-              <p className="text-xs text-gray-500 mt-2 italic">Lưu ý: Đơn xin nghỉ phép sẽ được gửi trực tiếp cho Quản lý phê duyệt.</p>
+              <h3 className="font-bold text-[var(--kg-text)] mb-3">2. Lý do xin nghỉ phép</h3>
+              <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Nhập lý do xin nghỉ..." className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)]" />
+              <p className="text-xs text-[var(--kg-text-muted)] mt-2 italic">Lưu ý: Đơn xin nghỉ phép sẽ được gửi trực tiếp cho Quản lý phê duyệt.</p>
             </div>
           )}
 
           {selectedDayIndex !== null && targetUsername !== 'ALL' && viewTab === 'post' && (
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-4 mb-6 animate-fade-in">
+            <div className="bg-[var(--kg-accent-soft)] border border-[var(--kg-primary)]/20 rounded-2xl p-4 mb-6 animate-fade-in">
               <div className="flex items-center mb-2">
-                <BellRing size={16} className="text-blue-500 mr-2" />
-                <span className="font-bold text-sm text-blue-700 dark:text-blue-400">Tin nhắn tự động Zalo</span>
+                <BellRing size={16} className="text-[var(--kg-primary)] mr-2" />
+                <span className="font-bold text-sm text-[var(--kg-primary)]">Tin nhắn tự động Zalo</span>
               </div>
-              <p className="text-xs text-blue-600 dark:text-blue-300 italic soft3d-card p-3 rounded-xl border border-blue-100 dark:border-blue-900">"{getZaloMessage()}"</p>
+              <p className="text-xs text-[var(--kg-text)] italic soft3d-card p-3 rounded-xl border border-[var(--kg-border)]">"{getZaloMessage()}"</p>
               <div className="flex space-x-2 mt-3">
-                <button onClick={() => copyToClipboard(getZaloMessage())} className="flex-1 soft3d-card text-blue-600 dark:text-blue-400 text-xs font-bold py-2 rounded-lg border border-blue-200 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-gray-700 transition flex items-center justify-center">
+                <button onClick={() => copyToClipboard(getZaloMessage())} className="flex-1 soft3d-card text-[var(--kg-primary)] text-xs font-bold py-2 rounded-lg border border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)] transition flex items-center justify-center">
                   <Copy size={14} className="mr-1" /> Copy
                 </button>
                 <a href={`https://zalo.me`} target="_blank" rel="noreferrer" className="flex-1 bg-[#0068ff] text-white text-xs font-bold py-2 rounded-lg hover:bg-blue-700 transition flex items-center justify-center text-center">

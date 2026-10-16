@@ -18,7 +18,10 @@ import { saveModuleCache } from '../utils/refreshData';
 import { escapeHtml } from '../utils/security';
 
 export default function Roster() {
-  const store = useAppStore();
+  const monthSchedules = useAppStore((s) => s.monthSchedules);
+  const users = useAppStore((s) => s.users);
+  const currentUser = useAppStore((s) => s.currentUser);
+  const store = { monthSchedules, users, currentUser };
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [selectedRole, setSelectedRole] = useState<string>('ALL');

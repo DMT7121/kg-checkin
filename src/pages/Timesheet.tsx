@@ -13,8 +13,11 @@ type ViewMode = 'HOURS' | 'TIMESTAMPS';
 type DetailMobileView = 'CALENDAR' | 'LIST';
 
 export default function Timesheet() {
-  const store = useAppStore();
-  const { currentUser, timesheetData, users } = store;
+  const currentUser = useAppStore((s) => s.currentUser);
+  const timesheetData = useAppStore((s) => s.timesheetData);
+  const users = useAppStore((s) => s.users);
+  const setTimesheetData = useAppStore((s) => s.setTimesheetData);
+  const store = { setTimesheetData };
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'tester';
   
   const [viewMode, setViewMode] = useState<ViewMode>('HOURS');
