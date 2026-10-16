@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Sparkles,
   Camera,
@@ -38,7 +39,7 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
   const [activeTab, setActiveTab] = useState<GuideTabKey>('start');
   const [dontShowAgain, setDontShowAgain] = useState(false);
 
-  if (!isOpen) return null;
+  if (!isOpen || typeof document === 'undefined') return null;
 
   const handleFinish = () => {
     if (currentUser?.username) {
@@ -69,8 +70,8 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
     { key: 'criteria', label: 'Tiêu chuẩn ĐẠT', shortLabel: 'Tiêu chuẩn ĐẠT', icon: CheckCircle2, badge: 'ĐẠT / LỖI' },
   ];
 
-  return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 md:p-6 animate-fade-in">
+  return createPortal(
+    <div className="fixed inset-0 z-[10060] flex items-center justify-center p-2.5 sm:p-4 md:p-6 animate-fade-in">
       {/* Dark Backdrop */}
       <div 
         className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
@@ -78,7 +79,7 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
       />
 
       {/* Main Modal Card */}
-      <div className="relative w-full max-w-4xl max-h-[92vh] bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-3xl shadow-2xl border border-[var(--kg-border)] flex flex-col overflow-hidden z-10 animate-scale-in">
+      <div className="relative w-full max-w-4xl max-h-[88dvh] sm:max-h-[90vh] mx-auto bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-2xl sm:rounded-3xl shadow-2xl border border-[var(--kg-border)] flex flex-col overflow-hidden z-10 animate-scale-in">
         
         {/* Modal Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex-shrink-0">
@@ -175,7 +176,7 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
                   {
                     step: '1',
                     title: 'Đến nhà hàng & Chấm công Vào Ca',
-                    desc: 'Đứng trong bán kính nhà hàng (≤20m), mở tab Chấm công, quét Live Camera & GPS.',
+                    desc: 'Đứng trong bán kính nhà hàng (≤25m), mở tab Chấm công, quét Live Camera & GPS.',
                     target: 'checkin' as TabId,
                     btnText: 'Xem Chấm công',
                     icon: Camera,
@@ -277,8 +278,8 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
                   },
                   {
                     num: '2',
-                    title: 'Đứng trong phạm vi nhà hàng (≤ 20m)',
-                    desc: 'Hệ thống tự động đo khoảng cách từ toạ độ GPS của bạn đến nhà hàng. Khoảng cách phải nằm trong bán kính 20 mét (Hợp lệ).'
+                    title: 'Đứng trong phạm vi nhà hàng (≤ 25m)',
+                    desc: 'Hệ thống tự động đo khoảng cách từ toạ độ GPS của bạn đến nhà hàng. Khoảng cách phải nằm trong bán kính 25 mét (Hợp lệ).'
                   },
                   {
                     num: '3',
@@ -556,7 +557,7 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
                   },
                   {
                     action: 'Đăng ký lịch làm tuần mới',
-                    success: 'Bấm nộp trước 23:59 CN, hệ thống báo "Đã gửi đăng ký", Dashboard chuyển sang thẻ "Đã đăng ký", lịch hiển thị các ca đã chọn chờ Admin duyệt.',
+                    success: 'Bấm nộp trước 17:00 Thứ Bảy, hệ thống báo "Đã gửi đăng ký", Dashboard chuyển sang thẻ "Đã đăng ký", lịch hiển thị các ca đã chọn chờ Admin duyệt.',
                     failed: 'Chưa bấm nút "Đăng ký lịch làm" hoặc thiếu lý do cho ngày đăng ký OFF.'
                   },
                   {
@@ -608,7 +609,7 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
         </div>
 
         {/* Modal Footer */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3.5 border-t border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex-shrink-0">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 sm:px-5 py-3.5 border-t border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex-shrink-0">
           <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-[var(--kg-text-muted)] select-none">
             <input
               type="checkbox"
@@ -646,6 +647,7 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
         </div>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

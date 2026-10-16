@@ -78,9 +78,11 @@ var JsonCacheService = (function() {
     var sheet = getCacheSheet();
     var data = sheet.getDataRange().getValues();
     var timeStr = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, "dd/MM/yyyy HH:mm:ss");
+    var emptyRowIndex = -1;
 
     for (var i = 1; i < data.length; i++) {
-      if (data[i][0] === rowKey) {
+      var existingKey = data[i][0] ? String(data[i][0]) : "";
+      if (existingKey === rowKey) {
         try {
           Sheets.Spreadsheets.Values.update(
             { values: [[rowVal, timeStr]] },
@@ -91,6 +93,23 @@ var JsonCacheService = (function() {
         } catch(apiErr) {
           sheet.getRange(i + 1, 2, 1, 2).setValues([[rowVal, timeStr]]);
         }
+        return;
+      }
+      if (!existingKey && emptyRowIndex === -1) {
+        emptyRowIndex = i + 1;
+      }
+    }
+    if (emptyRowIndex !== -1) {
+      try {
+        Sheets.Spreadsheets.Values.update(
+          { values: [[rowKey, rowVal, timeStr]] },
+          getSpreadsheetId(),
+          sheet.getName() + "!A" + emptyRowIndex + ":C" + emptyRowIndex,
+          { valueInputOption: "USER_ENTERED" }
+        );
+        return;
+      } catch(apiErrReuse) {
+        sheet.getRange(emptyRowIndex, 1, 1, 3).setValues([[rowKey, rowVal, timeStr]]);
         return;
       }
     }
@@ -136,54 +155,45 @@ var JsonCacheService = (function() {
   }
 
   /**
-   * Fast cache invalidation using Sheets API v4 in memory
-   * Zero slow deleteRow calls! Eliminates 5-15s lag during sync.
+   * Ultra-fast concurrent-safe cache invalidation using Sheets API v4.
+   * Reads only Column A (keys) and batchClears only matching rows!
    */
   function invalidateKeysByPredicate(predicateFn) {
     try {
       var ssId = getSpreadsheetId();
-      var data;
+      var keyRows;
       try {
-        var res = Sheets.Spreadsheets.Values.get(ssId, CACHE_SHEET_NAME + "!A:C");
-        data = res.values;
+        var res = Sheets.Spreadsheets.Values.get(ssId, CACHE_SHEET_NAME + "!A1:A");
+        keyRows = res.values;
       } catch(apiErr) {
         var sheet = getCacheSheet();
-        data = sheet.getDataRange().getValues();
+        var lastR = sheet.getLastRow();
+        if (lastR <= 1) return;
+        keyRows = sheet.getRange(1, 1, lastR, 1).getValues();
       }
-      if (!data || data.length <= 1) return;
+      if (!keyRows || keyRows.length <= 1) return;
 
-      var header = data[0];
-      var remaining = [];
-      var changed = false;
+      var rangesToClear = [];
+      var rowIndicesToClear = [];
 
-      for (var i = 1; i < data.length; i++) {
-        var key = data[i][0] ? String(data[i][0]) : "";
-        if (predicateFn(key)) {
-          changed = true; // remove entry
-        } else {
-          remaining.push(data[i]);
+      for (var i = 1; i < keyRows.length; i++) {
+        var key = keyRows[i] && keyRows[i][0] ? String(keyRows[i][0]) : "";
+        if (!key) continue;
+        var baseKey = key.indexOf("__part_") >= 0 ? key.split("__part_")[0] : key;
+        if (predicateFn(key) || predicateFn(baseKey)) {
+          var rowNum = i + 1;
+          rangesToClear.push(CACHE_SHEET_NAME + "!A" + rowNum + ":C" + rowNum);
+          rowIndicesToClear.push(rowNum);
         }
       }
 
-      if (changed) {
+      if (rangesToClear.length > 0) {
         try {
-          Sheets.Spreadsheets.Values.clear({}, ssId, CACHE_SHEET_NAME + "!A2:C");
-          if (remaining.length > 0) {
-            Sheets.Spreadsheets.Values.update(
-              { values: remaining },
-              ssId,
-              CACHE_SHEET_NAME + "!A2:C" + (remaining.length + 1),
-              { valueInputOption: "USER_ENTERED" }
-            );
-          }
+          Sheets.Spreadsheets.Values.batchClear({ ranges: rangesToClear }, ssId);
         } catch(apiErr2) {
-          var sheet = getCacheSheet();
-          var lastRow = sheet.getLastRow();
-          if (lastRow > 1) {
-            sheet.getRange(2, 1, lastRow - 1, 3).clearContent();
-          }
-          if (remaining.length > 0) {
-            sheet.getRange(2, 1, remaining.length, remaining[0].length).setValues(remaining);
+          var sheetFallback = getCacheSheet();
+          for (var r = 0; r < rowIndicesToClear.length; r++) {
+            sheetFallback.getRange(rowIndicesToClear[r], 1, 1, 3).clearContent();
           }
         }
       }
@@ -328,7 +338,7 @@ var JsonCacheService = (function() {
     
     // GPS Config
     var configValues = db.getValues(CONFIG.SHEET_CONFIG);
-    result.gpsConfig = extractConfigFromValues(configValues, "GPS_CONFIG", { 
+    var rawGpsCfg = extractConfigFromValues(configValues, "GPS_CONFIG", { 
       lat: CONFIG.LOCATION.LAT, 
       lng: CONFIG.LOCATION.LNG, 
       radius: CONFIG.LOCATION.MAX_DISTANCE_METERS,
@@ -339,6 +349,10 @@ var JsonCacheService = (function() {
       ],
       registrationCloseTime: '17:00 Thứ Bảy'
     });
+    if (rawGpsCfg && (Number(rawGpsCfg.radius) === 20 || !rawGpsCfg.radius || Number(rawGpsCfg.radius) <= 0)) {
+      rawGpsCfg.radius = CONFIG.LOCATION.MAX_DISTANCE_METERS;
+    }
+    result.gpsConfig = rawGpsCfg;
 
     // Org Config
     result.orgConfig = extractConfigFromValues(configValues, "ORG_CONFIG", { 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Bell, CheckCheck, Info, AlertTriangle, CheckCircle2, ArrowRight, X, Sparkles } from 'lucide-react';
 import { callApi } from '../services/api';
 import { useAppStore } from '../store/useAppStore';
@@ -111,23 +112,16 @@ export default function NotificationBell() {
     return () => clearInterval(interval);
   }, [currentUser?.username, fetchNotifications]);
 
-  // Close dropdown on outside click or Escape key
+  // Close dropdown on Escape key
   useEffect(() => {
     if (!isOpen) return;
-    const handleClick = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setIsOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClick);
     document.addEventListener('keydown', handleKeyDown);
     return () => {
-      document.removeEventListener('mousedown', handleClick);
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [isOpen]);
@@ -160,7 +154,7 @@ export default function NotificationBell() {
   };
 
   return (
-    <div ref={dropdownRef} className="relative">
+    <div ref={dropdownRef} className="relative inline-flex">
       {/* Bell Button */}
       <button
         type="button"
@@ -185,116 +179,127 @@ export default function NotificationBell() {
         )}
       </button>
 
-      {/* Mobile Backdrop Overlay */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 bg-black/40 backdrop-blur-xs z-[95] md:hidden animate-fade-in"
-          onClick={() => setIsOpen(false)}
-        />
-      )}
-
-      {/* Dropdown Container */}
-      {isOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Thông báo hệ thống"
-          className="fixed inset-x-3 top-16 max-w-sm mx-auto md:absolute md:inset-x-auto md:right-0 md:top-full md:mt-2 md:w-96 md:max-w-none bg-[var(--kg-surface)] rounded-2xl shadow-2xl border border-[var(--kg-border)] overflow-hidden z-[100] animate-fade-in text-[var(--kg-text)]"
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between p-3.5 border-b border-[var(--kg-border)] bg-[var(--kg-surface-soft)]">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center">
-                <Bell size={15} />
+      {/* Centered Viewport Modal via Portal so it is never clipped by sidebar or mobile containers */}
+      {isOpen && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[10070] flex items-center justify-center p-3 sm:p-4 animate-fade-in">
+          <div
+            className="fixed inset-0 bg-black/55 backdrop-blur-xs"
+            onClick={() => setIsOpen(false)}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Thông báo hệ thống"
+            onClick={(e) => e.stopPropagation()}
+            className="relative z-10 w-full max-w-md max-h-[82dvh] sm:max-h-[78vh] mx-auto bg-[var(--kg-surface)] rounded-2xl sm:rounded-3xl shadow-2xl border border-[var(--kg-border)] flex flex-col overflow-hidden text-[var(--kg-text)]"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3.5 border-b border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex-shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center">
+                  <Bell size={16} />
+                </div>
+                <h3 className="font-extrabold text-sm tracking-tight text-[var(--kg-text)] flex items-center gap-1.5">
+                  Thông báo hệ thống
+                  {unreadCount > 0 && (
+                    <span className="bg-red-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full shadow-sm">
+                      {unreadCount}
+                    </span>
+                  )}
+                </h3>
               </div>
-              <h3 className="font-extrabold text-sm tracking-tight text-[var(--kg-text)] flex items-center gap-1.5">
-                Thông báo
+              <div className="flex items-center gap-1.5">
                 {unreadCount > 0 && (
-                  <span className="bg-red-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full shadow-sm">
-                    {unreadCount}
-                  </span>
+                  <button 
+                    type="button"
+                    onClick={handleMarkAllRead}
+                    className="text-xs text-blue-600 dark:text-indigo-400 font-bold hover:underline flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] active:scale-95 transition-all"
+                  >
+                    <CheckCheck size={14} /> Đọc hết
+                  </button>
                 )}
-              </h3>
-            </div>
-            <div className="flex items-center gap-1.5">
-              {unreadCount > 0 && (
                 <button 
                   type="button"
-                  onClick={handleMarkAllRead}
-                  className="text-[11px] text-blue-600 dark:text-indigo-400 font-bold hover:underline flex items-center gap-1 px-2.5 py-1 rounded-lg hover:bg-blue-50 dark:hover:bg-indigo-950/30 transition-colors"
+                  onClick={() => setIsOpen(false)} 
+                  className="w-9 h-9 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] active:scale-95 transition-all"
+                  aria-label="Đóng"
                 >
-                  <CheckCheck size={13} /> Đọc hết
+                  <X size={16} />
                 </button>
+              </div>
+            </div>
+
+            {/* Notification List */}
+            <div className="flex-1 overflow-y-auto min-h-0 divide-y divide-[var(--kg-border)]">
+              {notifications.length === 0 ? (
+                <div className="p-10 text-center space-y-2">
+                  <div className="w-12 h-12 rounded-2xl bg-[var(--kg-surface-soft)] flex items-center justify-center mx-auto text-[var(--kg-text-muted)]">
+                    <Sparkles size={24} />
+                  </div>
+                  <p className="text-sm font-bold text-[var(--kg-text)]">Chưa có thông báo nào</p>
+                  <p className="text-xs text-[var(--kg-text-muted)]">Bạn đã cập nhật mọi thông tin mới nhất của ca trực.</p>
+                </div>
+              ) : (
+                notifications.map((n) => {
+                  const config = typeConfig[n.type] || typeConfig.info;
+                  const IconComp = config.icon;
+                  return (
+                    <div
+                      key={n.id}
+                      onClick={() => {
+                        if (!n.isRead) handleMarkRead(n.id);
+                        if (n.link) {
+                          const cleanLink = n.link.replace(/^\?tab=/, '').trim();
+                          if (cleanLink) {
+                            setCurrentTab(cleanLink as any);
+                            setIsOpen(false);
+                          }
+                        }
+                      }}
+                      className={`flex items-start gap-3 p-3.5 cursor-pointer transition-all ${
+                        n.isRead 
+                          ? 'opacity-65 hover:opacity-100 hover:bg-[var(--kg-surface-soft)]' 
+                          : 'bg-blue-50/50 dark:bg-blue-950/20 hover:bg-blue-100/40 dark:hover:bg-blue-900/30'
+                      }`}
+                    >
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 border ${config.bg} ${config.border}`}>
+                        <IconComp size={15} className={config.color} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-1">
+                          <p className={`text-xs font-black truncate ${n.isRead ? 'text-[var(--kg-text-muted)]' : 'text-[var(--kg-text)]'}`}>
+                            {n.title}
+                          </p>
+                          {!n.isRead && (
+                            <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0 animate-pulse" />
+                          )}
+                        </div>
+                        <p className="text-[11px] text-[var(--kg-text-muted)] line-clamp-2 mt-0.5 leading-relaxed font-medium">
+                          {n.body}
+                        </p>
+                        <p className="text-[10px] font-semibold text-[var(--kg-text-muted)]/80 mt-1">
+                          {formatNotificationTime(n.createdAt)}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })
               )}
-              <button 
+            </div>
+
+            {/* Footer Close Button for Easy Mobile Thumb Access */}
+            <div className="px-4 py-2.5 border-t border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex justify-end flex-shrink-0">
+              <button
                 type="button"
-                onClick={() => setIsOpen(false)} 
-                className="w-7 h-7 rounded-lg hover:bg-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition-colors"
-                aria-label="Đóng"
+                onClick={() => setIsOpen(false)}
+                className="px-4 py-2 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] text-xs font-bold text-[var(--kg-text)] active:scale-95 transition-all"
               >
-                <X size={15} />
+                Đóng thông báo
               </button>
             </div>
           </div>
-
-          {/* Notification List */}
-          <div className="overflow-y-auto max-h-[60vh] divide-y divide-[var(--kg-border)]">
-            {notifications.length === 0 ? (
-              <div className="p-10 text-center space-y-2">
-                <div className="w-12 h-12 rounded-2xl bg-[var(--kg-surface-soft)] flex items-center justify-center mx-auto text-[var(--kg-text-muted)]">
-                  <Sparkles size={24} />
-                </div>
-                <p className="text-sm font-bold text-[var(--kg-text)]">Chưa có thông báo nào</p>
-                <p className="text-xs text-[var(--kg-text-muted)]">Bạn đã cập nhật mọi thông tin mới nhất của ca trực.</p>
-              </div>
-            ) : (
-              notifications.map((n) => {
-                const config = typeConfig[n.type] || typeConfig.info;
-                const IconComp = config.icon;
-                return (
-                  <div
-                    key={n.id}
-                    onClick={() => {
-                      if (!n.isRead) handleMarkRead(n.id);
-                      if (n.link) {
-                        const cleanLink = n.link.replace(/^\?tab=/, '').trim();
-                        if (cleanLink) {
-                          setCurrentTab(cleanLink as any);
-                          setIsOpen(false);
-                        }
-                      }
-                    }}
-                    className={`flex items-start gap-3 p-3.5 cursor-pointer transition-all ${
-                      n.isRead 
-                        ? 'opacity-65 hover:opacity-100 hover:bg-[var(--kg-surface-soft)]' 
-                        : 'bg-blue-50/50 dark:bg-blue-950/20 hover:bg-blue-100/40 dark:hover:bg-blue-900/30'
-                    }`}
-                  >
-                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 border ${config.bg} ${config.border}`}>
-                      <IconComp size={15} className={config.color} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-1">
-                        <p className={`text-xs font-black truncate ${n.isRead ? 'text-[var(--kg-text-muted)]' : 'text-[var(--kg-text)]'}`}>
-                          {n.title}
-                        </p>
-                        {!n.isRead && (
-                          <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0 animate-pulse" />
-                        )}
-                      </div>
-                      <p className="text-[11px] text-[var(--kg-text-muted)] line-clamp-2 mt-0.5 leading-relaxed font-medium">
-                        {n.body}
-                      </p>
-                      <p className="text-[10px] font-semibold text-[var(--kg-text-muted)]/80 mt-1">
-                        {formatNotificationTime(n.createdAt)}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

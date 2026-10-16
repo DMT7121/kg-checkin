@@ -4,7 +4,13 @@
 import { create } from 'zustand';
 import type { TabId } from '../types/navigation';
 import { clearApiCache } from '../services/api';
-import { computeWeekInfo } from '../utils/helpers';
+import {
+  computeWeekInfo,
+  markScheduleRegisteredLocally,
+  getSavedRegisteredShiftsForWeek,
+  isNextWeekScheduleRegistered,
+  normalizeGpsRadius,
+} from '../utils/helpers';
 
 export interface User {
   username: string;
@@ -407,6 +413,9 @@ export const useAppStore = create<AppState>((set) => ({
   shiftData: {},
   registeredShifts: (() => {
     try {
+      const initialUser = restoreInitialUser();
+      const perUserShifts = getSavedRegisteredShiftsForWeek(initialUser?.username);
+      if (perUserShifts) return perUserShifts;
       const saved = localStorage.getItem('kg_registered_shifts');
       if (saved) {
         const parsed = JSON.parse(saved);
@@ -437,19 +446,8 @@ export const useAppStore = create<AppState>((set) => ({
   // Schedule (Restored from persistent storage with target week matching)
   isScheduleRegistered: (() => {
     try {
-      const weekInfo = computeWeekInfo();
-      const expectedWeekKey = weekInfo.monthSheet + '|' + weekInfo.weekLabel;
-      const savedWeek = localStorage.getItem('kg_registered_week');
-      const savedRegKey = localStorage.getItem('kg_schedule_registered');
-      const savedShifts = localStorage.getItem('kg_registered_shifts');
-      const savedUser = localStorage.getItem('kg_registered_user');
       const initialUser = restoreInitialUser();
-
-      if (initialUser?.username && savedUser && savedUser !== initialUser.username) {
-        return false;
-      }
-
-      if ((savedWeek === expectedWeekKey || savedRegKey === expectedWeekKey) && savedShifts) {
+      if (isNextWeekScheduleRegistered(false, initialUser?.username)) {
         return true;
       }
       return false;
@@ -512,7 +510,10 @@ export const useAppStore = create<AppState>((set) => ({
   setChecklistItems: (items) => set({ checklistItems: items }),
   setTimesheetData: (data) => set({ timesheetData: data }),
   setCheckInOutCompleted: (completed) => set({ isCheckInOutCompleted: completed }),
-  setServerGpsConfig: (config) => set({ serverGpsConfig: config }),
+  setServerGpsConfig: (config) =>
+    set({
+      serverGpsConfig: config ? { ...config, radius: normalizeGpsRadius(config.radius) } : null,
+    }),
   setServerOrgConfig: (config) => set({ serverOrgConfig: config }),
   setServerPayrollConfig: (config) => set({ serverPayrollConfig: config }),
   setRecentPosts: (recentPosts) => set({ recentPosts }),
@@ -662,16 +663,8 @@ export const useAppStore = create<AppState>((set) => ({
   setScheduleRegistered: (isScheduleRegistered, weekKey) => {
     try {
       if (isScheduleRegistered) {
-        const key = weekKey || (() => {
-          try {
-            const w = computeWeekInfo();
-            return w.monthSheet + '|' + w.weekLabel;
-          } catch {
-            return 'true';
-          }
-        })();
-        localStorage.setItem('kg_schedule_registered', key);
-        localStorage.setItem('kg_registered_week', key);
+        const state = useAppStore.getState();
+        markScheduleRegisteredLocally(state.currentUser?.username, weekKey, state.registeredShifts);
       } else {
         localStorage.removeItem('kg_schedule_registered');
         localStorage.removeItem('kg_registered_week');
@@ -681,7 +674,15 @@ export const useAppStore = create<AppState>((set) => ({
     set({ isScheduleRegistered });
   },
   setApprovedShifts: (approvedShifts) => set({ approvedShifts }),
-  setRegisteredShifts: (registeredShifts) => set({ registeredShifts }),
+  setRegisteredShifts: (registeredShifts) => {
+    try {
+      if (Array.isArray(registeredShifts) && registeredShifts.length === 7) {
+        const state = useAppStore.getState();
+        markScheduleRegisteredLocally(state.currentUser?.username, undefined, registeredShifts);
+      }
+    } catch {}
+    set({ registeredShifts });
+  },
   setShiftData: (shiftData) => set({ shiftData }),
   updateShiftData: (key, value) =>
     set((s) => ({ shiftData: { ...s.shiftData, [key]: value } })),

@@ -292,7 +292,7 @@ export function renderCheckInWatermarkCanvas({
     '#38BDF8'
   );
 
-  // Tile 4: Tiêu chuẩn Bán kính GPS (Chuẩn ≤20m)
+  // Tile 4: Tiêu chuẩn Bán kính GPS (Chuẩn ≤25m)
   const distText = stampMsg && stampMsg.includes('Khoảng cách:')
     ? stampMsg
     : `Khoảng cách: ${stampDist}m / ${targetRadius}m (≤${targetRadius}m Hợp lệ)`;
@@ -303,7 +303,7 @@ export function renderCheckInWatermarkCanvas({
     tileH,
     `🛰️ TIÊU CHUẨN BÁN KÍNH GPS (≤${targetRadius}M)`,
     distText,
-    '✓ Đạt chuẩn vị trí nhà hàng (≤20m)',
+    `✓ Đạt chuẩn vị trí nhà hàng (≤${targetRadius}m)`,
     '#34D399',
     '#10B981'
   );
@@ -318,7 +318,7 @@ export function renderCheckInWatermarkCanvas({
   const coordsText = `🛰️ TỌA ĐỘ: ${stampLat ? stampLat.toFixed(6) : '10.976083'}, ${stampLng ? stampLng.toFixed(6) : '106.664654'}`;
   ctx.fillText(coordsText, contentX, footerY);
 
-  const rightFooterText = `BÁN KÍNH TIÊU CHUẨN: ≤ 20M  •  KING'S GRILL CHÍNH THỨC`;
+  const rightFooterText = `BÁN KÍNH TIÊU CHUẨN: ≤ 25M  •  KING'S GRILL CHÍNH THỨC`;
   const rightFooterWidth = ctx.measureText(rightFooterText).width;
   ctx.fillText(rightFooterText, contentX + contentWidth - rightFooterWidth, footerY);
   ctx.restore();

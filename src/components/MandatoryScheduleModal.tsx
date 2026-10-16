@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { CalendarClock, AlertTriangle, Clock, ChevronRight, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { type ScheduleRegistrationWindowStatus } from '../utils/helpers';
@@ -18,26 +19,26 @@ export default function MandatoryScheduleModal({
   employeeName,
   targetWeekDisplay
 }: MandatoryScheduleModalProps) {
-  if (!isOpen) return null;
+  if (!isOpen || typeof document === 'undefined') return null;
 
-  return (
+  return createPortal(
     <AnimatePresence>
       <div 
-        className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in select-none"
+        className="fixed inset-0 z-[10080] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md animate-fade-in select-none"
         onClick={(e) => e.stopPropagation()}
       >
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          initial={{ opacity: 0, scale: 0.96, y: 12 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          transition={{ duration: 0.25, ease: 'easeOut' }}
-          className="relative w-full max-w-md bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-3xl shadow-2xl border-2 border-amber-500/40 overflow-hidden"
+          exit={{ opacity: 0, scale: 0.96, y: 12 }}
+          transition={{ duration: 0.2, ease: 'easeOut' }}
+          className="relative z-10 w-full max-w-md max-h-[88dvh] sm:max-h-[90vh] mx-auto bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-2xl sm:rounded-3xl shadow-2xl border-2 border-amber-500/40 flex flex-col overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Top Banner Gradient */}
-          <div className="h-3 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500" />
+          <div className="h-2.5 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 flex-shrink-0" />
 
-          <div className="p-5 sm:p-6 space-y-4">
+          <div className="p-4 sm:p-6 space-y-4 overflow-y-auto min-h-0">
             {/* Header with Icon and Badges */}
             <div className="flex items-start gap-3.5">
               <div className="w-12 h-12 rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0 relative shadow-inner">
@@ -91,11 +92,11 @@ export default function MandatoryScheduleModal({
             </div>
 
             {/* Action Button - Uncloseable Single CTA */}
-            <div className="pt-2 space-y-2.5">
+            <div className="pt-1 space-y-2.5">
               <button
                 type="button"
                 onClick={onGoToSchedule}
-                className="w-full py-3.5 px-5 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-sm tracking-wide shadow-lg shadow-emerald-500/25 transition-all active:scale-[0.98] touch-manipulation flex items-center justify-center gap-2 animate-pulse"
+                className="w-full py-3.5 px-5 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-sm tracking-wide shadow-lg shadow-emerald-500/25 transition-all active:scale-[0.98] touch-manipulation flex items-center justify-center gap-2"
               >
                 <span>ĐĂNG KÝ CA NGAY</span>
                 <ChevronRight size={18} />
@@ -109,6 +110,7 @@ export default function MandatoryScheduleModal({
           </div>
         </motion.div>
       </div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }

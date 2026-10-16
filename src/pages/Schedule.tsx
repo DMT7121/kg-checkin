@@ -1,7 +1,24 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
-import { speak, computeWeekInfo, getActiveShiftClass, getPreviewShiftClass, SHIFT_OPTIONS, SHORT_DAY_NAMES, isRegistrationOpen, getAdminShiftClass, ADMIN_SHIFT_OPTIONS, generateMonthDates, formatDateShort, formatMobileShift, ResponsiveShift } from '../utils/helpers';
+import {
+  speak,
+  computeWeekInfo,
+  getActiveShiftClass,
+  getPreviewShiftClass,
+  SHIFT_OPTIONS,
+  SHORT_DAY_NAMES,
+  isRegistrationOpen,
+  getAdminShiftClass,
+  ADMIN_SHIFT_OPTIONS,
+  generateMonthDates,
+  formatDateShort,
+  formatMobileShift,
+  ResponsiveShift,
+  isNextWeekScheduleRegistered,
+  markScheduleRegisteredLocally,
+  getSavedRegisteredShiftsForWeek,
+} from '../utils/helpers';
 import type { MonthDateInfo } from '../utils/helpers';
 import Swal from 'sweetalert2';
 import { CalendarCheck, Eye, AlertTriangle, Send, Lock, ExternalLink, Clock, RefreshCw, Pencil, CheckCheck, Inbox, LayoutGrid, CalendarRange, ChevronLeft, ChevronRight, Sparkles, X, Bot, Info, FileSpreadsheet, Search } from 'lucide-react';
@@ -180,9 +197,21 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
   const [regWindow, setRegWindow] = useState(() => isRegistrationOpen());
   const [isEditing, setIsEditing] = useState(false);
 
+  const isRegisteredForTargetWeek = useMemo(
+    () =>
+      isScheduleRegistered ||
+      isNextWeekScheduleRegistered(
+        isScheduleRegistered,
+        currentUser?.username,
+        weekInfo,
+        registeredShifts
+      ),
+    [isScheduleRegistered, currentUser?.username, weekInfo, registeredShifts]
+  );
+
   // Derive schedule status
   const scheduleStatus: 'none' | 'pending' | 'approved' =
-    !isScheduleRegistered ? 'none'
+    !isRegisteredForTargetWeek ? 'none'
     : (approvedShifts && approvedShifts.length > 0) ? 'approved'
     : 'pending';
 
@@ -190,7 +219,7 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
   const isOpen = regWindow.open || isTestApp;
 
   // Show registration form when: not registered, OR explicitly editing
-  const showRegistrationForm = isOpen && (!isScheduleRegistered || isEditing);
+  const showRegistrationForm = isOpen && (!isRegisteredForTargetWeek || isEditing);
 
   // Refresh registration window every minute (skip when document hidden)
   useEffect(() => {
@@ -201,14 +230,30 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
     return () => clearInterval(timer);
   }, []);
 
-  // Init shift data
+  // Init shift data and restore saved per-user registration if present
   useEffect(() => {
+    const savedShifts = getSavedRegisteredShiftsForWeek(currentUser?.username, weekInfo);
+    const expectedWeekKey = weekInfo.monthSheet + '|' + weekInfo.weekLabel;
+    if (isRegisteredForTargetWeek && !isScheduleRegistered) {
+      store.setScheduleRegistered(true, expectedWeekKey);
+    }
+    if (savedShifts && savedShifts.length === 7 && (!registeredShifts || registeredShifts.length === 0)) {
+      store.setRegisteredShifts(savedShifts);
+    }
     if (Object.keys(shiftData).length === 0) {
       const initShifts: Record<string, string> = {};
-      weekInfo.weekDatesKeys.forEach((k) => (initShifts[k] = 'OFF'));
+      const baseShifts =
+        registeredShifts && registeredShifts.length === 7
+          ? registeredShifts
+          : savedShifts && savedShifts.length === 7
+            ? savedShifts
+            : null;
+      weekInfo.weekDatesKeys.forEach((k, i) => {
+        initShifts[k] = baseShifts ? baseShifts[i] || 'OFF' : 'OFF';
+      });
       store.setShiftData(initShifts);
     }
-  }, [weekInfo.weekDatesKeys]);
+  }, [weekInfo.weekDatesKeys, currentUser?.username]);
 
   useEffect(() => {
     if (isManagerView && viewMode === 'week') {
@@ -264,9 +309,13 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
 
   const startEditing = () => {
     // Pre-fill shift data from registered shifts
-    if (registeredShifts) {
+    const activeShifts =
+      registeredShifts && registeredShifts.length === 7
+        ? registeredShifts
+        : getSavedRegisteredShiftsForWeek(currentUser?.username, weekInfo);
+    if (activeShifts) {
       const editShifts: Record<string, string> = {};
-      weekInfo.weekDatesKeys.forEach((k, i) => editShifts[k] = registeredShifts[i] || 'OFF');
+      weekInfo.weekDatesKeys.forEach((k, i) => (editShifts[k] = activeShifts[i] || 'OFF'));
       store.setShiftData(editShifts);
     }
     setIsEditing(true);
@@ -274,9 +323,13 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
 
   const cancelEditing = () => {
     // Restore shift data from registered shifts
-    if (registeredShifts) {
+    const activeShifts =
+      registeredShifts && registeredShifts.length === 7
+        ? registeredShifts
+        : getSavedRegisteredShiftsForWeek(currentUser?.username, weekInfo);
+    if (activeShifts) {
       const restored: Record<string, string> = {};
-      weekInfo.weekDatesKeys.forEach((k, i) => restored[k] = registeredShifts[i] || 'OFF');
+      weekInfo.weekDatesKeys.forEach((k, i) => (restored[k] = activeShifts[i] || 'OFF'));
       store.setShiftData(restored);
     }
     setIsEditing(false);
@@ -313,7 +366,7 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
       return;
     }
 
-    const isUpdate = isScheduleRegistered;
+    const isUpdate = isRegisteredForTargetWeek;
     const { isConfirmed } = await Swal.fire({
       title: isUpdate ? 'Xác nhận Cập Nhật' : 'Xác nhận Nộp Lịch',
       html: isUpdate
@@ -341,20 +394,39 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
     };
 
     try {
-      const res = await callApi('REGISTER_SHIFT', payload, { timeoutMs: 20000 });
+      // Concurrent-resilient submission: up to 3 attempts with random jitter so simultaneous staff submissions all succeed
+      let res: any = null;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        res = await callApi('REGISTER_SHIFT', payload, { timeoutMs: 28000, maxAttempts: 1 });
+        if (res?.ok) break;
+        const msg = String(res?.message || '');
+        // Do not retry if server explicitly rejected due to employment status
+        if (msg.includes('trạng thái') || msg.includes('tạm khóa') || msg.includes('nghỉ việc')) {
+          break;
+        }
+        if (attempt < 3) {
+          const jitterMs = 550 * attempt + Math.floor(Math.random() * 650);
+          await new Promise((r) => setTimeout(r, jitterMs));
+        }
+      }
 
       if (res?.ok) {
         const expectedWeekKey = weekInfo.monthSheet + '|' + weekInfo.weekLabel;
-        store.setScheduleRegistered(true, expectedWeekKey);
+        markScheduleRegisteredLocally(currentUser?.username, expectedWeekKey, shifts);
         store.setRegisteredShifts(shifts);
-        localStorage.setItem('kg_registered_shifts', JSON.stringify(shifts));
-        localStorage.setItem('kg_registered_week', expectedWeekKey);
-        localStorage.setItem('kg_registered_user', currentUser?.username || '');
-        if (currentUser?.username) {
-          localStorage.setItem(`kg_registered_week_${currentUser.username}`, expectedWeekKey);
-        }
-        localStorage.setItem('kg_schedule_registered', expectedWeekKey);
+        store.setScheduleRegistered(true, expectedWeekKey);
         setIsEditing(false);
+
+        // Optimistically sync adminSchedules if already loaded in memory
+        if (Array.isArray(adminSchedules) && adminSchedules.length > 0 && currentUser?.fullname) {
+          const normName = currentUser.fullname.trim().toLowerCase();
+          const updatedAdmin = adminSchedules.map((emp: any) =>
+            String(emp.fullname || '').trim().toLowerCase() === normName
+              ? { ...emp, shifts: [...shifts], status: 'Chờ duyệt' }
+              : emp
+          );
+          store.setAdminSchedules(updatedAdmin);
+        }
 
         const bqlNotice = 'Lịch đăng ký ca của bạn đã được ghi nhận vào Bảng Chấm Công (Google Sheets). BQL sẽ sắp xếp lại phù hợp theo nhu cầu của nhà hàng. Trường hợp lịch không được duyệt nhưng lịch làm trùng lịch học, thi cử quan trọng hãy gửi lịch học/thi và báo BQL duyệt nhé!';
         const syncTimestamp = res?.data?.timestamp || new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
@@ -390,16 +462,6 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
           confirmButtonText: 'Đã hiểu'
         });
         speak('Đăng ký lịch làm việc thành công, đã nạp vào Google Sheets');
-
-        // Silent background refresh to sync full state without blocking
-        callApi('GET_DATA', {
-          username: currentUser?.username,
-          fullname: currentUser?.fullname,
-          role: currentUser?.role,
-          monthSheet: weekInfo.monthSheet,
-          weekLabel: weekInfo.weekLabel,
-          forceRefresh: true
-        }, { background: true }).catch(() => {});
       } else if (res) {
         Swal.fire('Lỗi', res.message || 'Không thể ghi vào sheet lúc này.', 'error');
       } else {
@@ -1128,7 +1190,7 @@ ${aiInputText}
       )}
 
       {/* === REGISTERED PREVIEW (not editing) === */}
-      {isScheduleRegistered && !isEditing && (
+      {isRegisteredForTargetWeek && !isEditing && (
         <div className="soft3d-card p-4 sm:p-5 rounded-2xl mb-6 shadow-sm border border-slate-200/80 dark:border-slate-800">
           <div className="flex items-center justify-between mb-3.5">
             <h3 className="text-sm font-black text-gray-700 dark:text-gray-200 uppercase tracking-wider flex items-center">
@@ -1175,7 +1237,7 @@ ${aiInputText}
       )}
 
       {/* === CLOSED WINDOW (not registered) === */}
-      {!isOpen && !isScheduleRegistered && (
+      {!isOpen && !isRegisteredForTargetWeek && (
         <>
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-4 flex items-center space-x-3 mb-6">
             <div className="w-10 h-10 bg-red-100 dark:bg-red-800 text-red-500 rounded-full flex items-center justify-center flex-shrink-0">
@@ -1197,7 +1259,7 @@ ${aiInputText}
       {/* === CLOSED WINDOW (registered - already shown pending status above, no error needed) === */}
 
       {/* === NOT REGISTERED + OPEN WINDOW === */}
-      {isOpen && !isScheduleRegistered && (
+      {isOpen && !isRegisteredForTargetWeek && (
         <>
           {/* Preview grid */}
           <div className="soft3d-card p-4 rounded-2xl   mb-6">
@@ -1317,7 +1379,7 @@ ${aiInputText}
           >
             {isSubmitting ? (
               <><RefreshCw size={18} className="animate-spin mr-2" /> ĐANG ĐẨY VÀO GOOGLE SHEETS...</>
-            ) : isScheduleRegistered ? (
+            ) : isRegisteredForTargetWeek ? (
               <><RefreshCw size={18} className="mr-2" /> CẬP NHẬT LỊCH ĐĂNG KÝ</>
             ) : (
               <><Send size={18} className="mr-2" /> GỬI LỊCH ĐĂNG KÝ</>
@@ -1325,7 +1387,7 @@ ${aiInputText}
           </button>
           
           <p className="text-center text-[11px] font-semibold text-[var(--kg-text-muted)] mt-3">
-            {isScheduleRegistered
+            {isRegisteredForTargetWeek
               ? 'Bạn có thể cập nhật lịch không giới hạn trong thời gian mở đăng ký.'
               : 'Hạn đăng ký: Trước 17:00 Thứ Bảy hàng tuần.'}
           </p>

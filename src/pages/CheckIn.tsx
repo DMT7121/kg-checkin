@@ -11,6 +11,7 @@ import {
   KG_LAT,
   KG_LNG,
   KG_RADIUS_METERS,
+  normalizeGpsRadius,
   KG_STANDARD_ADDRESS,
   getRecommendedCheckInType,
   setLocalLastPunch,
@@ -115,7 +116,7 @@ export default function CheckIn() {
   const latestGpsConfig = store.serverGpsConfig;
   const targetLat = latestGpsConfig?.lat ?? KG_LAT;
   const targetLng = latestGpsConfig?.lng ?? KG_LNG;
-  const targetRadius = (latestGpsConfig?.radius && latestGpsConfig.radius > 0) ? latestGpsConfig.radius : KG_RADIUS_METERS; // 20m standard
+  const targetRadius = normalizeGpsRadius(latestGpsConfig?.radius); // Chuẩn 25m
   const currentDist = (gps.lat !== null && gps.lng !== null)
     ? Math.round(getDist(gps.lat, gps.lng, targetLat, targetLng) * 1000)
     : (gps.distance ?? null);
@@ -387,7 +388,7 @@ export default function CheckIn() {
     const latestGpsConfig = s.serverGpsConfig;
     const targetLat = latestGpsConfig?.lat ?? KG_LAT;
     const targetLng = latestGpsConfig?.lng ?? KG_LNG;
-    const targetRadius = (latestGpsConfig?.radius && latestGpsConfig.radius > 0) ? latestGpsConfig.radius : KG_RADIUS_METERS; // Chuẩn 25m
+    const targetRadius = normalizeGpsRadius(latestGpsConfig?.radius); // Chuẩn 25m
     const isAuthorizedTest = isAuthorizedTestUser(s.currentUser);
 
     const rawDist = getDist(rawLat, rawLng, targetLat, targetLng) * 1000;
@@ -588,7 +589,7 @@ export default function CheckIn() {
     const latestGpsConfig = s.serverGpsConfig;
     const targetLat = latestGpsConfig?.lat ?? KG_LAT;
     const targetLng = latestGpsConfig?.lng ?? KG_LNG;
-    const targetRadius = (latestGpsConfig?.radius && latestGpsConfig.radius > 0) ? latestGpsConfig.radius : KG_RADIUS_METERS; // Chuẩn 25m
+    const targetRadius = normalizeGpsRadius(latestGpsConfig?.radius); // Chuẩn 25m
     const isAuthorizedTest = isAuthorizedTestUser(s.currentUser);
 
     const samples: Array<{
@@ -926,7 +927,7 @@ export default function CheckIn() {
   const takePhoto = () => {
     if (!isWithinRadius) {
       speak(`Bạn đang ở ngoài bán kính chấm công. Khoảng cách ${currentDist ?? 'không xác định'} mét.`);
-      setFeedbackTitle('Ngoài bán kính chấm công (≤20m)');
+      setFeedbackTitle('Ngoài bán kính chấm công (≤25m)');
       setFeedbackMessage(
         `Vị trí của bạn đang cách nhà hàng ${currentDist ?? 'quá'}m (quy định ≤ ${targetRadius}m).\n\nĐể đảm bảo tính minh bạch và chống gian lận, camera chụp ảnh đã được khóa. Vui lòng di chuyển vào khu vực nhà hàng để chấm công.`
       );
@@ -1027,8 +1028,8 @@ export default function CheckIn() {
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!isWithinRadius) {
-      speak('Bạn đang ở ngoài bán kính 20m. Không thể tải ảnh minh chứng.');
-      setFeedbackTitle('Ngoài bán kính chấm công (≤20m)');
+      speak('Bạn đang ở ngoài bán kính 25m. Không thể tải ảnh minh chứng.');
+      setFeedbackTitle('Ngoài bán kính chấm công (≤25m)');
       setFeedbackMessage(
         `Vị trí của bạn đang cách nhà hàng ${currentDist ?? 'quá'}m (quy định ≤ ${targetRadius}m).\n\nVui lòng di chuyển vào khu vực nhà hàng để chấm công.`
       );
@@ -1192,8 +1193,8 @@ export default function CheckIn() {
     const activeLat = capturedGps?.lat ?? gps.lat;
     const activeLng = capturedGps?.lng ?? gps.lng;
     if (!isWithinRadius || activeLat === null || activeLng === null) {
-      speak('Vị trí chưa hợp lệ. Yêu cầu trong bán kính 20m.');
-      setFeedbackTitle('Vị trí ngoài bán kính quy định (≤20m)');
+      speak('Vị trí chưa hợp lệ. Yêu cầu trong bán kính 25m.');
+      setFeedbackTitle('Vị trí ngoài bán kính quy định (≤25m)');
       setFeedbackMessage(`Khoảng cách hiện tại: ${currentDist ?? 'quá'}m (quy định ≤ ${targetRadius}m). Hệ thống từ chối ghi nhận lượt chấm công ngoài khu vực nhà hàng.`);
       setFeedbackType('warning');
       setFeedbackSheetOpen(true);
@@ -1706,31 +1707,31 @@ export default function CheckIn() {
       setFeedbackSheetOpen(true);
       return;
     }
-    store.setLoading(true, 'Đang lưu vị trí gốc nhà hàng (20m)...');
+    store.setLoading(true, 'Đang lưu vị trí gốc nhà hàng (25m)...');
     try {
       const res = await callApi('UPDATE_GPS_CONFIG', {
         role: currentUser.role || 'admin',
         lat: gps.lat,
         lng: gps.lng,
-        radius: 20
+        radius: 25
       });
       store.setLoading(false);
       if (res?.ok) {
         store.setServerGpsConfig({
           lat: gps.lat,
           lng: gps.lng,
-          radius: 20
+          radius: 25
         });
         store.setGps({
           ...gps,
           isValid: true,
           status: 'Vị trí Chính xác',
-          message: 'Khoảng cách: 0m / 20m - Hợp lệ'
+          message: 'Khoảng cách: 0m / 25m - Hợp lệ'
         });
         speak('Đã lưu vị trí gốc nhà hàng. Vị trí hợp lệ.');
         confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
         setFeedbackTitle('Cập nhật thành công!');
-        setFeedbackMessage('Đã đặt vị trí hiện tại làm tọa độ chuẩn của Nhà Hàng (Bán kính 20m). Toàn bộ nhân sự tại quán sẽ chấm công chuẩn xác 100%!');
+        setFeedbackMessage('Đã đặt vị trí hiện tại làm tọa độ chuẩn của Nhà Hàng (Bán kính 25m). Toàn bộ nhân sự tại quán sẽ chấm công chuẩn xác 100%!');
         setFeedbackType('success');
         setFeedbackSheetOpen(true);
       } else {
@@ -1766,11 +1767,11 @@ export default function CheckIn() {
       <KgModuleHero
         moduleId="checkin"
         title="Chấm công GPS"
-        description="Chụp ảnh minh chứng tại nhà hàng trong bán kính 20m để hoàn tất chấm công."
-        features={['Xác thực GPS ≤20m', 'Nhận diện Live AI', 'Chống chọn nhầm ca']}
+        description="Chụp ảnh minh chứng tại nhà hàng trong bán kính 25m để hoàn tất chấm công."
+        features={['Xác thực GPS ≤25m', 'Nhận diện Live AI', 'Chống chọn nhầm ca']}
         tipTitle="Quy chuẩn Chấm công Hợp lệ"
         tips={[
-          "Đứng trong bán kính 20m tại khuôn viên nhà hàng King's Grill.",
+          "Đứng trong bán kính 25m tại khuôn viên nhà hàng King's Grill.",
           "Bật định vị độ chính xác cao trên điện thoại và cho phép quyền truy cập vị trí.",
           "Chụp ảnh khuôn mặt rõ nét, đủ ánh sáng, không dùng ảnh chụp lại từ màn hình khác.",
           "Sau khi chấm Vào ca, hệ thống giãn cách 15 phút chống spam trước khi có thể chấm Ra ca."
@@ -1964,7 +1965,7 @@ export default function CheckIn() {
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <p className="text-[10px] font-black text-[var(--kg-text-muted)] uppercase tracking-wider">Định vị GPS (≤20m)</p>
+                <p className="text-[10px] font-black text-[var(--kg-text-muted)] uppercase tracking-wider">Định vị GPS (≤{targetRadius}m)</p>
                 {gps.accuracy && (
                   <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
                     ±{gps.accuracy}m
@@ -1973,7 +1974,7 @@ export default function CheckIn() {
                 <KgFeatureTip
                   title="Mẹo Định vị GPS chính xác"
                   tips={[
-                    "Vị trí chuẩn: Khuôn viên nhà hàng King's Grill (bán kính ≤20m).",
+                    "Vị trí chuẩn: Khuôn viên nhà hàng King's Grill (bán kính ≤25m).",
                     "Cần bật Quyền truy cập vị trí và Vị trí chính xác (Precise Location) trên Safari/Chrome.",
                     "Nếu sóng yếu hoặc báo Chưa nhận được vị trí, hãy bấm 'Làm mới' hoặc 'Quét lại vị trí (GPS Vệ Tinh)'."
                   ]}
@@ -2070,7 +2071,7 @@ export default function CheckIn() {
                 <span>🎯</span> <b>Quản lý:</b> Đang ở nhà hàng?
               </p>
               <p className="text-[10px] text-[var(--kg-text-muted)] mt-0.5 font-medium">
-                Đặt tọa độ hiện tại làm vị trí gốc chuẩn (Bán kính 20m).
+                Đặt tọa độ hiện tại làm vị trí gốc chuẩn (Bán kính 25m).
               </p>
             </div>
             <button
@@ -2078,7 +2079,7 @@ export default function CheckIn() {
               onClick={handleAdminCalibrateGps}
               className="w-full sm:w-auto px-3.5 py-2 bg-[var(--kg-primary)] text-white hover:opacity-90 rounded-xl text-xs font-black shadow-xs transition active:scale-95 min-h-[44px] touch-manipulation whitespace-nowrap flex-shrink-0"
             >
-              Đặt vị trí gốc (20m)
+              Đặt vị trí gốc (25m)
             </button>
           </div>
         )}
@@ -2089,7 +2090,7 @@ export default function CheckIn() {
             <div className="flex items-center gap-2 min-w-0">
               <AlertTriangle size={16} className="text-amber-500 flex-shrink-0" />
               <div className="min-w-0">
-                <p className="text-xs font-black text-[var(--kg-text)] leading-tight">Chưa vào bán kính 20m?</p>
+                <p className="text-xs font-black text-[var(--kg-text)] leading-tight">Chưa vào bán kính {targetRadius}m?</p>
                 <p className="text-[10px] text-[var(--kg-text-muted)] mt-0.5">Gửi giải trình bổ sung công cho quản lý duyệt</p>
               </div>
             </div>
@@ -2184,7 +2185,7 @@ export default function CheckIn() {
                   type="button"
                   onClick={() => {
                     speak(`Bạn đang ở ngoài bán kính chấm công. Khoảng cách hiện tại ${currentDist ?? 'không xác định'} mét.`);
-                    setFeedbackTitle('Ngoài bán kính chấm công (≤20m)');
+                    setFeedbackTitle(`Ngoài bán kính chấm công (≤${targetRadius}m)`);
                     setFeedbackMessage(
                       `Vị trí của bạn đang cách nhà hàng ${currentDist ?? 'quá'}m (quy định ≤ ${targetRadius}m).\n\nĐể đảm bảo tính minh bạch và chống gian lận, camera chụp ảnh chấm công đã được khóa. Vui lòng di chuyển vào khu vực nhà hàng và nhấn "Quét lại" để tiếp tục.`
                     );
@@ -2357,7 +2358,7 @@ export default function CheckIn() {
               return;
             }
             if (!isWithinRadius) {
-              speak('Bạn đang ở ngoài bán kính 20m nhà hàng.');
+              speak('Bạn đang ở ngoài bán kính 25m nhà hàng.');
               setFeedbackTitle('Ngoài bán kính chấm công');
               setFeedbackMessage(`Khoảng cách hiện tại: ${currentDist ?? 'quá'}m (quy định ≤ ${targetRadius}m). Vui lòng di chuyển vào nhà hàng để chấm công.`);
               setFeedbackType('warning');
@@ -2732,7 +2733,7 @@ export default function CheckIn() {
         onConfirm={() => {
           setConfirmLateOpen(false);
           if (!isWithinRadius) {
-            speak('Từ chối chấm công: Bạn đang ở ngoài bán kính 20m.');
+            speak('Từ chối chấm công: Bạn đang ở ngoài bán kính 25m.');
             setFeedbackTitle('Ngoài bán kính chấm công');
             setFeedbackMessage(`Khoảng cách hiện tại: ${currentDist ?? 'quá'}m (quy định ≤ ${targetRadius}m). Vui lòng di chuyển vào nhà hàng để chấm công.`);
             setFeedbackType('warning');

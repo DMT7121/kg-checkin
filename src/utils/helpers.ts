@@ -55,7 +55,7 @@ function resolveAudioNotification(text: string, customKey?: string): { clipKey?:
     return { clipKey: 'checkin_out', chimeType: 'success' };
   }
   // Outside range
-  if (lower.includes('ngoài bán kính') || lower.includes('bán kính 20m')) {
+  if (lower.includes('ngoài bán kính') || lower.includes('bán kính 25m') || lower.includes('bán kính 20m')) {
     return { clipKey: 'outside_range', chimeType: 'warning' };
   }
   // GPS valid
@@ -275,8 +275,95 @@ export function isRegistrationOpen(): { open: boolean; message: string } {
   return { open: status.isOpen, message: status.message };
 }
 
+/** Persist schedule registration state across global, per-user, and SWR cache keys */
+export function markScheduleRegisteredLocally(
+  username?: string,
+  weekKey?: string,
+  shifts?: string[] | null
+): void {
+  try {
+    const weekInfo = computeWeekInfo();
+    const expectedKey = weekKey || (weekInfo.monthSheet + '|' + weekInfo.weekLabel);
+    const cleanUser = (username || localStorage.getItem('kg_registered_user') || '').trim().toLowerCase();
+
+    localStorage.setItem('kg_schedule_registered', expectedKey);
+    localStorage.setItem('kg_registered_week', expectedKey);
+
+    if (cleanUser) {
+      localStorage.setItem('kg_registered_user', cleanUser);
+      localStorage.setItem(`kg_registered_week_${cleanUser}`, expectedKey);
+      if (username) {
+        localStorage.setItem(`kg_registered_week_${username}`, expectedKey);
+      }
+    }
+
+    if (Array.isArray(shifts) && shifts.length === 7) {
+      const shiftsJson = JSON.stringify(shifts);
+      localStorage.setItem('kg_registered_shifts', shiftsJson);
+      if (cleanUser) {
+        localStorage.setItem(`kg_registered_shifts_${cleanUser}`, shiftsJson);
+      }
+    }
+
+    // Keep SWR app cache synchronized so reload never reverts isScheduleRegistered to false
+    const appCacheRaw = localStorage.getItem('kg_app_cache_v2');
+    if (appCacheRaw) {
+      try {
+        const parsed = JSON.parse(appCacheRaw);
+        if (parsed && parsed.data) {
+          parsed.data.isScheduleRegistered = true;
+          if (Array.isArray(shifts) && shifts.length === 7) {
+            parsed.data.registeredShifts = shifts;
+          }
+          localStorage.setItem('kg_app_cache_v2', JSON.stringify(parsed));
+        }
+      } catch { /* ignore cache parse error */ }
+    }
+  } catch { /* ignore storage quota error */ }
+}
+
+/** Retrieve saved 7-day shifts for a user and target week if available */
+export function getSavedRegisteredShiftsForWeek(
+  username?: string,
+  targetWeekInfo?: { monthSheet: string; weekLabel: string; sheetName?: string }
+): string[] | null {
+  try {
+    const weekInfo = targetWeekInfo || computeWeekInfo();
+    const expectedKey = weekInfo.monthSheet + '|' + weekInfo.weekLabel;
+    const cleanUser = (username || '').trim().toLowerCase();
+
+    if (cleanUser) {
+      const userWeek =
+        localStorage.getItem(`kg_registered_week_${cleanUser}`) ||
+        (username ? localStorage.getItem(`kg_registered_week_${username}`) : null);
+      const userShiftsRaw = localStorage.getItem(`kg_registered_shifts_${cleanUser}`);
+      if (userWeek === expectedKey && userShiftsRaw) {
+        const parsed = JSON.parse(userShiftsRaw);
+        if (Array.isArray(parsed) && parsed.length === 7) return parsed;
+      }
+    }
+
+    const savedWeek = localStorage.getItem('kg_registered_week');
+    const savedRegKey = localStorage.getItem('kg_schedule_registered');
+    const savedUser = (localStorage.getItem('kg_registered_user') || '').trim().toLowerCase();
+    const isMatchingUser = !cleanUser || !savedUser || savedUser === cleanUser;
+
+    if (
+      isMatchingUser &&
+      (savedWeek === expectedKey || savedRegKey === expectedKey || (weekInfo.sheetName && savedWeek === weekInfo.sheetName))
+    ) {
+      const savedShiftsStr = localStorage.getItem('kg_registered_shifts');
+      if (savedShiftsStr) {
+        const parsed = JSON.parse(savedShiftsStr);
+        if (Array.isArray(parsed) && parsed.length === 7) return parsed;
+      }
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
 /** Check if schedule for the upcoming week is already registered
- *  - Validates localStorage record against target week key (prevents cross-week stale flags)
+ *  - Validates per-user and global localStorage records against target week key
  *  - Accepts server-hydrated store registration state (handles cross-device & cache clear)
  *  - Accepts populated registeredShifts array (7 shifts)
  */
@@ -289,34 +376,34 @@ export function isNextWeekScheduleRegistered(
   try {
     const weekInfo = targetWeekInfo || computeWeekInfo();
     const expectedKey = weekInfo.monthSheet + '|' + weekInfo.weekLabel;
+    const cleanUser = (username || '').trim().toLowerCase();
+
+    // Condition 1: Per-user persistent record for this exact target week (survives logout/login)
+    if (cleanUser) {
+      const userWeek =
+        localStorage.getItem(`kg_registered_week_${cleanUser}`) ||
+        (username ? localStorage.getItem(`kg_registered_week_${username}`) : null);
+      if (userWeek === expectedKey) {
+        return true;
+      }
+    }
+
     const savedWeek = localStorage.getItem('kg_registered_week');
     const savedRegKey = localStorage.getItem('kg_schedule_registered');
-    const savedShiftsStr = localStorage.getItem('kg_registered_shifts');
-    const savedUser = localStorage.getItem('kg_registered_user');
+    const savedUser = (localStorage.getItem('kg_registered_user') || '').trim().toLowerCase();
+    const isMatchingUser = !cleanUser || !savedUser || savedUser === cleanUser;
 
-    const isMatchingUser = !username || !savedUser || savedUser === username;
-
-    // Condition 1: LocalStorage record exists for this exact target week
+    // Condition 2: Global LocalStorage record exists for this exact target week
     if (isMatchingUser && (savedWeek === expectedKey || savedRegKey === expectedKey)) {
-      if (savedShiftsStr) {
-        try {
-          const shifts = JSON.parse(savedShiftsStr);
-          if (Array.isArray(shifts) && shifts.length === 7) {
-            return true;
-          }
-        } catch { /* ignore parse errors */ }
-      }
       return true;
     }
 
-    // Condition 2: Zustand store / Server has confirmed registration for target week
-    // Since GET_DATA explicitly queries Google Sheets with target week's monthSheet & weekLabel,
-    // if the server returned isScheduleRegistered: true, the user has already submitted on Sheets.
+    // Condition 3: Zustand store / Server has confirmed registration for target week
     if (isScheduleRegisteredInStore === true) {
       return true;
     }
 
-    // Condition 3: Store has 7 shifts registered from server
+    // Condition 4: Store has 7 shifts registered from server
     if (Array.isArray(storeRegisteredShifts) && storeRegisteredShifts.length === 7) {
       return true;
     }
@@ -491,6 +578,13 @@ export const KG_LAT = 10.9760826;
 export const KG_LNG = 106.6646541;
 export const KG_RADIUS_METERS = 25;
 export const KG_STANDARD_ADDRESS = "King's Grill - Số 34, Hoàng Văn Thụ, Phường Thủ Dầu Một, Thành phố Hồ Chí Minh";
+
+/** Normalize GPS radius so legacy 20m configs or empty values unify to 25m standard */
+export function normalizeGpsRadius(rawRadius?: number | string | null): number {
+  const num = Number(rawRadius);
+  if (!num || num <= 0 || num === 20) return KG_RADIUS_METERS;
+  return num;
+}
 
 export type CheckInTypeString = 'Vào ca' | 'Ra ca' | 'Vào ca 2' | 'Ra ca 2' | 'Vào ca 3' | 'Ra ca 3' | string;
 

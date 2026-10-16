@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search,
@@ -518,43 +519,51 @@ export default function KgCommandPalette({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, filteredItems, selectedIndex, onClose]);
 
-  return (
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <>
+        <div className="fixed inset-0 z-[10100] flex items-start sm:items-center justify-center px-3 sm:px-4 pt-[6vh] sm:pt-0 pb-4">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/55 backdrop-blur-xs z-[1100]"
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs"
           />
           <motion.div
             role="dialog"
             aria-modal="true"
             aria-label="Tìm kiếm nhanh phân hệ"
-            initial={{ opacity: 0, scale: 0.96, y: -12 }}
+            initial={{ opacity: 0, scale: 0.96, y: -10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: -12 }}
+            exit={{ opacity: 0, scale: 0.96, y: -10 }}
             transition={{ duration: 0.16, ease: 'easeOut' }}
-            className="fixed left-1/2 top-[12%] -translate-x-1/2 w-[min(92vw,580px)] max-h-[76vh] bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-2xl z-[1101] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+            className="relative z-10 w-full max-w-[560px] max-h-[82dvh] sm:max-h-[78vh] mx-auto bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden"
           >
             {/* Search input header */}
-            <div className="flex items-center gap-3 px-4 py-3.5 border-b border-[var(--kg-border)]">
-              <Search size={18} className="text-[var(--kg-primary)] flex-shrink-0" />
+            <div className="flex items-center gap-2.5 sm:gap-3 px-3.5 sm:px-4 py-3 sm:py-3.5 border-b border-[var(--kg-border)] bg-[var(--kg-surface-soft)]/60 flex-shrink-0">
+              <div className="w-8 h-8 rounded-xl bg-[var(--kg-primary)]/10 text-[var(--kg-primary)] flex items-center justify-center flex-shrink-0">
+                <Search size={17} />
+              </div>
               <input
                 ref={inputRef}
                 type="text"
                 value={query}
                 onChange={e => setQuery(e.target.value)}
-                placeholder="Tìm nhanh phân hệ, bảng công, bàn giao ca, nhân sự..."
-                className="flex-1 bg-transparent text-sm font-semibold text-[var(--kg-text)] placeholder-[var(--kg-text-soft)] outline-none border-none p-0 focus:ring-0"
+                placeholder="Tìm nhanh phân hệ, bảng công, lịch ca..."
+                className="flex-1 min-w-0 bg-transparent text-sm font-semibold text-[var(--kg-text)] placeholder-[var(--kg-text-soft)] outline-none border-none p-0 focus:ring-0"
               />
               {query && (
                 <button
                   type="button"
-                  onClick={() => setQuery('')}
-                  className="text-xs font-bold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] px-1.5 py-0.5 rounded"
+                  onClick={() => {
+                    setQuery('');
+                    inputRef.current?.focus();
+                  }}
+                  className="text-xs font-bold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] px-2 py-1 rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-border)] active:scale-95 transition-all flex-shrink-0"
                 >
                   Xóa
                 </button>
@@ -563,16 +572,16 @@ export default function KgCommandPalette({
                 type="button"
                 onClick={onClose}
                 aria-label="Đóng tìm kiếm"
-                className="w-7 h-7 rounded-lg bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]"
+                className="w-9 h-9 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] active:scale-95 transition-all flex-shrink-0"
               >
-                <X size={14} />
+                <X size={16} />
               </button>
             </div>
 
             {/* Results list */}
-            <div className="flex-1 overflow-y-auto p-2 space-y-1 max-h-[56vh]">
+            <div className="flex-1 overflow-y-auto p-2 sm:p-2.5 space-y-1 min-h-0">
               {filteredItems.length === 0 ? (
-                <div className="py-10 text-center">
+                <div className="py-10 px-4 text-center">
                   <p className="text-sm font-bold text-[var(--kg-text-muted)]">
                     Không tìm thấy phân hệ phù hợp với "{query}"
                   </p>
@@ -590,14 +599,14 @@ export default function KgCommandPalette({
                       type="button"
                       onMouseEnter={() => setSelectedIndex(idx)}
                       onClick={() => handleSelectItem(item)}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors ${
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 sm:py-3 rounded-xl text-left transition-colors active:scale-[0.99] ${
                         active
                           ? 'bg-[var(--kg-accent-soft)] text-[var(--kg-text)] border border-[var(--kg-primary)]/25'
                           : 'hover:bg-[var(--kg-surface-soft)] text-[var(--kg-text)] border border-transparent'
                       }`}
                     >
                       <div
-                        className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                        className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
                           active
                             ? 'bg-[var(--kg-primary)] text-white shadow-xs'
                             : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)]'
@@ -606,7 +615,7 @@ export default function KgCommandPalette({
                         <Icon size={17} />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-between gap-2">
                           <span className="text-xs sm:text-sm font-extrabold truncate">
                             {item.label}
                           </span>
@@ -620,7 +629,7 @@ export default function KgCommandPalette({
                       </div>
                       <CornerDownLeft
                         size={14}
-                        className={`flex-shrink-0 transition-opacity ${
+                        className={`hidden sm:block flex-shrink-0 transition-opacity ${
                           active ? 'opacity-100 text-[var(--kg-primary)]' : 'opacity-0'
                         }`}
                       />
@@ -631,17 +640,19 @@ export default function KgCommandPalette({
             </div>
 
             {/* Footer hints */}
-            <div className="px-4 py-2.5 border-t border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex items-center justify-between text-[11px] font-semibold text-[var(--kg-text-muted)]">
-              <div className="flex items-center gap-3">
+            <div className="px-3.5 sm:px-4 py-2.5 border-t border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex items-center justify-between text-[11px] font-semibold text-[var(--kg-text-muted)] flex-shrink-0">
+              <div className="hidden sm:flex items-center gap-3">
                 <span><kbd className="px-1.5 py-0.5 rounded bg-[var(--kg-surface)] border border-[var(--kg-border)] text-[10px] font-bold">↑↓</kbd> Di chuyển</span>
                 <span><kbd className="px-1.5 py-0.5 rounded bg-[var(--kg-surface)] border border-[var(--kg-border)] text-[10px] font-bold">Enter</kbd> Mở ngay</span>
                 <span><kbd className="px-1.5 py-0.5 rounded bg-[var(--kg-surface)] border border-[var(--kg-border)] text-[10px] font-bold">Esc</kbd> Đóng</span>
               </div>
-              <span className="hidden sm:inline">{filteredItems.length} phân hệ khả dụng</span>
+              <span className="sm:hidden text-[11px] text-[var(--kg-text-muted)]">Chạm vào mục bất kỳ để mở ngay</span>
+              <span>{filteredItems.length} phân hệ</span>
             </div>
           </motion.div>
-        </>
+        </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }

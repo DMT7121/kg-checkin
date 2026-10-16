@@ -1,7 +1,14 @@
 import { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
-import { speak, computeWeekInfo, getScheduleRegistrationWindow, isNextWeekScheduleRegistered } from '../utils/helpers';
+import {
+  speak,
+  computeWeekInfo,
+  getScheduleRegistrationWindow,
+  isNextWeekScheduleRegistered,
+  markScheduleRegisteredLocally,
+  getSavedRegisteredShiftsForWeek,
+} from '../utils/helpers';
 import Swal from 'sweetalert2';
 import { User, Lock, Eye, EyeOff, ChevronLeft, ArrowRight, Mail, Phone, Calendar, BadgeCheck, KeyRound } from 'lucide-react';
 import { hashPassword } from '../utils/security';
@@ -48,21 +55,19 @@ export default function Login() {
       weekInfo.weekDatesKeys.forEach((k) => (initShifts[k] = 'OFF'));
       store.setShiftData(initShifts);
 
-      // Restore registered shifts from localStorage immediately
-      const savedWeek = localStorage.getItem('kg_registered_week');
-      const savedShiftsStr = localStorage.getItem('kg_registered_shifts');
+      // Restore registered shifts from localStorage immediately (including per-user record)
       const expectedWeekKey = weekInfo.monthSheet + '|' + weekInfo.weekLabel;
-      if ((savedWeek === expectedWeekKey || savedWeek === weekInfo.sheetName) && savedShiftsStr) {
-        try {
-          const shifts = JSON.parse(savedShiftsStr);
-          if (Array.isArray(shifts) && shifts.length === 7) {
-            store.setRegisteredShifts(shifts);
-            store.setScheduleRegistered(true);
-            const regShifts: Record<string, string> = {};
-            weekInfo.weekDatesKeys.forEach((k, i) => regShifts[k] = shifts[i]);
-            store.setShiftData(regShifts);
-          }
-        } catch { /* ignore */ }
+      const savedShifts = getSavedRegisteredShiftsForWeek(res.data.username, weekInfo);
+      const hasLocalReg = isNextWeekScheduleRegistered(false, res.data.username, weekInfo, savedShifts);
+      if (hasLocalReg) {
+        store.setScheduleRegistered(true, expectedWeekKey);
+        if (savedShifts && savedShifts.length === 7) {
+          store.setRegisteredShifts(savedShifts);
+          const regShifts: Record<string, string> = {};
+          weekInfo.weekDatesKeys.forEach((k, i) => (regShifts[k] = savedShifts[i]));
+          store.setShiftData(regShifts);
+        }
+        markScheduleRegisteredLocally(res.data.username, expectedWeekKey, savedShifts);
       }
 
       speak('Đăng nhập thành công. Xin chào ' + res.data.fullname);
@@ -81,17 +86,19 @@ export default function Login() {
           store.setStats(dataRes.data.stats || { totalCheckIn: 0, validCount: 0 });
           store.setUsers(dataRes.data.users || []);
           if (dataRes.data.keys) store.setGroqKeys(dataRes.data.keys);
-          
-          const hasLocalReg = (savedWeek === expectedWeekKey || savedWeek === weekInfo.sheetName) && !!savedShiftsStr;
-          const isReg = dataRes.data.isScheduleRegistered === true ? true : hasLocalReg;
+
+          const isReg =
+            dataRes.data.isScheduleRegistered === true ||
+            isNextWeekScheduleRegistered(false, res.data.username, weekInfo, dataRes.data.registeredShifts);
           store.setScheduleRegistered(isReg, expectedWeekKey);
           if (isReg) {
-            localStorage.setItem('kg_registered_week', expectedWeekKey);
-            localStorage.setItem('kg_schedule_registered', expectedWeekKey);
-            localStorage.setItem('kg_registered_user', res.data.username);
-            localStorage.setItem(`kg_registered_week_${res.data.username}`, expectedWeekKey);
+            markScheduleRegisteredLocally(
+              res.data.username,
+              expectedWeekKey,
+              dataRes.data.registeredShifts || savedShifts
+            );
           }
-          
+
           if (dataRes.data.approvedShifts) store.setApprovedShifts(dataRes.data.approvedShifts);
           if (dataRes.data.registeredShifts) store.setRegisteredShifts(dataRes.data.registeredShifts);
           if (dataRes.data.gpsConfig) store.setServerGpsConfig(dataRes.data.gpsConfig);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Clock,
   Calendar,
@@ -310,8 +311,8 @@ export default function MissedCheckInModal({
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 md:p-6 animate-fade-in">
+  const modalContent = (
+    <div className="fixed inset-0 z-[10060] flex items-center justify-center p-3 sm:p-4 md:p-6 animate-fade-in">
       {/* Backdrop */}
       <div 
         className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
@@ -319,7 +320,7 @@ export default function MissedCheckInModal({
       />
 
       {/* Modal Container */}
-      <div className="relative w-full max-w-2xl max-h-[92vh] bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-3xl shadow-2xl border border-[var(--kg-border)] flex flex-col overflow-hidden z-10 animate-scale-in">
+      <div className="relative w-full max-w-2xl max-h-[88dvh] sm:max-h-[90vh] mx-auto bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-3xl shadow-2xl border border-[var(--kg-border)] flex flex-col overflow-hidden z-10 animate-scale-in">
         
         {/* Modal Header */}
         <div className="p-4 sm:p-5 border-b border-[var(--kg-border)] flex items-center justify-between bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-transparent flex-shrink-0">
@@ -934,4 +935,7 @@ export default function MissedCheckInModal({
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') return modalContent;
+  return createPortal(modalContent, document.body);
 }

@@ -1,6 +1,13 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { useAppStore } from './store/useAppStore';
-import { isInAppBrowser, computeWeekInfo, getCurrentTimeString } from './utils/helpers';
+import {
+  isInAppBrowser,
+  computeWeekInfo,
+  getCurrentTimeString,
+  getSavedRegisteredShiftsForWeek,
+  isNextWeekScheduleRegistered,
+  markScheduleRegisteredLocally,
+} from './utils/helpers';
 import { setupAudioUnlock, preloadAudioClips } from './utils/soundEffects';
 import { refreshAppData, restoreFromCache } from './utils/refreshData';
 import { initOfflineQueueSync } from './utils/offlineQueue';
@@ -100,28 +107,34 @@ export default function App() {
           weekInfo.weekDatesKeys.forEach((k) => (initShifts[k] = 'OFF'));
           store.setShiftData(initShifts);
 
-          // Restore registered shifts from localStorage
-          const savedWeek = localStorage.getItem('kg_registered_week');
-          const savedShiftsStr = localStorage.getItem('kg_registered_shifts');
+          // Restore registered shifts from localStorage (including per-user record)
           const expectedWeekKey = weekInfo.monthSheet + '|' + weekInfo.weekLabel;
-          if ((savedWeek === expectedWeekKey || savedWeek === weekInfo.sheetName) && savedShiftsStr) {
-            try {
-              const shifts = JSON.parse(savedShiftsStr);
-              if (Array.isArray(shifts) && shifts.length === 7) {
-                store.setRegisteredShifts(shifts);
-                store.setScheduleRegistered(true, expectedWeekKey);
-                const regShifts: Record<string, string> = {};
-                weekInfo.weekDatesKeys.forEach((k, i) => regShifts[k] = shifts[i]);
-                store.setShiftData(regShifts);
-              }
-            } catch { /* ignore parse errors */ }
-          } else if (savedWeek && savedWeek !== expectedWeekKey && savedWeek !== weekInfo.sheetName) {
-            // Week rollover: clear previous week registration
-            localStorage.removeItem('kg_registered_shifts');
-            localStorage.removeItem('kg_registered_week');
-            localStorage.removeItem('kg_schedule_registered');
-            store.setScheduleRegistered(false);
-            store.setRegisteredShifts([]);
+          const savedShifts = getSavedRegisteredShiftsForWeek(user?.username, weekInfo);
+          const isRegisteredForWeek = isNextWeekScheduleRegistered(
+            useAppStore.getState().isScheduleRegistered,
+            user?.username,
+            weekInfo,
+            savedShifts
+          );
+          if (isRegisteredForWeek) {
+            store.setScheduleRegistered(true, expectedWeekKey);
+            if (savedShifts && savedShifts.length === 7) {
+              store.setRegisteredShifts(savedShifts);
+              const regShifts: Record<string, string> = {};
+              weekInfo.weekDatesKeys.forEach((k, i) => (regShifts[k] = savedShifts[i]));
+              store.setShiftData(regShifts);
+            }
+            markScheduleRegisteredLocally(user?.username, expectedWeekKey, savedShifts);
+          } else {
+            const savedWeek = localStorage.getItem('kg_registered_week');
+            if (savedWeek && savedWeek !== expectedWeekKey && savedWeek !== weekInfo.sheetName) {
+              // Week rollover: clear previous week registration
+              localStorage.removeItem('kg_registered_shifts');
+              localStorage.removeItem('kg_registered_week');
+              localStorage.removeItem('kg_schedule_registered');
+              store.setScheduleRegistered(false);
+              store.setRegisteredShifts([]);
+            }
           }
 
           // Refresh session timestamp (extend session on reload)

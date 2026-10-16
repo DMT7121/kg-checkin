@@ -308,10 +308,10 @@
     display: none;
   }
 
-  /* GPU acceleration for animated elements */
+  /* Avoid will-change: transform on page containers so fixed modals stay viewport-relative */
   .animate-slide-up,
   .animate-fade-in {
-    will-change: opacity, transform;
+    backface-visibility: hidden;
   }
 }
 

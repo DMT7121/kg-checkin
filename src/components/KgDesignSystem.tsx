@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, AlertCircle, CheckCircle2, AlertTriangle, Info, RefreshCw, Wifi, WifiOff,
@@ -464,15 +465,17 @@ export function KgEmptyState({
 }
 
 export function KgLoadingOverlay({ text = 'Đang xử lý...' }: { text?: string }) {
-  return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-5 rounded-2xl flex items-center gap-4 max-w-xs shadow-2xl">
+  if (typeof document === 'undefined') return null;
+  return createPortal(
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[10200] flex items-center justify-center p-4">
+      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-5 rounded-2xl flex items-center gap-4 max-w-xs w-full mx-auto shadow-2xl">
         <RefreshCw className="w-5 h-5 text-[var(--kg-primary)] animate-spin flex-shrink-0" />
         <span className="text-sm font-bold text-[var(--kg-text)] leading-tight">
           {text}
         </span>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -555,55 +558,56 @@ export function KgBottomSheet({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  return (
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <>
+        <div className="fixed inset-0 z-[10050] flex items-center justify-center p-3 sm:p-4 md:p-6">
           {/* Overlay */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[999] pointer-events-auto"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto"
           />
-          {/* Sheet */}
+          {/* Centered Ergonomic Modal Sheet */}
           <motion.div
             role="dialog"
             aria-modal="true"
             aria-label={title}
-            initial={{ y: '100%', opacity: 0.95 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: '100%', opacity: 0.95 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-            className="fixed left-0 right-0 bottom-0 md:left-1/2 md:right-auto md:bottom-auto md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-lg max-h-[85vh] bg-[var(--kg-surface)] text-[var(--kg-text)] z-[999] rounded-t-3xl md:rounded-3xl border-t md:border border-[var(--kg-border)] shadow-2xl flex flex-col pointer-events-auto overflow-hidden pb-safe-bottom"
+            initial={{ opacity: 0, scale: 0.96, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 12 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            onClick={(e) => e.stopPropagation()}
+            className="relative z-10 w-full max-w-lg max-h-[88dvh] sm:max-h-[85vh] mx-auto bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-2xl sm:rounded-3xl border border-[var(--kg-border)] shadow-2xl flex flex-col pointer-events-auto overflow-hidden"
           >
-            {/* Handle bar */}
-            <div className="w-12 h-1 bg-[var(--kg-border-strong)] rounded-full mx-auto my-3 flex-shrink-0 md:hidden" />
-            
             {/* Header */}
-            <div className="px-5 pt-3 md:pt-4 pb-3 border-b border-[var(--kg-border)] flex items-center justify-between flex-shrink-0">
-              <h3 className="text-sm font-black uppercase tracking-wider text-[var(--kg-text)]">
+            <div className="px-4 sm:px-5 py-3.5 border-b border-[var(--kg-border)] bg-[var(--kg-surface-soft)]/70 flex items-center justify-between gap-3 flex-shrink-0">
+              <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-[var(--kg-text)] truncate">
                 {title}
               </h3>
               <button
                 type="button"
                 onClick={onClose}
                 aria-label="Đóng hộp thoại"
-                className="w-8 h-8 rounded-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition-colors"
+                className="w-9 h-9 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] active:scale-95 transition-all flex-shrink-0"
               >
                 <X size={16} />
               </button>
             </div>
             
             {/* Content */}
-            <div className="flex-1 overflow-y-auto px-5 py-4 min-h-0 hide-scrollbar">
+            <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 min-h-0 hide-scrollbar">
               {children}
             </div>
           </motion.div>
-        </>
+        </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }
 
