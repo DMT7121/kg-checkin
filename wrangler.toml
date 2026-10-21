@@ -1,0 +1,12 @@
+name = "kg-checkin"
+pages_build_output_dir = "dist"
+compatibility_date = "2024-11-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "kg-checkin-db"
+database_id = "626b8171-2834-4e7e-a733-284c7588acbd"
+
+[[kv_namespaces]]
+binding = "KG_EDGE_DB"
+id = "40d9043e7d8944cbbf43f027b4cdd3a2"

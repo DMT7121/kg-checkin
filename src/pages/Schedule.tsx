@@ -438,7 +438,7 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
               <div class="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-2xl flex items-center justify-between shadow-xs">
                 <div class="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-black text-xs sm:text-sm">
                   <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  <span>Google Sheets: <b>Đã đồng bộ 100%</b></span>
+                  <span>Edge D1 &amp; Google Sheets: <b>Đã đồng bộ 100%</b></span>
                 </div>
                 <span class="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/60 px-2 py-0.5 rounded-lg">
                   ${syncTimestamp}

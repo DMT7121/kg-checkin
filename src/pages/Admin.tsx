@@ -5,9 +5,24 @@ import { callApi } from '../services/api';
 import { speak, fetchWithRetry, computeWeekInfo, DAY_NAMES, ADMIN_SHIFT_OPTIONS, getAdminShiftClass } from '../utils/helpers';
 import { sha256, ADMIN_PIN_HASH, MASTER_PIN_HASH, escapeHtml, checkRateLimit, recordFailedAttempt, resetFailedAttempts } from '../utils/security';
 import Swal from 'sweetalert2';
-import { Lock, Key, CalendarCheck, RefreshCw, Inbox, CheckCheck, Wand2, Cpu, CloudUpload, Eye, Loader2, Users, KeyRound, ArrowLeftRight, ExternalLink, Plus, Trash2, Edit2, Check, X, ShieldAlert } from 'lucide-react';
+import { Lock, Key, CalendarCheck, RefreshCw, Inbox, CheckCheck, Wand2, Cpu, CloudUpload, Eye, Loader2, Users, KeyRound, ArrowLeftRight, ExternalLink, Plus, Trash2, Edit2, Check, X, ShieldAlert, Database, HardDrive } from 'lucide-react';
 import { type AIPrompt } from '../store/useAppStore';
 import { KgModuleHero } from '../components/KgDesignSystem';
+
+interface EdgeDbStatus {
+  ok: boolean;
+  engine?: string;
+  d1Bound?: boolean;
+  kvBound?: boolean;
+  region?: string;
+  tables?: {
+    edge_schedules?: number;
+    edge_checkin_logs?: number;
+    edge_kv_cache?: number;
+    edge_sync_queue_pending?: number;
+  };
+  timestamp?: string;
+}
 
 export default function Admin() {
   const store = useAppStore(
@@ -33,6 +48,26 @@ export default function Admin() {
   
   const [localPrompts, setLocalPrompts] = useState<AIPrompt[]>(aiPrompts || []);
   const [editingPromptId, setEditingPromptId] = useState<string | null>(null);
+  const [edgeStatus, setEdgeStatus] = useState<EdgeDbStatus | null>(null);
+  const [checkingEdge, setCheckingEdge] = useState(false);
+
+  const loadEdgeDbStatus = async () => {
+    setCheckingEdge(true);
+    try {
+      const res = await callApi('GET_EDGE_DB_STATUS', {}, { background: true, cacheTtlMs: 0 });
+      if (res && typeof res === 'object') {
+        setEdgeStatus(res);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setCheckingEdge(false);
+    }
+  };
+
+  useEffect(() => {
+    loadEdgeDbStatus();
+  }, []);
 
   useEffect(() => {
     setLocalPrompts(aiPrompts || []);
@@ -122,9 +157,63 @@ export default function Admin() {
       <KgModuleHero
         moduleId="admin"
         title="AI & Tích Hợp"
-        description="Quản lý khóa API, trợ lý AI và các cấu hình tự động hóa dùng chung trong hệ thống."
+        description="Quản lý khóa API, trợ lý AI, cơ sở dữ liệu Cloudflare D1 Edge và các cấu hình tự động hóa dùng chung."
         eyebrow="Hệ thống"
       />
+
+      {/* Cloudflare D1 + KV Edge Database Status */}
+      <div className="soft3d-card p-5 rounded-2xl border border-emerald-200/70 dark:border-emerald-800/50">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4 border-b dark:border-gray-700 pb-2.5">
+          <h3 className="font-bold flex items-center text-gray-800 dark:text-white text-sm sm:text-base">
+            <Database size={18} className="mr-2 text-emerald-600 dark:text-emerald-400" />
+            Cơ sở dữ liệu Edge (Cloudflare D1 SQLite + KV + Google Sheets)
+          </h3>
+          <button
+            type="button"
+            onClick={loadEdgeDbStatus}
+            disabled={checkingEdge}
+            className="text-xs bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 font-bold px-3 py-1.5 rounded-lg flex items-center hover:bg-emerald-100 transition-colors disabled:opacity-60"
+          >
+            <RefreshCw size={13} className={`mr-1.5 ${checkingEdge ? 'animate-spin' : ''}`} />
+            Kiểm tra DB
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-3">
+          <div className="p-3 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-800/50">
+            <p className="text-[10px] font-bold uppercase text-emerald-700 dark:text-emerald-400">D1 SQLite (APAC)</p>
+            <p className="text-sm font-black text-emerald-800 dark:text-emerald-200 mt-1 flex items-center gap-1.5">
+              <span className={`w-2 h-2 rounded-full ${edgeStatus?.d1Bound ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+              {edgeStatus ? (edgeStatus.d1Bound ? 'Đang hoạt động' : 'Local / Fallback') : 'Đang kiểm tra...'}
+            </p>
+          </div>
+          <div className="p-3 rounded-xl bg-sky-50/70 dark:bg-sky-950/30 border border-sky-200/60 dark:border-sky-800/50">
+            <p className="text-[10px] font-bold uppercase text-sky-700 dark:text-sky-400">Lịch ca trên Edge</p>
+            <p className="text-base font-black text-sky-900 dark:text-sky-200 mt-0.5">
+              {edgeStatus?.tables?.edge_schedules ?? 0} <span className="text-xs font-semibold">bản ghi</span>
+            </p>
+          </div>
+          <div className="p-3 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/60 dark:border-indigo-800/50">
+            <p className="text-[10px] font-bold uppercase text-indigo-700 dark:text-indigo-400">Bộ đệm SWR (D1/KV)</p>
+            <p className="text-base font-black text-indigo-900 dark:text-indigo-200 mt-0.5">
+              {edgeStatus?.tables?.edge_kv_cache ?? 0} <span className="text-xs font-semibold">queries</span>
+            </p>
+          </div>
+          <div className="p-3 rounded-xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-800/50">
+            <p className="text-[10px] font-bold uppercase text-amber-700 dark:text-amber-400">Hàng đợi đồng bộ Sheet</p>
+            <p className="text-base font-black text-amber-900 dark:text-amber-200 mt-0.5">
+              {edgeStatus?.tables?.edge_sync_queue_pending ?? 0} <span className="text-xs font-semibold">đang chờ</span>
+            </p>
+          </div>
+        </div>
+
+        <p className="text-[11px] text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+          <HardDrive size={13} className="text-emerald-600 shrink-0" />
+          <span>
+            Kiến trúc <b>Write-Through + Read-Overlay</b>: Ghi tức thì vào Cloudflare D1 (&lt;15ms) chống nghẽn khi nhiều nhân viên gửi cùng lúc, tự động đồng bộ 100% về Google Sheets.
+          </span>
+        </p>
+      </div>
 
       {/* Groq AI Keys */}
 
