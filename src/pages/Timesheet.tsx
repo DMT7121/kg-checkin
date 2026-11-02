@@ -3,7 +3,7 @@ import { useAppStore } from '../store/useAppStore';
 import { generateMonthDates, SHORT_DAY_NAMES } from '../utils/helpers';
 import CalendarGrid from '../components/CalendarGrid';
 import { callApi } from '../services/api';
-import { CalendarClock, Clock, ListOrdered, Calendar, FileClock, Search, List, Eye, ArrowLeft, RefreshCw, Zap } from 'lucide-react';
+import { CalendarClock, Clock, ListOrdered, Calendar, FileClock, Search, List, Eye, ArrowLeft, RefreshCw, Zap, AlertTriangle } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { KgModuleHero, KgInput, KgCard, KgButton } from '../components/KgDesignSystem';
 import { saveModuleCache } from '../utils/refreshData';
@@ -17,8 +17,13 @@ export default function Timesheet() {
   const timesheetData = useAppStore((s) => s.timesheetData);
   const users = useAppStore((s) => s.users);
   const setTimesheetData = useAppStore((s) => s.setTimesheetData);
-  const store = { setTimesheetData };
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'tester';
+  const isAdmin = currentUser?.role === 'admin';
+  const defaultMonth = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }, []);
+  const [selectedMonth, setSelectedMonth] = useState<string>(defaultMonth);
+  const [viewTimesheetData, setViewTimesheetData] = useState(timesheetData);
   
   const [viewMode, setViewMode] = useState<ViewMode>('HOURS');
   const [selectedUser, setSelectedUser] = useState<string>('ALL');
@@ -27,77 +32,119 @@ export default function Timesheet() {
   const [onlyShowWorkdays, setOnlyShowWorkdays] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
-  const loadTimesheet = async () => {
-    const hasCached = timesheetData && timesheetData.year;
-    if (!hasCached) {
-      setIsRefreshing(true);
-    }
-    try {
-      const res = await callApi('GET_TIMESHEET', {
-        username: currentUser?.username,
-        role: currentUser?.role
-      }, { background: true });
+  const [year, month, daysInTargetMonth] = useMemo(() => {
+    const [yStr, mStr] = selectedMonth.split('-');
+    const y = Number(yStr) || new Date().getFullYear();
+    const m = Number(mStr) || (new Date().getMonth() + 1);
+    return [y, m, new Date(y, m, 0).getDate()];
+  }, [selectedMonth]);
 
-      setIsRefreshing(false);
-      if (res?.ok && res.data) {
-        store.setTimesheetData(res.data);
-        saveModuleCache('timesheet', res.data);
-      } else if (!hasCached) {
-        Swal.fire('Lỗi', res?.message || 'Không thể tải bảng tổng hợp công', 'error');
-      }
-    } catch {
-      setIsRefreshing(false);
+  const isCurrentMonthSelected = selectedMonth === defaultMonth;
+  const activeTimesheet = isCurrentMonthSelected ? (viewTimesheetData || timesheetData) : viewTimesheetData;
+
+  const handleMonthChange = (nextYm: string) => {
+    const resolvedYm = nextYm || defaultMonth;
+    setSelectedMonth(resolvedYm);
+    if (resolvedYm !== selectedMonth) {
+      setViewTimesheetData(null);
     }
   };
 
   useEffect(() => {
-    loadTimesheet();
-  }, []);
+    let isCancelled = false;
 
-  // Pre-calculate all employee monthly summaries with overnight overtime awareness (00:15 threshold)
+    const fetchMonthTimesheet = async () => {
+      const isCurrentMonth = selectedMonth === defaultMonth;
+      const cachedTs = useAppStore.getState().timesheetData;
+      const hasCached = Boolean(isCurrentMonth && cachedTs && cachedTs.timesheet);
+      if (!hasCached) {
+        setIsRefreshing(true);
+      }
+      try {
+        const res = await callApi('GET_TIMESHEET', {
+          username: currentUser?.username,
+          role: currentUser?.role,
+          month: selectedMonth,
+        }, { background: true, cacheTtlMs: isCurrentMonth ? undefined : 0 });
+
+        if (isCancelled) return;
+        setIsRefreshing(false);
+        if (res?.ok && res.data) {
+          setViewTimesheetData(res.data);
+          if (isCurrentMonth) {
+            setTimesheetData(res.data);
+            saveModuleCache('timesheet', res.data);
+          }
+        } else if (!hasCached && isCurrentMonth) {
+          Swal.fire('Lỗi', res?.message || 'Không thể tải bảng tổng hợp công', 'error');
+        }
+      } catch {
+        if (!isCancelled) {
+          setIsRefreshing(false);
+        }
+      }
+    };
+
+    fetchMonthTimesheet();
+    return () => {
+      isCancelled = true;
+    };
+  }, [currentUser?.username, currentUser?.role, defaultMonth, selectedMonth, setTimesheetData]);
+
+  // Pre-calculate all employee monthly summaries for the exact selected (month, year)
   const employeeSummaries = useMemo<Record<string, UserMonthSummary>>(() => {
-    if (!timesheetData || !timesheetData.timesheet || !timesheetData.year) return {};
+    if (!activeTimesheet || !activeTimesheet.timesheet) return {};
     const map: Record<string, UserMonthSummary> = {};
-    for (const name of Object.keys(timesheetData.timesheet)) {
+    for (const name of Object.keys(activeTimesheet.timesheet)) {
       map[name] = calculateEmployeeMonthTimesheet(
         name,
-        timesheetData.timesheet[name] || {},
-        timesheetData.daysInMonth,
-        timesheetData.month,
-        timesheetData.year
+        activeTimesheet.timesheet[name] || {},
+        daysInTargetMonth,
+        month,
+        year
       );
     }
     return map;
-  }, [timesheetData]);
+  }, [activeTimesheet, daysInTargetMonth, month, year]);
 
-  if (!timesheetData || !timesheetData.year) {
+  if (!activeTimesheet || !activeTimesheet.timesheet) {
     return (
       <div className="p-4 space-y-5 animate-slide-up pb-10">
         <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-6 rounded-2xl relative overflow-hidden shadow-xs">
           <div className="absolute right-0 top-0 opacity-5 text-[var(--kg-primary)] transform translate-x-4 -translate-y-4">
             <CalendarClock size={120} />
           </div>
-          <h2 className="text-xl sm:text-2xl font-black text-[var(--kg-text)] mb-1 tracking-tight relative z-10">Tổng Hợp Công</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3 relative z-10 mb-2">
+            <h2 className="text-xl sm:text-2xl font-black text-[var(--kg-text)] tracking-tight">Tổng Hợp Công</h2>
+            <label className="inline-flex items-center gap-2 rounded-xl bg-[var(--kg-surface-soft)] px-3 py-1.5 border border-[var(--kg-border)]">
+              <Calendar size={14} className="text-[var(--kg-primary)]" />
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => handleMonthChange(e.target.value)}
+                className="bg-transparent text-xs sm:text-sm font-bold text-[var(--kg-text)] outline-none"
+              />
+            </label>
+          </div>
           {isRefreshing ? (
             <div className="flex items-center gap-2 py-4 text-xs font-bold text-[var(--kg-text-muted)]">
               <RefreshCw size={16} className="animate-spin text-[var(--kg-primary)]" />
               <span>Đang tải nhanh bảng công...</span>
             </div>
           ) : (
-            <p className="text-[var(--kg-text-muted)] font-bold relative z-10 text-xs sm:text-sm">Chưa có dữ liệu bảng công cho tháng này.</p>
+            <p className="text-[var(--kg-text-muted)] font-bold relative z-10 text-xs sm:text-sm">Chưa có dữ liệu bảng công cho tháng {month}/{year}.</p>
           )}
         </div>
       </div>
     );
   }
 
-  // Lấy danh sách các ngày trong tháng
-  const days = Array.from({ length: timesheetData.daysInMonth }, (_, i) => i + 1);
-  const { year, month } = timesheetData;
+  // Lấy danh sách các ngày trong tháng đang chọn
+  const days = Array.from({ length: daysInTargetMonth }, (_, i) => i + 1);
   const monthDates = generateMonthDates(month, year);
 
   // Lọc user hiển thị
-  const displayNames = Object.keys(timesheetData.timesheet).filter(name => {
+  const displayNames = Object.keys(activeTimesheet.timesheet).filter(name => {
     if (!isAdmin) return name === currentUser?.fullname;
     
     // Nếu chọn 1 user cụ thể bằng dropdown, chỉ cho hiển thị user đó
@@ -133,6 +180,17 @@ export default function Timesheet() {
         {/* Thanh công cụ tìm kiếm và lọc */}
         <div className="flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-4 mb-6">
           <div className="flex flex-wrap items-center gap-3">
+            <label className="inline-flex items-center gap-2 rounded-xl bg-[var(--kg-surface-soft)] px-3 py-1.5 border border-[var(--kg-border)] min-h-[38px]">
+              <Calendar size={15} className="text-[var(--kg-primary)] flex-shrink-0" />
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => handleMonthChange(e.target.value)}
+                className="bg-transparent text-xs sm:text-sm font-black text-[var(--kg-text)] outline-none"
+                aria-label="Chọn tháng bảng công"
+              />
+            </label>
+
             <div className="flex bg-[var(--kg-surface-soft)] p-1 rounded-xl border border-[var(--kg-border)]/60">
               <button
                 type="button"
@@ -398,19 +456,19 @@ export default function Timesheet() {
                         <Clock size={14} />
                         {targetUser}
                       </div>
-                      <div className="text-xl sm:text-2xl font-black text-[var(--kg-text)] mt-1 font-mono flex flex-wrap items-baseline gap-2">
+                      <div className="text-xl sm:text-2xl font-black text-[var(--kg-text)] mt-1 font-mono tabular-nums flex flex-wrap items-baseline gap-2">
                         <span>{totalMonthHours.toFixed(2)}</span>
                         <span className="text-xs sm:text-sm font-bold font-sans text-[var(--kg-text-muted)]">giờ làm tháng {month}/{year}</span>
                       </div>
                       <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-[var(--kg-text-muted)] font-medium">
-                        <span>Theo ca: <strong className="text-[var(--kg-text)] font-mono">{totalRegularHours.toFixed(2)}h</strong></span>
+                        <span>Theo ca: <strong className="text-[var(--kg-text)] font-mono tabular-nums">{totalRegularHours.toFixed(2)}h</strong></span>
                         {totalOvertimeHours > 0 && (
                           <span className="text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1">
                             <Zap size={13} className="text-amber-500" />
-                            Tăng ca: <strong className="font-mono">+{totalOvertimeHours.toFixed(2)}h</strong>
+                            Tăng ca: <strong className="font-mono tabular-nums">+{totalOvertimeHours.toFixed(2)}h</strong>
                           </span>
                         )}
-                        <span>Số ngày làm: <strong className="text-[var(--kg-text)] font-mono">{summary?.workedDaysCount || 0} ngày</strong></span>
+                        <span>Số ngày làm: <strong className="text-[var(--kg-text)] font-mono tabular-nums">{summary?.workedDaysCount || 0} ngày</strong></span>
                       </div>
                     </div>
                     
@@ -442,10 +500,10 @@ export default function Timesheet() {
                           return (
                             <div className="w-full h-full flex flex-col justify-center items-center rounded-lg p-1">
                               {hasData ? (
-                                <div className={`py-1 px-2 rounded-md text-[10px] sm:text-xs font-bold whitespace-pre-line text-center w-full border ${
+                                <div className={`py-1 px-2 rounded-md text-[10px] sm:text-xs font-bold font-mono tabular-nums whitespace-pre-line text-center w-full border ${
                                   dayRes?.hasOvertime
                                     ? 'bg-amber-500 text-white border-amber-600'
-                                    : 'bg-indigo-500 text-white border-indigo-600'
+                                    : 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)]'
                                 }`}>
                                   {viewMode === 'HOURS' ? (hours > 0 ? `${hours.toFixed(2)}h` : '?') : text}
                                 </div>
@@ -461,18 +519,19 @@ export default function Timesheet() {
                     /* Chế độ xem: Danh sách dọc dòng thời gian */
                     <div className="space-y-4 animate-fade-in">
                       {/* Tiêu đề & Bộ lọc */}
-                      <div className="flex justify-between items-center pb-2 border-b border-gray-100 dark:border-gray-800">
-                        <span className="text-xs text-gray-500 dark:text-gray-400 font-bold">
+                      <div className="flex justify-between items-center pb-2 border-b border-[var(--kg-border)]">
+                        <span className="text-xs text-[var(--kg-text-muted)] font-bold tabular-nums">
                           Đang hiển thị {filteredWorkdays.length} ngày
                         </span>
-                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <label htmlFor="timesheet-only-workdays" className="flex items-center gap-2 cursor-pointer select-none">
                           <input
+                            id="timesheet-only-workdays"
                             type="checkbox"
                             checked={onlyShowWorkdays}
                             onChange={(e) => setOnlyShowWorkdays(e.target.checked)}
-                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                            className="rounded border-[var(--kg-border-strong)] text-[var(--kg-primary)] focus:ring-[var(--kg-primary)] w-4 h-4"
                           />
-                          <span className="text-xs text-gray-600 dark:text-gray-300 font-bold">Chỉ hiện ngày đi làm</span>
+                          <span className="text-xs text-[var(--kg-text)] font-bold">Chỉ hiện ngày đi làm</span>
                         </label>
                       </div>
 
@@ -537,8 +596,8 @@ export default function Timesheet() {
                                     
                                     {/* Cảnh báo thiếu ra ca */}
                                     {item.hasMissingCheckout && (
-                                      <span className="text-[10px] text-amber-600 dark:text-amber-400 font-extrabold block mt-1">
-                                        ⚠️ Thiếu giờ ra ca
+                                      <span className="text-[10px] text-amber-600 dark:text-amber-400 font-extrabold inline-flex items-center gap-1 mt-1">
+                                        <AlertTriangle size={11} /> Thiếu giờ ra ca
                                       </span>
                                     )}
                                   </div>
@@ -548,7 +607,7 @@ export default function Timesheet() {
                                 <div className="text-right flex-shrink-0 pl-2">
                                   {item.hasData ? (
                                     <div>
-                                      <span className="text-sm font-mono font-black text-[var(--kg-primary)] dark:text-cyan-300">
+                                      <span className="text-sm font-mono tabular-nums font-black text-[var(--kg-primary)] dark:text-cyan-300">
                                         {item.hours > 0 ? item.hours.toFixed(2) : '?'}
                                       </span>
                                       <span className="text-[10px] text-[var(--kg-text-muted)] block font-medium">giờ</span>

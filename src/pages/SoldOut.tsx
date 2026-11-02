@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
-import { UtensilsCrossed, Plus, Search, Trash2, Clock, CheckCircle2 } from 'lucide-react';
+import { Plus, Search, Clock, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { KgModuleHero } from '../components/KgDesignSystem';
-
+import Swal from 'sweetalert2';
+import { KgModuleHero, KgConfirmSheet } from '../components/KgDesignSystem';
 
 export default function SoldOut() {
   const currentUser = useAppStore((s) => s.currentUser);
@@ -16,6 +16,7 @@ export default function SoldOut() {
   const [searchTerm, setSearchTerm] = useState('');
   const [newItemName, setNewItemName] = useState('');
   const [isAdding, setIsAdding] = useState(false);
+  const [pendingRestore, setPendingRestore] = useState<{ id: string; itemName: string } | null>(null);
 
   const fetchSoldOut = async () => {
     setLoading(true);
@@ -61,23 +62,21 @@ export default function SoldOut() {
         itemName,
         reportedBy: currentUser?.fullname || 'Nhân viên'
       }, { background: true });
-      
+
       if (res?.ok) {
         fetchSoldOut();
       } else {
         // Rollback on failure
         store.setSoldOutItems(previousItems);
-        alert(res?.message || 'Không thể ghi nhận món hết');
+        Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: res?.message || 'Không thể ghi nhận món hết', showConfirmButton: false, timer: 2500 });
       }
     } catch {
       store.setSoldOutItems(previousItems);
-      alert('Lỗi kết nối máy chủ, đã hoàn tác');
+      Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: 'Lỗi kết nối máy chủ, đã hoàn tác', showConfirmButton: false, timer: 2500 });
     }
   };
 
-  const handleRemove = async (id: string, itemName: string) => {
-    if (!confirm(`Xác nhận món "${itemName}" ĐÃ CÓ LẠI?`)) return;
-    
+  const executeRemove = async (id: string) => {
     const previousItems = [...soldOutItems];
     // Optimistically filter out
     store.setSoldOutItems(soldOutItems.filter(item => item.id !== id));
@@ -86,17 +85,18 @@ export default function SoldOut() {
       const res = await callApi('REMOVE_SOLDOUT', { id }, { background: true });
       if (res?.ok) {
         fetchSoldOut();
+        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Đã mở bán lại món', showConfirmButton: false, timer: 2000 });
       } else {
         store.setSoldOutItems(previousItems);
-        alert(res?.message || 'Không thể cập nhật món');
+        Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: res?.message || 'Không thể cập nhật món', showConfirmButton: false, timer: 2500 });
       }
     } catch {
       store.setSoldOutItems(previousItems);
-      alert('Lỗi kết nối máy chủ, đã hoàn tác');
+      Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: 'Lỗi kết nối máy chủ, đã hoàn tác', showConfirmButton: false, timer: 2500 });
     }
   };
 
-  const filteredItems = soldOutItems.filter(item => 
+  const filteredItems = soldOutItems.filter(item =>
     item.itemName.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -112,26 +112,27 @@ export default function SoldOut() {
         tips={[
           "Bếp hoặc Bar báo hết nguyên liệu / món ăn ngay khi lượng tồn kho dưới ngưỡng an toàn.",
           "Thu ngân và Nhân viên phục vụ lập tức cập nhật để không nhận order món đã hết của khách hàng.",
-          "Khi có đợt nhập hàng hoặc sơ chế bổ sung, bấm 'Khôi phục món' để mở lại món trên thực đơn."
+          "Khi có đợt nhập hàng hoặc sơ chế bổ sung, bấm 'Khôi phục' để mở lại món trên thực đơn."
         ]}
       />
 
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
         <div className="relative flex-1">
-          <Search size={16} className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-[var(--kg-text-muted)]" />
+          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--kg-text-muted)]" />
           <input
             type="text"
+            aria-label="Tìm kiếm món đang hết"
             placeholder="Tìm kiếm món đang hết..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl py-2.5 pl-10 pr-4 text-xs sm:text-sm text-[var(--kg-text)] focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition outline-none shadow-xs"
+            className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl py-2.5 pl-10 pr-4 text-xs sm:text-sm text-[var(--kg-text)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 focus:border-[var(--kg-primary)] transition-colors outline-none shadow-xs min-h-[42px]"
           />
         </div>
         <button
           type="button"
           onClick={() => setIsAdding(!isAdding)}
-          className="inline-flex items-center justify-center gap-1.5 bg-gradient-to-r from-rose-500 to-amber-600 text-white px-4 py-2.5 rounded-2xl font-black text-xs sm:text-sm shadow-md active:scale-95 transition-all"
+          className="inline-flex items-center justify-center gap-1.5 bg-[var(--kg-accent)] hover:bg-[var(--kg-accent-hover)] text-white px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-xs active:scale-95 transition-colors min-h-[42px]"
         >
           <Plus size={16} />
           <span>Báo món hết</span>
@@ -145,33 +146,34 @@ export default function SoldOut() {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-sm p-4 space-y-3"
+            className="overflow-hidden bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-card p-4 space-y-3"
           >
             <form onSubmit={handleAdd} className="space-y-3">
-              <p className="text-xs font-black text-[var(--kg-text)]">
+              <label htmlFor="soldout-item-name" className="block text-xs font-semibold text-[var(--kg-text)]">
                 Nhập tên món ăn / thức uống vừa hết nguyên liệu:
-              </p>
+              </label>
               <div className="flex flex-col sm:flex-row gap-2">
                 <input
+                  id="soldout-item-name"
                   type="text"
                   autoFocus
                   placeholder="VD: Trà đào cam sả, Bò nướng tảng..."
                   value={newItemName}
                   onChange={(e) => setNewItemName(e.target.value)}
-                  className="flex-1 bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 text-[var(--kg-text)]"
+                  className="flex-1 bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 text-[var(--kg-text)] min-h-[42px]"
                 />
                 <div className="flex items-center gap-2">
                   <button
                     type="submit"
                     disabled={!newItemName.trim() || store.isUpdating}
-                    className="flex-1 sm:flex-initial bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white px-5 py-2.5 rounded-xl text-xs font-black transition active:scale-95 shadow-xs"
+                    className="flex-1 sm:flex-initial bg-[var(--kg-danger)] hover:brightness-95 disabled:opacity-50 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-colors active:scale-95 shadow-xs min-h-[42px]"
                   >
                     Xác nhận báo hết
                   </button>
                   <button
                     type="button"
                     onClick={() => setIsAdding(false)}
-                    className="px-3 py-2.5 rounded-xl border border-[var(--kg-border)] text-xs font-bold text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)]"
+                    className="px-3.5 py-2.5 rounded-xl border border-[var(--kg-border)] text-xs font-semibold text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)] min-h-[42px]"
                   >
                     Huỷ
                   </button>
@@ -186,16 +188,16 @@ export default function SoldOut() {
       <div className="flex-1 min-h-[250px]">
         {loading ? (
           <div className="flex flex-col items-center justify-center h-48 space-y-3">
-            <div className="w-8 h-8 border-3 border-rose-500/20 border-t-rose-500 rounded-full animate-spin"></div>
-            <p className="text-xs font-bold text-[var(--kg-text-muted)]">Đang tải danh sách món...</p>
+            <div className="w-8 h-8 border-2 border-[var(--kg-border)] border-t-[var(--kg-primary)] rounded-full animate-spin" />
+            <p className="text-xs font-medium text-[var(--kg-text-muted)]">Đang tải danh sách món...</p>
           </div>
         ) : filteredItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-8 text-center rounded-2xl bg-[var(--kg-surface)] border border-dashed border-[var(--kg-border)]">
-            <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center mb-3">
-              <CheckCircle2 size={28} />
+            <div className="w-12 h-12 rounded-2xl bg-[var(--kg-success-soft)] text-[var(--kg-success)] flex items-center justify-center mb-3">
+              <CheckCircle2 size={24} />
             </div>
-            <h3 className="text-sm font-black text-[var(--kg-text)]">Hiện tại không có món nào báo hết</h3>
-            <p className="text-xs text-[var(--kg-text-muted)] mt-1 font-medium">Tất cả nguyên liệu thực đơn sẵn sàng phục vụ khách hàng!</p>
+            <h3 className="text-sm font-bold text-[var(--kg-text)]">Hiện tại không có món nào báo hết</h3>
+            <p className="text-xs text-[var(--kg-text-muted)] mt-1 font-medium">Tất cả nguyên liệu thực đơn sẵn sàng phục vụ khách hàng</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -203,37 +205,35 @@ export default function SoldOut() {
               {filteredItems.map((item) => (
                 <motion.div
                   key={item.id}
-                  initial={{ opacity: 0, y: 8 }}
+                  initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  className="bg-[var(--kg-surface)] border border-rose-500/20 dark:border-rose-900/30 rounded-2xl p-3.5 flex flex-col justify-between relative overflow-hidden shadow-xs hover:border-rose-500/40 transition-all group"
+                  exit={{ opacity: 0, scale: 0.96 }}
+                  className="bg-[var(--kg-surface)] border border-[var(--kg-border)] hover:border-[var(--kg-danger)]/40 rounded-2xl p-3.5 flex flex-col justify-between shadow-card transition-colors group"
                 >
-                  {/* Decorative stripe */}
-                  <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-rose-500"></div>
-                  
-                  <div className="flex justify-between items-start pl-2 gap-3">
+                  <div className="flex justify-between items-start gap-3">
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-rose-500 flex-shrink-0 animate-ping" />
-                        <h3 className="font-black text-[var(--kg-text)] text-sm leading-tight truncate">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-[var(--kg-danger)] flex-shrink-0 animate-pulse" />
+                        <h3 className="font-bold text-[var(--kg-text)] text-sm leading-tight truncate">
                           {item.itemName}
                         </h3>
                       </div>
                       <div className="flex flex-wrap items-center text-[11px] text-[var(--kg-text-muted)] mt-2 gap-2 font-medium">
-                        <span className="flex items-center gap-1">
+                        <span className="flex items-center gap-1 font-mono tabular-nums">
                           <Clock size={11} /> {item.reportedAt}
                         </span>
                         <span>•</span>
-                        <span className="bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] px-2 py-0.5 rounded-lg text-[10px] font-bold">
+                        <span className="bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] px-2 py-0.5 rounded-lg text-[10px] font-semibold text-[var(--kg-text)]">
                           {item.reportedBy}
                         </span>
                       </div>
                     </div>
-                    
+
                     <button
                       type="button"
-                      onClick={() => handleRemove(item.id, item.itemName)}
-                      className="w-9 h-9 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center transition-all active:scale-90 flex-shrink-0 border border-emerald-500/20 shadow-xs"
+                      onClick={() => setPendingRestore({ id: item.id, itemName: item.itemName })}
+                      aria-label={`Khôi phục món ${item.itemName}`}
+                      className="w-10 h-10 rounded-xl bg-[var(--kg-success-soft)] hover:brightness-95 text-[var(--kg-success)] flex items-center justify-center transition-all active:scale-95 flex-shrink-0 border border-[var(--kg-success)]/20"
                       title="Đã có hàng lại"
                     >
                       <CheckCircle2 size={18} />
@@ -245,6 +245,23 @@ export default function SoldOut() {
           </div>
         )}
       </div>
+
+      <KgConfirmSheet
+        isOpen={Boolean(pendingRestore)}
+        onClose={() => setPendingRestore(null)}
+        title="Khôi phục món trên thực đơn?"
+        message={pendingRestore ? `Xác nhận món "${pendingRestore.itemName}" đã có nguyên liệu trở lại và sẵn sàng phục vụ khách?` : ''}
+        confirmLabel="Xác nhận mở bán lại"
+        cancelLabel="Đóng"
+        variant="info"
+        onConfirm={() => {
+          if (pendingRestore) {
+            const targetId = pendingRestore.id;
+            setPendingRestore(null);
+            executeRemove(targetId);
+          }
+        }}
+      />
     </div>
   );
 }

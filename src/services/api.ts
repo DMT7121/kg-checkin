@@ -7,15 +7,17 @@ const responseCache = new Map<string, { expiresAt: number; value: any }>();
 // Get GAS URL dynamically so we can update it without rebuilds
 export const getGasUrl = () => {
   const stored = localStorage.getItem('kg_gas_url');
-  const fallbackUrl = import.meta.env.PROD
+  const isProd = Boolean((import.meta as any).env?.PROD);
+  const envGasUrl = (import.meta as any).env?.VITE_GAS_URL;
+  const fallbackUrl = isProd
     ? '/api'
-    : 'https://script.google.com/macros/s/AKfycbyQ4Y5cQ0BCHBlmzftWq0dPVP2qNgc-PaYMklh44raSX4hDOCIyFi0bV-G6QdUbb-3D/exec';
+    : (envGasUrl || 'https://script.google.com/macros/s/AKfycbyQ4Y5cQ0BCHBlmzftWq0dPVP2qNgc-PaYMklh44raSX4hDOCIyFi0bV-G6QdUbb-3D/exec');
   
   if (stored && !stored.trim().startsWith('https://script.google.com/macros/s/') && stored.trim() !== '/api') {
     localStorage.removeItem('kg_gas_url');
     return fallbackUrl;
   }
-  return stored?.trim() || import.meta.env.VITE_GAS_URL || fallbackUrl;
+  return stored?.trim() || fallbackUrl;
 };
 
 export const setGasUrl = (url: string) => {
@@ -45,9 +47,42 @@ export async function callApi(
 ): Promise<any> {
   const bg = options?.background ?? false;
   const isReadAction = action.startsWith('GET_') || action === 'GEOCODE';
-  const bodyStr = JSON.stringify({ action, ...payload });
+
+  // Prevent payload.action (e.g. 'LIKE', 'COMMENT', 'APPROVE', 'REJECT') from overwriting top-level RPC action
+  const { action: innerAction, ...restPayload } = payload || {};
+  const normalizedPayload: Record<string, any> = { ...restPayload };
+  if (innerAction !== undefined && innerAction !== action) {
+    if (normalizedPayload.subAction === undefined) {
+      normalizedPayload.subAction = innerAction;
+    }
+    if (action.startsWith('APPROVE_') && normalizedPayload.decision === undefined) {
+      normalizedPayload.decision = innerAction;
+    }
+  }
+
+  // Attach non-breaking session auth context when available
+  try {
+    const sessionToken = localStorage.getItem('kg_session_token');
+    if (sessionToken && normalizedPayload._authToken === undefined) {
+      normalizedPayload._authToken = sessionToken;
+    }
+    if (!isReadAction && action !== 'LOGIN' && action !== 'REGISTER') {
+      const savedUserRaw = localStorage.getItem('kg_user');
+      if (savedUserRaw) {
+        const savedUser = JSON.parse(savedUserRaw);
+        if (savedUser?.username && normalizedPayload.actorUsername === undefined) {
+          normalizedPayload.actorUsername = savedUser.username;
+        }
+        if (savedUser?.role === 'admin' && normalizedPayload.adminUsername === undefined) {
+          normalizedPayload.adminUsername = savedUser.username;
+        }
+      }
+    }
+  } catch { /* ignore storage access errors */ }
+
+  const bodyStr = JSON.stringify({ ...normalizedPayload, action });
   const requestKey = `${getGasUrl()}|${bodyStr}`;
-  const canUseCache = isReadAction && payload.forceRefresh !== true && options?.cacheTtlMs !== 0;
+  const canUseCache = isReadAction && normalizedPayload.forceRefresh !== true && options?.cacheTtlMs !== 0;
 
   if (canUseCache) {
     let cached = responseCache.get(requestKey);
@@ -130,6 +165,13 @@ export async function callApi(
 
       if (!bg) {
         options?.onLoadingEnd?.();
+      }
+
+      // Persist server-issued session token on successful LOGIN
+      if (action === 'LOGIN' && result?.ok && result?.data?.sessionToken) {
+        try {
+          localStorage.setItem('kg_session_token', String(result.data.sessionToken));
+        } catch { /* ignore */ }
       }
 
       // Log failed API calls for debugging

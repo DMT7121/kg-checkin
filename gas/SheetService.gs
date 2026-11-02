@@ -174,10 +174,9 @@ var SheetService = (function() {
       return obj.hasOwnProperty(header) ? obj[header] : "";
     });
 
-    var valueRange = Sheets.newValueRange();
-    valueRange.values = [rowValues];
-
     try {
+      var valueRange = Sheets.newValueRange();
+      valueRange.values = [rowValues];
       // Append row to the sheet using Sheets API v4
       Sheets.Spreadsheets.Values.append(valueRange, ssId, name + "!A:A", {
         valueInputOption: "USER_ENTERED"

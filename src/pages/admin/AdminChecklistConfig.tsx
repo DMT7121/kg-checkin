@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { callApi } from '../../services/api';
 import Swal from 'sweetalert2';
-import { ClipboardCheck, Plus, Save, Trash2, Edit2, Loader2, RefreshCw } from 'lucide-react';
+import { ClipboardCheck, ClipboardList, Plus, Save, Trash2, Edit2, Loader2, RefreshCw } from 'lucide-react';
 import { KgModuleHero } from '../../components/KgDesignSystem';
 
 interface ChecklistTemplateItem {
@@ -366,12 +366,12 @@ export default function AdminChecklistConfig() {
                     const subtaskCount = item.subtasksText ? item.subtasksText.split('\n').filter(Boolean).length : 0;
                     return (
                       <tr key={item.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
-                        <td className="py-4 px-4 text-center font-bold text-gray-500">{item.no}</td>
+                        <td className="py-4 px-4 text-center font-bold font-mono tabular-nums text-gray-500">{item.no}</td>
                         <td className="py-4 px-4 space-y-1">
                           <span className="block text-[9px] bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-1.5 py-0.5 rounded font-black uppercase truncate max-w-[150px]">
                             {item.phase}
                           </span>
-                          <span className="block text-[9px] bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 px-1.5 py-0.5 rounded font-black uppercase truncate max-w-[150px]">
+                          <span className="block text-[9px] bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-1.5 py-0.5 rounded font-black uppercase truncate max-w-[150px]">
                             {item.shift}
                           </span>
                         </td>
@@ -380,8 +380,9 @@ export default function AdminChecklistConfig() {
                           <div className="font-extrabold text-gray-800 dark:text-white">{item.title}</div>
                           {item.desc && <div className="text-gray-400 font-medium text-[11px] leading-relaxed">{item.desc}</div>}
                           {subtaskCount > 0 && (
-                            <div className="flex items-center space-x-1.5 text-[10px] text-blue-600 font-bold bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100/50 dark:border-blue-900/50 px-2 py-0.5 rounded-full w-fit">
-                              <span>📋 Hạng mục có {subtaskCount} việc con</span>
+                            <div className="inline-flex items-center gap-1.5 text-[10px] text-[var(--kg-primary)] font-bold bg-[var(--kg-primary-soft)] border border-[var(--kg-border)] px-2 py-0.5 rounded-full w-fit font-mono tabular-nums">
+                              <ClipboardList size={12} />
+                              <span className="font-sans">Hạng mục có {subtaskCount} việc con</span>
                             </div>
                           )}
                         </td>

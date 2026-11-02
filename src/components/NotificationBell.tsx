@@ -147,10 +147,10 @@ export default function NotificationBell() {
   };
 
   const typeConfig: Record<string, { icon: any; color: string; bg: string; border: string }> = {
-    info: { icon: Info, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-950/40', border: 'border-blue-200 dark:border-blue-900/30' },
-    warning: { icon: AlertTriangle, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-950/40', border: 'border-amber-200 dark:border-amber-900/30' },
-    success: { icon: CheckCircle2, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/40', border: 'border-emerald-200 dark:border-emerald-900/30' },
-    action: { icon: ArrowRight, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-950/40', border: 'border-indigo-200 dark:border-indigo-900/30' },
+    info: { icon: Info, color: 'text-[var(--kg-info)]', bg: 'bg-[var(--kg-info-soft)]', border: 'border-[var(--kg-info)]/25' },
+    warning: { icon: AlertTriangle, color: 'text-[var(--kg-warning)]', bg: 'bg-[var(--kg-warning-soft)]', border: 'border-[var(--kg-warning)]/25' },
+    success: { icon: CheckCircle2, color: 'text-[var(--kg-success)]', bg: 'bg-[var(--kg-success-soft)]', border: 'border-[var(--kg-success)]/25' },
+    action: { icon: ArrowRight, color: 'text-[var(--kg-primary)]', bg: 'bg-[var(--kg-surface-soft)]', border: 'border-[var(--kg-border)]' },
   };
 
   return (
@@ -213,7 +213,7 @@ export default function NotificationBell() {
                   <button 
                     type="button"
                     onClick={handleMarkAllRead}
-                    className="text-xs text-blue-600 dark:text-indigo-400 font-bold hover:underline flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] active:scale-95 transition-all"
+                    className="text-xs text-[var(--kg-primary)] font-semibold hover:underline flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-border)] active:scale-95 transition-colors"
                   >
                     <CheckCheck size={14} /> Đọc hết
                   </button>

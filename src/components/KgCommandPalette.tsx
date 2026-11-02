@@ -460,18 +460,21 @@ export default function KgCommandPalette({
     });
   }, [allItems, query]);
 
-  useEffect(() => {
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (prevIsOpen !== isOpen) {
+    setPrevIsOpen(isOpen);
     if (isOpen) {
       setQuery('');
       setSelectedIndex(0);
+    }
+  }
+
+  useEffect(() => {
+    if (isOpen) {
       const timer = setTimeout(() => inputRef.current?.focus(), 40);
       return () => clearTimeout(timer);
     }
   }, [isOpen]);
-
-  useEffect(() => {
-    setSelectedIndex(0);
-  }, [query]);
 
   const handleSelectItem = (item: CommandItem) => {
     if (item.onAction) {
@@ -551,8 +554,12 @@ export default function KgCommandPalette({
               <input
                 ref={inputRef}
                 type="text"
+                aria-label="Tìm nhanh phân hệ"
                 value={query}
-                onChange={e => setQuery(e.target.value)}
+                onChange={e => {
+                  setQuery(e.target.value);
+                  setSelectedIndex(0);
+                }}
                 placeholder="Tìm nhanh phân hệ, bảng công, lịch ca..."
                 className="flex-1 min-w-0 bg-transparent text-sm font-semibold text-[var(--kg-text)] placeholder-[var(--kg-text-soft)] outline-none border-none p-0 focus:ring-0"
               />
@@ -561,6 +568,7 @@ export default function KgCommandPalette({
                   type="button"
                   onClick={() => {
                     setQuery('');
+                    setSelectedIndex(0);
                     inputRef.current?.focus();
                   }}
                   className="text-xs font-bold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] px-2 py-1 rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-border)] active:scale-95 transition-all flex-shrink-0"

@@ -419,7 +419,7 @@ export default function Guide() {
             {/* Guide Header */}
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-5">
               <div className="flex items-center gap-3.5">
-                <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-indigo-950/20 flex items-center justify-center text-blue-600 dark:text-indigo-400 flex-shrink-0">
+                <div className="w-12 h-12 rounded-2xl bg-[var(--kg-primary-soft)] flex items-center justify-center text-[var(--kg-primary)] flex-shrink-0">
                   <selectedGuide.icon size={24} />
                 </div>
                 <div>
@@ -457,9 +457,9 @@ export default function Guide() {
             </div>
 
             {/* Guide Body */}
-            <div className="space-y-5">
+            <div className="space-y-5 max-w-[68ch]">
               <div className="space-y-2">
-                <h3 className="text-sm font-black uppercase tracking-wider text-blue-600 dark:text-indigo-400">
+                <h3 className="text-sm font-black uppercase tracking-wider text-[var(--kg-primary)]">
                   1. Giới thiệu phân hệ
                 </h3>
                 <p className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed font-medium">
@@ -468,14 +468,14 @@ export default function Guide() {
               </div>
 
               <div className="space-y-3.5">
-                <h3 className="text-sm font-black uppercase tracking-wider text-blue-600 dark:text-indigo-400">
+                <h3 className="text-sm font-black uppercase tracking-wider text-[var(--kg-primary)]">
                   2. Quy trình & Các bước thực hiện
                 </h3>
                 <div className="relative border-l border-slate-100 dark:border-slate-800 ml-3.5 pl-5 space-y-5 py-1">
                   {selectedGuide.steps.map((step, index) => (
                     <div key={index} className="relative">
                       {/* Step Number Dot */}
-                      <div className="absolute -left-[31px] top-0.5 w-6 h-6 rounded-full bg-blue-600 dark:bg-indigo-500 text-white flex items-center justify-center text-xs font-bold shadow-sm">
+                      <div className="absolute -left-[31px] top-0.5 w-6 h-6 rounded-full bg-[var(--kg-primary)] text-white flex items-center justify-center text-xs font-bold font-mono tabular-nums shadow-xs">
                         {index + 1}
                       </div>
                       <p className="text-xs md:text-sm text-slate-800 dark:text-slate-200 font-semibold leading-relaxed">
@@ -663,7 +663,7 @@ export default function Guide() {
                       {/* Header in Card */}
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-slate-800/40 flex items-center justify-center text-blue-600 dark:text-indigo-400 flex-shrink-0">
+                          <div className="w-9 h-9 rounded-xl bg-[var(--kg-primary-soft)] flex items-center justify-center text-[var(--kg-primary)] flex-shrink-0">
                             <GuideIcon size={18} />
                           </div>
                           <div>
@@ -703,7 +703,7 @@ export default function Guide() {
                           guide.category === 'operation' ? 'Vận hành' : 'Cá nhân'
                         }
                       </span>
-                      <span className="text-xs font-bold text-blue-600 dark:text-indigo-400 inline-flex items-center gap-1 hover:underline">
+                      <span className="text-xs font-bold text-[var(--kg-primary)] inline-flex items-center gap-1 hover:underline">
                         Xem chi tiết <ChevronRight size={14} />
                       </span>
                     </div>

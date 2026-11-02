@@ -41,23 +41,29 @@ export default function ImagePreview() {
   const fileId = !isBase64 ? extractDriveFileId(previewImageUrl) : null;
   const driveInfo = fileId ? getDirectDriveImageUrl(previewImageUrl) : null;
 
-  // Reset state when preview closes or opens + handle Escape key
-  useEffect(() => {
+  const currentPreviewKey = isPreviewOpen ? previewImageUrl : '';
+  const [prevPreviewKey, setPrevPreviewKey] = useState(currentPreviewKey);
+  if (prevPreviewKey !== currentPreviewKey) {
+    setPrevPreviewKey(currentPreviewKey);
     if (isPreviewOpen) {
       setZoom(1);
       setIsLoading(!isBase64);
       setUseFallback(false);
       setErrorCount(0);
-
-      const onKeyDown = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') {
-          setPreviewOpen(false);
-        }
-      };
-      document.addEventListener('keydown', onKeyDown);
-      return () => document.removeEventListener('keydown', onKeyDown);
     }
-  }, [isPreviewOpen, previewImageUrl, isBase64, setPreviewOpen]);
+  }
+
+  // Handle Escape key when preview is open
+  useEffect(() => {
+    if (!isPreviewOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setPreviewOpen(false);
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [isPreviewOpen, setPreviewOpen]);
 
   if (!isPreviewOpen) return null;
 

@@ -1,0 +1,28 @@
+/* King's Grill Staff OS v4.0.0 — Warm Hospitality Super-App Design DNA Tokens */
+:root {
+  --dna-canvas: #F4F0E8;
+  --dna-surface: #FFFDF9;
+  --dna-subtle: #EAE3D7;
+  --dna-ink-primary: #1A1613;
+  --dna-ink-secondary: #5C5349;
+  --dna-border: #DDD4C5;
+  --dna-accent: #0B253C;
+  --dna-accent-contrast: #FFFFFF;
+  --dna-brand-signal: #C8432B;
+  --dna-rail-bg: #0B1F33;
+  --dna-rail-ink: #F4F0E8;
+}
+
+.dark {
+  --dna-canvas: #0D1015;
+  --dna-surface: #161A22;
+  --dna-subtle: #1F2530;
+  --dna-ink-primary: #F7F4EE;
+  --dna-ink-secondary: #B5AFA6;
+  --dna-border: #2B3240;
+  --dna-accent: #2563EB;
+  --dna-accent-contrast: #FFFFFF;
+  --dna-brand-signal: #E05238;
+  --dna-rail-bg: #11151D;
+  --dna-rail-ink: #F7F4EE;
+}

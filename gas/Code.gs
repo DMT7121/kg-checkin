@@ -77,6 +77,7 @@ function doPost(e) {
       case 'UPDATE_AI_PROMPTS': return handleUpdateAiPrompts(payload);
       case 'GET_KEYS': return handleGetKeys(payload);
       case 'SAVE_CHAT_LOG': return handleSaveChatLog(payload);
+      case 'AI_CHAT': return handleAiChat(payload);
       case 'GEOCODE': return handleGeocode(payload);
       case 'UPDATE_GPS_CONFIG': return handleUpdateGpsConfig(payload);
       case 'UPDATE_ORG_CONFIG': return handleUpdateOrgConfig(payload);
@@ -109,6 +110,8 @@ function doPost(e) {
         return handleGetOpsChecklistInit(payload);
       case 'SAVE_OPS_CHECKLIST_STATE':
         return handleSaveOpsChecklistState(payload);
+      case 'PATCH_OPS_CHECKLIST_ITEM':
+        return handlePatchOpsChecklistItem(payload);
       case 'SAVE_OPS_CHECKLIST_CONFIG':
         return handleSaveOpsChecklistConfig(payload);
 
@@ -119,8 +122,14 @@ function doPost(e) {
         return handleSubmitHandover(payload);
       case 'ACKNOWLEDGE_HANDOVER':
         return handleAcknowledgeHandover(payload);
+      case 'REVIEW_HANDOVER':
+        return handleReviewHandover(payload);
       case 'SUBMIT_INCIDENT':
         return handleSubmitIncident(payload);
+      case 'GET_INCIDENTS':
+        return handleGetIncidents(payload);
+      case 'UPDATE_INCIDENT':
+        return handleUpdateIncident(payload);
 
       // --- FEEDBACK & SURVEY ---
       case 'GET_FEEDBACKS':
@@ -201,6 +210,10 @@ function doPost(e) {
         return handleReviewSalaryAdjustment(payload);
       case 'GET_PAYROLL':
         return handleGetPayroll(payload);
+      case 'SET_PAYROLL_WORKFLOW_STATUS':
+        return handleSetPayrollWorkflowStatus(payload);
+      case 'CONFIRM_PAYROLL_SLIP':
+        return handleConfirmPayrollSlip(payload);
       case 'GET_OPERATIONS_CONFIG':
         return handleGetOperationsConfig(payload);
       case 'UPDATE_OPERATIONS_CONFIG':
@@ -234,9 +247,11 @@ function doPost(e) {
       case 'MARK_NOTIFICATION_READ':
         return handleMarkNotificationRead(payload);
 
-      // --- ANALYTICS ---
+      // --- ANALYTICS & AUDIT LOGS ---
       case 'GET_ANALYTICS':
         return handleGetAnalytics(payload);
+      case 'GET_AUDIT_LOGS':
+        return handleGetAuditLogs(payload);
 
       default:
         return jsonResponse(false, 'Unknown action');
@@ -366,45 +381,38 @@ function onEdit(e) {
  * Tạo menu khi mở Google Sheets
  * Chỉ hoạt động khi mở spreadsheet (container-bound context)
  */
+function buildAttendanceMenu_(ui) {
+  return ui.createMenu("Tiện Ích Chấm Công ⭐️")
+    .addItem("🎛️ Bảng Điều Khiển Chấm Công (Trung Tâm)", "showControlCenterModal")
+    .addSeparator()
+    .addItem("⚡️ Tổng Hợp Công & Lịch Lễ (Nhanh)", "showSheetSelectionDialog")
+    .addItem("👥 Nhân Sự & Thêm Bảng Tổng Hợp", "showAddSummaryTablesModal")
+    .addItem("📅 Đồng Bộ Lịch Làm & Bảo Trì Sheet", "openRosterSyncModal")
+    .addItem("⚙️ Thiết Lập Tự Động Hóa & Email", "setupAutomation")
+    .addItem("🗂️ Sắp Xếp, Ẩn & Dọn Xóa Sheet (API v4)", "openSheetManagerModal")
+    .addSeparator()
+    .addItem("🔄 Nạp Dữ Liệu Chấm Công Cho Nhân Viên Mới Thêm", "menuPopulateAllNewEmployees")
+    .addItem("🔧 Sửa Công Thức & Khoảng Cách Sheet Tổng Hợp", "menuRepairSummarySheetFormulas")
+    .addItem("✨ Làm đẹp Format Sheet Chấm Công", "formatEntireCheckInSheet")
+    .addItem("🔧 Sửa lỗi Link Ảnh & Công thức (#ERROR!)", "repairCheckinFormulasAndImages")
+    .addItem("🔄 Cấu hình tiêu đề DATA 2 dòng", "migrateDataHeaders");
+}
+
 function onOpen() {
   var ui = getUI();
   if (ui) {
-    ui.createMenu('Tiện Ích Chấm Công ⭐️')
-      .addItem('⚡️ Bắt Đầu Tổng Hợp (Nhanh)', 'showSheetSelectionDialog')
-      .addItem('➕ Thêm Bảng Tổng Hợp Nhân Viên Mới', 'showAddSummaryTablesModal')
-      .addItem('🔄 Nạp Dữ Liệu Chấm Công Cho Nhân Viên Mới Thêm', 'menuPopulateAllNewEmployees')
-      .addItem('🔧 Sửa Công Thức & Khoảng Cách Sheet Tổng Hợp', 'menuRepairSummarySheetFormulas')
-      .addItem('✨ Làm đẹp Format Sheet Chấm Công', 'formatEntireCheckInSheet')
-      .addItem('🔧 Sửa lỗi Link Ảnh & Công thức (#ERROR!)', 'repairCheckinFormulasAndImages')
-      .addItem('📅 Đồng bộ Lịch sang Sheet Lịch Làm (1Vrm...)', 'menuSyncRosterSchedules')
-      .addItem('⚙️ Thiết Lập Tự Động Hóa', 'setupAutomation')
-      .addItem('🔄 Cấu hình tiêu đề DATA 2 dòng', 'migrateDataHeaders')
-      .addToUi();
+    buildAttendanceMenu_(ui).addToUi();
   }
-  // Nếu không có UI context (chạy từ editor/trigger), bỏ qua im lặng
 }
 
-/**
- * Hàm tạo menu thủ công nếu onOpen lỗi
- */
 function createMenu() {
   var ui = getUI();
   if (!ui) {
-    Logger.log('⚠️ createMenu: Hàm này chỉ hoạt động khi mở từ Google Sheets. Hãy mở spreadsheet và refresh (F5) để menu tự xuất hiện.');
+    Logger.log("⚠️ createMenu: Hàm này chỉ hoạt động khi mở từ Google Sheets.");
     return;
   }
-  ui.createMenu('Tiện Ích Chấm Công ⭐️')
-    .addItem('⚡️ Bắt Đầu Tổng Hợp (Nhanh)', 'showSheetSelectionDialog')
-    .addItem('➕ Thêm Bảng Tổng Hợp Nhân Viên Mới', 'showAddSummaryTablesModal')
-    .addItem('🔄 Nạp Dữ Liệu Chấm Công Cho Nhân Viên Mới Thêm', 'menuPopulateAllNewEmployees')
-    .addItem('🔧 Sửa Công Thức & Khoảng Cách Sheet Tổng Hợp', 'menuRepairSummarySheetFormulas')
-    .addItem('✨ Làm đẹp Format Sheet Chấm Công', 'formatEntireCheckInSheet')
-    .addItem('🔧 Sửa lỗi Link Ảnh & Công thức (#ERROR!)', 'repairCheckinFormulasAndImages')
-    .addItem('📅 Đồng bộ Lịch sang Sheet Lịch Làm (1Vrm...)', 'menuSyncRosterSchedules')
-    .addItem('⚙️ Thiết Lập Tự Động Hóa', 'setupAutomation')
-    .addItem('🔄 Cấu hình tiêu đề DATA 2 dòng', 'migrateDataHeaders')
-    .addToUi();
-  getSS().toast('✅ Menu đã được tạo thành công!', 'Thông Báo', 3);
+  buildAttendanceMenu_(ui).addToUi();
+  getSS().toast("✅ Menu đã được tạo thành công!", "Thông Báo", 3);
 }
 
 /**
@@ -456,153 +464,7 @@ function logAutomationStatus(statusText) {
 }
 
 function setupAutomation() {
-  try {
-    var ui = getUI();
-    if (!ui) {
-      Logger.log('setupAutomation: Hàm này chỉ hoạt động khi mở từ Google Sheets.');
-      return;
-    }
-    
-    var settings = getAutomationSettings();
-    
-    // Tạo option HTML cho Dropdown giờ chạy
-    var hourOptionsHtml = '';
-    for (var h = 0; h < 24; h++) {
-      var isSelected = (settings.hour === h) ? ' selected' : '';
-      var displayHour = String(h).padStart(2, '0') + ':00';
-      hourOptionsHtml += '<option value="' + h + '"' + isSelected + '>' + displayHour + '</option>';
-    }
-    
-    var htmlContent = '<!DOCTYPE html>'
-      + '<html lang="vi">'
-      + '<head>'
-      + '<base target="_top">'
-      + '<meta charset="UTF-8">'
-      + '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
-      + '<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">'
-      + '<style>'
-      + "@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');"
-      
-      // CSS Variables
-      + ':root {'
-      + '  --bg-deep: #06080f;'
-      + '  --bg-surface: rgba(12,17,29,0.92);'
-      + '  --bg-card: rgba(15,23,42,0.75);'
-      + '  --glass: rgba(99,102,241,0.06);'
-      + '  --glass-border: rgba(99,102,241,0.12);'
-      + '  --accent: #818cf8;'
-      + '  --accent-bright: #a5b4fc;'
-      + '  --accent-rose: #fb7185;'
-      + '  --accent-emerald: #34d399;'
-      + '  --text-1: #f1f5f9;'
-      + '  --text-2: #94a3b8;'
-      + '  --text-3: #475569;'
-      + '  --radius-md: 14px;'
-      + '  --radius-lg: 20px;'
-      + '}'
-      
-      + '*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }'
-      + 'body {'
-      + "  font-family: 'Inter', sans-serif;"
-      + '  background: var(--bg-deep);'
-      + '  color: var(--text-1);'
-      + '  overflow: hidden;'
-      + '  padding: 20px;'
-      + '}'
-      
-      // Cards - Glassmorphism
-      + '.card {'
-      + '  background: var(--bg-card); border: 1px solid var(--glass-border);'
-      + '  border-radius: var(--radius-lg); padding: 22px; margin-bottom: 16px;'
-      + '  backdrop-filter: blur(16px);'
-      + '}'
-      
-      + '.card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }'
-      + '.card-icon { width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: rgba(99,102,241,0.12); color: var(--accent); }'
-      + '.card-title { font-size: 12px; font-weight: 700; color: var(--text-2); text-transform: uppercase; letter-spacing: 1px; }'
-      
-      // Forms
-      + '.form-group { margin-bottom: 16px; }'
-      + '.form-label { font-size: 12px; font-weight: 600; color: var(--text-2); display: block; margin-bottom: 8px; }'
-      + '.custom-select, .input-field {'
-      + '  width: 100%; padding: 12px 16px;'
-      + '  border-radius: var(--radius-md); border: 1px solid var(--glass-border);'
-      + '  background: rgba(15,23,42,0.6); color: var(--text-1);'
-      + '  font-size: 14px; font-weight: 500;'
-      + '}'
-      + '.custom-select:focus, .input-field:focus { outline: none; border-color: var(--accent); }'
-      
-      + '.btn-save {'
-      + '  width: 100%; padding: 14px; border-radius: var(--radius-md); border: none;'
-      + '  background: linear-gradient(135deg, #6366f1, #8b5cf6);'
-      + '  color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;'
-      + '}'
-      + '.btn-save:hover { opacity: 0.9; }'
-      
-      // Status text
-      + '.log-box {'
-      + '  background: rgba(15,23,42,0.4); border-radius: var(--radius-md); padding: 14px;'
-      + '  font-size: 13px; font-family: monospace; border: 1px solid var(--glass-border); color: var(--text-2); word-break: break-all;'
-      + '}'
-      
-      + '</style>'
-      + '</head>'
-      + '<body>'
-      
-      + '<div class="card">'
-      + '  <div class="card-header"><div class="card-icon"><i class="fas fa-clock"></i></div><div class="card-title">Cấu hình thời gian chạy</div></div>'
-      + '  <div class="form-group">'
-      + '    <label class="form-label">Chọn giờ chạy hàng ngày (Daily):</label>'
-      + '    <select id="hourSelect" class="custom-select">' + hourOptionsHtml + '</select>'
-      + '  </div>'
-      + '</div>'
-      
-      + '<div class="card">'
-      + '  <div class="card-header"><div class="card-icon"><i class="fas fa-envelope"></i></div><div class="card-title">Danh sách Email nhận báo cáo</div></div>'
-      + '  <div class="form-group">'
-      + '    <label class="form-label">Các email (phân tách bằng dấu phẩy):</label>'
-      + '    <input type="text" id="emailsInput" class="input-field" value="' + settings.emails + '">'
-      + '  </div>'
-      + '</div>'
-      
-      + '<div class="card">'
-      + '  <div class="card-header"><div class="card-icon"><i class="fas fa-history"></i></div><div class="card-title">Trạng thái chạy tự động gần nhất</div></div>'
-      + '  <div class="log-box" id="lastRunStatus">' + settings.lastRunStatus + '</div>'
-      + '</div>'
-      
-      + '<button class="btn-save" id="saveBtn" onclick="saveSettings()"><i class="fas fa-save"></i> LƯU THIẾT LẬP</button>'
-      
-      + '<script>'
-      + 'function saveSettings() {'
-      + '  var hour = document.getElementById("hourSelect").value;'
-      + '  var emails = document.getElementById("emailsInput").value.trim();'
-      + '  var btn = document.getElementById("saveBtn");'
-      + '  btn.disabled = true; btn.innerHTML = "<i class=\'fas fa-spinner fa-spin\'></i> Đang lưu...";'
-      
-      + '  google.script.run'
-      + '    .withSuccessHandler(function() {'
-      + '      btn.innerHTML = "<i class=\'fas fa-check\'></i> ĐÃ LƯU THÀNH CÔNG!";'
-      + '      btn.style.background = "#10b981";'
-      + '      setTimeout(function() { google.script.host.close(); }, 1500);'
-      + '    })'
-      + '    .withFailureHandler(function(err) {'
-      + '      alert("Lỗi: " + err.message);'
-      + '      btn.disabled = false; btn.innerHTML = "<i class=\'fas fa-save\'></i> LƯU THIẾT LẬP";'
-      + '    })'
-      + '    .saveAutomationSettings({ hour: parseInt(hour), emails: emails, lastRunStatus: document.getElementById("lastRunStatus").textContent });'
-      + '}'
-      + '</script>'
-      + '</body>'
-      + '</html>';
-      
-    var htmlOutput = HtmlService.createHtmlOutput(htmlContent)
-      .setWidth(500)
-      .setHeight(650);
-      
-    ui.showModalDialog(htmlOutput, 'Cấu hình tự động hóa tổng hợp');
-  } catch (e) {
-    throw new Error('Lỗi hiển thị giao diện tự động hóa: ' + e.message);
-  }
+  openAttendanceControlCenter("automation");
 }
 
 // =====================================================================================
@@ -1008,661 +870,20 @@ function removeSpecialDayTag(day, type) {
 // 5. GIAO DIỆN NGƯỜI DÙNG (HTML/CSS) - ULTRA PREMIUM v4.0
 // =====================================================================================
 
+function showControlCenterModal() {
+  openAttendanceControlCenter();
+}
+
 function showSheetSelectionDialog() {
-  try {
-    var ui = getUI();
-    if (!ui) {
-      Logger.log('showSheetSelectionDialog: Hàm này chỉ hoạt động khi mở từ Google Sheets.');
-      return;
-    }
-    var ss = getSS();
-    var sheets = ss.getSheets();
-    
-    // Tự động nhận dạng sheet của tháng hiện hành
-    var dateObj = new Date();
-    var curMonth = String(dateObj.getMonth() + 1).padStart(2, '0');
-    var curYear = dateObj.getFullYear();
-    var defaultSheetName = "Tháng " + curMonth + "/" + curYear;
-    
-    var optionsHtml = '<option value="">-- Chọn sheet --</option>';
-    sheets.forEach(function(s) {
-      var name = s.getName();
-      if (name !== 'DATA' && name.indexOf('API_KEYS') < 0 && name.indexOf('JSON_') < 0) {
-        var isSelected = (name === defaultSheetName) ? ' selected' : '';
-        optionsHtml += '<option value="' + name.replace(/"/g, '&quot;') + '"' + isSelected + '>' + name + '</option>';
-      }
-    });
-    
-    var storedTags = getStoredSpecialDaysTags();
-    var currentYear = new Date().getFullYear();
+  openAttendanceControlCenter("summary");
+}
 
-    var htmlContent = '<!DOCTYPE html>'
-      + '<html lang="vi">'
-      + '<head>'
-      + '<base target="_top">'
-      + '<meta charset="UTF-8">'
-      + '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
-      + '<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">'
-      + '<style>'
-      + "@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');"
+function openRosterSyncModal() {
+  openAttendanceControlCenter("roster");
+}
 
-      // CSS Variables
-      + ':root {'
-      + '  --bg-deep: #06080f;'
-      + '  --bg-surface: rgba(12,17,29,0.92);'
-      + '  --bg-card: rgba(15,23,42,0.75);'
-      + '  --bg-card-hover: rgba(22,33,62,0.85);'
-      + '  --glass: rgba(99,102,241,0.06);'
-      + '  --glass-border: rgba(99,102,241,0.12);'
-      + '  --accent: #818cf8;'
-      + '  --accent-bright: #a5b4fc;'
-      + '  --accent-2: #c084fc;'
-      + '  --accent-3: #22d3ee;'
-      + '  --accent-amber: #fbbf24;'
-      + '  --accent-emerald: #34d399;'
-      + '  --accent-rose: #fb7185;'
-      + '  --text-1: #f1f5f9;'
-      + '  --text-2: #94a3b8;'
-      + '  --text-3: #475569;'
-      + '  --radius-sm: 10px;'
-      + '  --radius-md: 14px;'
-      + '  --radius-lg: 20px;'
-      + '  --radius-xl: 24px;'
-      + '}'
-
-      // Reset & Base
-      + '*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }'
-      + 'body {'
-      + "  font-family: 'Inter', system-ui, -apple-system, sans-serif;"
-      + '  background: var(--bg-deep);'
-      + '  min-height: 100vh;'
-      + '  color: var(--text-1);'
-      + '  overflow-x: hidden;'
-      + '  -webkit-font-smoothing: antialiased;'
-      + '}'
-
-      // Animated Mesh Background
-      + '.mesh-bg {'
-      + '  position: fixed; inset: 0; z-index: 0; overflow: hidden;'
-      + '}'
-      + '.mesh-bg::before {'
-      + '  content: ""; position: absolute;'
-      + '  width: 600px; height: 600px; top: -200px; left: -100px;'
-      + '  background: radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%);'
-      + '  animation: meshFloat1 12s ease-in-out infinite alternate;'
-      + '}'
-      + '.mesh-bg::after {'
-      + '  content: ""; position: absolute;'
-      + '  width: 500px; height: 500px; bottom: -150px; right: -100px;'
-      + '  background: radial-gradient(circle, rgba(192,132,252,0.1) 0%, transparent 70%);'
-      + '  animation: meshFloat2 10s ease-in-out infinite alternate;'
-      + '}'
-      + '@keyframes meshFloat1 { 0%{transform:translate(0,0) scale(1)} 100%{transform:translate(60px,40px) scale(1.15)} }'
-      + '@keyframes meshFloat2 { 0%{transform:translate(0,0) scale(1)} 100%{transform:translate(-50px,-30px) scale(1.1)} }'
-
-      // Particles
-      + '.particles { position: fixed; inset: 0; z-index: 0; pointer-events: none; }'
-      + '.particle {'
-      + '  position: absolute; width: 2px; height: 2px; border-radius: 50%;'
-      + '  background: rgba(129,140,248,0.4);'
-      + '  animation: particleDrift linear infinite;'
-      + '}'
-      + '@keyframes particleDrift {'
-      + '  0% { transform: translateY(100vh) scale(0); opacity: 0; }'
-      + '  10% { opacity: 1; }'
-      + '  90% { opacity: 1; }'
-      + '  100% { transform: translateY(-10vh) scale(1); opacity: 0; }'
-      + '}'
-
-      // App container
-      + '.app { position: relative; z-index: 1; padding: 14px; max-width: 660px; margin: 0 auto; }'
-
-      // Header - Ultra Premium
-      + '.header {'
-      + '  text-align: center; padding: 32px 24px 26px;'
-      + '  background: linear-gradient(145deg, rgba(99,102,241,0.08) 0%, rgba(192,132,252,0.05) 50%, rgba(34,211,238,0.04) 100%);'
-      + '  border-radius: var(--radius-xl);'
-      + '  border: 1px solid var(--glass-border);'
-      + '  backdrop-filter: blur(24px) saturate(1.8);'
-      + '  margin-bottom: 14px;'
-      + '  position: relative; overflow: hidden;'
-      + '  animation: headerReveal 0.7s cubic-bezier(0.16,1,0.3,1);'
-      + '}'
-      + '.header::before {'
-      + '  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px;'
-      + '  background: linear-gradient(90deg, transparent 0%, rgba(129,140,248,0.4) 50%, transparent 100%);'
-      + '}'
-      + '@keyframes headerReveal { from { opacity:0; transform:translateY(-30px) scale(0.95); } to { opacity:1; transform:translateY(0) scale(1); } }'
-
-      // Logo with animated ring
-      + '.logo-wrap {'
-      + '  width: 64px; height: 64px; margin: 0 auto 14px; position: relative;'
-      + '}'
-      + '.logo-ring {'
-      + '  position: absolute; inset: -4px; border-radius: 20px;'
-      + '  background: conic-gradient(from 0deg, var(--accent), var(--accent-2), var(--accent-3), var(--accent), var(--accent-2));'
-      + '  animation: logoSpin 6s linear infinite;'
-      + '  opacity: 0.6;'
-      + '}'
-      + '.logo-ring::after {'
-      + '  content: ""; position: absolute; inset: 2px; border-radius: 18px;'
-      + '  background: var(--bg-deep);'
-      + '}'
-      + '@keyframes logoSpin { to { transform: rotate(360deg); } }'
-      + '.logo-inner {'
-      + '  position: relative; z-index: 1; width: 64px; height: 64px; border-radius: 18px;'
-      + '  background: linear-gradient(135deg, #6366f1, #8b5cf6, #06b6d4);'
-      + '  display: flex; align-items: center; justify-content: center;'
-      + '  font-size: 22px; font-weight: 900; color: #fff; letter-spacing: -0.5px;'
-      + '  box-shadow: 0 8px 32px rgba(99,102,241,0.35), inset 0 1px 0 rgba(255,255,255,0.15);'
-      + '}'
-      + '.header h1 {'
-      + '  font-size: 22px; font-weight: 800; letter-spacing: -0.3px;'
-      + '  background: linear-gradient(135deg, #e2e8f0, #f8fafc);'
-      + '  -webkit-background-clip: text; -webkit-text-fill-color: transparent;'
-      + '  margin-bottom: 6px;'
-      + '}'
-      + '.header-sub {'
-      + '  color: var(--text-2); font-size: 12.5px; font-weight: 500;'
-      + '  display: flex; align-items: center; justify-content: center; gap: 6px;'
-      + '}'
-      + '.header-dot {'
-      + '  width: 6px; height: 6px; border-radius: 50%;'
-      + '  background: var(--accent-emerald);'
-      + '  box-shadow: 0 0 8px rgba(52,211,153,0.5);'
-      + '  animation: dotPulse 2s ease-in-out infinite;'
-      + '}'
-      + '@keyframes dotPulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }'
-
-      // Live clock
-      + '.live-clock {'
-      + '  margin-top: 10px; display: inline-flex; align-items: center; gap: 8px;'
-      + '  padding: 6px 14px; border-radius: 99px;'
-      + '  background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.15);'
-      + '  font-size: 12px; font-weight: 600; color: var(--accent-bright);'
-      + '  font-variant-numeric: tabular-nums;'
-      + '}'
-
-      // Steps - Morphing indicator
-      + '.steps-bar {'
-      + '  display: flex; gap: 6px; margin-bottom: 14px;'
-      + '  animation: stepsReveal 0.6s cubic-bezier(0.16,1,0.3,1) 0.1s both;'
-      + '}'
-      + '@keyframes stepsReveal { from{opacity:0;transform:translateY(15px)} to{opacity:1;transform:translateY(0)} }'
-      + '.step-item {'
-      + '  flex: 1; display: flex; align-items: center; gap: 8px;'
-      + '  padding: 10px 12px; border-radius: var(--radius-md);'
-      + '  background: var(--bg-card); border: 1px solid var(--glass-border);'
-      + '  transition: all 0.4s cubic-bezier(0.16,1,0.3,1);'
-      + '  cursor: default;'
-      + '}'
-      + '.step-item.active {'
-      + '  background: rgba(99,102,241,0.1); border-color: rgba(99,102,241,0.3);'
-      + '  box-shadow: 0 0 20px rgba(99,102,241,0.08);'
-      + '}'
-      + '.step-item.done { background: rgba(52,211,153,0.06); border-color: rgba(52,211,153,0.2); }'
-      + '.step-badge {'
-      + '  width: 26px; height: 26px; border-radius: 9px; font-size: 11px; font-weight: 700;'
-      + '  display: flex; align-items: center; justify-content: center;'
-      + '  background: var(--text-3); color: var(--bg-deep); flex-shrink: 0;'
-      + '  transition: all 0.4s cubic-bezier(0.16,1,0.3,1);'
-      + '}'
-      + '.step-item.active .step-badge { background: var(--accent); color: #fff; box-shadow: 0 2px 12px rgba(99,102,241,0.4); }'
-      + '.step-item.done .step-badge { background: var(--accent-emerald); color: #fff; }'
-      + '.step-label { font-size: 11px; font-weight: 600; color: var(--text-3); transition: color 0.3s; }'
-      + '.step-item.active .step-label { color: var(--text-1); }'
-      + '.step-item.done .step-label { color: var(--accent-emerald); }'
-
-      // Cards - Ultra Glass
-      + '.card {'
-      + '  background: var(--bg-card); border: 1px solid var(--glass-border);'
-      + '  border-radius: var(--radius-lg); padding: 22px;'
-      + '  margin-bottom: 12px; position: relative;'
-      + '  backdrop-filter: blur(16px) saturate(1.5);'
-      + '  transition: all 0.35s cubic-bezier(0.16,1,0.3,1);'
-      + '  animation: cardReveal 0.5s cubic-bezier(0.16,1,0.3,1) backwards;'
-      + '}'
-      + '.card:nth-child(2) { animation-delay: 0.15s; }'
-      + '.card:nth-child(3) { animation-delay: 0.25s; }'
-      + '@keyframes cardReveal { from{opacity:0;transform:translateY(20px) scale(0.98)} to{opacity:1;transform:translateY(0) scale(1)} }'
-      + '.card::before {'
-      + '  content:""; position:absolute; top:0; left:20px; right:20px; height:1px;'
-      + '  background: linear-gradient(90deg, transparent, rgba(129,140,248,0.2), transparent);'
-      + '}'
-      + '.card:hover { border-color: rgba(99,102,241,0.25); transform: translateY(-1px); }'
-
-      // Card title
-      + '.card-header {'
-      + '  display: flex; align-items: center; gap: 10px;'
-      + '  margin-bottom: 16px;'
-      + '}'
-      + '.card-icon {'
-      + '  width: 32px; height: 32px; border-radius: var(--radius-sm);'
-      + '  display: flex; align-items: center; justify-content: center;'
-      + '  font-size: 14px; flex-shrink: 0;'
-      + '}'
-      + '.card-icon.indigo { background: rgba(99,102,241,0.12); color: var(--accent); }'
-      + '.card-icon.cyan { background: rgba(34,211,238,0.12); color: var(--accent-3); }'
-      + '.card-title {'
-      + '  font-size: 12px; font-weight: 700; color: var(--text-2);'
-      + '  text-transform: uppercase; letter-spacing: 1px;'
-      + '}'
-
-      // Select - Premium
-      + '.select-wrap { position: relative; }'
-      + '.custom-select {'
-      + '  width: 100%; padding: 13px 44px 13px 16px;'
-      + '  border-radius: var(--radius-md); border: 1px solid var(--glass-border);'
-      + '  background: rgba(15,23,42,0.6); color: var(--text-1);'
-      + '  font-size: 14px; font-weight: 500; transition: all 0.25s;'
-      + '  appearance: none; cursor: pointer;'
-      + "  font-family: 'Inter', sans-serif;"
-      + "  background-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23818cf8' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E\");"
-      + '  background-repeat: no-repeat; background-position: right 14px center; background-size: 16px;'
-      + '}'
-      + '.custom-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,102,241,0.12), 0 0 20px rgba(99,102,241,0.08); }'
-      + '.custom-select:hover { border-color: rgba(99,102,241,0.3); }'
-      + '.custom-select option { background: #0f172a; color: #f1f5f9; padding: 8px; }'
-
-      // Calendar style
-      + '.cal-day:hover { transform: scale(1.08); border-color: var(--accent) !important; }'
-
-      // Tags - Redesigned
-      + '.tags-panel {'
-      + '  margin-top: 16px;'
-      + '  background: rgba(15,23,42,0.4); border-radius: var(--radius-md);'
-      + '  padding: 16px; border: 1px dashed rgba(99,102,241,0.12);'
-      + '}'
-      + '.tags-row { margin-bottom: 14px; }'
-      + '.tags-row:last-child { margin-bottom: 0; }'
-      + '.tags-head {'
-      + '  font-size: 10px; font-weight: 700; text-transform: uppercase;'
-      + '  letter-spacing: 1.2px; margin-bottom: 8px;'
-      + '  display: flex; align-items: center; gap: 6px;'
-      + '}'
-      + '.tags-head.amber { color: var(--accent-amber); }'
-      + '.tags-head.purple { color: var(--accent-2); }'
-      + '.tags-sep { height: 1px; background: rgba(99,102,241,0.08); margin: 14px 0; }'
-      + '.tags-flex { display: flex; flex-wrap: wrap; gap: 6px; min-height: 30px; }'
-      + '.tag {'
-      + '  padding: 5px 10px 5px 12px; border-radius: 8px; font-size: 12px; font-weight: 600;'
-      + '  color: #fff; display: inline-flex; align-items: center; gap: 7px;'
-      + '  animation: tagPop 0.3s cubic-bezier(0.34,1.56,0.64,1);'
-      + '  letter-spacing: 0.3px;'
-      + '}'
-      + '@keyframes tagPop { from{transform:scale(0.5);opacity:0} to{transform:scale(1);opacity:1} }'
-      + '.tag.x2 { background: linear-gradient(135deg, #d97706, #f59e0b); box-shadow: 0 2px 8px rgba(217,119,6,0.3); }'
-      + '.tag.x3 { background: linear-gradient(135deg, #7c3aed, #a855f7); box-shadow: 0 2px 8px rgba(124,58,237,0.3); }'
-      + '.tag-x { '
-      + '  background: rgba(0,0,0,0.2); border: none;'
-      + '  width: 18px; height: 18px; border-radius: 50%; color: rgba(255,255,255,0.8);'
-      + '  cursor: pointer; display: flex; align-items: center; justify-content: center;'
-      + '  font-size: 11px; transition: all 0.15s; line-height: 1;'
-      + '}'
-      + '.tag-x:hover { background: rgba(0,0,0,0.4); color: #fff; transform: scale(1.15); }'
-      + '.empty-state { font-size: 11.5px; color: var(--text-3); font-style: italic; padding: 4px 0; }'
-
-      // Submit Button - Showstopper
-      + '.btn-go {'
-      + '  width: 100%; padding: 16px 24px; border-radius: var(--radius-md); border: none;'
-      + '  background: linear-gradient(135deg, #6366f1, #8b5cf6, #06b6d4);'
-      + '  background-size: 200% 200%; animation: shiftGrad 5s ease infinite;'
-      + '  color: #fff; font-size: 15px; font-weight: 700; cursor: pointer;'
-      + '  display: flex; align-items: center; justify-content: center; gap: 10px;'
-      + "  font-family: 'Inter', sans-serif;"
-      + '  transition: all 0.3s; position: relative; overflow: hidden;'
-      + '  box-shadow: 0 4px 24px rgba(99,102,241,0.3), 0 1px 0 rgba(255,255,255,0.1) inset;'
-      + '  margin-top: 10px; letter-spacing: 0.3px;'
-      + '}'
-      + '.btn-go::before {'
-      + '  content: ""; position: absolute; top: 50%; left: 50%;'
-      + '  width: 0; height: 0; border-radius: 50%;'
-      + '  background: rgba(255,255,255,0.1);'
-      + '  transition: width 0.6s, height 0.6s, top 0.6s, left 0.6s;'
-      + '  transform: translate(-50%, -50%);'
-      + '}'
-      + '.btn-go:hover::before { width: 300px; height: 300px; }'
-      + '.btn-go:hover { transform: translateY(-2px); box-shadow: 0 8px 40px rgba(99,102,241,0.45); }'
-      + '.btn-go:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; box-shadow: 0 2px 12px rgba(99,102,241,0.15); }'
-      + '@keyframes shiftGrad { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }'
-
-      // Progress
-      + '.prog-track {'
-      + '  margin-top: 14px; height: 5px; border-radius: 99px;'
-      + '  background: rgba(99,102,241,0.08); overflow: hidden;'
-      + '  opacity: 0; transition: opacity 0.4s;'
-      + '}'
-      + '.prog-track.on { opacity: 1; }'
-      + '.prog-fill {'
-      + '  height: 100%; width: 0; border-radius: 99px;'
-      + '  background: linear-gradient(90deg, var(--accent), var(--accent-2), var(--accent-3));'
-      + '  background-size: 200%; animation: shiftGrad 2s linear infinite;'
-      + '  transition: width 0.6s ease;'
-      + '}'
-      + '.prog-track.on .prog-fill { animation: progRun 14s ease-out forwards, shiftGrad 2s linear infinite; }'
-      + '@keyframes progRun { 0%{width:0} 15%{width:20%} 40%{width:50%} 70%{width:75%} 90%{width:88%} 100%{width:93%} }'
-
-      // Status text
-      + '.status-line {'
-      + '  margin-top: 10px; text-align: center; font-size: 12px; font-weight: 600;'
-      + '  color: var(--text-3); transition: all 0.3s; min-height: 18px;'
-      + '}'
-      + '.status-line.running { color: var(--accent-bright); }'
-      + '.status-line.done { color: var(--accent-emerald); }'
-
-      // Spinner
-      + '.spin {'
-      + '  width: 18px; height: 18px;'
-      + '  border: 2.5px solid rgba(255,255,255,0.2);'
-      + '  border-top: 2.5px solid #fff;'
-      + '  border-radius: 50%; animation: spinAnim 0.6s linear infinite;'
-      + '}'
-      + '@keyframes spinAnim { to { transform: rotate(360deg); } }'
-
-      // Toast - Floating
-      + '.toast {'
-      + '  position: fixed; top: 14px; right: 14px; left: 14px;'
-      + '  padding: 13px 18px; border-radius: var(--radius-md);'
-      + '  color: #fff; font-weight: 600; font-size: 13px;'
-      + '  box-shadow: 0 12px 40px rgba(0,0,0,0.4);'
-      + '  z-index: 9999; transform: translateY(-120%);'
-      + '  transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);'
-      + '  backdrop-filter: blur(16px); text-align: center;'
-      + '  max-width: 400px; margin: 0 auto;'
-      + '}'
-      + '.toast.show { transform: translateY(0); }'
-      + '.toast.success { background: rgba(16,185,129,0.92); border: 1px solid rgba(52,211,153,0.3); }'
-      + '.toast.error { background: rgba(239,68,68,0.92); border: 1px solid rgba(248,113,113,0.3); }'
-      + '.toast.warning { background: rgba(245,158,11,0.92); border: 1px solid rgba(251,191,36,0.3); }'
-
-      // Footer
-      + '.footer {'
-      + '  text-align: center; padding: 16px 12px 6px;'
-      + '  color: var(--text-3); font-size: 11px; font-weight: 500;'
-      + '  letter-spacing: 0.3px;'
-      + '}'
-      + '.footer span { color: var(--accent); font-weight: 700; }'
-
-      // Scrollbar
-      + '::-webkit-scrollbar { width: 4px; }'
-      + '::-webkit-scrollbar-track { background: transparent; }'
-      + '::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.2); border-radius: 99px; }'
-
-      + '</style>'
-      + '</head>'
-      + '<body>'
-
-      // Background effects
-      + '<div class="mesh-bg"></div>'
-      + '<div class="particles" id="particles"></div>'
-
-      + '<div class="app">'
-
-      // Header
-      + '<div class="header">'
-      + '  <div class="logo-wrap">'
-      + '    <div class="logo-ring"></div>'
-      + '    <div class="logo-inner">KG</div>'
-      + '  </div>'
-      + '  <h1>KING\'S GRILL MANAGER</h1>'
-      + '  <div class="header-sub"><div class="header-dot"></div> Hệ thống tổng hợp chấm công</div>'
-      + '  <div class="live-clock" id="liveClock"><i class="far fa-clock"></i> <span id="clockText">--:--:--</span></div>'
-      + '</div>'
-
-      // Steps
-      + '<div class="steps-bar">'
-      + '  <div class="step-item active" id="step1"><div class="step-badge">1</div><div class="step-label">Chọn sheet</div></div>'
-      + '  <div class="step-item" id="step2"><div class="step-badge">2</div><div class="step-label">Ngày đặc biệt</div></div>'
-      + '  <div class="step-item" id="step3"><div class="step-badge">3</div><div class="step-label">Tổng hợp</div></div>'
-      + '</div>'
-
-      // Card 1 - Sheet Selection
-      + '<div class="card">'
-      + '  <div class="card-header"><div class="card-icon indigo"><i class="fas fa-database"></i></div><div class="card-title">Chọn Sheet Nguồn</div></div>'
-      + '  <div class="select-wrap"><select id="sheetSelect" class="custom-select" onchange="activateStep(2)">' + optionsHtml + '</select></div>'
-      + '</div>'
-
-      // Card 2 - Special Days
-      + '<div class="card">'
-      + '  <div class="card-header"><div class="card-icon cyan"><i class="fas fa-calendar-alt"></i></div><div class="card-title">Lịch Ngày Đặc Biệt</div></div>'
-      + '  <div class="calendar-nav" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">'
-      + '    <button type="button" class="btn-cal" onclick="changeMonth(-1)" style="background:rgba(99,102,241,0.1); border:1px solid var(--glass-border); color:var(--text-1); padding:5px 12px; border-radius:8px; cursor:pointer;"><i class="fas fa-chevron-left"></i></button>'
-      + '    <span id="calendarMonthLabel" style="font-weight:700; color:var(--accent-bright); font-size:14px;">Tháng --/----</span>'
-      + '    <button type="button" class="btn-cal" onclick="changeMonth(1)" style="background:rgba(99,102,241,0.1); border:1px solid var(--glass-border); color:var(--text-1); padding:5px 12px; border-radius:8px; cursor:pointer;"><i class="fas fa-chevron-right"></i></button>'
-      + '  </div>'
-      + '  <div class="calendar-grid" id="calendarGrid" style="display:grid; grid-template-columns:repeat(7, 1fr); gap:6px; margin-bottom:16px;"></div>'
-      + '  <div class="legend" style="display:flex; gap:12px; font-size:11px; margin-bottom:16px; justify-content:center; color:var(--text-2); font-weight:600;">'
-      + '    <div style="display:flex; align-items:center; gap:4px;"><span style="width:12px; height:12px; border-radius:3px; background:rgba(99,102,241,0.03); border:1px solid var(--glass-border); display:inline-block;"></span> Thường</div>'
-      + '    <div style="display:flex; align-items:center; gap:4px;"><span style="width:12px; height:12px; border-radius:3px; background:linear-gradient(135deg, #d97706, #f59e0b); display:inline-block;"></span> Ngày x2</div>'
-      + '    <div style="display:flex; align-items:center; gap:4px;"><span style="width:12px; height:12px; border-radius:3px; background:linear-gradient(135deg, #7c3aed, #a855f7); display:inline-block;"></span> Ngày x3</div>'
-      + '  </div>'
-      + '  <div class="tags-panel">'
-      + '    <div class="tags-row">'
-      + '      <div class="tags-head amber"><i class="fas fa-fire"></i> Danh sách Ngày x2</div>'
-      + '      <div class="tags-flex" id="x2Tags"></div>'
-      + '    </div>'
-      + '    <div class="tags-sep"></div>'
-      + '    <div class="tags-row">'
-      + '      <div class="tags-head purple"><i class="fas fa-gem"></i> Danh sách Ngày x3</div>'
-      + '      <div class="tags-flex" id="x3Tags"></div>'
-      + '    </div>'
-      + '  </div>'
-      + '</div>'
-
-      // Submit
-      + '<button id="submitBtn" class="btn-go" onclick="submitForm()">'
-      + '  <i class="fas fa-bolt"></i> BẮT ĐẦU TỔNG HỢP'
-      + '</button>'
-      + '<div class="prog-track" id="progTrack"><div class="prog-fill"></div></div>'
-      + '<div class="status-line" id="statusLine"></div>'
-
-      // Footer
-      + '<div class="footer">KING\'S GRILL &copy; ' + currentYear + ' &bull; Powered by <span>Google Apps Script</span></div>'
-
-      + '</div>'
-      + '<div id="toast" class="toast"></div>'
-
-      + '<script>'
-
-      // Particles generator
-      + '(function(){'
-      + '  var pc = document.getElementById("particles");'
-      + '  for(var i=0;i<20;i++){'
-      + '    var p = document.createElement("div");'
-      + '    p.className = "particle";'
-      + '    p.style.left = Math.random()*100+"%";'
-      + '    p.style.width = p.style.height = (1+Math.random()*2)+"px";'
-      + '    p.style.animationDuration = (8+Math.random()*12)+"s";'
-      + '    p.style.animationDelay = Math.random()*8+"s";'
-      + '    p.style.opacity = 0.15+Math.random()*0.35;'
-      + '    pc.appendChild(p);'
-      + '  }'
-      + '})();'
-
-      // Live clock
-      + 'function tickClock(){'
-      + '  var n=new Date(), h=String(n.getHours()).padStart(2,"0"), m=String(n.getMinutes()).padStart(2,"0"), s=String(n.getSeconds()).padStart(2,"0");'
-      + '  document.getElementById("clockText").textContent = h+":"+m+":"+s;'
-      + '}'
-      + 'tickClock(); setInterval(tickClock, 1000);'
-
-      // Calendar Variables & Render logic
-      + 'var calDate = new Date(); calDate.setDate(1);'
-      + 'var currentTags = ' + JSON.stringify(storedTags) + ';'
-
-      + 'function renderCalendar(){'
-      + '  var grid = document.getElementById("calendarGrid");'
-      + '  grid.innerHTML = "";'
-      + '  var weekdays = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];'
-      + '  weekdays.forEach(function(wd) {'
-      + '    var h = document.createElement("div");'
-      + '    h.textContent = wd;'
-      + '    h.style.textAlign = "center";'
-      + '    h.style.fontWeight = "700";'
-      + '    h.style.fontSize = "10px";'
-      + '    h.style.color = "var(--text-3)";'
-      + '    h.style.padding = "4px 0";'
-      + '    grid.appendChild(h);'
-      + '  });'
-      + '  var firstDayIndex = calDate.getDay();'
-      + '  var startOffset = (firstDayIndex === 0) ? 6 : firstDayIndex - 1;'
-      + '  for (var i = 0; i < startOffset; i++) {'
-      + '    var blank = document.createElement("div");'
-      + '    blank.style.height = "34px";'
-      + '    grid.appendChild(blank);'
-      + '  }'
-      + '  var totalDays = new Date(calDate.getFullYear(), calDate.getMonth() + 1, 0).getDate();'
-      + '  for (var day = 1; day <= totalDays; day++) {'
-      + '    var cell = document.createElement("button");'
-      + '    cell.type = "button";'
-      + '    cell.className = "cal-day";'
-      + '    cell.textContent = day;'
-      + '    cell.style.height = "34px";'
-      + '    cell.style.border = "1px solid var(--glass-border)";'
-      + '    cell.style.borderRadius = "8px";'
-      + '    cell.style.cursor = "pointer";'
-      + '    cell.style.fontWeight = "600";'
-      + '    cell.style.fontSize = "12px";'
-      + '    cell.style.transition = "all 0.2s";'
-      + '    var dayStr = String(day).padStart(2, "0") + "/" + String(calDate.getMonth() + 1).padStart(2, "0");'
-      + '    if (currentTags.x2Days.indexOf(dayStr) >= 0) {'
-      + '      cell.style.background = "linear-gradient(135deg, #d97706, #f59e0b)";'
-      + '      cell.style.color = "#fff";'
-      + '      cell.setAttribute("data-state", "x2");'
-      + '    } else if (currentTags.x3Days.indexOf(dayStr) >= 0) {'
-      + '      cell.style.background = "linear-gradient(135deg, #7c3aed, #a855f7)";'
-      + '      cell.style.color = "#fff";'
-      + '      cell.setAttribute("data-state", "x3");'
-      + '    } else {'
-      + '      cell.style.background = "rgba(99,102,241,0.03)";'
-      + '      cell.style.color = "var(--text-1)";'
-      + '      cell.setAttribute("data-state", "normal");'
-      + '    }'
-      + '    (function(dStr, cEl) {'
-      + '      cEl.addEventListener("click", function() {'
-      + '        var state = cEl.getAttribute("data-state");'
-      + '        if (state === "normal") {'
-      + '          currentTags.x2Days.push(dStr);'
-      + '          cEl.setAttribute("data-state", "x2");'
-      + '          cEl.style.background = "linear-gradient(135deg, #d97706, #f59e0b)";'
-      + '          cEl.style.color = "#fff";'
-      + '        } else if (state === "x2") {'
-      + '          currentTags.x2Days = currentTags.x2Days.filter(function(d) { return d !== dStr; });'
-      + '          currentTags.x3Days.push(dStr);'
-      + '          cEl.setAttribute("data-state", "x3");'
-      + '          cEl.style.background = "linear-gradient(135deg, #7c3aed, #a855f7)";'
-      + '          cEl.style.color = "#fff";'
-      + '        } else {'
-      + '          currentTags.x3Days = currentTags.x3Days.filter(function(d) { return d !== dStr; });'
-      + '          cEl.setAttribute("data-state", "normal");'
-      + '          cEl.style.background = "rgba(99,102,241,0.03)";'
-      + '          cEl.style.color = "var(--text-1)";'
-      + '        }'
-      + '        currentTags.x2Days.sort();'
-      + '        currentTags.x3Days.sort();'
-      + '        updateTagsDisplay(currentTags);'
-      + '      });'
-      + '    })(dayStr, cell);'
-      + '    grid.appendChild(cell);'
-      + '  }'
-      + '  var monthNames = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"];'
-      + '  document.getElementById("calendarMonthLabel").textContent = "Tháng " + monthNames[calDate.getMonth()] + "/" + calDate.getFullYear();'
-      + '}'
-
-      + 'function changeMonth(dir) {'
-      + '  calDate.setMonth(calDate.getMonth() + dir);'
-      + '  renderCalendar();'
-      + '}'
-
-      + 'function activateStep(n){'
-      + '  for(var i=1;i<=3;i++){'
-      + '    var el=document.getElementById("step"+i);'
-      + '    el.className="step-item"+(i<n?" done":"")+(i===n?" active":"");'
-      + '  }'
-      + '}'
-
-      + 'function removeDay(day,type){'
-      + '  if(type==="x2") currentTags.x2Days = currentTags.x2Days.filter(function(d){ return d !== day; });'
-      + '  else if(type==="x3") currentTags.x3Days = currentTags.x3Days.filter(function(d){ return d !== day; });'
-      + '  updateTagsDisplay(currentTags);'
-      + '}'
-
-      + 'function updateTagsDisplay(tags){'
-      + '  currentTags=tags;'
-      + '  renderTags(tags.x2Days,"x2Tags","x2");'
-      + '  renderTags(tags.x3Days,"x3Tags","x3");'
-      + '  renderCalendar();'
-      + '}'
-
-      + 'function renderTags(list,elId,type){'
-      + '  var c=document.getElementById(elId);'
-      + '  if(!list.length){ c.innerHTML=\'<div class="empty-state">Chưa có ngày nào</div>\'; return; }'
-      + '  c.innerHTML=list.map(function(d){'
-      + '    return \'<div class="tag \'+type+\'">\'+d+\' <button onclick="removeDay(\\x27\'+d+\'\\x27, \\x27\'+type+\'\\x27)" class="tag-x">&times;</button></div>\';'
-      + '  }).join("");'
-      + '}'
-
-      + 'function submitForm(){'
-      + '  var sheet=document.getElementById("sheetSelect").value, btn=document.getElementById("submitBtn");'
-      + '  if(!sheet) return showToast("Vui lòng chọn sheet trước","warning");'
-      + '  activateStep(3);'
-      + '  btn.disabled=true;'
-      + '  btn.innerHTML=\'<div class="spin"></div> ĐANG XỬ LÝ...\';'
-      + '  document.getElementById("progTrack").classList.add("on");'
-      + '  document.getElementById("statusLine").textContent="Đang tổng hợp dữ liệu...";'
-      + '  document.getElementById("statusLine").className="status-line running";'
-      + '  var x2=currentTags.x2Days.join("\\n"), x3=currentTags.x3Days.join("\\n");'
-      + '  google.script.run'
-      + '    .withSuccessHandler(function() {'
-      + '      google.script.run'
-      + '        .withSuccessHandler(function(){'
-      + '          document.querySelector(".prog-fill").style.width="100%";'
-      + '          btn.innerHTML=\'<i class="fas fa-check-circle"></i> HOÀN TẤT!\';'
-      + '          btn.style.background="linear-gradient(135deg,#059669,#10b981)";'
-      + '          btn.style.boxShadow="0 4px 24px rgba(16,185,129,0.4)";'
-      + '          document.getElementById("statusLine").textContent="Tổng hợp hoàn tất thành công!";'
-      + '          document.getElementById("statusLine").className="status-line done";'
-      + '          showToast("Tổng hợp hoàn tất thành công!","success");'
-      + '          setTimeout(function(){ google.script.host.close(); }, 2500);'
-      + '        })'
-      + '        .withFailureHandler(function(err){'
-      + '          showToast("Lỗi: "+err.message,"error");'
-      + '          btn.disabled=false;'
-      + '          btn.innerHTML=\'<i class="fas fa-bolt"></i> BẮT ĐẦU TỔNG HỢP\';'
-      + '          btn.style.background=""; btn.style.boxShadow="";'
-      + '          document.getElementById("progTrack").classList.remove("on");'
-      + '          document.querySelector(".prog-fill").style.width="0";'
-      + '          document.getElementById("statusLine").textContent="";'
-      + '          document.getElementById("statusLine").className="status-line";'
-      + '        })'
-      + '        .processSelectedSheetEnhanced(sheet,x2,x3);'
-      + '    })'
-      + '    .withFailureHandler(function(err) {'
-      + '      showToast("Lỗi lưu cấu hình: " + err.message, "error");'
-      + '      btn.disabled=false;'
-      + '      btn.innerHTML=\'<i class="fas fa-bolt"></i> BẮT ĐẦU TỔNG HỢP\';'
-      + '    })'
-      + '    .saveSpecialDaysTags(currentTags.x2Days, currentTags.x3Days);'
-      + '}'
-
-      + 'function showToast(msg,type){'
-      + '  var t=document.getElementById("toast");'
-      + '  t.textContent=msg; t.className="toast show "+type;'
-      + '  setTimeout(function(){ t.className="toast"; }, 3500);'
-      + '}'
-
-      + '</script>'
-      + '</body>'
-      + '</html>';
-
-    var htmlOutput = HtmlService.createHtmlOutput(htmlContent)
-      .setWidth(680)
-      .setHeight(820);
-
-    ui.showModalDialog(htmlOutput, 'KING\'S GRILL - Bảng Điều Khiển Tổng Hợp');
-  } catch (e) {
-    throw new Error('Lỗi hiển thị giao diện: ' + e.message);
-  }
+function openMaintenanceModal() {
+  openAttendanceControlCenter("roster");
 }
 
 // =====================================================================================
@@ -1777,319 +998,10 @@ function menuRepairSummarySheetFormulas() {
   }
 }
 
+function openSheetManagerModal() {
+  openAttendanceControlCenter("sheets");
+}
+
 function showAddSummaryTablesModal() {
-  try {
-    var ui = getUI();
-    if (!ui) {
-      Logger.log('showAddSummaryTablesModal: Chỉ hoạt động khi mở từ Google Sheets.');
-      return;
-    }
-
-    var ss = getSS();
-    var sheets = ss.getSheets();
-    var activeSheetName = ss.getActiveSheet().getName();
-
-    var optionsHtml = '';
-    sheets.forEach(function(s) {
-      var name = s.getName();
-      if (name !== 'DATA' && name.indexOf('API_KEYS') < 0 && name.indexOf('JSON_') < 0) {
-        var isSelected = (name === activeSheetName) ? ' selected' : '';
-        optionsHtml += '<option value="' + name.replace(/"/g, '&quot;') + '"' + isSelected + '>' + name + '</option>';
-      }
-    });
-
-    var htmlContent = '<!DOCTYPE html>'
-      + '<html lang="vi">'
-      + '<head>'
-      + '<base target="_top">'
-      + '<meta charset="UTF-8">'
-      + '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
-      + '<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">'
-      + '<style>'
-      + "@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');"
-      + ':root {'
-      + '  --bg-deep: #06080f;'
-      + '  --bg-surface: rgba(12,17,29,0.95);'
-      + '  --bg-card: rgba(15,23,42,0.75);'
-      + '  --bg-card-hover: rgba(22,33,62,0.85);'
-      + '  --glass-border: rgba(99,102,241,0.18);'
-      + '  --accent: #818cf8;'
-      + '  --accent-bright: #a5b4fc;'
-      + '  --accent-emerald: #34d399;'
-      + '  --accent-amber: #fbbf24;'
-      + '  --accent-rose: #fb7185;'
-      + '  --text-1: #f1f5f9;'
-      + '  --text-2: #94a3b8;'
-      + '  --text-3: #64748b;'
-      + '  --radius-sm: 10px;'
-      + '  --radius-md: 14px;'
-      + '  --radius-lg: 20px;'
-      + '}'
-      + '*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }'
-      + 'body {'
-      + "  font-family: 'Inter', system-ui, -apple-system, sans-serif;"
-      + '  background: var(--bg-deep);'
-      + '  color: var(--text-1);'
-      + '  padding: 24px;'
-      + '  min-height: 100vh;'
-      + '  display: flex;'
-      + '  flex-direction: column;'
-      + '  justify-content: space-between;'
-      + '}'
-      + '.header {'
-      + '  display: flex;'
-      + '  align-items: center;'
-      + '  gap: 14px;'
-      + '  padding-bottom: 18px;'
-      + '  border-bottom: 1px solid var(--glass-border);'
-      + '  margin-bottom: 20px;'
-      + '}'
-      + '.header-icon {'
-      + '  width: 48px; height: 48px;'
-      + '  background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(168,85,247,0.2));'
-      + '  border: 1px solid rgba(129,140,248,0.3);'
-      + '  border-radius: var(--radius-md);'
-      + '  display: flex; align-items: center; justify-content: center;'
-      + '  font-size: 22px; color: var(--accent-bright);'
-      + '}'
-      + '.header h2 { font-size: 18px; font-weight: 800; letter-spacing: -0.3px; color: #fff; }'
-      + '.header p { font-size: 12px; color: var(--text-2); margin-top: 2px; }'
-      + '.form-group { margin-bottom: 18px; }'
-      + '.label {'
-      + '  display: flex; align-items: center; justify-content: space-between;'
-      + '  font-size: 12px; font-weight: 700; color: var(--text-2);'
-      + '  margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;'
-      + '}'
-      + '.select-box {'
-      + '  width: 100%; padding: 12px 14px;'
-      + '  background: var(--bg-card);'
-      + '  border: 1px solid var(--glass-border);'
-      + '  border-radius: var(--radius-md);'
-      + '  color: #fff; font-size: 14px; font-weight: 600;'
-      + '  outline: none;'
-      + '  cursor: pointer;'
-      + '  transition: border-color 0.2s;'
-      + '}'
-      + '.select-box:focus { border-color: var(--accent); }'
-      + '.sheet-badge {'
-      + '  margin-top: 8px; padding: 10px 14px;'
-      + '  background: rgba(99,102,241,0.08);'
-      + '  border: 1px solid rgba(99,102,241,0.2);'
-      + '  border-radius: var(--radius-sm);'
-      + '  font-size: 12px; color: var(--accent-bright);'
-      + '  display: flex; align-items: center; gap: 8px;'
-      + '}'
-      + '.counter-wrapper {'
-      + '  display: flex; align-items: center; gap: 12px;'
-      + '}'
-      + '.counter-btn {'
-      + '  width: 44px; height: 44px;'
-      + '  background: var(--bg-card);'
-      + '  border: 1px solid var(--glass-border);'
-      + '  border-radius: var(--radius-md);'
-      + '  color: #fff; font-size: 18px; font-weight: 700;'
-      + '  display: flex; align-items: center; justify-content: center;'
-      + '  cursor: pointer; transition: all 0.2s;'
-      + '}'
-      + '.counter-btn:hover { background: rgba(99,102,241,0.2); border-color: var(--accent); }'
-      + '.counter-input {'
-      + '  flex: 1; height: 44px;'
-      + '  background: var(--bg-card);'
-      + '  border: 1px solid var(--glass-border);'
-      + '  border-radius: var(--radius-md);'
-      + '  color: #fff; font-size: 16px; font-weight: 800;'
-      + '  text-align: center; outline: none;'
-      + '}'
-      + '.chips { display: flex; gap: 8px; margin-top: 8px; }'
-      + '.chip {'
-      + '  padding: 6px 12px; background: rgba(255,255,255,0.05);'
-      + '  border: 1px solid rgba(255,255,255,0.1); border-radius: 20px;'
-      + '  font-size: 11px; font-weight: 700; color: var(--text-2);'
-      + '  cursor: pointer; transition: all 0.2s;'
-      + '}'
-      + '.chip:hover { background: rgba(99,102,241,0.15); color: #fff; border-color: var(--accent); }'
-      + '.info-card {'
-      + '  padding: 14px; background: rgba(15,23,42,0.5);'
-      + '  border: 1px solid rgba(255,255,255,0.06); border-radius: var(--radius-md);'
-      + '  margin-bottom: 12px;'
-      + '}'
-      + '.info-card h4 {'
-      + '  font-size: 13px; font-weight: 700; color: var(--accent-emerald);'
-      + '  display: flex; align-items: center; gap: 8px; margin-bottom: 6px;'
-      + '}'
-      + '.info-card p {'
-      + '  font-size: 12px; color: var(--text-2); line-height: 1.5;'
-      + '}'
-      + '.btn-primary {'
-      + '  width: 100%; padding: 14px;'
-      + '  background: linear-gradient(135deg, #4f46e5, #7c3aed);'
-      + '  border: none; border-radius: var(--radius-md);'
-      + '  color: #fff; font-size: 14px; font-weight: 800; letter-spacing: 0.5px;'
-      + '  display: flex; align-items: center; justify-content: center; gap: 10px;'
-      + '  cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 20px rgba(99,102,241,0.4);'
-      + '}'
-      + '.btn-primary:hover { opacity: 0.95; transform: translateY(-1px); }'
-      + '.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }'
-      + '.btn-secondary {'
-      + '  width: 100%; padding: 10px; margin-top: 8px;'
-      + '  background: transparent; border: 1px solid var(--glass-border);'
-      + '  border-radius: var(--radius-md); color: var(--text-2);'
-      + '  font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s;'
-      + '  display: flex; align-items: center; justify-content: center; gap: 6px;'
-      + '}'
-      + '.btn-secondary:hover { color: #fff; background: rgba(255,255,255,0.05); }'
-      + '.prog-bar {'
-      + '  height: 4px; background: rgba(255,255,255,0.08);'
-      + '  border-radius: 2px; overflow: hidden; margin: 12px 0; display: none;'
-      + '}'
-      + '.prog-bar.active { display: block; }'
-      + '.prog-fill {'
-      + '  height: 100%; width: 0%;'
-      + '  background: linear-gradient(90deg, #34d399, #818cf8);'
-      + '  transition: width 0.3s;'
-      + '}'
-      + '.status-line { font-size: 12px; text-align: center; color: var(--text-2); margin-top: 6px; min-height: 18px; }'
-      + '.toast {'
-      + '  position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%) translateY(50px);'
-      + '  padding: 10px 18px; background: #065f46; color: #fff; border-radius: 30px;'
-      + '  font-size: 12px; font-weight: 700; box-shadow: 0 8px 24px rgba(0,0,0,0.4);'
-      + '  opacity: 0; transition: all 0.3s; z-index: 99;'
-      + '}'
-      + '.toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }'
-      + '</style>'
-      + '</head>'
-      + '<body>'
-      + '<div>'
-      + '  <div class="header">'
-      + '    <div class="header-icon"><i class="fas fa-layer-group"></i></div>'
-      + '    <div>'
-      + '      <h2>Thêm Bảng Tổng Hợp Nhân Viên</h2>'
-      + '      <p>Hệ thống tự động sinh cấu trúc bảng theo chuẩn King\'s Grill</p>'
-      + '    </div>'
-      + '  </div>'
-      + '  <div class="form-group">'
-      + '    <label class="label">Sheet Tổng Hợp Cần Thêm</label>'
-      + '    <select id="sheetSelect" class="select-box" onchange="onSheetChange()">' + optionsHtml + '</select>'
-      + '    <div id="sheetBadge" class="sheet-badge"><i class="fas fa-spinner fa-spin"></i> Đang tải thông tin sheet...</div>'
-      + '  </div>'
-      + '  <div class="form-group">'
-      + '    <label class="label">Số lượng bảng nhân viên muốn thêm</label>'
-      + '    <div class="counter-wrapper">'
-      + '      <button class="counter-btn" type="button" onclick="adjustCount(-1)">−</button>'
-      + '      <input type="number" id="numTablesInput" class="counter-input" value="1" min="1" max="20">'
-      + '      <button class="counter-btn" type="button" onclick="adjustCount(1)">+</button>'
-      + '    </div>'
-      + '    <div class="chips">'
-      + '      <div class="chip" onclick="setCount(1)">+1 Bảng</div>'
-      + '      <div class="chip" onclick="setCount(2)">+2 Bảng</div>'
-      + '      <div class="chip" onclick="setCount(3)">+3 Bảng</div>'
-      + '      <div class="chip" onclick="setCount(5)">+5 Bảng</div>'
-      + '    </div>'
-      + '  </div>'
-      + '  <div class="info-card">'
-      + '    <h4><i class="fas fa-user-edit"></i> Quy Tắc Nhập Tên Động</h4>'
-      + '    <p>Bảng mới sẽ để trống ô tên đầu tiên (ngay dưới cột "Họ và Tên"). Bạn chỉ cần nhập tên vào ô này (hoặc chọn dropdown từ DATA), toàn bộ các ngày và công thức Thống kê chi tiết sẽ tự động nhận diện!</p>'
-      + '  </div>'
-      + '  <div class="info-card">'
-      + '    <h4><i class="fas fa-calculator"></i> Tính Toán & Hệ Số Lễ x2 / x3</h4>'
-      + '    <p>Đã khắc phục hoàn toàn lỗi âm giờ ca đêm (-9,07). Các ngày có cấu hình x2 hoặc x3 lương sẽ tự động nhân đúng hệ số cho ngày đó.</p>'
-      + '  </div>'
-      + '</div>'
-      + '<div>'
-      + '  <div id="progBar" class="prog-bar"><div id="progFill" class="prog-fill"></div></div>'
-      + '  <div id="statusLine" class="status-line"></div>'
-      + '  <button id="submitBtn" class="btn-primary" type="button" onclick="submitAddTables()">'
-      + '    <i class="fas fa-plus-circle"></i> TIẾN HÀNH THÊM BẢNG'
-      + '  </button>'
-      + '  <button class="btn-secondary" type="button" onclick="repairFormulasNow()">'
-      + '    <i class="fas fa-wrench"></i> Sửa Công Thức & Khoảng Cách Sheet Này (Fix Dính Bảng)'
-      + '  </button>'
-      + '</div>'
-      + '<div id="toast" class="toast"></div>'
-      + '<script>'
-      + 'var curSheet = document.getElementById("sheetSelect").value;'
-      + 'function onSheetChange() {'
-      + '  curSheet = document.getElementById("sheetSelect").value;'
-      + '  var badge = document.getElementById("sheetBadge");'
-      + '  badge.innerHTML = \'<i class="fas fa-spinner fa-spin"></i> Đang kiểm tra...\';'
-      + '  google.script.run.withSuccessHandler(function(info){'
-      + '    if (info && info.success) {'
-      + '      if (info.isSummarySheet) {'
-      + '        badge.innerHTML = \'<i class="fas fa-check-circle" style="color:#34d399;"></i> Đang có <b>\' + info.empCount + \'</b> nhân viên. Bảng mới sẽ đánh số từ <b>Nhân viên \' + (info.empCount + 1) + \'</b>.\';'
-      + '      } else {'
-      + '        badge.innerHTML = \'<i class="fas fa-info-circle" style="color:#818cf8;"></i> Sheet chưa có báo cáo. Bảng mới sẽ tạo theo lịch tháng hiện hành.\';'
-      + '      }'
-      + '    } else {'
-      + '      badge.textContent = "Không xác định thông tin sheet.";'
-      + '    }'
-      + '  }).getSummarySheetInfo(curSheet);'
-      + '}'
-      + 'onSheetChange();'
-      + 'function adjustCount(delta) {'
-      + '  var el = document.getElementById("numTablesInput");'
-      + '  var val = Math.max(1, Math.min(20, (parseInt(el.value, 10) || 1) + delta));'
-      + '  el.value = val;'
-      + '}'
-      + 'function setCount(n) { document.getElementById("numTablesInput").value = n; }'
-      + 'function submitAddTables() {'
-      + '  var sheet = document.getElementById("sheetSelect").value;'
-      + '  var count = parseInt(document.getElementById("numTablesInput").value, 10) || 1;'
-      + '  var btn = document.getElementById("submitBtn");'
-      + '  var bar = document.getElementById("progBar");'
-      + '  var fill = document.getElementById("progFill");'
-      + '  var status = document.getElementById("statusLine");'
-      + '  btn.disabled = true;'
-      + '  btn.innerHTML = \'<i class="fas fa-spinner fa-spin"></i> ĐANG TẠO BẢNG...\';'
-      + '  bar.classList.add("active"); fill.style.width = "40%";'
-      + '  status.textContent = "Đang sinh cấu trúc bảng và công thức...";'
-      + '  google.script.run'
-      + '    .withSuccessHandler(function(res){'
-      + '      fill.style.width = "100%";'
-      + '      btn.innerHTML = \'<i class="fas fa-check"></i> ĐÃ HOÀN TẤT!\';'
-      + '      btn.style.background = "linear-gradient(135deg, #059669, #10b981)";'
-      + '      status.textContent = res.message;'
-      + '      showToast("Thêm thành công " + res.addedCount + " bảng!");'
-      + '      setTimeout(function(){ google.script.host.close(); }, 2500);'
-      + '    })'
-      + '    .withFailureHandler(function(err){'
-      + '      btn.disabled = false;'
-      + '      btn.innerHTML = \'<i class="fas fa-plus-circle"></i> TIẾN HÀNH THÊM BẢNG\';'
-      + '      bar.classList.remove("active"); fill.style.width = "0%";'
-      + '      status.textContent = "Lỗi: " + err.message;'
-      + '      showToast("Lỗi: " + err.message);'
-      + '    })'
-      + '    .addNewSummaryTables(sheet, count);'
-      + '}'
-      + 'function repairFormulasNow() {'
-      + '  var sheet = document.getElementById("sheetSelect").value;'
-      + '  var status = document.getElementById("statusLine");'
-      + '  status.textContent = "Đang chuẩn hóa khoảng cách và sửa công thức...";'
-      + '  google.script.run'
-      + '    .withSuccessHandler(function(res){'
-      + '      status.textContent = res.message;'
-      + '      showToast("Đã chuẩn hóa khoảng cách và sửa " + res.fixedRowsCount + " dòng công thức!");'
-      + '    })'
-      + '    .withFailureHandler(function(err){'
-      + '      status.textContent = "Lỗi: " + err.message;'
-      + '    })'
-      + '    .repairSummarySheetFormulas(sheet);'
-      + '}'
-      + 'function showToast(msg) {'
-      + '  var t = document.getElementById("toast");'
-      + '  t.textContent = msg;'
-      + '  t.classList.add("show");'
-      + '  setTimeout(function(){ t.classList.remove("show"); }, 3000);'
-      + '}'
-      + '</script>'
-      + '</body>'
-      + '</html>';
-
-    var htmlOutput = HtmlService.createHtmlOutput(htmlContent)
-      .setWidth(580)
-      .setHeight(680);
-
-    ui.showModalDialog(htmlOutput, "KING'S GRILL - Thêm Bảng Tổng Hợp Nhân Viên");
-  } catch (e) {
-    throw new Error('Lỗi hiển thị giao diện thêm bảng: ' + e.message);
-  }
+  openAttendanceControlCenter("employees");
 }

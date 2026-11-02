@@ -10,9 +10,12 @@ import {
   computeWeekInfo,
   markScheduleRegisteredLocally,
   getSavedRegisteredShiftsForWeek,
+  getScheduleRegistrationMeta,
   isNextWeekScheduleRegistered,
   normalizeGpsRadius,
 } from './helpers';
+
+const selfHealInFlight = new Set<string>();
 
 const STALE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 const APP_CACHE_KEY = 'kg_app_cache_v2';
@@ -52,50 +55,64 @@ export function restoreFromCache(): void {
     if (appCache) {
       const snapshot = JSON.parse(appCache);
       const data = snapshot?.data || {};
-      useAppStore.setState((state) => ({
-        logs: data.logs ?? state.logs,
-        stats: data.stats ?? state.stats,
-        users: data.users ?? state.users,
-        isScheduleRegistered: (() => {
-          const weekInfo = computeWeekInfo();
-          if (
-            isNextWeekScheduleRegistered(
-              Boolean(data.isScheduleRegistered),
-              state.currentUser?.username,
-              weekInfo,
-              data.registeredShifts ?? state.registeredShifts
-            )
-          ) {
-            return true;
-          }
-          if (data.isScheduleRegistered !== undefined) return data.isScheduleRegistered;
-          return state.isScheduleRegistered;
-        })(),
-        approvedShifts: data.approvedShifts ?? state.approvedShifts,
-        registeredShifts:
-          getSavedRegisteredShiftsForWeek(state.currentUser?.username) ??
-          data.registeredShifts ??
-          state.registeredShifts,
-        payrollData: data.payrollData ?? state.payrollData,
-        timesheetData: data.timesheetData ?? state.timesheetData,
-        monthSchedules: data.monthSchedules ?? state.monthSchedules,
-        swapRequests: data.swapRequests ?? state.swapRequests,
-        serverGpsConfig: data.gpsConfig
-          ? { ...data.gpsConfig, radius: normalizeGpsRadius(data.gpsConfig.radius) }
-          : state.serverGpsConfig,
-        serverOrgConfig: data.orgConfig ?? state.serverOrgConfig,
-        serverPayrollConfig: data.payrollConfig ?? state.serverPayrollConfig,
-        recentPosts: data.recentPosts ?? state.recentPosts,
-        pendingFeedbackCount: data.pendingFeedbackCount ?? state.pendingFeedbackCount,
-        todayChecklistDone: data.todayChecklistDone ?? state.todayChecklistDone,
-        todayHandoverDone: data.todayHandoverDone ?? state.todayHandoverDone,
-        lastCheckInTime: (() => {
-          const direct = localStorage.getItem('kg_last_checkin');
-          if (direct) return parseInt(direct, 10) || 0;
-          return data.lastCheckInTime ?? state.lastCheckInTime;
-        })(),
-        lastFetchTime: snapshot.savedAt ?? state.lastFetchTime,
-      }));
+      const weekInfo = computeWeekInfo();
+      const expectedWeekKey = `${weekInfo.monthSheet}|${weekInfo.weekLabel}`;
+      const cachedWeekKey = typeof data.registeredWeekKey === 'string' ? data.registeredWeekKey : null;
+      const isCacheForCurrentWeek = cachedWeekKey === expectedWeekKey;
+
+      useAppStore.setState((state) => {
+        const username = state.currentUser?.username;
+        const localMeta = getScheduleRegistrationMeta(username, weekInfo);
+        const scopedShifts =
+          getSavedRegisteredShiftsForWeek(username, weekInfo) ??
+          (isCacheForCurrentWeek && Array.isArray(data.registeredShifts) && data.registeredShifts.length === 7
+            ? data.registeredShifts
+            : []);
+        const verifiedRegistered = isNextWeekScheduleRegistered(
+          isCacheForCurrentWeek ? Boolean(data.isScheduleRegistered) : false,
+          username,
+          weekInfo,
+          scopedShifts,
+          isCacheForCurrentWeek ? cachedWeekKey : null
+        );
+
+        return {
+          logs: data.logs ?? state.logs,
+          stats: data.stats ?? state.stats,
+          users: data.users ?? state.users,
+          isScheduleRegistered: verifiedRegistered,
+          registeredWeekKey: verifiedRegistered ? expectedWeekKey : null,
+          scheduleUpdatedAt:
+            localMeta?.updatedAt ||
+            (isCacheForCurrentWeek && typeof data.scheduleUpdatedAt === 'string' ? data.scheduleUpdatedAt : ''),
+          scheduleSheetSynced:
+            localMeta?.sheetSynced ??
+            (isCacheForCurrentWeek && typeof data.scheduleSheetSynced === 'boolean' ? data.scheduleSheetSynced : true),
+          approvedShifts: isCacheForCurrentWeek ? (data.approvedShifts ?? state.approvedShifts) : null,
+          currentWeekApprovedShifts: data.currentWeekApprovedShifts ?? state.currentWeekApprovedShifts,
+          registeredShifts: verifiedRegistered ? scopedShifts : [],
+          offReason: localMeta?.offReason ?? state.offReason,
+          payrollData: data.payrollData ?? state.payrollData,
+          timesheetData: data.timesheetData ?? state.timesheetData,
+          monthSchedules: data.monthSchedules ?? state.monthSchedules,
+          swapRequests: data.swapRequests ?? state.swapRequests,
+          serverGpsConfig: data.gpsConfig
+            ? { ...data.gpsConfig, radius: normalizeGpsRadius(data.gpsConfig.radius) }
+            : state.serverGpsConfig,
+          serverOrgConfig: data.orgConfig ?? state.serverOrgConfig,
+          serverPayrollConfig: data.payrollConfig ?? state.serverPayrollConfig,
+          recentPosts: data.recentPosts ?? state.recentPosts,
+          pendingFeedbackCount: data.pendingFeedbackCount ?? state.pendingFeedbackCount,
+          todayChecklistDone: data.todayChecklistDone ?? state.todayChecklistDone,
+          todayHandoverDone: data.todayHandoverDone ?? state.todayHandoverDone,
+          lastCheckInTime: (() => {
+            const direct = localStorage.getItem('kg_last_checkin');
+            if (direct) return parseInt(direct, 10) || 0;
+            return data.lastCheckInTime ?? state.lastCheckInTime;
+          })(),
+          lastFetchTime: snapshot.savedAt ?? state.lastFetchTime,
+        };
+      });
       return;
     }
 
@@ -134,9 +151,16 @@ function persistToCache(data: any): void {
           logs: data.logs ?? currentState.logs,
           stats: data.stats ?? currentState.stats,
           users: data.users ?? currentState.users,
-          isScheduleRegistered: data.isScheduleRegistered !== undefined ? data.isScheduleRegistered : currentState.isScheduleRegistered,
+          isScheduleRegistered: currentState.isScheduleRegistered,
+          registeredWeekKey: currentState.registeredWeekKey,
+          scheduleUpdatedAt: currentState.scheduleUpdatedAt,
+          scheduleSheetSynced: currentState.scheduleSheetSynced,
           approvedShifts: data.approvedShifts ?? currentState.approvedShifts,
-          registeredShifts: data.registeredShifts ?? currentState.registeredShifts,
+          currentWeekApprovedShifts:
+            data.currentWeekApprovedShifts !== undefined
+              ? data.currentWeekApprovedShifts
+              : currentState.currentWeekApprovedShifts,
+          registeredShifts: currentState.registeredShifts,
           payrollData: currentState.payrollData,
           timesheetData: currentState.timesheetData,
           monthSchedules: currentState.monthSchedules,
@@ -261,6 +285,124 @@ export function prefetchHubData(hubId: string): void {
  * Handles both legacy and mega-fetch fields.
  */
 function hydrateStore(data: any): void {
+  const weekInfo = computeWeekInfo();
+  const expectedWeekKey = `${weekInfo.monthSheet}|${weekInfo.weekLabel}`;
+  const currentUser = useAppStore.getState().currentUser;
+  const cleanUser = (currentUser?.username || '').trim().toLowerCase();
+
+  let resolvedRegistered = false;
+  let resolvedWeekKey: string | null = null;
+  let resolvedShifts: string[] = [];
+  let resolvedUpdatedAt = '';
+  let resolvedSheetSynced = true;
+  let resolvedOffReason: string | undefined = undefined;
+
+  if (data.isScheduleRegistered === true) {
+    const serverShifts =
+      Array.isArray(data.registeredShifts) && data.registeredShifts.length === 7
+        ? data.registeredShifts
+        : Array.isArray(data.approvedShifts) && data.approvedShifts.length === 7
+          ? data.approvedShifts
+          : getSavedRegisteredShiftsForWeek(currentUser?.username, weekInfo) || [];
+    const existingMeta = getScheduleRegistrationMeta(currentUser?.username, weekInfo);
+    resolvedSheetSynced = data.scheduleSheetSynced !== false;
+    resolvedUpdatedAt = data.scheduleUpdatedAt || existingMeta?.updatedAt || '';
+    resolvedOffReason = data.scheduleOffReason !== undefined ? data.scheduleOffReason : existingMeta?.offReason;
+
+    markScheduleRegisteredLocally(currentUser?.username, expectedWeekKey, serverShifts, {
+      updatedAt: resolvedUpdatedAt,
+      sheetSynced: resolvedSheetSynced,
+      offReason: resolvedOffReason,
+      status: data.scheduleStatus,
+    });
+    const refreshedMeta = getScheduleRegistrationMeta(currentUser?.username, weekInfo);
+    resolvedRegistered = true;
+    resolvedWeekKey = expectedWeekKey;
+    resolvedShifts = serverShifts;
+    resolvedUpdatedAt = refreshedMeta?.updatedAt || resolvedUpdatedAt;
+  } else if (data.isScheduleRegistered === false) {
+    const localMeta = getScheduleRegistrationMeta(currentUser?.username, weekInfo);
+    if (localMeta && localMeta.weekKey === expectedWeekKey && Array.isArray(localMeta.shifts) && localMeta.shifts.length === 7) {
+      // Employee submitted 7 shifts for THIS exact week on device, but Sheet doesn't have the row yet -> Self-heal to Google Sheets!
+      resolvedRegistered = true;
+      resolvedWeekKey = expectedWeekKey;
+      resolvedShifts = localMeta.shifts;
+      resolvedUpdatedAt = localMeta.updatedAt || '';
+      resolvedSheetSynced = false;
+      resolvedOffReason = localMeta.offReason;
+
+      const healKey = `${cleanUser}|${expectedWeekKey}`;
+      if (currentUser && !selfHealInFlight.has(healKey)) {
+        selfHealInFlight.add(healKey);
+        callApi(
+          'REGISTER_SHIFT',
+          {
+            username: currentUser.username,
+            fullname: currentUser.fullname,
+            monthSheet: weekInfo.monthSheet,
+            weekLabel: weekInfo.weekLabel,
+            shifts: localMeta.shifts,
+            offReason: localMeta.offReason || '',
+            isEdit: true,
+          },
+          { background: true, timeoutMs: 28000, maxAttempts: 2 }
+        )
+          .then((healRes) => {
+            if (healRes?.ok && healRes?.data?.sheetSaved !== false) {
+              const syncedTime = healRes.data?.timestamp || localMeta.updatedAt || '';
+              markScheduleRegisteredLocally(currentUser.username, expectedWeekKey, localMeta.shifts, {
+                updatedAt: syncedTime,
+                sheetSynced: true,
+                offReason: localMeta.offReason,
+                status: 'Chờ duyệt',
+              });
+              useAppStore.getState().setScheduleMeta({
+                registeredWeekKey: expectedWeekKey,
+                scheduleUpdatedAt: syncedTime,
+                scheduleSheetSynced: true,
+                isScheduleHydrated: true,
+              });
+            }
+          })
+          .finally(() => {
+            selfHealInFlight.delete(healKey);
+          });
+      }
+    } else {
+      // Authoritative unregistered state for target week -> purge any stale/ghost flags
+      try {
+        localStorage.removeItem('kg_schedule_registered');
+        localStorage.removeItem('kg_registered_week');
+        localStorage.removeItem('kg_registered_shifts');
+        if (cleanUser) {
+          const uWeek = localStorage.getItem(`kg_registered_week_${cleanUser}`);
+          if (uWeek === expectedWeekKey) {
+            localStorage.removeItem(`kg_registered_week_${cleanUser}`);
+            localStorage.removeItem(`kg_registered_shifts_${cleanUser}`);
+          }
+          if (currentUser?.username) {
+            const rawUWeek = localStorage.getItem(`kg_registered_week_${currentUser.username}`);
+            if (rawUWeek === expectedWeekKey) {
+              localStorage.removeItem(`kg_registered_week_${currentUser.username}`);
+            }
+          }
+        }
+      } catch { /* ignore */ }
+      resolvedRegistered = false;
+      resolvedWeekKey = null;
+      resolvedShifts = [];
+      resolvedUpdatedAt = '';
+      resolvedSheetSynced = true;
+    }
+  } else {
+    const stateNow = useAppStore.getState();
+    resolvedRegistered = stateNow.isScheduleRegistered && stateNow.registeredWeekKey === expectedWeekKey;
+    resolvedWeekKey = resolvedRegistered ? expectedWeekKey : null;
+    resolvedShifts = resolvedRegistered ? stateNow.registeredShifts : [];
+    resolvedUpdatedAt = resolvedRegistered ? stateNow.scheduleUpdatedAt : '';
+    resolvedSheetSynced = stateNow.scheduleSheetSynced;
+  }
+
   useAppStore.setState((state) => ({
     logs: data.logs ?? state.logs,
     stats: data.stats ?? state.stats,
@@ -268,38 +410,18 @@ function hydrateStore(data: any): void {
     groqKeys: data.keys ?? state.groqKeys,
     chatHistory: data.chatHistory ?? state.chatHistory,
     aiPrompts: data.aiPrompts ?? state.aiPrompts,
-    isScheduleRegistered: (() => {
-      const weekInfo = computeWeekInfo();
-      const expectedWeekKey = weekInfo.monthSheet + '|' + weekInfo.weekLabel;
-      const currentUser = useAppStore.getState().currentUser;
-
-      if (data.isScheduleRegistered === true) {
-        markScheduleRegisteredLocally(currentUser?.username, expectedWeekKey, data.registeredShifts);
-        return true;
-      }
-
-      if (data.isScheduleRegistered === false) {
-        if (isNextWeekScheduleRegistered(false, currentUser?.username, weekInfo)) {
-          return true;
-        }
-        try {
-          const savedWeek = localStorage.getItem('kg_registered_week');
-          const savedRegKey = localStorage.getItem('kg_schedule_registered');
-          if (savedRegKey !== expectedWeekKey) localStorage.removeItem('kg_schedule_registered');
-          if (savedWeek !== expectedWeekKey) localStorage.removeItem('kg_registered_week');
-        } catch { /* ignore */ }
-        return false;
-      }
-
-      return data.isScheduleRegistered ?? state.isScheduleRegistered;
-    })(),
-    approvedShifts: data.approvedShifts ?? state.approvedShifts,
-    registeredShifts:
-      (Array.isArray(data.registeredShifts) && data.registeredShifts.length === 7
-        ? data.registeredShifts
-        : null) ??
-      getSavedRegisteredShiftsForWeek(useAppStore.getState().currentUser?.username, computeWeekInfo()) ??
-      state.registeredShifts,
+    isScheduleRegistered: resolvedRegistered,
+    registeredWeekKey: resolvedWeekKey,
+    scheduleUpdatedAt: resolvedUpdatedAt,
+    scheduleSheetSynced: resolvedSheetSynced,
+    isScheduleHydrated: true,
+    approvedShifts: data.approvedShifts ?? (resolvedRegistered ? state.approvedShifts : null),
+    currentWeekApprovedShifts:
+      data.currentWeekApprovedShifts !== undefined
+        ? data.currentWeekApprovedShifts
+        : state.currentWeekApprovedShifts,
+    registeredShifts: resolvedShifts,
+    ...(resolvedOffReason !== undefined ? { offReason: resolvedOffReason } : {}),
     serverGpsConfig: data.gpsConfig
       ? { ...data.gpsConfig, radius: normalizeGpsRadius(data.gpsConfig.radius) }
       : state.serverGpsConfig,
@@ -327,17 +449,47 @@ async function performRefresh(force: boolean): Promise<void> {
   if (!force && !isDataStale()) return;
 
   const weekInfo = computeWeekInfo();
+  const currentWeekInfo = computeWeekInfo(undefined, false);
   const res = await callApi('GET_DATA', {
     username: currentUser.username,
     fullname: currentUser.fullname,
     role: currentUser.role,
     monthSheet: weekInfo.monthSheet,
     weekLabel: weekInfo.weekLabel,
+    currentMonthSheet: currentWeekInfo.monthSheet,
+    currentWeekLabel: currentWeekInfo.weekLabel,
     forceRefresh: force || undefined,
   }, { background: true });
 
   if (res?.ok) {
     hydrateStore(res.data);
+    // Backward compatibility if live GAS has not been redeployed with currentWeekApprovedShifts yet
+    if (res.data.currentWeekApprovedShifts === undefined) {
+      if (
+        currentWeekInfo.monthSheet === weekInfo.monthSheet &&
+        currentWeekInfo.weekLabel === weekInfo.weekLabel
+      ) {
+        useAppStore.getState().setCurrentWeekApprovedShifts(res.data.approvedShifts ?? null);
+      } else {
+        callApi(
+          'GET_DATA',
+          {
+            username: currentUser.username,
+            fullname: currentUser.fullname,
+            role: currentUser.role,
+            monthSheet: currentWeekInfo.monthSheet,
+            weekLabel: currentWeekInfo.weekLabel,
+          },
+          { background: true }
+        ).then((curRes) => {
+          if (curRes?.ok) {
+            const curApproved = curRes.data?.approvedShifts ?? null;
+            useAppStore.getState().setCurrentWeekApprovedShifts(curApproved);
+            persistToCache({ currentWeekApprovedShifts: curApproved });
+          }
+        });
+      }
+    }
     if (res.data.employmentProfile) {
       const latestUser = useAppStore.getState().currentUser;
       if (latestUser) {

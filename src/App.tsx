@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { useAppStore } from './store/useAppStore';
 import {
   isInAppBrowser,
@@ -15,6 +16,7 @@ import LoadingScreen from './components/LoadingScreen';
 import ZaloWarning from './components/ZaloWarning';
 import ImagePreview from './components/ImagePreview';
 import AppErrorBoundary from './components/AppErrorBoundary';
+import VersionReleaseModal from './components/VersionReleaseModal';
 import type { TabId } from './types/navigation';
 
 const AIAssistant = lazy(() => import('./components/AIAssistant'));
@@ -28,21 +30,27 @@ export default function App() {
   useEffect(() => {
     const store = useAppStore.getState();
 
-    // Hybrid Smart Audio: Unlock Web Audio on first gesture and preload core notification audio
+    // Hybrid Smart Audio: Unlock Web Audio on first gesture; defer MP3 preloading past initial 4G paint
     setupAudioUnlock();
-    preloadAudioClips([
-      'checkin_in',
-      'checkin_out',
-      'outside_range',
-      'gps_valid',
-      'gps_invalid',
-      'expired_photo',
-      'login_success'
-    ]);
+    const navConn = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+    const isConstrainedNetwork = Boolean(navConn?.saveData || /^(slow-)?2g$/i.test(navConn?.effectiveType || ''));
+    if (!isConstrainedNetwork) {
+      window.setTimeout(() => {
+        preloadAudioClips([
+          'checkin_in',
+          'checkin_out',
+          'outside_range',
+          'gps_valid',
+          'gps_invalid',
+          'expired_photo',
+          'login_success',
+        ]);
+      }, 1500);
+    }
 
-    // Validate stored GAS URL configuration (preserve valid custom GAS Web App URLs)
+    // Validate stored GAS URL configuration (preserve valid custom GAS Web App URLs and /api proxy)
     const storedGas = localStorage.getItem('kg_gas_url');
-    if (storedGas && !storedGas.trim().startsWith('https://script.google.com/macros/s/')) {
+    if (storedGas && !storedGas.trim().startsWith('https://script.google.com/macros/s/') && storedGas.trim() !== '/api') {
       localStorage.removeItem('kg_gas_url');
     }
 
@@ -107,41 +115,41 @@ export default function App() {
           weekInfo.weekDatesKeys.forEach((k) => (initShifts[k] = 'OFF'));
           store.setShiftData(initShifts);
 
-          // Restore registered shifts from localStorage (including per-user record)
+          // Restore registered shifts from localStorage ONLY when explicitly matching expectedWeekKey
           const expectedWeekKey = weekInfo.monthSheet + '|' + weekInfo.weekLabel;
           const savedShifts = getSavedRegisteredShiftsForWeek(user?.username, weekInfo);
+          const currentState = useAppStore.getState();
           const isRegisteredForWeek = isNextWeekScheduleRegistered(
-            useAppStore.getState().isScheduleRegistered,
+            currentState.isScheduleRegistered,
             user?.username,
             weekInfo,
-            savedShifts
+            savedShifts,
+            currentState.registeredWeekKey
           );
           if (isRegisteredForWeek) {
-            store.setScheduleRegistered(true, expectedWeekKey);
             if (savedShifts && savedShifts.length === 7) {
               store.setRegisteredShifts(savedShifts);
               const regShifts: Record<string, string> = {};
               weekInfo.weekDatesKeys.forEach((k, i) => (regShifts[k] = savedShifts[i]));
               store.setShiftData(regShifts);
             }
+            store.setScheduleRegistered(true, expectedWeekKey);
             markScheduleRegisteredLocally(user?.username, expectedWeekKey, savedShifts);
           } else {
-            const savedWeek = localStorage.getItem('kg_registered_week');
-            if (savedWeek && savedWeek !== expectedWeekKey && savedWeek !== weekInfo.sheetName) {
-              // Week rollover: clear previous week registration
-              localStorage.removeItem('kg_registered_shifts');
-              localStorage.removeItem('kg_registered_week');
-              localStorage.removeItem('kg_schedule_registered');
-              store.setScheduleRegistered(false);
-              store.setRegisteredShifts([]);
-            }
+            // Week rollover or unregistered for target week: ensure stale week keys are cleared
+            localStorage.removeItem('kg_registered_shifts');
+            localStorage.removeItem('kg_registered_week');
+            localStorage.removeItem('kg_schedule_registered');
+            localStorage.removeItem('kg_mandatory_sched_snooze');
+            store.setScheduleRegistered(false);
+            store.setRegisteredShifts([]);
           }
 
           // Refresh session timestamp (extend session on reload)
           localStorage.setItem('kg_session_time', Date.now().toString());
 
-          // Fetch fresh data in background (Phase 7: centralized)
-          refreshAppData();
+          // Always force a fresh schedule/log sync on session boot so T5-T7 check-in gate has live server state
+          refreshAppData(true);
         }
       } catch {
         localStorage.removeItem('kg_user');
@@ -173,6 +181,9 @@ export default function App() {
       {/* Image Preview Modal */}
       <ImagePreview />
 
+      {/* v4.0.0 Release Center & What's New Modal */}
+      <VersionReleaseModal />
+
       {/* AI Chatbot Assistant - loaded only after login */}
       {currentUser && (
         <Suspense fallback={null}>
@@ -186,8 +197,8 @@ export default function App() {
         fallback={({ reset }) => (
           <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 dark:bg-slate-950">
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl p-6 text-center max-w-sm w-full">
-              <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center text-xl font-bold">
-                ⚠️
+              <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
+                <AlertTriangle size={22} />
               </div>
               <h3 className="text-base font-bold text-slate-800 dark:text-white mb-2">Đang phục hồi giao diện</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mb-5 leading-relaxed">

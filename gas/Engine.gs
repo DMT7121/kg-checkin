@@ -101,7 +101,7 @@ function normalizeTimeColumn(sheet) {
 // -------------------------------------------------------------------------------------
 // Logic phân tích dữ liệu
 // -------------------------------------------------------------------------------------
-function processTimesheetDataWithDominantMonth(data) {
+function processTimesheetDataWithDominantMonth(data, targetMonthYear) {
   var timesheet = new Map();
   var monthAttendanceCounts = new Map();
   var monthDateCounts = new Map();
@@ -112,6 +112,7 @@ function processTimesheetDataWithDominantMonth(data) {
     var timeStr = data[i][2];
     var validStatus = data[i][4] ? data[i][4].toString().toUpperCase() : '';
     if (!name || !status || !timeStr) continue;
+    if (validStatus && validStatus.indexOf('KHÔNG') >= 0) continue;
 
     // Hỗ trợ cả Date object lẫn string DD/MM/YYYY HH:MM:SS hoặc DD/MM/YYYY HH:MM
     var time;
@@ -146,15 +147,19 @@ function processTimesheetDataWithDominantMonth(data) {
     datesMap.get(date).push({ status: status, validStatus: validStatus, time: timeFormatted, originalTime: time });
   }
 
-  // Xác định tháng chủ đạo
+  // Xác định tháng chủ đạo (hoặc ưu tiên tháng chỉ định từ client)
   var dominantMonth = '';
-  var maxAttendanceCount = 0;
-  for (var entry of monthAttendanceCounts.entries()) {
-    var mY = entry[0];
-    var cnt = entry[1];
-    if (cnt > maxAttendanceCount) {
-      maxAttendanceCount = cnt;
-      dominantMonth = mY;
+  if (targetMonthYear && /^\d{4}-(0[1-9]|1[0-2])$/.test(String(targetMonthYear).trim())) {
+    dominantMonth = String(targetMonthYear).trim();
+  } else {
+    var maxAttendanceCount = 0;
+    for (var entry of monthAttendanceCounts.entries()) {
+      var mY = entry[0];
+      var cnt = entry[1];
+      if (cnt > maxAttendanceCount) {
+        maxAttendanceCount = cnt;
+        dominantMonth = mY;
+      }
     }
   }
 
@@ -1731,13 +1736,14 @@ function populateEmployeeAttendanceInSummaryTable(summarySheet, firstDataRow, em
       var dStr = datesList[d];
       var dObj = parseDateUTC(dStr) || new Date(Date.UTC(year, month - 1, d + 1));
       var rowData = createRowData(employeeName, dStr, dObj, targetDatesMap, x2Days, x3Days);
+      var rowVals = rowData && rowData.values ? rowData.values : rowData;
       chValues.push([
-        rowData[2] || '',
-        rowData[3] || '',
-        rowData[4] || '',
-        rowData[5] || '',
-        rowData[6] || '',
-        rowData[7] || ''
+        rowVals[2] || '',
+        rowVals[3] || '',
+        rowVals[4] || '',
+        rowVals[5] || '',
+        rowVals[6] || '',
+        rowVals[7] || ''
       ]);
     }
 
@@ -2001,7 +2007,9 @@ function parseDDMMYYYY(str) {
       seconds = Number(timeParts[2]) || 0;
     }
 
-    var result = new Date(year, month, day, hours, minutes, seconds);
+    var iso = String(year) + '-' + String(month + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0') +
+      'T' + String(hours).padStart(2, '0') + ':' + String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0') + '+07:00';
+    var result = new Date(iso);
     return isNaN(result.getTime()) ? null : result;
   } catch (e) {
     return null;
@@ -2175,8 +2183,10 @@ function handleInteractPost(payload) {
 
   if (rowIndex === -1) return jsonResponse(false, "Không tìm thấy bài viết");
 
+  var subAction = payload.subAction || payload.interaction || (payload.action !== 'INTERACT_POST' ? payload.action : '');
+
   // Xử lý LIKE
-  if (payload.action === 'LIKE') {
+  if (subAction === 'LIKE') {
     var likes = data[rowIndex-1][3] ? JSON.parse(data[rowIndex-1][3]) : [];
     var userIndex = likes.indexOf(payload.username);
     if (userIndex > -1) {
@@ -2185,10 +2195,12 @@ function handleInteractPost(payload) {
       likes.push(payload.username); // Like
     }
     sheet.getRange(rowIndex, 4).setValue(JSON.stringify(likes));
+    try { JsonCacheService.invalidateGlobalCache(); } catch (e) {}
+    return jsonResponse(true, { likes: likes, message: "Đã tương tác" });
   }
   
   // Xử lý COMMENT
-  if (payload.action === 'COMMENT') {
+  if (subAction === 'COMMENT') {
     var comments = data[rowIndex-1][4] ? JSON.parse(data[rowIndex-1][4]) : [];
     var timeStr = Utilities.formatDate(new Date(), "GMT+7", "dd/MM HH:mm");
     comments.push({
@@ -2198,9 +2210,11 @@ function handleInteractPost(payload) {
       time: timeStr
     });
     sheet.getRange(rowIndex, 5).setValue(JSON.stringify(comments));
+    try { JsonCacheService.invalidateGlobalCache(); } catch (e) {}
+    return jsonResponse(true, { comments: comments, message: "Đã bình luận" });
   }
 
-  return jsonResponse(true, "Đã tương tác");
+  return jsonResponse(false, "Loại tương tác bài viết không hợp lệ");
 }
 
 // ==========================================
@@ -2334,35 +2348,123 @@ function handleSubmitChecklist(payload) {
 // TÍNH NĂNG BÀN GIAO CA VÀ SỰ CỐ
 // ==========================================
 
+function parseVndInt_(raw) {
+  if (typeof raw === 'number') {
+    return isFinite(raw) ? Math.round(raw) : 0;
+  }
+  if (raw === null || raw === undefined) return 0;
+  var str = String(raw).trim();
+  if (!str) return 0;
+  var neg = str.indexOf('-') === 0;
+  var digits = str.replace(/\D/g, '');
+  if (!digits) return 0;
+  var n = parseInt(digits, 10);
+  if (isNaN(n)) return 0;
+  return neg ? -Math.round(n) : Math.round(n);
+}
+
+function formatVndDots_(num) {
+  var val = Math.round(Number(num) || 0);
+  var absStr = String(Math.abs(val)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return val < 0 ? '-' + absStr : absStr;
+}
+
+function parseJsonSafe_(raw) {
+  if (!raw) return {};
+  try {
+    var parsed = JSON.parse(String(raw));
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (e) {
+    return {};
+  }
+}
+
 function handleSubmitHandover(payload) {
   if (payload.username && !canEmployeeWork(payload.username)) {
     return jsonResponse(false, 'Trạng thái nhân sự hiện tại không được bàn giao ca');
   }
-  var ss = getSS();
-  var sheet = ss.getSheetByName("Handovers");
-  if (!sheet) {
-    sheet = ss.insertSheet("Handovers");
-    sheet.appendRow(["LogID", "Date", "Shift", "Username", "CashAmount", "Note", "Timestamp"]);
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(10000); } catch (e) {}
+
+  try {
+    var ss = getSS();
+    var sheet = ss.getSheetByName("Handovers");
+    if (!sheet) {
+      sheet = ss.insertSheet("Handovers");
+      sheet.appendRow([
+        "LogID", "Date", "Shift", "Username", "CashAmount", "Note", "Timestamp",
+        "AckBy", "AckAt", "Fullname", "OpeningCash", "PosCashRevenue", "CashExpense",
+        "ExpectedCash", "ClosingCash", "Discrepancy", "ReconcileStatus", "AuditJson"
+      ]);
+    }
+
+    var hasStructuredCash =
+      payload.openingCash !== undefined ||
+      payload.posCashRevenue !== undefined ||
+      payload.cashExpense !== undefined ||
+      payload.closingCash !== undefined;
+
+    var closingCash = payload.closingCash !== undefined
+      ? Math.max(0, parseVndInt_(payload.closingCash))
+      : Math.max(0, parseVndInt_(payload.cashAmount));
+    var openingCash = payload.openingCash !== undefined
+      ? Math.max(0, parseVndInt_(payload.openingCash))
+      : closingCash;
+    var posCashRevenue = Math.max(0, parseVndInt_(payload.posCashRevenue));
+    var cashExpense = Math.max(0, parseVndInt_(payload.cashExpense));
+    var expectedCash = hasStructuredCash
+      ? Math.round(openingCash + posCashRevenue - cashExpense)
+      : closingCash;
+    var discrepancy = Math.round(closingCash - expectedCash);
+    var reconcileStatus = discrepancy === 0 ? "Matched" : "Pending";
+    var formattedClosing = payload.cashAmount ? String(payload.cashAmount) : formatVndDots_(closingCash);
+
+    var newId = "HO_" + new Date().getTime().toString() + "_" + Math.floor(Math.random() * 1000);
+    var now = new Date();
+    var dateStr = Utilities.formatDate(now, CONFIG.TIMEZONE || "Asia/Ho_Chi_Minh", "dd/MM/yyyy");
+
+    sheet.appendRow([
+      newId,
+      dateStr,
+      payload.shift || '',
+      payload.username || '',
+      formattedClosing,
+      payload.note || '',
+      now.toString(),
+      '',
+      '',
+      payload.fullname || payload.username || '',
+      openingCash,
+      posCashRevenue,
+      cashExpense,
+      expectedCash,
+      closingCash,
+      discrepancy,
+      reconcileStatus,
+      JSON.stringify({ createdIso: now.toISOString() })
+    ]);
+
+    recordKingCoins(payload.username || '', payload.fullname || payload.username || '', 'Bàn giao ca đầy đủ', 15, 'Handover');
+
+    return jsonResponse(true, {
+      id: newId,
+      date: dateStr,
+      shift: payload.shift || '',
+      username: payload.username || '',
+      fullname: payload.fullname || payload.username || '',
+      cashAmount: formattedClosing,
+      openingCash: openingCash,
+      posCashRevenue: posCashRevenue,
+      cashExpense: cashExpense,
+      expectedCash: expectedCash,
+      closingCash: closingCash,
+      discrepancy: discrepancy,
+      reconcileStatus: reconcileStatus,
+      message: "Đã ghi nhận bàn giao ca"
+    });
+  } finally {
+    try { lock.releaseLock(); } catch (ignore) {}
   }
-  
-  var newId = "HO_" + new Date().getTime().toString();
-  var now = new Date();
-  var dateStr = now.getDate().toString().padStart(2, '0') + '/' + (now.getMonth() + 1).toString().padStart(2, '0') + '/' + now.getFullYear();
-  
-  sheet.appendRow([
-    newId,
-    dateStr,
-    payload.shift || '',
-    payload.username || '',
-    payload.cashAmount || '',
-    payload.note || '',
-    now.toString()
-  ]);
-  
-  // Phase 3: Award King Coins for handover
-  recordKingCoins(payload.username || '', payload.fullname || payload.username || '', 'Bàn giao ca đầy đủ', 15, 'Handover');
-  
-  return jsonResponse(true, "Đã ghi nhận bàn giao ca");
 }
 
 function handleGetHandovers(payload) {
@@ -2377,20 +2479,46 @@ function handleGetHandovers(payload) {
       return jsonResponse(true, { handovers: [] });
     }
     var handovers = [];
-    var startIdx = Math.max(1, data.length - 20);
+    var limit = Number(payload && payload.limit) || 40;
+    var startIdx = Math.max(1, data.length - limit);
     for (var i = data.length - 1; i >= startIdx; i--) {
       var row = data[i];
       if (row[0]) {
+        var legacyCash = parseVndInt_(row[4]);
+        var hasExtended = row[14] !== '' && row[14] !== undefined;
+        var openingCash = hasExtended ? parseVndInt_(row[10]) : legacyCash;
+        var posCashRevenue = hasExtended ? parseVndInt_(row[11]) : 0;
+        var cashExpense = hasExtended ? parseVndInt_(row[12]) : 0;
+        var expectedCash = hasExtended ? parseVndInt_(row[13]) : legacyCash;
+        var closingCash = hasExtended ? parseVndInt_(row[14]) : legacyCash;
+        var discrepancy = hasExtended ? parseVndInt_(row[15]) : 0;
+        var audit = parseJsonSafe_(row[17]);
+        var reconcileStatus = String(row[16] || (discrepancy === 0 ? 'Matched' : 'Pending'));
+
         handovers.push({
           id: String(row[0]),
           date: String(row[1] || ''),
           shift: String(row[2] || ''),
           username: String(row[3] || ''),
-          cashAmount: String(row[4] || ''),
+          fullname: String(row[9] || row[3] || ''),
+          cashAmount: String(row[4] || formatVndDots_(closingCash)),
           note: String(row[5] || ''),
           timestamp: String(row[6] || ''),
           ackBy: String(row[7] || ''),
-          ackAt: String(row[8] || '')
+          ackAt: String(row[8] || ''),
+          openingCash: openingCash,
+          posCashRevenue: posCashRevenue,
+          cashExpense: cashExpense,
+          expectedCash: expectedCash,
+          closingCash: closingCash,
+          discrepancy: discrepancy,
+          reconcileStatus: reconcileStatus,
+          ackStatus: String(audit.ackStatus || (row[7] ? 'Accepted' : '')),
+          ackNote: String(audit.ackNote || ''),
+          countedCash: audit.countedCash !== undefined ? parseVndInt_(audit.countedCash) : undefined,
+          managerBy: String(audit.managerBy || ''),
+          managerAt: String(audit.managerAt || ''),
+          managerNote: String(audit.managerNote || '')
         });
       }
     }
@@ -2405,6 +2533,8 @@ function handleAcknowledgeHandover(payload) {
   try {
     var handoverId = String(payload.handoverId || '').trim();
     var ackBy = String(payload.ackBy || payload.username || '').trim();
+    var ackStatus = payload.ackStatus === 'Disputed' ? 'Disputed' : 'Accepted';
+    var ackNote = String(payload.ackNote || '').trim();
     if (!handoverId) {
       return jsonResponse(false, "Thiếu mã bàn giao ca");
     }
@@ -2418,7 +2548,27 @@ function handleAcknowledgeHandover(payload) {
     for (var i = data.length - 1; i >= 1; i--) {
       if (String(data[i][0]) === handoverId) {
         sheet.getRange(i + 1, 8, 1, 2).setValues([[ackBy, ackAt]]);
-        return jsonResponse(true, { handoverId: handoverId, ackBy: ackBy, ackAt: ackAt, message: "Đã xác nhận nhận bàn giao két tiền" });
+        var audit = parseJsonSafe_(data[i][17]);
+        audit.ackStatus = ackStatus;
+        audit.ackNote = ackNote;
+        if (payload.countedCash !== undefined) {
+          audit.countedCash = Math.max(0, parseVndInt_(payload.countedCash));
+        }
+        var currentStatus = String(data[i][16] || 'Matched');
+        var nextStatus = ackStatus === 'Disputed'
+          ? 'Disputed'
+          : (currentStatus === 'ManagerConfirmed' ? 'ManagerConfirmed' : currentStatus);
+        sheet.getRange(i + 1, 17, 1, 2).setValues([[nextStatus, JSON.stringify(audit)]]);
+        return jsonResponse(true, {
+          handoverId: handoverId,
+          ackBy: ackBy,
+          ackAt: ackAt,
+          ackStatus: ackStatus,
+          reconcileStatus: nextStatus,
+          message: ackStatus === 'Disputed'
+            ? "Đã ghi nhận cảnh báo lệch két khi nhận bàn giao"
+            : "Đã xác nhận nhận bàn giao két tiền"
+        });
       }
     }
     return jsonResponse(false, "Không tìm thấy bản ghi bàn giao ca");
@@ -2427,29 +2577,225 @@ function handleAcknowledgeHandover(payload) {
   }
 }
 
+function handleReviewHandover(payload) {
+  var adminErr = requireAdminActor(payload);
+  if (adminErr) return jsonResponse(false, adminErr);
+
+  try {
+    var handoverId = String(payload.handoverId || '').trim();
+    if (!handoverId) return jsonResponse(false, "Thiếu mã bàn giao ca");
+    var decision = String(payload.decision || payload.subAction || 'CONFIRM').toUpperCase();
+    var nextStatus = decision === 'DISPUTE' ? 'Disputed' : 'ManagerConfirmed';
+    var managerBy = String(payload.actorUsername || payload.adminUsername || payload.username || 'Admin');
+    var managerNote = String(payload.managerNote || '').trim();
+    var managerAt = Utilities.formatDate(new Date(), CONFIG.TIMEZONE || "Asia/Ho_Chi_Minh", "dd/MM/yyyy HH:mm");
+
+    var ss = getSS();
+    var sheet = ss.getSheetByName("Handovers");
+    if (!sheet) return jsonResponse(false, "Chưa có sổ bàn giao ca");
+    var data = sheet.getDataRange().getValues();
+    for (var i = data.length - 1; i >= 1; i--) {
+      if (String(data[i][0]) === handoverId) {
+        var audit = parseJsonSafe_(data[i][17]);
+        audit.managerBy = managerBy;
+        audit.managerAt = managerAt;
+        audit.managerNote = managerNote;
+        sheet.getRange(i + 1, 17, 1, 2).setValues([[nextStatus, JSON.stringify(audit)]]);
+        appendAuditLog_(
+          managerBy,
+          'REVIEW_HANDOVER',
+          handoverId,
+          'Đối soát két ca #' + handoverId + ' -> ' + nextStatus,
+          { handoverId: handoverId, status: nextStatus, note: managerNote }
+        );
+        return jsonResponse(true, {
+          handoverId: handoverId,
+          reconcileStatus: nextStatus,
+          managerBy: managerBy,
+          managerAt: managerAt,
+          managerNote: managerNote,
+          message: "Đã cập nhật trạng thái đối soát két"
+        });
+      }
+    }
+    return jsonResponse(false, "Không tìm thấy bản ghi bàn giao ca");
+  } catch (e) {
+    return jsonResponse(false, "Lỗi duyệt đối soát két: " + e.toString());
+  }
+}
+
+function normalizeIncidentStatusGas_(raw) {
+  var s = String(raw || '').trim();
+  if (s === 'Investigating' || s === 'Resolved' || s === 'CostRecorded') return s;
+  return 'Open';
+}
+
 function handleSubmitIncident(payload) {
+  if (payload.username && !canEmployeeWork(payload.username)) {
+    return jsonResponse(false, 'Trạng thái nhân sự hiện tại không được gửi báo cáo sự cố');
+  }
   var ss = getSS();
   var sheet = ss.getSheetByName("Incidents");
   if (!sheet) {
     sheet = ss.insertSheet("Incidents");
-    sheet.appendRow(["IncidentID", "Date", "Username", "Category", "Description", "Status", "Timestamp"]);
+    sheet.appendRow([
+      "IncidentID", "Date", "Username", "Category", "Description", "Status", "Timestamp",
+      "Fullname", "Shift", "Area", "Severity", "PhotoUrl", "AssignedTo", "ResolutionNote", "RepairCost", "UpdatedAt"
+    ]);
   }
-  
-  var newId = "INC_" + new Date().getTime().toString();
+
+  var newId = "INC_" + new Date().getTime().toString() + "_" + Math.floor(Math.random() * 1000);
   var now = new Date();
-  var dateStr = now.getDate().toString().padStart(2, '0') + '/' + (now.getMonth() + 1).toString().padStart(2, '0') + '/' + now.getFullYear();
-  
+  var dateStr = Utilities.formatDate(now, CONFIG.TIMEZONE || "Asia/Ho_Chi_Minh", "dd/MM/yyyy");
+  var updatedAt = Utilities.formatDate(now, CONFIG.TIMEZONE || "Asia/Ho_Chi_Minh", "dd/MM/yyyy HH:mm");
+
   sheet.appendRow([
     newId,
     dateStr,
     payload.username || '',
     payload.category || '',
     payload.description || '',
-    "Pending",
-    now.toString()
+    "Open",
+    now.toString(),
+    payload.fullname || payload.username || '',
+    payload.shift || '',
+    payload.area || 'Toàn quán',
+    payload.severity || 'normal',
+    payload.photoUrl || '',
+    '',
+    '',
+    0,
+    updatedAt
   ]);
-  
-  return jsonResponse(true, "Đã gửi báo cáo sự cố");
+
+  return jsonResponse(true, {
+    id: newId,
+    date: dateStr,
+    status: "Open",
+    area: payload.area || 'Toàn quán',
+    severity: payload.severity || 'normal',
+    message: "Đã gửi báo cáo sự cố"
+  });
+}
+
+function handleGetIncidents(payload) {
+  try {
+    var ss = getSS();
+    var sheet = ss.getSheetByName("Incidents");
+    if (!sheet) {
+      return jsonResponse(true, {
+        incidents: [],
+        summary: { openCount: 0, investigatingCount: 0, resolvedCount: 0, costRecordedCount: 0, totalRepairCost: 0 }
+      });
+    }
+    var data = sheet.getDataRange().getValues();
+    if (!data || data.length <= 1) {
+      return jsonResponse(true, {
+        incidents: [],
+        summary: { openCount: 0, investigatingCount: 0, resolvedCount: 0, costRecordedCount: 0, totalRepairCost: 0 }
+      });
+    }
+
+    var incidents = [];
+    var summary = {
+      openCount: 0,
+      investigatingCount: 0,
+      resolvedCount: 0,
+      costRecordedCount: 0,
+      totalRepairCost: 0
+    };
+
+    var limit = Number(payload && payload.limit) || 60;
+    var startIdx = Math.max(1, data.length - limit);
+    for (var i = data.length - 1; i >= startIdx; i--) {
+      var row = data[i];
+      if (!row[0]) continue;
+      var st = normalizeIncidentStatusGas_(row[5]);
+      var cost = Math.max(0, parseVndInt_(row[14]));
+      if (st === 'Open') summary.openCount++;
+      else if (st === 'Investigating') summary.investigatingCount++;
+      else if (st === 'Resolved') summary.resolvedCount++;
+      else if (st === 'CostRecorded') summary.costRecordedCount++;
+      summary.totalRepairCost += cost;
+
+      incidents.push({
+        id: String(row[0]),
+        date: String(row[1] || ''),
+        username: String(row[2] || ''),
+        category: String(row[3] || ''),
+        description: String(row[4] || ''),
+        status: st,
+        timestamp: String(row[6] || ''),
+        fullname: String(row[7] || row[2] || ''),
+        shift: String(row[8] || ''),
+        area: String(row[9] || 'Toàn quán'),
+        severity: String(row[10] || 'normal'),
+        photoUrl: String(row[11] || ''),
+        assignedTo: String(row[12] || ''),
+        resolutionNote: String(row[13] || ''),
+        repairCost: cost,
+        updatedAt: String(row[15] || '')
+      });
+    }
+
+    summary.totalRepairCost = Math.round(summary.totalRepairCost);
+    return jsonResponse(true, { incidents: incidents, summary: summary });
+  } catch (e) {
+    return jsonResponse(false, "Lỗi nạp danh sách sự cố: " + e.toString());
+  }
+}
+
+function handleUpdateIncident(payload) {
+  var adminErr = requireAdminActor(payload);
+  if (adminErr) return jsonResponse(false, adminErr);
+
+  try {
+    var incidentId = String(payload.incidentId || '').trim();
+    if (!incidentId) return jsonResponse(false, "Thiếu mã sự cố");
+
+    var ss = getSS();
+    var sheet = ss.getSheetByName("Incidents");
+    if (!sheet) return jsonResponse(false, "Chưa có danh sách sự cố");
+
+    var data = sheet.getDataRange().getValues();
+    var updatedAt = Utilities.formatDate(new Date(), CONFIG.TIMEZONE || "Asia/Ho_Chi_Minh", "dd/MM/yyyy HH:mm");
+
+    for (var i = data.length - 1; i >= 1; i--) {
+      if (String(data[i][0]) === incidentId) {
+        var nextStatus = payload.status
+          ? normalizeIncidentStatusGas_(payload.status)
+          : normalizeIncidentStatusGas_(data[i][5]);
+        var nextAssigned = payload.assignedTo !== undefined ? String(payload.assignedTo).trim() : String(data[i][12] || '');
+        var nextNote = payload.resolutionNote !== undefined ? String(payload.resolutionNote).trim() : String(data[i][13] || '');
+        var nextCost = payload.repairCost !== undefined
+          ? Math.max(0, Math.round(Number(payload.repairCost) || parseVndInt_(payload.repairCost)))
+          : Math.max(0, parseVndInt_(data[i][14]));
+
+        sheet.getRange(i + 1, 6).setValue(nextStatus);
+        sheet.getRange(i + 1, 13, 1, 4).setValues([[nextAssigned, nextNote, nextCost, updatedAt]]);
+        appendAuditLog_(
+          payload.actorUsername || payload.adminUsername || payload.username || 'admin',
+          'UPDATE_INCIDENT',
+          incidentId,
+          'Cập nhật sự cố #' + incidentId + ' -> ' + nextStatus,
+          { incidentId: incidentId, status: nextStatus, assignedTo: nextAssigned, repairCost: nextCost }
+        );
+
+        return jsonResponse(true, {
+          incidentId: incidentId,
+          status: nextStatus,
+          assignedTo: nextAssigned,
+          resolutionNote: nextNote,
+          repairCost: nextCost,
+          updatedAt: updatedAt,
+          message: "Đã cập nhật tiến độ xử lý sự cố"
+        });
+      }
+    }
+    return jsonResponse(false, "Không tìm thấy mã sự cố");
+  } catch (e) {
+    return jsonResponse(false, "Lỗi cập nhật sự cố: " + e.toString());
+  }
 }
 
 // ==========================================
@@ -2505,16 +2851,17 @@ function handleSubmitFeedback(payload) {
   var now = new Date();
   var dateStr = now.getDate().toString().padStart(2, '0') + '/' + (now.getMonth() + 1).toString().padStart(2, '0') + '/' + now.getFullYear() + ' ' + now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
   
+  var isAnon = Boolean(payload.isAnonymous);
   sheet.appendRow([
     newId,
     dateStr,
-    payload.username || '',
+    isAnon ? 'Anonymous' : (payload.username || ''),
     payload.category || '',
     payload.content || '',
-    payload.isAnonymous ? true : false,
+    isAnon,
     "Pending",
     "",
-    payload.fullname || '' // Store fullname at col 8
+    isAnon ? 'Ẩn danh' : (payload.fullname || '') // Never persist real identity when anonymous
   ]);
   // Phase 5: Notify admins about new feedback
   var senderName = payload.isAnonymous ? 'Ẩn danh' : (payload.fullname || payload.username || 'NV');
@@ -2524,6 +2871,8 @@ function handleSubmitFeedback(payload) {
 }
 
 function handleReplyFeedback(payload) {
+  var adminErr = requireAdminActor(payload);
+  if (adminErr) return jsonResponse(false, adminErr);
   var ss = getSS();
   var sheet = ss.getSheetByName("Feedbacks");
   if (!sheet) return jsonResponse(false, "Chưa có CSDL Feedbacks");
@@ -2594,13 +2943,82 @@ function handleGetSwapRequests(payload) {
   return jsonResponse(true, items);
 }
 
+function _isShiftActiveForSwap_(rawVal) {
+  if (!rawVal) return false;
+  var str = safeShiftValue(rawVal).toString().split('\n')[0].trim().toUpperCase();
+  if (!str || str === 'OFF' || str.indexOf('OFF') === 0 || str === 'NGHỈ' || str === 'NGHI' || str === '-') {
+    return false;
+  }
+  return true;
+}
+
+function _findMemberDayShiftInSheet_(monthSheetName, targetDateStr, targetUsername, targetFullname) {
+  if (!monthSheetName || !targetDateStr) return '';
+  var ss = getSS();
+  var mSheet = ss.getSheetByName(monthSheetName);
+  if (!mSheet) return '';
+  var mData = mSheet.getDataRange().getValues();
+  var normFull = normalizeSchedulePersonName(targetFullname || '');
+  var normUser = (targetUsername || '').toString().trim().toLowerCase();
+
+  for (var r = 0; r < mData.length; r++) {
+    if (mData[r][0] && mData[r][0].toString().indexOf("TUẦN ") >= 0 && mData[r + 1]) {
+      var dateRow = mData[r + 1];
+      var colIdx = -1;
+      for (var c = 1; c <= 7; c++) {
+        if (dateRow[c] && dateRow[c].toString().indexOf(targetDateStr) >= 0) {
+          colIdx = c;
+          break;
+        }
+      }
+      if (colIdx !== -1) {
+        var approvedCell = '';
+        var registeredCell = '';
+        for (var k = r + 2; k < mData.length; k++) {
+          var rawName = mData[k][0] ? mData[k][0].toString().trim() : '';
+          if (rawName.indexOf("TUẦN ") >= 0) break;
+          if (!rawName) continue;
+          var isApprovedRow = rawName.indexOf('┗') === 0;
+          var cleanName = normalizeSchedulePersonName(rawName);
+          if ((normFull && cleanName === normFull) || (normUser && cleanName === normUser)) {
+            var val = safeShiftValue(mData[k][colIdx]).toString().split('\n')[0].trim();
+            if (isApprovedRow) approvedCell = val;
+            else if (!registeredCell) registeredCell = val;
+          }
+        }
+        return approvedCell || registeredCell || 'OFF';
+      }
+    }
+  }
+  return '';
+}
+
 function handleSubmitSwap(payload) {
+  if (payload.username && !canEmployeeWork(payload.username)) {
+    return jsonResponse(false, "Trạng thái nhân sự hiện tại không thể tạo yêu cầu đổi ca");
+  }
   var sheet = _getSwapSheet();
   var newId = "SWAP_" + new Date().getTime().toString();
   var isLeave = payload.targetUsername === 'ADMIN';
   var isDirect = payload.targetUsername && payload.targetUsername !== 'ALL' && !isLeave;
-  var status = isLeave ? 'Pending_Admin' : 'Pending_User'; // If direct, target user still needs to accept.
-  
+  var status = isLeave ? 'Pending_Admin' : 'Pending_User';
+
+  if (isDirect && payload.monthSheet && payload.date) {
+    var directExisting = _findMemberDayShiftInSheet_(
+      payload.monthSheet,
+      payload.date.toString().trim(),
+      payload.targetUsername,
+      payload.targetFullname
+    );
+    if (_isShiftActiveForSwap_(directExisting)) {
+      return jsonResponse(
+        false,
+        (payload.targetFullname || payload.targetUsername) +
+          " đã có ca " + directExisting + " vào ngày " + payload.date + " (trùng ca), không thể gửi nhờ trực tiếp."
+      );
+    }
+  }
+
   sheet.appendRow([
     newId,
     new Date().getTime(),
@@ -2613,28 +3031,62 @@ function handleSubmitSwap(payload) {
     isDirect ? payload.targetUsername : '',
     isDirect ? payload.targetFullname : '',
     status,
-    payload.monthSheet || '' // e.g. "Tháng 04/2026"
+    payload.monthSheet || ''
   ]);
-  
+
+  try {
+    if (isLeave) {
+      createNotification('ALL', '📋 Đơn xin nghỉ ca mới', (payload.fullname || payload.username) + ' xin nghỉ ' + payload.dayName + ' (' + payload.date + ' - Ca ' + payload.shift + ')', 'action', 'swap-shift');
+    } else if (isDirect) {
+      createNotification(payload.targetUsername, '🔄 Nhờ nhận ca trực tiếp', (payload.fullname || payload.username) + ' nhờ bạn nhận ca ' + payload.shift + ' ngày ' + payload.date, 'action', 'swap-shift');
+    } else {
+      createNotification('ALL', '🔄 Chợ đổi ca có ca mới', (payload.fullname || payload.username) + ' đăng nhường ca ' + payload.shift + ' (' + payload.dayName + ' ' + payload.date + ')', 'info', 'swap-shift');
+    }
+  } catch (eNotif) {}
+
   return jsonResponse(true, "Đã gửi yêu cầu đổi ca");
 }
 
 function handleAcceptSwap(payload) {
+  if (payload.targetUsername && !canEmployeeWork(payload.targetUsername)) {
+    return jsonResponse(false, "Trạng thái nhân sự hiện tại không thể nhận ca làm thay.");
+  }
   var sheet = _getSwapSheet();
   var data = sheet.getDataRange().getValues();
-  
+
   for (var i = 1; i < data.length; i++) {
     if (data[i][0].toString() === payload.swapId) {
-      // Check if it's still Pending_User
       if (data[i][10] !== 'Pending_User') {
         return jsonResponse(false, "Yêu cầu này đã được người khác nhận hoặc đã xử lý.");
       }
-      
-      // Update TargetUsername, TargetFullname, and Status
+
+      var targetDateStr = data[i][5] ? data[i][5].toString().trim() : '';
+      var monthSheetName = data[i][11] ? data[i][11].toString().trim() : '';
+      if (monthSheetName && targetDateStr) {
+        var existingShift = _findMemberDayShiftInSheet_(
+          monthSheetName,
+          targetDateStr,
+          payload.targetUsername,
+          payload.targetFullname
+        );
+        if (_isShiftActiveForSwap_(existingShift)) {
+          return jsonResponse(
+            false,
+            "Bạn đã có ca " + existingShift + " vào ngày " + targetDateStr + " (trùng ca), không thể nhận làm thay."
+          );
+        }
+      }
+
       sheet.getRange(i + 1, 9).setValue(payload.targetUsername);
       sheet.getRange(i + 1, 10).setValue(payload.targetFullname);
-      sheet.getRange(i + 1, 11).setValue("Pending_Admin"); // Now waiting for Admin
-      
+      sheet.getRange(i + 1, 11).setValue("Pending_Admin");
+
+      try {
+        if (data[i][2]) {
+          createNotification(data[i][2].toString(), '🤝 Đã có đồng nghiệp nhận ca', (payload.targetFullname || payload.targetUsername) + ' đã nhận ca ' + data[i][6] + ' ngày ' + targetDateStr + '. Đang chờ Quản lý duyệt.', 'info', 'swap-shift');
+        }
+      } catch (eNotif) {}
+
       return jsonResponse(true, "Đã nhận làm thay. Chờ Admin duyệt.");
     }
   }
@@ -2658,41 +3110,41 @@ function handleDeleteSwap(payload) {
 }
 
 function handleApproveSwap(payload) {
+  var adminErr = requireAdminActor(payload);
+  if (adminErr) return jsonResponse(false, adminErr);
+
+  var decision = payload.decision || payload.subAction || (payload.action !== 'APPROVE_SWAP' ? payload.action : '');
+  var isApprove = decision === 'APPROVE';
   var sheet = _getSwapSheet();
   var data = sheet.getDataRange().getValues();
   
   for (var i = 1; i < data.length; i++) {
     if (data[i][0].toString() === payload.swapId) {
-      var status = payload.action === 'APPROVE' ? 'Approved' : 'Rejected';
+      var status = isApprove ? 'Approved' : 'Rejected';
       sheet.getRange(i + 1, 11).setValue(status);
       
-      if (payload.action === 'APPROVE') {
-        // Also update the actual schedule in monthSheet
+      if (isApprove) {
         var rowData = data[i];
         var monthSheetName = rowData[11];
-        var requester = rowData[2]; // User who wants to be OFF
-        var accepter = rowData[8];  // User who takes the shift
-        var dayName = rowData[4];   // e.g. "Thứ Hai"
-        var shift = rowData[6];     // e.g. "15:00"
+        var requesterUser = rowData[2] ? rowData[2].toString().trim().toLowerCase() : '';
+        var requesterName = rowData[3] ? rowData[3].toString().trim().toLowerCase() : '';
+        var accepterUser = rowData[8] ? rowData[8].toString().trim().toLowerCase() : '';
+        var accepterName = rowData[9] ? rowData[9].toString().trim().toLowerCase() : '';
+        var shift = rowData[6];
+        var targetDateStr = rowData[5] ? rowData[5].toString().trim() : '';
         
-        if (monthSheetName) {
+        if (monthSheetName && targetDateStr) {
           var ss = getSS();
           var mSheet = ss.getSheetByName(monthSheetName);
           if (mSheet) {
             var mData = mSheet.getDataRange().getValues();
-            // Find columns for the day. This is tricky because we need the week.
-            // A simpler way: we know the exact date from rowData[5] e.g. "20/04". 
-            // In month sheet, row 2 usually has the dates (like "15/04", "16/04").
-            // Wait, let's find the correct day index by matching the Date string.
-            // Let's implement a robust date finder.
             var headerRowIndex = -1;
             var colIndex = -1;
-            for(var r = 0; r < mData.length; r++) {
-              if (mData[r][0] && mData[r][0].toString().indexOf("TUẦN ") >= 0) {
-                // Next row is the dates
-                var dateRow = mData[r+1];
+            for (var r = 0; r < mData.length; r++) {
+              if (mData[r][0] && mData[r][0].toString().indexOf("TUẦN ") >= 0 && mData[r + 1]) {
+                var dateRow = mData[r + 1];
                 for (var c = 1; c <= 7; c++) {
-                  if (dateRow[c] && dateRow[c].toString().indexOf(rowData[5]) >= 0) {
+                  if (dateRow[c] && dateRow[c].toString().indexOf(targetDateStr) >= 0) {
                     headerRowIndex = r;
                     colIndex = c;
                     break;
@@ -2703,22 +3155,40 @@ function handleApproveSwap(payload) {
             }
             
             if (colIndex !== -1 && headerRowIndex !== -1) {
-              // Find the users in this week block
               for (var k = headerRowIndex + 2; k < mData.length; k++) {
-                if (mData[k][0] && mData[k][0].toString().indexOf("TUẦN ") >= 0) break; // Reached next week
-                var uName = mData[k][10]; // col K is username
-                if (uName === requester) {
+                var rawCellName = mData[k][0] ? mData[k][0].toString().trim() : '';
+                if (rawCellName.indexOf("TUẦN ") >= 0) break;
+                if (!rawCellName) continue;
+                var cleanCellName = rawCellName.replace(/^┗\s*/, '').trim().toLowerCase();
+                if ((requesterName && cleanCellName === requesterName) || (requesterUser && cleanCellName === requesterUser)) {
                   mSheet.getRange(k + 1, colIndex + 1).setValue("OFF");
                 }
-                if (uName === accepter && accepter !== 'ADMIN') {
+                if (accepterUser !== 'admin' && ((accepterName && cleanCellName === accepterName) || (accepterUser && cleanCellName === accepterUser))) {
                   mSheet.getRange(k + 1, colIndex + 1).setValue(shift);
                 }
               }
+              try { invalidateGetDataCache(); } catch (e) {}
             }
           }
         }
       }
       
+      appendAuditLog_(
+        payload.actorUsername || payload.adminUsername || payload.username || 'admin',
+        'APPROVE_SWAP',
+        payload.swapId,
+        (status === 'Approved' ? 'Duyệt' : 'Từ chối') + ' yêu cầu đổi ca #' + payload.swapId + ' (' + (data[i][3] || data[i][2]) + ' -> ' + (data[i][9] || data[i][8] || 'Nghỉ phép') + ')',
+        { swapId: payload.swapId, status: status, date: data[i][5], shift: data[i][6] }
+      );
+      try {
+        var decisionLabel = status === 'Approved' ? 'ĐÃ DUYỆT' : 'TỪ CHỐI';
+        if (data[i][2]) {
+          createNotification(data[i][2].toString(), '📣 Kết quả đổi ca (' + decisionLabel + ')', 'Yêu cầu ca ' + data[i][6] + ' ngày ' + data[i][5] + ' đã được Quản lý ' + (status === 'Approved' ? 'phê duyệt.' : 'từ chối.'), 'info', 'schedule');
+        }
+        if (data[i][8] && data[i][8].toString() !== 'ADMIN') {
+          createNotification(data[i][8].toString(), '📣 Cập nhật ca nhận thay (' + decisionLabel + ')', 'Ca ' + data[i][6] + ' ngày ' + data[i][5] + ' bạn nhận thay đã được Quản lý ' + (status === 'Approved' ? 'cập nhật vào lịch chính thức.' : 'từ chối.'), 'info', 'schedule');
+        }
+      } catch (eNotif) {}
       return jsonResponse(true, "Đã " + (status === 'Approved' ? "duyệt" : "từ chối") + " yêu cầu đổi ca");
     }
   }
@@ -2744,7 +3214,7 @@ function handleGetAdvances(payload) {
   var data = sheet.getDataRange().getValues();
   if (data.length <= 1) return jsonResponse(true, []);
 
-  var isAdmin = payload.role === 'admin' || payload.role === 'tester';
+  var isAdmin = payload.role === 'admin';
   var username = payload.username || '';
   
   var items = [];
@@ -2787,13 +3257,24 @@ function handleSubmitAdvance(payload) {
 }
 
 function handleApproveAdvance(payload) {
+  var adminErr = requireAdminActor(payload);
+  if (adminErr) return jsonResponse(false, adminErr);
+
+  var decision = payload.decision || payload.subAction || (payload.action !== 'APPROVE_ADVANCE' ? payload.action : '');
   var sheet = _getAdvancesSheet();
   var data = sheet.getDataRange().getValues();
   
   for (var i = 1; i < data.length; i++) {
     if (data[i][0].toString() === payload.advanceId) {
-      var status = payload.action === 'APPROVE' ? 'Approved' : 'Rejected';
+      var status = decision === 'APPROVE' ? 'Approved' : 'Rejected';
       sheet.getRange(i + 1, 7).setValue(status);
+      appendAuditLog_(
+        payload.actorUsername || payload.adminUsername || payload.username || 'admin',
+        'APPROVE_ADVANCE',
+        payload.advanceId,
+        (status === 'Approved' ? 'Duyệt' : 'Từ chối') + ' tạm ứng #' + payload.advanceId + ' (' + (data[i][3] || data[i][2]) + ')',
+        { advanceId: payload.advanceId, status: status, amount: Number(data[i][4]) || 0 }
+      );
       return jsonResponse(true, "Đã " + (status === 'Approved' ? "duyệt" : "từ chối") + " yêu cầu ứng lương");
     }
   }
@@ -2815,7 +3296,7 @@ function handleGetBonusPenalty(payload) {
   var data = sheet.getDataRange().getValues();
   if (data.length <= 1) return jsonResponse(true, []);
 
-  var isAdmin = payload.role === 'admin' || payload.role === 'tester';
+  var isAdmin = payload.role === 'admin';
   var username = payload.username || '';
   
   var items = [];
@@ -2837,6 +3318,8 @@ function handleGetBonusPenalty(payload) {
 }
 
 function handleAddBonusPenalty(payload) {
+  var adminErr = requireAdminActor(payload);
+  if (adminErr) return jsonResponse(false, adminErr);
   var sheet = _getBonusPenaltySheet();
   var newId = "BP_" + new Date().getTime().toString();
   
@@ -2853,17 +3336,37 @@ function handleAddBonusPenalty(payload) {
   // Phase 3: Award/deduct King Coins for manual bonus/penalty
   var coinPoints = payload.type === 'BONUS' ? 20 : -15;
   recordKingCoins(payload.targetUsername, payload.targetFullname, (payload.type === 'BONUS' ? 'Thưởng: ' : 'Phạt: ') + payload.reason, coinPoints, 'Discipline');
-  
+
+  appendAuditLog_(
+    payload.actorUsername || payload.adminUsername || payload.username || 'admin',
+    'ADD_BONUS_PENALTY',
+    payload.targetUsername,
+    (payload.type === 'BONUS' ? 'Thưởng ' : 'Phạt ') + formatVndDots_(payload.amount) + 'đ cho @' + payload.targetUsername,
+    { id: newId, type: payload.type, amount: Math.round(Number(payload.amount) || 0), reason: payload.reason || '' }
+  );
+
   return jsonResponse(true, "Đã ghi nhận " + (payload.type === 'BONUS' ? 'thưởng' : 'phạt') + " thành công");
 }
 
 function handleDeleteBonusPenalty(payload) {
+  var adminErr = requireAdminActor(payload);
+  if (adminErr) return jsonResponse(false, adminErr);
   var sheet = _getBonusPenaltySheet();
   var data = sheet.getDataRange().getValues();
   
   for (var i = 1; i < data.length; i++) {
     if (data[i][0].toString() === payload.recordId) {
+      var targetU = data[i][2] ? data[i][2].toString() : '';
+      var recType = data[i][4] ? data[i][4].toString() : '';
+      var recAmt = Number(data[i][5]) || 0;
       sheet.deleteRow(i + 1);
+      appendAuditLog_(
+        payload.actorUsername || payload.adminUsername || payload.username || 'admin',
+        'DELETE_BONUS_PENALTY',
+        targetU || payload.recordId,
+        'Xóa bản ghi ' + recType + ' #' + payload.recordId + ' (' + formatVndDots_(recAmt) + 'đ)',
+        { recordId: payload.recordId, targetUsername: targetU, type: recType, amount: recAmt }
+      );
       return jsonResponse(true, "Đã xóa bản ghi");
     }
   }
@@ -2904,9 +3407,8 @@ function handleGetSalaryConfig(payload) {
 }
 
 function handleUpdateSalaryConfig(payload) {
-  if (payload.role !== 'admin' && payload.role !== 'tester') {
-    return jsonResponse(false, 'Không có quyền');
-  }
+  var adminErr = requireAdminActor(payload);
+  if (adminErr) return jsonResponse(false, adminErr);
   var items = payload.items;
   if (!items || !Array.isArray(items)) {
     return jsonResponse(false, 'Dữ liệu không hợp lệ');
@@ -3068,20 +3570,47 @@ function handleGetMonthlySalaryConfig(payload) {
 }
 
 function handleUpdateMonthlySalaryConfig(payload) {
-  if (payload.role !== 'admin') return jsonResponse(false, 'Chỉ quản trị viên được cấu hình mức lương');
+  var adminErr = requireAdminActor(payload);
+  if (adminErr) return jsonResponse(false, adminErr);
   if (!Array.isArray(payload.items)) return jsonResponse(false, 'Danh sách mức lương không hợp lệ');
-  var config = _writeMonthlySalaryConfig(payload.month, payload.items, payload.username || 'admin');
+  var targetMonthKey = _salaryMonthKey(payload.month);
+  var wfCheck = _readPayrollWorkflow_(targetMonthKey).workflow;
+  if (wfCheck.status === 'Locked') {
+    return jsonResponse(false, 'Bảng lương tháng ' + targetMonthKey + ' đã khóa sổ. Vui lòng mở khóa trước khi chỉnh sửa.');
+  }
+  var actor = payload.actorUsername || payload.adminUsername || payload.username || 'admin';
+  var config = _writeMonthlySalaryConfig(targetMonthKey, payload.items, actor);
+  appendAuditLog_(
+    actor,
+    'UPDATE_MONTHLY_SALARY_CONFIG',
+    targetMonthKey,
+    'Cập nhật định mức lương tháng ' + targetMonthKey + ' (' + config.items.length + ' nhân sự)',
+    { month: targetMonthKey, count: config.items.length }
+  );
   return jsonResponse(true, { config: config, message: 'Đã lưu bảng lương tháng ' + config.month });
 }
 
 function handleCopyMonthlySalaryConfig(payload) {
-  if (payload.role !== 'admin') return jsonResponse(false, 'Chỉ quản trị viên được sao chép bảng lương');
+  var adminErr = requireAdminActor(payload);
+  if (adminErr) return jsonResponse(false, adminErr);
   var sourceMonth = _salaryMonthKey(payload.sourceMonth);
   var targetMonth = _salaryMonthKey(payload.targetMonth);
   if (sourceMonth === targetMonth) return jsonResponse(false, 'Tháng nguồn và tháng đích phải khác nhau');
+  var wfTarget = _readPayrollWorkflow_(targetMonth).workflow;
+  if (wfTarget.status === 'Locked') {
+    return jsonResponse(false, 'Bảng lương tháng ' + targetMonth + ' đã khóa sổ. Vui lòng mở khóa trước khi sao chép đè.');
+  }
   var source = _readMonthlySalaryConfig(sourceMonth).config;
   if (!source.items.length) return jsonResponse(false, 'Tháng nguồn chưa có dữ liệu lương');
-  var config = _writeMonthlySalaryConfig(targetMonth, source.items, payload.username || 'admin');
+  var actor = payload.actorUsername || payload.adminUsername || payload.username || 'admin';
+  var config = _writeMonthlySalaryConfig(targetMonth, source.items, actor);
+  appendAuditLog_(
+    actor,
+    'COPY_MONTHLY_SALARY_CONFIG',
+    targetMonth,
+    'Sao chép định mức lương từ ' + sourceMonth + ' sang ' + targetMonth,
+    { sourceMonth: sourceMonth, targetMonth: targetMonth, count: config.items.length }
+  );
   return jsonResponse(true, { config: config, message: 'Đã sao chép bảng lương từ ' + sourceMonth });
 }
 
@@ -3155,7 +3684,8 @@ function handleSubmitSalaryAdjustment(payload) {
 }
 
 function handleReviewSalaryAdjustment(payload) {
-  if (payload.role !== 'admin') return jsonResponse(false, 'Chỉ quản trị viên được xử lý đề nghị');
+  var adminErr = requireAdminActor(payload);
+  if (adminErr) return jsonResponse(false, adminErr);
   var status = payload.status === 'Approved' ? 'Approved' : 'Rejected';
   var sheet = _getSalaryAdjustmentSheet();
   var values = sheet.getDataRange().getValues();
@@ -3170,6 +3700,9 @@ function handleReviewSalaryAdjustment(payload) {
 
       if (status === 'Approved') {
         var monthKey = _salaryMonthKey(values[i][2]);
+        if (_readPayrollWorkflow_(monthKey).workflow.status === 'Locked') {
+          return jsonResponse(false, 'Bảng lương tháng ' + monthKey + ' đã khóa sổ. Vui lòng mở khóa trước khi duyệt điều chỉnh.');
+        }
         var config = _readMonthlySalaryConfig(monthKey).config;
         var found = false;
         for (var j = 0; j < config.items.length; j++) {
@@ -3191,6 +3724,13 @@ function handleReviewSalaryAdjustment(payload) {
         }
         _writeMonthlySalaryConfig(monthKey, config.items, payload.username || 'admin');
       }
+      appendAuditLog_(
+        payload.actorUsername || payload.adminUsername || payload.username || 'admin',
+        'REVIEW_SALARY_ADJUSTMENT',
+        values[i][3] ? values[i][3].toString() : payload.requestId,
+        (status === 'Approved' ? 'Duyệt' : 'Từ chối') + ' đề nghị điều chỉnh lương #' + payload.requestId,
+        { requestId: payload.requestId, status: status, month: values[i][2] }
+      );
       return jsonResponse(true, status === 'Approved'
         ? 'Đã duyệt và cập nhật mức lương'
         : 'Đã từ chối đề nghị');
@@ -3199,11 +3739,71 @@ function handleReviewSalaryAdjustment(payload) {
   return jsonResponse(false, 'Không tìm thấy đề nghị');
 }
 
+function _parsePayrollTargetMonth(payload) {
+  var defaultYm = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'yyyy-MM');
+  var defaultParts = defaultYm.split('-');
+  var yyyy = Number(defaultParts[0]);
+  var mmNum = Number(defaultParts[1]);
+
+  if (payload) {
+    var rawMonth = payload.month !== undefined && payload.month !== null ? String(payload.month).trim() : '';
+    var rawYear = payload.year !== undefined && payload.year !== null ? Number(payload.year) : 0;
+    if (/^\d{4}-(0?[1-9]|1[0-2])$/.test(rawMonth)) {
+      var p1 = rawMonth.split('-');
+      yyyy = Number(p1[0]);
+      mmNum = Number(p1[1]);
+    } else if (/^(0?[1-9]|1[0-2])\/\d{4}$/.test(rawMonth)) {
+      var p2 = rawMonth.split('/');
+      mmNum = Number(p2[0]);
+      yyyy = Number(p2[1]);
+    } else if (rawYear >= 2020 && Number(rawMonth) >= 1 && Number(rawMonth) <= 12) {
+      yyyy = rawYear;
+      mmNum = Number(rawMonth);
+    }
+  }
+  return { yyyy: yyyy, mmNum: mmNum, mm: String(mmNum).padStart(2, '0') };
+}
+
+function _recordMatchesPayrollMonth(rawTimeVal, targetYyyy, targetMmNum) {
+  if (rawTimeVal === undefined || rawTimeVal === null || rawTimeVal === '') return false;
+  var d = null;
+  if (rawTimeVal instanceof Date) {
+    d = rawTimeVal;
+  } else if (typeof rawTimeVal === 'number' || /^\d{10,13}$/.test(String(rawTimeVal).trim())) {
+    var ms = Number(rawTimeVal);
+    if (ms < 10000000000) ms *= 1000;
+    d = new Date(ms);
+  } else {
+    var str = String(rawTimeVal).trim();
+    d = parseDDMMYYYY(str) || new Date(str);
+  }
+  if (!d || isNaN(d.getTime())) return false;
+  var ym = Utilities.formatDate(d, CONFIG.TIMEZONE, 'yyyy-MM');
+  return ym === (String(targetYyyy) + '-' + String(targetMmNum).padStart(2, '0'));
+}
+
+function _summaryMatchesTargetMonth(summaryData, targetYyyy, targetMmNum) {
+  if (!summaryData || summaryData.length === 0) return false;
+  var maxScan = Math.min(summaryData.length, 6);
+  var re = /THÁNG\s*0?(\d{1,2})\s*\/\s*(\d{4})/i;
+  for (var r = 0; r < maxScan; r++) {
+    var row = summaryData[r];
+    if (!row) continue;
+    for (var c = 0; c < Math.min(row.length, 4); c++) {
+      var cellStr = row[c] ? String(row[c]) : '';
+      var m = cellStr.match(re);
+      if (m) {
+        return Number(m[1]) === targetMmNum && Number(m[2]) === targetYyyy;
+      }
+    }
+  }
+  return false;
+}
+
 function handleGetPayroll(payload) {
   var ss = getSS();
-  var isAdmin = payload.role === 'admin' || payload.role === 'tester';
+  var isAdmin = payload.role === 'admin';
   
-  // LẤY TÊN SHEET HIỆN CÓ
   var allSheets = ss.getSheets();
   var sheetNames = allSheets.map(function(s) { return s.getName(); });
   
@@ -3211,12 +3811,13 @@ function handleGetPayroll(payload) {
   if (sheetNames.indexOf("SalaryConfig") >= 0) rangesToFetch.push("SalaryConfig!A:C");
   if (sheetNames.indexOf(MONTHLY_SALARY_SHEET) >= 0) rangesToFetch.push(MONTHLY_SALARY_SHEET + "!A:D");
   if (sheetNames.indexOf("Advances") >= 0) rangesToFetch.push("Advances!A:G");
-  if (sheetNames.indexOf("BonusPenalty") >= 0) rangesToFetch.push("BonusPenalty!A:F");
+  if (sheetNames.indexOf("BonusPenalty") >= 0) rangesToFetch.push("BonusPenalty!A:G");
   if (sheetNames.indexOf(CONFIG.SHEET_USERS) >= 0) rangesToFetch.push(CONFIG.SHEET_USERS + "!A:L");
   
-  var now = new Date();
-  var mm = String(now.getMonth() + 1).padStart(2, '0');
-  var yyyy = now.getFullYear();
+  var targetPeriod = _parsePayrollTargetMonth(payload);
+  var mm = targetPeriod.mm;
+  var mmNum = targetPeriod.mmNum;
+  var yyyy = targetPeriod.yyyy;
   var targetSummaryName = '📊 TỔNG HỢP ' + mm + '/' + yyyy;
   var hasSummary = false;
   
@@ -3234,7 +3835,7 @@ function handleGetPayroll(payload) {
     }
   }
   
-  if (!hasSummary && sheetNames.indexOf(CONFIG.SHEET_LOGS) >= 0) {
+  if (sheetNames.indexOf(CONFIG.SHEET_LOGS) >= 0) {
     rangesToFetch.push("'" + CONFIG.SHEET_LOGS + "'!A:E");
   }
   
@@ -3289,7 +3890,7 @@ function handleGetPayroll(payload) {
     var summarySheet = ss.getSheetByName(targetSummaryName);
     if (summarySheet) summaryData = summarySheet.getDataRange().getValues();
   }
-  if (!hasSummary && logsData.length === 0) {
+  if (logsData.length === 0) {
     var logsSheet = ss.getSheetByName(CONFIG.SHEET_LOGS);
     if (logsSheet) logsData = logsSheet.getDataRange().getValues();
   }
@@ -3323,23 +3924,23 @@ function handleGetPayroll(payload) {
     break;
   }
   
-  // 2. Get Advances (Approved only)
+  // 2. Get Advances (Approved & strictly within target month/year)
   var advances = {};
   for (var i = 1; i < advanceData.length; i++) {
-    if (advanceData[i] && advanceData[i][6] === 'Approved') {
+    if (advanceData[i] && advanceData[i][6] === 'Approved' && _recordMatchesPayrollMonth(advanceData[i][1], yyyy, mmNum)) {
       var u = advanceData[i][2];
-      advances[u] = (advances[u] || 0) + Number(advanceData[i][4]);
+      advances[u] = (advances[u] || 0) + (Number(advanceData[i][4]) || 0);
     }
   }
   
-  // 3. Get Bonus & Penalties
+  // 3. Get Bonus & Penalties (strictly within target month/year)
   var bonuses = {};
   var penalties = {};
   for (var i = 1; i < bpData.length; i++) {
-    if (bpData[i] && bpData[i][2]) {
+    if (bpData[i] && bpData[i][2] && _recordMatchesPayrollMonth(bpData[i][1], yyyy, mmNum)) {
       var u = bpData[i][2];
       var type = bpData[i][4];
-      var amount = Number(bpData[i][5]);
+      var amount = Number(bpData[i][5]) || 0;
       if (type === 'BONUS') {
         bonuses[u] = (bonuses[u] || 0) + amount;
       } else if (type === 'PENALTY') {
@@ -3353,8 +3954,9 @@ function handleGetPayroll(payload) {
   var regularHoursMap = {};
   var overtimeHoursMap = {};
   var daysWorked = {};
+  var useValidatedSummary = hasSummary && summaryData.length > 0 && _summaryMatchesTargetMonth(summaryData, yyyy, mmNum);
   
-  if (hasSummary && summaryData.length > 0) {
+  if (useValidatedSummary) {
     for (var r = 0; r < summaryData.length; r++) {
       var row = summaryData[r];
       if (!row || row.length < 10) continue;
@@ -3390,11 +3992,20 @@ function handleGetPayroll(payload) {
       
       if (!time || isNaN(time)) continue;
       var logDate = new Date(time);
-      if (logDate.getFullYear() !== yyyy || logDate.getMonth() + 1 !== Number(mm)) continue;
+      var logYm = Utilities.formatDate(logDate, CONFIG.TIMEZONE, 'yyyy-MM');
+      var logYmd = Utilities.formatDate(logDate, CONFIG.TIMEZONE, 'yyyy-MM-dd');
+      var logHour = Number(Utilities.formatDate(logDate, CONFIG.TIMEZONE, 'H'));
+      var targetYmStr = yyyy + '-' + mm;
+      var nextMmNum = mmNum === 12 ? 1 : mmNum + 1;
+      var nextYyyy = mmNum === 12 ? yyyy + 1 : yyyy;
+      var nextMonthDay1Str = nextYyyy + '-' + String(nextMmNum).padStart(2, '0') + '-01';
+      var isNextMonthEarlyCheckout = (logYmd === nextMonthDay1Str && logHour >= 0 && logHour < 6 && (type.indexOf('RA') >= 0 || type === 'OUT'));
+      if (logYm !== targetYmStr && !isNextMonthEarlyCheckout) continue;
       if (!userLogs[fullname]) userLogs[fullname] = [];
-      userLogs[fullname].push({ type: type, time: time });
+      userLogs[fullname].push({ type: type, time: time, ym: logYm });
     }
     
+    var targetYmForLoop = yyyy + '-' + mm;
     for (var fullname in userLogs) {
       var logs = userLogs[fullname].sort(function(a, b) { return a.time - b.time; });
       var totalRegMs = 0;
@@ -3406,7 +4017,7 @@ function handleGetPayroll(payload) {
         var isCheckIn = logs[j].type.indexOf('VÀO') >= 0 || logs[j].type === 'IN';
         var isCheckOut = logs[j].type.indexOf('RA') >= 0 || logs[j].type === 'OUT';
 
-        if (isCheckIn) {
+        if (isCheckIn && logs[j].ym === targetYmForLoop) {
           lastIn = logs[j].time;
           workedDateKeys[Utilities.formatDate(new Date(logs[j].time), CONFIG.TIMEZONE, 'yyyy-MM-dd')] = true;
         } else if (isCheckOut && lastIn > 0) {
@@ -3427,9 +4038,8 @@ function handleGetPayroll(payload) {
                 // Nhỏ hơn hoặc bằng 00:15 -> là Ra ca ngày hôm trước, không tính tăng ca
                 totalRegMs += diff;
               } else {
-                // Lớn hơn 00:15 -> Ca chính chốt tại 00:00, thời gian sau 00:00 tính tăng ca
-                var midnightDate = new Date(outDate.getFullYear(), outDate.getMonth(), outDate.getDate(), 0, 0, 0, 0);
-                var midnight = midnightDate.getTime();
+                // Lớn hơn 00:15 -> Ca chính chốt tại 00:00 (GMT+7), thời gian sau 00:00 tính tăng ca
+                var midnight = new Date(outDay + 'T00:00:00+07:00').getTime();
                 var regMs = Math.max(0, midnight - lastIn);
                 var otMs = Math.max(0, logs[j].time - midnight);
                 totalRegMs += regMs;
@@ -3482,15 +4092,17 @@ function handleGetPayroll(payload) {
     var base = payType === 'hourly' ? salaryAmount : 0;
     var totalBase = 0;
     if (isConfigured) {
-      totalBase = payType === 'daily'
-        ? (salaryAmount / 30) * workedDays
-        : hours * salaryAmount;
+      totalBase = Math.round(
+        payType === 'daily'
+          ? (salaryAmount / 30) * workedDays
+          : hours * salaryAmount
+      );
     }
-    var adv = advances[uName] || 0;
-    var bon = bonuses[uName] || 0;
-    var pen = penalties[uName] || 0;
+    var adv = Math.round(advances[uName] || 0);
+    var bon = Math.round(bonuses[uName] || 0);
+    var pen = Math.round(penalties[uName] || 0);
     
-    var netPay = isConfigured ? (totalBase + bon - pen - adv) : (bon - pen - adv);
+    var netPay = Math.round(isConfigured ? (totalBase + bon - pen - adv) : (bon - pen - adv));
     
     payroll.push({
       username: uName,
@@ -3512,7 +4124,24 @@ function handleGetPayroll(payload) {
     });
   }
   
-  return jsonResponse(true, { payroll: payroll });
+  var fullWf = _readPayrollWorkflow_(salaryMonthKey).workflow;
+  var callerUser = payload && payload.username ? payload.username.toString().trim() : '';
+  var scopedConfirmations = {};
+  if (isAdmin) {
+    scopedConfirmations = fullWf.confirmations || {};
+  } else if (callerUser && fullWf.confirmations && fullWf.confirmations[callerUser]) {
+    scopedConfirmations[callerUser] = fullWf.confirmations[callerUser];
+  }
+  var workflowForCaller = {
+    month: fullWf.month,
+    status: fullWf.status,
+    updatedBy: fullWf.updatedBy || '',
+    updatedAt: fullWf.updatedAt || '',
+    note: fullWf.note || '',
+    confirmations: scopedConfirmations
+  };
+
+  return jsonResponse(true, { payroll: payroll, workflow: workflowForCaller });
 }
 
 // ----------------------------------------------------
@@ -4025,13 +4654,24 @@ function handleToggleOperationTask(payload) {
     }
     state.items = items;
     
+    var toggleDelta = {};
+    toggleDelta[checklistItemId] = {
+      checked: Boolean(payload.completed),
+      by: payload.fullname || payload.username,
+      at: isoTimestamp
+    };
     ChecklistService.saveChecklistState(
       dateStr,
       area,
       state.participants,
       state.items,
       state.supply,
-      state.signatures
+      state.signatures,
+      {
+        deltaItems: toggleDelta,
+        actorUsername: payload.username,
+        actorFullname: payload.fullname || payload.username
+      }
     );
     
     return jsonResponse(true, { completed: payload.completed, completedAt: timestamp });
@@ -4054,7 +4694,8 @@ function handleGetTimesheet(payload) {
   if (data.length <= 1) return jsonResponse(true, { timesheet: {}, dominantMonth: '', year: 0, month: 0, daysInMonth: 0 });
   
   try {
-    var processedData = processTimesheetDataWithDominantMonth(data);
+    var requestedMonth = payload && payload.month ? String(payload.month).trim() : '';
+    var processedData = processTimesheetDataWithDominantMonth(data, requestedMonth);
     var timesheetMap = processedData.timesheet; // Map(name -> Map(dateStr -> []))
     
     // Convert Map to plain Object for JSON
@@ -4150,11 +4791,18 @@ function handleGetLeaderboard() {
     userTotals[uname].totalPoints += pts;
   }
 
-  var leaderboard = Object.values(userTotals);
-  leaderboard.sort(function(a, b) { return b.totalPoints - a.totalPoints; });
+  var leaderboard = Object.values(userTotals).filter(function(item) {
+    return (Number(item.totalPoints) || 0) > 0;
+  });
+  leaderboard.sort(function(a, b) {
+    var diff = (Number(b.totalPoints) || 0) - (Number(a.totalPoints) || 0);
+    if (diff !== 0) return diff;
+    return String(a.fullname || a.username || "").localeCompare(String(b.fullname || b.username || ""), "vi");
+  });
 
-  // Add rank
+  // Add rank (healthy positive recognition only — zero negative public shaming)
   for (var r = 0; r < leaderboard.length; r++) {
+    leaderboard[r].totalPoints = Math.round(Number(leaderboard[r].totalPoints) || 0);
     leaderboard[r].rank = r + 1;
   }
 
@@ -4298,6 +4946,12 @@ function handleGetTrainingProgress(payload) {
 }
 
 function handleSubmitTrainingQuiz(payload) {
+  var rawScore = Number(payload.score);
+  var normalizedScore = isNaN(rawScore) ? 0 : Math.max(0, Math.min(100, Math.round(rawScore)));
+  if (normalizedScore < 70) {
+    return jsonResponse(false, 'Điểm bài kiểm tra cần đạt tối thiểu 70% để hoàn thành');
+  }
+
   var ss = getSS();
   var sheet = ss.getSheetByName('TRAINING_PROGRESS');
   if (!sheet) {
@@ -4316,19 +4970,37 @@ function handleSubmitTrainingQuiz(payload) {
     }
   }
 
+  // Resolve canonical points from TRAINING_CONTENT to prevent client-side points spoofing
+  var canonicalPoints = 50;
+  var canonicalTitle = payload.lessonTitle || payload.lessonId || "";
+  try {
+    var tcSheet = ss.getSheetByName('TRAINING_CONTENT');
+    if (tcSheet && tcSheet.getLastRow() > 1) {
+      var tcRows = tcSheet.getDataRange().getValues();
+      for (var t = 1; t < tcRows.length; t++) {
+        if (String(tcRows[t][0] || "") === String(payload.lessonId || "")) {
+          canonicalPoints = Math.max(0, Math.min(500, Math.round(Number(tcRows[t][5]) || 50)));
+          if (tcRows[t][1]) canonicalTitle = String(tcRows[t][1]);
+          break;
+        }
+      }
+    } else if (payload.points !== undefined) {
+      canonicalPoints = Math.max(0, Math.min(200, Math.round(Number(payload.points) || 50)));
+    }
+  } catch (e) {}
+
   var now = new Date();
   var dateStr = Utilities.formatDate(now, CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm');
   sheet.appendRow([
     'TP_' + now.getTime(),
     payload.username || '',
     payload.lessonId || '',
-    payload.score || 100,
+    normalizedScore,
     dateStr
   ]);
 
-  // Award King Coins
-  var points = Number(payload.points) || 50;
-  recordKingCoins(payload.username || '', payload.fullname || '', 'Hoàn thành bài: ' + (payload.lessonTitle || payload.lessonId), points, 'Training');
+  // Award canonical King Coins
+  recordKingCoins(payload.username || '', payload.fullname || '', 'Hoàn thành bài: ' + canonicalTitle, canonicalPoints, 'Training');
 
   return jsonResponse(true, 'Đã ghi nhận hoàn thành bài học');
 }
@@ -4594,4 +5266,323 @@ function handleGetAnalytics(payload) {
   } catch(e) {}
 
   return jsonResponse(true, result);
+}
+
+
+// ============================================================================
+// WAVE 3: QUY TRÌNH DUYỆT LƯƠNG 4 BƯỚC & NHẬT KÝ KIỂM TOÁN BẢO MẬT (AUDIT_LOGS)
+// ============================================================================
+
+var PAYROLL_WORKFLOW_SHEET = 'PayrollWorkflow';
+var AUDIT_LOGS_SHEET = 'Audit_Logs';
+
+function _normalizePayrollWorkflowStatusGas_(raw) {
+  var s = raw ? raw.toString().trim() : '';
+  if (s === 'Staff_Confirming' || s === 'Disputed' || s === 'Locked') return s;
+  return 'Draft';
+}
+
+function _getPayrollWorkflowSheet_() {
+  var ss = getSS();
+  var sheet = ss.getSheetByName(PAYROLL_WORKFLOW_SHEET);
+  if (!sheet) {
+    sheet = ss.insertSheet(PAYROLL_WORKFLOW_SHEET);
+    sheet.appendRow(['Month', 'Status', 'UpdatedBy', 'UpdatedAt', 'Note', 'ConfirmationsJSON']);
+    if (typeof sheet.setFrozenRows === 'function') sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function _readPayrollWorkflow_(month) {
+  var monthKey = _salaryMonthKey(month);
+  var sheet = getSS().getSheetByName(PAYROLL_WORKFLOW_SHEET);
+  if (!sheet) {
+    return {
+      row: 0,
+      workflow: {
+        month: monthKey,
+        status: 'Draft',
+        updatedBy: '',
+        updatedAt: '',
+        note: '',
+        confirmations: {}
+      }
+    };
+  }
+  var values = sheet.getDataRange().getValues();
+  for (var i = 1; i < values.length; i++) {
+    if (values[i][0] && values[i][0].toString() === monthKey) {
+      var confirmations = {};
+      try {
+        var parsed = JSON.parse(values[i][5] || '{}');
+        if (parsed && typeof parsed === 'object') confirmations = parsed;
+      } catch (e) {}
+      return {
+        row: i + 1,
+        workflow: {
+          month: monthKey,
+          status: _normalizePayrollWorkflowStatusGas_(values[i][1]),
+          updatedBy: values[i][2] ? values[i][2].toString() : '',
+          updatedAt: values[i][3] ? values[i][3].toString() : '',
+          note: values[i][4] ? values[i][4].toString() : '',
+          confirmations: confirmations
+        }
+      };
+    }
+  }
+  return {
+    row: 0,
+    workflow: {
+      month: monthKey,
+      status: 'Draft',
+      updatedBy: '',
+      updatedAt: '',
+      note: '',
+      confirmations: {}
+    }
+  };
+}
+
+function _writePayrollWorkflow_(month, wfInput) {
+  var monthKey = _salaryMonthKey(month);
+  var existing = _readPayrollWorkflow_(monthKey);
+  var status = _normalizePayrollWorkflowStatusGas_(wfInput && wfInput.status ? wfInput.status : existing.workflow.status);
+  var updatedBy = wfInput && wfInput.updatedBy !== undefined ? String(wfInput.updatedBy) : existing.workflow.updatedBy;
+  var updatedAt = Utilities.formatDate(new Date(), CONFIG.TIMEZONE || 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm:ss');
+  var note = wfInput && wfInput.note !== undefined ? String(wfInput.note) : existing.workflow.note;
+  var confirmations = (wfInput && wfInput.confirmations && typeof wfInput.confirmations === 'object')
+    ? wfInput.confirmations
+    : existing.workflow.confirmations;
+
+  var rowValues = [
+    monthKey,
+    status,
+    updatedBy,
+    updatedAt,
+    note,
+    JSON.stringify(confirmations || {})
+  ];
+
+  var sheet = _getPayrollWorkflowSheet_();
+  if (existing.row > 0) {
+    sheet.getRange(existing.row, 1, 1, 6).setValues([rowValues]);
+  } else {
+    sheet.appendRow(rowValues);
+  }
+
+  return {
+    month: monthKey,
+    status: status,
+    updatedBy: updatedBy,
+    updatedAt: updatedAt,
+    note: note,
+    confirmations: confirmations || {}
+  };
+}
+
+function handleSetPayrollWorkflowStatus(payload) {
+  var adminErr = requireAdminActor(payload);
+  if (adminErr) return jsonResponse(false, adminErr);
+
+  var monthKey = _salaryMonthKey(payload.month);
+  var nextStatus = _normalizePayrollWorkflowStatusGas_(payload.status);
+  var actor = String(payload.actorUsername || payload.adminUsername || payload.username || 'admin');
+  var note = payload.note !== undefined ? String(payload.note).trim() : '';
+  var cur = _readPayrollWorkflow_(monthKey).workflow;
+  var nextConfirmations = payload.resetConfirmations === true ? {} : (cur.confirmations || {});
+
+  var saved = _writePayrollWorkflow_(monthKey, {
+    status: nextStatus,
+    updatedBy: actor,
+    note: note,
+    confirmations: nextConfirmations
+  });
+
+  appendAuditLog_(
+    actor,
+    'SET_PAYROLL_WORKFLOW_STATUS',
+    monthKey,
+    'Chuyển trạng thái bảng lương ' + monthKey + ' -> ' + nextStatus,
+    { month: monthKey, status: nextStatus, note: note }
+  );
+
+  try {
+    if (nextStatus === 'Staff_Confirming') {
+      createNotification('ALL', '💰 Mở đối chiếu bảng lương ' + monthKey, 'Quản lý đã mở bảng lương tháng ' + monthKey + ' để đối chiếu trong 48h. Vui lòng kiểm tra và bấm xác nhận.', 'action', 'payroll');
+    } else if (nextStatus === 'Locked') {
+      createNotification('ALL', '🔒 Đã chốt sổ bảng lương ' + monthKey, 'Bảng lương tháng ' + monthKey + ' đã được khóa sổ chính thức để giải ngân.', 'info', 'payroll');
+    }
+  } catch (eNotif) {}
+
+  return jsonResponse(true, {
+    workflow: saved,
+    message: 'Đã chuyển trạng thái bảng lương ' + monthKey + ' sang ' + nextStatus
+  });
+}
+
+function handleConfirmPayrollSlip(payload) {
+  var uname = payload && payload.username ? String(payload.username).trim() : '';
+  if (!uname) return jsonResponse(false, 'Thiếu tài khoản nhân viên');
+
+  var monthKey = _salaryMonthKey(payload.month);
+  var cur = _readPayrollWorkflow_(monthKey).workflow;
+  if (cur.status === 'Locked') {
+    return jsonResponse(false, 'Bảng lương tháng ' + monthKey + ' đã khóa sổ nên không thể thay đổi xác nhận.');
+  }
+
+  var rawDecision = String(payload.decision || 'CONFIRMED').trim().toUpperCase();
+  var decision = rawDecision === 'DISPUTED' ? 'DISPUTED' : 'CONFIRMED';
+  var note = payload.note !== undefined ? String(payload.note).trim() : '';
+  if (decision === 'DISPUTED' && !note) {
+    return jsonResponse(false, 'Vui lòng ghi rõ nội dung sai lệch công/lương để Quản lý đối soát.');
+  }
+
+  var nowStr = Utilities.formatDate(new Date(), CONFIG.TIMEZONE || 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm');
+  var confirmations = cur.confirmations || {};
+  confirmations[uname] = {
+    status: decision,
+    note: note,
+    fullname: String(payload.fullname || uname),
+    updatedAt: nowStr
+  };
+
+  var nextStatus = decision === 'DISPUTED' ? 'Disputed' : cur.status;
+  var saved = _writePayrollWorkflow_(monthKey, {
+    status: nextStatus,
+    updatedBy: cur.updatedBy || '',
+    note: cur.note || '',
+    confirmations: confirmations
+  });
+
+  if (decision === 'DISPUTED') {
+    try {
+      createNotification('ALL', '⚠️ Khiếu nại phiếu lương ' + monthKey, (payload.fullname || uname) + ' báo sai lệch lương: ' + note.substring(0, 80), 'action', 'payroll');
+    } catch (eNotif) {}
+  }
+
+  var isAdmin = payload.role === 'admin';
+  var scopedConfirmations = {};
+  if (isAdmin) {
+    scopedConfirmations = saved.confirmations;
+  } else {
+    scopedConfirmations[uname] = confirmations[uname];
+  }
+
+  return jsonResponse(true, {
+    workflow: {
+      month: saved.month,
+      status: saved.status,
+      updatedBy: saved.updatedBy,
+      updatedAt: saved.updatedAt,
+      note: saved.note,
+      confirmations: scopedConfirmations
+    },
+    message: decision === 'DISPUTED'
+      ? 'Đã gửi phản hồi sai lệch công/lương tới Quản lý!'
+      : 'Đã xác nhận phiếu lương tháng ' + monthKey + ' thành công!'
+  });
+}
+
+function _sanitizeAuditMetadata_(meta, depth) {
+  var d = depth || 0;
+  if (d > 3 || meta === null || meta === undefined) return {};
+  if (typeof meta !== 'object') return { value: String(meta) };
+  if (Array.isArray(meta)) {
+    return meta.slice(0, 20).map(function(item) {
+      return typeof item === 'object' ? _sanitizeAuditMetadata_(item, d + 1) : item;
+    });
+  }
+  var clean = {};
+  for (var k in meta) {
+    if (/^(keyCount)$/i.test(k)) {
+      clean[k] = Number(meta[k]) || 0;
+    } else if (/key|pin|pass|token|secret|auth|otp/i.test(k)) {
+      clean[k] = '[REDACTED]';
+    } else if (typeof meta[k] === 'object' && meta[k] !== null) {
+      clean[k] = _sanitizeAuditMetadata_(meta[k], d + 1);
+    } else {
+      clean[k] = meta[k];
+    }
+  }
+  return clean;
+}
+
+function _getAuditLogsSheet_() {
+  var ss = getSS();
+  var sheet = ss.getSheetByName(AUDIT_LOGS_SHEET);
+  if (!sheet) {
+    sheet = ss.insertSheet(AUDIT_LOGS_SHEET);
+    sheet.appendRow(['AuditID', 'Timestamp', 'ActorUsername', 'Action', 'Target', 'Summary', 'MetadataJSON']);
+    if (typeof sheet.setFrozenRows === 'function') sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function appendAuditLog_(actorUsername, action, target, summary, metadata) {
+  try {
+    var sheet = _getAuditLogsSheet_();
+    var now = new Date();
+    var auditId = 'AUD_' + now.getTime() + '_' + Math.floor(Math.random() * 1000);
+    var ts = Utilities.formatDate(now, CONFIG.TIMEZONE || 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm:ss');
+    var safeMeta = _sanitizeAuditMetadata_(metadata || {}, 0);
+    sheet.appendRow([
+      auditId,
+      ts,
+      String(actorUsername || 'admin'),
+      String(action || 'UNKNOWN'),
+      String(target || ''),
+      String(summary || ''),
+      JSON.stringify(safeMeta)
+    ]);
+  } catch (e) {
+    Logger.log('appendAuditLog_ error: ' + e.toString());
+  }
+}
+
+function handleGetAuditLogs(payload) {
+  var adminErr = requireAdminActor(payload);
+  if (adminErr) return jsonResponse(false, adminErr);
+
+  var sheet = getSS().getSheetByName(AUDIT_LOGS_SHEET);
+  if (!sheet || sheet.getLastRow() <= 1) {
+    return jsonResponse(true, { logs: [] });
+  }
+
+  var limit = Math.min(200, Math.max(1, Number(payload.limit) || 50));
+  var actionFilter = payload.actionFilter ? String(payload.actionFilter).trim().toUpperCase() : '';
+  var query = payload.query ? String(payload.query).trim().toLowerCase() : '';
+  var values = sheet.getDataRange().getValues();
+  var logs = [];
+
+  for (var i = values.length - 1; i >= 1 && logs.length < limit; i--) {
+    var row = values[i];
+    if (!row[0]) continue;
+    var act = String(row[3] || '');
+    if (actionFilter && actionFilter !== 'ALL' && act.toUpperCase() !== actionFilter) continue;
+
+    var actor = String(row[2] || '');
+    var target = String(row[4] || '');
+    var summary = String(row[5] || '');
+    if (query) {
+      var hay = (actor + ' ' + act + ' ' + target + ' ' + summary).toLowerCase();
+      if (hay.indexOf(query) === -1) continue;
+    }
+
+    var meta = {};
+    try {
+      meta = JSON.parse(row[6] || '{}');
+    } catch (e) {}
+
+    logs.push({
+      id: String(row[0]),
+      timestamp: String(row[1] || ''),
+      actor: actor,
+      action: act,
+      target: target,
+      summary: summary,
+      metadata: meta
+    });
+  }
+
+  return jsonResponse(true, { logs: logs });
 }

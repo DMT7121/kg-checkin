@@ -18,13 +18,16 @@ import {
   isNextWeekScheduleRegistered,
   markScheduleRegisteredLocally,
   getSavedRegisteredShiftsForWeek,
+  getScheduleRegistrationMeta,
+  getCurrentTimeString,
 } from '../utils/helpers';
 import type { MonthDateInfo } from '../utils/helpers';
 import Swal from 'sweetalert2';
-import { CalendarCheck, Eye, AlertTriangle, Send, Lock, ExternalLink, Clock, RefreshCw, Pencil, CheckCheck, Inbox, LayoutGrid, CalendarRange, ChevronLeft, ChevronRight, Sparkles, X, Bot, Info, FileSpreadsheet, Search } from 'lucide-react';
+import { CalendarCheck, Eye, AlertTriangle, Send, Lock, ExternalLink, Clock, RefreshCw, Pencil, CheckCheck, Inbox, LayoutGrid, CalendarRange, ChevronLeft, ChevronRight, Sparkles, X, Bot, Info, FileSpreadsheet, Search, ShieldCheck, CheckCircle2, Copy } from 'lucide-react';
 import { KgModuleHero } from '../components/KgDesignSystem';
 import { getCalendarDayMeta } from '../utils/calendarHighlights';
 import { isWorkEligible } from '../utils/employment';
+import { buildEmployeeShiftMapFromPrevious, mapPreviousWeekToTargetSchedules } from '../utils/shiftSwapValidator';
 import EmploymentStatusNotice from '../components/EmploymentStatusNotice';
 import SmartPersonName from '../components/SmartPersonName';
 import MonthDayVisibility from '../components/MonthDayVisibility';
@@ -33,16 +36,20 @@ import { useMonthDayVisibility } from '../hooks/useMonthDayVisibility';
 export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' }) {
   const currentUser = useAppStore(state => state.currentUser);
   const isScheduleRegistered = useAppStore(state => state.isScheduleRegistered);
+  const registeredWeekKey = useAppStore(state => state.registeredWeekKey);
+  const scheduleUpdatedAt = useAppStore(state => state.scheduleUpdatedAt);
+  const scheduleSheetSynced = useAppStore(state => state.scheduleSheetSynced);
   const shiftData = useAppStore(state => state.shiftData);
   const offReason = useAppStore(state => state.offReason);
   const approvedShifts = useAppStore(state => state.approvedShifts);
+  const currentWeekApprovedShifts = useAppStore(state => state.currentWeekApprovedShifts);
   const registeredShifts = useAppStore(state => state.registeredShifts);
   const adminSchedules = useAppStore(state => state.adminSchedules);
   const originalAdminSchedules = useAppStore(state => state.originalAdminSchedules);
   const storeUsers = useAppStore(state => state.users);
   const storeMonthSchedules = useAppStore(state => state.monthSchedules);
   const store = useAppStore.getState();
-  const isManagerView = mode === 'admin' && (currentUser?.role === 'admin' || currentUser?.role === 'tester');
+  const isManagerView = mode === 'admin' && currentUser?.role === 'admin';
 
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
   const [aiModalOpen, setAiModalOpen] = useState(false);
@@ -54,7 +61,11 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
     return d;
   });
   
-  const weekInfo = useMemo(() => computeWeekInfo(currentDate, false), [currentDate]);
+  const weekInfo = useMemo(
+    () => (isManagerView ? computeWeekInfo(currentDate, false) : computeWeekInfo()),
+    [isManagerView, currentDate]
+  );
+  const expectedWeekKey = `${weekInfo.monthSheet}|${weekInfo.weekLabel}`;
   const weekDayMeta = useMemo(
     () => weekInfo.weekDatesKeys.map((dateKey) => getCalendarDayMeta(dateKey)),
     [weekInfo.weekDatesKeys]
@@ -196,18 +207,47 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
   const [hasHolidayOff, setHasHolidayOff] = useState(false);
   const [regWindow, setRegWindow] = useState(() => isRegistrationOpen());
   const [isEditing, setIsEditing] = useState(false);
+  const [isSyncingPendingSheet, setIsSyncingPendingSheet] = useState(false);
 
   const isRegisteredForTargetWeek = useMemo(
     () =>
-      isScheduleRegistered ||
       isNextWeekScheduleRegistered(
         isScheduleRegistered,
         currentUser?.username,
         weekInfo,
-        registeredShifts
+        registeredShifts,
+        registeredWeekKey
       ),
-    [isScheduleRegistered, currentUser?.username, weekInfo, registeredShifts]
+    [isScheduleRegistered, currentUser?.username, weekInfo, registeredShifts, registeredWeekKey]
   );
+
+  const registrationMeta = useMemo(
+    () => getScheduleRegistrationMeta(currentUser?.username, weekInfo),
+    [
+      currentUser?.username,
+      weekInfo,
+      isScheduleRegistered,
+      registeredWeekKey,
+      scheduleUpdatedAt,
+      scheduleSheetSynced,
+      registeredShifts,
+    ]
+  );
+
+  const effectiveUpdatedAt =
+    registeredWeekKey === expectedWeekKey && scheduleUpdatedAt
+      ? scheduleUpdatedAt
+      : registrationMeta?.updatedAt || '';
+
+  const effectiveSheetSynced =
+    registeredWeekKey === expectedWeekKey
+      ? scheduleSheetSynced
+      : registrationMeta?.sheetSynced !== false;
+
+  const effectiveRegisteredShifts =
+    (registeredWeekKey === expectedWeekKey && registeredShifts && registeredShifts.length === 7
+      ? registeredShifts
+      : null) || registrationMeta?.shifts || null;
 
   // Derive schedule status
   const scheduleStatus: 'none' | 'pending' | 'approved' =
@@ -215,8 +255,7 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
     : (approvedShifts && approvedShifts.length > 0) ? 'approved'
     : 'pending';
 
-  const isTestApp = currentUser?.username === 'testapp';
-  const isOpen = regWindow.open || isTestApp;
+  const isOpen = regWindow.open;
 
   // Show registration form when: not registered, OR explicitly editing
   const showRegistrationForm = isOpen && (!isRegisteredForTargetWeek || isEditing);
@@ -230,21 +269,57 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
     return () => clearInterval(timer);
   }, []);
 
-  // Init shift data and restore saved per-user registration if present
+  // Recompute OFF rule flags whenever shiftData changes
+  useEffect(() => {
+    let weekendOff = false, consecutiveOffs = false, holidayOff = false, offCount = 0;
+    for (let i = 0; i < 7; i++) {
+      const shift = shiftData[weekInfo.weekDatesKeys[i]];
+      if (shift === 'OFF') {
+        offCount++;
+        if (offCount >= 2) consecutiveOffs = true;
+        if (i >= 4) weekendOff = true;
+        if (weekDayMeta[i]?.kind === 'holiday') holidayOff = true;
+      } else {
+        offCount = 0;
+      }
+    }
+    setHasWeekendOff(weekendOff);
+    setHasConsecutiveOffs(consecutiveOffs);
+    setHasHolidayOff(holidayOff);
+  }, [shiftData, weekInfo.weekDatesKeys, weekDayMeta]);
+
+  // Init shift data and restore saved per-user registration if present (strictly week-scoped)
   useEffect(() => {
     const savedShifts = getSavedRegisteredShiftsForWeek(currentUser?.username, weekInfo);
-    const expectedWeekKey = weekInfo.monthSheet + '|' + weekInfo.weekLabel;
-    if (isRegisteredForTargetWeek && !isScheduleRegistered) {
+    const meta = getScheduleRegistrationMeta(currentUser?.username, weekInfo);
+    const scopedStoreShifts =
+      registeredWeekKey === expectedWeekKey && registeredShifts && registeredShifts.length === 7
+        ? registeredShifts
+        : null;
+
+    if (isRegisteredForTargetWeek && (!isScheduleRegistered || registeredWeekKey !== expectedWeekKey)) {
       store.setScheduleRegistered(true, expectedWeekKey);
+      if (meta?.updatedAt) {
+        store.setScheduleMeta({
+          registeredWeekKey: expectedWeekKey,
+          scheduleUpdatedAt: meta.updatedAt,
+          scheduleSheetSynced: meta.sheetSynced !== false,
+        });
+      }
     }
-    if (savedShifts && savedShifts.length === 7 && (!registeredShifts || registeredShifts.length === 0)) {
-      store.setRegisteredShifts(savedShifts);
+    if (savedShifts && savedShifts.length === 7 && !scopedStoreShifts) {
+      store.setRegisteredShifts(savedShifts, expectedWeekKey);
     }
-    if (Object.keys(shiftData).length === 0) {
+    if (meta?.offReason && !offReason) {
+      store.setOffReason(meta.offReason);
+    }
+
+    const hasCurrentWeekKeys = weekInfo.weekDatesKeys.every((k) => k in shiftData);
+    if (!hasCurrentWeekKeys || Object.keys(shiftData).length === 0) {
       const initShifts: Record<string, string> = {};
       const baseShifts =
-        registeredShifts && registeredShifts.length === 7
-          ? registeredShifts
+        scopedStoreShifts
+          ? scopedStoreShifts
           : savedShifts && savedShifts.length === 7
             ? savedShifts
             : null;
@@ -253,7 +328,61 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
       });
       store.setShiftData(initShifts);
     }
-  }, [weekInfo.weekDatesKeys, currentUser?.username]);
+  }, [weekInfo.weekDatesKeys, currentUser?.username, expectedWeekKey]);
+
+  const syncPendingScheduleToSheet = async (silent: boolean = false) => {
+    if (!currentUser || isSyncingPendingSheet) return;
+    const activeShifts =
+      (registeredWeekKey === expectedWeekKey && registeredShifts?.length === 7 ? registeredShifts : null) ||
+      getSavedRegisteredShiftsForWeek(currentUser.username, weekInfo);
+    if (!activeShifts || activeShifts.length !== 7) return;
+
+    setIsSyncingPendingSheet(true);
+    try {
+      const res = await callApi(
+        'REGISTER_SHIFT',
+        {
+          username: currentUser.username,
+          fullname: currentUser.fullname,
+          monthSheet: weekInfo.monthSheet,
+          weekLabel: weekInfo.weekLabel,
+          shifts: activeShifts,
+          offReason: offReason || registrationMeta?.offReason || '',
+          isEdit: true,
+        },
+        { background: silent, timeoutMs: 28000, maxAttempts: 2 }
+      );
+      if (res?.ok && res?.data?.sheetSaved !== false) {
+        const ts = res?.data?.timestamp || effectiveUpdatedAt || getCurrentTimeString();
+        markScheduleRegisteredLocally(currentUser.username, expectedWeekKey, activeShifts, {
+          updatedAt: ts,
+          sheetSynced: true,
+          offReason: offReason || registrationMeta?.offReason || '',
+        });
+        store.setScheduleMeta({
+          registeredWeekKey: expectedWeekKey,
+          scheduleUpdatedAt: ts,
+          scheduleSheetSynced: true,
+        });
+        if (!silent) {
+          Swal.fire('Đã đồng bộ 100%', `Lịch tuần ${weekInfo.weekDisplay} đã được nạp thành công vào Google Sheets lúc ${ts}.`, 'success');
+        }
+      } else if (!silent) {
+        Swal.fire('Đang xếp hàng đồng bộ', 'Máy chủ Google Sheets đang xử lý nhiều yêu cầu cùng lúc. Hệ thống sẽ tiếp tục tự động nạp lại.', 'info');
+      }
+    } finally {
+      setIsSyncingPendingSheet(false);
+    }
+  };
+
+  // Auto-heal if schedule was buffered in Edge D1 (sheetSaved === false)
+  useEffect(() => {
+    if (isManagerView || !isRegisteredForTargetWeek || effectiveSheetSynced || !currentUser) return;
+    const t1 = window.setTimeout(() => {
+      syncPendingScheduleToSheet(true);
+    }, 3500);
+    return () => window.clearTimeout(t1);
+  }, [isManagerView, isRegisteredForTargetWeek, effectiveSheetSynced, currentUser?.username, expectedWeekKey]);
 
   useEffect(() => {
     if (isManagerView && viewMode === 'week') {
@@ -277,8 +406,15 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
       }, { background: true }).then((res) => {
         if (res?.ok && res.data.approvedShifts) {
           store.setApprovedShifts(res.data.approvedShifts);
-          store.setScheduleRegistered(true);
-          Swal.fire({ title: '✅ Lịch đã được duyệt!', text: 'Admin đã duyệt lịch làm việc của bạn.', icon: 'success', confirmButtonColor: '#10b981' });
+          store.setScheduleRegistered(true, expectedWeekKey);
+          if (res.data.scheduleUpdatedAt) {
+            store.setScheduleMeta({
+              registeredWeekKey: expectedWeekKey,
+              scheduleUpdatedAt: res.data.scheduleUpdatedAt,
+              scheduleSheetSynced: true,
+            });
+          }
+          Swal.fire({ title: 'Lịch đã được duyệt!', text: 'Admin đã duyệt lịch làm việc của bạn.', icon: 'success', confirmButtonColor: '#10b981' });
           speak('Lịch làm việc đã được Admin duyệt');
         }
       });
@@ -308,11 +444,8 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
   };
 
   const startEditing = () => {
-    // Pre-fill shift data from registered shifts
-    const activeShifts =
-      registeredShifts && registeredShifts.length === 7
-        ? registeredShifts
-        : getSavedRegisteredShiftsForWeek(currentUser?.username, weekInfo);
+    // Pre-fill shift data from registered shifts for this target week
+    const activeShifts = effectiveRegisteredShifts || getSavedRegisteredShiftsForWeek(currentUser?.username, weekInfo);
     if (activeShifts) {
       const editShifts: Record<string, string> = {};
       weekInfo.weekDatesKeys.forEach((k, i) => (editShifts[k] = activeShifts[i] || 'OFF'));
@@ -322,17 +455,164 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
   };
 
   const cancelEditing = () => {
-    // Restore shift data from registered shifts
-    const activeShifts =
-      registeredShifts && registeredShifts.length === 7
-        ? registeredShifts
-        : getSavedRegisteredShiftsForWeek(currentUser?.username, weekInfo);
+    // Restore shift data from registered shifts for this target week
+    const activeShifts = effectiveRegisteredShifts || getSavedRegisteredShiftsForWeek(currentUser?.username, weekInfo);
     if (activeShifts) {
       const restored: Record<string, string> = {};
       weekInfo.weekDatesKeys.forEach((k, i) => (restored[k] = activeShifts[i] || 'OFF'));
       store.setShiftData(restored);
     }
     setIsEditing(false);
+  };
+
+  const recomputeOffFlagsFromMap = (mapObj: Record<string, string>) => {
+    let weekendOff = false;
+    let consecutiveOffs = false;
+    let holidayOff = false;
+    let offCount = 0;
+    for (let i = 0; i < 7; i++) {
+      const shift = mapObj[weekInfo.weekDatesKeys[i]];
+      if (shift === 'OFF') {
+        offCount++;
+        if (offCount >= 2) consecutiveOffs = true;
+        if (i >= 4) weekendOff = true;
+        if (weekDayMeta[i]?.kind === 'holiday') holidayOff = true;
+      } else {
+        offCount = 0;
+      }
+    }
+    setHasWeekendOff(weekendOff);
+    setHasConsecutiveOffs(consecutiveOffs);
+    setHasHolidayOff(holidayOff);
+  };
+
+  const handleCopyEmployeeCurrentWeek = async () => {
+    let sourceShifts =
+      currentWeekApprovedShifts && currentWeekApprovedShifts.length === 7
+        ? currentWeekApprovedShifts
+        : null;
+
+    if (!sourceShifts || sourceShifts.every((s) => !s || s === 'OFF')) {
+      const curW = computeWeekInfo(undefined, false);
+      store.setLoading(true, `Đang tải lịch tuần này (${curW.weekDisplay})...`);
+      const res = await callApi('GET_ALL_SCHEDULES', {
+        monthSheet: curW.monthSheet,
+        weekLabel: curW.weekLabel,
+      });
+      store.setLoading(false);
+      if (res?.ok) {
+        const list = Array.isArray(res.data)
+          ? res.data
+          : Array.isArray(res.data?.schedules)
+            ? res.data.schedules
+            : [];
+        const match = list.find(
+          (emp: any) =>
+            (emp.username &&
+              currentUser?.username &&
+              String(emp.username).toLowerCase() === currentUser.username.toLowerCase()) ||
+            (emp.fullname &&
+              currentUser?.fullname &&
+              String(emp.fullname).trim().toLowerCase() === currentUser.fullname.trim().toLowerCase())
+        );
+        if (match && Array.isArray(match.shifts) && match.shifts.length === 7) {
+          sourceShifts = match.shifts;
+        }
+      }
+    }
+
+    if (!sourceShifts || sourceShifts.every((s) => !s || s === 'OFF')) {
+      Swal.fire(
+        'Chưa có lịch tuần này',
+        'Không tìm thấy lịch đã duyệt của tuần hiện tại để sao chép nhanh.',
+        'info'
+      );
+      return;
+    }
+
+    const mapped = buildEmployeeShiftMapFromPrevious(sourceShifts, weekInfo.weekDatesKeys);
+    store.setShiftData(mapped);
+    recomputeOffFlagsFromMap(mapped);
+    Swal.fire({
+      toast: true,
+      position: 'top-end',
+      icon: 'success',
+      title: 'Đã sao chép lịch tuần này sang 7 ngày tuần tới!',
+      showConfirmButton: false,
+      timer: 2500,
+    });
+  };
+
+  const handleAdminCopyPreviousWeek = async () => {
+    if (!adminSchedules || adminSchedules.length === 0) {
+      Swal.fire('Chưa tải danh sách', 'Vui lòng bấm "Tải lịch" trước khi sao chép tuần trước.', 'info');
+      return;
+    }
+    const prevDate = new Date(currentDate);
+    prevDate.setDate(prevDate.getDate() - 7);
+    const prevWeekInfo = computeWeekInfo(prevDate, false);
+
+    const choice = await Swal.fire({
+      title: `Sao chép lịch từ tuần ${prevWeekInfo.weekDisplay}?`,
+      html: `<p class="text-xs sm:text-sm text-gray-600 dark:text-gray-300 leading-relaxed">Hệ thống sẽ lấy lịch tuần trước (<b>${prevWeekInfo.weekDisplay}</b>) để điền nhanh cho tuần <b>${weekInfo.weekDisplay}</b>.</p>`,
+      icon: 'question',
+      showCancelButton: true,
+      showDenyButton: true,
+      confirmButtonText: 'Điền NV chưa đăng ký (An toàn)',
+      denyButtonText: 'Ghi đè toàn bộ',
+      cancelButtonText: 'Hủy',
+      confirmButtonColor: '#10b981',
+      denyButtonColor: '#f59e0b',
+    });
+
+    if (!choice.isConfirmed && !choice.isDenied) return;
+    const overwriteExisting = Boolean(choice.isDenied);
+
+    store.setLoading(true, `Đang lấy lịch tuần ${prevWeekInfo.weekDisplay}...`);
+    const res = await callApi('GET_ALL_SCHEDULES', {
+      monthSheet: prevWeekInfo.monthSheet,
+      weekLabel: prevWeekInfo.weekLabel,
+    });
+    store.setLoading(false);
+
+    if (!res?.ok) {
+      Swal.fire('Lỗi', res?.message || 'Không thể tải lịch tuần trước.', 'error');
+      return;
+    }
+
+    const prevList = Array.isArray(res.data)
+      ? res.data
+      : Array.isArray(res.data?.schedules)
+        ? res.data.schedules
+        : [];
+    if (prevList.length === 0) {
+      Swal.fire('Chưa có dữ liệu', `Tuần ${prevWeekInfo.weekDisplay} chưa có lịch để sao chép.`, 'info');
+      return;
+    }
+
+    const result = mapPreviousWeekToTargetSchedules({
+      currentSchedules: adminSchedules,
+      previousSchedules: prevList,
+      overwriteExisting,
+    });
+
+    if (result.copiedEmployeeCount === 0) {
+      Swal.fire(
+        'Không có thay đổi',
+        overwriteExisting
+          ? 'Lịch hiện tại đã trùng khớp với tuần trước.'
+          : 'Tất cả nhân sự đều đã có lịch đăng ký. Chọn "Ghi đè toàn bộ" nếu muốn chép đè.',
+        'info'
+      );
+      return;
+    }
+
+    store.setAdminSchedules(result.updatedSchedules as any);
+    Swal.fire({
+      icon: 'success',
+      title: `Đã sao chép cho ${result.copiedEmployeeCount} nhân sự`,
+      text: `Đã điền ${result.copiedCellCount} ô ca từ tuần ${prevWeekInfo.weekDisplay}. Kiểm tra lại và bấm "Xác nhận lịch tuần" để lưu chính thức.`,
+    });
   };
 
   const submitRegistration = async () => {
@@ -411,10 +691,20 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
       }
 
       if (res?.ok) {
-        const expectedWeekKey = weekInfo.monthSheet + '|' + weekInfo.weekLabel;
-        markScheduleRegisteredLocally(currentUser?.username, expectedWeekKey, shifts);
-        store.setRegisteredShifts(shifts);
+        const sheetSaved = res?.data?.sheetSaved !== false;
+        const syncTimestamp = res?.data?.timestamp || getCurrentTimeString();
+        markScheduleRegisteredLocally(currentUser?.username, expectedWeekKey, shifts, {
+          updatedAt: syncTimestamp,
+          sheetSynced: sheetSaved,
+          offReason,
+        });
+        store.setRegisteredShifts(shifts, expectedWeekKey);
         store.setScheduleRegistered(true, expectedWeekKey);
+        store.setScheduleMeta({
+          registeredWeekKey: expectedWeekKey,
+          scheduleUpdatedAt: syncTimestamp,
+          scheduleSheetSynced: sheetSaved,
+        });
         setIsEditing(false);
 
         // Optimistically sync adminSchedules if already loaded in memory
@@ -428,30 +718,36 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
           store.setAdminSchedules(updatedAdmin);
         }
 
+        // If Edge buffered into D1 because GAS lock was busy, schedule a follow-up push to confirm 100% Sheet write
+        if (!sheetSaved) {
+          window.setTimeout(() => {
+            syncPendingScheduleToSheet(true);
+          }, 4000);
+        }
+
         const bqlNotice = 'Lịch đăng ký ca của bạn đã được ghi nhận vào Bảng Chấm Công (Google Sheets). BQL sẽ sắp xếp lại phù hợp theo nhu cầu của nhà hàng. Trường hợp lịch không được duyệt nhưng lịch làm trùng lịch học, thi cử quan trọng hãy gửi lịch học/thi và báo BQL duyệt nhé!';
-        const syncTimestamp = res?.data?.timestamp || new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 
         Swal.fire({
-          title: '✓ ĐÃ NẠP VÀO SHEET THÀNH CÔNG!',
+          title: `✓ Đã đăng ký lịch làm tuần ${weekInfo.weekDisplay}`,
           html: `
             <div class="space-y-3 text-left">
-              <div class="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-2xl flex items-center justify-between shadow-xs">
-                <div class="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-black text-xs sm:text-sm">
-                  <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  <span>Edge D1 &amp; Google Sheets: <b>Đã đồng bộ 100%</b></span>
+              <div class="p-3 ${sheetSaved ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800' : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800'} border rounded-2xl flex items-center justify-between gap-2 shadow-xs">
+                <div class="flex items-center gap-2 ${sheetSaved ? 'text-emerald-800 dark:text-emerald-300' : 'text-amber-800 dark:text-amber-300'} font-black text-xs sm:text-sm">
+                  <span class="w-2.5 h-2.5 rounded-full ${sheetSaved ? 'bg-emerald-500' : 'bg-amber-500'} animate-pulse"></span>
+                  <span>${sheetSaved ? 'Google Sheets: <b>Đã nạp 100%</b>' : 'Edge D1: <b>Đã ghi nhận &amp; đang nạp vào Sheet...</b>'}</span>
                 </div>
-                <span class="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/60 px-2 py-0.5 rounded-lg">
+                <span class="text-[11px] font-mono tabular-nums font-bold ${sheetSaved ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/60' : 'text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/60'} px-2 py-0.5 rounded-lg whitespace-nowrap">
                   ${syncTimestamp}
                 </span>
               </div>
 
               <p class="text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-200 leading-snug">
-                ${isUpdate ? 'Lịch làm việc tuần mới đã được cập nhật thành công vào Bảng Chấm Công.' : 'Lịch đăng ký ca 7 ngày đã được gửi và nạp thành công vào Bảng Chấm Công!'}
+                ${isUpdate ? `Đã cập nhật lịch làm tuần <b>${weekInfo.weekDisplay}</b> (${weekInfo.monthSheet}) thành công.` : `Đã ghi nhận lịch làm 7 ngày tuần <b>${weekInfo.weekDisplay}</b> (${weekInfo.monthSheet}) thành công!`} Hệ thống đã ghi nhớ và sẽ không nhắc lại trong tuần này.
               </p>
 
               <div class="p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/80 rounded-2xl text-xs text-blue-900 dark:text-blue-200 leading-relaxed shadow-inner">
                 <p class="font-black flex items-center gap-1.5 text-blue-700 dark:text-blue-300 mb-1">
-                  <span>📢</span> Thông báo từ BQL:
+                  Thông báo từ BQL:
                 </p>
                 <p class="font-medium text-[11px] leading-relaxed">${bqlNotice}</p>
               </div>
@@ -459,7 +755,7 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
           `,
           icon: 'success',
           confirmButtonColor: '#10b981',
-          confirmButtonText: 'Đã hiểu'
+          confirmButtonText: 'Hoàn tất'
         });
         speak('Đăng ký lịch làm việc thành công, đã nạp vào Google Sheets');
       } else if (res) {
@@ -645,7 +941,7 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
   const handleManualSyncRoster = async () => {
     const { isConfirmed } = await Swal.fire({
       title: 'Đồng bộ sang Sheet Lịch Làm?',
-      html: `Đồng bộ lịch tuần <b>${weekInfo.weekLabel.replace('📅 ', '')}</b> sang Google Spreadsheet Lịch Làm.<br/><span class="text-xs text-gray-500 mt-2 block">Tổ trưởng nạp ở nhóm "KHÁC", nhân viên nạp tại Nhóm trực tương ứng.</span>`,
+      html: `Đồng bộ lịch tuần <b>${weekInfo.weekDisplay}</b> sang Google Spreadsheet Lịch Làm.<br/><span class="text-xs text-gray-500 mt-2 block">Tổ trưởng nạp ở nhóm "KHÁC", nhân viên nạp tại Nhóm trực tương ứng.</span>`,
       icon: 'question',
       showCancelButton: true,
       confirmButtonColor: '#2563eb',
@@ -684,14 +980,9 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
 
   const handleAiProcess = async () => {
     if (!aiInputText.trim()) return;
-    if (!store.groqKeys || store.groqKeys.length === 0) {
-      Swal.fire('Lỗi', 'Chưa cấu hình Groq API key trong Cấu hình AI', 'error');
-      return;
-    }
     setIsAiProcessing(true);
     
     try {
-      const apiKey = store.groqKeys[Math.floor(Math.random() * store.groqKeys.length)].key;
       const dateContext = [
         `T2 (${weekInfo.weekDates[0]})`, `T3 (${weekInfo.weekDates[1]})`, `T4 (${weekInfo.weekDates[2]})`,
         `T5 (${weekInfo.weekDates[3]})`, `T6 (${weekInfo.weekDates[4]})`, `T7 (${weekInfo.weekDates[5]})`,
@@ -723,26 +1014,42 @@ Văn bản:
 ${aiInputText}
 `;
 
-      const result = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.1
-        })
-      });
+      let content = '';
+      const proxyRes = await callApi('AI_CHAT', {
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.1,
+      }, { background: true, cacheTtlMs: 0 });
 
-      const resData = await result.json();
-      let content = resData.choices?.[0]?.message?.content || '';
+      if (proxyRes?.ok && (proxyRes.data?.reply || proxyRes.data?.content)) {
+        content = proxyRes.data.reply || proxyRes.data.content;
+      } else {
+        const apiKey = store.groqKeys?.length
+          ? store.groqKeys[Math.floor(Math.random() * store.groqKeys.length)].key
+          : '';
+        if (!apiKey) {
+          throw new Error(proxyRes?.message || 'Chưa cấu hình Groq API key trên máy chủ');
+        }
+        const result = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`
+          },
+          body: JSON.stringify({
+            model: 'llama-3.3-70b-versatile',
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.1
+          })
+        });
+        const resData = await result.json();
+        content = resData.choices?.[0]?.message?.content || '';
+      }
       
       content = content.trim();
-      if (content.startsWith('\`\`\`json')) content = content.substring(7);
-      if (content.startsWith('\`\`\`')) content = content.substring(3);
-      if (content.endsWith('\`\`\`')) content = content.substring(0, content.length - 3);
+      if (content.startsWith('```json')) content = content.substring(7);
+      if (content.startsWith('```')) content = content.substring(3);
+      if (content.endsWith('```')) content = content.substring(0, content.length - 3);
       content = content.trim();
       
       const parsed = JSON.parse(content);
@@ -854,23 +1161,33 @@ ${aiInputText}
 
       {isManagerView ? (
         // ================= ADMIN VIEW =================
-        <div className="soft3d-card p-5 rounded-2xl   animate-fade-in">
-          <div className="flex justify-between items-center mb-4 border-b dark:border-gray-700 pb-2">
-            <h3 className="font-bold flex items-center text-gray-800 dark:text-white">
-              <CalendarCheck size={18} className="mr-2 text-indigo-600" /> Quản Lý Lịch Làm Việc Tuần Tới
+        <div className="soft3d-card p-5 rounded-2xl animate-fade-in">
+          <div className="flex flex-wrap justify-between items-center gap-2 mb-4 border-b border-[var(--kg-border)] pb-3">
+            <h3 className="font-bold flex items-center text-[var(--kg-text)]">
+              <CalendarCheck size={18} className="mr-2 text-[var(--kg-primary)]" /> Quản Lý Lịch Làm Việc Tuần Tới
             </h3>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {viewMode === 'week' && (
+                <button
+                  type="button"
+                  onClick={handleAdminCopyPreviousWeek}
+                  className="text-xs sm:text-sm bg-[var(--kg-accent-soft)] text-[var(--kg-primary)] border border-[var(--kg-primary)]/25 px-3 py-1.5 rounded-xl hover:opacity-90 transition flex items-center font-bold"
+                  title="Sao chép nhanh lịch làm từ tuần liền trước"
+                >
+                  <Copy size={14} className="mr-1.5" /> Sao chép tuần trước
+                </button>
+              )}
               <button 
                 type="button"
                 onClick={handleManualSyncRoster}
                 disabled={isSyncingRoster}
-                className="text-xs sm:text-sm bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 px-3 py-1.5 rounded-lg hover:bg-emerald-200 transition flex items-center font-bold disabled:opacity-50"
+                className="text-xs sm:text-sm bg-[var(--kg-success-soft)] text-[var(--kg-success)] border border-[var(--kg-success)]/25 px-3 py-1.5 rounded-xl hover:opacity-90 transition flex items-center font-bold disabled:opacity-50"
                 title="Đồng bộ lịch tuần này sang Google Sheet Lịch Làm (1Vrm...)"
               >
                 <FileSpreadsheet size={14} className={`mr-1.5 ${isSyncingRoster ? 'animate-spin' : ''}`} /> Đồng bộ Sheet Lịch
               </button>
-              <button onClick={() => viewMode === 'week' ? loadAdminSchedules() : loadMonthSchedules()} className="text-sm bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300 px-3 py-1.5 rounded-lg hover:bg-indigo-200 transition flex items-center">
-                <RefreshCw size={14} className="mr-1" /> Tải lịch
+              <button onClick={() => viewMode === 'week' ? loadAdminSchedules() : loadMonthSchedules()} className="text-xs sm:text-sm bg-[var(--kg-primary-soft)] text-[var(--kg-primary)] border border-[var(--kg-primary)]/20 px-3 py-1.5 rounded-xl hover:opacity-90 transition flex items-center font-bold">
+                <RefreshCw size={14} className="mr-1.5" /> Tải lịch
               </button>
             </div>
           </div>
@@ -944,14 +1261,14 @@ ${aiInputText}
                               title={weekDayMeta[dayIdx].label || tooltipText || undefined}
                             >
                               {isChanged && <div className="absolute top-0 right-0 w-2 h-2 bg-orange-500 rounded-full animate-pulse" title="Đã thay đổi"></div>}
-                              {!isChanged && hasNote && <div className="absolute top-0 right-0 w-2 h-2 bg-indigo-500 rounded-full" title={tooltipText}></div>}
+                              {!isChanged && hasNote && <div className="absolute top-0 right-0 w-2 h-2 bg-[var(--kg-primary)] rounded-full" title={tooltipText}></div>}
                               <div className="relative" title={tooltipText}>
                                 <select value={shift || ''} onChange={(e) => updateAdminShift(empIdx, dayIdx, e.target.value)}
                                   aria-label={`${emp.fullname} - ${SHORT_DAY_NAMES[dayIdx]}`}
                                   className={`schedule-shift-select schedule-shift-select--mobile md:hidden text-[10px] font-bold rounded-lg border focus:outline-none w-full cursor-pointer appearance-none text-center transition-all ${
                                     isChanged
-                                      ? 'border-orange-500 ring-1 ring-orange-200 dark:ring-orange-900/50 shadow-md ' + getAdminShiftClass(shift)
-                                      : 'border-gray-200 dark:border-gray-600 focus:ring-1 focus:ring-indigo-500 ' + getAdminShiftClass(shift)
+                                      ? 'border-orange-500 ring-1 ring-orange-200 dark:ring-orange-900/50 shadow-sm ' + getAdminShiftClass(shift)
+                                      : 'border-[var(--kg-border)] focus:ring-1 focus:ring-[var(--kg-primary)] ' + getAdminShiftClass(shift)
                                   }`}>
                                   <option value="">—</option>
                                   {ADMIN_SHIFT_OPTIONS.map((opt) => (
@@ -962,8 +1279,8 @@ ${aiInputText}
                                   aria-label={`${emp.fullname} - ${SHORT_DAY_NAMES[dayIdx]}`}
                                   className={`text-xs font-bold rounded-lg border focus:outline-none p-1.5 w-full cursor-pointer appearance-none text-center transition-all ${
                                     isChanged 
-                                      ? 'border-orange-500 ring-2 ring-orange-200 dark:ring-orange-900/50 shadow-md ' + getAdminShiftClass(shift)
-                                      : 'border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-indigo-500 ' + getAdminShiftClass(shift)
+                                      ? 'border-orange-500 ring-2 ring-orange-200 dark:ring-orange-900/50 shadow-sm ' + getAdminShiftClass(shift)
+                                      : 'border-[var(--kg-border)] focus:ring-2 focus:ring-[var(--kg-primary)] ' + getAdminShiftClass(shift)
                                   } hidden md:block`}>
                                   <option value="">(Trống)</option>
                                   {ADMIN_SHIFT_OPTIONS.map((opt) => (
@@ -1131,31 +1448,95 @@ ${aiInputText}
       ) : (
         // ================= USER VIEW =================
         <>
-          {/* Status Badge - Pending */}
-      {scheduleStatus === 'pending' && (
-        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 flex items-center space-x-3 mb-6 animate-fade-in">
-          <div className="w-10 h-10 bg-amber-100 dark:bg-amber-800 text-amber-500 rounded-full flex items-center justify-center flex-shrink-0">
-            <Clock size={20} />
-          </div>
-          <div>
-            <h4 className="font-bold text-amber-700 dark:text-amber-400 text-sm">Chờ duyệt</h4>
-            <p className="text-xs text-amber-600 dark:text-amber-500">Lịch đang chờ Admin duyệt. {isOpen ? 'Bạn có thể cập nhật lại.' : ''}</p>
-          </div>
-        </div>
-      )}
+          {/* Explicit Weekly Schedule Registration Confirmation & Latest Timestamp Card */}
+          {isRegisteredForTargetWeek && (
+            <div
+              data-testid="schedule-registered-banner"
+              className={`rounded-2xl p-4 sm:p-5 mb-6 border shadow-xs animate-fade-in ${
+                scheduleStatus === 'approved'
+                  ? 'bg-emerald-50/90 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800'
+                  : 'bg-emerald-50/70 dark:bg-emerald-950/25 border-emerald-200/90 dark:border-emerald-800/80'
+              }`}
+            >
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                <div className="flex items-start gap-3 min-w-0">
+                  <div className="w-11 h-11 rounded-2xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center flex-shrink-0 border border-emerald-500/25">
+                    <CheckCircle2 size={22} />
+                  </div>
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-600 text-white">
+                        <ShieldCheck size={11} /> Đã ghi nhớ cho tuần tới
+                      </span>
+                      <span className="text-[11px] font-bold text-emerald-800 dark:text-emerald-300 font-mono tabular-nums">
+                        {weekInfo.monthSheet}
+                      </span>
+                    </div>
 
-      {/* Status Badge - Approved */}
-      {scheduleStatus === 'approved' && (
-        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-2xl p-4 flex items-center space-x-3 mb-6 animate-fade-in">
-          <div className="w-10 h-10 bg-green-100 dark:bg-green-800 text-green-500 rounded-full flex items-center justify-center flex-shrink-0">
-            <CalendarCheck size={20} />
-          </div>
-          <div>
-            <h4 className="font-bold text-green-700 dark:text-green-400 text-sm">Đã duyệt ✓</h4>
-            <p className="text-xs text-green-600 dark:text-green-500">Admin đã duyệt lịch làm việc của bạn.</p>
-          </div>
-        </div>
-      )}
+                    <h4 className="font-black text-emerald-900 dark:text-emerald-200 text-sm sm:text-base leading-snug">
+                      Đã đăng ký lịch làm tuần <span className="font-mono tabular-nums">{weekInfo.weekDisplay}</span>
+                    </h4>
+
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-emerald-800/90 dark:text-emerald-300/90 font-medium pt-0.5">
+                      <span className="inline-flex flex-wrap items-center gap-1.5">
+                        <span className="inline-flex items-center gap-1.5">
+                          <Clock size={13} className="text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                          <span>Ghi nhận/chỉnh sửa gần nhất:</span>
+                        </span>
+                        <b
+                          data-testid="schedule-updated-at"
+                          className="font-mono tabular-nums whitespace-nowrap font-black text-emerald-950 dark:text-white bg-white/80 dark:bg-slate-900/60 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800"
+                        >
+                          {effectiveUpdatedAt || 'Đã lưu trên Bảng Chấm Công'}
+                        </b>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sheet Sync & Approval Pills */}
+                <div className="flex flex-wrap sm:flex-col items-start sm:items-end gap-1.5 flex-shrink-0 pl-14 sm:pl-0">
+                  {effectiveSheetSynced ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-black bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/25">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                      Đã nạp 100% vào Sheet
+                    </span>
+                  ) : (
+                    <div className="flex items-center gap-1.5">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-black bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
+                        <RefreshCw size={11} className="animate-spin" />
+                        Đang đồng bộ Sheet...
+                      </span>
+                      <button
+                        type="button"
+                        disabled={isSyncingPendingSheet}
+                        onClick={() => syncPendingScheduleToSheet(false)}
+                        className="px-2.5 py-1 rounded-xl text-[11px] font-black bg-amber-600 hover:bg-amber-700 text-white transition active:scale-95 disabled:opacity-60"
+                      >
+                        Đồng bộ ngay
+                      </button>
+                    </div>
+                  )}
+
+                  {scheduleStatus === 'approved' ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-black bg-emerald-600/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25">
+                      <CalendarCheck size={12} /> Đã duyệt ✓
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-black bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25">
+                      <Clock size={12} /> Chờ Admin duyệt
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <p className="mt-3 pt-2.5 border-t border-emerald-200/70 dark:border-emerald-800/60 text-[11px] text-emerald-800/85 dark:text-emerald-300/85 font-medium">
+                {scheduleStatus === 'approved'
+                  ? 'Admin đã phê duyệt lịch làm việc tuần tới của bạn. Hệ thống sẽ không hiển thị lời nhắc đăng ký lại.'
+                  : `Lịch làm của bạn đã được lưu cho tuần ${weekInfo.weekDisplay} và không hiển thị thông báo làm phiền nữa.${isOpen ? ' Bạn vẫn có thể bấm "Chỉnh sửa đăng ký ca" bên dưới trước 17:00 Thứ Bảy nếu cần đổi ca.' : ''}`}
+              </p>
+            </div>
+          )}
 
       {/* Approved Shifts Display */}
       {approvedShifts && approvedShifts.length > 0 && (
@@ -1193,20 +1574,20 @@ ${aiInputText}
       {isRegisteredForTargetWeek && !isEditing && (
         <div className="soft3d-card p-4 sm:p-5 rounded-2xl mb-6 shadow-sm border border-slate-200/80 dark:border-slate-800">
           <div className="flex items-center justify-between mb-3.5">
-            <h3 className="text-sm font-black text-gray-700 dark:text-gray-200 uppercase tracking-wider flex items-center">
-              <Eye size={16} className="mr-2 text-indigo-500" /> Lịch đã đăng ký
+            <h3 className="text-sm font-black text-[var(--kg-text)] uppercase tracking-wider flex items-center">
+              <Eye size={16} className="mr-2 text-[var(--kg-primary)]" /> Lịch đã đăng ký
             </h3>
             {approvedShifts && approvedShifts.length > 0 ? (
-              <span className="px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shadow-2xs">
-                ✓ Đã duyệt
+              <span className="px-3 py-1 rounded-full text-xs font-black bg-[var(--kg-success-soft)] text-[var(--kg-success)] border border-[var(--kg-success)]/30 shadow-2xs">
+                Đã duyệt
               </span>
             ) : (
-              <span className="px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-300 dark:border-amber-700 animate-pulse shadow-2xs">
-                ⏳ Chờ duyệt
+              <span className="px-3 py-1 rounded-full text-xs font-black bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] border border-[var(--kg-warning)]/30 shadow-2xs">
+                Chờ duyệt
               </span>
             )}
           </div>
-          {renderShiftGrid((i) => registeredShifts?.[i] || shiftData[weekInfo.weekDatesKeys[i]] || 'OFF')}
+          {renderShiftGrid((i) => effectiveRegisteredShifts?.[i] || shiftData[weekInfo.weekDatesKeys[i]] || 'OFF')}
 
           {/* BQL Official Acknowledgment Notice */}
           <div className="mt-4 p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 text-xs text-blue-900 dark:text-blue-200 leading-relaxed shadow-xs">
@@ -1274,6 +1655,19 @@ ${aiInputText}
       {/* === REGISTRATION FORM (new registration or editing) === */}
       {showRegistrationForm && (
         <>
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-4 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl px-4 py-3 shadow-2xs">
+            <div className="text-xs text-[var(--kg-text-muted)] font-medium">
+              Muốn giữ nguyên khung giờ làm như tuần này? Điền tự động đủ 7 ngày chỉ với 1 chạm:
+            </div>
+            <button
+              type="button"
+              onClick={handleCopyEmployeeCurrentWeek}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black bg-[var(--kg-accent-soft)] text-[var(--kg-primary)] border border-[var(--kg-primary)]/25 hover:bg-[var(--kg-primary)] hover:text-white transition-all active:scale-95"
+            >
+              <Copy size={14} /> Sao chép lịch tuần này
+            </button>
+          </div>
+
           {/* Editing banner */}
           {isEditing && (
             <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-3 mb-4 flex items-center justify-between">
@@ -1342,26 +1736,30 @@ ${aiInputText}
 
           {/* Warning + reason input */}
           {(hasWeekendOff || hasConsecutiveOffs || hasHolidayOff) && (
-            <div className="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 rounded-r-2xl mb-6 animate-fade-in shadow-xs">
+            <div className="bg-[var(--kg-danger-soft)] border border-[var(--kg-danger)]/35 p-4 rounded-2xl mb-6 animate-fade-in shadow-2xs">
               <div className="flex items-start">
-                <AlertTriangle size={20} className="text-red-500 mt-1 mr-3 flex-shrink-0" />
-                <div>
-                  <h4 className="font-bold text-red-700 dark:text-red-400 text-sm mb-1">Quy định nộp lịch</h4>
-                  <ul className="text-xs text-red-600 dark:text-red-300 list-disc list-inside mb-3 space-y-1 ml-2 font-medium">
+                <AlertTriangle size={20} className="text-[var(--kg-danger)] mt-0.5 mr-3 flex-shrink-0" />
+                <div className="flex-1">
+                  <h4 className="font-bold text-[var(--kg-danger)] text-sm mb-1">Quy định nộp lịch</h4>
+                  <ul className="text-xs text-[var(--kg-text)] list-disc list-inside mb-3 space-y-1 ml-1 font-medium">
                     {hasConsecutiveOffs && <li>Bạn đang chọn OFF từ 2 ngày liên tiếp trở lên.</li>}
                     {hasWeekendOff && <li>Bạn đang chọn OFF vào ngày cuối tuần (T6, T7 hoặc CN).</li>}
                     {hasHolidayOff && <li>Bạn đang chọn OFF vào ngày Lễ/Tết cao điểm.</li>}
                   </ul>
-                  <p className="text-xs font-medium text-red-700 dark:text-red-400 mb-3">
+                  <p className="text-xs font-medium text-[var(--kg-text-muted)] mb-3">
                     Vui lòng nhập lý do bên dưới VÀ gửi hình ảnh minh chứng vào nhóm Zalo lịch làm: <br />
-                    <a href="https://zalo.me/g/zkowlm391" target="_blank" rel="noreferrer" className="inline-flex items-center text-blue-600 bg-blue-100 dark:bg-blue-900/40 dark:text-blue-300 px-2.5 py-1 rounded-lg mt-1 hover:underline font-bold">
+                    <a href="https://zalo.me/g/zkowlm391" target="_blank" rel="noreferrer" className="inline-flex items-center text-[var(--kg-primary)] bg-[var(--kg-primary-soft)] border border-[var(--kg-primary)]/20 px-2.5 py-1 rounded-lg mt-1.5 hover:underline font-bold">
                       <ExternalLink size={12} className="mr-1" /> Mở nhóm Zalo lịch làm
                     </a>
                   </p>
+                  <label htmlFor="schedule-off-reason" className="block text-xs font-bold text-[var(--kg-text)] mb-1.5">
+                    Lý do xin nghỉ cụ thể
+                  </label>
                   <textarea 
+                    id="schedule-off-reason"
                     value={offReason} 
                     onChange={(e) => store.setOffReason(e.target.value)}
-                    className="w-full bg-[var(--kg-surface)] border border-red-200 dark:border-red-800 rounded-xl p-3 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-red-500 text-[var(--kg-text)]" 
+                    className="w-full bg-[var(--kg-surface)] border border-[var(--kg-danger)]/40 rounded-xl p-3 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-danger)] text-[var(--kg-text)]" 
                     rows={3} 
                     placeholder="Nhập lý do xin nghỉ cụ thể..." 
                   />
@@ -1375,7 +1773,7 @@ ${aiInputText}
             type="button"
             disabled={isSubmitting}
             onClick={submitRegistration} 
-            className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black py-4 rounded-2xl shadow-md transition-all transform active:scale-95 flex items-center justify-center touch-manipulation text-sm sm:text-base tracking-wide uppercase disabled:opacity-75 disabled:pointer-events-none"
+            className="w-full bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-black py-3.5 rounded-xl shadow-sm transition-all active:scale-99 flex items-center justify-center touch-manipulation text-sm tracking-wide uppercase disabled:opacity-75 disabled:pointer-events-none"
           >
             {isSubmitting ? (
               <><RefreshCw size={18} className="animate-spin mr-2" /> ĐANG ĐẨY VÀO GOOGLE SHEETS...</>
@@ -1397,50 +1795,56 @@ ${aiInputText}
       )}
       {/* AI Schedule Modal */}
       {aiModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="soft3d-card shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-4 md:p-6 flex-shrink-0 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20">
-              <div className="flex items-center text-indigo-700 dark:text-indigo-300">
-                <Bot size={24} className="mr-3" />
-                <h3 className="text-xl font-bold">Xếp ca nhanh bằng AI</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4 animate-fade-in">
+          <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-4 md:p-5 flex-shrink-0 border-b border-[var(--kg-border)] flex justify-between items-center bg-[var(--kg-surface-soft)]">
+              <div className="flex items-center text-[var(--kg-primary)]">
+                <Bot size={22} className="mr-2.5" />
+                <h3 className="text-base sm:text-lg font-extrabold text-[var(--kg-text)]">Xếp ca nhanh bằng AI</h3>
               </div>
-              <button onClick={() => !isAiProcessing && setAiModalOpen(false)} className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors text-gray-500">
-                <X size={20} />
+              <button type="button" onClick={() => !isAiProcessing && setAiModalOpen(false)} aria-label="Đóng" className="p-2 hover:bg-[var(--kg-border)]/40 rounded-lg transition-colors text-[var(--kg-text-muted)]">
+                <X size={18} />
               </button>
             </div>
             
             <div className="p-4 md:p-6 overflow-y-auto custom-scrollbar flex-grow">
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              <p className="text-xs sm:text-sm text-[var(--kg-text-muted)] mb-4 leading-relaxed">
                 Dán tin nhắn đăng ký ca hoặc đoạn văn bản chứa lịch làm của nhân viên vào đây. AI sẽ tự động phân tích và điền vào bảng cho bạn.
-                <br/>Ví dụ: <em className="text-gray-500">"Huy đăng ký thứ 2 18h, t3 19h. Trang nghỉ t7 chủ nhật, còn lại 17h."</em>
+                <br/>Ví dụ: <em className="text-[var(--kg-text-soft)]">"Huy đăng ký thứ 2 18h, t3 19h. Trang nghỉ t7 chủ nhật, còn lại 17h."</em>
               </p>
               
+              <label htmlFor="ai-schedule-input" className="block text-xs font-bold text-[var(--kg-text)] mb-1.5">
+                Nội dung tin nhắn đăng ký ca
+              </label>
               <textarea
+                id="ai-schedule-input"
                 value={aiInputText}
                 onChange={(e) => setAiInputText(e.target.value)}
                 placeholder="Dán nội dung phân ca vào đây..."
-                className="w-full h-40 md:h-64 p-4 rounded-xl border border-gray-200 dark:border-gray-700 soft3d-bg text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none transition-all"
+                className="w-full h-40 md:h-60 p-3.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] resize-none transition-all"
                 disabled={isAiProcessing}
               ></textarea>
             </div>
             
-            <div className="p-4 md:p-6 border-t border-gray-100 dark:border-gray-700 paint-layer/50 flex justify-end gap-3 flex-shrink-0">
+            <div className="p-4 md:p-5 border-t border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex justify-end gap-2.5 flex-shrink-0">
               <button
+                type="button"
                 onClick={() => setAiModalOpen(false)}
                 disabled={isAiProcessing}
-                className="px-5 py-2.5 rounded-xl font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                className="px-4 py-2.5 rounded-xl text-sm font-bold text-[var(--kg-text-muted)] bg-[var(--kg-surface)] border border-[var(--kg-border)] hover:text-[var(--kg-text)] transition-colors disabled:opacity-50"
               >
                 Hủy
               </button>
               <button
+                type="button"
                 onClick={handleAiProcess}
                 disabled={isAiProcessing || !aiInputText.trim()}
-                className="px-5 py-2.5 rounded-xl font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/30 transition-all flex items-center disabled:opacity-50"
+                className="px-5 py-2.5 rounded-xl text-sm font-bold bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white shadow-xs transition-all flex items-center disabled:opacity-50"
               >
                 {isAiProcessing ? (
-                  <><RefreshCw size={18} className="animate-spin mr-2" /> Đang xử lý...</>
+                  <><RefreshCw size={16} className="animate-spin mr-2" /> Đang xử lý...</>
                 ) : (
-                  <><Sparkles size={18} className="mr-2" /> Phân Tích & Điền Ca</>
+                  <><Sparkles size={16} className="mr-2" /> Phân Tích & Điền Ca</>
                 )}
               </button>
             </div>

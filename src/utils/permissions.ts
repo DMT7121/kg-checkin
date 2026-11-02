@@ -24,14 +24,14 @@ export function hasTabPermission(tabId: TabId, user: User | null): boolean {
   const position = user.position || 'Phục vụ';
   const registryModule = navigationModules.find(module => module.id === tabId);
 
-  // 1. Admin and Tester bypass all restrictions
-  if (role === 'admin' || role === 'tester') {
+  // 1. Strictly Admin bypasses all restrictions (tester does NOT get admin access)
+  if (role === 'admin') {
     return true;
   }
 
   if (registryModule?.adminOnly) return false;
 
-  // 2. Admin/Management tabs (Admin and Tester only)
+  // 2. Admin/Management tabs (Admin only)
   const adminTabs: TabId[] = [
     'admin',
     'hr_list',

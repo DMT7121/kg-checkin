@@ -8,26 +8,55 @@ import {
   ShieldAlert, MessageSquareWarning, GraduationCap, BookOpen, Building2,
   KeyRound, CalendarRange, BarChart3, Sparkles, Network
 } from 'lucide-react';
+import { KgFeatureTip } from './KgFeatureTip';
+
+export { KgFeatureTip, type KgFeatureTipProps } from './KgFeatureTip';
+export { KgFeatureTip as KgTooltip } from './KgFeatureTip';
 
 // ============================================
-// Layout Components
+// Layout Components (Cloudflare Kumo × KG Brand)
 // ============================================
 
-export function KgPage({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+export function KgPage({
+  children,
+  wide = false,
+  className = ''
+}: {
+  children: React.ReactNode;
+  wide?: boolean;
+  className?: string;
+}) {
   return (
-    <div className={`w-full max-w-7xl mx-auto px-4 py-4 md:py-6 space-y-4 md:space-y-6 ${className}`}>
+    <div
+      className={`w-full ${wide ? 'max-w-[1520px]' : 'max-w-[1360px]'} mx-auto px-3 sm:px-4 md:px-5 py-3 md:py-4 space-y-4 ${className}`}
+    >
       {children}
     </div>
   );
 }
 
-export function KgSection({ children, title, className = '' }: { children: React.ReactNode; title?: string; className?: string }) {
+export function KgSection({
+  children,
+  title,
+  actions,
+  className = ''
+}: {
+  children: React.ReactNode;
+  title?: string;
+  actions?: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <section className={`space-y-3 ${className}`}>
-      {title && (
-        <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--kg-text-muted)] pl-1">
-          {title}
-        </h3>
+    <section className={`space-y-2.5 ${className}`}>
+      {(title || actions) && (
+        <div className="flex items-center justify-between gap-2 px-0.5">
+          {title && (
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--kg-text-muted)]">
+              {title}
+            </h3>
+          )}
+          {actions && <div className="flex items-center gap-2">{actions}</div>}
+        </div>
       )}
       {children}
     </section>
@@ -46,19 +75,19 @@ export function KgPageHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[var(--kg-border)] pb-4">
-      <div className="flex items-center gap-3">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[var(--kg-border)] pb-3.5">
+      <div className="flex items-center gap-3 min-w-0">
         {Icon && (
-          <div className="kg-section-icon w-10 h-10 rounded-xl bg-[var(--kg-accent-soft)] flex items-center justify-center text-[var(--kg-primary)] flex-shrink-0">
-            <Icon size={20} />
+          <div className="kg-section-icon w-9 h-9 rounded-lg bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-primary)] flex-shrink-0">
+            <Icon size={18} strokeWidth={1.75} />
           </div>
         )}
         <div className="min-w-0">
-          <h2 className="text-lg md:text-xl font-extrabold text-[var(--kg-text)] leading-tight truncate">
+          <h2 className="text-base md:text-lg font-semibold text-[var(--kg-text)] leading-snug truncate">
             {title}
           </h2>
           {description && (
-            <p className="text-xs text-[var(--kg-text-muted)] mt-0.5 truncate max-w-[280px] sm:max-w-md">
+            <p className="text-xs text-[var(--kg-text-muted)] mt-0.5 line-clamp-1">
               {description}
             </p>
           )}
@@ -70,7 +99,7 @@ export function KgPageHeader({
 }
 
 // ============================================
-// UI Components
+// Kumo LayerCard & Core Controls (9 States)
 // ============================================
 
 export function KgCard({
@@ -78,23 +107,28 @@ export function KgCard({
   className = '',
   onClick,
   hoverable = false,
+  selected = false,
   stacked = false
 }: {
   children: React.ReactNode;
   className?: string;
   onClick?: () => void;
   hoverable?: boolean;
+  selected?: boolean;
   stacked?: boolean;
 }) {
   return (
     <div
       onClick={onClick}
-      className={`kg-card bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-[var(--radius-lg)] p-4 md:p-5 transition-all duration-200 min-w-0 ${
-        stacked ? 'neo-card-stack' : ''
+      data-selected={selected ? 'true' : undefined}
+      className={`kg-card bg-[var(--kg-surface)] border ${
+        selected ? 'border-[var(--kg-primary)] ring-1 ring-[var(--kg-primary)]/25' : 'border-[var(--kg-border)]'
+      } rounded-[var(--radius-lg)] p-4 md:p-5 transition-colors duration-150 min-w-0 ${
+        stacked ? 'shadow-card' : ''
       } ${
-        onClick ? 'cursor-pointer select-none active:scale-[0.99] touch-manipulation' : ''
+        onClick ? 'cursor-pointer select-none active:scale-[0.995] touch-manipulation' : ''
       } ${
-        hoverable || onClick ? 'hover:border-[var(--kg-primary)] hover:shadow-card hover:-translate-y-0.5' : ''
+        hoverable || onClick ? 'hover:border-[var(--kg-border-strong)]' : ''
       } ${className}`}
     >
       {children}
@@ -108,53 +142,64 @@ export function KgButton({
   size = 'md',
   disabled = false,
   loading = false,
+  selected = false,
   icon: Icon,
   onClick,
   className = '',
-  type = 'button'
+  type = 'button',
+  title
 }: {
   children: React.ReactNode;
   variant?: 'primary' | 'secondary' | 'danger' | 'warning' | 'ghost';
   size?: 'sm' | 'md' | 'lg';
   disabled?: boolean;
   loading?: boolean;
+  selected?: boolean;
   icon?: React.ComponentType<any>;
   onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
   className?: string;
   type?: 'button' | 'submit' | 'reset';
+  title?: string;
 }) {
   const baseStyles =
-    'inline-flex items-center justify-center font-bold transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:grayscale disabled:pointer-events-none touch-manipulation select-none flex-shrink-0';
+    'inline-flex items-center justify-center font-semibold transition-colors duration-150 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--kg-primary)] focus-visible:ring-offset-1 disabled:bg-[var(--kg-surface-soft)] disabled:text-[var(--kg-text-soft)] disabled:border-[var(--kg-border)] disabled:shadow-none disabled:pointer-events-none touch-manipulation select-none flex-shrink-0';
 
   const sizeStyles = {
-    sm: 'px-3 py-1.5 text-xs rounded-xl gap-1.5',
-    md: 'px-4 py-2 text-sm rounded-xl gap-2 min-h-[44px]',
-    lg: 'px-6 py-3.5 text-base rounded-2xl gap-2.5 min-h-[50px]'
+    sm: 'px-3 py-1.5 text-xs rounded-lg gap-1.5 min-h-[34px]',
+    md: 'px-3.5 py-2 text-sm rounded-lg gap-2 min-h-[42px]',
+    lg: 'px-5 py-2.5 text-sm sm:text-base rounded-xl gap-2.5 min-h-[46px]'
   };
 
   const variantStyles = {
-    primary: 'bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white border border-[var(--kg-primary)] shadow-md hover:shadow-lg hover:-translate-y-0.5',
-    secondary:
-      'bg-[var(--kg-surface)] text-[var(--kg-text)] border border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]',
+    primary:
+      'bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white border border-[var(--kg-primary)] shadow-soft',
+    secondary: selected
+      ? 'bg-[var(--kg-surface-soft)] text-[var(--kg-primary)] border border-[var(--kg-primary)]'
+      : 'bg-[var(--kg-surface)] text-[var(--kg-text)] border border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)] hover:border-[var(--kg-border-strong)]',
     danger:
-      'bg-[var(--kg-danger)] hover:brightness-95 text-white border border-[var(--kg-danger)] shadow-md hover:shadow-lg hover:-translate-y-0.5',
+      'bg-[var(--kg-danger)] hover:brightness-95 text-white border border-[var(--kg-danger)] shadow-soft',
     warning:
-      'bg-[var(--kg-warning)] hover:brightness-95 text-white border border-[var(--kg-warning)] shadow-md hover:shadow-lg hover:-translate-y-0.5',
+      'bg-[var(--kg-warning)] hover:brightness-95 text-white border border-[var(--kg-warning)] shadow-soft',
     ghost:
-      'bg-transparent border-none text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)] shadow-none'
+      'bg-transparent border border-transparent text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)]'
   };
 
   return (
     <button
       type={type}
+      title={title}
       disabled={disabled || loading}
+      aria-busy={loading || undefined}
       onClick={onClick}
       className={`${baseStyles} ${sizeStyles[size]} ${variantStyles[variant]} ${className}`}
     >
       {loading ? (
-        <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin flex-shrink-0" />
+        <span
+          className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin flex-shrink-0"
+          aria-hidden="true"
+        />
       ) : Icon ? (
-        <Icon size={size === 'sm' ? 14 : size === 'lg' ? 20 : 16} className="flex-shrink-0" />
+        <Icon size={size === 'sm' ? 14 : size === 'lg' ? 18 : 16} strokeWidth={1.75} className="flex-shrink-0" />
       ) : null}
       <span className="truncate">{children}</span>
     </button>
@@ -167,7 +212,8 @@ export function KgIconButton({
   variant = 'secondary',
   disabled = false,
   className = '',
-  title
+  title,
+  ariaLabel
 }: {
   icon: React.ComponentType<any>;
   onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
@@ -175,14 +221,15 @@ export function KgIconButton({
   disabled?: boolean;
   className?: string;
   title?: string;
+  ariaLabel?: string;
 }) {
   const variantStyles = {
-    primary: 'bg-[var(--kg-primary)] text-white border border-[var(--kg-primary)] shadow-md',
+    primary: 'bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white border border-[var(--kg-primary)] shadow-soft',
     secondary:
-      'bg-[var(--kg-surface)] text-[var(--kg-text)] border border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]',
+      'bg-[var(--kg-surface)] text-[var(--kg-text)] border border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)] hover:border-[var(--kg-border-strong)]',
     danger:
-      'bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] hover:brightness-95 border border-[var(--kg-danger)]/20',
-    ghost: 'bg-transparent text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)]'
+      'bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] hover:brightness-95 border border-[var(--kg-danger)]/25',
+    ghost: 'bg-transparent border border-transparent text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)]'
   };
 
   return (
@@ -191,9 +238,10 @@ export function KgIconButton({
       disabled={disabled}
       onClick={onClick}
       title={title}
-      className={`w-11 h-11 rounded-xl flex items-center justify-center active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:pointer-events-none touch-manipulation flex-shrink-0 ${variantStyles[variant]} ${className}`}
+      aria-label={ariaLabel || title || 'Thao tác'}
+      className={`w-10 h-10 sm:w-10 sm:h-10 min-w-[40px] min-h-[40px] rounded-lg flex items-center justify-center active:translate-y-px transition-colors duration-150 disabled:opacity-50 disabled:pointer-events-none touch-manipulation flex-shrink-0 ${variantStyles[variant]} ${className}`}
     >
-      <Icon size={18} />
+      <Icon size={18} strokeWidth={1.75} />
     </button>
   );
 }
@@ -201,36 +249,53 @@ export function KgIconButton({
 export function KgInput({
   label,
   error,
+  hint,
   icon: Icon,
   className = '',
+  id,
+  required,
   ...props
 }: {
   label?: string;
   error?: string;
+  hint?: string;
   icon?: React.ComponentType<any>;
   className?: string;
 } & React.InputHTMLAttributes<HTMLInputElement>) {
+  const generatedId = React.useId();
+  const inputId = id || generatedId;
+
   return (
     <div className={`space-y-1.5 w-full ${className}`}>
       {label && (
-        <label className="block text-xs font-bold text-[var(--kg-text-muted)] uppercase tracking-wide pl-1">
+        <label htmlFor={inputId} className="block text-xs font-semibold text-[var(--kg-text-muted)]">
           {label}
+          {required && <span className="text-[var(--kg-danger)] ml-0.5">*</span>}
         </label>
       )}
       <div className="relative w-full">
         {Icon && (
-          <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--kg-text-soft)] pointer-events-none">
-            <Icon size={16} />
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--kg-text-soft)] pointer-events-none">
+            <Icon size={16} strokeWidth={1.75} />
           </div>
         )}
         <input
-          className={`w-full px-4 py-2.5 ${
-            Icon ? 'pl-11' : ''
-          } text-sm bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 focus:outline-none transition-all placeholder-[var(--kg-text-soft)] text-[var(--kg-text)]`}
+          id={inputId}
+          required={required}
+          aria-invalid={Boolean(error) || undefined}
+          className={`w-full min-h-[42px] px-3.5 py-2 ${
+            Icon ? 'pl-10' : ''
+          } text-sm bg-[var(--kg-surface)] border ${
+            error ? 'border-[var(--kg-danger)]' : 'border-[var(--kg-border)] hover:border-[var(--kg-border-strong)]'
+          } rounded-lg focus:border-[var(--kg-primary)] focus:outline-none transition-colors placeholder-[var(--kg-text-soft)] text-[var(--kg-text)] disabled:bg-[var(--kg-surface-soft)] disabled:text-[var(--kg-text-muted)]`}
           {...props}
         />
       </div>
-      {error && <p className="text-xs text-[var(--kg-danger)] font-semibold pl-1">{error}</p>}
+      {error ? (
+        <p className="text-xs text-[var(--kg-danger)] font-medium">{error}</p>
+      ) : hint ? (
+        <p className="text-xs text-[var(--kg-text-soft)]">{hint}</p>
+      ) : null}
     </div>
   );
 }
@@ -240,6 +305,8 @@ export function KgSelect({
   error,
   className = '',
   children,
+  id,
+  required,
   ...props
 }: {
   label?: string;
@@ -247,20 +314,29 @@ export function KgSelect({
   className?: string;
   children: React.ReactNode;
 } & React.SelectHTMLAttributes<HTMLSelectElement>) {
+  const generatedId = React.useId();
+  const selectId = id || generatedId;
+
   return (
     <div className={`space-y-1.5 w-full ${className}`}>
       {label && (
-        <label className="block text-xs font-bold text-[var(--kg-text-muted)] uppercase tracking-wide pl-1">
+        <label htmlFor={selectId} className="block text-xs font-semibold text-[var(--kg-text-muted)]">
           {label}
+          {required && <span className="text-[var(--kg-danger)] ml-0.5">*</span>}
         </label>
       )}
       <select
-        className="w-full px-4 py-2.5 text-sm bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 focus:outline-none transition-all text-[var(--kg-text)]"
+        id={selectId}
+        required={required}
+        aria-invalid={Boolean(error) || undefined}
+        className={`w-full min-h-[42px] px-3.5 py-2 text-sm bg-[var(--kg-surface)] border ${
+          error ? 'border-[var(--kg-danger)]' : 'border-[var(--kg-border)] hover:border-[var(--kg-border-strong)]'
+        } rounded-lg focus:border-[var(--kg-primary)] focus:outline-none transition-colors text-[var(--kg-text)] disabled:bg-[var(--kg-surface-soft)] disabled:text-[var(--kg-text-muted)]`}
         {...props}
       >
         {children}
       </select>
-      {error && <p className="text-xs text-[var(--kg-danger)] font-semibold pl-1">{error}</p>}
+      {error && <p className="text-xs text-[var(--kg-danger)] font-medium">{error}</p>}
     </div>
   );
 }
@@ -269,24 +345,35 @@ export function KgTextarea({
   label,
   error,
   className = '',
+  id,
+  required,
   ...props
 }: {
   label?: string;
   error?: string;
   className?: string;
 } & React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const generatedId = React.useId();
+  const textareaId = id || generatedId;
+
   return (
     <div className={`space-y-1.5 w-full ${className}`}>
       {label && (
-        <label className="block text-xs font-bold text-[var(--kg-text-muted)] uppercase tracking-wide pl-1">
+        <label htmlFor={textareaId} className="block text-xs font-semibold text-[var(--kg-text-muted)]">
           {label}
+          {required && <span className="text-[var(--kg-danger)] ml-0.5">*</span>}
         </label>
       )}
       <textarea
-        className="w-full px-4 py-2.5 text-sm bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 focus:outline-none transition-all placeholder-[var(--kg-text-soft)] text-[var(--kg-text)] min-h-[100px]"
+        id={textareaId}
+        required={required}
+        aria-invalid={Boolean(error) || undefined}
+        className={`w-full px-3.5 py-2.5 text-sm bg-[var(--kg-surface)] border ${
+          error ? 'border-[var(--kg-danger)]' : 'border-[var(--kg-border)] hover:border-[var(--kg-border-strong)]'
+        } rounded-lg focus:border-[var(--kg-primary)] focus:outline-none transition-colors placeholder-[var(--kg-text-soft)] text-[var(--kg-text)] min-h-[96px] disabled:bg-[var(--kg-surface-soft)]`}
         {...props}
       />
-      {error && <p className="text-xs text-[var(--kg-danger)] font-semibold pl-1">{error}</p>}
+      {error && <p className="text-xs text-[var(--kg-danger)] font-medium">{error}</p>}
     </div>
   );
 }
@@ -302,20 +389,20 @@ export function KgStatusBadge({
 }) {
   const styles = {
     success:
-      'bg-[var(--kg-success-soft)] text-[var(--kg-success)] border border-[var(--kg-success)]/20',
+      'bg-[var(--kg-success-soft)] text-[var(--kg-success)] border border-[var(--kg-success)]/25',
     warning:
-      'bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] border border-[var(--kg-warning)]/20',
+      'bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] border border-[var(--kg-warning)]/25',
     error:
-      'bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] border border-[var(--kg-danger)]/20',
+      'bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] border border-[var(--kg-danger)]/25',
     info:
-      'bg-[var(--kg-accent-soft)] text-[var(--kg-primary)] dark:text-[var(--color-cyan)] border border-[var(--kg-primary)]/20',
+      'bg-[var(--kg-info-soft)] text-[var(--kg-info)] border border-[var(--kg-info)]/25',
     neutral:
       'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)]'
   };
 
   return (
     <span
-      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold leading-5 whitespace-nowrap ${styles[variant]} ${className}`}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold leading-5 whitespace-nowrap ${styles[variant]} ${className}`}
     >
       {children}
     </span>
@@ -340,33 +427,35 @@ export function KgMetricCard({
   onClick?: () => void;
 }) {
   const iconStyles = {
-    success: 'bg-[var(--kg-success-soft)] text-[var(--kg-success)]',
-    warning: 'bg-[var(--kg-warning-soft)] text-[var(--kg-warning)]',
-    error: 'bg-[var(--kg-danger-soft)] text-[var(--kg-danger)]',
-    info: 'bg-[var(--kg-accent-soft)] text-[var(--kg-primary)] dark:text-[var(--color-cyan)]'
+    success: 'bg-[var(--kg-success-soft)] text-[var(--kg-success)] border-[var(--kg-success)]/20',
+    warning: 'bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] border-[var(--kg-warning)]/20',
+    error: 'bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] border-[var(--kg-danger)]/20',
+    info: 'bg-[var(--kg-surface-soft)] text-[var(--kg-primary)] border-[var(--kg-border)]'
   };
 
   return (
     <KgCard
       onClick={onClick}
-      className={`kg-metric-card kg-metric-${variant} flex items-center justify-between p-4 ${className}`}
-      hoverable={!!onClick}
+      className={`kg-metric-card flex flex-col justify-between gap-2.5 p-3.5 sm:p-4 ${className}`}
+      hoverable={Boolean(onClick)}
     >
-      <div className="space-y-1 min-w-0 flex-1 pr-2">
-        <span className="text-[10.5px] sm:text-[11px] text-[var(--kg-text-muted)] font-bold uppercase tracking-wider block line-clamp-2 leading-tight">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[11.5px] sm:text-xs text-[var(--kg-text-muted)] font-semibold leading-snug">
           {title}
         </span>
-        <p className="text-xl md:text-2xl font-black text-[var(--kg-text)] tracking-tight truncate">
+        <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border flex items-center justify-center flex-shrink-0 ${iconStyles[variant]}`}>
+          <Icon size={16} strokeWidth={1.8} />
+        </div>
+      </div>
+      <div className="min-w-0">
+        <p className="text-xl sm:text-2xl font-extrabold text-[var(--kg-text)] tracking-tight tabular-nums font-mono leading-none">
           {value}
         </p>
         {subtext && (
-          <p className="text-[10px] text-[var(--kg-text-soft)] font-bold truncate">
+          <p className="text-[11px] text-[var(--kg-text-soft)] font-medium mt-1 leading-snug line-clamp-1">
             {subtext}
           </p>
         )}
-      </div>
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${iconStyles[variant]}`}>
-        <Icon size={18} />
       </div>
     </KgCard>
   );
@@ -387,13 +476,13 @@ export function KgAlertCard({
 }) {
   const styles = {
     success:
-      'bg-[var(--kg-success-soft)] border border-[var(--kg-success)]/20 text-[var(--kg-success)]',
+      'bg-[var(--kg-success-soft)] border border-[var(--kg-success)]/25 text-[var(--kg-success)]',
     warning:
-      'bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/20 text-[var(--kg-warning)]',
+      'bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/25 text-[var(--kg-warning)]',
     error:
-      'bg-[var(--kg-danger-soft)] border border-[var(--kg-danger)]/20 text-[var(--kg-danger)]',
+      'bg-[var(--kg-danger-soft)] border border-[var(--kg-danger)]/25 text-[var(--kg-danger)]',
     info:
-      'bg-[var(--kg-accent-soft)] border border-[var(--kg-primary)]/20 text-[var(--kg-primary)] dark:text-[var(--color-cyan)]'
+      'bg-[var(--kg-info-soft)] border border-[var(--kg-info)]/25 text-[var(--kg-info)]'
   };
 
   const icons = {
@@ -406,20 +495,20 @@ export function KgAlertCard({
   const DisplayIcon = Icon || icons[variant];
 
   return (
-    <div className={`p-4 rounded-2xl flex gap-3 ${styles[variant]} ${className} min-w-0`}>
+    <div className={`p-3.5 sm:p-4 rounded-xl flex gap-3 ${styles[variant]} ${className} min-w-0`}>
       <div className="flex-shrink-0 mt-0.5">
-        <DisplayIcon size={18} />
+        <DisplayIcon size={17} strokeWidth={1.75} />
       </div>
-      <div className="flex-1 space-y-1 min-w-0">
-        {title && <h4 className="text-xs font-black uppercase tracking-wider leading-none">{title}</h4>}
-        <div className="text-xs leading-relaxed opacity-95">{children}</div>
+      <div className="flex-1 space-y-0.5 min-w-0">
+        {title && <h4 className="text-xs font-semibold leading-snug">{title}</h4>}
+        <div className="text-xs leading-relaxed text-[var(--kg-text)]">{children}</div>
       </div>
     </div>
   );
 }
 
 export function KgSkeleton({ className = '' }: { className?: string }) {
-  return <div className={`animate-pulse bg-[var(--kg-surface-soft)] rounded-xl ${className}`} />;
+  return <div className={`animate-pulse bg-[var(--kg-surface-soft)] rounded-lg ${className}`} aria-hidden="true" />;
 }
 
 export function KgEmptyState({
@@ -439,14 +528,14 @@ export function KgEmptyState({
       : null;
 
   return (
-    <div className="flex flex-col items-center justify-center text-center p-6 py-10 bg-[var(--kg-surface)] border border-[var(--kg-border)] border-dashed rounded-3xl">
+    <div className="flex flex-col items-center justify-center text-center p-6 py-10 bg-[var(--kg-surface)] border border-dashed border-[var(--kg-border)] rounded-xl">
       {Icon && (
-        <div className="w-12 h-12 rounded-2xl bg-[var(--kg-surface-soft)] flex items-center justify-center text-[var(--kg-text-muted)] mb-4">
-          <Icon size={22} />
+        <div className="w-11 h-11 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] mb-3">
+          <Icon size={20} strokeWidth={1.75} />
         </div>
       )}
-      <h4 className="text-sm font-bold text-[var(--kg-text)]">{title}</h4>
-      <p className="text-xs text-[var(--kg-text-muted)] mt-1 max-w-[280px] leading-relaxed">
+      <h4 className="text-sm font-semibold text-[var(--kg-text)]">{title}</h4>
+      <p className="text-xs text-[var(--kg-text-muted)] mt-1 max-w-[320px] leading-relaxed">
         {description}
       </p>
       {action && (
@@ -467,10 +556,14 @@ export function KgEmptyState({
 export function KgLoadingOverlay({ text = 'Đang xử lý...' }: { text?: string }) {
   if (typeof document === 'undefined') return null;
   return createPortal(
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[10200] flex items-center justify-center p-4">
-      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-5 rounded-2xl flex items-center gap-4 max-w-xs w-full mx-auto shadow-2xl">
+    <div
+      role="status"
+      aria-live="polite"
+      className="fixed inset-0 bg-black/55 backdrop-blur-sm z-[10200] flex items-center justify-center p-4"
+    >
+      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-4 sm:p-5 rounded-xl flex items-center gap-3.5 max-w-xs w-full mx-auto shadow-xl">
         <RefreshCw className="w-5 h-5 text-[var(--kg-primary)] animate-spin flex-shrink-0" />
-        <span className="text-sm font-bold text-[var(--kg-text)] leading-tight">
+        <span className="text-sm font-semibold text-[var(--kg-text)] leading-snug">
           {text}
         </span>
       </div>
@@ -480,7 +573,7 @@ export function KgLoadingOverlay({ text = 'Đang xử lý...' }: { text?: string
 }
 
 // ============================================
-// Feedback Components
+// Feedback & Overlay Components
 // ============================================
 
 export interface ToastMessage {
@@ -504,10 +597,17 @@ export function KgToast({
   }, [message, onClose]);
 
   const typeStyles = {
-    success: 'border-[var(--kg-success)]/20 bg-[var(--kg-success-soft)] text-[var(--kg-success)]',
-    error: 'border-[var(--kg-danger)]/20 bg-[var(--kg-danger-soft)] text-[var(--kg-danger)]',
-    warning: 'border-[var(--kg-warning)]/20 bg-[var(--kg-warning-soft)] text-[var(--kg-warning)]',
-    info: 'border-[var(--kg-primary)]/20 bg-[var(--kg-accent-soft)] text-[var(--kg-primary)]'
+    success: 'border-[var(--kg-success)]/25 bg-[var(--kg-surface)] text-[var(--kg-text)]',
+    error: 'border-[var(--kg-danger)]/25 bg-[var(--kg-surface)] text-[var(--kg-text)]',
+    warning: 'border-[var(--kg-warning)]/25 bg-[var(--kg-surface)] text-[var(--kg-text)]',
+    info: 'border-[var(--kg-border)] bg-[var(--kg-surface)] text-[var(--kg-text)]'
+  };
+
+  const iconColors = {
+    success: 'text-[var(--kg-success)]',
+    error: 'text-[var(--kg-danger)]',
+    warning: 'text-[var(--kg-warning)]',
+    info: 'text-[var(--kg-primary)]'
   };
 
   const icons = {
@@ -521,14 +621,20 @@ export function KgToast({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 50, scale: 0.95 }}
+      initial={{ opacity: 0, y: 24, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: 20, scale: 0.95 }}
+      exit={{ opacity: 0, y: 12, scale: 0.98 }}
+      transition={{ duration: 0.15 }}
       className={`flex items-center gap-3 p-3.5 rounded-xl border shadow-lg max-w-sm pointer-events-auto ${typeStyles[message.type]}`}
     >
-      <Icon size={18} className="flex-shrink-0" />
-      <span className="text-xs font-bold leading-normal flex-1">{message.title}</span>
-      <button onClick={() => onClose(message.id)} className="opacity-60 hover:opacity-100 transition-opacity p-0.5">
+      <Icon size={18} strokeWidth={1.75} className={`flex-shrink-0 ${iconColors[message.type]}`} />
+      <span className="text-xs font-semibold leading-normal flex-1">{message.title}</span>
+      <button
+        type="button"
+        onClick={() => onClose(message.id)}
+        aria-label="Đóng thông báo"
+        className="text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition-colors p-1 rounded"
+      >
         <X size={14} />
       </button>
     </motion.div>
@@ -563,44 +669,41 @@ export function KgBottomSheet({
   return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[10050] flex items-center justify-center p-3 sm:p-4 md:p-6">
-          {/* Overlay */}
+        <div className="fixed inset-0 z-[10050] flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto"
+            className="fixed inset-0 bg-black/55 backdrop-blur-sm pointer-events-auto"
           />
-          {/* Centered Ergonomic Modal Sheet */}
           <motion.div
             role="dialog"
             aria-modal="true"
             aria-label={title}
-            initial={{ opacity: 0, scale: 0.96, y: 12 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: 12 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
+            initial={{ opacity: 0, y: 18, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 18, scale: 0.98 }}
+            transition={{ duration: 0.18, ease: [0.2, 0, 0, 1] }}
             onClick={(e) => e.stopPropagation()}
-            className="relative z-10 w-full max-w-lg max-h-[88dvh] sm:max-h-[85vh] mx-auto bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-2xl sm:rounded-3xl border border-[var(--kg-border)] shadow-2xl flex flex-col pointer-events-auto overflow-hidden"
+            className="relative z-10 w-full max-w-lg max-h-[90dvh] sm:max-h-[85vh] mx-auto bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-t-2xl sm:rounded-2xl border border-[var(--kg-border)] shadow-2xl flex flex-col pointer-events-auto overflow-hidden pb-safe"
           >
-            {/* Header */}
             <div className="px-4 sm:px-5 py-3.5 border-b border-[var(--kg-border)] bg-[var(--kg-surface-soft)]/70 flex items-center justify-between gap-3 flex-shrink-0">
-              <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-[var(--kg-text)] truncate">
+              <h3 className="text-sm font-semibold text-[var(--kg-text)] truncate">
                 {title}
               </h3>
               <button
                 type="button"
                 onClick={onClose}
                 aria-label="Đóng hộp thoại"
-                className="w-9 h-9 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] active:scale-95 transition-all flex-shrink-0"
+                className="w-9 h-9 rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] active:scale-95 transition-colors flex-shrink-0"
               >
                 <X size={16} />
               </button>
             </div>
-            
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 min-h-0 hide-scrollbar">
+
+            <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 min-h-0">
               {children}
             </div>
           </motion.div>
@@ -626,7 +729,7 @@ export function KgConfirmSheet({
   onClose: () => void;
   onConfirm: () => void;
   title: string;
-  message: string;
+  message: React.ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
   variant?: 'primary' | 'danger' | 'warning';
@@ -634,11 +737,11 @@ export function KgConfirmSheet({
 }) {
   return (
     <KgBottomSheet isOpen={isOpen} onClose={onClose} title={title}>
-      <div className="space-y-5 py-2">
-        <p className="text-sm text-[var(--kg-text-muted)] leading-relaxed font-medium">
+      <div className="space-y-4 py-1">
+        <div className="text-sm text-[var(--kg-text-muted)] leading-relaxed">
           {message}
-        </p>
-        <div className="flex gap-3">
+        </div>
+        <div className="flex gap-2.5 pt-1">
           <KgButton variant="secondary" size="md" className="flex-1" onClick={onClose} disabled={loading}>
             {cancelLabel}
           </KgButton>
@@ -676,7 +779,7 @@ export function KgSyncStatus({
   }, []);
 
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--kg-surface)] border border-[var(--kg-border)] text-xs font-bold text-[var(--kg-text-muted)] select-none">
+    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-xs font-medium text-[var(--kg-text-muted)] select-none">
       {isOnline ? (
         <Wifi size={13} className="text-[var(--kg-success)]" />
       ) : (
@@ -684,20 +787,22 @@ export function KgSyncStatus({
       )}
       <span className="truncate">
         {pendingCount > 0 ? (
-          <span className="text-[var(--kg-warning)]">Chờ đồng bộ ({pendingCount})</span>
+          <span className="text-[var(--kg-warning)] font-semibold">Chờ đồng bộ ({pendingCount})</span>
         ) : isSyncing ? (
-          'Đang cập nhật...'
+          'Đang đồng bộ...'
         ) : lastSyncTime ? (
-          `Cập nhật: ${new Date(lastSyncTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+          `Cập nhật ${new Date(lastSyncTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
         ) : (
           'Trực tuyến'
         )}
       </span>
       {onRefresh && (
         <button
+          type="button"
           onClick={onRefresh}
           disabled={isSyncing}
-          className="ml-1 text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition-colors"
+          aria-label="Làm mới dữ liệu"
+          className="ml-0.5 text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition-colors"
         >
           <RefreshCw size={12} className={isSyncing ? 'animate-spin' : ''} />
         </button>
@@ -716,12 +821,12 @@ export function KgErrorState({
   onRetry?: () => void;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center text-center p-6 py-12 bg-[var(--kg-danger-soft)] border border-[var(--kg-danger)]/20 rounded-2xl">
-      <div className="w-12 h-12 rounded-2xl bg-[var(--kg-surface)] flex items-center justify-center text-[var(--kg-danger)] mb-4 shadow-sm">
-        <AlertCircle size={22} />
+    <div className="flex flex-col items-center justify-center text-center p-6 py-10 bg-[var(--kg-danger-soft)] border border-[var(--kg-danger)]/20 rounded-xl">
+      <div className="w-11 h-11 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-danger)] mb-3">
+        <AlertCircle size={20} strokeWidth={1.75} />
       </div>
-      <h4 className="text-sm font-bold text-[var(--kg-text)]">{title}</h4>
-      <p className="text-xs text-[var(--kg-text-muted)] mt-1 max-w-[280px] leading-relaxed">
+      <h4 className="text-sm font-semibold text-[var(--kg-text)]">{title}</h4>
+      <p className="text-xs text-[var(--kg-text-muted)] mt-1 max-w-[300px] leading-relaxed">
         {description}
       </p>
       {onRetry && (
@@ -769,12 +874,12 @@ export function KgActionSheet({
 
   return (
     <KgBottomSheet isOpen={isOpen} onClose={onClose} title={title}>
-      <div className="space-y-5 py-1">
+      <div className="space-y-4 py-1">
         {groupedActions.map((group) => (
           <section key={group.label} className="kg-action-group">
-            <div className="flex items-center gap-2 px-1 mb-2.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[var(--kg-accent)] shadow-[0_0_8px_rgba(204,96,73,0.45)]" />
-              <h4 className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--kg-text-muted)]">
+            <div className="flex items-center gap-2 px-1 mb-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--kg-accent)]" />
+              <h4 className="text-[11px] font-semibold uppercase tracking-wider text-[var(--kg-text-muted)]">
                 {group.label}
               </h4>
               <span className="h-px flex-1 bg-[var(--kg-border)]" />
@@ -782,6 +887,7 @@ export function KgActionSheet({
             <div className="grid grid-cols-3 gap-2">
               {group.items.map((act) => (
                 <button
+                  type="button"
                   key={`${group.label}-${act.label}`}
                   onClick={() => {
                     act.onClick();
@@ -791,20 +897,22 @@ export function KgActionSheet({
                   onFocus={act.onPrefetch}
                   onTouchStart={act.onPrefetch}
                   aria-current={act.active ? 'page' : undefined}
-                  className={`kg-action-tile flex flex-col items-center justify-center p-3 rounded-2xl active:scale-95 transition-all gap-2 min-h-[96px] ${
+                  className={`kg-action-tile flex flex-col items-center justify-center p-2.5 rounded-xl active:scale-95 transition-colors gap-2 min-h-[84px] ${
                     act.active
                       ? 'kg-action-tile--active text-white'
-                      : 'text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)]'
+                      : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
                   }`}
                 >
-                  <div className={`w-11 h-11 rounded-xl border flex items-center justify-center shadow-sm ${
-                    act.active
-                      ? 'kg-action-icon--active'
-                      : 'kg-section-icon bg-[var(--kg-surface)] border-[var(--kg-border)]'
-                  }`}>
-                    <act.icon size={20} />
+                  <div
+                    className={`w-10 h-10 rounded-lg border flex items-center justify-center ${
+                      act.active
+                        ? 'kg-action-icon--active'
+                        : 'kg-section-icon bg-[var(--kg-surface)] border-[var(--kg-border)]'
+                    }`}
+                  >
+                    <act.icon size={18} strokeWidth={1.75} />
                   </div>
-                  <span className="text-[10px] font-extrabold text-center leading-tight tracking-wide uppercase break-words w-full">
+                  <span className="text-[11px] font-semibold text-center leading-tight break-words w-full">
                     {act.label}
                   </span>
                 </button>
@@ -818,363 +926,62 @@ export function KgActionSheet({
 }
 
 // ============================================
-// 3D Glassmorphism Illustrations
+// Kumo Compact Operational Module Header
 // ============================================
 
-/** @deprecated Kept temporarily for compatibility with older custom illustrations. */
-export function LegacyKg3dIllustration({ moduleId }: { moduleId: string }) {
-  const normId = moduleId.toLowerCase().replace(/[-_]/g, '');
-
-  const defs = (
-    <defs>
-      <linearGradient id="illPrimary" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#2563eb" />
-        <stop offset="100%" stopColor="#7c3aed" />
-      </linearGradient>
-      <linearGradient id="illAccent" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#06b6d4" />
-        <stop offset="100%" stopColor="#3b82f6" />
-      </linearGradient>
-      <linearGradient id="illSuccess" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#10b981" />
-        <stop offset="100%" stopColor="#059669" />
-      </linearGradient>
-      <linearGradient id="illWarning" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#f59e0b" />
-        <stop offset="100%" stopColor="#d97706" />
-      </linearGradient>
-      <linearGradient id="illDanger" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#ef4444" />
-        <stop offset="100%" stopColor="#dc2626" />
-      </linearGradient>
-      <linearGradient id="illGlass" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="rgba(255, 255, 255, 0.45)" />
-        <stop offset="100%" stopColor="rgba(255, 255, 255, 0.08)" />
-      </linearGradient>
-      <filter id="illGlow" x="-20%" y="-20%" width="140%" height="140%">
-        <feGaussianBlur stdDeviation="3" result="blur" />
-        <feComposite in="SourceGraphic" in2="blur" operator="over" />
-      </filter>
-    </defs>
-  );
-
-  const containerClass = "w-20 h-20 md:w-24 md:h-24 drop-shadow-xl select-none pointer-events-none transform hover:scale-105 transition-transform duration-300";
-
-  switch (normId) {
-    case 'today':
-    case 'dashboard':
-    case 'managerdashboard':
-      return (
-        <svg viewBox="0 0 100 100" className={containerClass}>
-          {defs}
-          <circle cx="50" cy="50" r="44" fill="url(#illGlass)" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" />
-          <rect x="22" y="24" width="32" height="22" rx="6" fill="url(#illPrimary)" opacity="0.85" />
-          <rect x="22" y="52" width="32" height="22" rx="6" fill="url(#illAccent)" opacity="0.85" />
-          <rect x="58" y="24" width="20" height="50" rx="6" fill="url(#illGlass)" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
-          <path d="M18 18 L20 22 L24 20 L20 18 Z" fill="#ffd700" filter="url(#illGlow)" />
-          <path d="M78 78 L80 82 L84 80 L80 78 Z" fill="#ffd700" filter="url(#illGlow)" />
-          <circle cx="38" cy="35" r="3" fill="#ffffff" />
-          <circle cx="38" cy="63" r="3" fill="#ffffff" />
-          <line x1="68" y1="35" x2="68" y2="65" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" />
-        </svg>
-      );
-
-    case 'checkin':
-    case 'attendancegps':
-      return (
-        <svg viewBox="0 0 100 100" className={containerClass}>
-          {defs}
-          <circle cx="50" cy="50" r="44" fill="url(#illGlass)" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" />
-          <line x1="20" y1="50" x2="80" y2="50" stroke="rgba(255,255,255,0.15)" strokeWidth="2" />
-          <line x1="50" y1="20" x2="50" y2="80" stroke="rgba(255,255,255,0.15)" strokeWidth="2" />
-          <path d="M50 18 C36 18 32 30 50 68 C68 30 64 18 50 18 Z" fill="url(#illDanger)" filter="url(#illGlow)" />
-          <circle cx="50" cy="34" r="7" fill="#ffffff" />
-          <circle cx="72" cy="68" r="14" fill="url(#illSuccess)" />
-          <path d="M66 68 L70 72 L78 64" fill="none" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      );
-
-    case 'schedule':
-    case 'scheduleregister':
-    case 'roster':
-      return (
-        <svg viewBox="0 0 100 100" className={containerClass}>
-          {defs}
-          <circle cx="50" cy="50" r="44" fill="url(#illGlass)" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" />
-          <rect x="22" y="24" width="56" height="52" rx="10" fill="url(#illPrimary)" />
-          <rect x="22" y="24" width="56" height="14" rx="10" fill="rgba(0,0,0,0.12)" />
-          <circle cx="34" cy="48" r="3" fill="#ffffff" />
-          <circle cx="50" cy="48" r="3" fill="#ffffff" />
-          <circle cx="66" cy="48" r="3" fill="url(#illAccent)" />
-          <circle cx="34" cy="62" r="3" fill="#ffffff" />
-          <circle cx="50" cy="62" r="3" fill="#ffffff" opacity="0.4" />
-          <circle cx="66" cy="62" r="3" fill="#ffffff" />
-          <circle cx="75" cy="70" r="16" fill="url(#illGlass)" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" filter="url(#illGlow)" />
-          <line x1="75" y1="70" x2="75" y2="62" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" />
-          <line x1="75" y1="70" x2="82" y2="70" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" />
-        </svg>
-      );
-
-    case 'payroll':
-    case 'adminpayroll':
-    case 'reward':
-    case 'advance':
-      return (
-        <svg viewBox="0 0 100 100" className={containerClass}>
-          {defs}
-          <circle cx="50" cy="50" r="44" fill="url(#illGlass)" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" />
-          <rect x="20" y="32" width="52" height="34" rx="8" fill="url(#illPrimary)" transform="rotate(-6 46 49)" />
-          <rect x="26" y="38" width="52" height="34" rx="8" fill="url(#illGlass)" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" transform="rotate(4 52 55)" />
-          <circle cx="40" cy="68" r="12" fill="url(#illWarning)" filter="url(#illGlow)" />
-          <circle cx="40" cy="68" r="8" fill="none" stroke="#ffffff" strokeWidth="2.5" />
-          <circle cx="66" cy="64" r="10" fill="url(#illWarning)" />
-          <circle cx="66" cy="64" r="6" fill="none" stroke="#ffffff" strokeWidth="2" />
-        </svg>
-      );
-
-    case 'history':
-    case 'attendancehistory':
-    case 'timesheet':
-      return (
-        <svg viewBox="0 0 100 100" className={containerClass}>
-          {defs}
-          <circle cx="50" cy="50" r="44" fill="url(#illGlass)" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" />
-          <circle cx="44" cy="46" r="24" fill="url(#illPrimary)" />
-          <circle cx="44" cy="46" r="20" fill="none" stroke="#ffffff" strokeWidth="2.5" />
-          <line x1="44" y1="46" x2="44" y2="34" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" />
-          <line x1="44" y1="46" x2="54" y2="46" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" />
-          <rect x="36" y="62" width="46" height="18" rx="5" fill="url(#illGlass)" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" filter="url(#illGlow)" />
-          <line x1="46" y1="71" x2="72" y2="71" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" />
-        </svg>
-      );
-
-    case 'checklist':
-    case 'dailychecklist':
-    case 'adminchecklist':
-      return (
-        <svg viewBox="0 0 100 100" className={containerClass}>
-          {defs}
-          <circle cx="50" cy="50" r="44" fill="url(#illGlass)" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" />
-          <rect x="26" y="20" width="48" height="60" rx="8" fill="url(#illPrimary)" />
-          <rect x="38" y="14" width="24" height="10" rx="3" fill="#ffffff" />
-          <path d="M34 38 L38 42 L48 32" fill="none" stroke="url(#illSuccess)" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
-          <line x1="54" y1="36" x2="66" y2="36" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" />
-          <path d="M34 54 L38 58 L48 48" fill="none" stroke="url(#illSuccess)" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
-          <line x1="54" y1="52" x2="66" y2="52" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" />
-          <path d="M34 70 L38 74 L48 64" fill="none" stroke="url(#illSuccess)" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
-          <line x1="54" y1="68" x2="66" y2="68" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" />
-        </svg>
-      );
-
-    case 'handover':
-    case 'swap':
-    case 'shiftswap':
-      return (
-        <svg viewBox="0 0 100 100" className={containerClass}>
-          {defs}
-          <circle cx="50" cy="50" r="44" fill="url(#illGlass)" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" />
-          <circle cx="36" cy="42" r="14" fill="url(#illPrimary)" />
-          <circle cx="64" cy="54" r="14" fill="url(#illAccent)" />
-          <path d="M28 66 C28 72 40 76 50 76 M72 34 C72 28 60 24 50 24" fill="none" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" />
-          <path d="M46 20 L50 24 L46 28" fill="none" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M54 72 L50 76 L54 80" fill="none" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      );
-
-    case 'news':
-    case 'newsfeed':
-      return (
-        <svg viewBox="0 0 100 100" className={containerClass}>
-          {defs}
-          <circle cx="50" cy="50" r="44" fill="url(#illGlass)" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" />
-          <rect x="22" y="24" width="56" height="52" rx="4" fill="#ffffff" stroke="url(#illPrimary)" strokeWidth="2" />
-          <line x1="28" y1="36" x2="48" y2="36" stroke="url(#illPrimary)" strokeWidth="4" strokeLinecap="round" />
-          <rect x="52" y="32" width="20" height="20" fill="url(#illAccent)" rx="2" />
-          <line x1="28" y1="48" x2="46" y2="48" stroke="#64748b" strokeWidth="2.5" strokeLinecap="round" />
-          <line x1="28" y1="56" x2="72" y2="56" stroke="#64748b" strokeWidth="2.5" strokeLinecap="round" />
-          <line x1="28" y1="64" x2="72" y2="64" stroke="#64748b" strokeWidth="2.5" strokeLinecap="round" />
-        </svg>
-      );
-
-    case 'soldout':
-      return (
-        <svg viewBox="0 0 100 100" className={containerClass}>
-          {defs}
-          <circle cx="50" cy="50" r="44" fill="url(#illGlass)" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" />
-          <circle cx="50" cy="52" r="26" fill="#ffffff" stroke="url(#illPrimary)" strokeWidth="3" />
-          <path d="M42 36 L42 54 M38 36 C38 42 46 42 46 36" fill="none" stroke="url(#illPrimary)" strokeWidth="3" strokeLinecap="round" />
-          <path d="M58 36 L58 54 M54 54 C54 48 62 48 62 54" fill="none" stroke="url(#illPrimary)" strokeWidth="3" strokeLinecap="round" />
-          <circle cx="70" cy="30" r="14" fill="url(#illDanger)" filter="url(#illGlow)" />
-          <line x1="70" y1="23" x2="70" y2="31" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" />
-          <circle cx="70" cy="37" r="2" fill="#ffffff" />
-        </svg>
-      );
-
-    case 'feedback':
-      return (
-        <svg viewBox="0 0 100 100" className={containerClass}>
-          {defs}
-          <circle cx="50" cy="50" r="44" fill="url(#illGlass)" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" />
-          <rect x="20" y="24" width="46" height="32" rx="10" fill="url(#illPrimary)" />
-          <path d="M26 56 L20 62 L32 56 Z" fill="url(#illPrimary)" />
-          <rect x="36" y="44" width="44" height="30" rx="10" fill="url(#illGlass)" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" filter="url(#illGlow)" />
-          <path d="M70 74 L76 80 L72 74 Z" fill="#ffffff" />
-          <path d="M58 54 C56 52 52 52 51 54 C50 52 46 52 44 54 C42 57 47 62 51 64 C55 62 60 57 58 54 Z" fill="url(#illDanger)" />
-        </svg>
-      );
-
-    case 'training':
-    case 'guide':
-      return (
-        <svg viewBox="0 0 100 100" className={containerClass}>
-          {defs}
-          <circle cx="50" cy="50" r="44" fill="url(#illGlass)" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" />
-          <path d="M24 64 L24 28 C24 24 38 24 50 28 C62 24 76 24 76 28 L76 64 C76 60 62 60 50 64 C38 60 24 60 24 64 Z" fill="#ffffff" stroke="url(#illPrimary)" strokeWidth="3" />
-          <path d="M50 28 L50 64" stroke="url(#illPrimary)" strokeWidth="3" />
-          <path d="M34 32 L50 24 L66 32 L50 40 Z" fill="url(#illAccent)" filter="url(#illGlow)" />
-          <rect x="44" y="38" width="12" height="8" fill="url(#illPrimary)" />
-        </svg>
-      );
-
-    case 'admin':
-    case 'adminai':
-      return (
-        <svg viewBox="0 0 100 100" className={containerClass}>
-          {defs}
-          <circle cx="50" cy="50" r="44" fill="url(#illGlass)" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" />
-          <rect x="28" y="28" width="44" height="44" rx="8" fill="url(#illPrimary)" />
-          <rect x="36" y="36" width="28" height="28" rx="4" fill="url(#illGlass)" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" filter="url(#illGlow)" />
-          <line x1="38" y1="20" x2="38" y2="28" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" />
-          <line x1="50" y1="20" x2="50" y2="28" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" />
-          <line x1="62" y1="20" x2="62" y2="28" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" />
-          <line x1="38" y1="72" x2="38" y2="80" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" />
-          <line x1="50" y1="72" x2="50" y2="80" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" />
-          <line x1="62" y1="72" x2="62" y2="80" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" />
-          <line x1="20" y1="38" x2="28" y2="38" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" />
-          <line x1="20" y1="50" x2="28" y2="50" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" />
-          <line x1="20" y1="62" x2="28" y2="62" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" />
-          <line x1="72" y1="38" x2="80" y2="38" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" />
-          <line x1="72" y1="50" x2="80" y2="50" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" />
-          <line x1="72" y1="62" x2="80" y2="62" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" />
-        </svg>
-      );
-
-    case 'adminhr':
-      return (
-        <svg viewBox="0 0 100 100" className={containerClass}>
-          {defs}
-          <circle cx="50" cy="50" r="44" fill="url(#illGlass)" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" />
-          <circle cx="36" cy="46" r="10" fill="url(#illPrimary)" />
-          <path d="M22 72 C22 60 30 58 36 58 C42 58 50 60 50 72" fill="url(#illPrimary)" />
-          <circle cx="62" cy="40" r="8" fill="url(#illGlass)" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" />
-          <path d="M50 64 C50 54 58 52 62 52 C66 52 74 54 74 64" fill="url(#illGlass)" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" filter="url(#illGlow)" />
-        </svg>
-      );
-
-    case 'operations':
-    case 'adminoperations':
-    case 'adminorg':
-      return (
-        <svg viewBox="0 0 100 100" className={containerClass}>
-          {defs}
-          <circle cx="50" cy="50" r="44" fill="url(#illGlass)" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" />
-          <rect x="40" y="18" width="20" height="14" rx="4" fill="url(#illPrimary)" />
-          <rect x="22" y="48" width="20" height="14" rx="4" fill="url(#illGlass)" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" filter="url(#illGlow)" />
-          <rect x="58" y="48" width="20" height="14" rx="4" fill="url(#illGlass)" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" filter="url(#illGlow)" />
-          <line x1="50" y1="32" x2="50" y2="40" stroke="#ffffff" strokeWidth="2.5" />
-          <line x1="32" y1="40" x2="68" y2="40" stroke="#ffffff" strokeWidth="2.5" />
-          <line x1="32" y1="40" x2="32" y2="48" stroke="#ffffff" strokeWidth="2.5" />
-          <line x1="68" y1="40" x2="68" y2="48" stroke="#ffffff" strokeWidth="2.5" />
-        </svg>
-      );
-
-    case 'modulereload':
-    default:
-      return (
-        <svg viewBox="0 0 100 100" className={containerClass}>
-          {defs}
-          <circle cx="50" cy="50" r="44" fill="url(#illGlass)" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" />
-          <path d="M30 50 A20 20 0 0 1 70 50" fill="none" stroke="url(#illPrimary)" strokeWidth="5" strokeLinecap="round" />
-          <path d="M70 50 A20 20 0 0 1 30 50" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="5" strokeLinecap="round" filter="url(#illGlow)" />
-          <path d="M64 44 L70 50 L76 44" fill="none" stroke="url(#illPrimary)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M24 56 L30 50 L36 56" fill="none" stroke="#ffffff" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      );
-  }
-}
-
-const HERO_ICON_MAP = {
-  today: { icon: LayoutDashboard, accent: '#38bdf8', glow: 'rgba(56, 189, 248, 0.34)' },
-  dashboard: { icon: LayoutDashboard, accent: '#38bdf8', glow: 'rgba(56, 189, 248, 0.34)' },
-  checkin: { icon: MapPin, accent: '#fb7185', glow: 'rgba(251, 113, 133, 0.34)' },
-  schedule: { icon: CalendarDays, accent: '#fbbf24', glow: 'rgba(251, 191, 36, 0.32)' },
-  roster: { icon: Users, accent: '#2dd4bf', glow: 'rgba(45, 212, 191, 0.32)' },
-  swap: { icon: ArrowLeftRight, accent: '#a78bfa', glow: 'rgba(167, 139, 250, 0.34)' },
-  timesheet: { icon: Clock, accent: '#818cf8', glow: 'rgba(129, 140, 248, 0.34)' },
-  history: { icon: History, accent: '#60a5fa', glow: 'rgba(96, 165, 250, 0.34)' },
-  payroll: { icon: DollarSign, accent: '#34d399', glow: 'rgba(52, 211, 153, 0.32)' },
-  adminpayroll: { icon: DollarSign, accent: '#34d399', glow: 'rgba(52, 211, 153, 0.32)' },
-  advance: { icon: DollarSign, accent: '#22d3ee', glow: 'rgba(34, 211, 238, 0.32)' },
-  reward: { icon: Trophy, accent: '#fbbf24', glow: 'rgba(251, 191, 36, 0.34)' },
-  checklist: { icon: ClipboardCheck, accent: '#2dd4bf', glow: 'rgba(45, 212, 191, 0.32)' },
-  handover: { icon: Repeat, accent: '#38bdf8', glow: 'rgba(56, 189, 248, 0.32)' },
-  news: { icon: Newspaper, accent: '#60a5fa', glow: 'rgba(96, 165, 250, 0.32)' },
-  soldout: { icon: UtensilsCrossed, accent: '#fb7185', glow: 'rgba(251, 113, 133, 0.32)' },
-  discipline: { icon: ShieldAlert, accent: '#fb7185', glow: 'rgba(251, 113, 133, 0.34)' },
-  feedback: { icon: MessageSquareWarning, accent: '#f472b6', glow: 'rgba(244, 114, 182, 0.32)' },
-  training: { icon: GraduationCap, accent: '#a78bfa', glow: 'rgba(167, 139, 250, 0.34)' },
-  guide: { icon: BookOpen, accent: '#38bdf8', glow: 'rgba(56, 189, 248, 0.32)' },
-  admin: { icon: Building2, accent: '#a78bfa', glow: 'rgba(167, 139, 250, 0.34)' },
-  hrlist: { icon: Users, accent: '#2dd4bf', glow: 'rgba(45, 212, 191, 0.32)' },
-  adminorg: { icon: KeyRound, accent: '#fbbf24', glow: 'rgba(251, 191, 36, 0.32)' },
-  adminshift: { icon: CalendarRange, accent: '#60a5fa', glow: 'rgba(96, 165, 250, 0.32)' },
-  operations: { icon: Network, accent: '#22d3ee', glow: 'rgba(34, 211, 238, 0.32)' },
-  adminoperations: { icon: Network, accent: '#2dd4bf', glow: 'rgba(45, 212, 191, 0.34)' },
-  analytics: { icon: BarChart3, accent: '#34d399', glow: 'rgba(52, 211, 153, 0.32)' }
+const MODULE_ICON_MAP = {
+  today: LayoutDashboard,
+  dashboard: LayoutDashboard,
+  checkin: MapPin,
+  schedule: CalendarDays,
+  roster: Users,
+  swap: ArrowLeftRight,
+  timesheet: Clock,
+  history: History,
+  payroll: DollarSign,
+  adminpayroll: DollarSign,
+  advance: DollarSign,
+  reward: Trophy,
+  checklist: ClipboardCheck,
+  handover: Repeat,
+  news: Newspaper,
+  soldout: UtensilsCrossed,
+  discipline: ShieldAlert,
+  feedback: MessageSquareWarning,
+  training: GraduationCap,
+  guide: BookOpen,
+  admin: Building2,
+  hrlist: Users,
+  adminorg: KeyRound,
+  adminshift: CalendarRange,
+  operations: Network,
+  adminoperations: Network,
+  analytics: BarChart3
 } as const;
 
 export function Kg3dIllustration({ moduleId }: { moduleId: string }) {
   const normId = moduleId.toLowerCase().replace(/[-_]/g, '');
-  const config = HERO_ICON_MAP[normId as keyof typeof HERO_ICON_MAP] || {
-    icon: Sparkles,
-    accent: '#38bdf8',
-    glow: 'rgba(56, 189, 248, 0.32)'
-  };
-  const Icon = config.icon;
-
+  const Icon = MODULE_ICON_MAP[normId as keyof typeof MODULE_ICON_MAP] || Sparkles;
   return (
     <div
-      className="kg-hero-visual"
-      style={{ '--hero-icon-accent': config.accent, '--hero-icon-glow': config.glow } as React.CSSProperties}
+      className="w-9 h-9 rounded-lg bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-primary)] flex items-center justify-center flex-shrink-0"
       aria-hidden="true"
     >
-      <div className="kg-hero-visual__orbit" />
-      <div className="kg-hero-visual__core">
-        <div className="kg-hero-visual__shine" />
-        <Icon className="kg-hero-visual__icon" strokeWidth={1.8} />
-      </div>
-      <div className="kg-hero-visual__badge">
-        <Sparkles size={15} strokeWidth={2.2} />
-      </div>
-      <span className="kg-hero-visual__dot kg-hero-visual__dot--one" />
-      <span className="kg-hero-visual__dot kg-hero-visual__dot--two" />
+      <Icon size={18} strokeWidth={1.75} />
     </div>
   );
 }
-
-export { KgFeatureTip, type KgFeatureTipProps } from './KgFeatureTip';
-export { KgFeatureTip as KgTooltip } from './KgFeatureTip';
-import { KgFeatureTip } from './KgFeatureTip';
 
 export function KgModuleHero({
   moduleId,
   title,
   description,
-  eyebrow = "Phân hệ",
+  eyebrow = 'Phân hệ',
   features = [],
   tipTitle,
   tipContent,
-  tips
+  tips,
+  actions
 }: {
   moduleId: string;
   title: string;
@@ -1184,57 +991,63 @@ export function KgModuleHero({
   tipTitle?: string;
   tipContent?: React.ReactNode;
   tips?: string[];
+  actions?: React.ReactNode;
 }) {
-  const hasTip = Boolean(tipContent || tips || (description && description.length > 30));
+  const normId = moduleId.toLowerCase().replace(/[-_]/g, '');
+  const Icon = MODULE_ICON_MAP[normId as keyof typeof MODULE_ICON_MAP] || Sparkles;
+  const hasTip = Boolean(tipContent || tips || (description && description.length > 24));
 
   return (
-    <section className="kg-module-hero relative overflow-hidden p-3.5 sm:p-5 md:p-7 text-white rounded-2xl md:rounded-3xl border border-white/10 shadow-hero bg-gradient-hero mb-3 sm:mb-4 md:mb-6">
-      <div className="kg-module-hero__layout relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-6">
-        <div className="kg-module-hero__copy space-y-1.5 sm:space-y-2 md:space-y-3.5 max-w-2xl">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="kg-module-hero__eyebrow inline-flex items-center gap-1.5 bg-white/15 border border-white/20 px-2.5 py-0.5 rounded-full text-[9px] md:text-[10px] font-black tracking-wider uppercase text-white shadow-inner">
-              <span className="w-1.5 h-1.5 rounded-full bg-[var(--kg-accent)] animate-pulse" />
-              {eyebrow}
-            </span>
+    <section className="kg-module-hero relative overflow-hidden bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl px-3.5 py-3 sm:px-5 sm:py-4 shadow-card mb-3 sm:mb-4">
+      <span
+        aria-hidden="true"
+        className="absolute left-0 top-3 bottom-3 w-1 rounded-r-full bg-[var(--kg-accent)]"
+      />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 pl-1.5">
+        <div className="flex items-start sm:items-center gap-3 min-w-0">
+          <div className="w-10 h-10 rounded-xl bg-[var(--kg-accent-soft)] border border-[var(--kg-accent)]/20 text-[var(--kg-accent-ink)] flex items-center justify-center flex-shrink-0 mt-0.5 sm:mt-0">
+            <Icon size={19} strokeWidth={1.85} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              <span className="inline-flex items-center gap-1 text-[10.5px] sm:text-[11px] font-bold uppercase tracking-wider text-[var(--kg-accent-ink)]">
+                {eyebrow}
+              </span>
+              {features.slice(0, 2).map((feat, idx) => (
+                <span
+                  key={idx}
+                  className={`${idx > 0 ? 'hidden sm:inline-flex' : 'inline-flex'} items-center px-2 py-0.5 rounded-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[10.5px] sm:text-[11px] font-semibold text-[var(--kg-text-muted)]`}
+                >
+                  {feat}
+                </span>
+              ))}
+            </div>
+            <h1 className="text-[15px] sm:text-lg md:text-xl font-extrabold text-[var(--kg-text)] leading-snug tracking-tight mt-0.5">
+              {title}
+            </h1>
+            {description && (
+              <p className="text-xs text-[var(--kg-text-muted)] mt-0.5 line-clamp-2 sm:line-clamp-1 leading-relaxed">
+                {description}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {(hasTip || actions) && (
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap flex-shrink-0">
             {hasTip && (
               <KgFeatureTip
                 title={tipTitle || `Hướng dẫn: ${title}`}
                 content={tipContent || description}
                 tips={tips}
-                variant="hero"
+                variant="badge"
                 triggerText="Mẹo & Lưu ý"
               />
             )}
+            {actions}
           </div>
-
-          <h1 className="kg-module-hero__title text-lg sm:text-2xl md:text-3xl lg:text-4xl font-black tracking-tight text-white leading-tight">
-            {title}
-          </h1>
-
-          {description && (
-            <p className="kg-module-hero__description text-xs sm:text-sm md:text-base text-white/90 leading-relaxed font-medium max-w-lg line-clamp-2 sm:line-clamp-none">
-              {description}
-            </p>
-          )}
-
-          {features.length > 0 && (
-            <div className="kg-module-hero__features flex flex-wrap gap-1 md:gap-2 pt-0.5 md:pt-2">
-              {features.map((feat, idx) => (
-                <div key={idx} className="inline-flex items-center gap-1 bg-white/10 border border-white/10 px-2 py-0.5 sm:px-2.5 sm:py-1 md:px-3 md:py-1.5 rounded-lg sm:rounded-xl text-[10px] sm:text-[11px] md:text-xs font-bold text-white backdrop-blur-sm shadow-sm">
-                  <span className="text-[var(--kg-accent)]">✦</span>
-                  {feat}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="kg-module-hero__visual hidden sm:flex flex-shrink-0 items-center justify-center bg-white/5 border border-white/10 p-3 md:p-4 rounded-2xl md:rounded-3xl backdrop-blur-md shadow-lg transform hover:rotate-2 transition-transform duration-300">
-          <Kg3dIllustration moduleId={moduleId} />
-        </div>
+        )}
       </div>
-      {/* Background Orbs */}
-      <div className="absolute right-[-10%] top-[-20%] w-72 h-72 bg-white/10 rounded-full blur-3xl mix-blend-overlay pointer-events-none" />
-      <div className="absolute left-[-5%] bottom-[-40%] w-60 h-60 bg-[var(--kg-accent)]/20 rounded-full blur-2xl mix-blend-overlay pointer-events-none" />
     </section>
   );
 }

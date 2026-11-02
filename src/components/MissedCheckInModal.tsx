@@ -22,7 +22,9 @@ import {
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import { fileToBase64 } from '../utils/helpers';
+import { enqueueTask } from '../utils/offlineQueue';
 import confetti from 'canvas-confetti';
+import Swal from 'sweetalert2';
 
 export interface MissedClaimItem {
   id: string;
@@ -74,7 +76,7 @@ export default function MissedCheckInModal({
   const currentUser = useAppStore((s) => s.currentUser);
   const setLoading = useAppStore((s) => s.setLoading);
   const store = { setLoading };
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.username === 'ADMIN' || currentUser?.role === 'tester';
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.username === 'ADMIN';
 
   const [activeTab, setActiveTab] = useState<'create' | 'guide' | 'history' | 'admin'>('create');
   
@@ -204,7 +206,40 @@ export default function MissedCheckInModal({
 
     setIsSubmitting(true);
     try {
-      const res = await callApi('SUBMIT_MISSED_CHECKIN', {
+      const payload = {
+        username: currentUser.username,
+        fullname: currentUser.fullname || currentUser.username,
+        date: claimDate,
+        time: claimTime,
+        type: claimType,
+        shift: claimShift,
+        reason: finalReason,
+        imageBase64: proofImage
+      };
+      const res = await callApi('SUBMIT_MISSED_CHECKIN', payload);
+
+      if (res && !res.ok) {
+        Swal.fire(
+          'Không thể gửi giải trình',
+          res.message || 'Máy chủ từ chối yêu cầu. Vui lòng kiểm tra lại thông tin.',
+          'error'
+        );
+        return;
+      }
+
+      if (res?.data?.id) newClaim.id = res.data.id;
+
+      // Save locally to ensure receipt & history are always ready
+      const currentList = getLocalClaims();
+      saveLocalClaims([newClaim, ...currentList.filter(c => c.id !== newClaim.id)]);
+
+      confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
+      setSubmittedClaim(newClaim);
+      if (onSuccess) onSuccess();
+      fetchClaims();
+    } catch {
+      // Offline / network fallback: queue into persistent offline queue so it actually syncs when online!
+      enqueueTask('SUBMIT_MISSED_CHECKIN', {
         username: currentUser.username,
         fullname: currentUser.fullname || currentUser.username,
         date: claimDate,
@@ -214,27 +249,16 @@ export default function MissedCheckInModal({
         reason: finalReason,
         imageBase64: proofImage
       });
-
-      if (res?.ok) {
-        if (res.data?.id) newClaim.id = res.data.id;
-      }
-      
-      // Save locally to ensure receipt & history are always ready
       const currentList = getLocalClaims();
       saveLocalClaims([newClaim, ...currentList.filter(c => c.id !== newClaim.id)]);
-      
-      confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
       setSubmittedClaim(newClaim);
       if (onSuccess) onSuccess();
       fetchClaims();
-    } catch (err: any) {
-      // Offline / network fallback
-      const currentList = getLocalClaims();
-      saveLocalClaims([newClaim, ...currentList.filter(c => c.id !== newClaim.id)]);
-      confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
-      setSubmittedClaim(newClaim);
-      if (onSuccess) onSuccess();
-      fetchClaims();
+      Swal.fire({
+        icon: 'info',
+        title: 'Đã lưu vào hàng đợi Offline',
+        text: 'Đơn bổ sung công sẽ tự động đồng bộ lên máy chủ ngay khi có kết nối mạng.'
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -242,7 +266,16 @@ export default function MissedCheckInModal({
 
   const handleApprove = async (claim: MissedClaimItem) => {
     if (!isAdmin) return;
-    if (!confirm(`Xác nhận duyệt đơn bổ sung công cho [${claim.fullname}] - ${claim.type} ${claim.time} ngày ${claim.date}?`)) return;
+    const confirmRes = await Swal.fire({
+      title: 'Xác nhận duyệt đơn?',
+      text: `Duyệt đơn bổ sung công cho [${claim.fullname}] - ${claim.type} ${claim.time} ngày ${claim.date}?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#062B49',
+      cancelButtonText: 'Hủy',
+      confirmButtonText: 'Duyệt ngay',
+    });
+    if (!confirmRes.isConfirmed) return;
 
     store.setLoading(true, 'Đang duyệt & ghi nhận vào Bảng công...');
     try {
@@ -253,15 +286,22 @@ export default function MissedCheckInModal({
       store.setLoading(false);
       if (res?.ok) {
         confetti({ particleCount: 60, spread: 70 });
-        alert('✓ ' + (res.data?.message || 'Đã duyệt thành công và ghi nhận vào Bảng chấm công!'));
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: res.data?.message || 'Đã duyệt thành công và ghi nhận vào Bảng chấm công!',
+          showConfirmButton: false,
+          timer: 2600,
+        });
         fetchClaims();
         if (onSuccess) onSuccess();
       } else {
-        alert(res?.message || 'Có lỗi xảy ra khi duyệt đơn');
+        Swal.fire('Lỗi', res?.message || 'Có lỗi xảy ra khi duyệt đơn', 'error');
       }
     } catch (err: any) {
       store.setLoading(false);
-      alert(err.message || 'Lỗi hệ thống');
+      Swal.fire('Lỗi hệ thống', err.message || 'Lỗi kết nối máy chủ', 'error');
     }
   };
 
@@ -278,25 +318,32 @@ export default function MissedCheckInModal({
       if (res?.ok) {
         setRejectingId(null);
         setRejectReason('');
-        alert('Đã từ chối đơn.');
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'info',
+          title: 'Đã từ chối đơn bổ sung công.',
+          showConfirmButton: false,
+          timer: 2200,
+        });
         fetchClaims();
       } else {
-        alert(res?.message || 'Có lỗi xảy ra');
+        Swal.fire('Lỗi', res?.message || 'Có lỗi xảy ra', 'error');
       }
     } catch (err: any) {
       store.setLoading(false);
-      alert(err.message || 'Lỗi hệ thống');
+      Swal.fire('Lỗi hệ thống', err.message || 'Lỗi kết nối máy chủ', 'error');
     }
   };
 
   const getZaloText = (claim: MissedClaimItem) => {
-    return `📢 [BÁO BỔ SUNG CÔNG - KING'S GRILL]
+    return `[BÁO BỔ SUNG CÔNG - KING'S GRILL]
 • Nhân viên: ${claim.fullname} (@${claim.username})
 • Loại chấm công: ${claim.type} (Ca: ${claim.shift})
 • Thời gian thực tế: ${claim.time} ngày ${claim.date}
 • Lý do: ${claim.reason}
 • Mã đơn: #${claim.id}
-➡️ Em nhờ Quản lý duyệt giúp em ạ!`;
+-> Em nhờ Quản lý duyệt giúp em ạ!`;
   };
 
   const handleCopyZalo = (claim: MissedClaimItem) => {
@@ -348,61 +395,61 @@ export default function MissedCheckInModal({
           </button>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex border-b border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 pt-2 gap-1 overflow-x-auto flex-shrink-0 hide-scrollbar">
+        {/* Tab Navigation (Kumo Segmented Rail) */}
+        <div className="flex border-b border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-2 gap-1.5 overflow-x-auto flex-shrink-0 hide-scrollbar">
           <button
             type="button"
             onClick={() => { setActiveTab('create'); setSubmittedClaim(null); }}
-            className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs sm:text-sm font-black transition-all flex items-center gap-1.5 whitespace-nowrap border-b-2 ${
+            className={`px-3 sm:px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 whitespace-nowrap border ${
               activeTab === 'create'
-                ? 'bg-[var(--kg-surface)] text-amber-600 dark:text-amber-400 border-amber-500 shadow-xs'
+                ? 'bg-[var(--kg-surface)] text-[var(--kg-text)] border-[var(--kg-border)] shadow-soft'
                 : 'text-[var(--kg-text-muted)] border-transparent hover:text-[var(--kg-text)]'
             }`}
           >
-            <Send size={15} />
-            <span>Khai Báo Đơn</span>
+            <Send size={14} className={activeTab === 'create' ? 'text-[var(--kg-primary)]' : ''} />
+            <span>Khai báo đơn</span>
           </button>
           
           <button
             type="button"
             onClick={() => setActiveTab('guide')}
-            className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs sm:text-sm font-black transition-all flex items-center gap-1.5 whitespace-nowrap border-b-2 ${
+            className={`px-3 sm:px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 whitespace-nowrap border ${
               activeTab === 'guide'
-                ? 'bg-[var(--kg-surface)] text-amber-600 dark:text-amber-400 border-amber-500 shadow-xs'
+                ? 'bg-[var(--kg-surface)] text-[var(--kg-text)] border-[var(--kg-border)] shadow-soft'
                 : 'text-[var(--kg-text-muted)] border-transparent hover:text-[var(--kg-text)]'
             }`}
           >
-            <HelpCircle size={15} />
-            <span>Hướng Dẫn 3 Bước</span>
+            <HelpCircle size={14} className={activeTab === 'guide' ? 'text-[var(--kg-primary)]' : ''} />
+            <span>Hướng dẫn 3 bước</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('history')}
-            className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs sm:text-sm font-black transition-all flex items-center gap-1.5 whitespace-nowrap border-b-2 ${
+            className={`px-3 sm:px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 whitespace-nowrap border ${
               activeTab === 'history'
-                ? 'bg-[var(--kg-surface)] text-amber-600 dark:text-amber-400 border-amber-500 shadow-xs'
+                ? 'bg-[var(--kg-surface)] text-[var(--kg-text)] border-[var(--kg-border)] shadow-soft'
                 : 'text-[var(--kg-text-muted)] border-transparent hover:text-[var(--kg-text)]'
             }`}
           >
-            <History size={15} />
-            <span>Lịch Sử Đơn</span>
+            <History size={14} className={activeTab === 'history' ? 'text-[var(--kg-primary)]' : ''} />
+            <span>Lịch sử đơn</span>
           </button>
 
           {isAdmin && (
             <button
               type="button"
               onClick={() => setActiveTab('admin')}
-              className={`px-3 sm:px-4 py-2.5 rounded-t-xl text-xs sm:text-sm font-black transition-all flex items-center gap-1.5 whitespace-nowrap border-b-2 ${
+              className={`px-3 sm:px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 whitespace-nowrap border ${
                 activeTab === 'admin'
-                  ? 'bg-[var(--kg-surface)] text-amber-600 dark:text-amber-400 border-amber-500 shadow-xs'
+                  ? 'bg-[var(--kg-surface)] text-[var(--kg-text)] border-[var(--kg-border)] shadow-soft'
                   : 'text-[var(--kg-text-muted)] border-transparent hover:text-[var(--kg-text)]'
               }`}
             >
-              <ShieldCheck size={15} />
-              <span>Duyệt Đơn (Quản lý)</span>
+              <ShieldCheck size={14} className={activeTab === 'admin' ? 'text-[var(--kg-primary)]' : ''} />
+              <span>Duyệt đơn (Quản lý)</span>
               {pendingCount > 0 && (
-                <span className="ml-1 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-black animate-pulse">
+                <span className="ml-1 px-1.5 py-0.5 rounded-full bg-[var(--kg-danger)] text-white text-[10px] font-bold tabular-nums">
                   {pendingCount}
                 </span>
               )}
@@ -437,11 +484,11 @@ export default function MissedCheckInModal({
                       <span className="font-black text-amber-600 dark:text-amber-400">BIÊN LAI ĐƠN #{submittedClaim.id}</span>
                       <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-600 font-bold text-[10px]">Chờ duyệt</span>
                     </div>
-                    <div className="space-y-1 text-[var(--kg-text)] font-sans">
-                      <p>👤 <b>Nhân viên:</b> {submittedClaim.fullname} (@{submittedClaim.username})</p>
-                      <p>🕒 <b>Thời gian:</b> {submittedClaim.time} ngày {submittedClaim.date}</p>
-                      <p>🏷️ <b>Loại:</b> <span className="font-bold text-blue-600 dark:text-blue-400">{submittedClaim.type}</span> (Ca: {submittedClaim.shift})</p>
-                      <p>📝 <b>Lý do:</b> {submittedClaim.reason}</p>
+                    <div className="space-y-1.5 text-[var(--kg-text)] font-sans">
+                      <p><b>Nhân viên:</b> {submittedClaim.fullname} (@{submittedClaim.username})</p>
+                      <p><b>Thời gian:</b> <span className="tabular-nums font-mono">{submittedClaim.time}</span> ngày <span className="tabular-nums font-mono">{submittedClaim.date}</span></p>
+                      <p><b>Loại:</b> <span className="font-bold text-[var(--kg-primary)]">{submittedClaim.type}</span> (Ca: {submittedClaim.shift})</p>
+                      <p><b>Lý do:</b> {submittedClaim.reason}</p>
                     </div>
                   </div>
 
@@ -450,10 +497,10 @@ export default function MissedCheckInModal({
                     <button
                       type="button"
                       onClick={() => handleCopyZalo(submittedClaim)}
-                      className="w-full py-3.5 px-4 bg-[var(--kg-primary)] hover:opacity-90 text-white rounded-2xl font-black text-sm shadow-xs transition active:scale-[0.98] flex items-center justify-center gap-2"
+                      className="w-full py-3.5 px-4 bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white rounded-xl font-semibold text-sm shadow-soft transition active:scale-[0.99] flex items-center justify-center gap-2"
                     >
                       {copiedZalo ? <Check size={18} className="text-emerald-300" /> : <Copy size={18} />}
-                      <span>{copiedZalo ? '✓ ĐÃ SAO CHÉP VÀO BỘ NHỚ TẠM!' : '📋 Sao Chép Nội Dung Gửi Nhóm Zalo'}</span>
+                      <span>{copiedZalo ? 'Đã sao chép vào bộ nhớ tạm' : 'Sao chép nội dung gửi nhóm Zalo'}</span>
                     </button>
                     
                     <button
@@ -517,24 +564,26 @@ export default function MissedCheckInModal({
                         <button
                           type="button"
                           onClick={() => setClaimType('Vào ca')}
-                          className={`py-2.5 px-3 rounded-xl text-xs font-black transition-all border ${
+                          className={`py-2.5 px-3 rounded-lg text-xs font-semibold transition-colors border flex items-center justify-center gap-1.5 ${
                             claimType === 'Vào ca'
-                              ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                              ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)]'
                               : 'bg-[var(--kg-surface)] text-[var(--kg-text)] border-[var(--kg-border)]'
                           }`}
                         >
-                          🟢 Vào Ca
+                          <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                          <span>Vào Ca</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => setClaimType('Ra ca')}
-                          className={`py-2.5 px-3 rounded-xl text-xs font-black transition-all border ${
+                          className={`py-2.5 px-3 rounded-lg text-xs font-semibold transition-colors border flex items-center justify-center gap-1.5 ${
                             claimType === 'Ra ca'
-                              ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                              ? 'bg-[var(--kg-danger)] text-white border-[var(--kg-danger)]'
                               : 'bg-[var(--kg-surface)] text-[var(--kg-text)] border-[var(--kg-border)]'
                           }`}
                         >
-                          🔴 Ra Ca
+                          <span className="w-2 h-2 rounded-full bg-rose-300" />
+                          <span>Ra Ca</span>
                         </button>
                       </div>
                     </div>
@@ -678,21 +727,21 @@ export default function MissedCheckInModal({
                     1
                   </div>
                   <div>
-                    <h5 className="text-xs font-black text-[var(--kg-text)]">Khai Báo Thông Tin Đơn</h5>
+                    <h5 className="text-xs font-bold text-[var(--kg-text)]">Khai báo thông tin đơn</h5>
                     <p className="text-[11px] text-[var(--kg-text-muted)] mt-0.5 leading-relaxed">
-                      Vào tab <b>Khai Báo Đơn</b> $\rightarrow$ Chọn Ngày, Giờ thực tế bạn có mặt $\rightarrow$ Chọn loại <b>Vào ca</b> hoặc <b>Ra ca</b> $\rightarrow$ Chọn lý do sự cố $\rightarrow$ Bấm <b>Gửi bổ sung</b>.
+                      Vào tab <b>Khai báo đơn</b> → Chọn Ngày, Giờ thực tế bạn có mặt → Chọn loại <b>Vào ca</b> hoặc <b>Ra ca</b> → Chọn lý do sự cố → Bấm <b>Gửi bổ sung</b>.
                     </p>
                   </div>
                 </div>
 
                 <div className="p-3.5 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex items-start gap-3">
-                  <div className="w-7 h-7 rounded-xl bg-blue-600 text-white font-black text-xs flex items-center justify-center flex-shrink-0 shadow-sm mt-0.5">
+                  <div className="w-7 h-7 rounded-xl bg-[var(--kg-primary)] text-white font-bold text-xs flex items-center justify-center flex-shrink-0 shadow-sm mt-0.5">
                     2
                   </div>
                   <div>
-                    <h5 className="text-xs font-black text-[var(--kg-text)]">Gửi Biên Lai Vào Nhóm Zalo</h5>
+                    <h5 className="text-xs font-bold text-[var(--kg-text)]">Gửi biên lai vào nhóm Zalo</h5>
                     <p className="text-[11px] text-[var(--kg-text-muted)] mt-0.5 leading-relaxed">
-                      Sau khi gửi thành công, bấm nút <b>"📋 Sao Chép Nội Dung Gửi Zalo"</b> $\rightarrow$ Dán vào nhóm Zalo nhà hàng để thông báo và nhờ Quản lý duyệt.
+                      Sau khi gửi thành công, bấm nút <b>"Sao chép nội dung gửi nhóm Zalo"</b> → Dán vào nhóm Zalo nhà hàng để thông báo và nhờ Quản lý duyệt.
                     </p>
                   </div>
                 </div>
@@ -766,7 +815,7 @@ export default function MissedCheckInModal({
                         claim.status === 'Rejected' ? 'bg-rose-500/20 text-rose-600 dark:text-rose-400' :
                         'bg-amber-500/20 text-amber-600 dark:text-amber-400 animate-pulse'
                       }`}>
-                        {claim.status === 'Approved' ? '✓ Đã Duyệt' : claim.status === 'Rejected' ? '✕ Từ Chối' : '⏳ Chờ Duyệt'}
+                        {claim.status === 'Approved' ? 'Đã duyệt' : claim.status === 'Rejected' ? 'Từ chối' : 'Chờ duyệt'}
                       </span>
                     </div>
 

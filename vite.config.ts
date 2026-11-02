@@ -23,7 +23,10 @@ export default defineConfig({
           if (path.includes('/node_modules/lucide-react/')) return 'icons';
           if (path.includes('/node_modules/sweetalert2/')) return 'alerts';
           if (path.includes('/node_modules/canvas-confetti/')) return 'confetti';
+          if (path.includes('@tensorflow/tfjs') && (path.includes('/backends/') || path.includes('webgl'))) return 'tfjs-webgl';
+          if (path.includes('@tensorflow/tfjs')) return 'tfjs-core';
           if (path.includes('/node_modules/face-api.js/')) return 'vision';
+          if (path.endsWith('/src/pages/sopData.ts') || path.endsWith('/src/pages/cukcukData.ts')) return 'knowledge-data';
         },
       },
     },

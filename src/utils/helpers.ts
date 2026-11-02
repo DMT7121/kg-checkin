@@ -145,66 +145,72 @@ export function speak(text: string, customAudioKey?: string) {
   }
 }
 
+/** Extract deterministic Vietnam (Asia/Ho_Chi_Minh, UTC+7) date/time components */
+export function getVietnamDateParts(date: Date = new Date()) {
+  const vnShifted = new Date(date.getTime() + 7 * 3600 * 1000);
+  return {
+    year: vnShifted.getUTCFullYear(),
+    month: vnShifted.getUTCMonth() + 1, // 1-12
+    day: vnShifted.getUTCDate(),
+    dayOfWeek: vnShifted.getUTCDay(), // 0=Sun, 1=Mon, ..., 6=Sat
+    hour: vnShifted.getUTCHours(),
+    minute: vnShifted.getUTCMinutes(),
+    second: vnShifted.getUTCSeconds(),
+  };
+}
+
 /** Format date as dd/MM */
 export function formatDateShort(date: Date): string {
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  return `${day}/${month}`;
+  const vn = getVietnamDateParts(date);
+  return `${String(vn.day).padStart(2, '0')}/${String(vn.month).padStart(2, '0')}`;
 }
 
 /** Format date as YYYY-MM-DD key */
 export function formatDateKey(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  const vn = getVietnamDateParts(date);
+  return `${vn.year}-${String(vn.month).padStart(2, '0')}-${String(vn.day).padStart(2, '0')}`;
 }
 
-/** Get current time string dd/MM/yyyy HH:mm */
-export function getCurrentTimeString(): string {
-  const now = new Date();
-  return `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+/** Get current time string dd/MM/yyyy HH:mm (Vietnam GMT+7) */
+export function getCurrentTimeString(date: Date = new Date()): string {
+  const vn = getVietnamDateParts(date);
+  return `${String(vn.day).padStart(2, '0')}/${String(vn.month).padStart(2, '0')}/${vn.year} ${String(vn.hour).padStart(2, '0')}:${String(vn.minute).padStart(2, '0')}`;
 }
 
-/** Compute week start (next Monday) and sheet name. If 'date' is passed, it computes the week for that date (treating it as if it's the 'today' to calculate next week, or we can just calculate the week that contains the date). Wait, computeWeekInfo currently calculates the NEXT week. If we want the week containing a specific date, we should have a different logic. */
+/** Compute week start (Monday) and sheet name deterministically in Vietnam timezone (UTC+7). */
 export function computeWeekInfo(targetDate?: Date, getNextWeek: boolean = true) {
-  const today = targetDate || new Date();
-  const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon...
+  const vn = getVietnamDateParts(targetDate || new Date());
+  const dayOfWeek = vn.dayOfWeek; // 0=Sun, 1=Mon...
   const daysUntilMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
 
-  const weekStart = new Date(today);
-  
-  if (getNextWeek) {
-    if (dayOfWeek >= 1) {
-      weekStart.setDate(today.getDate() + daysUntilMonday);
-    } else {
-      weekStart.setDate(today.getDate() + 1);
-    }
-  } else {
-    // Get the week CONTAINING the target date (Monday to Sunday)
-    const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    weekStart.setDate(today.getDate() - daysSinceMonday);
-  }
-  weekStart.setHours(0, 0, 0, 0);
+  // Anchor at 12:00 VN (05:00 UTC) so local Date getters & UTC+7 getters agree across timezones
+  const anchorUtcMs = Date.UTC(vn.year, vn.month - 1, vn.day, 5, 0, 0, 0);
+  const deltaDays = getNextWeek
+    ? (dayOfWeek >= 1 ? daysUntilMonday : 1)
+    : -(dayOfWeek === 0 ? 6 : dayOfWeek - 1);
 
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekStart.getDate() + 6);
+  const weekStart = new Date(anchorUtcMs + deltaDays * 86400 * 1000);
+  const weekEnd = new Date(weekStart.getTime() + 6 * 86400 * 1000);
 
   const weekDisplay = `${formatDateShort(weekStart)} - ${formatDateShort(weekEnd)}`;
 
   const weekDates: string[] = [];
   const weekDatesKeys: string[] = [];
   for (let i = 0; i < 7; i++) {
-    const d = new Date(weekStart);
-    d.setDate(weekStart.getDate() + i);
+    const d = new Date(weekStart.getTime() + i * 86400 * 1000);
     weekDates.push(formatDateShort(d));
     weekDatesKeys.push(formatDateKey(d));
   }
 
-  const startDay = String(weekStart.getDate()).padStart(2, '0');
-  const startMonth = String(weekStart.getMonth() + 1).padStart(2, '0');
-  const endDay = String(weekEnd.getDate()).padStart(2, '0');
-  const endMonth = String(weekEnd.getMonth() + 1).padStart(2, '0');
-  const month = String(weekStart.getMonth() + 1).padStart(2, '0');
-  const year = weekStart.getFullYear();
-  
+  const startVn = getVietnamDateParts(weekStart);
+  const endVn = getVietnamDateParts(weekEnd);
+  const startDay = String(startVn.day).padStart(2, '0');
+  const startMonth = String(startVn.month).padStart(2, '0');
+  const endDay = String(endVn.day).padStart(2, '0');
+  const endMonth = String(endVn.month).padStart(2, '0');
+  const month = startMonth;
+  const year = startVn.year;
+
   const sheetName = `W${startDay}-${endDay} (${month})`;
   const monthSheet = `Tháng ${month}/${year}`;
   const weekLabel = `📅 TUẦN ${startDay}/${startMonth} - ${endDay}/${endMonth}`;
@@ -213,46 +219,55 @@ export function computeWeekInfo(targetDate?: Date, getNextWeek: boolean = true) 
 }
 
 export interface ScheduleRegistrationWindowStatus {
-  isMandatoryWindow: boolean; // T5, T6, T7 before 17:00
-  isOpen: boolean; // Open before Saturday 17:00
-  isClosed: boolean; // Closed Saturday 17:00+ or Sunday
+  isMandatoryWindow: boolean; // T5 00:00 -> T7 16:59:59 (before 17:00 VN)
+  isOpen: boolean; // Open Mon 00:00 -> Sat 16:59:59 VN
+  isClosed: boolean; // Closed Sat 17:00:00 -> Sun 23:59:59 VN
   dayOfWeek: number; // 0=Sun, 1=Mon, ..., 4=Thu, 5=Fri, 6=Sat
   hoursRemaining: number;
+  minutesRemaining?: number;
   message: string;
 }
 
-/** Check schedule registration window status
- *  Fixed mandatory days: Thursday (T5), Friday (T6), Saturday (T7 before 17:00)
- *  Closed: Saturday 17:00 → Sunday 23:59
+/** Check schedule registration window status in Vietnam timezone (Asia/Ho_Chi_Minh)
+ *  Fixed mandatory days: Thursday (T5), Friday (T6), Saturday (T7 strictly before 17:00)
+ *  Closed: Saturday 17:00:00 → Sunday 23:59:59
  */
-export function getScheduleRegistrationWindow(): ScheduleRegistrationWindowStatus {
-  const now = new Date();
-  const day = now.getDay();
-  const hour = now.getHours();
-  const minute = now.getMinutes();
+export function getScheduleRegistrationWindow(targetDate?: Date): ScheduleRegistrationWindowStatus {
+  const vn = getVietnamDateParts(targetDate || new Date());
+  const day = vn.dayOfWeek;
+  const hour = vn.hour;
+  const minute = vn.minute;
 
-  // Saturday after 17:00 or Sunday
-  const isSatAfter17 = day === 6 && (hour > 17 || (hour === 17 && minute > 0));
+  // Saturday at or after 17:00 ("trước 17H") or Sunday
+  const isSatAtOrAfter17 = day === 6 && hour >= 17;
   const isSunday = day === 0;
-  const isClosed = isSatAfter17 || isSunday;
+  const isClosed = isSatAtOrAfter17 || isSunday;
   const isOpen = !isClosed;
 
-  // Mandatory registration window for all staff: T5, T6, T7 before 17:00
-  const isMandatoryWindow = (day === 4 || day === 5 || (day === 6 && !isSatAfter17));
+  // Mandatory registration window for all working staff: T5 00:00 -> T7 16:59:59
+  const isMandatoryWindow = day === 4 || day === 5 || (day === 6 && hour < 17);
 
   let message = '';
   let hoursRemaining = 0;
+  let minutesRemaining = 0;
   if (isClosed) {
     message = 'Đăng ký ca tuần tới đã đóng lúc 17:00 Thứ Bảy. Mở lại lúc 00:00 Thứ Hai.';
   } else if (day === 6) {
-    hoursRemaining = Math.max(0, 17 - hour);
-    message = `Hạn cuối: Hôm nay lúc 17:00 (còn ~${hoursRemaining} giờ)`;
+    minutesRemaining = Math.max(0, 17 * 60 - (hour * 60 + minute));
+    hoursRemaining = Math.max(0, Math.ceil(minutesRemaining / 60));
+    message =
+      minutesRemaining < 60
+        ? `Hạn cuối: Hôm nay lúc 17:00 (còn ${minutesRemaining} phút)`
+        : `Hạn cuối: Hôm nay lúc 17:00 (còn ~${hoursRemaining} giờ)`;
   } else if (day === 5) {
+    hoursRemaining = 24 - hour + 17;
     message = 'Hạn cuối: 17:00 Thứ Bảy (còn 1 ngày)';
   } else if (day === 4) {
+    hoursRemaining = 48 - hour + 17;
     message = 'Hạn cuối: 17:00 Thứ Bảy (còn 2 ngày)';
   } else {
     const daysUntilSat = 6 - day;
+    hoursRemaining = daysUntilSat * 24 - hour + 17;
     message = `Mở đăng ký cố định T5, T6, T7 (Hạn cuối: 17:00 Thứ Bảy, còn ${daysUntilSat} ngày)`;
   }
 
@@ -262,58 +277,175 @@ export function getScheduleRegistrationWindow(): ScheduleRegistrationWindowStatu
     isClosed,
     dayOfWeek: day,
     hoursRemaining,
-    message
+    minutesRemaining,
+    message,
   };
 }
 
 /** Check if schedule registration window is currently open
- *  Open: Monday 00:00 → Saturday 17:00
- *  Closed: Saturday 17:00 → Sunday 23:59
+ *  Open: Monday 00:00 → Saturday 16:59:59 (VN)
+ *  Closed: Saturday 17:00:00 → Sunday 23:59:59 (VN)
  */
-export function isRegistrationOpen(): { open: boolean; message: string } {
-  const status = getScheduleRegistrationWindow();
+export function isRegistrationOpen(targetDate?: Date): { open: boolean; message: string } {
+  const status = getScheduleRegistrationWindow(targetDate);
   return { open: status.isOpen, message: status.message };
 }
 
-/** Persist schedule registration state across global, per-user, and SWR cache keys */
+export interface ScheduleRegistrationMeta {
+  weekKey: string;
+  weekDisplay?: string;
+  shifts: string[];
+  updatedAt: string;
+  updatedAtMs: number;
+  sheetSynced: boolean;
+  offReason?: string;
+  status?: string;
+}
+
+/** Determine whether a user must complete weekly shift registration before checking in */
+export function isScheduleRegistrationRequired(
+  user?: { username?: string; role?: string; employmentStatus?: string } | null
+): boolean {
+  if (!user) return false;
+  const status = (user.employmentStatus || 'active').toLowerCase();
+  if (status !== 'active') return false;
+  const role = (user.role || '').trim().toLowerCase();
+  const uname = (user.username || '').trim().toLowerCase();
+  if (role === 'admin') return false;
+  if (uname === 'admin' || uname === 'testapp' || uname === 'tester') return false;
+  return true;
+}
+
+/** Retrieve structured week-scoped registration metadata for a user */
+export function getScheduleRegistrationMeta(
+  username?: string,
+  targetWeekInfo?: { monthSheet: string; weekLabel: string; weekDisplay?: string }
+): ScheduleRegistrationMeta | null {
+  try {
+    const weekInfo = targetWeekInfo || computeWeekInfo();
+    const expectedKey = `${weekInfo.monthSheet}|${weekInfo.weekLabel}`;
+    const cleanUser = (username || '').trim().toLowerCase();
+    if (!cleanUser) return null;
+
+    const v2Raw = localStorage.getItem(`kg_schedule_reg_v2_${cleanUser}`);
+    if (v2Raw) {
+      const parsed = JSON.parse(v2Raw) as ScheduleRegistrationMeta;
+      if (parsed && parsed.weekKey === expectedKey && Array.isArray(parsed.shifts) && parsed.shifts.length === 7) {
+        return parsed;
+      }
+    }
+
+    const legacyWeek =
+      localStorage.getItem(`kg_registered_week_${cleanUser}`) ||
+      (username ? localStorage.getItem(`kg_registered_week_${username}`) : null);
+    if (legacyWeek === expectedKey) {
+      const shiftsRaw = localStorage.getItem(`kg_registered_shifts_${cleanUser}`);
+      const shifts = shiftsRaw ? JSON.parse(shiftsRaw) : [];
+      if (Array.isArray(shifts) && shifts.length === 7) {
+        return {
+          weekKey: expectedKey,
+          weekDisplay: weekInfo.weekDisplay,
+          shifts,
+          updatedAt: '',
+          updatedAtMs: 0,
+          sheetSynced: true,
+        };
+      }
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
+/** Persist schedule registration state strictly scoped to user + target weekKey */
 export function markScheduleRegisteredLocally(
   username?: string,
   weekKey?: string,
-  shifts?: string[] | null
+  shifts?: string[] | null,
+  options?: {
+    updatedAt?: string;
+    sheetSynced?: boolean;
+    offReason?: string;
+    status?: string;
+  }
 ): void {
   try {
     const weekInfo = computeWeekInfo();
-    const expectedKey = weekKey || (weekInfo.monthSheet + '|' + weekInfo.weekLabel);
+    const expectedKey = weekKey || `${weekInfo.monthSheet}|${weekInfo.weekLabel}`;
     const cleanUser = (username || localStorage.getItem('kg_registered_user') || '').trim().toLowerCase();
+    if (!cleanUser) return;
 
+    const existingV2Raw = localStorage.getItem(`kg_schedule_reg_v2_${cleanUser}`);
+    let existingMeta: ScheduleRegistrationMeta | null = null;
+    if (existingV2Raw) {
+      try {
+        const parsed = JSON.parse(existingV2Raw);
+        if (parsed && parsed.weekKey === expectedKey) existingMeta = parsed;
+      } catch { /* ignore */ }
+    }
+
+    const validShifts =
+      Array.isArray(shifts) && shifts.length === 7
+        ? shifts
+        : existingMeta?.shifts && existingMeta.shifts.length === 7
+          ? existingMeta.shifts
+          : null;
+
+    const resolvedUpdatedAt =
+      options?.updatedAt !== undefined && options.updatedAt !== ''
+        ? options.updatedAt
+        : existingMeta?.updatedAt || getCurrentTimeString();
+
+    const resolvedSheetSynced =
+      options?.sheetSynced !== undefined
+        ? options.sheetSynced
+        : existingMeta?.sheetSynced ?? true;
+
+    const resolvedOffReason =
+      options?.offReason !== undefined ? options.offReason : existingMeta?.offReason;
+
+    const resolvedStatus =
+      options?.status !== undefined ? options.status : existingMeta?.status;
+
+    if (validShifts) {
+      const metaRecord: ScheduleRegistrationMeta = {
+        weekKey: expectedKey,
+        weekDisplay: weekInfo.weekDisplay,
+        shifts: validShifts,
+        updatedAt: resolvedUpdatedAt,
+        updatedAtMs: Date.now(),
+        sheetSynced: resolvedSheetSynced,
+        ...(resolvedOffReason !== undefined ? { offReason: resolvedOffReason } : {}),
+        ...(resolvedStatus !== undefined ? { status: resolvedStatus } : {}),
+      };
+      localStorage.setItem(`kg_schedule_reg_v2_${cleanUser}`, JSON.stringify(metaRecord));
+    }
+
+    localStorage.setItem('kg_registered_user', cleanUser);
     localStorage.setItem('kg_schedule_registered', expectedKey);
     localStorage.setItem('kg_registered_week', expectedKey);
-
-    if (cleanUser) {
-      localStorage.setItem('kg_registered_user', cleanUser);
-      localStorage.setItem(`kg_registered_week_${cleanUser}`, expectedKey);
-      if (username) {
-        localStorage.setItem(`kg_registered_week_${username}`, expectedKey);
-      }
+    localStorage.setItem(`kg_registered_week_${cleanUser}`, expectedKey);
+    if (username) {
+      localStorage.setItem(`kg_registered_week_${username}`, expectedKey);
     }
 
-    if (Array.isArray(shifts) && shifts.length === 7) {
-      const shiftsJson = JSON.stringify(shifts);
+    if (validShifts) {
+      const shiftsJson = JSON.stringify(validShifts);
       localStorage.setItem('kg_registered_shifts', shiftsJson);
-      if (cleanUser) {
-        localStorage.setItem(`kg_registered_shifts_${cleanUser}`, shiftsJson);
-      }
+      localStorage.setItem(`kg_registered_shifts_${cleanUser}`, shiftsJson);
     }
 
-    // Keep SWR app cache synchronized so reload never reverts isScheduleRegistered to false
+    // Keep SWR app cache synchronized WITH explicit registeredWeekKey so week rollover can never poison Week N+1
     const appCacheRaw = localStorage.getItem('kg_app_cache_v2');
     if (appCacheRaw) {
       try {
         const parsed = JSON.parse(appCacheRaw);
         if (parsed && parsed.data) {
           parsed.data.isScheduleRegistered = true;
-          if (Array.isArray(shifts) && shifts.length === 7) {
-            parsed.data.registeredShifts = shifts;
+          parsed.data.registeredWeekKey = expectedKey;
+          parsed.data.scheduleUpdatedAt = resolvedUpdatedAt;
+          parsed.data.scheduleSheetSynced = resolvedSheetSynced;
+          if (validShifts) {
+            parsed.data.registeredShifts = validShifts;
           }
           localStorage.setItem('kg_app_cache_v2', JSON.stringify(parsed));
         }
@@ -329,10 +461,13 @@ export function getSavedRegisteredShiftsForWeek(
 ): string[] | null {
   try {
     const weekInfo = targetWeekInfo || computeWeekInfo();
-    const expectedKey = weekInfo.monthSheet + '|' + weekInfo.weekLabel;
+    const expectedKey = `${weekInfo.monthSheet}|${weekInfo.weekLabel}`;
     const cleanUser = (username || '').trim().toLowerCase();
 
     if (cleanUser) {
+      const meta = getScheduleRegistrationMeta(cleanUser, weekInfo);
+      if (meta && meta.shifts.length === 7) return meta.shifts;
+
       const userWeek =
         localStorage.getItem(`kg_registered_week_${cleanUser}`) ||
         (username ? localStorage.getItem(`kg_registered_week_${username}`) : null);
@@ -341,17 +476,12 @@ export function getSavedRegisteredShiftsForWeek(
         const parsed = JSON.parse(userShiftsRaw);
         if (Array.isArray(parsed) && parsed.length === 7) return parsed;
       }
+      return null;
     }
 
     const savedWeek = localStorage.getItem('kg_registered_week');
     const savedRegKey = localStorage.getItem('kg_schedule_registered');
-    const savedUser = (localStorage.getItem('kg_registered_user') || '').trim().toLowerCase();
-    const isMatchingUser = !cleanUser || !savedUser || savedUser === cleanUser;
-
-    if (
-      isMatchingUser &&
-      (savedWeek === expectedKey || savedRegKey === expectedKey || (weekInfo.sheetName && savedWeek === weekInfo.sheetName))
-    ) {
+    if (savedWeek === expectedKey || savedRegKey === expectedKey) {
       const savedShiftsStr = localStorage.getItem('kg_registered_shifts');
       if (savedShiftsStr) {
         const parsed = JSON.parse(savedShiftsStr);
@@ -362,24 +492,33 @@ export function getSavedRegisteredShiftsForWeek(
   return null;
 }
 
-/** Check if schedule for the upcoming week is already registered
- *  - Validates per-user and global localStorage records against target week key
- *  - Accepts server-hydrated store registration state (handles cross-device & cache clear)
- *  - Accepts populated registeredShifts array (7 shifts)
+/** Check if schedule for the upcoming week is genuinely registered for THIS user and THIS exact target week.
+ *  CRITICAL INVARIANT: Store booleans or shift arrays NEVER count unless storeRegisteredWeekKey === expectedKey!
  */
 export function isNextWeekScheduleRegistered(
   isScheduleRegisteredInStore: boolean,
   username?: string,
   targetWeekInfo?: { monthSheet: string; weekLabel: string },
-  storeRegisteredShifts?: string[] | null
+  storeRegisteredShifts?: string[] | null,
+  storeRegisteredWeekKey?: string | null
 ): boolean {
   try {
     const weekInfo = targetWeekInfo || computeWeekInfo();
-    const expectedKey = weekInfo.monthSheet + '|' + weekInfo.weekLabel;
+    const expectedKey = `${weekInfo.monthSheet}|${weekInfo.weekLabel}`;
     const cleanUser = (username || '').trim().toLowerCase();
 
-    // Condition 1: Per-user persistent record for this exact target week (survives logout/login)
+    // Condition 1: Per-user v2 or legacy persistent record for this exact target week (survives logout/login)
     if (cleanUser) {
+      const v2Raw = localStorage.getItem(`kg_schedule_reg_v2_${cleanUser}`);
+      if (v2Raw) {
+        try {
+          const parsed = JSON.parse(v2Raw) as ScheduleRegistrationMeta;
+          if (parsed && parsed.weekKey === expectedKey && Array.isArray(parsed.shifts) && parsed.shifts.length === 7) {
+            return true;
+          }
+        } catch { /* ignore */ }
+      }
+
       const userWeek =
         localStorage.getItem(`kg_registered_week_${cleanUser}`) ||
         (username ? localStorage.getItem(`kg_registered_week_${username}`) : null);
@@ -388,24 +527,24 @@ export function isNextWeekScheduleRegistered(
       }
     }
 
+    // Condition 2: Global LocalStorage record ONLY when explicitly bound to the same username
     const savedWeek = localStorage.getItem('kg_registered_week');
     const savedRegKey = localStorage.getItem('kg_schedule_registered');
     const savedUser = (localStorage.getItem('kg_registered_user') || '').trim().toLowerCase();
-    const isMatchingUser = !cleanUser || !savedUser || savedUser === cleanUser;
+    const isMatchingUser = cleanUser ? Boolean(savedUser && savedUser === cleanUser) : Boolean(savedUser);
 
-    // Condition 2: Global LocalStorage record exists for this exact target week
     if (isMatchingUser && (savedWeek === expectedKey || savedRegKey === expectedKey)) {
       return true;
     }
 
-    // Condition 3: Zustand store / Server has confirmed registration for target week
-    if (isScheduleRegisteredInStore === true) {
-      return true;
-    }
-
-    // Condition 4: Store has 7 shifts registered from server
-    if (Array.isArray(storeRegisteredShifts) && storeRegisteredShifts.length === 7) {
-      return true;
+    // Condition 3: Zustand store / Server state ONLY counts when explicitly scoped to expectedKey
+    if (storeRegisteredWeekKey && storeRegisteredWeekKey === expectedKey) {
+      if (isScheduleRegisteredInStore === true) {
+        return true;
+      }
+      if (Array.isArray(storeRegisteredShifts) && storeRegisteredShifts.length === 7) {
+        return true;
+      }
     }
 
     return false;
@@ -440,103 +579,103 @@ export function normalizeShiftCode(shift: string | undefined | null): string {
 export const getActiveShiftClass = (shift: string) => {
   const code = normalizeShiftCode(shift);
   if (code === 'OFF') {
-    return 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200 line-through border border-slate-300 dark:border-slate-600 shadow-xs';
+    return 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200 line-through border border-slate-300 dark:border-slate-600 shadow-2xs tabular-nums';
   }
   if (code === '15:00') {
-    return 'bg-blue-600 bg-gradient-to-r from-blue-600 to-sky-500 text-white shadow-md shadow-blue-500/35 transform scale-105 border-transparent font-black ring-2 ring-blue-300 dark:ring-blue-700';
+    return 'bg-sky-600 text-white shadow-sm border border-sky-700/30 font-extrabold ring-2 ring-sky-500/30 tabular-nums';
   }
   if (code === '16:00') {
-    return 'bg-teal-500 bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-md shadow-teal-500/35 transform scale-105 border-transparent font-black ring-2 ring-teal-300 dark:ring-teal-700';
+    return 'bg-teal-600 text-white shadow-sm border border-teal-700/30 font-extrabold ring-2 ring-teal-500/30 tabular-nums';
   }
   if (code === '17:00') {
-    return 'bg-indigo-600 bg-gradient-to-r from-indigo-600 to-violet-500 text-white shadow-md shadow-indigo-500/35 transform scale-105 border-transparent font-black ring-2 ring-indigo-300 dark:ring-indigo-700';
+    return 'bg-[#062B49] dark:bg-blue-600 text-white shadow-sm border border-[#062B49]/40 dark:border-blue-400/40 font-extrabold ring-2 ring-[#062B49]/25 dark:ring-blue-500/30 tabular-nums';
   }
   if (code === '18:00') {
-    return 'bg-orange-600 bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-md shadow-orange-500/35 transform scale-105 border-transparent font-black ring-2 ring-orange-300 dark:ring-orange-700';
+    return 'bg-amber-600 text-white shadow-sm border border-amber-700/30 font-extrabold ring-2 ring-amber-500/30 tabular-nums';
   }
   if (code === '19:00') {
-    return 'bg-purple-600 bg-gradient-to-r from-purple-600 to-fuchsia-500 text-white shadow-md shadow-purple-500/35 transform scale-105 border-transparent font-black ring-2 ring-purple-300 dark:ring-purple-700';
+    return 'bg-slate-800 dark:bg-slate-700 text-white shadow-sm border border-slate-900/40 dark:border-slate-500/40 font-extrabold ring-2 ring-slate-500/30 tabular-nums';
   }
   if (code === '10:00' || code === 'RẢNH') {
-    return 'bg-emerald-600 bg-gradient-to-r from-emerald-600 to-teal-500 text-white shadow-md shadow-emerald-500/35 transform scale-105 border-transparent font-black ring-2 ring-emerald-300 dark:ring-emerald-700';
+    return 'bg-emerald-600 text-white shadow-sm border border-emerald-700/30 font-extrabold ring-2 ring-emerald-500/30 tabular-nums';
   }
   if (code === 'OFF#') {
-    return 'bg-amber-500 text-white shadow-md shadow-amber-500/35 transform scale-105 font-black ring-2 ring-amber-300';
+    return 'bg-amber-500 text-white shadow-sm font-extrabold ring-2 ring-amber-400/40 tabular-nums';
   }
   if (code === 'OFF!') {
-    return 'bg-rose-600 text-white shadow-md shadow-rose-500/35 transform scale-105 font-black ring-2 ring-rose-300';
+    return 'bg-rose-600 text-white shadow-sm font-extrabold ring-2 ring-rose-400/40 tabular-nums';
   }
-  return 'bg-blue-600 bg-gradient-to-r from-blue-600 to-sky-500 text-white shadow-md shadow-blue-500/35 transform scale-105 border-transparent font-black';
+  return 'bg-[#062B49] dark:bg-blue-600 text-white shadow-sm border border-transparent font-extrabold tabular-nums';
 };
 
-/** Shift color classes - preview (bright, luminous, high-contrast pills) */
+/** Shift color classes - preview (high-contrast operational pills) */
 export const getPreviewShiftClass = (shift: string) => {
-  if (!shift) return 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500 border border-slate-200 dark:border-slate-700';
+  if (!shift) return 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500 border border-slate-200 dark:border-slate-700 tabular-nums';
   const code = normalizeShiftCode(shift);
 
   if (code === 'OFF') {
-    return 'bg-slate-100 text-slate-600 dark:bg-slate-800/90 dark:text-slate-400 font-bold border border-slate-200 dark:border-slate-700/80';
+    return 'bg-slate-100 text-slate-600 dark:bg-slate-800/90 dark:text-slate-400 font-bold border border-slate-200 dark:border-slate-700/80 tabular-nums';
   }
   if (code === '15:00') {
-    return 'bg-blue-600 bg-gradient-to-br from-blue-600 to-sky-500 text-white font-black shadow-xs shadow-blue-500/30 border border-blue-400/40';
+    return 'bg-sky-600 text-white font-extrabold shadow-2xs border border-sky-700/25 tabular-nums';
   }
   if (code === '16:00') {
-    return 'bg-teal-500 bg-gradient-to-br from-teal-500 to-cyan-500 text-white font-black shadow-xs shadow-teal-500/30 border border-teal-300/40';
+    return 'bg-teal-600 text-white font-extrabold shadow-2xs border border-teal-700/25 tabular-nums';
   }
   if (code === '17:00') {
-    return 'bg-indigo-600 bg-gradient-to-br from-indigo-600 to-violet-500 text-white font-black shadow-xs shadow-indigo-500/30 border border-indigo-400/40';
+    return 'bg-[#062B49] dark:bg-blue-600 text-white font-extrabold shadow-2xs border border-[#062B49]/40 dark:border-blue-400/30 tabular-nums';
   }
   if (code === '18:00') {
-    return 'bg-orange-600 bg-gradient-to-br from-amber-500 to-orange-600 text-white font-black shadow-xs shadow-orange-500/30 border border-orange-400/40';
+    return 'bg-amber-600 text-white font-extrabold shadow-2xs border border-amber-700/25 tabular-nums';
   }
   if (code === '19:00') {
-    return 'bg-purple-600 bg-gradient-to-br from-purple-600 to-fuchsia-500 text-white font-black shadow-xs shadow-purple-500/30 border border-purple-400/40';
+    return 'bg-slate-800 dark:bg-slate-700 text-white font-extrabold shadow-2xs border border-slate-700 dark:border-slate-600 tabular-nums';
   }
   if (code === '10:00' || code === 'RẢNH') {
-    return 'bg-emerald-600 bg-gradient-to-br from-emerald-600 to-teal-500 text-white font-black shadow-xs shadow-emerald-500/30 border border-emerald-400/40';
+    return 'bg-emerald-600 text-white font-extrabold shadow-2xs border border-emerald-700/25 tabular-nums';
   }
   if (code === 'OFF#') {
-    return 'bg-amber-500 text-white font-black shadow-xs shadow-amber-500/25 border border-amber-400/40';
+    return 'bg-amber-500 text-white font-extrabold shadow-2xs border border-amber-600/30 tabular-nums';
   }
   if (code === 'OFF!') {
-    return 'bg-rose-600 text-white font-black shadow-xs shadow-rose-500/25 border border-rose-400/40';
+    return 'bg-rose-600 text-white font-extrabold shadow-2xs border border-rose-700/30 tabular-nums';
   }
-  return 'bg-blue-600 bg-gradient-to-br from-blue-600 to-sky-500 text-white font-black shadow-xs shadow-blue-500/30 border border-blue-400/40';
+  return 'bg-[#062B49] dark:bg-blue-600 text-white font-extrabold shadow-2xs border border-[#062B49]/30 tabular-nums';
 };
 
 /** Shift color classes - admin table & roster */
 export const getAdminShiftClass = (shift: string) => {
-  if (!shift) return 'bg-transparent text-slate-400';
+  if (!shift) return 'bg-transparent text-slate-400 tabular-nums';
   const code = normalizeShiftCode(shift);
 
   if (code === 'OFF') {
-    return 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700 font-bold';
+    return 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700 font-bold tabular-nums';
   }
   if (code === '15:00') {
-    return 'bg-blue-600 bg-gradient-to-br from-blue-600 to-sky-500 text-white font-black shadow-xs shadow-blue-500/20 border border-blue-400/30';
+    return 'bg-sky-600 text-white font-extrabold shadow-2xs border border-sky-700/25 tabular-nums';
   }
   if (code === '16:00') {
-    return 'bg-teal-500 bg-gradient-to-br from-teal-500 to-cyan-500 text-white font-black shadow-xs shadow-teal-500/20 border border-teal-300/30';
+    return 'bg-teal-600 text-white font-extrabold shadow-2xs border border-teal-700/25 tabular-nums';
   }
   if (code === '17:00') {
-    return 'bg-indigo-600 bg-gradient-to-br from-indigo-600 to-violet-500 text-white font-black shadow-xs shadow-indigo-500/20 border border-indigo-400/30';
+    return 'bg-[#062B49] dark:bg-blue-600 text-white font-extrabold shadow-2xs border border-[#062B49]/40 dark:border-blue-400/30 tabular-nums';
   }
   if (code === '18:00') {
-    return 'bg-orange-600 bg-gradient-to-br from-amber-500 to-orange-600 text-white font-black shadow-xs shadow-orange-500/20 border border-orange-400/30';
+    return 'bg-amber-600 text-white font-extrabold shadow-2xs border border-amber-700/25 tabular-nums';
   }
   if (code === '19:00') {
-    return 'bg-purple-600 bg-gradient-to-br from-purple-600 to-fuchsia-500 text-white font-black shadow-xs shadow-purple-500/20 border border-purple-400/30';
+    return 'bg-slate-800 dark:bg-slate-700 text-white font-extrabold shadow-2xs border border-slate-700 dark:border-slate-600 tabular-nums';
   }
   if (code === '10:00' || code === 'RẢNH') {
-    return 'bg-emerald-600 bg-gradient-to-br from-emerald-600 to-teal-500 text-white font-black shadow-xs shadow-emerald-500/20 border border-emerald-400/30';
+    return 'bg-emerald-600 text-white font-extrabold shadow-2xs border border-emerald-700/25 tabular-nums';
   }
   if (code === 'OFF#') {
-    return 'bg-amber-500 text-white font-black border border-amber-400 shadow-xs shadow-amber-500/20';
+    return 'bg-amber-500 text-white font-extrabold border border-amber-600/30 shadow-2xs tabular-nums';
   }
   if (code === 'OFF!') {
-    return 'bg-rose-600 text-white font-black border border-rose-400 shadow-xs shadow-rose-500/20';
+    return 'bg-rose-600 text-white font-extrabold border border-rose-700/30 shadow-2xs tabular-nums';
   }
-  return 'bg-blue-600 bg-gradient-to-br from-blue-600 to-sky-500 text-white font-black shadow-xs shadow-blue-500/20 border border-blue-400/30';
+  return 'bg-[#062B49] dark:bg-blue-600 text-white font-extrabold shadow-2xs border border-[#062B49]/30 tabular-nums';
 };
 
 /** Fetch with retry and exponential backoff */
@@ -1252,8 +1391,8 @@ export function generateMonthDates(month: number, year: number): MonthDateInfo[]
   const dates: MonthDateInfo[] = [];
 
   for (let d = 1; d <= daysInMonth; d++) {
-    const date = new Date(year, month - 1, d);
-    const dayOfWeek = date.getDay();
+    const date = new Date(Date.UTC(year, month - 1, d, 5, 0, 0));
+    const dayOfWeek = getVietnamDateParts(date).dayOfWeek;
     const dayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
     
     const weekInfo = computeWeekInfo(date, false); // Get week containing this date
@@ -1538,3 +1677,24 @@ export function auditCheckInAnomalies(
   return anomalies.reverse();
 }
 
+
+/**
+ * Evaluates whether a check-in attempt satisfies geofence radius requirements.
+ * Prevents bypassing geofence simply by having a captured photo + out-of-range GPS snapshot.
+ */
+export function evaluateCheckInGeofence(params: {
+  isAuthorizedTest: boolean;
+  hasCapturedPhoto: boolean;
+  capturedGps: { dist: number; acc?: number } | null;
+  liveIsValid: boolean;
+  liveEffectiveDist: number | null;
+  targetRadius: number;
+}): boolean {
+  if (params.isAuthorizedTest) return true;
+  if (params.hasCapturedPhoto && params.capturedGps) {
+    const snapAllowance = Math.min((params.capturedGps.acc || 0) * 0.35, 10);
+    const effectiveSnapDist = Math.max(0, params.capturedGps.dist - snapAllowance);
+    return effectiveSnapDist <= params.targetRadius;
+  }
+  return Boolean(params.liveIsValid) && (params.liveEffectiveDist === null || params.liveEffectiveDist <= params.targetRadius);
+}

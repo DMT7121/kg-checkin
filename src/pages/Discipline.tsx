@@ -127,7 +127,7 @@ export default function Discipline({ mode = 'user' }: { mode?: 'user' | 'admin' 
       {isManagerView && (
         <form onSubmit={handleSubmit} className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-4 sm:p-5 rounded-2xl shadow-xs space-y-4">
           <h3 className="font-black flex items-center text-[var(--kg-text)] pb-3 border-b border-[var(--kg-border)] text-sm sm:text-base">
-            <Plus size={18} className="mr-2 text-indigo-600 dark:text-indigo-400" /> Thêm bản ghi thưởng / phạt
+            <Plus size={18} className="mr-2 text-[var(--kg-primary)]" /> Thêm bản ghi thưởng / phạt
           </h3>
           
           <div className="space-y-3.5">
@@ -149,11 +149,12 @@ export default function Discipline({ mode = 'user' }: { mode?: 'user' | 'admin' 
             </div>
 
             <div>
-              <label className="block text-xs font-black text-[var(--kg-text)] mb-1">Nhân viên áp dụng</label>
+              <label htmlFor="discipline-target-user" className="block text-xs font-black text-[var(--kg-text)] mb-1">Nhân viên áp dụng</label>
               <select 
+                id="discipline-target-user"
                 value={targetUsername}
                 onChange={(e) => setTargetUsername(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text)] focus:ring-2 focus:ring-indigo-500 outline-none text-xs sm:text-sm font-medium"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text)] focus:ring-2 focus:ring-[var(--kg-primary)] outline-none text-xs sm:text-sm font-medium"
               >
                 <option value="">-- Chọn nhân viên --</option>
                 {users.map(u => (
@@ -163,30 +164,33 @@ export default function Discipline({ mode = 'user' }: { mode?: 'user' | 'admin' 
             </div>
 
             <div>
-              <label className="block text-xs font-black text-[var(--kg-text)] mb-1">Số tiền (VNĐ)</label>
+              <label htmlFor="discipline-amount" className="block text-xs font-black text-[var(--kg-text)] mb-1">Số tiền (VNĐ)</label>
               <input 
+                id="discipline-amount"
                 type="text" 
+                inputMode="numeric"
                 value={amount}
                 onChange={(e) => setAmount(formatMoney(e.target.value))}
                 placeholder="Ví dụ: 100,000"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text)] focus:ring-2 focus:ring-indigo-500 font-black text-base sm:text-lg outline-none"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text)] focus:ring-2 focus:ring-[var(--kg-primary)] font-mono tabular-nums text-right font-black text-base sm:text-lg outline-none"
               />
             </div>
             
             <div>
-              <label className="block text-xs font-black text-[var(--kg-text)] mb-1">Lý do cụ thể</label>
+              <label htmlFor="discipline-reason" className="block text-xs font-black text-[var(--kg-text)] mb-1">Lý do cụ thể</label>
               <input 
+                id="discipline-reason"
                 type="text"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 placeholder="Nhập lý do khen thưởng / vi phạm..."
-                className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text)] focus:ring-2 focus:ring-indigo-500 outline-none text-xs sm:text-sm"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text)] focus:ring-2 focus:ring-[var(--kg-primary)] outline-none text-xs sm:text-sm"
               />
             </div>
             
             <button 
               type="submit" 
-              className={`w-full text-white font-black py-3.5 rounded-2xl transition shadow-md active:scale-95 flex items-center justify-center text-xs sm:text-sm uppercase tracking-wider ${type === 'BONUS' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}
+              className={`w-full text-white font-black py-3.5 rounded-xl transition shadow-xs active:scale-99 flex items-center justify-center text-xs sm:text-sm uppercase tracking-wider ${type === 'BONUS' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}
             >
               <Plus size={18} className="mr-1.5" /> Ghi nhận vào hệ thống
             </button>
@@ -197,7 +201,7 @@ export default function Discipline({ mode = 'user' }: { mode?: 'user' | 'admin' 
       {/* History */}
       <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-4 sm:p-5 rounded-2xl shadow-xs">
         <h3 className="font-black flex items-center text-[var(--kg-text)] mb-4 border-b border-[var(--kg-border)] pb-3 text-sm sm:text-base">
-          <Search size={18} className="mr-2 text-indigo-600 dark:text-indigo-400" /> {isManagerView ? 'Lịch sử khen thưởng / kỷ luật toàn quán' : 'Lịch sử khen thưởng & kỷ luật của bạn'}
+          <Search size={18} className="mr-2 text-[var(--kg-primary)]" /> {isManagerView ? 'Lịch sử khen thưởng / kỷ luật toàn quán' : 'Lịch sử khen thưởng & kỷ luật của bạn'}
         </h3>
         
         {bonusPenalties.length === 0 ? (
@@ -215,10 +219,10 @@ export default function Discipline({ mode = 'user' }: { mode?: 'user' | 'admin' 
                   <div className="flex justify-between items-start mb-1.5">
                     <div>
                       {isManagerView && <p className="font-black text-[var(--kg-text)] text-sm">{record.targetFullname}</p>}
-                      <p className={`font-black text-base sm:text-lg ${isBonus ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                      <p className={`font-mono tabular-nums font-black text-base sm:text-lg ${isBonus ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                         {isBonus ? '+' : '-'}{record.amount.toLocaleString('vi-VN')} đ
                       </p>
-                      <p className="text-[11px] text-[var(--kg-text-muted)] mt-0.5">{new Date(record.createdAt).toLocaleString('vi-VN')}</p>
+                      <p className="text-[11px] font-mono tabular-nums text-[var(--kg-text-muted)] mt-0.5">{new Date(record.createdAt).toLocaleString('vi-VN')}</p>
                     </div>
                     {isManagerView && (
                       <button 

@@ -20,8 +20,13 @@ import {
   type CheckInTypeString,
   getCheckInCooldown,
   auditCheckInAnomalies,
-  getPreviewShiftClass
+  getPreviewShiftClass,
+  evaluateCheckInGeofence,
+  getScheduleRegistrationWindow,
+  isNextWeekScheduleRegistered,
+  isScheduleRegistrationRequired
 } from '../utils/helpers';
+import { refreshAppData } from '../utils/refreshData';
 import { renderCheckInWatermarkCanvas } from '../utils/checkinWatermark';
 import {
   MapPin,
@@ -34,6 +39,7 @@ import {
   UserCheck,
   AlertTriangle,
   Clock,
+  CalendarClock,
   Sparkles,
   ShieldCheck,
   CheckCircle2,
@@ -48,7 +54,12 @@ import {
   Crosshair,
   Radio,
   Lock,
-  Maximize2
+  Maximize2,
+  Smile,
+  Meh,
+  Frown,
+  Sun,
+  Zap
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import {
@@ -81,6 +92,12 @@ export default function CheckIn() {
       capturedTime: s.capturedTime,
       currentTime: s.currentTime,
       approvedShifts: s.approvedShifts,
+      currentWeekApprovedShifts: s.currentWeekApprovedShifts,
+      isScheduleRegistered: s.isScheduleRegistered,
+      registeredShifts: s.registeredShifts,
+      registeredWeekKey: s.registeredWeekKey,
+      isScheduleHydrated: s.isScheduleHydrated,
+      setScheduleRegistered: s.setScheduleRegistered,
       serverGpsConfig: s.serverGpsConfig,
       logs: s.logs,
       lastCheckInTime: s.lastCheckInTime,
@@ -123,13 +140,41 @@ export default function CheckIn() {
   const liveIndoorAllowance = Math.min((gps.accuracy || 0) * 0.35, 10);
   const effectiveCurrentDist = currentDist !== null ? Math.max(0, currentDist - liveIndoorAllowance) : null;
   const isAuthorizedTest = isAuthorizedTestUser(currentUser);
-  const isLiveWithinRadius = isAuthorizedTest || (Boolean(gps.isValid) && (effectiveCurrentDist === null || effectiveCurrentDist <= targetRadius));
-  const isWithinRadius = Boolean(capturedImage && capturedGps) ? true : isLiveWithinRadius;
+  const isWithinRadius = evaluateCheckInGeofence({
+    isAuthorizedTest,
+    hasCapturedPhoto: Boolean(capturedImage),
+    capturedGps,
+    liveIsValid: Boolean(gps.isValid),
+    liveEffectiveDist: effectiveCurrentDist,
+    targetRadius,
+  });
 
   // Smart check-in recommendation & state machine
   const recommendation = getRecommendedCheckInType(store.logs, currentUser);
   const missingAlerts = auditMissingCheckIns(store.logs, currentUser);
   const [selectedMissingAlert, setSelectedMissingAlert] = useState<MissingCheckInAlert | null>(null);
+
+  // Mandatory weekly schedule pre-check-in gate (Thu 00:00 -> Sat 17:00 VN)
+  const upcomingWeekInfo = useMemo(() => computeWeekInfo(), [currentTime]);
+  const scheduleRegWindow = useMemo(() => getScheduleRegistrationWindow(), [currentTime]);
+  const isNextWeekRegistered = isNextWeekScheduleRegistered(
+    store.isScheduleRegistered,
+    currentUser?.username,
+    upcomingWeekInfo,
+    store.registeredShifts,
+    store.registeredWeekKey
+  );
+  const isScheduleGateBlocked =
+    isScheduleRegistrationRequired(currentUser) &&
+    scheduleRegWindow.isMandatoryWindow &&
+    !isNextWeekRegistered;
+
+  const goToMandatorySchedule = useCallback(() => {
+    try {
+      sessionStorage.setItem('kg_hub_subtab_workforce', 'schedule');
+    } catch { /* ignore */ }
+    store.setCurrentTab('schedule');
+  }, [store]);
 
   // Live second ticker for real-time 15-minute countdown (only active when user is actually within cooldown lockout)
   const [cooldownTicker, setCooldownTicker] = useState(0);
@@ -186,7 +231,7 @@ export default function CheckIn() {
     };
     img.onerror = () => {
       const fallback = new Image();
-      fallback.src = '/LOGO.png';
+      fallback.src = '/logo_email.png';
       fallback.onload = () => {
         logoImgRef.current = fallback;
       };
@@ -925,6 +970,18 @@ export default function CheckIn() {
   };
 
   const takePhoto = () => {
+    if (isScheduleGateBlocked) {
+      speak('Bắt buộc đăng ký lịch làm tuần tới trước khi chấm công.');
+      setFeedbackTitle(`Chưa đăng ký lịch tuần ${upcomingWeekInfo.weekDisplay}`);
+      setFeedbackMessage(
+        `Theo quy định từ Thứ 5 đến trước 17:00 Thứ Bảy, 100% nhân sự bắt buộc hoàn thành đăng ký ca làm tuần tới (${upcomingWeekInfo.weekDisplay}) trước khi chấm công Vào/Ra ca.`
+      );
+      setFeedbackType('warning');
+      setFeedbackSheetOpen(true);
+      goToMandatorySchedule();
+      return;
+    }
+
     if (!isWithinRadius) {
       speak(`Bạn đang ở ngoài bán kính chấm công. Khoảng cách ${currentDist ?? 'không xác định'} mét.`);
       setFeedbackTitle('Ngoài bán kính chấm công (≤25m)');
@@ -1027,6 +1084,19 @@ export default function CheckIn() {
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isScheduleGateBlocked) {
+      speak('Bắt buộc đăng ký lịch làm tuần tới trước khi chấm công.');
+      setFeedbackTitle(`Chưa đăng ký lịch tuần ${upcomingWeekInfo.weekDisplay}`);
+      setFeedbackMessage(
+        `Vui lòng hoàn thành đăng ký ca làm tuần tới (${upcomingWeekInfo.weekDisplay}) trước 17:00 Thứ Bảy rồi thực hiện chấm công.`
+      );
+      setFeedbackType('warning');
+      setFeedbackSheetOpen(true);
+      e.target.value = '';
+      goToMandatorySchedule();
+      return;
+    }
+
     if (!isWithinRadius) {
       speak('Bạn đang ở ngoài bán kính 25m. Không thể tải ảnh minh chứng.');
       setFeedbackTitle('Ngoài bán kính chấm công (≤25m)');
@@ -1215,7 +1285,7 @@ export default function CheckIn() {
 
     // Anti-spam 15-minute cooldown check
     const cooldownInfo = getCheckInCooldown(store.logs, currentUser, useAppStore.getState().lastCheckInTime);
-    const isAdminUser = currentUser?.role === 'admin' || currentUser?.role === 'tester';
+    const isAdminUser = currentUser?.role === 'admin';
     if (cooldownInfo.isBlocked && !isAdminUser) {
       speak(`Vui lòng đợi thêm ${cooldownInfo.remainingMinutesFormatted} để chấm công lại.`);
       setSpamWarningText(`Quy định chống spam: Bạn vừa chấm công lúc ${cooldownInfo.lastTimeStr || ''} (${cooldownInfo.minutesSinceLast || 0} phút trước). Hệ thống yêu cầu sau tối thiểu 15 phút mới được chấm tiếp để tránh trùng lặp. Thời gian còn lại: ${cooldownInfo.remainingMinutesFormatted}.`);
@@ -1223,15 +1293,16 @@ export default function CheckIn() {
       return;
     }
 
-    // Late check-in warning
+    // Late check-in warning (always check current week's approved shifts first!)
     let lateMinsInfo = 0;
     let shiftString = '';
     const isInAction = type.includes('Vào ca') || type.includes('IN') || type.toLowerCase().includes('vào');
-    if (isInAction && approvedShifts) {
+    const activeTodayShifts = store.currentWeekApprovedShifts ?? approvedShifts;
+    if (isInAction && activeTodayShifts) {
       const todayDate = new Date();
       let dayIdx = todayDate.getDay() - 1;
       if (dayIdx === -1) dayIdx = 6;
-      const todayShift = approvedShifts[dayIdx];
+      const todayShift = activeTodayShifts[dayIdx];
       if (todayShift && todayShift !== 'OFF' && todayShift !== 'OFF#') {
         const parts = todayShift.split(':');
         if (parts.length === 2) {
@@ -1262,6 +1333,34 @@ export default function CheckIn() {
     if (!currentUser) {
       speak('Vui lòng đăng nhập lại để tiếp tục.');
       return;
+    }
+
+    // Hard client + cold-boot server verification gate during T5 00:00 -> T7 17:00 VN
+    if (isScheduleRegistrationRequired(currentUser) && getScheduleRegistrationWindow().isMandatoryWindow) {
+      if (!useAppStore.getState().isScheduleHydrated && navigator.onLine) {
+        await refreshAppData(true);
+      }
+      const latestState = useAppStore.getState();
+      const targetUpcoming = computeWeekInfo();
+      const verifiedRegistered = isNextWeekScheduleRegistered(
+        latestState.isScheduleRegistered,
+        currentUser.username,
+        targetUpcoming,
+        latestState.registeredShifts,
+        latestState.registeredWeekKey
+      );
+      if (!verifiedRegistered) {
+        setConfirmCheckInModalOpen(false);
+        speak('Vui lòng đăng ký lịch làm tuần tới trước khi chấm công.');
+        setFeedbackTitle(`Bắt buộc đăng ký lịch tuần ${targetUpcoming.weekDisplay}`);
+        setFeedbackMessage(
+          `Hệ thống chưa ghi nhận lịch đăng ký ca tuần tới (${targetUpcoming.weekDisplay}) của bạn. Vui lòng gửi lịch đủ 7 ngày trước 17:00 Thứ Bảy rồi chấm công lại.`
+        );
+        setFeedbackType('warning');
+        setFeedbackSheetOpen(true);
+        goToMandatorySchedule();
+        return;
+      }
     }
 
     if (!capturedImage) {
@@ -1380,7 +1479,7 @@ export default function CheckIn() {
       speak('Ting! Đã ghi nhận thành công điểm danh ra ca. Chúc mừng bạn đã hoàn thành ca làm việc!');
     }
 
-    setFeedbackTitle(type.includes('Vào') ? 'Điểm Danh Vào Ca Thành Công! 🎉' : 'Điểm Danh Ra Ca Thành Công! 🎊');
+    setFeedbackTitle(type.includes('Vào') ? 'Điểm Danh Vào Ca Thành Công!' : 'Điểm Danh Ra Ca Thành Công!');
     setFeedbackMessage('Đã tiếp nhận lượt chấm công! Dữ liệu và hình ảnh đang được tự động đồng bộ vào Bảng chấm công.');
     setFeedbackType('success');
     setFeedbackSheetOpen(true);
@@ -1525,6 +1624,7 @@ export default function CheckIn() {
           res?.code === 'CLOCK_DESYNC' ||
           res?.code === 'SPOOF_DETECTED' ||
           res?.code === 'GPS_REQUIRED' ||
+          res?.code === 'SCHEDULE_REQUIRED' ||
           res?.code === 'SECURITY_TOKEN_MISMATCH';
 
         if (isPermanentValidationError) {
@@ -1539,6 +1639,25 @@ export default function CheckIn() {
               localStorage.removeItem('kg_last_checkin');
             }
           } catch {}
+
+          if (res?.code === 'SCHEDULE_REQUIRED') {
+            currentState.setScheduleRegistered(false);
+            try {
+              localStorage.removeItem(`kg_registered_week_${currentUser.username.trim().toLowerCase()}`);
+              localStorage.removeItem(`kg_schedule_reg_v2_${currentUser.username.trim().toLowerCase()}`);
+            } catch {}
+            speak('Bắt buộc đăng ký ca làm tuần tới trước khi chấm công.');
+            setLastSubmittedPunch(null);
+            setFeedbackTitle('Chưa đăng ký lịch làm tuần tới');
+            setFeedbackMessage(
+              res?.message ||
+                `Bắt buộc đăng ký ca làm tuần tới (${upcomingWeekInfo.weekDisplay}) trước khi chấm công! Vui lòng hoàn tất đăng ký ca rồi chấm công lại.`
+            );
+            setFeedbackType('warning');
+            setFeedbackSheetOpen(true);
+            goToMandatorySchedule();
+            return;
+          }
 
           speak('Chấm công bị từ chối bởi máy chủ. Vui lòng kiểm tra thông báo.');
           setLastSubmittedPunch(null);
@@ -1573,26 +1692,13 @@ export default function CheckIn() {
     setSurveyOpen(false);
     
     setFeedbackTitle('Cảm ơn bạn!');
-    setFeedbackMessage("King's Grill trân trọng ý kiến và luôn bên cạnh đồng hành cùng bạn ❤️");
+    setFeedbackMessage("King's Grill trân trọng ý kiến và luôn bên cạnh đồng hành cùng bạn.");
     setFeedbackType('success');
     setFeedbackSheetOpen(true);
   };
 
-  // Init camera & face models
+  // Init camera & GPS immediately on mount (non-blocking for 4G)
   useEffect(() => {
-    const loadModels = async () => {
-      try {
-        const faceapi = await import('face-api.js');
-        faceApiRef.current = faceapi;
-        await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
-        setIsFaceModelLoaded(true);
-      } catch (e) {
-        console.error('Face API model load error:', e);
-        setFaceModelUnavailable(true);
-      }
-    };
-    loadModels();
-
     startCamera();
     startGpsWatch();
     return () => {
@@ -1603,6 +1709,28 @@ export default function CheckIn() {
       if (precisionScanTimeoutRef.current) clearTimeout(precisionScanTimeoutRef.current);
     };
   }, []);
+
+  // Lazy-load face-api.js + tfjs-core ONLY after live camera stream is active so 4G viewfinder opens instantly
+  useEffect(() => {
+    if (!cameraActive || isFaceModelLoaded || faceModelUnavailable) return;
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      try {
+        const faceapi = await import('face-api.js');
+        if (cancelled) return;
+        faceApiRef.current = faceapi;
+        await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
+        if (!cancelled) setIsFaceModelLoaded(true);
+      } catch (e) {
+        console.error('Face API model load error:', e);
+        if (!cancelled) setFaceModelUnavailable(true);
+      }
+    }, 120);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [cameraActive, isFaceModelLoaded, faceModelUnavailable]);
 
   // iOS Safari / Mobile Lifecycle: auto-resume camera and GPS when returning from background, phone lock, or app switch
   useEffect(() => {
@@ -1753,7 +1881,7 @@ export default function CheckIn() {
   const activeLng = capturedGps?.lng ?? gps.lng;
   const canCapture = Boolean(!capturedImage && isWithinRadius && gps.lat !== null && gps.lng !== null && (cameraActive || cameraError));
   const canSubmit = Boolean(capturedImage && isWithinRadius && activeLat !== null && activeLng !== null && photoTimeLeftSeconds > 0);
-  const isCooldownBlocked = Boolean(cooldown.isBlocked && currentUser?.role !== 'admin' && currentUser?.role !== 'tester');
+  const isCooldownBlocked = Boolean(cooldown.isBlocked && currentUser?.role !== 'admin');
   const isPrimaryActionReady = capturedImage ? canSubmit : canCapture;
 
   if (currentUser && !isWorkEligible(currentUser)) {
@@ -1816,18 +1944,18 @@ export default function CheckIn() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-wider bg-rose-500/20 px-1.5 py-0.5 rounded">
-                    ⚠️ Cần kiểm tra
+                    Cần kiểm tra
                   </span>
-                  <span className="text-xs font-bold text-[var(--kg-text)] font-mono">
+                  <span className="text-xs font-bold text-[var(--kg-text)] font-mono tabular-nums">
                     {anomalies[0].logTime}
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 mt-1 text-xs font-semibold text-[var(--kg-text)] flex-wrap">
                   <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/15 px-1.5 py-0.5 rounded-md">
-                    <span>✔</span> "{anomalies[0].suggestedType}"
+                    Đề xuất: "{anomalies[0].suggestedType}"
                   </span>
                   <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded-md text-[11px]">
-                    <span>✘</span> "{anomalies[0].type}"
+                    Hiện tại: "{anomalies[0].type}"
                   </span>
                   {anomalies.length > 1 && (
                     <span className="text-[10px] text-[var(--kg-text-muted)] font-medium">
@@ -1850,7 +1978,7 @@ export default function CheckIn() {
 
       {/* Missing Check-in Alerts Banner - Compact & Icon-Driven */}
       {missingAlerts.length > 0 && (
-        <div className="bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 border border-amber-500/30 rounded-2xl p-3 text-[var(--kg-text)] shadow-xs max-w-md mx-auto animate-fade-in">
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 text-[var(--kg-text)] shadow-xs max-w-md mx-auto animate-fade-in">
           <div className="flex items-center justify-between gap-2.5">
             <div className="flex items-center gap-2.5 min-w-0 flex-1">
               <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0 shadow-xs">
@@ -1859,15 +1987,15 @@ export default function CheckIn() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider bg-amber-500/20 px-1.5 py-0.5 rounded">
-                    ⚠️ Cần kiểm tra
+                    Cần kiểm tra
                   </span>
-                  <span className="text-xs font-bold text-[var(--kg-text)]">
+                  <span className="text-xs font-bold font-mono tabular-nums text-[var(--kg-text)]">
                     {missingAlerts[0].dateStr}{missingAlerts[0].timeStr ? ` (${missingAlerts[0].timeStr})` : ''}
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 mt-1 text-xs font-semibold text-[var(--kg-text)] flex-wrap">
                   <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-300 font-bold bg-amber-500/15 px-1.5 py-0.5 rounded-md">
-                    <span>✘</span> Thiếu lượt "{missingAlerts[0].missingType}"
+                    Thiếu lượt "{missingAlerts[0].missingType}"
                   </span>
                   {missingAlerts.length > 1 && (
                     <span className="text-[10px] text-[var(--kg-text-muted)] font-medium">
@@ -1891,6 +2019,36 @@ export default function CheckIn() {
         </div>
       )}
 
+      {/* Mandatory Schedule Pre-Check-In Gate Card (Thu 00:00 -> Sat 17:00 VN) */}
+      {isScheduleGateBlocked && (
+        <div className="bg-[var(--kg-warning-soft)] border-2 border-amber-500/45 rounded-2xl p-4 text-[var(--kg-text)] shadow-sm max-w-md mx-auto animate-fade-in space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center justify-center flex-shrink-0">
+              <CalendarClock size={20} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] border border-[var(--kg-danger)]/20 mb-1">
+                Khóa chấm công tạm thời
+              </span>
+              <h4 className="text-xs sm:text-sm font-black text-[var(--kg-text)] leading-snug">
+                Bắt buộc đăng ký lịch làm tuần {upcomingWeekInfo.weekDisplay} trước khi chấm công
+              </h4>
+              <p className="text-[11px] text-[var(--kg-text-muted)] mt-1 leading-relaxed font-medium">
+                {scheduleRegWindow.message}. Vui lòng chọn đủ ca 7 ngày tuần tới (hoặc OFF kèm lý do) trước <b className="font-mono tabular-nums text-[var(--kg-text)]">17:00 Thứ Bảy</b> để mở khóa chấm công ngay lập tức.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={goToMandatorySchedule}
+            className="w-full py-3 px-4 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-black text-xs sm:text-sm tracking-wide shadow-xs transition-all active:scale-[0.98] touch-manipulation flex items-center justify-center gap-1.5 min-h-[44px]"
+          >
+            <span>ĐĂNG KÝ LỊCH LÀM TUẦN {upcomingWeekInfo.weekDisplay} NGAY</span>
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      )}
+
       {/* Current Shift Status Card (Clean, Informative & Multi-shift Ready) */}
       <div className="bg-[var(--kg-surface)] p-3 rounded-2xl border border-[var(--kg-border)] text-[var(--kg-text)] shadow-xs max-w-md mx-auto space-y-2.5">
         <div className="flex items-center justify-between gap-2.5">
@@ -1906,14 +2064,14 @@ export default function CheckIn() {
             </div>
           </div>
 
-          <span className={`inline-flex items-center gap-1 text-[11px] font-black px-2.5 py-1 rounded-xl flex-shrink-0 border ${
+          <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-xl flex-shrink-0 border ${
             recommendation.isOpenShift
-              ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/25'
+              ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/25'
               : recommendation.isOvernightShift
-              ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/25'
+              ? 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/25'
               : recommendation.hasInToday
-              ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/25'
-              : 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20'
+              ? 'bg-[var(--kg-primary-soft)] text-[var(--kg-primary)] border-[var(--kg-primary)]/20'
+              : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)]'
           }`}>
             {recommendation.isOvernightShift ? (
               <>
@@ -2038,13 +2196,13 @@ export default function CheckIn() {
 
         {/* Dedicated In-Store Satellite Rescan for Staff */}
         {!gps.isValid && gps.lat !== null && !isPrecisionScanning && (
-          <div className="mt-3 pt-2.5 border-t border-[var(--kg-border)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 bg-gradient-to-r from-blue-500/15 via-blue-500/10 to-indigo-500/10 p-3 rounded-2xl border border-blue-500/30 animate-fade-in shadow-xs">
+          <div className="mt-3 pt-2.5 border-t border-[var(--kg-border)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 bg-[var(--kg-info-soft)] p-3 rounded-2xl border border-[var(--kg-info)]/25 animate-fade-in shadow-xs">
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-blue-600/15 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
+              <div className="w-8 h-8 rounded-xl bg-sky-600/15 text-sky-700 dark:text-sky-300 flex items-center justify-center flex-shrink-0">
                 <Crosshair size={18} className="animate-spin" style={{ animationDuration: '6s' }} />
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-black text-blue-700 dark:text-blue-300 leading-tight">
+                <p className="text-xs font-bold text-sky-800 dark:text-sky-300 leading-tight">
                   Đang ở quán nhưng chưa nhận diện?
                 </p>
                 <p className="text-[10px] text-[var(--kg-text-muted)] mt-0.5">
@@ -2055,7 +2213,7 @@ export default function CheckIn() {
             <button
               type="button"
               onClick={handlePrecisionRescan}
-              className="w-full sm:w-auto px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs rounded-xl min-h-[40px] touch-manipulation flex items-center justify-center gap-1.5 flex-shrink-0 active:scale-95 transition shadow-xs whitespace-nowrap"
+              className="w-full sm:w-auto px-3.5 py-2 bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-bold text-xs rounded-xl min-h-[40px] touch-manipulation flex items-center justify-center gap-1.5 flex-shrink-0 active:scale-95 transition shadow-xs whitespace-nowrap"
             >
               <Radio size={14} />
               Quét lại vị trí (GPS Vệ Tinh)
@@ -2065,10 +2223,10 @@ export default function CheckIn() {
 
         {/* Admin Quick Fix Calibrate Banner */}
         {((currentUser?.role === 'admin' || currentUser?.username === 'ADMIN') && !gps.isValid && gps.lat !== null) && (
-          <div className="mt-3 pt-2.5 border-t border-[var(--kg-border)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 bg-blue-500/10 p-2.5 rounded-xl border border-blue-500/20">
+          <div className="mt-3 pt-2.5 border-t border-[var(--kg-border)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 bg-[var(--kg-primary-soft)] p-2.5 rounded-xl border border-[var(--kg-primary)]/20">
             <div className="text-xs">
-              <p className="font-black text-blue-600 dark:text-blue-400 flex items-center gap-1">
-                <span>🎯</span> <b>Quản lý:</b> Đang ở nhà hàng?
+              <p className="font-bold text-[var(--kg-primary)] flex items-center gap-1.5">
+                <Crosshair size={13} /> <b>Quản lý:</b> Đang ở nhà hàng?
               </p>
               <p className="text-[10px] text-[var(--kg-text-muted)] mt-0.5 font-medium">
                 Đặt tọa độ hiện tại làm vị trí gốc chuẩn (Bán kính 25m).
@@ -2381,21 +2539,21 @@ export default function CheckIn() {
             icon={capturedImage ? Send : Camera}
           >
             {isCooldownBlocked
-              ? `⏳ GIÃN CÁCH (${cooldown.remainingMinutesFormatted})`
-              : capturedImage ? `🚀 GỬI CHẤM CÔNG (${photoTimeLeftSeconds}s)` : '📸 CHỤP ẢNH ĐỂ CHẤM CÔNG'}
+              ? `GIÃN CÁCH (${cooldown.remainingMinutesFormatted})`
+              : capturedImage ? `GỬI CHẤM CÔNG (${photoTimeLeftSeconds}s)` : 'CHỤP ẢNH ĐỂ CHẤM CÔNG'}
           </KgButton>
 
         {!canSubmit && (
           <p className="text-[11px] text-center text-[var(--kg-text-muted)] font-medium">
             {isCooldownBlocked
-              ? `⏳ Cần chờ thêm ${cooldown.remainingMinutesFormatted} theo quy định giãn cách 15 phút.`
+              ? `Cần chờ thêm ${cooldown.remainingMinutesFormatted} theo quy định giãn cách 15 phút.`
               : !capturedImage && !isWithinRadius
-              ? `⚠️ Ngoài bán kính ${targetRadius}m (${currentDist ?? 'quá'}m). Vui lòng di chuyển vào nhà hàng.`
+              ? `Ngoài bán kính ${targetRadius}m (${currentDist ?? 'quá'}m). Vui lòng di chuyển vào nhà hàng.`
               : !isWithinRadius
-              ? `⚠️ Ngoài bán kính ${targetRadius}m (${currentDist ?? 'quá'}m). Không thể gửi chấm công.`
+              ? `Ngoài bán kính ${targetRadius}m (${currentDist ?? 'quá'}m). Không thể gửi chấm công.`
               : photoTimeLeftSeconds <= 0
-              ? '⚠️ Ảnh chụp đã hết hạn 60 giây. Vui lòng chụp lại ảnh mới.'
-              : '💡 Nhấn nút chụp ảnh tròn trên khung hình hoặc nút "📸 CHỤP ẢNH ĐỂ CHẤM CÔNG" để tiếp tục.'}
+              ? 'Ảnh chụp đã hết hạn 60 giây. Vui lòng chụp lại ảnh mới.'
+              : 'Nhấn nút chụp ảnh tròn trên khung hình hoặc nút "CHỤP ẢNH ĐỂ CHẤM CÔNG" để tiếp tục.'}
           </p>
         )}
       </div>
@@ -2443,8 +2601,10 @@ export default function CheckIn() {
             )}
             <div className="min-w-0 flex-1 space-y-0.5">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-black text-blue-600 dark:text-blue-400">👑 KING'S GRILL</span>
-                <span className="text-[10px] font-mono font-bold text-[var(--kg-text-muted)]">
+                <span className="text-[11px] font-bold text-[var(--kg-primary)] inline-flex items-center gap-1">
+                  <ShieldCheck size={12} /> KING&apos;S GRILL
+                </span>
+                <span className="text-[10px] font-mono tabular-nums font-bold text-[var(--kg-text-muted)]">
                   {store.capturedTime || currentTime}
                 </span>
               </div>
@@ -2507,10 +2667,10 @@ export default function CheckIn() {
                       {isChosenIn && <Check size={16} className="text-white" />}
                     </div>
                     {isRecommendedIn && (
-                      <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${
-                        isChosenIn ? 'bg-white/20 text-white' : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                        isChosenIn ? 'bg-white/20 text-white' : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
                       }`}>
-                        ⭐ Đề xuất
+                        Đề xuất
                       </span>
                     )}
                   </button>
@@ -2519,9 +2679,9 @@ export default function CheckIn() {
                   <button
                     type="button"
                     onClick={() => handleTypeChangeInModal(outType)}
-                    className={`relative p-3.5 rounded-2xl border-2 flex flex-col items-center justify-center min-h-[58px] touch-manipulation transition-all duration-200 active:scale-95 gap-1 ${
+                    className={`relative p-3.5 rounded-2xl border-2 flex flex-col items-center justify-center min-h-[58px] touch-manipulation transition-all duration-150 active:scale-95 gap-1 ${
                       isChosenOut
-                        ? 'bg-gradient-to-r from-rose-500 to-red-600 text-white border-rose-400 shadow-md shadow-rose-600/30 ring-2 ring-rose-400/40'
+                        ? 'bg-rose-600 text-white border-rose-500 shadow-sm ring-2 ring-rose-500/30'
                         : 'bg-[var(--kg-surface)] text-[var(--kg-text)] border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]'
                     }`}
                   >
@@ -2531,11 +2691,11 @@ export default function CheckIn() {
                       {isChosenOut && <Check size={16} className="text-white" />}
                     </div>
                     {isRecommendedOut && (
-                      <span className={`text-[9px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 ${
-                        isChosenOut ? 'bg-white/20 text-white' : 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                        isChosenOut ? 'bg-white/20 text-white' : 'bg-rose-500/15 text-rose-700 dark:text-rose-400'
                       }`}>
                         {recommendation.isOvernightShift ? <Moon size={10} /> : null}
-                        <span>{recommendation.isOvernightShift ? '🌙 Ca đêm' : '⭐ Đề xuất'}</span>
+                        <span>{recommendation.isOvernightShift ? 'Ca đêm' : 'Đề xuất'}</span>
                       </span>
                     )}
                   </button>
@@ -2563,7 +2723,7 @@ export default function CheckIn() {
                 className="w-full py-2.5 px-3 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-xs transition active:scale-98"
               >
                 <Clock size={15} />
-                <span>🚨 Báo sự cố không chấm công được tại app →</span>
+                <span>Báo sự cố không chấm công được tại app →</span>
               </button>
               <label className="flex items-center gap-2.5 pt-1 cursor-pointer select-none">
                 <input
@@ -2695,7 +2855,7 @@ export default function CheckIn() {
       <KgConfirmSheet
         isOpen={confirmInvertedTypeOpen}
         onClose={() => setConfirmInvertedTypeOpen(false)}
-        title="⚠️ Chưa ghi nhận Vào ca!"
+        title="Chưa ghi nhận Vào ca"
         message="Hôm nay hệ thống chưa ghi nhận lượt Vào ca của bạn. Bạn có chắc chắn muốn tiếp tục chấm RA CA không?"
         confirmLabel="Tiếp tục chấm RA CA"
         cancelLabel="Kiểm tra lại"
@@ -2725,7 +2885,7 @@ export default function CheckIn() {
       <KgConfirmSheet
         isOpen={confirmLateOpen}
         onClose={() => setConfirmLateOpen(false)}
-        title="⚠️ Cảnh báo: Vào ca trễ!"
+        title="Cảnh báo: Vào ca trễ"
         message={`Theo lịch đã duyệt, ca làm của bạn bắt đầu vào lúc ${pendingShiftStr}. Bạn đang đi trễ ${pendingLateMins} phút. Bạn có đồng ý tiếp tục chấm công không?`}
         confirmLabel="Đồng ý & Chấm công"
         cancelLabel="Hủy"
@@ -2745,101 +2905,102 @@ export default function CheckIn() {
       />
 
       {/* General info feedback sheet */}
-      <KgBottomSheet isOpen={feedbackSheetOpen} onClose={() => setFeedbackSheetOpen(false)} title={feedbackType === 'success' ? (lastSubmittedPunch?.type === 'Vào ca' ? '🎉 Bắt đầu ca làm việc' : '🎊 Hoàn thành ca làm việc') : 'Thông báo'}>
+      <KgBottomSheet isOpen={feedbackSheetOpen} onClose={() => setFeedbackSheetOpen(false)} title={feedbackType === 'success' ? (lastSubmittedPunch?.type === 'Vào ca' ? 'Bắt đầu ca làm việc' : 'Hoàn thành ca làm việc') : 'Thông báo'}>
         {feedbackType === 'success' && lastSubmittedPunch ? (
           <div className="space-y-4 py-2">
-            {/* Celebratory Hero Header */}
+            {/* Operational Receipt Header */}
             <div className="text-center">
-              <div className={`w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-3 shadow-xs ${
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-xs ${
                 lastSubmittedPunch.type === 'Vào ca'
                   ? 'bg-emerald-600 text-white'
                   : 'bg-[var(--kg-primary)] text-white'
               }`}>
                 {lastSubmittedPunch.type === 'Vào ca' ? (
-                  <Sparkles size={32} className="animate-pulse" />
+                  <Sparkles size={28} />
                 ) : (
-                  <PartyPopper size={32} className="animate-bounce" />
+                  <PartyPopper size={28} />
                 )}
               </div>
 
-              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider ${
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${
                 lastSubmittedPunch.type === 'Vào ca'
-                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
-                  : 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800'
+                  ? 'bg-[var(--kg-success-soft)] text-[var(--kg-success)] border border-[var(--kg-success)]/25'
+                  : 'bg-[var(--kg-primary-soft)] text-[var(--kg-primary)] border border-[var(--kg-primary)]/20'
               }`}>
-                {lastSubmittedPunch.type === 'Vào ca' ? '🟢 VÀO CA THÀNH CÔNG' : '🔵 RA CA THÀNH CÔNG'}
+                <span className={`w-2 h-2 rounded-full ${lastSubmittedPunch.type === 'Vào ca' ? 'bg-emerald-500' : 'bg-[var(--kg-primary)]'}`} />
+                {lastSubmittedPunch.type === 'Vào ca' ? 'VÀO CA THÀNH CÔNG' : 'RA CA THÀNH CÔNG'}
               </span>
 
-              <h3 className="mt-2 text-xl font-black text-slate-900 dark:text-white tracking-tight">
-                {lastSubmittedPunch.type === 'Vào ca' ? 'Điểm Danh Vào Ca Thành Công!' : 'Điểm Danh Ra Ca Thành Công!'}
+              <h3 className="mt-2 text-lg sm:text-xl font-bold text-[var(--kg-text)] tracking-tight">
+                {lastSubmittedPunch.type === 'Vào ca' ? 'Điểm danh vào ca thành công' : 'Điểm danh ra ca thành công'}
               </h3>
-              
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto leading-relaxed">
+
+              <p className="mt-1 text-xs text-[var(--kg-text-muted)] max-w-xs mx-auto leading-relaxed">
                 {lastSubmittedPunch.type === 'Vào ca'
-                  ? 'Chúc bạn một ca làm việc tràn đầy năng lượng, niềm vui và phục vụ khách hàng chu đáo!'
-                  : 'Cảm ơn bạn đã cống hiến hết mình cho nhà hàng hôm nay. Hãy nghỉ ngơi và hồi phục thật tốt nhé!'}
+                  ? 'Chúc bạn một ca làm việc tràn đầy năng lượng và phục vụ khách hàng chu đáo!'
+                  : 'Cảm ơn bạn đã hoàn thành ca trực hôm nay. Hãy nghỉ ngơi thật tốt nhé!'}
               </p>
             </div>
 
             {/* Synchronized Detail Metrics Card */}
-            <div className="bg-slate-50 dark:bg-slate-900/60 rounded-2xl p-3.5 border border-slate-200/80 dark:border-slate-800 space-y-2 text-xs">
+            <div className="bg-[var(--kg-surface-soft)] rounded-2xl p-3.5 border border-[var(--kg-border)] space-y-2 text-xs">
               {/* Prominent Google Sheet Confirmation Badge */}
-              <div className="flex items-center justify-between pb-2 border-b border-emerald-200/70 dark:border-emerald-800/60 bg-emerald-500/10 dark:bg-emerald-950/40 -mx-3.5 -mt-3.5 p-3 rounded-t-2xl">
-                <span className="text-emerald-800 dark:text-emerald-300 font-extrabold uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-                  <CheckCircle2 size={15} className="text-emerald-600 dark:text-emerald-400" />
-                  Bảng Chấm Công (Google Sheets)
+              <div className="flex items-center justify-between pb-2 border-b border-[var(--kg-success)]/20 bg-[var(--kg-success-soft)] -mx-3.5 -mt-3.5 p-3 rounded-t-2xl">
+                <span className="text-[var(--kg-success)] font-bold uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                  <CheckCircle2 size={15} />
+                  Bảng Chấm Công
                 </span>
-                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-2xs ${
+                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                   lastSubmittedPunch.sheetSaved
                     ? 'bg-emerald-600 text-white'
-                    : 'bg-blue-600 text-white animate-pulse'
+                    : 'bg-[var(--kg-primary)] text-white animate-pulse'
                 }`}>
-                  {lastSubmittedPunch.sheetSaved ? '✓ ĐÃ GHI NHẬN 100%' : '⚡ ĐÃ TIẾP NHẬN • ĐANG ĐỒNG BỘ'}
+                  {lastSubmittedPunch.sheetSaved ? '✓ ĐÃ GHI NHẬN 100%' : 'ĐÃ TIẾP NHẬN • ĐANG ĐỒNG BỘ'}
                 </span>
               </div>
 
-              <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
-                <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">👤 Nhân sự</span>
-                <span className="font-extrabold text-slate-900 dark:text-white text-sm">{lastSubmittedPunch.fullname}</span>
+              <div className="flex items-center justify-between pb-2 border-b border-[var(--kg-border)]">
+                <span className="text-[var(--kg-text-muted)] font-semibold uppercase tracking-wider text-[10px]">Nhân sự</span>
+                <span className="font-bold text-[var(--kg-text)] text-sm">{lastSubmittedPunch.fullname}</span>
               </div>
-              <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
-                <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">🕒 Thời gian</span>
-                <span className="font-mono font-bold text-blue-600 dark:text-blue-400">{lastSubmittedPunch.time}</span>
+              <div className="flex items-center justify-between pb-2 border-b border-[var(--kg-border)]">
+                <span className="text-[var(--kg-text-muted)] font-semibold uppercase tracking-wider text-[10px]">Thời gian</span>
+                <span className="font-mono tabular-nums font-bold text-[var(--kg-primary)]">{lastSubmittedPunch.time}</span>
               </div>
-              <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
-                <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">💼 Ca làm việc</span>
-                <span className={`inline-block px-2.5 py-0.5 rounded-lg font-black text-xs shadow-2xs ${getPreviewShiftClass(lastSubmittedPunch.shift)}`}>
+              <div className="flex items-center justify-between pb-2 border-b border-[var(--kg-border)]">
+                <span className="text-[var(--kg-text-muted)] font-semibold uppercase tracking-wider text-[10px]">Ca làm việc</span>
+                <span className={`inline-block px-2.5 py-0.5 rounded-lg font-bold text-xs ${getPreviewShiftClass(lastSubmittedPunch.shift)}`}>
                   {lastSubmittedPunch.shift}
                 </span>
               </div>
-              <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
-                <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">📍 Định vị GPS</span>
-                <span className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+              <div className="flex items-center justify-between pb-2 border-b border-[var(--kg-border)]">
+                <span className="text-[var(--kg-text-muted)] font-semibold uppercase tracking-wider text-[10px]">Định vị GPS</span>
+                <span className="font-mono tabular-nums font-bold text-[var(--kg-success)] flex items-center gap-1">
                   <CheckCircle2 size={13} /> {lastSubmittedPunch.distMeters} • Hợp lệ
                 </span>
               </div>
               <div className="flex items-center justify-between pt-0.5">
-                <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">📧 Email thông báo</span>
-                <span className="font-semibold text-slate-600 dark:text-slate-300 truncate max-w-[200px]" title={lastSubmittedPunch.email}>
+                <span className="text-[var(--kg-text-muted)] font-semibold uppercase tracking-wider text-[10px]">Email thông báo</span>
+                <span className="font-medium text-[var(--kg-text-muted)] truncate max-w-[200px]" title={lastSubmittedPunch.email}>
                   {lastSubmittedPunch.email}
                 </span>
               </div>
 
               {/* Late penalty banner if late */}
               {Boolean(lastSubmittedPunch.lateMins && lastSubmittedPunch.lateMins > 0) && (
-                <div className="mt-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-700 dark:text-amber-300 flex items-center gap-2">
+                <div className="mt-2 p-2.5 rounded-xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/25 text-amber-800 dark:text-amber-300 flex items-center gap-2">
                   <AlertTriangle size={15} className="shrink-0 text-amber-600" />
                   <span className="text-[11px] font-bold">
-                    Đi trễ {lastSubmittedPunch.lateMins} phút • Khấu trừ tạm tính: -{(lastSubmittedPunch.penaltyAmount || 0).toLocaleString()}đ
+                    Đi trễ <span className="font-mono tabular-nums">{lastSubmittedPunch.lateMins}</span> phút • Khấu trừ tạm tính: <span className="font-mono tabular-nums">-{(lastSubmittedPunch.penaltyAmount || 0).toLocaleString()}đ</span>
                   </span>
                 </div>
               )}
 
               {/* Checklist reminder banner if checklist pending */}
               {Boolean(lastSubmittedPunch.checklistPending) && (
-                <div className="mt-2 p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/25 text-blue-700 dark:text-blue-300 flex items-center gap-2">
-                  <Info size={15} className="shrink-0 text-blue-600" />
-                  <span className="text-[11px] font-bold">
+                <div className="mt-2 p-2.5 rounded-xl bg-[var(--kg-info-soft)] border border-[var(--kg-info)]/25 text-[var(--kg-info)] flex items-center gap-2">
+                  <Info size={15} className="shrink-0" />
+                  <span className="text-[11px] font-semibold">
                     Nhắc nhở: Bạn có checklist vận hành ca trực cần hoàn thành.
                   </span>
                 </div>
@@ -2860,25 +3021,25 @@ export default function CheckIn() {
                   }, 350);
                 }
               }}
-              className={`w-full py-3.5 rounded-xl font-black text-sm text-white shadow-xs active:scale-[0.98] transition-all flex items-center justify-center gap-2 ${
+              className={`w-full py-3.5 rounded-xl font-bold text-sm text-white shadow-xs active:scale-[0.98] transition-colors flex items-center justify-center gap-2 min-h-[44px] ${
                 lastSubmittedPunch.type === 'Vào ca'
                   ? 'bg-emerald-600 hover:bg-emerald-700'
-                  : 'bg-[var(--kg-primary)] hover:opacity-90'
+                  : 'bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)]'
               }`}
             >
               <CheckCircle2 size={18} />
-              Tuyệt vời, hoàn tất
+              Hoàn tất
             </button>
           </div>
         ) : (
           <div className="space-y-4 text-center py-2">
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto ${
-              feedbackType === 'warning' ? 'bg-amber-50 text-amber-500' : 'bg-blue-50 text-blue-500'
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto ${
+              feedbackType === 'warning' ? 'bg-[var(--kg-warning-soft)] text-[var(--kg-warning)]' : 'bg-[var(--kg-primary-soft)] text-[var(--kg-primary)]'
             }`}>
               {feedbackType === 'warning' ? <AlertTriangle size={24} /> : <UserCheck size={24} />}
             </div>
-            <h4 className="text-base font-extrabold text-slate-800 dark:text-white">{feedbackTitle}</h4>
-            <p className="text-xs text-slate-600 dark:text-slate-400 whitespace-pre-line leading-relaxed">
+            <h4 className="text-base font-bold text-[var(--kg-text)]">{feedbackTitle}</h4>
+            <p className="text-xs text-[var(--kg-text-muted)] whitespace-pre-line leading-relaxed">
               {feedbackMessage}
             </p>
             <KgButton variant="secondary" size="md" className="w-full" onClick={() => setFeedbackSheetOpen(false)}>
@@ -2891,31 +3052,36 @@ export default function CheckIn() {
       {/* Pulse survey bottom sheet */}
       <KgBottomSheet isOpen={surveyOpen} onClose={() => setSurveyOpen(false)} title="Khảo sát sức khỏe đầu ca">
         <div className="space-y-4 py-2 text-left">
-          <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider pl-1">
+          <p className="text-xs font-semibold text-[var(--kg-text-muted)] uppercase tracking-wider pl-1">
             Hôm nay bạn cảm thấy thế nào trước khi bắt đầu ca?
           </p>
-          
+
           <div className="grid grid-cols-5 gap-2">
             {[
-              { val: 5, emoji: '😍', label: 'Tuyệt vời' },
-              { val: 4, emoji: '🙂', label: 'Vui vẻ' },
-              { val: 3, emoji: '😐', label: 'Ổn định' },
-              { val: 2, emoji: '🙁', label: 'Mệt mỏi' },
-              { val: 1, emoji: '😠', label: 'Căng thẳng' },
-            ].map((item) => (
-              <button
-                key={item.val}
-                onClick={() => setSurveyEmotion(item.val)}
-                className={`flex flex-col items-center justify-center p-3 rounded-2xl border active:scale-95 transition-all gap-1.5 ${
-                  surveyEmotion === item.val
-                    ? 'border-teal-500 bg-teal-50/50 dark:bg-teal-950/30 text-teal-600'
-                    : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
-                }`}
-              >
-                <span className="text-2xl leading-none">{item.emoji}</span>
-                <span className="text-[9px] font-bold text-center leading-none">{item.label}</span>
-              </button>
-            ))}
+              { val: 5, icon: Sun, tone: 'text-emerald-600 dark:text-emerald-400', label: 'Tuyệt vời' },
+              { val: 4, icon: Smile, tone: 'text-sky-600 dark:text-sky-400', label: 'Vui vẻ' },
+              { val: 3, icon: Meh, tone: 'text-slate-600 dark:text-slate-300', label: 'Ổn định' },
+              { val: 2, icon: Frown, tone: 'text-amber-600 dark:text-amber-400', label: 'Mệt mỏi' },
+              { val: 1, icon: Zap, tone: 'text-rose-600 dark:text-rose-400', label: 'Căng thẳng' },
+            ].map((item) => {
+              const IconComp = item.icon;
+              const isSelected = surveyEmotion === item.val;
+              return (
+                <button
+                  key={item.val}
+                  type="button"
+                  onClick={() => setSurveyEmotion(item.val)}
+                  className={`flex flex-col items-center justify-center p-2.5 rounded-xl border active:scale-95 transition-colors gap-1.5 min-h-[68px] ${
+                    isSelected
+                      ? 'border-[var(--kg-primary)] bg-[var(--kg-primary-soft)] text-[var(--kg-primary)] ring-2 ring-[var(--kg-primary)]/20'
+                      : 'border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface)]'
+                  }`}
+                >
+                  <IconComp size={22} className={isSelected ? 'text-[var(--kg-primary)]' : item.tone} />
+                  <span className="text-[10px] font-semibold text-center leading-tight">{item.label}</span>
+                </button>
+              );
+            })}
           </div>
 
           {surveyEmotion !== null && (

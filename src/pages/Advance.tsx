@@ -9,10 +9,15 @@ import { BadgeDollarSign, Send, History, CheckCheck, XCircle, Clock, Banknote, W
 export default function Advance({ mode = 'user' }: { mode?: 'user' | 'admin' }) {
   const currentUser = useAppStore((s) => s.currentUser);
   const advances = useAppStore((s) => s.advances);
+  const payrollData = useAppStore((s) => s.payrollData);
+  const serverPayrollConfig = useAppStore((s) => s.serverPayrollConfig);
   const setAdvances = useAppStore((s) => s.setAdvances);
   const setLoading = useAppStore((s) => s.setLoading);
   const store = { setAdvances, setLoading };
-  const isManagerView = mode === 'admin' && (currentUser?.role === 'admin' || currentUser?.role === 'tester');
+  const isManagerView = mode === 'admin' && currentUser?.role === 'admin';
+  const visibleAdvances = isManagerView
+    ? advances
+    : advances.filter((a) => !currentUser?.username || a.username === currentUser.username);
   
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
@@ -41,6 +46,28 @@ export default function Advance({ mode = 'user' }: { mode?: 'user' | 'admin' }) 
     if (!reason.trim()) {
       Swal.fire('Lỗi', 'Vui lòng nhập lý do ứng lương.', 'error');
       return;
+    }
+
+    const maxAdvancePct = Number(serverPayrollConfig?.maxAdvancePercent || 0);
+    const myPayroll = payrollData.find((p) => p.username === currentUser?.username);
+    if (maxAdvancePct > 0 && myPayroll && myPayroll.totalBaseSalary > 0) {
+      const maxAllowed = Math.round((myPayroll.totalBaseSalary * maxAdvancePct) / 100);
+      const now = new Date();
+      const usedThisMonth = visibleAdvances
+        .filter((a) => {
+          if (a.status === 'Rejected') return false;
+          const d = new Date(a.createdAt);
+          return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+        })
+        .reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
+      if (usedThisMonth + numAmount > maxAllowed) {
+        Swal.fire(
+          'Vượt hạn mức tạm ứng',
+          `Hạn mức tối đa (${maxAdvancePct}% lương tích lũy hiện tại) là ${maxAllowed.toLocaleString('vi-VN')} đ. Bạn đã đăng ký ${usedThisMonth.toLocaleString('vi-VN')} đ trong tháng này.`,
+          'warning'
+        );
+        return;
+      }
     }
 
     Swal.fire({
@@ -91,7 +118,7 @@ export default function Advance({ mode = 'user' }: { mode?: 'user' | 'admin' }) 
     }).then(res => {
       if (res.isConfirmed) {
         store.setLoading(true);
-        callApi('APPROVE_ADVANCE', { advanceId: id, action }).then(apiRes => {
+        callApi('APPROVE_ADVANCE', { advanceId: id, decision: action }).then(apiRes => {
           store.setLoading(false);
           if (apiRes?.ok) {
             Swal.fire('Thành công', 'Đã cập nhật trạng thái', 'success');
@@ -122,34 +149,37 @@ export default function Advance({ mode = 'user' }: { mode?: 'user' | 'admin' }) 
           
           <div className="space-y-3.5">
             <div>
-              <label className="block text-xs font-black text-[var(--kg-text)] mb-1">Số tiền muốn ứng (VNĐ)</label>
+              <label htmlFor="advance-amount" className="block text-xs font-black text-[var(--kg-text)] mb-1">Số tiền muốn ứng (VNĐ)</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[var(--kg-text-muted)] font-bold text-xs">
                   VNĐ
                 </div>
                 <input 
+                  id="advance-amount"
                   type="text" 
+                  inputMode="numeric"
                   value={amount}
                   onChange={(e) => setAmount(formatMoney(e.target.value))}
                   placeholder="Ví dụ: 500,000"
-                  className="w-full pl-12 pr-4 py-3 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] focus:ring-2 focus:ring-emerald-500 font-black text-emerald-600 dark:text-emerald-400 text-base sm:text-lg transition-all outline-none"
+                  className="w-full pl-12 pr-4 py-3 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] focus:ring-2 focus:ring-[var(--kg-primary)] font-mono tabular-nums text-right font-black text-emerald-600 dark:text-emerald-400 text-base sm:text-lg transition-all outline-none"
                 />
               </div>
             </div>
             
             <div>
-              <label className="block text-xs font-black text-[var(--kg-text)] mb-1">Lý do xin ứng</label>
+              <label htmlFor="advance-reason" className="block text-xs font-black text-[var(--kg-text)] mb-1">Lý do xin ứng</label>
               <textarea 
+                id="advance-reason"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 placeholder="Nhập lý do cụ thể (Chi phí sinh hoạt đột xuất, việc gia đình...)"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] focus:ring-2 focus:ring-emerald-500 text-[var(--kg-text)] transition-all outline-none min-h-[90px] text-xs sm:text-sm"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)] transition-all outline-none min-h-[90px] text-xs sm:text-sm"
               />
             </div>
             
             <button 
               type="submit" 
-              className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black py-3.5 rounded-2xl transition shadow-md active:scale-95 flex items-center justify-center text-xs sm:text-sm uppercase tracking-wider"
+              className="w-full bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-black py-3.5 rounded-xl transition shadow-xs active:scale-99 flex items-center justify-center text-xs sm:text-sm uppercase tracking-wider"
             >
               <Send size={16} className="mr-1.5" /> Gửi yêu cầu ứng lương
             </button>
@@ -160,17 +190,17 @@ export default function Advance({ mode = 'user' }: { mode?: 'user' | 'admin' }) 
       {/* History */}
       <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-4 sm:p-5 rounded-2xl shadow-xs">
         <h3 className="font-black flex items-center text-[var(--kg-text)] mb-4 border-b border-[var(--kg-border)] pb-3 text-sm sm:text-base">
-          <History size={16} className="mr-2 text-indigo-600 dark:text-indigo-400" /> {isManagerView ? 'Danh sách yêu cầu ứng lương toàn quán' : 'Lịch sử ứng lương của bạn'}
+          <History size={16} className="mr-2 text-[var(--kg-primary)]" /> {isManagerView ? 'Danh sách yêu cầu ứng lương toàn quán' : 'Lịch sử ứng lương của bạn'}
         </h3>
         
-        {advances.length === 0 ? (
+        {visibleAdvances.length === 0 ? (
           <div className="text-center py-8 text-[var(--kg-text-muted)] bg-[var(--kg-surface-soft)] rounded-2xl border border-dashed border-[var(--kg-border)]">
             <BadgeDollarSign size={32} className="mx-auto mb-2 opacity-30" />
             <p className="text-xs font-bold">Chưa có dữ liệu ứng lương</p>
           </div>
         ) : (
           <div className="space-y-2.5">
-            {advances.map((adv) => {
+            {visibleAdvances.map((adv) => {
               const isPending = adv.status === 'Pending';
               const isApproved = adv.status === 'Approved';
               
@@ -179,8 +209,8 @@ export default function Advance({ mode = 'user' }: { mode?: 'user' | 'admin' }) 
                   <div className="flex justify-between items-start mb-2">
                     <div>
                       {isManagerView && <p className="font-black text-[var(--kg-text)] text-sm">{adv.fullname}</p>}
-                      <p className="font-black text-base sm:text-lg text-[var(--kg-text)]">{adv.amount.toLocaleString('vi-VN')} đ</p>
-                      <p className="text-[11px] text-[var(--kg-text-muted)] mt-0.5">{new Date(adv.createdAt).toLocaleString('vi-VN')}</p>
+                      <p className="font-mono font-black text-base sm:text-lg text-[var(--kg-text)] tabular-nums">{adv.amount.toLocaleString('vi-VN')} đ</p>
+                      <p className="text-[11px] font-mono tabular-nums text-[var(--kg-text-muted)] mt-0.5">{new Date(adv.createdAt).toLocaleString('vi-VN')}</p>
                     </div>
                     <div className={`px-2.5 py-1 rounded-xl text-xs font-black flex items-center border ${isPending ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border-amber-200' : isApproved ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border-emerald-200' : 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border-rose-200'}`}>
                       {isPending ? <Clock size={12} className="mr-1" /> : isApproved ? <CheckCheck size={12} className="mr-1" /> : <XCircle size={12} className="mr-1" />}

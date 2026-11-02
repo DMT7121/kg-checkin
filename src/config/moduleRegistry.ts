@@ -29,20 +29,20 @@ export interface NavigationModule {
 }
 
 export const navigationModules: NavigationModule[] = [
-  { id: 'dashboard', label: 'Hôm nay', group: 'Cá nhân', icon: LayoutDashboard, bottom: true },
-  { id: 'checkin', label: 'Chấm công', group: 'Cá nhân', icon: Camera, bottom: true },
-  { id: 'attendance', label: 'Công & Lương', shortLabel: 'Công & Lương', group: 'Cá nhân', icon: Activity },
-  { id: 'workforce', label: 'Lịch Làm Việc', shortLabel: 'Lịch Làm Việc', group: 'Cá nhân', icon: CalendarDays, bottom: true },
+  { id: 'dashboard', label: 'Hôm nay', shortLabel: 'Hôm nay', group: 'Cá nhân', icon: LayoutDashboard, bottom: true },
+  { id: 'checkin', label: 'Chấm công', shortLabel: 'Chấm công', group: 'Cá nhân', icon: Camera, bottom: true },
+  { id: 'attendance', label: 'Công & Lương', shortLabel: 'Công lương', group: 'Cá nhân', icon: Activity },
+  { id: 'workforce', label: 'Lịch Làm Việc', shortLabel: 'Lịch ca', group: 'Cá nhân', icon: CalendarDays, bottom: true },
   { id: 'income', label: 'Thi đua & Kỷ luật', shortLabel: 'Thi đua', group: 'Cá nhân', icon: Trophy, bottom: true },
-  { id: 'profile', label: 'Hồ sơ của tôi', group: 'Cá nhân', icon: UserRound },
+  { id: 'profile', label: 'Hồ sơ của tôi', shortLabel: 'Hồ sơ', group: 'Cá nhân', icon: UserRound },
   { id: 'work', label: 'Vận Hành Nhà Hàng', shortLabel: 'Vận hành', group: 'Vận hành', icon: ClipboardCheck },
   { id: 'communications', label: 'Bảng tin & Góp ý', shortLabel: 'Bảng tin', group: 'Vận hành', icon: MessagesSquare },
-  { id: 'knowledge', label: 'Kiến thức & Đào tạo', shortLabel: 'Kiến thức', group: 'Vận hành', icon: BookOpen },
-  { id: 'admin_people', label: 'Nhân sự & Tổ chức', group: 'Quản lý & Cấu hình', icon: UsersRound, adminOnly: true },
-  { id: 'admin_workforce', label: 'Ca làm & Chấm công', group: 'Quản lý & Cấu hình', icon: CalendarDays, adminOnly: true },
-  { id: 'admin_work', label: 'Điều phối & Công việc', group: 'Quản lý & Cấu hình', icon: Network, adminOnly: true },
-  { id: 'admin_income', label: 'Lương & Ghi nhận', group: 'Quản lý & Cấu hình', icon: Banknote, adminOnly: true },
-  { id: 'admin_system', label: 'Hệ thống & Báo cáo', group: 'Quản lý & Cấu hình', icon: BarChart3, adminOnly: true },
+  { id: 'knowledge', label: 'Kiến thức & Đào tạo', shortLabel: 'Đào tạo', group: 'Vận hành', icon: BookOpen },
+  { id: 'admin_people', label: 'Nhân sự & Tổ chức', shortLabel: 'Nhân sự', group: 'Quản lý & Cấu hình', icon: UsersRound, adminOnly: true },
+  { id: 'admin_workforce', label: 'Ca làm & Chấm công', shortLabel: 'Ca làm', group: 'Quản lý & Cấu hình', icon: CalendarDays, adminOnly: true },
+  { id: 'admin_work', label: 'Điều phối & Công việc', shortLabel: 'Điều phối', group: 'Quản lý & Cấu hình', icon: Network, adminOnly: true },
+  { id: 'admin_income', label: 'Lương & Ghi nhận', shortLabel: 'Quỹ lương', group: 'Quản lý & Cấu hình', icon: Banknote, adminOnly: true },
+  { id: 'admin_system', label: 'Hệ thống & Báo cáo', shortLabel: 'Hệ thống', group: 'Quản lý & Cấu hình', icon: BarChart3, adminOnly: true },
 ];
 
 export const moduleLoaders = {

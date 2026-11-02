@@ -1,11 +1,17 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Bot, X, Send, Loader2, Maximize2, Minimize2, Sparkles, AlertCircle } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Bot, X, Send, Loader2, Maximize2, Minimize2, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { fetchWithRetry } from '../utils/helpers';
 import { escapeHtml } from '../utils/security';
 import { callApi } from '../services/api';
-import Swal from 'sweetalert2';
 import { sopData } from '../pages/sopData';
+
+const ASSISTIVE_POS_KEY = 'kg_ai_assistive_pos_v4';
+
+interface AssistivePos {
+  side: 'left' | 'right';
+  yRatio: number; // clamped [0.14, 0.78] so it stays clear of topbar & bottom dock
+}
 
 interface Message {
   id: string;
@@ -35,6 +41,124 @@ export default function AIAssistant() {
 
   // Check if a lightbox/guideline is open without observing every subtree mutation
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+
+  // AssistiveTouch Virtual Home button state (free drag + magnetic edge snap + auto-tuck)
+  const [pos, setPos] = useState<AssistivePos>(() => {
+    try {
+      const raw = localStorage.getItem(ASSISTIVE_POS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Partial<AssistivePos>;
+        const side = parsed.side === 'left' ? 'left' : 'right';
+        const yRatio = typeof parsed.yRatio === 'number' && Number.isFinite(parsed.yRatio)
+          ? Math.min(0.75, Math.max(0.15, parsed.yRatio))
+          : 0.68;
+        return { side, yRatio };
+      }
+    } catch {
+      // ignore storage errors
+    }
+    return { side: 'right', yRatio: 0.68 };
+  });
+  const [dragCoords, setDragCoords] = useState<{ x: number; y: number } | null>(null);
+  const [isTucked, setIsTucked] = useState(true);
+  const [viewport, setViewport] = useState(() => ({
+    w: typeof window !== 'undefined' ? window.innerWidth : 390,
+    h: typeof window !== 'undefined' ? window.innerHeight : 844,
+  }));
+  const dragSessionRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    moved: boolean;
+  } | null>(null);
+  const idleTimerRef = useRef<number | null>(null);
+
+  const scheduleAutoTuck = useCallback((delayMs = 2800) => {
+    if (idleTimerRef.current) {
+      window.clearTimeout(idleTimerRef.current);
+    }
+    idleTimerRef.current = window.setTimeout(() => {
+      setIsTucked(true);
+    }, delayMs);
+  }, []);
+
+  useEffect(() => {
+    const onResize = () => {
+      setViewport({ w: window.innerWidth, h: window.innerHeight });
+    };
+    window.addEventListener('resize', onResize, { passive: true });
+    return () => {
+      window.removeEventListener('resize', onResize);
+      if (idleTimerRef.current) {
+        window.clearTimeout(idleTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleAssistivePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragSessionRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      moved: false,
+    };
+    if (idleTimerRef.current) {
+      window.clearTimeout(idleTimerRef.current);
+    }
+  };
+
+  const handleAssistivePointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const session = dragSessionRef.current;
+    if (!session || session.pointerId !== e.pointerId) return;
+
+    const dx = e.clientX - session.startX;
+    const dy = e.clientY - session.startY;
+    if (!session.moved && Math.hypot(dx, dy) < 7) return;
+
+    session.moved = true;
+    setIsTucked(false);
+    const minTop = 72;
+    const maxTop = Math.max(minTop, viewport.h - (viewport.w < 768 ? 156 : 96));
+    const clampedX = Math.min(Math.max(6, e.clientX - 22), Math.max(6, viewport.w - 50));
+    const clampedY = Math.min(Math.max(minTop, e.clientY - 22), maxTop);
+    setDragCoords({ x: clampedX, y: clampedY });
+  };
+
+  const handleAssistivePointerEnd = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const session = dragSessionRef.current;
+    if (!session || session.pointerId !== e.pointerId) return;
+    dragSessionRef.current = null;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      // ignore if capture already released
+    }
+
+    if (!session.moved) {
+      setDragCoords(null);
+      setIsTucked(false);
+      setAiOpen(true);
+      return;
+    }
+
+    const minTop = 72;
+    const maxTop = Math.max(minTop, viewport.h - (viewport.w < 768 ? 156 : 96));
+    const finalTop = Math.min(Math.max(minTop, e.clientY - 22), maxTop);
+    const nextSide: 'left' | 'right' = e.clientX < viewport.w / 2 ? 'left' : 'right';
+    const nextRatio = Math.min(0.75, Math.max(0.15, finalTop / Math.max(viewport.h, 400)));
+    const nextPos: AssistivePos = { side: nextSide, yRatio: nextRatio };
+
+    setPos(nextPos);
+    setDragCoords(null);
+    try {
+      localStorage.setItem(ASSISTIVE_POS_KEY, JSON.stringify(nextPos));
+    } catch {
+      // ignore storage errors
+    }
+    scheduleAutoTuck(2400);
+  };
 
   useEffect(() => {
     const checkOverlay = () => {
@@ -110,6 +234,7 @@ export default function AIAssistant() {
       payrollData,
       checklistLogs,
       approvedShifts,
+      currentWeekApprovedShifts,
       shiftName,
     } = useAppStore.getState();
 
@@ -125,7 +250,8 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
     } else {
       const todayDay = new Date().getDay();
       const dayIdx = todayDay === 0 ? 6 : todayDay - 1; 
-      const todayShift = approvedShifts ? approvedShifts[dayIdx] : 'Chưa xếp ca';
+      const activeShiftsForToday = currentWeekApprovedShifts ?? approvedShifts;
+      const todayShift = activeShiftsForToday ? activeShiftsForToday[dayIdx] : 'Chưa xếp ca';
       prompt += `- Lịch làm hôm nay của ${currentUser?.fullname}: ${todayShift}.\n`;
       const activeShifts = Object.entries(shiftData).filter(([_, v]) => v && v !== 'OFF').map(([k, v]) => `${k}: ${v}`);
       prompt += `- Lịch nguyên tuần: ${activeShifts.length > 0 ? activeShifts.join(', ') : 'Chưa có'}.\n`;
@@ -224,9 +350,45 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
 
     try {
       let aiText = '';
+      const apiMessages = [
+        { role: 'system', content: systemPrompt },
+        ...messages.slice(-5).map(m => ({ role: m.role, content: m.content })),
+        { role: 'user', content: userMessage.content }
+      ];
 
-      if (useGeminiFallback) {
-        // Resolve Gemini API key from environment variable or Admin-configured keys
+      // 1. Primary secure path: Server-side AI_CHAT proxy (Edge Groq or GAS Groq, never requires exposing keys to staff)
+      const proxyRes = await callApi('AI_CHAT', {
+        model: 'llama-3.3-70b-versatile',
+        messages: apiMessages,
+        temperature: 0.6,
+        max_tokens: 1024,
+      }, { background: true, cacheTtlMs: 0 });
+
+      if (proxyRes?.ok && (proxyRes.data?.reply || proxyRes.data?.content)) {
+        aiText = proxyRes.data.reply || proxyRes.data.content;
+      } else if (!useGeminiFallback) {
+        // 2. Fallback: Admin local Groq keys (when running before GAS deployment update)
+        const selectedKey = nonGeminiGroqKeys[Math.floor(Math.random() * nonGeminiGroqKeys.length)];
+        const apiKey = selectedKey ? selectedKey.key : null;
+        if (!apiKey) throw new Error('No Groq API key available');
+
+        const result = await fetchWithRetry('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`
+          },
+          body: JSON.stringify({
+            model: 'llama-3.3-70b-versatile',
+            messages: apiMessages,
+            temperature: 0.6,
+            max_tokens: 1024
+          })
+        });
+
+        aiText = result.choices?.[0]?.message?.content || 'Xin lỗi, mình đang gặp sự cố khi xử lý dữ liệu. Bạn thử lại nhé!';
+      } else {
+        // 3. Fallback: Gemini key if configured
         const configuredGeminiKey = groqKeys.find((k) => k.key?.startsWith('AIza'))?.key;
         const apiKey =
           import.meta.env.VITE_GEMINI_API_KEY ||
@@ -234,11 +396,10 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
           localStorage.getItem('kg_gemini_api_key') ||
           '';
         if (!apiKey) {
-          throw new Error('Missing Gemini API key');
+          throw new Error(proxyRes?.message || 'Missing AI API key');
         }
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
 
-        // Map roles to gemini model format
         const chatContents = [
           ...messages.slice(-5).map(m => ({
             role: m.role === 'user' ? 'user' : 'model',
@@ -274,34 +435,6 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
         const result = await response.json();
         const candidate = result.candidates?.[0];
         aiText = candidate?.content?.parts?.[0]?.text || 'Xin lỗi, mình gặp sự cố khi tải câu trả lời từ máy chủ Gemini.';
-
-      } else {
-        // Use configured Groq keys
-        const selectedKey = nonGeminiGroqKeys[Math.floor(Math.random() * nonGeminiGroqKeys.length)];
-        const apiKey = selectedKey ? selectedKey.key : null;
-        if (!apiKey) throw new Error('No Groq API key available');
-
-        const apiMessages = [
-          { role: 'system', content: systemPrompt },
-          ...messages.slice(-5).map(m => ({ role: m.role, content: m.content })),
-          { role: 'user', content: userMessage.content }
-        ];
-
-        const result = await fetchWithRetry('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${apiKey}`
-          },
-          body: JSON.stringify({
-            model: 'llama-3.3-70b-versatile',
-            messages: apiMessages,
-            temperature: 0.6,
-            max_tokens: 1024
-          })
-        });
-
-        aiText = result.choices?.[0]?.message?.content || 'Xin lỗi, mình đang gặp sự cố khi xử lý dữ liệu. Bạn thử lại nhé!';
       }
 
       const assistantMessage: Message = {
@@ -348,78 +481,171 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
 
   if (!currentUser) return null; // Chỉ hiện khi đã đăng nhập
 
+  const minSafeTop = 72;
+  const maxSafeTop = Math.max(minSafeTop, viewport.h - (viewport.w < 768 ? 156 : 96));
+  const snappedTop = Math.min(Math.max(minSafeTop, Math.round(viewport.h * pos.yRatio)), maxSafeTop);
+  const isActivelyMoved = dragCoords !== null;
+
   return (
     <>
-      {/* Floating Button */}
+      {/* AssistiveTouch Virtual Home AI Button (Free Drag + Edge Snap + Auto-Tuck into Corner/Edge) */}
       {!isAiOpen && (
-        <button
-          type="button"
-          onClick={() => setAiOpen(true)}
-          className={`fixed bottom-20 md:bottom-6 right-3.5 md:right-6 w-11 h-11 md:w-14 md:h-14 bg-[var(--kg-primary)] rounded-full shadow-xl flex items-center justify-center text-white hover:scale-110 active:scale-95 transition-transform ${isLightboxOpen ? 'z-40' : 'z-[90]'} border-2 border-white/30 animate-chatbot-halo group`}
-          title="Trợ lý AI King's Grill"
-          aria-label="Trợ lý AI King's Grill"
+        <div
+          className={`fixed inset-0 pointer-events-none overflow-hidden ${
+            isLightboxOpen ? 'z-40' : 'z-[85]'
+          }`}
         >
-          {/* Luminous pulsating outer ring */}
-          <span className="absolute -inset-1 rounded-full bg-gradient-to-tr from-amber-400/30 via-sky-400/20 to-amber-400/30 animate-ping opacity-60 pointer-events-none" />
+          <button
+            type="button"
+            onPointerDown={handleAssistivePointerDown}
+            onPointerMove={handleAssistivePointerMove}
+            onPointerUp={handleAssistivePointerEnd}
+            onPointerCancel={handleAssistivePointerEnd}
+            onMouseEnter={() => {
+              setIsTucked(false);
+              if (idleTimerRef.current) window.clearTimeout(idleTimerRef.current);
+            }}
+            onMouseLeave={() => {
+              if (!isActivelyMoved) scheduleAutoTuck(1800);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setAiOpen(true);
+              }
+            }}
+            style={
+              dragCoords
+                ? {
+                    left: `${dragCoords.x}px`,
+                    top: `${dragCoords.y}px`,
+                  }
+                : {
+                    top: `${snappedTop}px`,
+                    ...(pos.side === 'left' ? { left: '0px' } : { right: '0px' }),
+                    transition: 'top 220ms cubic-bezier(0.22, 1, 0.36, 1)',
+                  }
+            }
+            className="fixed w-11 h-11 pointer-events-auto touch-none select-none flex items-center justify-center focus-visible:outline-none cursor-grab active:cursor-grabbing group"
+            title="Trợ lý AI King's Grill (Giữ & kéo như nút Home ảo, thả tay tự ẩn vào mép)"
+            aria-label="Mở Trợ lý AI King's Grill (có thể giữ kéo di chuyển)"
+          >
+            <span
+              className={`w-11 h-11 rounded-[15px] bg-[#0B253C]/95 dark:bg-[#1B2230]/95 backdrop-blur-md border border-white/25 shadow-lg flex items-center justify-center relative transition-all duration-200 ${
+                isActivelyMoved
+                  ? 'scale-110 ring-2 ring-[#C8432B]/70 opacity-100'
+                  : isTucked
+                    ? pos.side === 'right'
+                      ? 'translate-x-[18px] opacity-85 group-hover:translate-x-[-4px] group-hover:opacity-100'
+                      : '-translate-x-[18px] opacity-85 group-hover:translate-x-[4px] group-hover:opacity-100'
+                    : pos.side === 'right'
+                      ? '-translate-x-1.5 opacity-95'
+                      : 'translate-x-1.5 opacity-95'
+              }`}
+            >
+              {/* AssistiveTouch Inner Tactile Ring */}
+              <span className="w-7 h-7 rounded-[10px] bg-white/15 border border-white/25 flex items-center justify-center">
+                <Sparkles size={15} className="text-amber-300" />
+              </span>
 
-          {/* Twinkling Sparkles icon */}
-          <Sparkles size={21} className="relative z-10 text-amber-300 animate-chatbot-twinkle" />
+              {/* Subtle Edge Peek Indicator when Tucked */}
+              {isTucked && !isActivelyMoved && (
+                <span
+                  aria-hidden="true"
+                  className={`absolute top-1/2 -translate-y-1/2 text-white/80 ${
+                    pos.side === 'right' ? 'left-0.5' : 'right-0.5'
+                  }`}
+                >
+                  {pos.side === 'right' ? <ChevronLeft size={11} /> : <ChevronRight size={11} />}
+                </span>
+              )}
 
-          {/* Notification Dot */}
-          <span className="absolute top-0 right-0 w-3 h-3 bg-[var(--kg-accent)] border-2 border-white rounded-full animate-ping"></span>
-          <span className="absolute top-0 right-0 w-3 h-3 bg-[var(--kg-accent)] border-2 border-white rounded-full shadow-xs"></span>
-        </button>
+              {/* Ember Status Dot */}
+              <span
+                aria-hidden="true"
+                className={`absolute -top-0.5 ${
+                  pos.side === 'right' ? 'left-0.5' : 'right-0.5'
+                } w-2.5 h-2.5 rounded-full bg-[#C8432B] border border-white`}
+              />
+            </span>
+          </button>
+        </div>
       )}
 
-      {/* Chat Window */}
+      {/* Chat Window (Mobile Bottom-Sheet + Desktop Floating Atelier Panel) */}
       {isAiOpen && (
-        <div 
-          className={`fixed right-0 md:right-6 bottom-0 md:bottom-6 bg-[var(--kg-surface)] text-[var(--kg-text)] shadow-2xl ${isLightboxOpen ? 'z-40' : 'z-[9999]'} flex flex-col transition-all duration-300 ease-in-out border border-[var(--kg-border)] ${
-            isExpanded 
-              ? 'w-full md:w-[600px] h-full md:h-[80vh] md:rounded-2xl' 
-              : 'w-full md:w-[380px] h-[75vh] md:h-[550px] md:rounded-2xl rounded-t-2xl'
+        <div
+          className={`fixed inset-x-0 md:inset-x-auto bottom-0 md:bottom-6 ${
+            pos.side === 'left' ? 'md:left-24' : 'md:right-6'
+          } bg-[var(--kg-surface)] text-[var(--kg-text)] shadow-2xl ${
+            isLightboxOpen ? 'z-40' : 'z-[10060]'
+          } flex flex-col transition-all duration-200 ease-out border border-[var(--kg-border)] ${
+            isExpanded
+              ? 'w-full md:w-[600px] h-[92dvh] md:h-[80vh] rounded-t-3xl md:rounded-2xl'
+              : 'w-full md:w-[390px] h-[78dvh] md:h-[560px] rounded-t-3xl md:rounded-2xl'
           }`}
         >
           {/* Header */}
-          <div className="bg-[var(--kg-primary)] p-4 flex items-center justify-between text-white md:rounded-t-2xl shadow-sm z-10 flex-shrink-0">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-white/15 rounded-xl flex items-center justify-center backdrop-blur-sm">
-                <Bot size={22} />
+          <div className="bg-[#0B253C] dark:bg-[#151B26] px-4 py-3.5 flex items-center justify-between text-white rounded-t-3xl md:rounded-t-2xl border-b border-white/10 shadow-xs z-10 flex-shrink-0">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 bg-[#C8432B] rounded-xl flex items-center justify-center shadow-xs flex-shrink-0">
+                <Bot size={20} />
               </div>
-              <div>
-                <h3 className="font-bold text-sm">King&apos;s Grill AI Assistant</h3>
-                <p className="text-[10px] text-white/80 flex items-center">
-                  <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full mr-1.5 animate-pulse"></span>
-                  {useGeminiFallback ? 'Sẵn sàng (Gemini)' : `Sẵn sàng (${groqKeys.length} Groq Keys)`}
+              <div className="min-w-0">
+                <h3 className="font-extrabold text-sm truncate">King&apos;s Grill AI Assistant</h3>
+                <p className="text-[10.5px] text-white/80 flex items-center gap-1.5 truncate">
+                  <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse flex-shrink-0" />
+                  <span className="truncate">
+                    {useGeminiFallback ? 'Gemini Flash • Nút Home ảo tự ẩn' : `Groq LPU (${groqKeys.length} keys) • Nút Home ảo`}
+                  </span>
                 </p>
               </div>
             </div>
-            <div className="flex items-center space-x-1">
-              <button onClick={() => setIsExpanded(!isExpanded)} className="p-2 hover:bg-white/20 rounded-full transition hidden md:block">
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="w-10 h-10 hover:bg-white/15 rounded-xl transition hidden md:flex items-center justify-center"
+                title={isExpanded ? 'Thu nhỏ khung chat' : 'Mở rộng khung chat'}
+                aria-label={isExpanded ? 'Thu nhỏ khung chat' : 'Mở rộng khung chat'}
+              >
                 {isExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
               </button>
-              <button onClick={() => setAiOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition">
+              <button
+                type="button"
+                onClick={() => {
+                  setAiOpen(false);
+                  setIsTucked(true);
+                }}
+                className="w-10 h-10 hover:bg-white/15 rounded-xl transition flex items-center justify-center"
+                title="Đóng & ẩn gọn vào mép màn hình"
+                aria-label="Đóng khung chat AI"
+              >
                 <X size={20} />
               </button>
             </div>
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[var(--kg-surface-soft)]/50">
+          <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-[var(--kg-bg)]/60">
             {useGeminiFallback && (
-              <div className="bg-blue-50/55 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 text-blue-700 dark:text-blue-300 rounded-xl p-3 text-[11px] flex items-start space-x-2">
-                <Sparkles size={14} className="mt-0.5 flex-shrink-0 text-[var(--kg-accent)]" />
-                <p>Trợ lý đang chạy ở chế độ dự phòng bằng Gemini. Liên hệ Admin nạp Groq API Key nếu muốn tăng độ nhạy phản hồi.</p>
+              <div className="bg-[var(--kg-accent-soft)] border border-[var(--kg-accent)]/20 text-[var(--kg-text)] rounded-xl p-3 text-[11.5px] flex items-start gap-2">
+                <Sparkles size={14} className="mt-0.5 flex-shrink-0 text-[var(--kg-accent-ink)]" />
+                <p>
+                  Mẹo thao tác: Nút AI hoạt động như <strong>nút Home ảo</strong> — bạn có thể nhấn giữ để kéo sang mép trái/phải tùy ý, thả tay nút sẽ tự thu gọn vào cạnh màn hình để không che bảng số liệu.
+                </p>
               </div>
             )}
 
             {messages.map((msg) => (
               <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] rounded-2xl px-4 py-3  ${
-                  msg.role === 'user' 
-                    ? 'bg-[var(--kg-primary)] text-white rounded-tr-sm shadow-xs' 
-                    : 'bg-[var(--kg-surface)] text-[var(--kg-text)] border border-[var(--kg-border)] rounded-tl-sm shadow-xs'
-                }`}>
+                <div
+                  className={`max-w-[86%] rounded-2xl px-4 py-3 ${
+                    msg.role === 'user'
+                      ? 'bg-[var(--kg-primary)] text-white rounded-tr-sm shadow-xs'
+                      : 'bg-[var(--kg-surface)] text-[var(--kg-text)] border border-[var(--kg-border)] rounded-tl-sm shadow-xs'
+                  }`}
+                >
                   {msg.role === 'user' ? (
                     <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                   ) : (
@@ -428,11 +654,11 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
                 </div>
               </div>
             ))}
-            
+
             {isTyping && (
               <div className="flex justify-start">
-                <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl rounded-tl-sm px-4 py-3 flex items-center space-x-2 shadow-xs">
-                  <Loader2 size={16} className="animate-spin text-[var(--kg-primary)]" />
+                <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-2 shadow-xs">
+                  <Loader2 size={16} className="animate-spin text-[var(--kg-accent-ink)]" />
                   <span className="text-xs text-[var(--kg-text-muted)] font-medium tracking-wide">AI đang suy nghĩ...</span>
                 </div>
               </div>
@@ -441,8 +667,8 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
           </div>
 
           {/* Input Area */}
-          <div className="p-3 bg-[var(--kg-surface)] border-t border-[var(--kg-border)] md:rounded-b-2xl">
-            <div className="flex items-end space-x-2 relative">
+          <div className="p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] bg-[var(--kg-surface)] border-t border-[var(--kg-border)] md:rounded-b-2xl">
+            <div className="flex items-end gap-2 relative">
               <textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -453,20 +679,24 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
                   }
                 }}
                 placeholder="Hỏi AI về lịch làm, checklist, quy trình SOP..."
-                className="flex-1 max-h-32 min-h-[44px] bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] focus:border-[var(--kg-primary)] focus:bg-[var(--kg-surface)] rounded-xl px-4 py-3 text-sm resize-none transition-all text-[var(--kg-text)]"
+                className="flex-1 max-h-32 min-h-[44px] bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] focus:border-[var(--kg-primary)] focus:bg-[var(--kg-surface)] rounded-xl px-3.5 py-2.5 text-sm resize-none transition-all text-[var(--kg-text)]"
                 rows={1}
                 disabled={isTyping}
               />
               <button
+                type="button"
                 onClick={handleSend}
                 disabled={!input.trim() || isTyping}
-                className="w-11 h-11 bg-[var(--kg-primary)] text-white rounded-xl flex items-center justify-center hover:opacity-90 transition disabled:opacity-50 flex-shrink-0 shadow-xs"
+                aria-label="Gửi tin nhắn"
+                className="w-11 h-11 bg-[var(--kg-accent)] text-white rounded-xl flex items-center justify-center hover:brightness-95 transition disabled:opacity-50 flex-shrink-0 shadow-xs"
               >
                 <Send size={18} className="ml-0.5" />
               </button>
             </div>
-            <div className="text-center mt-2">
-              <span className="text-[9px] text-[var(--kg-text-muted)] font-medium">Powered by Llama 3.3 70B & Groq LPU™ / Gemini 2.5 Flash</span>
+            <div className="text-center mt-1.5">
+              <span className="text-[10px] text-[var(--kg-text-muted)] font-medium">
+                King&apos;s Grill AI • Llama 3.3 70B &amp; Gemini 2.5 Flash
+              </span>
             </div>
           </div>
         </div>

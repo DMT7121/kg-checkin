@@ -76,7 +76,7 @@ export default function NewsFeed() {
     }));
 
     // Gửi lên Backend ngầm
-    callApi('INTERACT_POST', { postId: id, action: 'LIKE', username: currentUsername }, { background: true });
+    callApi('INTERACT_POST', { postId: id, subAction: 'LIKE', username: currentUsername }, { background: true });
   };
 
   const handleAddComment = async (postId: number) => {
@@ -103,7 +103,7 @@ export default function NewsFeed() {
     // Gửi lên Backend ngầm
     callApi('INTERACT_POST', { 
       postId, 
-      action: 'COMMENT', 
+      subAction: 'COMMENT', 
       author: currentUser?.fullname || 'Ẩn danh',
       content
     }, { background: true });
@@ -135,7 +135,15 @@ export default function NewsFeed() {
   };
 
   const handleAddPost = async () => {
+    if (uploadingImage) {
+      Swal.fire('Đang tải ảnh', 'Vui lòng chờ tải ảnh hoàn tất trước khi đăng bài.', 'info');
+      return;
+    }
     if (!newPostContent.trim() && !newPostImagePreview) return;
+    if (newPostImagePreview && newPostImagePreview.startsWith('data:') && newPostImagePreview.length > 45000) {
+      Swal.fire('Ảnh chưa sẵn sàng', 'Ảnh dung lượng lớn chưa tải xong lên máy chủ. Vui lòng chọn lại ảnh.', 'warning');
+      return;
+    }
     setIsPosting(true);
     
     const content = newPostContent.trim();
@@ -180,15 +188,16 @@ export default function NewsFeed() {
       {/* Admin Post Box */}
       {currentUser?.role === 'admin' && (
         <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl overflow-hidden mb-6 p-4 sm:p-5 shadow-xs space-y-3">
-          <h3 className="font-black text-[var(--kg-text)] flex items-center text-xs sm:text-sm">
-            <Edit3 size={16} className="mr-2 text-indigo-500" /> Tạo thông báo mới cho toàn quán
-          </h3>
+          <label htmlFor="newsfeed-post-input" className="font-black text-[var(--kg-text)] flex items-center text-xs sm:text-sm cursor-pointer">
+            <Edit3 size={16} className="mr-2 text-[var(--kg-primary)]" /> Tạo thông báo mới cho toàn quán
+          </label>
           <textarea
+            id="newsfeed-post-input"
             value={newPostContent}
             onChange={(e) => setNewPostContent(e.target.value)}
             rows={3}
             placeholder="Bạn muốn thông báo điều gì cho toàn bộ nhân sự?"
-            className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-[var(--kg-text)] resize-none"
+            className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)] resize-none"
           />
 
           {/* Image Preview */}
@@ -199,6 +208,7 @@ export default function NewsFeed() {
                 type="button"
                 onClick={() => setNewPostImagePreview(null)}
                 className="absolute top-1.5 right-1.5 bg-black/60 text-white rounded-full p-1 hover:bg-black/80 transition"
+                aria-label="Xóa ảnh đính kèm"
               >
                 <X size={13} />
               </button>
@@ -211,7 +221,7 @@ export default function NewsFeed() {
           )}
 
           <div className="flex justify-between items-center pt-1">
-            <label className="cursor-pointer text-indigo-500 hover:text-indigo-600 p-2 hover:bg-[var(--kg-surface-soft)] rounded-xl transition">
+            <label aria-label="Đính kèm hình ảnh" className="cursor-pointer text-[var(--kg-primary)] hover:opacity-80 p-2 hover:bg-[var(--kg-surface-soft)] rounded-xl transition">
               <input type="file" accept="image/*" className="hidden" onChange={handleImageSelect} disabled={uploadingImage} />
               <ImageIcon size={20} />
             </label>
@@ -230,7 +240,7 @@ export default function NewsFeed() {
 
       {loading && posts.length === 0 ? (
         <div className="flex justify-center items-center py-12">
-          <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+          <Loader2 className="w-8 h-8 text-[var(--kg-primary)] animate-spin" />
         </div>
       ) : (
         <div className="space-y-4">
@@ -242,7 +252,7 @@ export default function NewsFeed() {
                 {/* Author */}
                 <div className="p-3.5 sm:p-4 flex items-center justify-between">
                   <div className="flex items-center">
-                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black text-sm sm:text-base mr-3 border border-indigo-500/20 shrink-0">
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[var(--kg-primary-soft)] text-[var(--kg-primary)] flex items-center justify-center font-black text-sm sm:text-base mr-3 border border-[var(--kg-border)] shrink-0">
                       {post.author.charAt(0)}
                     </div>
                     <div>
@@ -346,23 +356,25 @@ export default function NewsFeed() {
                     
                     {/* Add Comment Input */}
                     <div className="flex items-center space-x-2 pt-1">
-                      <div className="w-7 h-7 rounded-lg bg-indigo-500/10 flex-shrink-0 flex items-center justify-center text-indigo-600 text-xs font-black">
+                      <div className="w-7 h-7 rounded-lg bg-[var(--kg-primary-soft)] flex-shrink-0 flex items-center justify-center text-[var(--kg-primary)] text-xs font-black">
                         {currentUser?.fullname.charAt(0) || 'U'}
                       </div>
                       <div className="flex-1 relative">
                         <input 
                           type="text" 
+                          aria-label="Viết bình luận"
                           value={commentInput}
                           onChange={(e) => setCommentInput(e.target.value)}
                           onKeyDown={(e) => e.key === 'Enter' && handleAddComment(post.id)}
                           placeholder="Viết bình luận..." 
-                          className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-full pl-3.5 pr-9 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 text-[var(--kg-text)]"
+                          className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-full pl-3.5 pr-9 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)]"
                         />
                         <button 
                           type="button"
+                          aria-label="Gửi bình luận"
                           onClick={() => handleAddComment(post.id)}
                           disabled={!commentInput.trim()}
-                          className="absolute right-1.5 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center bg-indigo-600 text-white rounded-full hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                          className="absolute right-1.5 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center bg-[var(--kg-primary)] text-white rounded-full hover:opacity-90 transition-opacity disabled:opacity-50"
                         >
                           <Send size={11} className="ml-0.5" />
                         </button>

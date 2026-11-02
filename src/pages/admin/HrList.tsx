@@ -51,7 +51,7 @@ export default function HrList() {
   }, [users, searchQuery, filterPosition, filterRole, filterStatus]);
 
   const stats = useMemo(() => {
-    const adminCount = users.filter(u => u.role === 'admin' || u.role === 'tester').length;
+    const adminCount = users.filter(u => u.role === 'admin').length;
     const positionCounts: Record<string, number> = {};
     users.forEach(u => { const p = u.position || 'Phục vụ'; positionCounts[p] = (positionCounts[p] || 0) + 1; });
     const topPosition = Object.entries(positionCounts).sort((a, b) => b[1] - a[1])[0];
@@ -195,17 +195,25 @@ export default function HrList() {
   const getRoleBadge = (role: string) => {
     switch (role) {
       case 'admin': return { label: 'Admin', cls: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800/50' };
-      case 'tester': return { label: 'Tester', cls: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-800/50' };
+      case 'tester': return { label: 'Tester', cls: 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-200 dark:border-sky-800/50' };
       default: return { label: 'Nhân viên', cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50' };
     }
   };
 
   const getAvatarColor = (name: string) => {
-    const colors = ['from-blue-500 to-cyan-500', 'from-purple-500 to-pink-500', 'from-amber-500 to-orange-500', 'from-emerald-500 to-teal-500', 'from-rose-500 to-red-500', 'from-indigo-500 to-violet-500', 'from-sky-500 to-blue-500', 'from-lime-500 to-green-500'];
+    const colors = ['from-blue-600 to-cyan-600', 'from-teal-600 to-cyan-600', 'from-amber-500 to-orange-500', 'from-emerald-600 to-teal-600', 'from-rose-500 to-red-500', 'from-slate-700 to-slate-800', 'from-sky-600 to-blue-600', 'from-emerald-500 to-green-600'];
     let hash = 0;
     for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
     return colors[Math.abs(hash) % colors.length];
   };
+
+  if (currentUser?.role !== 'admin') {
+    return (
+      <div className="p-8 text-center text-sm font-bold text-[var(--kg-text-muted)]">
+        Chỉ Quản trị viên (Admin) mới có quyền truy cập quản lý hồ sơ nhân sự.
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 space-y-4 animate-fade-in pb-20 max-w-5xl mx-auto">

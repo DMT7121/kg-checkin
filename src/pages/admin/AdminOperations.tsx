@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
+  Banknote,
   BarChart3,
   CalendarPlus,
+  CheckCheck,
   CheckCircle2,
   ClipboardList,
   LoaderCircle,
@@ -10,11 +12,13 @@ import {
   Plus,
   RefreshCw,
   Save,
+  ShieldAlert,
   ShieldCheck,
   Sparkles,
   Star,
   Trash2,
   UsersRound,
+  Wrench,
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { KgBottomSheet, KgButton, KgInput, KgModuleHero, KgSelect, KgTextarea } from '../../components/KgDesignSystem';
@@ -36,8 +40,26 @@ import {
   operationScore,
   todayIso,
 } from '../../types/operations';
+import {
+  formatSignedVnd,
+  formatVndCurrency,
+  formatVndInput,
+  INCIDENT_STATUS_STEPS,
+  normalizeIncidentStatus,
+  parseVndAmount,
+  type HandoverLedgerRecord,
+  type IncidentRecord,
+  type IncidentStatus,
+} from '../../utils/operationsReconciliation';
 
-type Section = 'overview' | 'teams' | 'zones' | 'assignments' | 'evaluations';
+type Section =
+  | 'overview'
+  | 'cash_audit'
+  | 'incidents'
+  | 'teams'
+  | 'zones'
+  | 'assignments'
+  | 'evaluations';
 
 const teamColors = ['#0e7490', '#7c3aed', '#059669', '#ea580c', '#db2777', '#2563eb'];
 const newId = (prefix: string) => `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
@@ -53,10 +75,11 @@ export default function AdminOperations() {
   const [selectedTeamId, setSelectedTeamId] = useState('');
   const [selectedZoneId, setSelectedZoneId] = useState('');
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
-
-  useEffect(() => {
+  const [prevSelectedTeamId, setPrevSelectedTeamId] = useState(selectedTeamId);
+  if (prevSelectedTeamId !== selectedTeamId) {
+    setPrevSelectedTeamId(selectedTeamId);
     setMemberSearchQuery('');
-  }, [selectedTeamId]);
+  }
   const [evalSearchQuery, setEvalSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -84,23 +107,63 @@ export default function AdminOperations() {
     frequency: 'Mỗi ca',
   });
 
+  // Wave 2: 2-Way Cash Audit & 4-State Incident Management Center
+  const [handovers, setHandovers] = useState<HandoverLedgerRecord[]>([]);
+  const [cashFilter, setCashFilter] = useState<'ALL' | 'ATTENTION' | 'CONFIRMED'>('ALL');
+  const [managerNotes, setManagerNotes] = useState<Record<string, string>>({});
+  const [reviewingHandoverId, setReviewingHandoverId] = useState<string | null>(null);
+
+  const [incidents, setIncidents] = useState<IncidentRecord[]>([]);
+  const [incidentFilter, setIncidentFilter] = useState<'ALL' | IncidentStatus>('ALL');
+  const [incidentDrafts, setIncidentDrafts] = useState<
+    Record<string, { assignedTo?: string; resolutionNote?: string; repairCost?: string }>
+  >({});
+  const [updatingIncidentId, setUpdatingIncidentId] = useState<string | null>(null);
+
   const employees = useMemo(
     () => users.filter(user => user.username && user.role !== 'admin' && isWorkEligible(user)),
     [users],
   );
 
+  const loadHandoversAndIncidents = useCallback(async () => {
+    if (!currentUser) return;
+    const [hoRes, incRes] = await Promise.allSettled([
+      callApi('GET_HANDOVERS', { role: currentUser.role, forceRefresh: true }, { background: true, cacheTtlMs: 0 }),
+      callApi(
+        'GET_INCIDENTS',
+        { role: currentUser.role, username: currentUser.username, forceRefresh: true },
+        { background: true, cacheTtlMs: 0 },
+      ),
+    ]);
+
+    if (hoRes.status === 'fulfilled' && hoRes.value?.ok && Array.isArray(hoRes.value.data?.handovers)) {
+      setHandovers(hoRes.value.data.handovers);
+    }
+    if (incRes.status === 'fulfilled' && incRes.value?.ok && Array.isArray(incRes.value.data?.incidents)) {
+      setIncidents(
+        incRes.value.data.incidents.map((item: IncidentRecord) => ({
+          ...item,
+          status: normalizeIncidentStatus(item.status),
+        })),
+      );
+    }
+  }, [currentUser]);
+
   const loadData = useCallback(async () => {
     if (!currentUser) return;
     setLoading(true);
-    const res = await callApi(
-      'GET_OPERATIONS_CONFIG',
-      {
-        role: currentUser.role,
-        username: currentUser.username,
-        forceRefresh: true,
-      },
-      { background: true, cacheTtlMs: 0, timeoutMs: 35000 },
-    );
+    const [res] = await Promise.all([
+      callApi(
+        'GET_OPERATIONS_CONFIG',
+        {
+          role: currentUser.role,
+          username: currentUser.username,
+          forceRefresh: true,
+        },
+        { background: true, cacheTtlMs: 0, timeoutMs: 35000 },
+      ),
+      loadHandoversAndIncidents(),
+    ]);
     if (res?.ok) {
       const next = res.data.config || emptyOperationsConfig();
       setConfig(next);
@@ -115,12 +178,121 @@ export default function AdminOperations() {
       setDirty(false);
     }
     setLoading(false);
-  }, [currentUser]);
+  }, [currentUser, loadHandoversAndIncidents]);
 
   useEffect(() => {
     const timer = window.setTimeout(loadData, 0);
     return () => window.clearTimeout(timer);
   }, [loadData]);
+
+  const handleManagerReviewHandover = async (
+    item: HandoverLedgerRecord,
+    decision: 'CONFIRM' | 'DISPUTE',
+  ) => {
+    if (!currentUser) return;
+    const note = (managerNotes[item.id] ?? item.managerNote ?? '').trim();
+    if (decision === 'DISPUTE' && note.length < 4) {
+      Swal.fire('Cần ghi chú yêu cầu', 'Vui lòng nhập nội dung cần thu ngân giải trình thêm.', 'warning');
+      return;
+    }
+
+    setReviewingHandoverId(item.id);
+    try {
+      const res = await callApi('REVIEW_HANDOVER', {
+        role: currentUser.role,
+        actorUsername: currentUser.username,
+        actorFullname: currentUser.fullname,
+        handoverId: item.id,
+        decision,
+        managerNote: note,
+      });
+      if (res?.ok) {
+        const nextStatus = decision === 'DISPUTE' ? 'Disputed' : 'ManagerConfirmed';
+        setHandovers(prev =>
+          prev.map(h =>
+            h.id === item.id
+              ? {
+                  ...h,
+                  reconcileStatus: nextStatus,
+                  managerBy: currentUser.fullname || currentUser.username,
+                  managerNote: note,
+                }
+              : h,
+          ),
+        );
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: decision === 'DISPUTE' ? 'Đã gửi yêu cầu giải trình két' : 'Đã duyệt chốt đối soát két',
+          showConfirmButton: false,
+          timer: 2200,
+        });
+      } else {
+        Swal.fire('Không thể cập nhật', res?.message || 'Vui lòng thử lại.', 'error');
+      }
+    } finally {
+      setReviewingHandoverId(null);
+    }
+  };
+
+  const handleUpdateIncidentState = async (
+    inc: IncidentRecord,
+    targetStatus?: IncidentStatus,
+  ) => {
+    if (!currentUser) return;
+    const draft = incidentDrafts[inc.id] || {};
+    const nextStatus = targetStatus || inc.status;
+    const assignedTo = draft.assignedTo !== undefined ? draft.assignedTo.trim() : inc.assignedTo || '';
+    const resolutionNote =
+      draft.resolutionNote !== undefined ? draft.resolutionNote.trim() : inc.resolutionNote || '';
+    const repairCost =
+      draft.repairCost !== undefined
+        ? Math.max(0, parseVndAmount(draft.repairCost))
+        : Math.max(0, inc.repairCost || 0);
+
+    setUpdatingIncidentId(inc.id);
+    try {
+      const res = await callApi('UPDATE_INCIDENT', {
+        role: currentUser.role,
+        actorUsername: currentUser.username,
+        actorFullname: currentUser.fullname,
+        incidentId: inc.id,
+        status: nextStatus,
+        assignedTo,
+        resolutionNote,
+        repairCost,
+      });
+
+      if (res?.ok) {
+        setIncidents(prev =>
+          prev.map(item =>
+            item.id === inc.id
+              ? {
+                  ...item,
+                  status: nextStatus,
+                  assignedTo,
+                  resolutionNote,
+                  repairCost,
+                }
+              : item,
+          ),
+        );
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: 'Đã cập nhật tiến độ xử lý sự cố',
+          showConfirmButton: false,
+          timer: 2000,
+        });
+      } else {
+        Swal.fire('Không thể cập nhật', res?.message || 'Vui lòng thử lại.', 'error');
+      }
+    } finally {
+      setUpdatingIncidentId(null);
+    }
+  };
 
 
 
@@ -594,8 +766,44 @@ export default function AdminOperations() {
     );
   }
 
-  const navItems: { id: Section; label: string; icon: typeof BarChart3 }[] = [
+  const cashAttentionCount = handovers.filter(
+    h =>
+      h.reconcileStatus !== 'ManagerConfirmed' &&
+      ((h.discrepancy ?? 0) !== 0 || h.ackStatus === 'Disputed' || h.reconcileStatus === 'Disputed'),
+  ).length;
+  const cashConfirmedCount = handovers.filter(h => h.reconcileStatus === 'ManagerConfirmed').length;
+  const cashMatchedCount = handovers.filter(
+    h => (h.discrepancy ?? 0) === 0 && h.ackStatus !== 'Disputed',
+  ).length;
+
+  const openIncidentCount = incidents.filter(
+    i => i.status === 'Open' || i.status === 'Investigating',
+  ).length;
+  const totalIncidentCost = incidents.reduce(
+    (sum, item) => sum + Math.max(0, Math.round(item.repairCost || 0)),
+    0,
+  );
+
+  const filteredHandovers = handovers.filter(h => {
+    if (cashFilter === 'ATTENTION') {
+      return (
+        h.reconcileStatus !== 'ManagerConfirmed' &&
+        ((h.discrepancy ?? 0) !== 0 || h.ackStatus === 'Disputed' || h.reconcileStatus === 'Disputed')
+      );
+    }
+    if (cashFilter === 'CONFIRMED') return h.reconcileStatus === 'ManagerConfirmed';
+    return true;
+  });
+
+  const filteredIncidents = incidents.filter(i => {
+    if (incidentFilter === 'ALL') return true;
+    return i.status === incidentFilter;
+  });
+
+  const navItems: { id: Section; label: string; icon: typeof BarChart3; badge?: number }[] = [
     { id: 'overview', label: 'Tổng quan', icon: BarChart3 },
+    { id: 'cash_audit', label: 'Đối soát Két', icon: Banknote, badge: cashAttentionCount },
+    { id: 'incidents', label: 'Sự cố 4 bước', icon: ShieldAlert, badge: openIncidentCount },
     { id: 'teams', label: 'Nhóm trực', icon: UsersRound },
     { id: 'zones', label: 'Khu & việc', icon: MapPinned },
     { id: 'assignments', label: 'Phân công', icon: CalendarPlus },
@@ -616,19 +824,19 @@ export default function AdminOperations() {
 
       <KgModuleHero
         moduleId="admin-operations"
-        title="Phân Công Vận Hành"
-        description="Tổ chức nhóm trực, khu vực, checklist và cân bằng năng lực nhân sự theo từng ngày."
-        eyebrow="Điều phối"
-        tipTitle="Hướng dẫn Phân công Vận hành"
+        title="Điều Phối Vận Hành, Két & Sự Cố"
+        description="Đối soát két thu ngân 2 chiều, điều phối xử lý sự cố 4 trạng thái và cân bằng đội hình nhà hàng."
+        eyebrow="Quản trị F&B"
+        tipTitle="Hướng dẫn Quản trị Vận hành Nhà hàng"
         tips={[
-          "Nhóm trực: Chia đội ngũ nhân viên thành các nhóm (Nhóm A, B, C) để luân chuyển đều đặn giữa các khu vực.",
-          "Khu & việc: Cài đặt tiêu chuẩn và danh sách công việc phụ trách cho từng khu vực nhà hàng.",
-          "Phân công & Tự cân bằng: Hệ thống tự động gợi ý xoay vòng khu vực để đảm bảo tính công bằng cho nhân sự."
+          'Đối soát Két: Rà soát các ca có chênh lệch POS hoặc thu ngân ca sau báo lệch, ghi kết luận và bấm Duyệt chốt.',
+          'Sự cố 4 bước: Phân công người xử lý / thợ sửa chữa và chốt chi phí thực tế cho từng sự cố.',
+          'Nhóm & Phân công: Chia đội ngũ nhân viên thành các nhóm (Nhóm A, B, C) để xoay vòng công bằng giữa các khu.',
         ]}
       />
 
-      <div className="soft3d-card rounded-2xl p-2">
-        <div className="grid grid-cols-5 gap-1">
+      <div className="soft3d-card rounded-2xl p-2 overflow-x-auto no-scrollbar">
+        <div className="grid min-w-[560px] grid-cols-7 gap-1 sm:min-w-0">
           {navItems.map(item => {
             const Icon = item.icon;
             const active = section === item.id;
@@ -637,14 +845,25 @@ export default function AdminOperations() {
                 type="button"
                 key={item.id}
                 onClick={() => setSection(item.id)}
-                className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2.5 text-[10px] font-extrabold transition sm:flex-row sm:text-xs ${
+                className={`relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1.5 py-2.5 text-[10px] font-extrabold transition sm:flex-row sm:text-xs ${
                   active
                     ? 'bg-cyan-700 text-white shadow-md'
                     : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
-                <Icon size={16} />
+                <Icon size={15} />
                 <span className="truncate">{item.label}</span>
+                {typeof item.badge === 'number' && item.badge > 0 && (
+                  <span
+                    className={`px-1.5 py-0.5 rounded-full text-[9px] font-mono tabular-nums font-black ${
+                      active
+                        ? 'bg-white text-cyan-800'
+                        : 'bg-rose-500/15 text-rose-600 dark:text-rose-300'
+                    }`}
+                  >
+                    {item.badge}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -660,10 +879,63 @@ export default function AdminOperations() {
         <>
           {section === 'overview' && (
             <div className="space-y-4">
+              {/* Urgent Operational Action Strip */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => setSection('cash_audit')}
+                  className={`flex items-center justify-between rounded-2xl border p-4 text-left transition hover:shadow-sm ${
+                    cashAttentionCount > 0
+                      ? 'border-amber-300 bg-amber-50/80 dark:border-amber-800 dark:bg-amber-950/20'
+                      : 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900'
+                  }`}
+                >
+                  <div>
+                    <p className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
+                      Đối soát két thu ngân
+                    </p>
+                    <p className="mt-1 text-base font-black text-slate-900 dark:text-white">
+                      {cashAttentionCount > 0
+                        ? `${cashAttentionCount} ca cần Quản lý kiểm tra`
+                        : 'Tất cả ca bàn giao đều khớp'}
+                    </p>
+                  </div>
+                  <Banknote
+                    size={24}
+                    className={cashAttentionCount > 0 ? 'text-amber-600' : 'text-emerald-600'}
+                  />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSection('incidents')}
+                  className={`flex items-center justify-between rounded-2xl border p-4 text-left transition hover:shadow-sm ${
+                    openIncidentCount > 0
+                      ? 'border-rose-300 bg-rose-50/80 dark:border-rose-800 dark:bg-rose-950/20'
+                      : 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900'
+                  }`}
+                >
+                  <div>
+                    <p className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
+                      Trung tâm sự cố 4 bước
+                    </p>
+                    <p className="mt-1 text-base font-black text-slate-900 dark:text-white">
+                      {openIncidentCount > 0
+                        ? `${openIncidentCount} sự cố đang mở / xử lý`
+                        : 'Không có sự cố tồn đọng'}
+                    </p>
+                  </div>
+                  <Wrench
+                    size={24}
+                    className={openIncidentCount > 0 ? 'text-rose-600' : 'text-emerald-600'}
+                  />
+                </button>
+              </div>
+
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                 {[
                   { label: 'Nhóm trực', value: config.teams.length, icon: UsersRound, iconClass: 'text-cyan-600' },
-                  { label: 'Khu trực', value: config.zones.length, icon: MapPinned, iconClass: 'text-violet-600' },
+                  { label: 'Khu trực', value: config.zones.length, icon: MapPinned, iconClass: 'text-[var(--kg-primary)]' },
                   { label: 'Công việc', value: config.tasks.length, icon: ClipboardList, iconClass: 'text-emerald-600' },
                   { label: 'Lịch sắp tới', value: upcomingAssignments.length, icon: CalendarPlus, iconClass: 'text-amber-600' },
                 ].map(card => {
@@ -671,7 +943,7 @@ export default function AdminOperations() {
                   return (
                     <div key={card.label} className="soft3d-card rounded-2xl p-4">
                       <Icon size={20} className={card.iconClass} />
-                      <p className="mt-3 text-2xl font-black text-slate-900 dark:text-white">{card.value}</p>
+                      <p className="mt-3 text-2xl font-black font-mono tabular-nums text-slate-900 dark:text-white">{card.value}</p>
                       <p className="text-xs font-bold text-slate-500">{card.label}</p>
                     </div>
                   );
@@ -741,6 +1013,476 @@ export default function AdminOperations() {
                     </button>
                   )}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* WAVE 2.1: MANAGER 2-WAY CASH RECONCILIATION AUDIT */}
+          {section === 'cash_audit' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <div className="soft3d-card rounded-2xl p-4">
+                  <p className="text-xs font-bold text-slate-500">Tổng ca ghi nhận</p>
+                  <p className="mt-2 text-2xl font-black font-mono tabular-nums text-slate-900 dark:text-white">
+                    {handovers.length}
+                  </p>
+                </div>
+                <div className="soft3d-card rounded-2xl p-4">
+                  <p className="text-xs font-bold text-emerald-600">Khớp két lý thuyết</p>
+                  <p className="mt-2 text-2xl font-black font-mono tabular-nums text-emerald-600">
+                    {cashMatchedCount}
+                  </p>
+                </div>
+                <div className="soft3d-card rounded-2xl p-4">
+                  <p className="text-xs font-bold text-rose-600">Lệch / Báo khiếu nại</p>
+                  <p className="mt-2 text-2xl font-black font-mono tabular-nums text-rose-600">
+                    {cashAttentionCount}
+                  </p>
+                </div>
+                <div className="soft3d-card rounded-2xl p-4">
+                  <p className="text-xs font-bold text-cyan-600">Quản lý đã chốt</p>
+                  <p className="mt-2 text-2xl font-black font-mono tabular-nums text-cyan-600">
+                    {cashConfirmedCount}
+                  </p>
+                </div>
+              </div>
+
+              <div className="soft3d-card rounded-2xl p-5 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3 dark:border-slate-700">
+                  <div>
+                    <h3 className="font-extrabold text-slate-900 dark:text-white">
+                      Đối soát Két Thu ngân 2 chiều
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Kiểm tra công thức POS CukCuk, xác nhận ca nhận két và chốt giải trình thu chi
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {(
+                      [
+                        ['ALL', `Tất cả (${handovers.length})`],
+                        ['ATTENTION', `Cần đối soát (${cashAttentionCount})`],
+                        ['CONFIRMED', `Đã chốt (${cashConfirmedCount})`],
+                      ] as const
+                    ).map(([id, label]) => (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => setCashFilter(id)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                          cashFilter === id
+                            ? 'bg-cyan-700 text-white'
+                            : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={loadHandoversAndIncidents}
+                      className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-900"
+                      title="Làm mới sổ két"
+                    >
+                      <RefreshCw size={14} />
+                    </button>
+                  </div>
+                </div>
+
+                {filteredHandovers.length === 0 ? (
+                  <div className="py-12 text-center text-xs font-bold text-slate-400">
+                    Không có bản ghi bàn giao két nào trong bộ lọc này.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {filteredHandovers.map(item => {
+                      const diff = item.discrepancy ?? 0;
+                      const isBusy = reviewingHandoverId === item.id;
+                      const noteValue = managerNotes[item.id] ?? item.managerNote ?? '';
+
+                      return (
+                        <div
+                          key={item.id}
+                          className={`rounded-2xl border p-4 space-y-3 ${
+                            item.reconcileStatus === 'ManagerConfirmed'
+                              ? 'border-emerald-200 bg-emerald-50/30 dark:border-emerald-900/40 dark:bg-emerald-950/10'
+                              : diff !== 0 || item.ackStatus === 'Disputed' || item.reconcileStatus === 'Disputed'
+                                ? 'border-amber-300 bg-amber-50/40 dark:border-amber-800/50 dark:bg-amber-950/15'
+                                : 'border-slate-200 dark:border-slate-700'
+                          }`}
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="px-2.5 py-0.5 rounded-lg text-xs font-extrabold bg-cyan-500/10 text-cyan-800 dark:text-cyan-300">
+                                {item.shift || 'Ca trực'} • {item.date}
+                              </span>
+                              <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                                Giao bởi: <b>{item.fullname || item.username}</b>
+                              </span>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {item.ackStatus === 'Disputed' ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-rose-500/15 text-rose-700 dark:text-rose-300">
+                                  <AlertTriangle size={12} /> Ca nhận báo lệch ({item.ackBy})
+                                </span>
+                              ) : item.ackBy ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                                  <CheckCheck size={12} /> Đã nhận đủ: {item.ackBy}
+                                </span>
+                              ) : (
+                                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-200/70 dark:bg-slate-800 text-slate-500">
+                                  Chưa có ca sau xác nhận
+                                </span>
+                              )}
+
+                              {item.reconcileStatus === 'ManagerConfirmed' && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-cyan-600 text-white">
+                                  <ShieldCheck size={12} /> Đã duyệt chốt
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Tabular-Nums Reconciliation Grid */}
+                          <div className="grid grid-cols-2 gap-2 sm:grid-cols-6 text-right font-mono tabular-nums text-xs">
+                            <div className="rounded-xl bg-white/80 dark:bg-slate-900/70 p-2.5 border border-slate-200/70 dark:border-slate-800">
+                              <span className="block font-sans text-[10px] text-slate-400">Quỹ đầu ca</span>
+                              <span className="font-bold text-slate-800 dark:text-slate-200">
+                                {formatVndCurrency(item.openingCash ?? item.cashAmount)}
+                              </span>
+                            </div>
+                            <div className="rounded-xl bg-white/80 dark:bg-slate-900/70 p-2.5 border border-slate-200/70 dark:border-slate-800">
+                              <span className="block font-sans text-[10px] text-slate-400">+ Thu POS</span>
+                              <span className="font-bold text-emerald-600">
+                                {formatVndCurrency(item.posCashRevenue ?? 0)}
+                              </span>
+                            </div>
+                            <div className="rounded-xl bg-white/80 dark:bg-slate-900/70 p-2.5 border border-slate-200/70 dark:border-slate-800">
+                              <span className="block font-sans text-[10px] text-slate-400">- Chi quầy</span>
+                              <span className="font-bold text-rose-600">
+                                {formatVndCurrency(item.cashExpense ?? 0)}
+                              </span>
+                            </div>
+                            <div className="rounded-xl bg-white/80 dark:bg-slate-900/70 p-2.5 border border-slate-200/70 dark:border-slate-800">
+                              <span className="block font-sans text-[10px] text-slate-400">= Lý thuyết</span>
+                              <span className="font-bold text-slate-800 dark:text-slate-200">
+                                {formatVndCurrency(item.expectedCash ?? item.cashAmount)}
+                              </span>
+                            </div>
+                            <div className="rounded-xl bg-white/80 dark:bg-slate-900/70 p-2.5 border border-slate-200/70 dark:border-slate-800">
+                              <span className="block font-sans text-[10px] text-slate-400">Thực bàn giao</span>
+                              <span className="font-black text-slate-900 dark:text-white">
+                                {formatVndCurrency(item.closingCash ?? item.cashAmount)}
+                              </span>
+                            </div>
+                            <div className="rounded-xl bg-white/80 dark:bg-slate-900/70 p-2.5 border border-slate-200/70 dark:border-slate-800">
+                              <span className="block font-sans text-[10px] text-slate-400">Chênh lệch</span>
+                              <span
+                                className={`font-black ${
+                                  diff === 0
+                                    ? 'text-emerald-600'
+                                    : diff < 0
+                                      ? 'text-rose-600'
+                                      : 'text-amber-600'
+                                }`}
+                              >
+                                {formatSignedVnd(diff)}
+                              </span>
+                            </div>
+                          </div>
+
+                          {(item.note || item.ackNote) && (
+                            <div className="space-y-1 text-xs">
+                              {item.note && (
+                                <p className="text-slate-600 dark:text-slate-300">
+                                  <b>Ghi chú ca giao:</b> {item.note}
+                                </p>
+                              )}
+                              {item.ackNote && (
+                                <p className="text-rose-600 dark:text-rose-400">
+                                  <b>Phản hồi ca nhận{item.countedCash !== undefined ? ` (đếm thực tế ${formatVndCurrency(item.countedCash)})` : ''}:</b>{' '}
+                                  {item.ackNote}
+                                </p>
+                              )}
+                            </div>
+                          )}
+
+                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-2 border-t border-slate-200/70 dark:border-slate-700/70">
+                            <input
+                              type="text"
+                              value={noteValue}
+                              onChange={e =>
+                                setManagerNotes(prev => ({ ...prev, [item.id]: e.target.value }))
+                              }
+                              placeholder="Kết luận đối soát của Quản lý (VD: Đã khớp phiếu chi mua đá / Đã bù quỹ)..."
+                              className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs text-slate-800 dark:text-white"
+                            />
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                type="button"
+                                disabled={isBusy}
+                                onClick={() => handleManagerReviewHandover(item, 'DISPUTE')}
+                                className="px-3 py-2 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300 text-xs font-bold hover:bg-amber-500/20 disabled:opacity-50"
+                              >
+                                Yêu cầu giải trình
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isBusy}
+                                onClick={() => handleManagerReviewHandover(item, 'CONFIRM')}
+                                className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold disabled:opacity-50"
+                              >
+                                {isBusy ? 'Đang lưu...' : 'Duyệt chốt két'}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* WAVE 2.2: 4-STATE INCIDENT MANAGEMENT CENTER */}
+          {section === 'incidents' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <div className="soft3d-card rounded-2xl p-4">
+                  <p className="text-xs font-bold text-rose-600">1. Mới báo</p>
+                  <p className="mt-2 text-2xl font-black font-mono tabular-nums text-rose-600">
+                    {incidents.filter(i => i.status === 'Open').length}
+                  </p>
+                </div>
+                <div className="soft3d-card rounded-2xl p-4">
+                  <p className="text-xs font-bold text-amber-600">2. Đang xử lý</p>
+                  <p className="mt-2 text-2xl font-black font-mono tabular-nums text-amber-600">
+                    {incidents.filter(i => i.status === 'Investigating').length}
+                  </p>
+                </div>
+                <div className="soft3d-card rounded-2xl p-4">
+                  <p className="text-xs font-bold text-cyan-600">3. Đã khắc phục</p>
+                  <p className="mt-2 text-2xl font-black font-mono tabular-nums text-cyan-600">
+                    {incidents.filter(i => i.status === 'Resolved' || i.status === 'CostRecorded').length}
+                  </p>
+                </div>
+                <div className="soft3d-card rounded-2xl p-4">
+                  <p className="text-xs font-bold text-slate-500">Tổng chi phí sửa chữa</p>
+                  <p className="mt-2 text-xl font-black font-mono tabular-nums text-slate-900 dark:text-white">
+                    {formatVndCurrency(totalIncidentCost)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="soft3d-card rounded-2xl p-5 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3 dark:border-slate-700">
+                  <div>
+                    <h3 className="font-extrabold text-slate-900 dark:text-white">
+                      Trung tâm Quản lý Sự cố Nhà hàng (4 bước)
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Mới báo ➔ Đang kiểm tra / xử lý ➔ Đã khắc phục ➔ Đã chốt chi phí bảo trì
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setIncidentFilter('ALL')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                        incidentFilter === 'ALL'
+                          ? 'bg-cyan-700 text-white'
+                          : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                      }`}
+                    >
+                      Tất cả ({incidents.length})
+                    </button>
+                    {INCIDENT_STATUS_STEPS.map(step => (
+                      <button
+                        key={step.id}
+                        type="button"
+                        onClick={() => setIncidentFilter(step.id)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                          incidentFilter === step.id
+                            ? 'bg-cyan-700 text-white'
+                            : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                        }`}
+                      >
+                        {step.shortLabel}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {filteredIncidents.length === 0 ? (
+                  <div className="py-12 text-center text-xs font-bold text-slate-400">
+                    Không có sự cố nào ở trạng thái này.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {filteredIncidents.map(inc => {
+                      const draft = incidentDrafts[inc.id] || {};
+                      const assignedVal = draft.assignedTo ?? inc.assignedTo ?? '';
+                      const resolutionVal = draft.resolutionNote ?? inc.resolutionNote ?? '';
+                      const costVal =
+                        draft.repairCost !== undefined
+                          ? draft.repairCost
+                          : inc.repairCost && inc.repairCost > 0
+                            ? formatVndInput(inc.repairCost)
+                            : '';
+                      const isBusy = updatingIncidentId === inc.id;
+
+                      return (
+                        <div
+                          key={inc.id}
+                          className="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 space-y-3"
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-2">
+                            <div className="space-y-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-xs font-black text-slate-800 dark:text-white">
+                                  {inc.area || 'Toàn quán'}
+                                </span>
+                                <span className="text-sm font-black text-slate-900 dark:text-white">
+                                  {inc.category}
+                                </span>
+                                {inc.severity === 'urgent' && (
+                                  <span className="px-2 py-0.5 rounded bg-rose-600 text-white text-[10px] font-black">
+                                    KHẨN CẤP
+                                  </span>
+                                )}
+                                {inc.severity === 'high' && (
+                                  <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 text-[10px] font-black">
+                                    QUAN TRỌNG
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-slate-500">
+                                Báo bởi <b>{inc.fullname || inc.username}</b> • {inc.shift || 'Ca trực'} •{' '}
+                                {inc.date}
+                              </p>
+                            </div>
+
+                            {inc.photoUrl && (
+                              <a
+                                href={inc.photoUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-xs font-bold text-cyan-700 dark:text-cyan-400 underline"
+                              >
+                                Xem ảnh hiện trường
+                              </a>
+                            )}
+                          </div>
+
+                          <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800/60 rounded-xl p-3">
+                            {inc.description}
+                          </p>
+
+                          {/* 4-Step Interactive Status Selector */}
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            {INCIDENT_STATUS_STEPS.map(step => {
+                              const active = inc.status === step.id;
+                              return (
+                                <button
+                                  key={step.id}
+                                  type="button"
+                                  disabled={isBusy}
+                                  onClick={() => handleUpdateIncidentState(inc, step.id)}
+                                  className={`py-2 px-2.5 rounded-xl border text-xs font-extrabold transition ${
+                                    active
+                                      ? step.badgeClass
+                                      : 'border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
+                                  }`}
+                                >
+                                  {step.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {/* Assignment, Resolution Note & Repair Cost (VNĐ tabular-nums) */}
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
+                                Người xử lý / Kỹ thuật viên
+                              </label>
+                              <input
+                                type="text"
+                                list="ops-staff-suggestions"
+                                value={assignedVal}
+                                onChange={e =>
+                                  setIncidentDrafts(prev => ({
+                                    ...prev,
+                                    [inc.id]: { ...prev[inc.id], assignedTo: e.target.value },
+                                  }))
+                                }
+                                placeholder="Chọn NV hoặc nhập tên thợ..."
+                                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs text-slate-800 dark:text-white"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
+                                Ghi chú biện pháp khắc phục
+                              </label>
+                              <input
+                                type="text"
+                                value={resolutionVal}
+                                onChange={e =>
+                                  setIncidentDrafts(prev => ({
+                                    ...prev,
+                                    [inc.id]: { ...prev[inc.id], resolutionNote: e.target.value },
+                                  }))
+                                }
+                                placeholder="VD: Đã thay cảm biến nhiệt / Gọi bảo hành..."
+                                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs text-slate-800 dark:text-white"
+                              />
+                            </div>
+
+                            <div className="flex items-end gap-2">
+                              <div className="flex-1">
+                                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
+                                  Chi phí sửa chữa (VNĐ)
+                                </label>
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={costVal}
+                                  onChange={e =>
+                                    setIncidentDrafts(prev => ({
+                                      ...prev,
+                                      [inc.id]: {
+                                        ...prev[inc.id],
+                                        repairCost: formatVndInput(e.target.value),
+                                      },
+                                    }))
+                                  }
+                                  placeholder="0"
+                                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-right font-mono tabular-nums font-bold text-xs text-slate-800 dark:text-white"
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                disabled={isBusy}
+                                onClick={() => handleUpdateIncidentState(inc)}
+                                className="px-3.5 py-2 rounded-xl bg-cyan-700 hover:bg-cyan-800 text-white text-xs font-extrabold shrink-0 min-h-[34px] disabled:opacity-50"
+                              >
+                                {isBusy ? 'Lưu...' : 'Lưu'}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <datalist id="ops-staff-suggestions">
+                      {employees.map(emp => (
+                        <option key={emp.username} value={emp.fullname} />
+                      ))}
+                    </datalist>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -941,9 +1683,9 @@ export default function AdminOperations() {
                       type="button"
                       key={zone.id}
                       onClick={() => setSelectedZoneId(zone.id)}
-                      className={`w-full rounded-xl border p-3 text-left ${
+                      className={`w-full rounded-xl border p-3 text-left transition-colors ${
                         selectedZoneId === zone.id
-                          ? 'border-violet-300 bg-violet-50 dark:border-violet-800 dark:bg-violet-950/25'
+                          ? 'border-[var(--kg-primary)] bg-[var(--kg-primary-soft)]'
                           : 'border-slate-200 dark:border-slate-700'
                       }`}
                     >
@@ -1011,7 +1753,7 @@ export default function AdminOperations() {
                   <button
                     type="button"
                     onClick={autoRotateAllAssignments}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--kg-primary)] hover:opacity-95 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition"
                   >
                     <Sparkles size={14} /> Tự động xoay ca tất cả các nhóm
                   </button>
@@ -1085,13 +1827,13 @@ export default function AdminOperations() {
                         </div>
                         <div>
                           <p className="text-[10px] font-bold uppercase text-slate-400">Khu & tiến độ</p>
-                          <p className="mt-1 text-sm font-extrabold text-violet-700 dark:text-violet-300">
-                            {zone?.name || 'Khu đã xóa'} · {completedTasks}/{totalTasks} việc
+                          <p className="mt-1 text-sm font-extrabold text-[var(--kg-primary)] font-mono tabular-nums">
+                            <span className="font-sans">{zone?.name || 'Khu đã xóa'}</span> · {completedTasks}/{totalTasks} việc
                           </p>
                         </div>
                         {assignment.isVirtual ? (
-                          <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase text-violet-700 dark:text-violet-400 bg-violet-100 dark:bg-violet-950/30 px-2.5 py-1 rounded-lg justify-self-end">
-                            ✨ Tự động
+                          <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase text-[var(--kg-primary)] bg-[var(--kg-primary-soft)] px-2.5 py-1 rounded-lg justify-self-end">
+                            <Sparkles size={11} /> Tự động
                           </span>
                         ) : (
                           <button
@@ -1131,7 +1873,7 @@ export default function AdminOperations() {
                     onChange={e => setEvalSearchQuery(e.target.value)}
                     className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                   />
-                  <button type="button" onClick={autoBalanceTeams} className="inline-flex items-center gap-2 rounded-xl bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700 dark:bg-violet-950/30 dark:text-violet-300">
+                  <button type="button" onClick={autoBalanceTeams} className="inline-flex items-center gap-2 rounded-xl bg-[var(--kg-primary-soft)] px-3 py-2 text-xs font-bold text-[var(--kg-primary)] hover:opacity-90 transition-opacity">
                     <Sparkles size={15} /> Xếp đội theo điểm
                   </button>
                 </div>

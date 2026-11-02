@@ -29,6 +29,8 @@ export default function EmployeeAttendanceMonitor({
   const users = useAppStore((s) => s.users);
   const logs = useAppStore((s) => s.logs);
   const approvedShifts = useAppStore((s) => s.approvedShifts);
+  const currentWeekApprovedShifts = useAppStore((s) => s.currentWeekApprovedShifts);
+  const currentUser = useAppStore((s) => s.currentUser);
   const adminSchedules = useAppStore((s) => s.adminSchedules);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -48,21 +50,31 @@ export default function EmployeeAttendanceMonitor({
   // Map today's approved shifts by username/fullname
   const shiftsMap = useMemo(() => {
     const map: Record<string, string> = {};
-    if (!approvedShifts) return map;
     const today = new Date();
     let dayIdx = today.getDay() - 1; // 0=Mon, 6=Sun
     if (dayIdx === -1) dayIdx = 6;
 
-    // Check if store has admin schedules
+    // Populate from adminSchedules (both username and fullname keys for reliable matching)
     if (adminSchedules?.length) {
       adminSchedules.forEach((sched) => {
-        if (sched && sched.shifts && sched.shifts[dayIdx]) {
-          map[sched.username || sched.fullname] = sched.shifts[dayIdx];
+        const shiftVal = sched?.shifts?.[dayIdx];
+        if (shiftVal) {
+          if (sched.username) map[sched.username] = shiftVal;
+          if (sched.fullname) map[sched.fullname] = shiftVal;
         }
       });
     }
+
+    // Fallback for current user's own current-week shift when adminSchedules is not loaded
+    const ownShifts = currentWeekApprovedShifts ?? approvedShifts;
+    const ownTodayShift = ownShifts?.[dayIdx];
+    if (currentUser && ownTodayShift) {
+      if (currentUser.username && !map[currentUser.username]) map[currentUser.username] = ownTodayShift;
+      if (currentUser.fullname && !map[currentUser.fullname]) map[currentUser.fullname] = ownTodayShift;
+    }
+
     return map;
-  }, [approvedShifts, adminSchedules, ticker]);
+  }, [approvedShifts, currentWeekApprovedShifts, currentUser, adminSchedules, ticker]);
 
   // Compute live attendance status
   const attendanceList = useMemo(() => {
@@ -121,8 +133,8 @@ export default function EmployeeAttendanceMonitor({
             <span className="text-[10px] font-black uppercase tracking-wider text-[var(--kg-text-muted)]">Đang làm việc</span>
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
           </div>
-          <div className="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
-            {counts.inShift} <span className="text-xs font-bold text-[var(--kg-text-muted)]">người</span>
+          <div className="text-xl font-black font-mono tabular-nums text-emerald-600 dark:text-emerald-400 mt-1">
+            {counts.inShift} <span className="text-xs font-sans font-bold text-[var(--kg-text-muted)]">người</span>
           </div>
         </button>
 
@@ -140,8 +152,8 @@ export default function EmployeeAttendanceMonitor({
             <span className="text-[10px] font-black uppercase tracking-wider text-[var(--kg-text-muted)]">Chưa vào ca</span>
             <AlertTriangle size={13} className="text-amber-500" />
           </div>
-          <div className="text-xl font-black text-amber-600 dark:text-amber-400 mt-1">
-            {counts.notInYet} <span className="text-xs font-bold text-[var(--kg-text-muted)]">người</span>
+          <div className="text-xl font-black font-mono tabular-nums text-amber-600 dark:text-amber-400 mt-1">
+            {counts.notInYet} <span className="text-xs font-sans font-bold text-[var(--kg-text-muted)]">người</span>
           </div>
         </button>
 
@@ -151,16 +163,16 @@ export default function EmployeeAttendanceMonitor({
           onClick={() => setFilterTab(filterTab === 'COMPLETED' ? 'ALL' : 'COMPLETED')}
           className={`p-3 rounded-2xl border text-left transition-all active:scale-95 ${
             filterTab === 'COMPLETED'
-              ? 'bg-blue-500/20 border-blue-500 text-blue-700 dark:text-blue-300 ring-2 ring-blue-500/30'
-              : 'bg-[var(--kg-surface)] border-[var(--kg-border)] hover:bg-blue-500/10'
+              ? 'bg-sky-500/20 border-sky-500 text-sky-700 dark:text-sky-300 ring-2 ring-sky-500/30'
+              : 'bg-[var(--kg-surface)] border-[var(--kg-border)] hover:bg-sky-500/10'
           }`}
         >
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-black uppercase tracking-wider text-[var(--kg-text-muted)]">Đã xong ca</span>
-            <CheckCircle2 size={13} className="text-blue-500" />
+            <CheckCircle2 size={13} className="text-sky-500" />
           </div>
-          <div className="text-xl font-black text-blue-600 dark:text-blue-400 mt-1">
-            {counts.completed} <span className="text-xs font-bold text-[var(--kg-text-muted)]">người</span>
+          <div className="text-xl font-black font-mono tabular-nums text-sky-600 dark:text-sky-400 mt-1">
+            {counts.completed} <span className="text-xs font-sans font-bold text-[var(--kg-text-muted)]">người</span>
           </div>
         </button>
 
@@ -170,16 +182,16 @@ export default function EmployeeAttendanceMonitor({
           onClick={() => setFilterTab(filterTab === 'OFF' ? 'ALL' : 'OFF')}
           className={`p-3 rounded-2xl border text-left transition-all active:scale-95 ${
             filterTab === 'OFF'
-              ? 'bg-slate-500/20 border-slate-500 text-slate-700 dark:text-slate-300 ring-2 ring-slate-500/30'
-              : 'bg-[var(--kg-surface)] border-[var(--kg-border)] hover:bg-slate-500/10'
+              ? 'bg-[var(--kg-surface-soft)] border-[var(--kg-text-muted)] text-[var(--kg-text)] ring-2 ring-[var(--kg-border)]'
+              : 'bg-[var(--kg-surface)] border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]'
           }`}
         >
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-black uppercase tracking-wider text-[var(--kg-text-muted)]">Nghỉ ca (OFF)</span>
-            <Coffee size={13} className="text-slate-400" />
+            <Coffee size={13} className="text-[var(--kg-text-soft)]" />
           </div>
-          <div className="text-xl font-black text-slate-600 dark:text-slate-400 mt-1">
-            {counts.off} <span className="text-xs font-bold text-[var(--kg-text-muted)]">người</span>
+          <div className="text-xl font-black font-mono tabular-nums text-[var(--kg-text-muted)] mt-1">
+            {counts.off} <span className="text-xs font-sans font-bold text-[var(--kg-text-muted)]">người</span>
           </div>
         </button>
       </div>
@@ -190,15 +202,17 @@ export default function EmployeeAttendanceMonitor({
           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--kg-text-muted)]" />
           <input
             type="text"
+            aria-label="Tìm theo tên nhân viên hoặc vị trí"
             placeholder="Tìm theo tên nhân viên, vị trí..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-8 py-2.5 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-xs text-[var(--kg-text)] placeholder-[var(--kg-text-muted)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full pl-9 pr-8 py-2.5 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-xs text-[var(--kg-text)] placeholder-[var(--kg-text-muted)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15"
           />
           {searchQuery && (
             <button
               type="button"
               onClick={() => setSearchQuery('')}
+              aria-label="Xóa từ khóa tìm kiếm"
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] p-1"
             >
               <X size={14} />
@@ -211,57 +225,61 @@ export default function EmployeeAttendanceMonitor({
           <button
             type="button"
             onClick={() => setFilterTab('ALL')}
-            className={`px-3 py-1.5 rounded-full font-bold whitespace-nowrap transition-all ${
+            className={`px-3 py-1.5 rounded-full font-bold whitespace-nowrap transition-colors ${
               filterTab === 'ALL'
-                ? 'bg-blue-600 text-white shadow-xs'
+                ? 'bg-[var(--kg-primary)] text-white shadow-xs'
                 : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
             }`}
           >
-            Tất cả ({counts.total})
+            Tất cả (<span className="font-mono tabular-nums">{counts.total}</span>)
           </button>
           <button
             type="button"
             onClick={() => setFilterTab('IN_SHIFT')}
-            className={`px-3 py-1.5 rounded-full font-bold whitespace-nowrap transition-all ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold whitespace-nowrap transition-colors ${
               filterTab === 'IN_SHIFT'
                 ? 'bg-emerald-600 text-white shadow-xs'
                 : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
             }`}
           >
-            🟢 Đang làm ({counts.inShift})
+            <span className="w-2 h-2 rounded-full bg-emerald-400" />
+            <span>Đang làm (<span className="font-mono tabular-nums">{counts.inShift}</span>)</span>
           </button>
           <button
             type="button"
             onClick={() => setFilterTab('NOT_IN_YET')}
-            className={`px-3 py-1.5 rounded-full font-bold whitespace-nowrap transition-all ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold whitespace-nowrap transition-colors ${
               filterTab === 'NOT_IN_YET'
                 ? 'bg-amber-600 text-white shadow-xs'
                 : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
             }`}
           >
-            🟡 Chưa vào ({counts.notInYet})
+            <span className="w-2 h-2 rounded-full bg-amber-400" />
+            <span>Chưa vào (<span className="font-mono tabular-nums">{counts.notInYet}</span>)</span>
           </button>
           <button
             type="button"
             onClick={() => setFilterTab('COMPLETED')}
-            className={`px-3 py-1.5 rounded-full font-bold whitespace-nowrap transition-all ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold whitespace-nowrap transition-colors ${
               filterTab === 'COMPLETED'
-                ? 'bg-blue-600 text-white shadow-xs'
+                ? 'bg-sky-600 text-white shadow-xs'
                 : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
             }`}
           >
-            🔵 Đã xong ({counts.completed})
+            <span className="w-2 h-2 rounded-full bg-sky-400" />
+            <span>Đã xong (<span className="font-mono tabular-nums">{counts.completed}</span>)</span>
           </button>
           <button
             type="button"
             onClick={() => setFilterTab('OFF')}
-            className={`px-3 py-1.5 rounded-full font-bold whitespace-nowrap transition-all ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold whitespace-nowrap transition-colors ${
               filterTab === 'OFF'
                 ? 'bg-slate-700 text-white shadow-xs'
                 : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
             }`}
           >
-            ⚪ Nghỉ ca ({counts.off})
+            <span className="w-2 h-2 rounded-full bg-slate-400" />
+            <span>Nghỉ ca (<span className="font-mono tabular-nums">{counts.off}</span>)</span>
           </button>
         </div>
       </div>
@@ -412,7 +430,7 @@ export default function EmployeeAttendanceMonitor({
       <KgBottomSheet
         isOpen={isOpen}
         onClose={onClose || (() => {})}
-        title="👥 Theo Dõi Ca Làm Nhân Viên Hôm Nay"
+        title="Theo dõi ca làm nhân viên hôm nay"
       >
         <div className="py-2">{content}</div>
       </KgBottomSheet>

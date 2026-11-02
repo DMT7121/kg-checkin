@@ -132,8 +132,8 @@ export default function Roster() {
       Object.entries(grouped).forEach(([shift, names]) => {
         const safeShift = escapeHtml(shift);
         html += `<div class="mb-4 paint-layer p-3 rounded-xl ">
-          <div class="font-bold text-indigo-600 dark:text-indigo-400 border-b border-indigo-100 dark:border-indigo-900/50 mb-2 pb-1 text-sm flex items-center">
-            <span class="w-2 h-2 rounded-full bg-indigo-500 mr-2"></span>${safeShift}
+          <div class="font-bold text-[#062B49] dark:text-blue-400 border-b border-slate-200 dark:border-slate-700 mb-2 pb-1 text-sm flex items-center tabular-nums">
+            <span class="w-2 h-2 rounded-full bg-[#062B49] dark:bg-blue-400 mr-2"></span>${safeShift}
           </div>
           <div class="text-sm text-gray-700 dark:text-gray-300 pl-1 grid grid-cols-2 gap-1">
             ${names.map(n => `<div class="flex items-center"><span class="text-gray-400 mr-1.5">•</span>${escapeHtml(n)}</div>`).join('')}
@@ -144,10 +144,10 @@ export default function Roster() {
     html += '</div>';
 
     Swal.fire({
-      title: `<div class="text-lg font-bold">Lịch Ngày ${mDate.date.getDate()}/${mDate.date.getMonth() + 1}</div>`,
+      title: `<div class="text-lg font-bold tabular-nums">Lịch Ngày ${mDate.date.getDate()}/${mDate.date.getMonth() + 1}</div>`,
       html,
       confirmButtonText: 'Đóng',
-      confirmButtonColor: '#4f46e5',
+      confirmButtonColor: '#062B49',
       customClass: { popup: 'rounded-2xl' }
     });
   };
@@ -172,18 +172,18 @@ export default function Roster() {
             const isOff = myShift === 'OFF' || !myShift;
             return (
               <div 
-                className={`w-full h-full flex flex-col justify-center items-center cursor-pointer hover:scale-95 transition-transform rounded-xl p-1  border border-transparent hover:border-indigo-200 ${getAdminShiftClass(myShift)}`}
+                className={`w-full h-full flex flex-col justify-center items-center cursor-pointer hover:scale-95 transition-transform rounded-xl p-1 border border-transparent hover:border-[var(--kg-primary)]/40 ${getAdminShiftClass(myShift)}`}
                 onClick={() => showDayDetails(mDate, empMonthMap)}
                 title="Nhấn để xem chi tiết toàn quán"
               >
-                {!isOff && <span className="text-[10px] sm:text-xs font-bold leading-tight text-center"><ResponsiveShift shift={myShift} /></span>}
+                {!isOff && <span className="text-[10px] sm:text-xs font-bold leading-tight text-center tabular-nums"><ResponsiveShift shift={myShift} /></span>}
                 {isOff && <span className="text-[9px] opacity-60">OFF</span>}
               </div>
             );
           }}
         />
-        <div className="mt-5 text-xs text-center text-gray-500 dark:text-gray-400 paint-layer/50 py-2 rounded-lg border border-dashed border-gray-200 dark:border-gray-700">
-          💡 Nhấn vào một ngày bất kỳ để xem lịch làm của toàn quán
+        <div className="mt-5 text-xs text-center text-[var(--kg-text-muted)] bg-[var(--kg-surface-soft)] py-2.5 px-3 rounded-xl border border-dashed border-[var(--kg-border)] flex items-center justify-center gap-1.5 font-medium">
+          <Info size={14} className="text-[var(--kg-primary)] flex-shrink-0" /> Nhấn vào một ngày bất kỳ để xem lịch làm của toàn quán
         </div>
       </div>
     );
@@ -243,11 +243,11 @@ export default function Roster() {
             </thead>
             <tbody>
               {rosterToRender.map((emp, empIdx) => (
-                <tr key={empIdx} className={`border-b border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]/60 transition-colors ${emp.username === store.currentUser?.username ? 'bg-indigo-500/10' : ''}`}>
+                <tr key={empIdx} className={`border-b border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]/60 transition-colors ${emp.username === store.currentUser?.username ? 'bg-[var(--kg-primary-soft)]' : ''}`}>
                   <td className="px-3 py-2.5 sticky left-0 bg-[var(--kg-surface)] z-10 shadow-[1px_0_0_0_rgba(0,0,0,0.05)] border-r border-[var(--kg-border)]">
                     <SmartPersonName fullname={emp.fullname} className="max-w-[140px] text-xs font-black text-[var(--kg-text)]" />
                     {emp.username === store.currentUser?.username && (
-                      <div className="text-[9px] font-black text-blue-600 dark:text-indigo-400 uppercase tracking-wider mt-0.5">Bạn</div>
+                      <div className="text-[9px] font-black text-[var(--kg-primary)] uppercase tracking-wider mt-0.5">Bạn</div>
                     )}
                   </td>
                   {emp.shifts.map((shift: string, dayIdx: number) => {
@@ -344,9 +344,9 @@ export default function Roster() {
           </thead>
           <tbody>
             {rosterToRender.map((emp, empIdx) => (
-              <tr key={empIdx} className={`soft3d-card border-b dark:border-gray-700 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 transition-colors ${emp.username === store.currentUser?.username ? 'bg-indigo-50/30 dark:bg-indigo-900/20' : ''}`}>
-                <td className="px-3 py-3 sticky left-0 soft3d-card z-10 shadow-[1px_0_0_0_rgba(0,0,0,0.05)] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.05)] border-r border-gray-200 dark:border-gray-700">
-                  <SmartPersonName fullname={emp.fullname} className="max-w-[150px] text-xs font-bold text-gray-800 dark:text-gray-200" />
+              <tr key={empIdx} className={`border-b border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]/60 transition-colors ${emp.username === store.currentUser?.username ? 'bg-[var(--kg-primary-soft)]' : 'bg-[var(--kg-surface)]'}`}>
+                <td className="px-3 py-3 sticky left-0 bg-[var(--kg-surface)] z-10 shadow-[1px_0_0_0_rgba(0,0,0,0.05)] border-r border-[var(--kg-border)]">
+                  <SmartPersonName fullname={emp.fullname} className="max-w-[150px] text-xs font-bold text-[var(--kg-text)]" />
                 </td>
                 {visibleMonthDates.map((mDate) => {
                   const dayIdx = monthDates.findIndex(date => date.dateKey === mDate.dateKey);

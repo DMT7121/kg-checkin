@@ -17,7 +17,7 @@ export default function Feedback() {
   const [loading, setLoading] = useState(true);
   
   // Form states
-  const [category, setCategory] = useState('Góp ý hệ thống');
+  const [category, setCategory] = useState('Góp ý cải tiến quy trình');
   const [content, setContent] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
 
@@ -33,14 +33,8 @@ export default function Feedback() {
         role: currentUser?.role
       }, { background: true });
       
-      if (res?.ok && res.data) {
+      if (res?.ok && Array.isArray(res.data)) {
         store.setFeedbacks(res.data);
-      } else {
-        // Mock data
-        store.setFeedbacks([
-          { id: 'FB_1', date: '29/04/2026', username: 'nguyenvana', fullname: 'Nguyễn Văn A', category: 'Khiếu nại lương/ca', content: 'Tháng này em bị tính thiếu 1 ca ngày 25/04.', isAnonymous: false, status: 'Pending', adminReply: '' },
-          { id: 'FB_2', date: '28/04/2026', username: 'Anonymous', fullname: 'Ẩn danh', category: 'Thái độ đồng nghiệp', content: 'Khu vực bếp hôm qua có bạn B nói chuyện quá lớn tiếng ảnh hưởng khách.', isAnonymous: true, status: 'Reviewed', adminReply: 'Cảm ơn bạn đã phản ánh. Quản lý sẽ nhắc nhở bộ phận Bếp.' }
-        ]);
       }
     } catch (err) {
       console.error(err);
@@ -65,8 +59,8 @@ export default function Feedback() {
     store.setLoading(true, 'Đang gửi góp ý...');
     try {
       const res = await callApi('SUBMIT_FEEDBACK', {
-        username: currentUser?.username,
-        fullname: currentUser?.fullname,
+        username: isAnonymous ? 'Anonymous' : currentUser?.username,
+        fullname: isAnonymous ? 'Ẩn danh' : currentUser?.fullname,
         category,
         content,
         isAnonymous
@@ -142,32 +136,44 @@ export default function Feedback() {
         {!isAdmin && (
           <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 sm:p-5 shadow-xs shrink-0 space-y-3">
             <h3 className="font-black text-[var(--kg-text)] text-xs sm:text-sm flex items-center">
-              <Send size={15} className="mr-2 text-indigo-500" /> Gửi phản hồi / kiến nghị mới
+              <Send size={15} className="mr-2 text-[var(--kg-primary)]" /> Gửi phản hồi / kiến nghị mới
             </h3>
             <form onSubmit={handleSubmit} className="space-y-3">
-              <select 
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-[var(--kg-text)] text-xs sm:text-sm font-medium"
-              >
-                <option>Góp ý cải tiến quy trình</option>
-                <option>Khiếu nại ca làm / lương thưởng</option>
-                <option>Cơ sở vật chất / công cụ làm việc</option>
-                <option>Khác</option>
-              </select>
+              <div>
+                <label htmlFor="feedback-category" className="block text-[11px] font-bold text-[var(--kg-text-muted)] uppercase tracking-wider mb-1">
+                  Nhóm nội dung
+                </label>
+                <select 
+                  id="feedback-category"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)] text-xs sm:text-sm font-medium"
+                >
+                  <option>Góp ý cải tiến quy trình</option>
+                  <option>Khiếu nại ca làm / lương thưởng</option>
+                  <option>Cơ sở vật chất / công cụ làm việc</option>
+                  <option>Khác</option>
+                </select>
+              </div>
 
-              <textarea 
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder="Nhập nội dung chi tiết..."
-                rows={3}
-                className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-[var(--kg-text)] text-xs sm:text-sm"
-              />
+              <div>
+                <label htmlFor="feedback-content" className="block text-[11px] font-bold text-[var(--kg-text-muted)] uppercase tracking-wider mb-1">
+                  Chi tiết góp ý / kiến nghị
+                </label>
+                <textarea 
+                  id="feedback-content"
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  placeholder="Nhập nội dung chi tiết..."
+                  rows={3}
+                  className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)] text-xs sm:text-sm"
+                />
+              </div>
 
               <div className="flex items-center justify-between pt-1">
                 <label className="flex items-center space-x-2 cursor-pointer select-none">
-                  <div className={`w-9 h-5 flex items-center bg-gray-300 dark:bg-gray-700 rounded-full p-0.5 transition-colors duration-300 ${isAnonymous ? '!bg-indigo-600' : ''}`}>
-                    <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${isAnonymous ? 'translate-x-4' : ''}`}></div>
+                  <div className={`w-9 h-5 flex items-center bg-gray-300 dark:bg-gray-700 rounded-full p-0.5 transition-colors duration-200 ${isAnonymous ? '!bg-[var(--kg-primary)]' : ''}`}>
+                    <div className={`bg-white w-4 h-4 rounded-full shadow-xs transform transition-transform duration-200 ${isAnonymous ? 'translate-x-4' : ''}`}></div>
                   </div>
                   <input type="checkbox" className="hidden" checked={isAnonymous} onChange={() => setIsAnonymous(!isAnonymous)} />
                   <span className="text-xs font-bold text-[var(--kg-text)] flex items-center">
@@ -191,7 +197,7 @@ export default function Feedback() {
           <h3 className="font-black text-[var(--kg-text-muted)] text-[11px] uppercase tracking-wider pl-1">Lịch sử phản hồi</h3>
           
           {loading ? (
-            <div className="flex justify-center py-6"><div className="animate-spin h-6 w-6 border-2 border-indigo-500 border-t-transparent rounded-full"></div></div>
+            <div className="flex justify-center py-6"><div className="animate-spin h-6 w-6 border-2 border-[var(--kg-primary)] border-t-transparent rounded-full"></div></div>
           ) : displayFeedbacks.length === 0 ? (
             <div className="text-center py-8 bg-[var(--kg-surface)] border border-dashed border-[var(--kg-border)] rounded-2xl">
               <AlertCircle size={28} className="mx-auto text-[var(--kg-text-muted)] opacity-40 mb-2" />
@@ -209,14 +215,14 @@ export default function Feedback() {
                 >
                   <div className="flex justify-between items-start">
                     <div className="flex items-center space-x-2">
-                      <div className={`p-1.5 rounded-xl ${fb.isAnonymous ? 'bg-gray-100 text-gray-500 dark:bg-gray-800' : 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40'}`}>
+                      <div className={`p-1.5 rounded-xl ${fb.isAnonymous ? 'bg-gray-100 text-gray-500 dark:bg-gray-800' : 'bg-[var(--kg-primary-soft)] text-[var(--kg-primary)]'}`}>
                         {fb.isAnonymous ? <EyeOff size={14} /> : <User size={14} />}
                       </div>
                       <div>
                         <p className="text-xs sm:text-sm font-black text-[var(--kg-text)]">
                           {fb.isAnonymous ? 'Người dùng ẩn danh' : fb.fullname}
                         </p>
-                        <p className="text-[10px] text-[var(--kg-text-muted)] flex items-center mt-0.5 font-medium">
+                        <p className="text-[10px] text-[var(--kg-text-muted)] flex items-center mt-0.5 font-medium font-mono tabular-nums">
                           <Clock size={10} className="mr-1" /> {fb.date}
                         </p>
                       </div>
@@ -234,30 +240,31 @@ export default function Feedback() {
 
                   {/* Admin Reply Section */}
                   {fb.adminReply ? (
-                    <div className="mt-3 bg-purple-50 dark:bg-purple-900/10 border-l-2 border-purple-400 p-3 rounded-r-xl">
-                      <p className="text-xs font-bold text-purple-700 dark:text-purple-400 flex items-center mb-1">
+                    <div className="mt-3 bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] p-3 rounded-xl">
+                      <p className="text-xs font-bold text-[var(--kg-primary)] flex items-center mb-1">
                         <CornerDownRight size={12} className="mr-1" /> Phản hồi từ Quản lý:
                       </p>
-                      <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{fb.adminReply}</p>
+                      <p className="text-sm text-[var(--kg-text)] whitespace-pre-wrap">{fb.adminReply}</p>
                     </div>
                   ) : isAdmin ? (
-                    <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
+                    <div className="mt-4 pt-3 border-t border-[var(--kg-border)]">
                       {replyingTo === fb.id ? (
                         <div className="space-y-2">
                           <textarea 
+                            aria-label="Nhập phản hồi của Quản lý"
                             value={replyContent}
                             onChange={(e) => setReplyContent(e.target.value)}
                             placeholder="Nhập phản hồi của bạn..."
-                            className="w-full soft3d-bg/50 border border-gray-200 dark:border-gray-700 rounded-lg p-2 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500"
+                            className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)]"
                             rows={2}
                           ></textarea>
                           <div className="flex justify-end space-x-2">
-                            <button onClick={() => setReplyingTo(null)} className="px-3 py-1 text-xs text-gray-500 font-medium hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">Hủy</button>
-                            <button onClick={() => handleReply(fb.id)} className="px-3 py-1 bg-purple-600 text-white text-xs font-semibold rounded-lg hover:bg-purple-700">Gửi phản hồi</button>
+                            <button type="button" onClick={() => setReplyingTo(null)} className="px-3 py-1.5 text-xs text-[var(--kg-text-muted)] font-bold hover:bg-[var(--kg-surface-soft)] rounded-lg">Hủy</button>
+                            <button type="button" onClick={() => handleReply(fb.id)} className="px-3.5 py-1.5 bg-[var(--kg-primary)] text-white text-xs font-bold rounded-lg hover:opacity-90">Gửi phản hồi</button>
                           </div>
                         </div>
                       ) : (
-                        <button onClick={() => setReplyingTo(fb.id)} className="text-xs font-semibold text-purple-600 dark:text-purple-400 flex items-center hover:underline">
+                        <button type="button" onClick={() => setReplyingTo(fb.id)} className="text-xs font-bold text-[var(--kg-primary)] flex items-center hover:underline">
                           <CornerDownRight size={14} className="mr-1" /> Nhập phản hồi
                         </button>
                       )}

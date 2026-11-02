@@ -52,6 +52,23 @@ function isAdminUser(username) {
   return false;
 }
 
+/**
+ * Verifies that the caller is an authenticated Admin (rejects missing actor, normal staff, and tester).
+ */
+function requireAdminActor(payload) {
+  if (!payload) return 'Thiếu thông tin xác thực Quản trị viên';
+  var declaredRole = payload.role ? payload.role.toString().trim().toLowerCase() : '';
+  if (declaredRole === 'tester' || (declaredRole && declaredRole !== 'admin')) {
+    return 'Chỉ Quản trị viên (Admin) mới có quyền thực hiện thao tác này';
+  }
+  var actor = payload.adminUsername || payload.actorUsername || payload.username || '';
+  actor = actor.toString().trim();
+  if (!actor || !isAdminUser(actor)) {
+    return 'Chỉ Quản trị viên (Admin) mới có quyền thực hiện thao tác này';
+  }
+  return null;
+}
+
 // =====================================================================================
 // 1. User Authentication (Tối ưu hóa siêu nhanh với CacheService in-memory)
 // =====================================================================================
@@ -132,21 +149,9 @@ function handleLogin(payload) {
   var inputPassword = payload.password.toString();
   var inputHash = payload.passwordHash || computePasswordHash(inputPassword);
 
-  // === FAST BYPASS CHO TESTER / SUPER ADMIN ===
-  if (targetUser.toLowerCase() === 'testapp' && inputPassword === '123456') {
-    return jsonResponse(true, {
-      username: 'testapp',
-      fullname: 'TESTAPP',
-      email: 'ngaiviettenem@gmail.com',
-      role: 'tester',
-      isTester: true,
-      position: 'Tester',
-      employmentStatus: 'active',
-      statusUntil: '',
-      statusReason: ''
-    });
-  }
-  if (targetUser.toUpperCase() === 'ADMIN' && inputPassword === 'admin1') {
+  // Emergency Super Admin login only via ScriptProperties (no hardcoded plaintext credentials)
+  var superAdminSecret = PropertiesService.getScriptProperties().getProperty('SUPER_ADMIN_PASSWORD');
+  if (superAdminSecret && targetUser.toUpperCase() === 'ADMIN' && inputPassword === superAdminSecret) {
     return jsonResponse(true, {
       username: 'ADMIN',
       fullname: 'SUPER ADMIN',
@@ -221,6 +226,8 @@ function handleRegister(payload) {
 }
 
 function handleUpdateSingleShift(payload) {
+  var adminErr = requireAdminActor(payload);
+  if (adminErr) return jsonResponse(false, adminErr);
   var monthSheet = payload.monthSheet;
   var weekLabel = payload.weekLabel; // E.g: "20/04 - 26/04"
   var fullname = payload.fullname;
@@ -234,28 +241,30 @@ function handleUpdateSingleShift(payload) {
   var sheet = getMonthlyScheduleSheet(monthSheet);
   var data = sheet.getDataRange().getValues();
   
+  var cleanWL = cleanScheduleWeekLabel(weekLabel);
   // Find week header
   var headerRow = -1;
   for (var i = 0; i < data.length; i++) {
-    if (data[i][0] && data[i][0].toString().indexOf('TUẦN ' + weekLabel) >= 0) {
+    if (data[i][0] && data[i][0].toString().indexOf('TUẦN ' + cleanWL) >= 0) {
       headerRow = i + 1; // 1-indexed
       break;
     }
   }
   
   if (headerRow === -1) {
-    return jsonResponse(false, 'Không tìm thấy tuần ' + weekLabel);
+    return jsonResponse(false, 'Không tìm thấy tuần ' + cleanWL);
   }
   
   var regRow = -1;
   var approvalRow = -1;
+  var targetNorm = normalizeSchedulePersonName(fullname);
   
   for (var r = headerRow; r < data.length; r++) {
     var cellName = data[r][0] ? data[r][0].toString() : '';
     if (cellName.indexOf('TUẦN ') >= 0 && r > headerRow) break;
     
-    if (cellName === fullname) regRow = r + 1;
-    if (cellName.indexOf('┗') >= 0 && cellName.indexOf(fullname) >= 0) approvalRow = r + 1;
+    if (cellName.indexOf('┗') === -1 && normalizeSchedulePersonName(cellName) === targetNorm) regRow = r + 1;
+    if (cellName.indexOf('┗') >= 0 && normalizeSchedulePersonName(cellName) === targetNorm) approvalRow = r + 1;
   }
   
   var targetRow = -1;
@@ -265,7 +274,7 @@ function handleUpdateSingleShift(payload) {
   } else if (regRow > -1) {
     // Need to create approval row
     var now = new Date();
-    var timestamp = Utilities.formatDate(now, Session.getScriptTimeZone(), 'dd/MM HH:mm');
+    var timestamp = Utilities.formatDate(now, CONFIG.TIMEZONE || 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm');
     sheet.insertRowAfter(regRow);
     targetRow = regRow + 1;
     
@@ -470,10 +479,8 @@ function handleResetPassword(payload) {
 
 function handleForceResetPassword(payload) {
   if (!payload || !payload.targetUsername) return jsonResponse(false, 'Thiếu targetUsername');
-  
-  if (payload.adminUsername && !isAdminUser(payload.adminUsername)) {
-    return jsonResponse(false, 'Chỉ Quản trị viên mới có quyền thực hiện thao tác này');
-  }
+  var adminErr = requireAdminActor(payload);
+  if (adminErr) return jsonResponse(false, adminErr);
 
   var ss = getSS();
   var usersSheet = ss.getSheetByName(CONFIG.SHEET_USERS);
@@ -494,6 +501,17 @@ function handleForceResetPassword(payload) {
   
   if (updated) {
     invalidateAuthUsersCache();
+    if (typeof appendAuditLog_ === 'function') {
+      try {
+        appendAuditLog_(
+          payload.actorUsername || payload.adminUsername || payload.username || 'admin',
+          'FORCE_RESET_PASSWORD',
+          payload.targetUsername,
+          'Đặt lại mật khẩu mặc định cho @' + payload.targetUsername,
+          { targetUsername: payload.targetUsername }
+        );
+      } catch (eAudit) {}
+    }
     return jsonResponse(true, 'Đã đặt lại mật khẩu thành công');
   } else {
     return jsonResponse(false, 'Không tìm thấy User này');
@@ -503,6 +521,8 @@ function handleForceResetPassword(payload) {
 // 1B. CẬP NHẬT PHÂN QUYỀN (ROLE)
 function handleUpdateUserRole(payload) {
   if (!payload || !payload.targetUsername || !payload.newRole) return jsonResponse(false, 'Thiếu thông tin');
+  var adminErr = requireAdminActor(payload);
+  if (adminErr) return jsonResponse(false, adminErr);
   
   var ss = getSS();
   var usersSheet = ss.getSheetByName(CONFIG.SHEET_USERS);
@@ -521,6 +541,17 @@ function handleUpdateUserRole(payload) {
   
   if (updated) {
     invalidateAuthUsersCache();
+    if (typeof appendAuditLog_ === 'function') {
+      try {
+        appendAuditLog_(
+          payload.actorUsername || payload.adminUsername || payload.username || 'admin',
+          'UPDATE_USER_ROLE',
+          payload.targetUsername,
+          'Cập nhật phân quyền @' + payload.targetUsername + ' -> ' + payload.newRole,
+          { targetUsername: payload.targetUsername, newRole: payload.newRole }
+        );
+      } catch (eAudit) {}
+    }
     return jsonResponse(true, 'Cập nhật phân quyền thành công');
   } else {
     return jsonResponse(false, 'Không tìm thấy User này');
@@ -530,6 +561,8 @@ function handleUpdateUserRole(payload) {
 // 1C. CẬP NHẬT CHỨC VỤ/BỘ PHẬN (POSITION)
 function handleUpdateUserPosition(payload) {
   if (!payload || !payload.targetUsername || !payload.newPosition) return jsonResponse(false, 'Thiếu thông tin');
+  var adminErr = requireAdminActor(payload);
+  if (adminErr) return jsonResponse(false, adminErr);
   
   var ss = getSS();
   var usersSheet = ss.getSheetByName(CONFIG.SHEET_USERS);
@@ -548,6 +581,17 @@ function handleUpdateUserPosition(payload) {
   
   if (updated) {
     invalidateAuthUsersCache();
+    if (typeof appendAuditLog_ === 'function') {
+      try {
+        appendAuditLog_(
+          payload.actorUsername || payload.adminUsername || payload.username || 'admin',
+          'UPDATE_USER_POSITION',
+          payload.targetUsername,
+          'Cập nhật bộ phận @' + payload.targetUsername + ' -> ' + payload.newPosition,
+          { targetUsername: payload.targetUsername, newPosition: payload.newPosition }
+        );
+      } catch (eAudit) {}
+    }
     return jsonResponse(true, 'Cập nhật bộ phận thành công');
   } else {
     return jsonResponse(false, 'Không tìm thấy User này');
@@ -643,7 +687,9 @@ function safeShiftValue(cellValue) {
 
 function parseDateTimeString(str) {
   if (!str) return new Date();
-  if (str instanceof Date) return isNaN(str.getTime()) ? new Date() : str;
+  if (str && typeof str === 'object' && typeof str.getTime === 'function') {
+    return isNaN(str.getTime()) ? new Date() : str;
+  }
   var s = str.toString().trim().replace(/^['"\s]+|['"\s]+$/g, '');
   var parts = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/);
   if (parts) {
@@ -653,11 +699,66 @@ function parseDateTimeString(str) {
     var hour = parseInt(parts[4], 10);
     var minute = parseInt(parts[5], 10);
     var second = parts[6] ? parseInt(parts[6], 10) : 0;
-    var d = new Date(year, month, day, hour, minute, second);
+    // Interpret DD/MM/YYYY HH:mm:ss strictly in Vietnam timezone (UTC+7)
+    var d = new Date(Date.UTC(year, month, day, hour - 7, minute, second));
     if (!isNaN(d.getTime())) return d;
   }
   var d2 = new Date(s);
   return !isNaN(d2.getTime()) ? d2 : new Date();
+}
+
+function normalizeSchedulePersonName(str) {
+  if (!str) return '';
+  var s = str.toString();
+  if (typeof s.normalize === 'function') {
+    s = s.normalize('NFC');
+  }
+  return s.replace(/^┗\s*/, '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+function cleanScheduleWeekLabel(weekLabel) {
+  return (weekLabel || '').toString().replace('📅 TUẦN ', '').replace('TUẦN ', '').trim();
+}
+
+/**
+ * Deterministic Vietnam (Asia/Ho_Chi_Minh, UTC+7) upcoming week & mandatory registration window
+ * Mandatory window: Thursday 00:00 -> Saturday 16:59:59 VN (strictly before 17:00 Saturday)
+ */
+function computeVietnamUpcomingWeekAndWindow(refDate) {
+  var base = (refDate && typeof refDate === 'object' && typeof refDate.getTime === 'function' && !isNaN(refDate.getTime()))
+    ? refDate
+    : new Date();
+  var vnShifted = new Date(base.getTime() + 7 * 3600 * 1000);
+  var year = vnShifted.getUTCFullYear();
+  var month = vnShifted.getUTCMonth(); // 0-11
+  var day = vnShifted.getUTCDate();
+  var dayOfWeek = vnShifted.getUTCDay(); // 0=Sun, 1=Mon, ..., 4=Thu, 5=Fri, 6=Sat
+  var hour = vnShifted.getUTCHours();
+
+  var isMandatoryWindow = (dayOfWeek === 4 || dayOfWeek === 5 || (dayOfWeek === 6 && hour < 17));
+  var daysUntilMonday = (dayOfWeek === 0) ? 1 : (8 - dayOfWeek);
+
+  var nextMonUtc = new Date(Date.UTC(year, month, day + daysUntilMonday, 5, 0, 0));
+  var nextSunUtc = new Date(nextMonUtc.getTime() + 6 * 86400 * 1000);
+
+  var monShifted = new Date(nextMonUtc.getTime() + 7 * 3600 * 1000);
+  var sunShifted = new Date(nextSunUtc.getTime() + 7 * 3600 * 1000);
+
+  var startDay = ('0' + monShifted.getUTCDate()).slice(-2);
+  var startMonth = ('0' + (monShifted.getUTCMonth() + 1)).slice(-2);
+  var startYear = monShifted.getUTCFullYear();
+  var endDay = ('0' + sunShifted.getUTCDate()).slice(-2);
+  var endMonth = ('0' + (sunShifted.getUTCMonth() + 1)).slice(-2);
+
+  var weekDisplay = startDay + '/' + startMonth + ' - ' + endDay + '/' + endMonth;
+  return {
+    isMandatoryWindow: isMandatoryWindow,
+    dayOfWeek: dayOfWeek,
+    hour: hour,
+    weekDisplay: weekDisplay,
+    weekLabel: '📅 TUẦN ' + weekDisplay,
+    monthSheet: 'Tháng ' + startMonth + '/' + startYear
+  };
 }
 
 /**
@@ -687,7 +788,7 @@ function getLogTimestampSafe(timeVal, jsonVal) {
       var hr = parseInt(tParts[0], 10);
       var min = parseInt(tParts[1], 10);
       var sec = tParts[2] ? parseInt(tParts[2], 10) : 0;
-      var d = new Date(year, mon, day, hr, min, sec);
+      var d = new Date(Date.UTC(year, mon, day, hr - 7, min, sec));
       if (!isNaN(d.getTime())) return d.getTime();
     }
   }
@@ -956,6 +1057,40 @@ function handleCheckInOut(payload) {
   // Nếu thời gian client gửi lên bị lệch quá 90s so với giờ máy chủ (và không phải đồng bộ bù offline), lấy giờ máy chủ hiện tại
   if (time && !isOfflineRetry && Math.abs(serverNowMs - time.getTime()) > 90000 && !isAuthorizedTest) {
     time = new Date();
+  }
+
+  // === 2C. BẮT BUỘC 100% ĐĂNG KÝ LỊCH LÀM TUẦN TỚI TRƯỚC 17:00 THỨ BẢY (T5 00:00 -> T7 16:59:59 VN) ===
+  if (!isAuthorizedTest) {
+    var checkEmpProfile = payload.username ? getEmploymentProfileByUsername(payload.username) : null;
+    var isAdminActor = !!(checkEmpProfile && String(checkEmpProfile.role || '').toLowerCase() === 'admin');
+    if (!isAdminActor) {
+      var winInfo = computeVietnamUpcomingWeekAndWindow(time || new Date());
+      if (winInfo.isMandatoryWindow) {
+        var schedSheet = ss.getSheetByName(winInfo.monthSheet);
+        var isNextWeekReg = false;
+        if (schedSheet && typeof JsonCacheService !== 'undefined' && typeof JsonCacheService.extractUserWeekSchedule === 'function') {
+          var schedRows = [];
+          try {
+            var sRes = Sheets.Spreadsheets.Values.get(ss.getId(), "'" + winInfo.monthSheet + "'!A:K");
+            schedRows = sRes.values || [];
+          } catch (sApiErr) {
+            schedRows = schedSheet.getDataRange().getValues();
+          }
+          var targetSchedName = (checkEmpProfile && checkEmpProfile.fullname) ? checkEmpProfile.fullname : (payload.fullname || '');
+          var schedCheck = JsonCacheService.extractUserWeekSchedule(schedRows, cleanUser, targetSchedName, winInfo.weekLabel);
+          isNextWeekReg = !!(schedCheck && schedCheck.isScheduleRegistered);
+        }
+        if (!isNextWeekReg) {
+          return jsonResponse(false, {
+            code: 'SCHEDULE_REQUIRED',
+            weekDisplay: winInfo.weekDisplay,
+            monthSheet: winInfo.monthSheet,
+            weekLabel: winInfo.weekLabel,
+            message: 'Bắt buộc đăng ký ca làm tuần tới (' + winInfo.weekDisplay + ') trước khi chấm công! Vui lòng hoàn tất đăng ký ca đủ 7 ngày (trước 17:00 Thứ Bảy) rồi chấm công lại.'
+          });
+        }
+      }
+    }
   }
   
   // === COL A: HỌ VÀ TÊN ===
@@ -2100,9 +2235,8 @@ function getGpsConfig() {
 }
 
 function handleUpdateGpsConfig(payload) {
-  if (payload.role !== 'admin' && payload.role !== 'tester') {
-    return jsonResponse(false, 'Không có quyền thực hiện chức năng này');
-  }
+  var adminErr = requireAdminActor(payload);
+  if (adminErr) return jsonResponse(false, adminErr);
   if (!payload.lat || !payload.lng || !payload.radius) {
     return jsonResponse(false, 'Thiếu thông tin cấu hình GPS');
   }
@@ -2136,16 +2270,17 @@ function getOrgConfig() {
 }
 
 function handleUpdateOrgConfig(payload) {
-  if (payload.role !== 'admin' && payload.role !== 'tester') {
-    return jsonResponse(false, 'Không có quyền thực hiện chức năng này');
-  }
+  var adminErr = requireAdminActor(payload);
+  if (adminErr) return jsonResponse(false, adminErr);
   try {
+    var existingOrg = getOrgConfig() || {};
     saveConfigToSheet("ORG_CONFIG", {
-      name: payload.name || "King's Grill",
-      address: payload.address || "Dĩ An, Bình Dương",
-      roles: payload.roles || [],
-      orgStructure: payload.orgStructure || []
+      name: payload.name !== undefined ? payload.name : (existingOrg.name || "King's Grill"),
+      address: payload.address !== undefined ? payload.address : (existingOrg.address || "Dĩ An, Bình Dương"),
+      roles: Array.isArray(payload.roles) ? payload.roles : (existingOrg.roles || []),
+      orgStructure: Array.isArray(payload.orgStructure) ? payload.orgStructure : (existingOrg.orgStructure || [])
     });
+    JsonCacheService.invalidateGlobalCache();
     return jsonResponse(true, 'Cập nhật cấu hình Tổ chức thành công');
   } catch (e) {
     return jsonResponse(false, 'Lỗi hệ thống: ' + e.message);
@@ -2168,9 +2303,8 @@ function getPayrollConfig() {
 }
 
 function handleUpdatePayrollConfig(payload) {
-  if (payload.role !== 'admin' && payload.role !== 'tester') {
-    return jsonResponse(false, 'Không có quyền thực hiện chức năng này');
-  }
+  var adminErr = requireAdminActor(payload);
+  if (adminErr) return jsonResponse(false, adminErr);
   try {
     saveConfigToSheet("PAYROLL_CONFIG", {
       baseFormula: payload.baseFormula,
@@ -2186,9 +2320,8 @@ function handleUpdatePayrollConfig(payload) {
 }
 
 function handleUpdateAiPrompts(payload) {
-  if (payload.role !== 'admin' && payload.role !== 'tester') {
-    return jsonResponse(false, 'Không có quyền thực hiện chức năng này');
-  }
+  var adminErr = requireAdminActor(payload);
+  if (adminErr) return jsonResponse(false, adminErr);
   try {
     saveConfigToSheet("AI_PROMPTS", payload.prompts || []);
     return jsonResponse(true, 'Cập nhật cấu hình Prompt thành công');
@@ -2203,14 +2336,43 @@ function handleGetData(payload) {
   var role = payload.role;
   var monthSheet = payload.monthSheet;
   var weekLabel = payload.weekLabel;
+  var currentMonthSheet = payload.currentMonthSheet;
+  var currentWeekLabel = payload.currentWeekLabel;
   var forceRefresh = payload.forceRefresh;
 
-  var isAdmin = role === 'admin' || role === 'tester';
+  var isAdmin = role === 'admin';
 
   // Key names in JSON_CACHE
   var globalKey = "GLOBAL_DATA";
   var userKey = "USER_" + username + "_" + (monthSheet || "") + "_" + (weekLabel || "");
   var adminExtKey = "ADMIN_EXT_" + (monthSheet || "") + "_" + (weekLabel || "");
+
+  function attachCurrentWeekShiftsAndSanitize(targetObj, dbOrSs) {
+    if (!isAdmin) {
+      targetObj.keys = [];
+    }
+    if (currentMonthSheet && currentWeekLabel) {
+      if (currentMonthSheet === monthSheet && currentWeekLabel === weekLabel) {
+        targetObj.currentWeekApprovedShifts = targetObj.approvedShifts || null;
+      } else {
+        try {
+          var cValues = null;
+          if (dbOrSs && typeof dbOrSs.getValues === 'function') {
+            cValues = dbOrSs.getValues(currentMonthSheet);
+          }
+          if ((!cValues || cValues.length === 0) && getSS()) {
+            var cSheet = getSS().getSheetByName(currentMonthSheet);
+            if (cSheet) cValues = cSheet.getDataRange().getValues();
+          }
+          var parsedCur = JsonCacheService.extractUserWeekSchedule(cValues, username, fullname, currentWeekLabel);
+          targetObj.currentWeekApprovedShifts = parsedCur.approvedShifts;
+        } catch (cwErr) {
+          targetObj.currentWeekApprovedShifts = null;
+        }
+      }
+    }
+    return targetObj;
+  }
 
   // If forceRefresh is NOT requested, try to load from JSON_CACHE
   if (!forceRefresh) {
@@ -2220,11 +2382,11 @@ function handleGetData(payload) {
       var adminCached = isAdmin ? JsonCacheService.getCacheRecord(adminExtKey) : null;
 
       if (globalCached && userCached && (!isAdmin || adminCached)) {
-        // Build response from cache
         var result = Object.assign({}, globalCached, userCached);
         if (isAdmin && adminCached) {
           Object.assign(result, adminCached);
         }
+        attachCurrentWeekShiftsAndSanitize(result, null);
         return jsonResponse(true, result);
       }
     } catch (ce) {
@@ -2235,7 +2397,7 @@ function handleGetData(payload) {
   // Fallback / Force Refresh: Rebuild cache using batchGet
   try {
     var ss = getSS();
-    var db = JsonCacheService.batchFetchRawData(ss, monthSheet);
+    var db = JsonCacheService.batchFetchRawData(ss, monthSheet, currentMonthSheet);
 
     // Rebuild caches
     var globalData = JsonCacheService.rebuildGlobalCache(db);
@@ -2250,6 +2412,7 @@ function handleGetData(payload) {
     if (isAdmin && adminData) {
       Object.assign(mergedResult, adminData);
     }
+    attachCurrentWeekShiftsAndSanitize(mergedResult, db);
 
     return jsonResponse(true, mergedResult);
   } catch (e) {
@@ -2345,7 +2508,8 @@ function handleGetEmploymentProfile(payload) {
 }
 
 function handleUpdateEmploymentStatus(payload) {
-  if (payload.role !== 'admin') return jsonResponse(false, 'Chỉ admin được cập nhật trạng thái nhân sự');
+  var adminErr = requireAdminActor(payload);
+  if (adminErr) return jsonResponse(false, adminErr);
   if (!payload.targetUsername) return jsonResponse(false, 'Thiếu tài khoản nhân sự');
   var status = normalizeEmploymentStatus(payload.employmentStatus);
   var statusUntil = payload.statusUntil ? payload.statusUntil.toString() : '';
@@ -2385,6 +2549,17 @@ function handleUpdateEmploymentStatus(payload) {
         cache.remove('GD_' + payload.targetUsername.substring(0, 10) + '_U');
       } catch (cacheErr) {}
       invalidateAuthUsersCache();
+      if (typeof appendAuditLog_ === 'function') {
+        try {
+          appendAuditLog_(
+            payload.actorUsername || payload.adminUsername || payload.username || 'admin',
+            'UPDATE_EMPLOYMENT_STATUS',
+            payload.targetUsername,
+            'Đổi trạng thái nhân sự @' + payload.targetUsername + ' -> ' + status,
+            { status: status, statusUntil: statusUntil, reason: reason }
+          );
+        } catch (eAudit) {}
+      }
       return jsonResponse(true, {
         profile: getEmploymentProfileByUsername(payload.targetUsername),
         message: 'Đã cập nhật trạng thái nhân sự'
@@ -2398,6 +2573,8 @@ function handleUpdateEmploymentStatus(payload) {
 
 // 3. API Keys
 function handleSyncKeys(payload) {
+  var adminErr = requireAdminActor(payload);
+  if (adminErr) return jsonResponse(false, adminErr);
   var ss = getSS();
   var sheet = ss.getSheetByName(CONFIG.SHEET_API_KEYS);
   if (!sheet) {
@@ -2421,6 +2598,17 @@ function handleSyncKeys(payload) {
       sheet.getRange(2, 1, newRows.length, 3).setValues(newRows);
     }
   }
+  if (typeof appendAuditLog_ === 'function') {
+    try {
+      appendAuditLog_(
+        payload.actorUsername || payload.adminUsername || payload.username || 'admin',
+        'SYNC_KEYS',
+        'API_KEYS',
+        'Đồng bộ danh sách khóa AI (' + (payload.keys ? payload.keys.length : 0) + ' khóa)',
+        { keyCount: payload.keys ? payload.keys.length : 0 }
+      );
+    } catch (eAudit) {}
+  }
   return jsonResponse(true, 'Đồng bộ keys thành công');
 }
 
@@ -2442,6 +2630,60 @@ function handleGetKeys(payload) {
     }
   }
   return jsonResponse(true, keys);
+}
+
+function handleAiChat(payload) {
+  try {
+    var messages = payload && Array.isArray(payload.messages) ? payload.messages : [];
+    if (messages.length === 0) return jsonResponse(false, 'Thiếu nội dung hội thoại AI');
+    var ss = getSS();
+    var keySheet = ss.getSheetByName(CONFIG.SHEET_API_KEYS);
+    if (!keySheet) return jsonResponse(false, 'Chưa cấu hình API Key trên máy chủ');
+    var keyRows = keySheet.getDataRange().getValues();
+    var activeKeys = [];
+    for (var i = 1; i < keyRows.length; i++) {
+      var k = keyRows[i][0] ? keyRows[i][0].toString().trim() : '';
+      var st = keyRows[i][2] ? keyRows[i][2].toString().trim().toLowerCase() : 'active';
+      if (k && st !== 'dead' && st !== 'disabled') activeKeys.push(k);
+    }
+    if (activeKeys.length === 0) return jsonResponse(false, 'Không có API Key hoạt động trên máy chủ');
+
+    var model = payload.model ? payload.model.toString() : 'llama-3.3-70b-versatile';
+    var reqBody = {
+      model: model,
+      messages: messages,
+      temperature: typeof payload.temperature === 'number' ? payload.temperature : 0.5,
+      max_tokens: typeof payload.max_tokens === 'number' ? payload.max_tokens : 1024
+    };
+    if (payload.response_format) reqBody.response_format = payload.response_format;
+
+    var lastErr = '';
+    for (var idx = 0; idx < activeKeys.length; idx++) {
+      try {
+        var resp = UrlFetchApp.fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'post',
+          contentType: 'application/json',
+          headers: { Authorization: 'Bearer ' + activeKeys[idx] },
+          payload: JSON.stringify(reqBody),
+          muteHttpExceptions: true
+        });
+        if (resp.getResponseCode() >= 200 && resp.getResponseCode() < 300) {
+          var parsed = JSON.parse(resp.getContentText());
+          var reply = parsed && parsed.choices && parsed.choices[0] && parsed.choices[0].message
+            ? parsed.choices[0].message.content
+            : '';
+          if (reply) return jsonResponse(true, { reply: reply, provider: 'gas-groq' });
+        } else {
+          lastErr = 'HTTP ' + resp.getResponseCode();
+        }
+      } catch (callErr) {
+        lastErr = callErr.toString();
+      }
+    }
+    return jsonResponse(false, 'Không thể kết nối AI (' + (lastErr || 'hết quota') + ')');
+  } catch (e) {
+    return jsonResponse(false, 'Lỗi AI Server: ' + e.toString());
+  }
 }
 
 function handleSaveChatLog(payload) {
@@ -2468,6 +2710,8 @@ function handleSaveChatLog(payload) {
 }
 
 function handleSetMasterPin(payload) {
+  var adminErr = requireAdminActor(payload);
+  if (adminErr) return jsonResponse(false, adminErr);
   if (!payload.pin) return jsonResponse(false, 'Chưa truyền pin');
   var ss = getSS();
   var sheet = ss.getSheetByName(CONFIG.SHEET_API_KEYS);
@@ -2712,11 +2956,15 @@ function handleRegisterShift(payload) {
       allData[headerRow - 1] = [headerTag];
     }
 
-    // In-memory search for existing employee row within this week
+    // In-memory search for existing employee row within this week (NFC + whitespace normalized)
     var existingRow = -1; // 1-indexed
     var weekEndRow = allData.length; // 0-indexed exclusive boundary
-    var targetFullname = (payload.fullname || '').toString().trim();
-    var targetFullnameLower = targetFullname.toLowerCase();
+    var rawTargetFullname = (payload.fullname || '').toString();
+    if (typeof rawTargetFullname.normalize === 'function') {
+      rawTargetFullname = rawTargetFullname.normalize('NFC');
+    }
+    var targetFullname = rawTargetFullname.replace(/\s+/g, ' ').trim();
+    var targetFullnameNorm = normalizeSchedulePersonName(targetFullname);
 
     for (var j = headerRow; j < allData.length; j++) {
       var nameVal = allData[j] && allData[j][0] ? allData[j][0].toString().trim() : '';
@@ -2724,13 +2972,13 @@ function handleRegisterShift(payload) {
         weekEndRow = j;
         break;
       }
-      if (nameVal && nameVal.toLowerCase() === targetFullnameLower) {
+      if (nameVal && nameVal.indexOf('┗') === -1 && normalizeSchedulePersonName(nameVal) === targetFullnameNorm) {
         existingRow = j + 1;
       }
     }
 
     var now = new Date();
-    var timestamp = Utilities.formatDate(now, Session.getScriptTimeZone(), 'dd/MM HH:mm');
+    var timestamp = Utilities.formatDate(now, CONFIG.TIMEZONE || 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm');
 
     var shiftsArr = payload.shifts || ['', '', '', '', '', '', ''];
     var rowData = [
@@ -3064,6 +3312,8 @@ function handleGetMonthSchedules(payload) {
 
 
 function handleApproveSchedules(payload) {
+  var adminErr = requireAdminActor(payload);
+  if (adminErr) return jsonResponse(false, adminErr);
   var monthSheet = payload.monthSheet || payload.targetSheet;
   var weekLabel = payload.weekLabel;
   var schedules = payload.schedules || [];
@@ -3074,21 +3324,23 @@ function handleApproveSchedules(payload) {
   var sheet = getMonthlyScheduleSheet(monthSheet);
   var data = sheet.getDataRange().getValues();
   
+  var cleanWL = cleanScheduleWeekLabel(weekLabel);
   // Find week header
   var headerRow = -1;
   for (var i = 0; i < data.length; i++) {
-    if (data[i][0] && data[i][0].toString().indexOf('TUẦN ' + weekLabel) >= 0) {
+    if (data[i][0] && data[i][0].toString().indexOf('TUẦN ' + cleanWL) >= 0) {
       headerRow = i + 1; // 1-indexed
       break;
     }
   }
-  if (headerRow === -1) return jsonResponse(false, 'Không tìm thấy tuần ' + weekLabel);
+  if (headerRow === -1) return jsonResponse(false, 'Không tìm thấy tuần ' + cleanWL);
   
   var now = new Date();
-  var timestamp = Utilities.formatDate(now, Session.getScriptTimeZone(), 'dd/MM HH:mm');
+  var timestamp = Utilities.formatDate(now, CONFIG.TIMEZONE || 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm');
   
   for (var s = 0; s < schedules.length; s++) {
     var emp = schedules[s];
+    var empNorm = normalizeSchedulePersonName(emp.fullname);
     data = sheet.getDataRange().getValues();
     
     var regRow = -1;
@@ -3097,8 +3349,8 @@ function handleApproveSchedules(payload) {
       var cellName = data[r][0] ? data[r][0].toString() : '';
       if (cellName.indexOf('TUẦN ') >= 0 && r > headerRow - 1) break;
       
-      if (cellName === emp.fullname) regRow = r + 1;
-      if (cellName.indexOf('┗') >= 0 && cellName.indexOf(emp.fullname) >= 0) approvalRow = r + 1;
+      if (cellName.indexOf('┗') === -1 && normalizeSchedulePersonName(cellName) === empNorm) regRow = r + 1;
+      if (cellName.indexOf('┗') >= 0 && normalizeSchedulePersonName(cellName) === empNorm) approvalRow = r + 1;
     }
     
     if (regRow === -1) continue;
@@ -3145,7 +3397,8 @@ function handleApproveSchedules(payload) {
       // Mark reg row as approved too
       data = sheet.getDataRange().getValues();
       for (var rr = headerRow; rr < data.length; rr++) {
-        if (data[rr][0] && data[rr][0].toString() === emp.fullname) {
+        var rrCell = data[rr][0] ? data[rr][0].toString() : '';
+        if (rrCell && rrCell.indexOf('┗') === -1 && normalizeSchedulePersonName(rrCell) === empNorm) {
           sheet.getRange(rr + 1, 11).setValue('Đã duyệt ✓').setFontColor('#15803d').setBackground('#dcfce7');
           break;
         }
@@ -3157,7 +3410,7 @@ function handleApproveSchedules(payload) {
     var foundRegRow = -1;
     for (var rx = headerRow; rx < highlightDisplay.length; rx++) {
       var rxName = highlightDisplay[rx][0] ? highlightDisplay[rx][0].toString().trim() : '';
-      if (rxName === emp.fullname) {
+      if (rxName && rxName.indexOf('┗') === -1 && normalizeSchedulePersonName(rxName) === empNorm) {
         foundRegRow = rx;
         break;
       }
@@ -3553,9 +3806,10 @@ function handleSyncRosterSchedules(payload) {
         var sheet = getMonthlyScheduleSheet(monthSheet);
         if (sheet) {
           var data = sheet.getDataRange().getDisplayValues();
+          var cleanRosterWL = cleanScheduleWeekLabel(weekLabel);
           var headerRow = -1;
           for (var i = 0; i < data.length; i++) {
-            if (data[i][0] && data[i][0].toString().indexOf('TUẦN ' + weekLabel) >= 0) {
+            if (data[i][0] && data[i][0].toString().indexOf('TUẦN ' + cleanRosterWL) >= 0) {
               headerRow = i + 1;
               break;
             }
@@ -4349,6 +4603,8 @@ function handleGetMissedCheckins(payload) {
 }
 
 function handleApproveMissedCheckin(payload) {
+  var adminErr = requireAdminActor(payload);
+  if (adminErr) return jsonResponse(false, adminErr);
   try {
     if (!payload.id) return jsonResponse(false, 'Thiếu mã đơn ID.');
     var adminUser = payload.adminUsername || payload.username || 'ADMIN';
@@ -4427,6 +4683,17 @@ function handleApproveMissedCheckin(payload) {
       }
     }
 
+    if (typeof appendAuditLog_ === 'function') {
+      try {
+        appendAuditLog_(
+          payload.actorUsername || adminUser,
+          'APPROVE_MISSED_CHECKIN',
+          claim.username || claim.id,
+          'Duyệt chấm công bổ sung #' + claim.id + ' (' + claim.fullname + ' - ' + claim.date + ' ' + claim.time + ')',
+          { claimId: claim.id, date: claim.date, time: claim.time, type: claim.type }
+        );
+      } catch (eAudit) {}
+    }
     return jsonResponse(true, { message: 'Đã duyệt đơn và tự động chèn vào Bảng chấm công!' });
   } catch (e) {
     return jsonResponse(false, 'Lỗi duyệt đơn: ' + e.message);
@@ -4434,6 +4701,8 @@ function handleApproveMissedCheckin(payload) {
 }
 
 function handleRejectMissedCheckin(payload) {
+  var adminErr = requireAdminActor(payload);
+  if (adminErr) return jsonResponse(false, adminErr);
   try {
     if (!payload.id) return jsonResponse(false, 'Thiếu mã đơn ID.');
     var adminUser = payload.adminUsername || payload.username || 'ADMIN';
@@ -4454,6 +4723,17 @@ function handleRejectMissedCheckin(payload) {
     var reason = payload.reason || 'Không đủ minh chứng';
     sheet.getRange(targetRowIndex, 11, 1, 4).setValues([['Rejected', adminUser, now, reason]]);
 
+    if (typeof appendAuditLog_ === 'function') {
+      try {
+        appendAuditLog_(
+          payload.actorUsername || adminUser,
+          'REJECT_MISSED_CHECKIN',
+          String(payload.id),
+          'Từ chối đơn chấm công bổ sung #' + payload.id,
+          { claimId: payload.id, reason: reason }
+        );
+      } catch (eAudit) {}
+    }
     return jsonResponse(true, { message: 'Đã từ chối đơn báo bổ sung công.' });
   } catch (e) {
     return jsonResponse(false, 'Lỗi từ chối đơn: ' + e.message);
@@ -4465,6 +4745,8 @@ function handleRejectMissedCheckin(payload) {
  * Ghi vết kiểm toán vào Cột H (DATA JSON) và đổi màu hiển thị trên Sheet.
  */
 function handleUpdateCheckinType(payload) {
+  var adminErr = requireAdminActor(payload);
+  if (adminErr) return jsonResponse(false, adminErr);
   try {
     if (!payload.username || !payload.newType) {
       return jsonResponse(false, 'Thiếu thông tin cập nhật loại chấm công.');
@@ -4473,7 +4755,7 @@ function handleUpdateCheckinType(payload) {
     var sheet = ss.getSheetByName(CONFIG.SHEET_LOGS);
     if (!sheet) return jsonResponse(false, 'Không tìm thấy sheet chấm công');
 
-    var isAdmin = payload.role === 'admin' || payload.role === 'tester' || (payload.username || '').toLowerCase() === 'admin';
+    var isAdmin = true;
     var targetRowIndex = -1;
     var lastRow = sheet.getLastRow();
     if (lastRow <= 1) return jsonResponse(false, 'Không có dữ liệu chấm công để cập nhật.');
@@ -4552,6 +4834,17 @@ function handleUpdateCheckinType(payload) {
 
     // Xóa cache để cập nhật ngay lập tức
     invalidateGetDataCache(payload.username);
+    if (typeof appendAuditLog_ === 'function') {
+      try {
+        appendAuditLog_(
+          payload.actorUsername || payload.adminUsername || payload.username || 'admin',
+          'UPDATE_CHECKIN_TYPE',
+          payload.username,
+          'Đổi loại chấm công @' + payload.username + ': ' + originalType + ' -> ' + newType,
+          { rowIndex: targetRowIndex, originalType: originalType, newType: newType, reason: payload.reason || '' }
+        );
+      } catch (eAudit) {}
+    }
 
     return jsonResponse(true, {
       message: 'Đã cập nhật loại chấm công thành công',

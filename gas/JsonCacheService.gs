@@ -263,7 +263,7 @@ var JsonCacheService = (function() {
   /**
    * Batch fetches all necessary data using Sheets API V4 batchGet.
    */
-  function batchFetchRawData(ss, monthSheet) {
+  function batchFetchRawData(ss, monthSheet, extraMonthSheet) {
     var ssId = ss.getId();
     var sheetNamesInSS = ss.getSheets().map(function(s) { return s.getName(); });
     var ranges = [];
@@ -291,6 +291,9 @@ var JsonCacheService = (function() {
     addRange("TRAINING_PROGRESS", "A1:D");
     if (monthSheet) {
       addRange(monthSheet, "A1:K");
+    }
+    if (extraMonthSheet && extraMonthSheet !== monthSheet) {
+      addRange(extraMonthSheet, "A1:K");
     }
 
     var valueRanges = [];
@@ -511,12 +514,13 @@ var JsonCacheService = (function() {
     var result = { logs: [], stats: { totalCheckIn: 0, validCount: 0 } };
     var todayStr = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'dd/MM/yyyy');
 
+    var cleanFullname = fullname ? normalizePersonName(fullname) : '';
+    var cleanUsername = username ? String(username).trim().toLowerCase() : '';
+
     // Logs & Stats
     var logData = db.getValues(CONFIG.SHEET_LOGS);
     if (logData && logData.length > 1) {
       var logs = [], userCheckins = 0, validCount = 0;
-      var cleanFullname = fullname ? fullname.trim().toLowerCase() : '';
-      var cleanUsername = username ? username.trim().toLowerCase() : '';
       var maxRows = Math.min(logData.length, 1200);
 
       // Sheet inserts new rows at Row 2, so index 1 is newest. Loop top-down.
@@ -608,73 +612,26 @@ var JsonCacheService = (function() {
     }
     result.chatHistory = chatHistory;
 
-    // Schedule / Shifts - Parsed from Monthly Sheet Architecture (Columns A=Name, B-H=Shifts, K=Status)
+    // Schedule / Shifts - Parsed from Monthly Sheet Architecture (Columns A=Name, B-H=Shifts, I=Reason, J=Timestamp, K=Status)
     result.isScheduleRegistered = false;
     result.approvedShifts = null;
     result.registeredShifts = null;
+    result.scheduleUpdatedAt = '';
+    result.scheduleOffReason = '';
+    result.scheduleStatus = '';
+    result.registeredWeekKey = '';
     if (monthSheet && weekLabel) {
-      var schedData = db.getValues(monthSheet);
-      if (schedData && schedData.length > 1) {
-        var cleanWL = weekLabel.replace(/[📅\s]/g, '').replace(/[–—]/g, '-').replace(/TUẦN/gi, '').trim().toLowerCase();
-        var headerRow = -1;
-        for (var h = 0; h < schedData.length; h++) {
-          var rowCell = schedData[h][0] ? schedData[h][0].toString() : '';
-          var normCell = rowCell.replace(/[📅\s]/g, '').replace(/[–—]/g, '-').replace(/TUẦN/gi, '').trim().toLowerCase();
-          if (normCell && (normCell.indexOf(cleanWL) >= 0 || cleanWL.indexOf(normCell) >= 0)) {
-            headerRow = h;
-            break;
-          }
-        }
-
-        if (headerRow >= 0) {
-          function formatDisplayShift(displayVal) {
-            if (!displayVal) return 'OFF';
-            var str = displayVal.toString().trim();
-            if (str === '' || str === '0:00' || str === '00:00' || str === 'null' || str === 'undefined') return 'OFF';
-            if (/^\d{1,2}:\d$/.test(str)) {
-              var p = str.split(':');
-              return (p[0].length === 1 ? '0' + p[0] : p[0]) + ':' + p[1].padStart(2, '0');
-            }
-            if (/^\d{1,2}:\d{2}$/.test(str)) {
-              var p2 = str.split(':');
-              return (p2[0].length === 1 ? '0' + p2[0] : p2[0]) + ':' + p2[1];
-            }
-            return str;
-          }
-
-          for (var j = headerRow + 1; j < schedData.length; j++) {
-            var cell0 = schedData[j][0] ? schedData[j][0].toString().trim() : '';
-            if (cell0.indexOf('TUẦN ') >= 0) break; // Next week section
-            if (!cell0) continue;
-
-            var isAdjustment = (cell0.indexOf('┗') >= 0);
-            var cleanRowName = isAdjustment ? cell0.replace('┗ ', '').replace('┗', '').trim().toLowerCase() : cell0.toLowerCase();
-
-            if ((cleanFullname && cleanRowName === cleanFullname) || (cleanUsername && cleanRowName === cleanUsername)) {
-              var rowShifts = [
-                formatDisplayShift(schedData[j][1]),
-                formatDisplayShift(schedData[j][2]),
-                formatDisplayShift(schedData[j][3]),
-                formatDisplayShift(schedData[j][4]),
-                formatDisplayShift(schedData[j][5]),
-                formatDisplayShift(schedData[j][6]),
-                formatDisplayShift(schedData[j][7])
-              ];
-              var statusVal = schedData[j][10] ? schedData[j][10].toString().trim() : '';
-
-              if (isAdjustment) {
-                result.approvedShifts = rowShifts;
-                result.isScheduleRegistered = true;
-              } else {
-                result.registeredShifts = rowShifts;
-                result.isScheduleRegistered = true;
-                if (!result.approvedShifts && statusVal === 'Đã duyệt ✓') {
-                  result.approvedShifts = rowShifts;
-                }
-              }
-            }
-          }
-        }
+      var cleanHeaderWL = String(weekLabel).replace('📅 TUẦN ', '').replace('TUẦN ', '').trim();
+      var canonicalWL = '📅 TUẦN ' + cleanHeaderWL;
+      var parsedSched = extractUserWeekSchedule(db.getValues(monthSheet), cleanUsername, cleanFullname, weekLabel);
+      result.isScheduleRegistered = parsedSched.isScheduleRegistered;
+      result.approvedShifts = parsedSched.approvedShifts;
+      result.registeredShifts = parsedSched.registeredShifts;
+      result.scheduleUpdatedAt = parsedSched.scheduleUpdatedAt || '';
+      result.scheduleOffReason = parsedSched.scheduleOffReason || '';
+      result.scheduleStatus = parsedSched.scheduleStatus || '';
+      if (parsedSched.isScheduleRegistered) {
+        result.registeredWeekKey = monthSheet + '|' + canonicalWL;
       }
     }
 
@@ -851,8 +808,116 @@ var JsonCacheService = (function() {
     return result;
   }
 
+  function normalizePersonName(val) {
+    if (!val) return '';
+    var s = val.toString();
+    if (typeof s.normalize === 'function') {
+      s = s.normalize('NFC');
+    }
+    return s.replace(/^┗\s*/, '').replace(/\s+/g, ' ').trim().toLowerCase();
+  }
+
+  function extractUserWeekSchedule(schedData, cleanUsername, cleanFullname, weekLabel) {
+    var out = {
+      isScheduleRegistered: false,
+      approvedShifts: null,
+      registeredShifts: null,
+      scheduleUpdatedAt: '',
+      scheduleOffReason: '',
+      scheduleStatus: ''
+    };
+    if (!schedData || schedData.length <= 1 || !weekLabel) return out;
+    var uLower = normalizePersonName(cleanUsername);
+    var fLower = normalizePersonName(cleanFullname);
+    var cleanWL = String(weekLabel).replace(/[📅\s]/g, '').replace(/[–—]/g, '-').replace(/TUẦN/gi, '').trim().toLowerCase();
+    var headerRow = -1;
+    for (var h = 0; h < schedData.length; h++) {
+      var rowCell = schedData[h][0] ? schedData[h][0].toString() : '';
+      var normCell = rowCell.replace(/[📅\s]/g, '').replace(/[–—]/g, '-').replace(/TUẦN/gi, '').trim().toLowerCase();
+      if (normCell && (normCell.indexOf(cleanWL) >= 0 || cleanWL.indexOf(normCell) >= 0)) {
+        headerRow = h;
+        break;
+      }
+    }
+    if (headerRow < 0) return out;
+
+    var tz = (typeof CONFIG !== 'undefined' && CONFIG.TIMEZONE) ? CONFIG.TIMEZONE : 'Asia/Ho_Chi_Minh';
+
+    function formatDisplayShift(displayVal) {
+      if (displayVal === null || displayVal === undefined || displayVal === '') return 'OFF';
+      if (typeof displayVal === 'object' && typeof displayVal.getTime === 'function') {
+        if (isNaN(displayVal.getTime())) return 'OFF';
+        var hhmm = Utilities.formatDate(displayVal, tz, 'HH:mm');
+        if (!hhmm || hhmm === '0:00' || hhmm === '00:00') return 'OFF';
+        return hhmm;
+      }
+      var str = displayVal.toString().trim();
+      if (str === '' || str === '0:00' || str === '00:00' || str === 'null' || str === 'undefined') return 'OFF';
+      if (/^\d{1,2}:\d$/.test(str)) {
+        var p = str.split(':');
+        return (p[0].length === 1 ? '0' + p[0] : p[0]) + ':' + p[1].padStart(2, '0');
+      }
+      if (/^\d{1,2}:\d{2}$/.test(str)) {
+        var p2 = str.split(':');
+        return (p2[0].length === 1 ? '0' + p2[0] : p2[0]) + ':' + p2[1];
+      }
+      return str;
+    }
+
+    function formatTimestampCell(tsVal) {
+      if (tsVal === null || tsVal === undefined || tsVal === '') return '';
+      if (typeof tsVal === 'object' && typeof tsVal.getTime === 'function') {
+        if (isNaN(tsVal.getTime())) return '';
+        return Utilities.formatDate(tsVal, tz, 'dd/MM/yyyy HH:mm');
+      }
+      return tsVal.toString().replace(/^'/, '').trim();
+    }
+
+    for (var j = headerRow + 1; j < schedData.length; j++) {
+      var cell0 = schedData[j][0] ? schedData[j][0].toString().trim() : '';
+      if (cell0.indexOf('TUẦN ') >= 0) break;
+      if (!cell0) continue;
+
+      var isAdjustment = (cell0.indexOf('┗') >= 0);
+      var cleanRowName = normalizePersonName(cell0);
+
+      if ((fLower && cleanRowName === fLower) || (uLower && cleanRowName === uLower)) {
+        var rowShifts = [
+          formatDisplayShift(schedData[j][1]),
+          formatDisplayShift(schedData[j][2]),
+          formatDisplayShift(schedData[j][3]),
+          formatDisplayShift(schedData[j][4]),
+          formatDisplayShift(schedData[j][5]),
+          formatDisplayShift(schedData[j][6]),
+          formatDisplayShift(schedData[j][7])
+        ];
+        var reasonVal = schedData[j][8] ? schedData[j][8].toString().trim() : '';
+        var tsVal = formatTimestampCell(schedData[j][9]);
+        var statusVal = schedData[j][10] ? schedData[j][10].toString().trim() : '';
+
+        if (isAdjustment) {
+          out.approvedShifts = rowShifts;
+          out.isScheduleRegistered = true;
+          if (!out.scheduleUpdatedAt && tsVal) out.scheduleUpdatedAt = tsVal;
+          if (statusVal) out.scheduleStatus = statusVal;
+        } else {
+          out.registeredShifts = rowShifts;
+          out.isScheduleRegistered = true;
+          if (tsVal) out.scheduleUpdatedAt = tsVal;
+          out.scheduleOffReason = reasonVal;
+          if (!out.scheduleStatus && statusVal) out.scheduleStatus = statusVal;
+          if (!out.approvedShifts && statusVal === 'Đã duyệt ✓') {
+            out.approvedShifts = rowShifts;
+          }
+        }
+      }
+    }
+    return out;
+  }
+
   return {
     getCacheSheet: getCacheSheet,
+    extractUserWeekSchedule: extractUserWeekSchedule,
     getCacheRecord: getCacheRecord,
     updateCacheRecord: updateCacheRecord,
     invalidateUserCache: invalidateUserCache,

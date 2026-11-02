@@ -6,6 +6,7 @@ import { speak, fetchWithRetry, auditCheckInAnomalies } from '../utils/helpers';
 import { escapeHtml } from '../utils/security';
 import { callApi } from '../services/api';
 import { refreshAppData } from '../utils/refreshData';
+import { enqueueTask } from '../utils/offlineQueue';
 import Swal from 'sweetalert2';
 import confetti from 'canvas-confetti';
 import {
@@ -40,7 +41,7 @@ export default function ActivityHistory() {
     }))
   );
   const [selectedUser, setSelectedUser] = useState<string>('ALL');
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'tester';
+  const isAdmin = currentUser?.role === 'admin';
 
   // Audit anomalies for current user
   const anomalies = auditCheckInAnomalies(logs, currentUser);
@@ -55,7 +56,7 @@ export default function ActivityHistory() {
   const openTimesheet = () => {
     Swal.fire({
       title: 'Hướng dẫn xem dữ liệu',
-      html: '<p class="text-sm">Bạn sắp được chuyển đến Bảng dữ liệu gốc.</p><p class="text-sm font-bold text-ocean-600 mt-2">Vui lòng tìm và chọn sheet có tên <span class="bg-gray-100 px-2 py-1 rounded border border-gray-200">✔️CHẤM CÔNG</span> ở thanh công cụ phía dưới cùng để xem dữ liệu của mình nhé!</p>',
+      html: '<p class="text-sm">Bạn sắp được chuyển đến Bảng dữ liệu gốc.</p><p class="text-sm font-bold text-[#062B49] mt-2">Vui lòng tìm và chọn sheet có tên <span class="bg-gray-100 px-2 py-1 rounded border border-gray-200">CHẤM CÔNG</span> ở thanh công cụ phía dưới cùng để xem dữ liệu của mình nhé!</p>',
       icon: 'info', showCancelButton: true, confirmButtonColor: '#10b981',
       cancelButtonColor: '#6b7280', confirmButtonText: 'Đã hiểu, tới Bảng tính', cancelButtonText: 'Đóng',
     }).then((result) => {
@@ -64,9 +65,6 @@ export default function ActivityHistory() {
   };
 
   const analyzeMyProductivity = async () => {
-    const selectedKey = groqKeys.length > 0 ? groqKeys[Math.floor(Math.random() * groqKeys.length)] : null;
-    const apiKey = typeof selectedKey === 'string' ? selectedKey : selectedKey?.key;
-    if (!apiKey) { Swal.fire('Cảnh báo', 'Hệ thống chưa đồng bộ Groq API Key.', 'warning'); return; }
     if (logs.length === 0) { Swal.fire('Chú ý', 'Bạn chưa có dữ liệu chấm công.', 'info'); return; }
 
     Swal.fire({ title: 'Llama 3.3 đang đánh giá...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
@@ -74,26 +72,43 @@ export default function ActivityHistory() {
     const myLogs = logs.filter((l) => l.fullname === currentUser?.fullname).slice(0, 10).map((l) => `${l.type} lúc ${l.time} - Trạng thái: ${l.status}`);
     const promptText = `Đây là lịch sử đi làm của tôi (${currentUser?.fullname}): \n${myLogs.join('\n')}\nHãy đưa ra một lời nhận xét thật vui vẻ, tự nhiên và động viên tôi (chỉ khoảng 2-3 câu).`;
 
-    const payload = {
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        { role: 'system', content: "Bạn là một Quản lý nhân sự người Việt Nam vô cùng thân thiện, tâm lý và gần gũi của nhà hàng King's Grill. Hãy dùng từ ngữ khích lệ chuẩn văn phong người Việt, khen ngợi hoặc động viên nhân viên một cách tự nhiên nhất. Tuyệt đối không dùng từ ngữ dịch máy, cứng nhắc." },
-        { role: 'user', content: promptText },
-      ],
-      temperature: 0.6, max_tokens: 150,
-    };
+    const messages = [
+      { role: 'system', content: "Bạn là một Quản lý nhân sự người Việt Nam vô cùng thân thiện, tâm lý và gần gũi của nhà hàng King's Grill. Hãy dùng từ ngữ khích lệ chuẩn văn phong người Việt, khen ngợi hoặc động viên nhân viên một cách tự nhiên nhất. Tuyệt đối không dùng từ ngữ dịch máy, cứng nhắc." },
+      { role: 'user', content: promptText },
+    ];
 
     try {
-      const result = await fetchWithRetry('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` }, body: JSON.stringify(payload),
-      });
-      const aiText = result.choices?.[0]?.message?.content || 'Không thể phân tích lúc này.';
+      let aiText = '';
+      const proxyRes = await callApi('AI_CHAT', {
+        model: 'llama-3.3-70b-versatile',
+        messages,
+        temperature: 0.6,
+        max_tokens: 200,
+      }, { background: true, cacheTtlMs: 0 });
+
+      if (proxyRes?.ok && (proxyRes.data?.reply || proxyRes.data?.content)) {
+        aiText = proxyRes.data.reply || proxyRes.data.content;
+      } else {
+        const selectedKey = groqKeys.length > 0 ? groqKeys[Math.floor(Math.random() * groqKeys.length)] : null;
+        const apiKey = typeof selectedKey === 'string' ? selectedKey : selectedKey?.key;
+        if (!apiKey) {
+          Swal.fire('Cảnh báo', proxyRes?.message || 'Hệ thống AI máy chủ đang bảo trì hoặc chưa đồng bộ khóa API.', 'warning');
+          return;
+        }
+        const result = await fetchWithRetry('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+          body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages, temperature: 0.6, max_tokens: 200 }),
+        });
+        aiText = result.choices?.[0]?.message?.content || 'Không thể phân tích lúc này.';
+      }
+
       const safeText = escapeHtml(aiText);
-      Swal.fire({ title: '✨ Lời Khuyên Quản Lý AI', html: `<div class="text-left text-sm leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-wrap">${safeText}</div>`, icon: 'info', confirmButtonColor: '#0ea5e9', confirmButtonText: 'Cảm ơn AI!' });
+      Swal.fire({ title: 'Lời Khuyên Quản Lý AI', html: `<div class="text-left text-sm leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-wrap">${safeText}</div>`, icon: 'info', confirmButtonColor: '#062B49', confirmButtonText: 'Cảm ơn AI!' });
       speak(aiText);
     } catch {
       speak('Lỗi kết nối Gờ rốc AI.');
-      Swal.fire('Lỗi', 'Lỗi kết nối Groq AI. Vui lòng thử lại sau.', 'error');
+      Swal.fire('Lỗi', 'Lỗi kết nối AI. Vui lòng thử lại sau.', 'error');
     }
   };
 
@@ -109,6 +124,48 @@ export default function ActivityHistory() {
     if (!editingLog || !currentUser) return;
     setIsSubmittingEdit(true);
     try {
+      if (!isAdmin) {
+        // Non-admin staff cannot overwrite master sheet rows directly; submit an approval request to Admin
+        const now = new Date();
+        const fallbackDate = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+        const parsedDate = editingLog.time.match(/(\d{1,2}\/\d{1,2}\/\d{4})/)?.[1] || fallbackDate;
+        const parsedTime = editingLog.time.match(/(\d{1,2}:\d{2})/)?.[1] || '00:00';
+        const claimPayload = {
+          username: currentUser.username,
+          fullname: currentUser.fullname || currentUser.username,
+          date: parsedDate,
+          time: parsedTime,
+          type: newTypeChoice,
+          shift: 'Đổi loại ca',
+          reason: `[Đề nghị sửa từ "${editingLog.type}" → "${newTypeChoice}"] ${editReason || 'Nhân viên báo chọn nhầm loại ca'}`,
+        };
+        try {
+          const claimRes = await callApi('SUBMIT_MISSED_CHECKIN', claimPayload);
+          if (claimRes && !claimRes.ok) {
+            Swal.fire('Không thể gửi yêu cầu', claimRes.message || 'Máy chủ từ chối yêu cầu.', 'error');
+            return;
+          }
+          setEditModalOpen(false);
+          confetti({ particleCount: 55, spread: 55, origin: { y: 0.6 } });
+          Swal.fire({
+            icon: 'success',
+            title: 'Đã gửi Quản lý duyệt!',
+            text: `Yêu cầu đổi sang "${newTypeChoice}" đã được chuyển tới Ban Quản Lý phê duyệt.`,
+            timer: 2400,
+            showConfirmButton: false,
+          });
+        } catch {
+          enqueueTask('SUBMIT_MISSED_CHECKIN', claimPayload);
+          setEditModalOpen(false);
+          Swal.fire({
+            icon: 'info',
+            title: 'Đã lưu vào hàng đợi Offline',
+            text: 'Yêu cầu điều chỉnh loại ca sẽ tự động gửi tới Quản lý ngay khi có mạng.',
+          });
+        }
+        return;
+      }
+
       const res = await callApi('UPDATE_CHECKIN_TYPE', {
         username: currentUser.username,
         fullname: editingLog.fullname,
@@ -117,7 +174,7 @@ export default function ActivityHistory() {
         time: editingLog.time,
         originalType: editingLog.type,
         newType: newTypeChoice,
-        reason: editReason || 'Nhân viên cập nhật loại chấm công'
+        reason: editReason || 'Quản lý cập nhật loại chấm công'
       });
 
       if (res?.ok) {
@@ -154,38 +211,38 @@ export default function ActivityHistory() {
 
       {/* Anomaly Detection Banner */}
       {anomalies.length > 0 && (
-        <div className="bg-gradient-to-r from-rose-500/15 via-red-500/10 to-rose-500/15 border border-rose-500/30 rounded-2xl p-3 text-[var(--kg-text)] shadow-xs animate-fade-in">
+        <div className="bg-[var(--kg-danger-soft)] border border-[var(--kg-danger)]/35 rounded-2xl p-3.5 text-[var(--kg-text)] shadow-2xs animate-fade-in">
           <div className="flex items-center justify-between gap-2.5">
             <div className="flex items-center gap-2.5 min-w-0 flex-1">
-              <div className="w-8 h-8 rounded-xl bg-rose-500 text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+              <div className="w-8 h-8 rounded-xl bg-[var(--kg-danger)] text-white flex items-center justify-center flex-shrink-0 shadow-2xs">
                 <CircleAlert size={16} />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-wider bg-rose-500/20 px-1.5 py-0.5 rounded">
-                    ⚠️ Cần kiểm tra: {anomalies[0].title}
+                  <span className="text-[10px] font-black text-[var(--kg-danger)] uppercase tracking-wider bg-[var(--kg-danger)]/15 px-1.5 py-0.5 rounded inline-flex items-center gap-1">
+                    <AlertTriangle size={10} /> Cần kiểm tra: {anomalies[0].title}
                   </span>
-                  <span className="text-xs font-bold text-[var(--kg-text)] font-mono">
+                  <span className="text-xs font-bold text-[var(--kg-text)] font-mono tabular-nums">
                     {anomalies[0].logTime}
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 mt-1 text-xs font-semibold text-[var(--kg-text)] flex-wrap">
                   <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/15 px-1.5 py-0.5 rounded-md">
-                    <span>✔</span> "{anomalies[0].suggestedType}"
+                    <CircleCheck size={11} /> "{anomalies[0].suggestedType}"
                   </span>
                   <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded-md text-[11px]">
-                    <span>✘</span> "{anomalies[0].type}"
+                    <CircleAlert size={11} /> "{anomalies[0].type}"
                   </span>
                   {anomalies.length > 1 && (
-                    <span className="text-[10px] text-[var(--kg-text-muted)] font-medium">
+                    <span className="text-[10px] text-[var(--kg-text-muted)] font-medium tabular-nums">
                       (+{anomalies.length - 1} ca khác)
                     </span>
                   )}
                 </div>
               </div>
             </div>
-            <p className="text-[11px] text-ocean-600 dark:text-ocean-400 font-bold whitespace-nowrap hidden sm:block">
-              ✏️ Bấm "Sửa loại ca" bên dưới
+            <p className="text-[11px] text-[var(--kg-primary)] font-bold whitespace-nowrap hidden sm:flex items-center gap-1">
+              <Edit3 size={12} /> Bấm "Sửa loại ca" bên dưới
             </p>
           </div>
         </div>
@@ -195,38 +252,40 @@ export default function ActivityHistory() {
       <div className="grid grid-cols-2 gap-4">
         <div className="soft3d-card p-4 rounded-2xl">
           <div className="flex items-center space-x-2 mb-2">
-            <div className="p-1.5 bg-ocean-100 dark:bg-ocean-900 rounded-lg text-ocean-600 dark:text-ocean-300"><CalendarCheck size={16} /></div>
-            <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Tháng này</p>
+            <div className="p-1.5 bg-[var(--kg-primary-soft)] rounded-lg text-[var(--kg-primary)]"><CalendarCheck size={16} /></div>
+            <p className="text-xs text-[var(--kg-text-muted)] font-bold uppercase tracking-wider">Tháng này</p>
           </div>
-          <h4 className="text-3xl font-extrabold text-gray-800 dark:text-white">{stats.totalCheckIn} ca</h4>
+          <h4 className="text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-[var(--kg-text)]">{stats.totalCheckIn} ca</h4>
         </div>
         <div className="soft3d-card p-4 rounded-2xl">
           <div className="flex items-center space-x-2 mb-2">
-            <div className="p-1.5 bg-green-100 dark:bg-green-900 rounded-lg text-green-600 dark:text-green-300"><ShieldCheck size={16} /></div>
-            <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Hợp lệ</p>
+            <div className="p-1.5 bg-[var(--kg-success-soft)] rounded-lg text-[var(--kg-success)]"><ShieldCheck size={16} /></div>
+            <p className="text-xs text-[var(--kg-text-muted)] font-bold uppercase tracking-wider">Hợp lệ</p>
           </div>
-          <h4 className="text-3xl font-extrabold text-green-600 dark:text-green-400">{stats.validCount}</h4>
+          <h4 className="text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-[var(--kg-success)]">{stats.validCount}</h4>
         </div>
       </div>
 
       {/* Action buttons */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <button
-          type="button"
-          onClick={openTimesheet}
-          className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-3.5 px-4 shadow-sm hover:shadow-md transition-all transform active:scale-95 flex items-center justify-center touch-manipulation border border-emerald-400/30 rounded-2xl text-xs sm:text-sm"
-        >
-          <FileSpreadsheet size={18} className="mr-2 flex-shrink-0" />
-          <span>XEM SHEET ✔️CHẤM CÔNG GỐC</span>
-        </button>
+      <div className={`grid gap-3 ${isAdmin ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={openTimesheet}
+            className="w-full bg-[var(--kg-surface)] hover:bg-[var(--kg-surface-soft)] text-[var(--kg-text)] font-bold py-3 px-4 shadow-2xs transition-all active:scale-99 flex items-center justify-center touch-manipulation border border-[var(--kg-border)] rounded-xl text-xs sm:text-sm"
+          >
+            <FileSpreadsheet size={17} className="mr-2 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+            <span>XEM SHEET CHẤM CÔNG GỐC</span>
+          </button>
+        )}
 
         <button
           type="button"
           onClick={analyzeMyProductivity}
-          className="w-full bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-bold py-3.5 px-4 shadow-sm hover:shadow-md transition-all transform active:scale-95 flex items-center justify-center touch-manipulation border border-sky-400/30 rounded-2xl text-xs sm:text-sm"
+          className="w-full bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-bold py-3 px-4 shadow-2xs transition-all active:scale-99 flex items-center justify-center touch-manipulation rounded-xl text-xs sm:text-sm"
         >
-          <Bot size={18} className="mr-2 flex-shrink-0" />
-          <span>✨ AI ĐÁNH GIÁ NĂNG SUẤT</span>
+          <Sparkles size={16} className="mr-2 text-[var(--kg-accent)] flex-shrink-0" />
+          <span>AI ĐÁNH GIÁ NĂNG SUẤT</span>
         </button>
       </div>
 
@@ -291,25 +350,25 @@ export default function ActivityHistory() {
             return (
               <div
                 key={idx}
-                className={`group soft3d-card p-4 rounded-2xl hover:shadow-md transition-all relative overflow-hidden ${
+                className={`group soft3d-card p-4 rounded-2xl hover:shadow-sm transition-all relative overflow-hidden ${
                   logAnomaly ? 'border-2 border-rose-500/40 bg-rose-500/5' : ''
                 }`}
               >
-                <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${isIn ? 'bg-green-500' : 'bg-red-500'}`} />
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between pl-3 gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <span className={`font-black text-xs px-2.5 py-0.5 rounded-lg ${
+                      <span className={`font-black text-xs px-2.5 py-0.5 rounded-lg inline-flex items-center gap-1.5 ${
                         isIn
-                          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-500/20'
-                          : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border border-red-500/20'
+                          ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/35 dark:text-emerald-400 border border-emerald-500/25'
+                          : 'bg-rose-50 text-rose-700 dark:bg-rose-950/35 dark:text-rose-400 border border-rose-500/25'
                       }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${isIn ? 'bg-emerald-500' : 'bg-rose-500'}`} />
                         {log.type.toUpperCase()}
                       </span>
 
                       {log.isCorrected && (
                         <span className="text-[10px] font-black px-2 py-0.5 rounded bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30">
-                          ✓ Đã sửa
+                          Đã sửa
                         </span>
                       )}
 
@@ -320,7 +379,7 @@ export default function ActivityHistory() {
                         </span>
                       )}
 
-                      <span className="text-xs font-mono text-gray-500 dark:text-gray-400">{log.time}</span>
+                      <span className="text-xs font-mono tabular-nums text-[var(--kg-text-muted)]">{log.time}</span>
                     </div>
 
                     {isAdmin && (
@@ -360,7 +419,7 @@ export default function ActivityHistory() {
                         title="Đổi giữa Vào ca và Ra ca nếu ghi nhận nhầm"
                       >
                         <Edit3 size={13} className="text-amber-600 dark:text-amber-400 flex-shrink-0" />
-                        <span>Sửa loại ca</span>
+                        <span>{isAdmin ? 'Sửa loại ca' : 'Báo nhầm ca'}</span>
                       </button>
                     )}
 
@@ -395,7 +454,7 @@ export default function ActivityHistory() {
       <KgBottomSheet
         isOpen={editModalOpen}
         onClose={() => setEditModalOpen(false)}
-        title="✏️ Sửa Loại Chấm Công"
+        title="Sửa Loại Chấm Công"
       >
         {editingLog && (
           <div className="space-y-4 text-[var(--kg-text)]">
@@ -507,7 +566,7 @@ export default function ActivityHistory() {
                 className="flex-1 py-3 text-xs font-black"
                 icon={CheckCircle2}
               >
-                Xác Nhận Sửa
+                {isAdmin ? 'Xác Nhận Sửa' : 'Gửi Quản Lý Duyệt'}
               </KgButton>
             </div>
           </div>

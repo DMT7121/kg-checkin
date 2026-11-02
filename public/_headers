@@ -1,8 +1,17 @@
 /*
   Cache-Control: no-cache
 
+/sw.js
+  Cache-Control: no-cache
+
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 
 /models/*
   Cache-Control: public, max-age=2592000
+
+/audio/*
+  Cache-Control: public, max-age=604800
+
+/hdsd-cukcuk/*
+  Cache-Control: public, max-age=604800

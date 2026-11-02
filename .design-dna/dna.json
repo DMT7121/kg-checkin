@@ -1,0 +1,181 @@
+{
+  "schemaVersion": "1.0.0",
+  "isolatedProjectLock": true,
+  "createdAt": "2026-11-02T08:58:00.000Z",
+  "version": "4.0.0",
+  "productIdentity": {
+    "name": "King's Grill Staff OS v4.0",
+    "slug": "kg-checkin-warm-hospitality-v4",
+    "domain": "restaurant-staff-operations-mobile-superapp",
+    "surfaceMode": "Operate",
+    "locale": "vi-VN",
+    "codename": "Warm Hospitality Super-App"
+  },
+  "designDirection": {
+    "archetypeId": "editorial-atelier-ops",
+    "archetypeName": "Warm Hospitality Super-App (Slim Architectural Rail + Mobile Floating Pill Dock)",
+    "axes": {
+      "layoutComposition": "slim-76px-midnight-rail-plus-asymmetric-bento-stage-and-floating-mobile-dock",
+      "informationArchitecture": "editorial-masthead-version-pill-capsule-subtabs-bento-cards",
+      "navigationModel": "76px-icon-rail-expandable-drawer-desktop-plus-floating-pill-dock-mobile",
+      "typographySystem": "be-vietnam-pro-editorial-hierarchy-plus-jetbrains-mono-tabular-nums",
+      "visualHierarchy": "warm-alabaster-canvas-ivory-cards-midnight-navy-spine-grill-ember-signals",
+      "contentDensity": "mobile-ergonomic-44px-to-48px-targets-desktop-40px-operational-rows",
+      "colorArchitecture": "alabaster-F4F0E8-ivory-FFFDF9-midnight-0B253C-grill-ember-C8432B",
+      "componentAnatomy": "tactile-16px-cards-warm-hairline-border-zero-double-padding",
+      "interactionModel": "one-tap-superapp-actions-assistive-touch-ai-edge-snap-sheet-drawers",
+      "surfaceIdentity": "warm-hospitality-porcelain-and-basalt-layers"
+    },
+    "grayscaleSilhouette": "Dark 76px architectural icon spine on far left (Desktop) with crisp 60px top masthead and version pill; asymmetric Bento hero & launcher grid on warm alabaster canvas; floating rounded pill dock hovering above bottom safe area on Mobile with draggable edge-tucked AssistiveTouch AI tab."
+  },
+  "typographyScale": {
+    "display": {
+      "size": "1.5rem",
+      "lineHeight": 1.24,
+      "weight": 800,
+      "tracking": "-0.02em"
+    },
+    "h1": {
+      "size": "1.25rem",
+      "lineHeight": 1.28,
+      "weight": 700,
+      "tracking": "-0.015em"
+    },
+    "h2": {
+      "size": "1rem",
+      "lineHeight": 1.36,
+      "weight": 700,
+      "tracking": "-0.005em"
+    },
+    "body": {
+      "size": "0.875rem",
+      "lineHeight": 1.5,
+      "weight": 400,
+      "tracking": "0"
+    },
+    "caption": {
+      "size": "0.75rem",
+      "lineHeight": 1.45,
+      "weight": 500,
+      "tracking": "0"
+    },
+    "numericMetric": {
+      "size": "1.375rem",
+      "lineHeight": 1.2,
+      "weight": 700,
+      "fontVariantNumeric": "tabular-nums"
+    }
+  },
+  "fontPairing": {
+    "heading": "'Be Vietnam Pro', system-ui, -apple-system, sans-serif",
+    "body": "'Be Vietnam Pro', system-ui, -apple-system, sans-serif",
+    "mono": "'JetBrains Mono', ui-monospace, SFMono-Regular, Consolas, monospace",
+    "vietnameseDiacriticsVerified": true
+  },
+  "colorPalette": {
+    "light": {
+      "canvas": "#F4F0E8",
+      "surface": "#FFFDF9",
+      "subtle": "#EAE3D7",
+      "inkPrimary": "#1A1613",
+      "inkSecondary": "#5C5349",
+      "border": "#DDD4C5",
+      "accent": "#0B253C",
+      "accentContrast": "#FFFFFF",
+      "brandSignal": "#C8432B",
+      "success": "#15803D",
+      "warning": "#B45309",
+      "danger": "#DC2626"
+    },
+    "dark": {
+      "canvas": "#0D1015",
+      "surface": "#161A22",
+      "subtle": "#1F2530",
+      "inkPrimary": "#F7F4EE",
+      "inkSecondary": "#B5AFA6",
+      "border": "#2B3240",
+      "accent": "#2563EB",
+      "accentContrast": "#FFFFFF",
+      "brandSignal": "#E05238",
+      "success": "#34D399",
+      "warning": "#FBBF24",
+      "danger": "#F87171"
+    }
+  },
+  "spacingSystem": {
+    "baseUnitPx": 4,
+    "scalePx": [4, 8, 12, 16, 20, 24, 32, 48, 64],
+    "rowHeight": "40px"
+  },
+  "layoutGrid": {
+    "composition": "slim-76px-midnight-rail-plus-adaptive-1520px-bento-stage",
+    "maxContentWidth": "1520px",
+    "focusedContentWidth": "1240px",
+    "containerQueriesEnabled": true
+  },
+  "borderRadius": {
+    "sm": "6px",
+    "md": "10px",
+    "lg": "16px",
+    "xl": "22px",
+    "pill": "9999px"
+  },
+  "surfaceTreatment": {
+    "style": "warm-porcelain-tactile-cards-with-midnight-architectural-rail",
+    "glassmorphismAllowed": false
+  },
+  "shadowAndElevation": {
+    "level0": "none",
+    "level1": "0 1px 3px 0 rgba(26, 22, 19, 0.05), 0 1px 2px -1px rgba(26, 22, 19, 0.04)",
+    "level2": "0 10px 28px -6px rgba(11, 37, 60, 0.14)"
+  },
+  "iconography": {
+    "primaryFamily": "lucide",
+    "strokeWidth": 1.8,
+    "sizesPx": [16, 18, 20],
+    "banMixedFamiliesAndDecorativeEmoji": true
+  },
+  "componentAnatomy": {
+    "density": "mobile-44px-to-48px-superapp-touch-desktop-40px-operational",
+    "requiredInteractiveStates": [
+      "default",
+      "hover",
+      "focus-visible",
+      "active",
+      "selected",
+      "disabled",
+      "loading",
+      "empty",
+      "error"
+    ],
+    "singlePrimaryActionPerZone": true
+  },
+  "navigationPatterns": {
+    "desktop": "slim-76px-midnight-icon-rail-expandable-drawer-plus-top-masthead-version-pill",
+    "mobile": "compact-superapp-topbar-version-chip-plus-floating-bottom-pill-dock-and-edge-tucked-assistive-ai"
+  },
+  "interactionPrinciples": {
+    "model": "mobile-first-superapp-zero-double-padding-assistive-touch-ai-release-notes-center",
+    "tabularCurrencyAlignment": "right-aligned JetBrains Mono tabular-nums for all VND and hours"
+  },
+  "responsiveBehaviors": {
+    "viewportsVerified": ["360x800", "390x844", "768x1024", "1440x900", "1920x1080"],
+    "mobileTableAdaptation": "zero-nested-padding-fluid-cards-and-touch-scroll-tables-zero-body-overflow"
+  },
+  "accessibilityRequirements": {
+    "standard": "WCAG 2.2 AA",
+    "minNormalContrast": 4.5,
+    "minTouchTargetMobilePx": 44,
+    "keyboardNavigation": true
+  },
+  "motionPolicy": {
+    "durationFastMs": 150,
+    "durationBaseMs": 220,
+    "easing": "cubic-bezier(0.22, 1, 0.36, 1)",
+    "propertiesAllowed": ["opacity", "transform"],
+    "respectPrefersReducedMotion": true
+  },
+  "decisionsAndRationale": {
+    "selectedReason": "User requested a 100% UI renewal optimized for mobile devices, featuring Warm Hospitality Super-App architecture (Alabaster + Grill Ember + Midnight Navy), an interactive Version & Changelog Center (v4.0.0), and an AssistiveTouch-style draggable edge-docking AI button."
+  }
+}

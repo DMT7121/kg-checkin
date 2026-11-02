@@ -387,96 +387,312 @@ var ChecklistService = (function() {
     return text;
   }
 
-  /**
-   * Saves the checklist progress for a given date and zone, updating the JSON log sheet 
-   * and writing a formatted tracking summary to the monthly calendar sheet.
-   */
-  function saveChecklistState(dateStr, area, participants, items, supply, signatures) {
-    if (!dateStr) {
-      dateStr = Utilities.formatDate(new Date(), "GMT+7", "yyyy-MM-dd");
-    }
-    if (!area) area = "A";
-    if (!participants) participants = [];
-    if (!items) items = {};
-    if (!supply) supply = {};
-    if (!signatures) signatures = {};
+  function parseIsoMs_(iso) {
+    if (!iso) return 0;
+    var ms = Date.parse(String(iso));
+    return isNaN(ms) ? 0 : ms;
+  }
 
-    // 1. Save state to raw logs (02_LUU_TRU_TIEN_DO)
-    var stateSheet = SheetService.getOrCreateSheet(STATE_SHEET, STATE_HEADERS);
-    var stateRows = SheetService.getSheetDataAsObjects(STATE_SHEET);
-    
-    var stateObj = {
-      participants: participants || [],
-      items: items || {},
-      supply: supply || {},
-      signatures: signatures || {},
+  function mergeSingleChecklistItem_(existing, incoming, isExplicitDelta) {
+    if (!existing) {
+      return {
+        checked: Boolean(incoming.checked),
+        note: incoming.note !== undefined ? String(incoming.note) : "",
+        subchecks: incoming.subchecks ? JSON.parse(JSON.stringify(incoming.subchecks)) : {},
+        by: incoming.by || "",
+        at: incoming.at || new Date().toISOString()
+      };
+    }
+    var exMs = parseIsoMs_(existing.at);
+    var inMs = parseIsoMs_(incoming.at);
+    var newerOrEqual = isExplicitDelta || inMs >= exMs;
+
+    var mergedSubs = {};
+    if (existing.subchecks) {
+      Object.keys(existing.subchecks).forEach(function(sk) {
+        mergedSubs[sk] = Boolean(existing.subchecks[sk]);
+      });
+    }
+    if (incoming.subchecks) {
+      Object.keys(incoming.subchecks).forEach(function(sk) {
+        if (newerOrEqual || mergedSubs[sk] === undefined) {
+          mergedSubs[sk] = Boolean(incoming.subchecks[sk]);
+        }
+      });
+    }
+
+    return {
+      checked: (newerOrEqual && incoming.checked !== undefined) ? Boolean(incoming.checked) : Boolean(existing.checked),
+      note: (newerOrEqual && incoming.note !== undefined && (incoming.note !== "" || isExplicitDelta))
+        ? String(incoming.note)
+        : (existing.note || ""),
+      subchecks: mergedSubs,
+      by: (newerOrEqual && incoming.by) ? incoming.by : (existing.by || ""),
+      at: inMs >= exMs ? (incoming.at || existing.at) : existing.at
+    };
+  }
+
+  function mergeAreaState_(existingRaw, incoming) {
+    var existing = existingRaw || {};
+    var exParticipants = Array.isArray(existing.participants) ? existing.participants : [];
+    var exItems = existing.items || {};
+    var exSupply = existing.supply || {};
+    var exSignatures = existing.signatures || {};
+
+    var removedMap = {};
+    if (Array.isArray(incoming.removedParticipantKeys)) {
+      incoming.removedParticipantKeys.forEach(function(rk) {
+        removedMap[String(rk)] = true;
+      });
+    }
+
+    var mergedParticipants = [];
+    var seenKeys = {};
+    var seenNames = {};
+
+    exParticipants.forEach(function(p) {
+      if (!p || removedMap[p.key]) return;
+      seenKeys[p.key] = true;
+      if (p.name) seenNames[String(p.name).trim().toLowerCase()] = true;
+      mergedParticipants.push(p);
+    });
+
+    if (Array.isArray(incoming.participants)) {
+      incoming.participants.forEach(function(p) {
+        if (!p || removedMap[p.key]) return;
+        var normName = String(p.name || "").trim().toLowerCase();
+        if (!seenKeys[p.key] && (!normName || !seenNames[normName])) {
+          seenKeys[p.key] = true;
+          if (normName) seenNames[normName] = true;
+          mergedParticipants.push(p);
+        }
+      });
+    }
+
+    var mergedItems = {};
+    Object.keys(exItems).forEach(function(id) {
+      mergedItems[id] = exItems[id];
+    });
+
+    if (incoming.deltaItems && typeof incoming.deltaItems === "object") {
+      Object.keys(incoming.deltaItems).forEach(function(id) {
+        if (!id || id.indexOf("_") === 0) return;
+        var patch = incoming.deltaItems[id];
+        if (!patch) return;
+        mergedItems[id] = mergeSingleChecklistItem_(mergedItems[id], patch, true);
+      });
+    } else if (incoming.items && typeof incoming.items === "object") {
+      Object.keys(incoming.items).forEach(function(id) {
+        if (!id || id.indexOf("_") === 0) return;
+        var patch = incoming.items[id];
+        if (!patch) return;
+        mergedItems[id] = mergeSingleChecklistItem_(mergedItems[id], patch, false);
+      });
+    }
+
+    var mergedSupply = {};
+    Object.keys(exSupply).forEach(function(k) {
+      mergedSupply[k] = exSupply[k];
+    });
+    if (incoming.supply && typeof incoming.supply === "object") {
+      Object.keys(incoming.supply).forEach(function(k) {
+        var val = incoming.supply[k];
+        if (k === "note") {
+          if (typeof val === "string" && val.trim() !== "") {
+            mergedSupply.note = val;
+          } else if (!mergedSupply.note && typeof val === "string") {
+            mergedSupply.note = val;
+          }
+        } else if (val !== undefined) {
+          mergedSupply[k] = val;
+        }
+      });
+    }
+
+    var mergedSignatures = {};
+    Object.keys(exSignatures).forEach(function(k) {
+      mergedSignatures[k] = exSignatures[k];
+    });
+    var sigKeys = ["receive", "handover", "manager"];
+    if (incoming.deltaSignatures && typeof incoming.deltaSignatures === "object") {
+      sigKeys.forEach(function(sk) {
+        if (incoming.deltaSignatures[sk] !== undefined) {
+          mergedSignatures[sk] = incoming.deltaSignatures[sk];
+        }
+      });
+    } else if (incoming.signatures && typeof incoming.signatures === "object") {
+      sigKeys.forEach(function(sk) {
+        var sv = incoming.signatures[sk];
+        if (typeof sv === "string" && sv.trim() !== "") {
+          mergedSignatures[sk] = sv;
+        }
+      });
+    }
+
+    return {
+      participants: mergedParticipants,
+      items: mergedItems,
+      supply: mergedSupply,
+      signatures: mergedSignatures,
       savedAt: new Date().toISOString()
     };
-    var jsonString = JSON.stringify(stateObj);
-    
-    var foundIndex = -1;
-    for (var i = 0; i < stateRows.length; i++) {
-      var rowDate = stateRows[i]["Ngày"];
-      if (rowDate instanceof Date) {
-        rowDate = Utilities.formatDate(rowDate, "GMT+7", "yyyy-MM-dd");
-      }
-      if (rowDate === dateStr && stateRows[i]["Khu vực"] === area) {
-        foundIndex = i + 2; // Offset for header (1) and 0-indexing
-        break;
-      }
-    }
-    
-    var timestamp = new Date().toISOString();
-    var participantNames = (participants || []).map(function(p) { return p.name; }).join(", ");
+  }
 
-    if (foundIndex !== -1) {
-      stateSheet.getRange(foundIndex, 3).setValue(participantNames);
-      stateSheet.getRange(foundIndex, 4).setValue(jsonString);
-      stateSheet.getRange(foundIndex, 5).setValue(timestamp);
-    } else {
-      var newRaw = {
-        "Ngày": dateStr,
-        "Khu vực": area,
-        "Nhân viên": participantNames,
-        "Dữ liệu JSON": jsonString,
-        "Thời gian cập nhật": timestamp
-      };
-      SheetService.appendRowFromObject(STATE_SHEET, STATE_HEADERS, newRaw);
+  /**
+   * Saves the checklist progress for a given date and zone with script-level concurrency lock
+   * and item-level merge so simultaneous staff updates never overwrite each other.
+   */
+  function saveChecklistState(dateStr, area, participants, items, supply, signatures, options) {
+    var lock = LockService.getScriptLock();
+    try {
+      lock.waitLock(12000);
+    } catch (lockErr) {
+      Logger.log("ChecklistService lock timeout: " + lockErr.toString());
     }
-    
-    // 2. Write to monthly tracking/report sheet
-    var parts = dateStr.split("-");
-    var year = parseInt(parts[0], 10);
-    var month = parseInt(parts[1], 10);
-    var day = parseInt(parts[2], 10);
-    
-    var monthName = "Tháng " + String(month).padStart(2, "0") + "-" + year;
-    
-    prePopulateMonthlySheet(monthName, month, year);
-    
-    var configData = loadChecklistFromSheet();
-    var formattedText = formatZoneCellText(dateStr, area, participants, items, supply, signatures, configData);
-    
-    var vnDateStr = String(day).padStart(2, "0") + "/" + String(month).padStart(2, "0") + "/" + year;
-    
-    var headers = [
-      "Ngày",
-      "Khu A", "Đánh giá Khu A",
-      "Khu B", "Đánh giá Khu B",
-      "Khu C", "Đánh giá Khu C",
-      "Khu D&E", "Đánh giá Khu D&E"
-    ];
-    
-    var targetColHeader = "Khu " + area;
-    
-    SheetService.updateCellByLookup(monthName, headers, "Ngày", vnDateStr, targetColHeader, formattedText);
-    
-    return {
-      success: true,
-      monthSheet: monthName,
-      date: vnDateStr,
-      area: area
-    };
+
+    try {
+      if (!dateStr) {
+        dateStr = Utilities.formatDate(new Date(), "GMT+7", "yyyy-MM-dd");
+      }
+      if (!area) area = "A";
+      var opts = options || {};
+
+      // 1. Read & merge against existing state in raw logs (02_LUU_TRU_TIEN_DO)
+      var stateSheet = SheetService.getOrCreateSheet(STATE_SHEET, STATE_HEADERS);
+      var stateRows = SheetService.getSheetDataAsObjects(STATE_SHEET);
+
+      var foundIndex = -1;
+      var existingStateObj = null;
+      for (var i = 0; i < stateRows.length; i++) {
+        var rowDate = stateRows[i]["Ngày"];
+        if (rowDate instanceof Date) {
+          rowDate = Utilities.formatDate(rowDate, "GMT+7", "yyyy-MM-dd");
+        }
+        if (rowDate === dateStr && stateRows[i]["Khu vực"] === area) {
+          foundIndex = i + 2; // Offset for header (1) and 0-indexing
+          try {
+            existingStateObj = JSON.parse(stateRows[i]["Dữ liệu JSON"] || "{}");
+          } catch (parseErr) {
+            existingStateObj = null;
+          }
+          break;
+        }
+      }
+
+      var stateObj = mergeAreaState_(existingStateObj, {
+        participants: participants || [],
+        removedParticipantKeys: opts.removedParticipantKeys || [],
+        items: items || {},
+        deltaItems: opts.deltaItems || null,
+        supply: supply || {},
+        signatures: signatures || {},
+        deltaSignatures: opts.deltaSignatures || null
+      });
+      var jsonString = JSON.stringify(stateObj);
+
+      var timestamp = new Date().toISOString();
+      var participantNames = (stateObj.participants || []).map(function(p) { return p.name; }).join(", ");
+
+      if (foundIndex !== -1) {
+        stateSheet.getRange(foundIndex, 3).setValue(participantNames);
+        stateSheet.getRange(foundIndex, 4).setValue(jsonString);
+        stateSheet.getRange(foundIndex, 5).setValue(timestamp);
+      } else {
+        var newRaw = {
+          "Ngày": dateStr,
+          "Khu vực": area,
+          "Nhân viên": participantNames,
+          "Dữ liệu JSON": jsonString,
+          "Thời gian cập nhật": timestamp
+        };
+        SheetService.appendRowFromObject(STATE_SHEET, STATE_HEADERS, newRaw);
+      }
+
+      // 2. Write to monthly tracking/report sheet
+      var parts = dateStr.split("-");
+      var year = parseInt(parts[0], 10);
+      var month = parseInt(parts[1], 10);
+      var day = parseInt(parts[2], 10);
+
+      var monthName = "Tháng " + String(month).padStart(2, "0") + "-" + year;
+
+      prePopulateMonthlySheet(monthName, month, year);
+
+      var configData = loadChecklistFromSheet();
+      var formattedText = formatZoneCellText(
+        dateStr,
+        area,
+        stateObj.participants,
+        stateObj.items,
+        stateObj.supply,
+        stateObj.signatures,
+        configData
+      );
+
+      var vnDateStr = String(day).padStart(2, "0") + "/" + String(month).padStart(2, "0") + "/" + year;
+
+      var headers = [
+        "Ngày",
+        "Khu A", "Đánh giá Khu A",
+        "Khu B", "Đánh giá Khu B",
+        "Khu C", "Đánh giá Khu C",
+        "Khu D&E", "Đánh giá Khu D&E"
+      ];
+
+      var targetColHeader = "Khu " + area;
+
+      SheetService.updateCellByLookup(monthName, headers, "Ngày", vnDateStr, targetColHeader, formattedText);
+
+      // 3. Sync completion summary to ChecklistLogs for Dashboard todayChecklistDone & Analytics
+      if (opts.actorUsername) {
+        try {
+          var checkedIds = Object.keys(stateObj.items || {}).filter(function(k) {
+            return stateObj.items[k] && stateObj.items[k].checked;
+          });
+          if (checkedIds.length > 0) {
+            var ss = SheetService.getSpreadsheet();
+            var clSheet = ss.getSheetByName("ChecklistLogs");
+            if (!clSheet) {
+              clSheet = ss.insertSheet("ChecklistLogs");
+              clSheet.appendRow(["LogID", "Date", "Shift", "Username", "Fullname", "CheckedTasks", "Timestamp"]);
+            }
+            var clData = clSheet.getDataRange().getValues();
+            var existingClRow = -1;
+            for (var ci = clData.length - 1; ci >= 1; ci--) {
+              if (String(clData[ci][1]) === vnDateStr && String(clData[ci][3]).toLowerCase() === String(opts.actorUsername).toLowerCase()) {
+                existingClRow = ci + 1;
+                break;
+              }
+            }
+            if (existingClRow !== -1) {
+              clSheet.getRange(existingClRow, 6, 1, 2).setValues([[JSON.stringify(checkedIds), timestamp]]);
+            } else {
+              clSheet.appendRow([
+                "LOG_" + new Date().getTime(),
+                vnDateStr,
+                "Khu " + area,
+                opts.actorUsername,
+                opts.actorFullname || opts.actorUsername,
+                JSON.stringify(checkedIds),
+                timestamp
+              ]);
+            }
+          }
+        } catch (clErr) {
+          Logger.log("ChecklistLogs sync warning: " + clErr.toString());
+        }
+      }
+
+      return {
+        success: true,
+        monthSheet: monthName,
+        date: vnDateStr,
+        area: area,
+        state: stateObj
+      };
+    } finally {
+      try { lock.releaseLock(); } catch (ignore) {}
+    }
   }
 
   return {

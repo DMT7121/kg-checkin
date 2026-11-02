@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import { DAY_NAMES, SHORT_DAY_NAMES, computeWeekInfo, ResponsiveShift, getPreviewShiftClass } from '../utils/helpers';
+import { isWorkEligible } from '../utils/employment';
+import { validateSmartShiftSwap } from '../utils/shiftSwapValidator';
 import Swal from 'sweetalert2';
-import { ArrowLeftRight, Send, BellRing, Copy, User, Megaphone, Inbox, Clock, HandshakeIcon, LogOut } from 'lucide-react';
+import { Send, BellRing, Copy, User, Megaphone, Inbox, Clock, HandshakeIcon, LogOut, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { KgModuleHero } from '../components/KgDesignSystem';
 
 
@@ -14,6 +16,7 @@ export default function SwapShift() {
       currentUser: s.currentUser,
       users: s.users,
       approvedShifts: s.approvedShifts,
+      currentWeekApprovedShifts: s.currentWeekApprovedShifts,
       swapRequests: s.swapRequests,
       hasNewSwaps: s.hasNewSwaps,
       isScheduleRegistered: s.isScheduleRegistered,
@@ -22,13 +25,52 @@ export default function SwapShift() {
       setLoading: s.setLoading,
     }))
   );
-  const { currentUser, users, approvedShifts, swapRequests } = store;
-  const [weekInfo] = useState(() => computeWeekInfo());
+  const { currentUser, users, approvedShifts, currentWeekApprovedShifts, swapRequests } = store;
+  const [currentWeekInfo] = useState(() => computeWeekInfo(undefined, false));
+  const [nextWeekInfo] = useState(() => computeWeekInfo(undefined, true));
+  const [weekScope, setWeekScope] = useState<'current' | 'next'>(() =>
+    currentWeekApprovedShifts && currentWeekApprovedShifts.some((s) => s && s !== 'OFF')
+      ? 'current'
+      : 'next'
+  );
+  const weekInfo = weekScope === 'current' ? currentWeekInfo : nextWeekInfo;
+  const activeApprovedShifts =
+    weekScope === 'current'
+      ? currentWeekApprovedShifts ?? approvedShifts
+      : approvedShifts;
   
   const [viewTab, setViewTab] = useState<'board' | 'post' | 'leave'>('board');
   const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(null);
   const [targetUsername, setTargetUsername] = useState<string>('ALL');
   const [reason, setReason] = useState<string>('');
+  const [coworkerShiftMap, setCoworkerShiftMap] = useState<Record<string, string[]>>({});
+
+  const eligibleCoworkers = useMemo(
+    () =>
+      users.filter(
+        (u) => u.username !== currentUser?.username && u.role !== 'admin' && isWorkEligible(u)
+      ),
+    [users, currentUser?.username]
+  );
+
+  const directSwapValidation = useMemo(() => {
+    if (viewTab !== 'post' || selectedDayIndex === null || targetUsername === 'ALL') {
+      return null;
+    }
+    const targetEmp = users.find((u) => u.username === targetUsername);
+    if (!targetEmp) return null;
+    const targetShifts =
+      coworkerShiftMap[targetEmp.username.toLowerCase()] ||
+      coworkerShiftMap[targetEmp.fullname.trim().toLowerCase()] ||
+      null;
+    if (!targetShifts) return null;
+    return validateSmartShiftSwap({
+      dayIndex: selectedDayIndex,
+      requesterShift: activeApprovedShifts?.[selectedDayIndex] || 'OFF',
+      targetEmployee: targetEmp,
+      targetWeekShifts: targetShifts,
+    });
+  }, [viewTab, selectedDayIndex, targetUsername, users, coworkerShiftMap, activeApprovedShifts]);
 
   const loadSwapRequests = async () => {
     const res = await callApi('GET_SWAP_REQUESTS', {
@@ -42,10 +84,41 @@ export default function SwapShift() {
 
   useEffect(() => {
     if (viewTab === 'board') {
-      store.setHasNewSwaps(false);
-      loadSwapRequests();
+      void callApi('GET_SWAP_REQUESTS', {
+        username: currentUser?.username,
+        role: currentUser?.role,
+      }).then((res) => {
+        store.setHasNewSwaps(false);
+        if (res?.ok) store.setSwapRequests(res.data);
+      });
     }
-  }, [viewTab]);
+  }, [viewTab, currentUser?.username, currentUser?.role]);
+
+  useEffect(() => {
+    if (viewTab !== 'post') return;
+    let cancelled = false;
+    void callApi('GET_ALL_SCHEDULES', {
+      monthSheet: weekInfo.monthSheet,
+      weekLabel: weekInfo.weekLabel,
+    }).then((res) => {
+      if (cancelled || !res?.ok) return;
+      const list = Array.isArray(res.data)
+        ? res.data
+        : Array.isArray(res.data?.schedules)
+          ? res.data.schedules
+          : [];
+      const nextMap: Record<string, string[]> = {};
+      for (const entry of list) {
+        if (!entry || !Array.isArray(entry.shifts)) continue;
+        if (entry.username) nextMap[String(entry.username).trim().toLowerCase()] = entry.shifts;
+        if (entry.fullname) nextMap[String(entry.fullname).trim().toLowerCase()] = entry.shifts;
+      }
+      setCoworkerShiftMap(nextMap);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [viewTab, weekInfo.monthSheet, weekInfo.weekLabel]);
 
   useEffect(() => {
     if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
@@ -60,7 +133,7 @@ export default function SwapShift() {
       return;
     }
     
-    const myShift = approvedShifts?.[selectedDayIndex] || 'OFF';
+    const myShift = activeApprovedShifts?.[selectedDayIndex] || 'OFF';
     if (myShift === 'OFF') {
       Swal.fire('Lỗi', 'Bạn đang OFF ngày này, không thể đổi ca.', 'warning');
       return;
@@ -70,6 +143,15 @@ export default function SwapShift() {
     const isLeave = viewTab === 'leave';
     const isPublic = !isLeave && targetUsername === 'ALL';
     const targetUser = isPublic || isLeave ? null : users.find(u => u.username === targetUsername);
+
+    if (!isLeave && !isPublic && directSwapValidation && !directSwapValidation.valid) {
+      Swal.fire(
+        'Trùng lịch ca làm',
+        directSwapValidation.reason || 'Đồng nghiệp đã có lịch ca trong ngày này.',
+        'error'
+      );
+      return;
+    }
 
     let confirmTitle = '';
     let confirmBtn = '';
@@ -129,10 +211,11 @@ export default function SwapShift() {
 
   const getZaloMessage = () => {
     if (selectedDayIndex === null || targetUsername === 'ALL') return '';
-    const myShift = approvedShifts?.[selectedDayIndex] || 'OFF';
+    const myShift = activeApprovedShifts?.[selectedDayIndex] || 'OFF';
     const dayName = DAY_NAMES[selectedDayIndex];
     const targetUser = users.find(u => u.username === targetUsername);
-    return `Chào ${targetUser?.fullname}, mình có lịch làm ca ${myShift} vào ${dayName} tuần này (${weekInfo.weekDates[selectedDayIndex]}). Bạn có thể đổi ca này giúp mình được không? Lý do: ${reason || 'Bận việc đột xuất'}. Cảm ơn bạn nhiều!`;
+    const scopeText = weekScope === 'current' ? 'tuần này' : 'tuần tới';
+    return `Chào ${targetUser?.fullname}, mình có lịch làm ca ${myShift} vào ${dayName} ${scopeText} (${weekInfo.weekDates[selectedDayIndex]}). Bạn có thể đổi ca này giúp mình được không? Lý do: ${reason || 'Bận việc đột xuất'}. Cảm ơn bạn nhiều!`;
   };
 
   const getPublicZaloMessage = (req: any) => {
@@ -145,10 +228,41 @@ export default function SwapShift() {
   };
 
   const handleAcceptSwap = (req: any) => {
+    const curIdx = currentWeekInfo.weekDates.indexOf(req.date);
+    const nxtIdx = nextWeekInfo.weekDates.indexOf(req.date);
+    const matchedDayIdx = curIdx >= 0 ? curIdx : nxtIdx;
+    const myShiftsForReqWeek =
+      curIdx >= 0 ? currentWeekApprovedShifts ?? approvedShifts : nxtIdx >= 0 ? approvedShifts : null;
+
+    let otNote = '';
+    if (matchedDayIdx >= 0 && myShiftsForReqWeek && currentUser) {
+      const checkSelf = validateSmartShiftSwap({
+        dayIndex: matchedDayIdx,
+        requesterShift: req.shift,
+        targetEmployee: {
+          username: currentUser.username,
+          fullname: currentUser.fullname,
+          employmentStatus: currentUser.employmentStatus,
+        },
+        targetWeekShifts: myShiftsForReqWeek,
+      });
+      if (!checkSelf.valid) {
+        Swal.fire(
+          'Không thể nhận ca (Trùng lịch)',
+          `Bạn đã có lịch ca ${checkSelf.existingTargetShift} vào ${req.dayName} (${req.date}).`,
+          'error'
+        );
+        return;
+      }
+      if (checkSelf.hasOtWarning && checkSelf.warning) {
+        otNote = `\n\n⚠️ ${checkSelf.warning}`;
+      }
+    }
+
     Swal.fire({
       title: 'Nhận làm thay?',
-      text: `Bạn muốn nhận ca ${req.shift} vào ${req.dayName} của ${req.fullname}?`,
-      icon: 'question',
+      text: `Bạn muốn nhận ca ${req.shift} vào ${req.dayName} của ${req.fullname}?${otNote}`,
+      icon: otNote ? 'warning' : 'question',
       showCancelButton: true,
       confirmButtonText: 'Có, tôi nhận',
       cancelButtonText: 'Đóng'
@@ -269,11 +383,13 @@ export default function SwapShift() {
                     <div className="flex space-x-2">
                       <button onClick={() => {
                         store.setLoading(true, 'Đang duyệt...');
-                        callApi('APPROVE_SWAP', { swapId: req.id, action: 'APPROVE' }).then(res => {
+                        callApi('APPROVE_SWAP', { swapId: req.id, decision: 'APPROVE' }).then(res => {
                           store.setLoading(false);
                           if (res?.ok) {
                             Swal.fire('Đã duyệt', 'Ca làm đã được chuyển cho người nhận thay.', 'success');
                             loadSwapRequests();
+                          } else {
+                            Swal.fire('Lỗi', res?.message || 'Không thể duyệt yêu cầu đổi ca.', 'error');
                           }
                         });
                       }} className="flex-1 bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-bold py-2.5 rounded-xl text-sm transition">
@@ -281,11 +397,13 @@ export default function SwapShift() {
                       </button>
                       <button onClick={() => {
                         store.setLoading(true, 'Đang từ chối...');
-                        callApi('APPROVE_SWAP', { swapId: req.id, action: 'REJECT' }).then(res => {
+                        callApi('APPROVE_SWAP', { swapId: req.id, decision: 'REJECT' }).then(res => {
                           store.setLoading(false);
                           if (res?.ok) {
                             Swal.fire('Đã từ chối', 'Yêu cầu đổi ca bị hủy.', 'info');
                             loadSwapRequests();
+                          } else {
+                            Swal.fire('Lỗi', res?.message || 'Không thể từ chối yêu cầu đổi ca.', 'error');
                           }
                         });
                       }} className="flex-1 bg-[var(--kg-danger)] hover:brightness-95 text-white font-bold py-2.5 rounded-xl text-sm transition">
@@ -299,14 +417,16 @@ export default function SwapShift() {
           )}
 
           <h3 className="font-bold text-[var(--kg-text)] mb-3">Tất cả bài đăng</h3>
-          {swapRequests.length === 0 ? (
+          {swapRequests.filter((req) => currentUser?.role === 'admin' || req.targetUsername !== 'ADMIN' || req.username === currentUser?.username).length === 0 ? (
             <div className="soft3d-card p-8 text-center">
               <Inbox size={48} className="mx-auto text-[var(--kg-text-soft)] mb-4" />
               <h3 className="text-[var(--kg-text-muted)] font-bold mb-1">Chưa có ai cần đổi ca</h3>
               <p className="text-xs text-[var(--kg-text-soft)]">Những yêu cầu đổi ca sẽ xuất hiện ở đây.</p>
             </div>
           ) : (
-            swapRequests.map((req) => (
+            swapRequests
+              .filter((req) => currentUser?.role === 'admin' || req.targetUsername !== 'ADMIN' || req.username === currentUser?.username)
+              .map((req) => (
               <div key={req.id} className="soft3d-card p-5 border border-[var(--kg-border)] relative overflow-hidden animate-fade-in group">
                 {req.username === currentUser?.username && (
                   <div className="absolute top-0 right-0 bg-[var(--kg-primary)] text-white text-[10px] font-bold px-2.5 py-1 rounded-bl-lg">Của bạn</div>
@@ -333,13 +453,19 @@ export default function SwapShift() {
                   </p>
                 </div>
 
-                {req.username !== currentUser?.username && req.status === 'Pending_User' ? (
+                {req.username !== currentUser?.username &&
+                req.status === 'Pending_User' &&
+                (!req.targetUsername || req.targetUsername === 'ALL' || req.targetUsername === currentUser?.username) ? (
                   <button onClick={() => handleAcceptSwap(req)} className="w-full bg-[var(--kg-accent-soft)] text-[var(--kg-primary)] font-bold py-3 rounded-xl border border-[var(--kg-primary)]/25 hover:bg-[var(--kg-primary)] hover:text-white transition-all flex items-center justify-center text-sm">
                     <HandshakeIcon size={16} className="mr-2" /> Nhận làm thay ca này
                   </button>
+                ) : req.status === 'Pending_User' && req.targetUsername && req.targetUsername !== 'ALL' && req.username !== currentUser?.username ? (
+                  <div className="w-full bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] font-bold py-2.5 rounded-xl border border-[var(--kg-border)] text-center text-xs">
+                    Đã gửi trực tiếp cho {req.targetFullname || req.targetUsername}
+                  </div>
                 ) : req.status === 'Pending_Admin' ? (
-                  <div className="w-full bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] font-bold py-2.5 rounded-xl border border-[var(--kg-warning)]/25 text-center text-xs">
-                    ⏳ Đang chờ Admin duyệt (Người nhận: {req.targetFullname})
+                  <div className="w-full bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] font-bold py-2.5 rounded-xl border border-[var(--kg-warning)]/25 text-center text-xs flex items-center justify-center gap-1.5">
+                    <Clock size={13} /> Đang chờ Admin duyệt (Người nhận: {req.targetFullname})
                   </div>
                 ) : req.username === currentUser?.username ? (
                   <button onClick={() => {
@@ -361,7 +487,37 @@ export default function SwapShift() {
       {/* POST / LEAVE VIEW */}
       {(viewTab === 'post' || viewTab === 'leave') && (
         <div className="animate-fade-in">
-          {store.isScheduleRegistered && (!approvedShifts || approvedShifts.length === 0) && (
+          <div className="flex bg-[var(--kg-surface)] border border-[var(--kg-border)] p-1 rounded-xl mb-4 gap-1">
+            <button
+              type="button"
+              onClick={() => {
+                setWeekScope('current');
+                setSelectedDayIndex(null);
+              }}
+              className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
+                weekScope === 'current'
+                  ? 'bg-[var(--kg-primary)] text-white shadow-2xs'
+                  : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
+              }`}
+            >
+              Tuần này ({currentWeekInfo.weekLabel})
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setWeekScope('next');
+                setSelectedDayIndex(null);
+              }}
+              className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
+                weekScope === 'next'
+                  ? 'bg-[var(--kg-primary)] text-white shadow-2xs'
+                  : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
+              }`}
+            >
+              Tuần tới ({nextWeekInfo.weekLabel})
+            </button>
+          </div>
+          {weekScope === 'next' && store.isScheduleRegistered && (!activeApprovedShifts || activeApprovedShifts.length === 0) && (
             <div className="bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/30 rounded-2xl p-4 mb-4 flex items-center space-x-3">
               <Clock size={20} className="text-[var(--kg-warning)] flex-shrink-0" />
               <p className="text-xs text-[var(--kg-warning)] font-medium">
@@ -375,7 +531,7 @@ export default function SwapShift() {
             </h3>
             <div className="flex overflow-x-auto space-x-2 pb-2 snap-x">
               {SHORT_DAY_NAMES.map((shortDay, i) => {
-                const shift = approvedShifts?.[i] || 'OFF';
+                const shift = activeApprovedShifts?.[i] || 'OFF';
                 const isSelected = selectedDayIndex === i;
                 const isOff = shift === 'OFF';
                 return (
@@ -392,28 +548,63 @@ export default function SwapShift() {
 
           {viewTab === 'post' && (
             <div className="soft3d-card p-5 mb-6">
-              <h3 className="font-bold text-[var(--kg-text)] mb-4">2. Chọn người làm thay</h3>
+              <label htmlFor="swap-target-user" className="block font-bold text-[var(--kg-text)] mb-3">2. Chọn người làm thay</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <User size={16} className="text-[var(--kg-text-soft)]" />
                 </div>
-                <select value={targetUsername} onChange={(e) => setTargetUsername(e.target.value)} className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)] appearance-none">
-                  <option value="ALL" className="font-bold text-[var(--kg-primary)]">🌍 Tất cả mọi người (Đăng lên Chợ)</option>
-                  {users.filter(u => u.username !== currentUser?.username).map(u => (
-                    <option key={u.username} value={u.username}>👤 {u.fullname}</option>
-                  ))}
+                <select id="swap-target-user" value={targetUsername} onChange={(e) => setTargetUsername(e.target.value)} className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)] appearance-none">
+                  <option value="ALL" className="font-bold text-[var(--kg-primary)]">Tất cả mọi người (Đăng lên Chợ)</option>
+                  {eligibleCoworkers.map(u => {
+                    const uShifts =
+                      coworkerShiftMap[u.username.toLowerCase()] ||
+                      coworkerShiftMap[u.fullname.trim().toLowerCase()];
+                    const dayShift =
+                      selectedDayIndex !== null && uShifts ? uShifts[selectedDayIndex] || 'OFF' : '';
+                    const suffix = dayShift ? ` (${dayShift === 'OFF' ? 'Đang OFF' : `Bận ca ${dayShift}`})` : '';
+                    return (
+                      <option key={u.username} value={u.username}>
+                        {u.fullname}{u.position ? ` · ${u.position}` : ''}{suffix}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
-              <h3 className="font-bold text-[var(--kg-text)] mt-5 mb-3">Lý do đổi ca</h3>
-              <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Nhập lý do..." className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)]" />
+              {directSwapValidation && (
+                <div
+                  className={`mt-3 rounded-xl p-3 border text-xs flex items-start gap-2.5 ${
+                    !directSwapValidation.valid
+                      ? 'bg-[var(--kg-danger-soft)] border-[var(--kg-danger)]/30 text-[var(--kg-danger)]'
+                      : directSwapValidation.hasOtWarning
+                        ? 'bg-[var(--kg-warning-soft)] border-[var(--kg-warning)]/30 text-[var(--kg-warning)]'
+                        : 'bg-[var(--kg-success-soft)] border-[var(--kg-success)]/30 text-[var(--kg-success)]'
+                  }`}
+                >
+                  {!directSwapValidation.valid || directSwapValidation.hasOtWarning ? (
+                    <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+                  ) : (
+                    <CheckCircle2 size={16} className="shrink-0 mt-0.5" />
+                  )}
+                  <div className="font-semibold leading-relaxed">
+                    {!directSwapValidation.valid
+                      ? directSwapValidation.reason
+                      : directSwapValidation.hasOtWarning
+                        ? directSwapValidation.warning
+                        : `Hợp lệ: Đồng nghiệp đang OFF ngày này (dự kiến ${directSwapValidation.projectedShiftsCount}/7 buổi · ~${directSwapValidation.projectedHours}h/tuần).`}
+                  </div>
+                </div>
+              )}
+
+              <label htmlFor="swap-reason" className="block font-bold text-[var(--kg-text)] mt-5 mb-2">Lý do đổi ca</label>
+              <input id="swap-reason" type="text" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Nhập lý do..." className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)]" />
             </div>
           )}
 
           {viewTab === 'leave' && (
             <div className="soft3d-card p-5 mb-6">
-              <h3 className="font-bold text-[var(--kg-text)] mb-3">2. Lý do xin nghỉ phép</h3>
-              <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Nhập lý do xin nghỉ..." className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)]" />
+              <label htmlFor="leave-reason" className="block font-bold text-[var(--kg-text)] mb-2">2. Lý do xin nghỉ phép</label>
+              <input id="leave-reason" type="text" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Nhập lý do xin nghỉ..." className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)]" />
               <p className="text-xs text-[var(--kg-text-muted)] mt-2 italic">Lưu ý: Đơn xin nghỉ phép sẽ được gửi trực tiếp cho Quản lý phê duyệt.</p>
             </div>
           )}

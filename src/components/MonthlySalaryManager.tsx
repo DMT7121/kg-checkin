@@ -323,11 +323,11 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
                       step={item.payType === 'hourly' ? 1000 : 100000}
                       value={item.amount || ''}
                       onChange={event => updateItem(item.username, { amount: Number(event.target.value) })}
-                      className="w-full rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface)] px-3 py-2.5 pr-8 text-right text-sm font-mono font-black text-[var(--kg-text)] outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
+                      className="w-full rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface)] px-3 py-2.5 pr-8 text-right text-sm font-mono tabular-nums font-black text-[var(--kg-text)] outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
                       aria-label={`Mức lương của ${item.fullname}`}
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[var(--kg-text-muted)]">đ</span>
-                    <span className="mt-1 block text-right text-[10px] font-mono text-[var(--kg-text-muted)]">
+                    <span className="mt-1 block text-right text-[10px] font-mono tabular-nums text-[var(--kg-text-muted)]">
                       {item.payType === 'hourly'
                         ? `${formatSalaryMoney(item.amount)} / giờ`
                         : `${formatSalaryMoney(item.amount / 30)} / ngày`}
@@ -411,14 +411,14 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 <div className="rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] p-3">
                   <p className="text-[10px] font-bold uppercase text-[var(--kg-text-muted)]">Hiện tại</p>
-                  <p className="mt-1 text-sm font-mono font-extrabold text-[var(--kg-text)]">
+                  <p className="mt-1 text-sm font-mono tabular-nums font-extrabold text-[var(--kg-text)]">
                     {formatSalaryMoney(request.currentAmount)}
                   </p>
                   <p className="text-[10px] text-[var(--kg-text-muted)]">{salaryTypeLabel(request.currentType)}</p>
                 </div>
                 <div className="rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-accent)]/30 p-3">
                   <p className="text-[10px] font-bold uppercase text-[var(--kg-accent)]">Đề xuất</p>
-                  <p className="mt-1 text-sm font-mono font-extrabold text-[var(--kg-accent)]">
+                  <p className="mt-1 text-sm font-mono tabular-nums font-extrabold text-[var(--kg-accent)]">
                     {formatSalaryMoney(request.proposedAmount)}
                   </p>
                   <p className="text-[10px] text-[var(--kg-accent)]">{salaryTypeLabel(request.proposedType)}</p>

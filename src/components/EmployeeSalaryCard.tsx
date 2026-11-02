@@ -19,8 +19,21 @@ import {
 } from '../types/salary';
 import { KgFeatureTip } from './KgFeatureTip';
 
-export default function EmployeeSalaryCard({ currentUser }: { currentUser: User }) {
-  const [month, setMonth] = useState(currentSalaryMonth);
+export default function EmployeeSalaryCard({
+  currentUser,
+  month: controlledMonth,
+  onMonthChange,
+}: {
+  currentUser: User;
+  month?: string;
+  onMonthChange?: (month: string) => void;
+}) {
+  const [internalMonth, setInternalMonth] = useState(currentSalaryMonth);
+  const month = controlledMonth ?? internalMonth;
+  const setMonth = (nextMonth: string) => {
+    setInternalMonth(nextMonth);
+    onMonthChange?.(nextMonth);
+  };
   const [salary, setSalary] = useState<MonthlySalaryItem | null>(null);
   const [requests, setRequests] = useState<SalaryAdjustmentRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,16 +109,16 @@ export default function EmployeeSalaryCard({ currentUser }: { currentUser: User 
   return (
     <section className="space-y-4">
       <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] overflow-hidden rounded-2xl shadow-xs">
-        <div className="bg-gradient-hero p-5 text-white">
+        <div className="bg-[var(--kg-surface-soft)] border-b border-[var(--kg-border)] p-5 text-[var(--kg-text)]">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.15em] text-[var(--kg-accent)]">
-                <CircleDollarSign size={17} />
+              <p className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.14em] text-[var(--kg-primary)]">
+                <CircleDollarSign size={16} />
                 Mức lương của bạn
               </p>
-              <h2 className="mt-2 text-2xl font-black">{salaryMonthLabel(month)}</h2>
+              <h2 className="mt-1.5 text-xl sm:text-2xl font-black text-[var(--kg-text)]">{salaryMonthLabel(month)}</h2>
               <div className="mt-1 flex items-center gap-1.5">
-                <p className="text-xs opacity-85 font-medium">Thông tin do quản trị viên khai báo</p>
+                <p className="text-xs text-[var(--kg-text-muted)] font-medium">Thông tin do quản trị viên khai báo</p>
                 <KgFeatureTip
                   title="Quy định Mức lương & Điều chỉnh"
                   tips={[
@@ -114,51 +127,51 @@ export default function EmployeeSalaryCard({ currentUser }: { currentUser: User 
                     "Lương tháng: Tính theo số ngày công chuẩn quy định.",
                     "Nếu mức lương chưa chính xác, bấm nút 'Gửi đề nghị điều chỉnh mức lương' bên dưới để phản hồi."
                   ]}
-                  variant="hero"
                   size="sm"
                 />
               </div>
             </div>
-            <label className="rounded-xl bg-white/10 p-2 backdrop-blur border border-white/10">
+            <label htmlFor="emp-salary-month" className="rounded-xl bg-[var(--kg-surface)] px-3 py-2 border border-[var(--kg-border)] shadow-2xs">
               <span className="sr-only">Chọn tháng</span>
               <input
+                id="emp-salary-month"
                 type="month"
                 value={month}
                 onChange={event => setMonth(event.target.value || currentSalaryMonth())}
-                className="bg-transparent text-sm font-bold text-white outline-none [color-scheme:dark]"
+                className="bg-transparent text-xs sm:text-sm font-bold text-[var(--kg-text)] outline-none"
               />
             </label>
           </div>
 
           {loading ? (
-            <div className="mt-5 flex items-center gap-2 rounded-2xl bg-white/10 p-5 text-sm font-semibold">
-              <LoaderCircle className="animate-spin" size={20} /> Đang tải mức lương...
+            <div className="mt-4 flex items-center gap-2 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] p-4 text-sm font-semibold text-[var(--kg-text-muted)]">
+              <LoaderCircle className="animate-spin text-[var(--kg-primary)]" size={18} /> Đang tải mức lương...
             </div>
           ) : salary ? (
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur">
-                <p className="text-[11px] font-bold uppercase opacity-80">Hình thức</p>
-                <p className="mt-2 flex items-center gap-2 text-base font-black">
-                  {salary.payType === 'hourly' ? <Clock3 size={19} /> : <CalendarDays size={19} />}
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface)] p-4">
+                <p className="text-[11px] font-bold uppercase text-[var(--kg-text-muted)]">Hình thức</p>
+                <p className="mt-1.5 flex items-center gap-2 text-base font-black text-[var(--kg-text)]">
+                  {salary.payType === 'hourly' ? <Clock3 size={18} className="text-[var(--kg-primary)]" /> : <CalendarDays size={18} className="text-[var(--kg-primary)]" />}
                   {salaryTypeLabel(salary.payType)}
                 </p>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur">
-                <p className="text-[11px] font-bold uppercase opacity-80">
+              <div className="rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface)] p-4 text-left sm:text-right">
+                <p className="text-[11px] font-bold uppercase text-[var(--kg-text-muted)]">
                   {salary.payType === 'hourly' ? 'Mức lương / giờ' : 'Lương tháng chuẩn'}
                 </p>
-                <p className="mt-2 text-2xl font-black font-mono">{formatSalaryMoney(salary.amount)}</p>
+                <p className="mt-1.5 text-xl sm:text-2xl font-black font-mono tabular-nums text-[var(--kg-primary)]">{formatSalaryMoney(salary.amount)}</p>
                 {salary.payType === 'daily' && (
-                  <p className="mt-1 text-[11px] opacity-80 font-mono">
+                  <p className="mt-1 text-[11px] text-[var(--kg-text-muted)] font-mono tabular-nums">
                     Tương đương {formatSalaryMoney(salary.amount / 30)} / ngày
                   </p>
                 )}
               </div>
             </div>
           ) : (
-            <div className="mt-5 rounded-2xl border border-white/10 bg-white/10 p-5">
-              <p className="font-bold">Admin chưa khai báo mức lương tháng này.</p>
-              <p className="mt-1 text-xs opacity-80">Bạn vẫn có thể gửi đề nghị để admin kiểm tra và cập nhật.</p>
+            <div className="mt-4 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface)] p-4">
+              <p className="font-bold text-sm text-[var(--kg-text)]">Admin chưa khai báo mức lương tháng này.</p>
+              <p className="mt-1 text-xs text-[var(--kg-text-muted)]">Bạn vẫn có thể gửi đề nghị để admin kiểm tra và cập nhật.</p>
             </div>
           )}
         </div>
@@ -188,14 +201,14 @@ export default function EmployeeSalaryCard({ currentUser }: { currentUser: User 
                   </select>
                 </label>
                 <label>
-                  <span className="mb-1.5 block text-[11px] font-black uppercase text-[var(--kg-text-muted)]">Mức lương đề xuất</span>
+                  <span className="mb-1.5 block text-[11px] font-black uppercase text-[var(--kg-text-muted)]">Mức lương đề xuất (VNĐ)</span>
                   <input
                     type="number"
                     min="0"
                     value={proposedAmount}
                     onChange={event => setProposedAmount(event.target.value)}
                     placeholder={proposedType === 'hourly' ? 'Ví dụ: 26000' : 'Ví dụ: 8000000'}
-                    className="w-full rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface)] px-3 py-2.5 text-sm font-mono font-black text-[var(--kg-text)] outline-none focus:ring-2 focus:ring-[var(--kg-primary)] min-h-[44px]"
+                    className="w-full rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface)] px-3 py-2.5 text-right text-sm font-mono tabular-nums font-black text-[var(--kg-text)] outline-none focus:ring-2 focus:ring-[var(--kg-primary)] min-h-[44px]"
                   />
                 </label>
               </div>

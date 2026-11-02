@@ -144,6 +144,7 @@ function ModuleHub({ hubId, tabs, initialTab }: { hubId: string; tabs: HubTab[];
     });
     try {
       sessionStorage.setItem(`kg_hub_subtab_${hubId}`, tabId);
+      window.dispatchEvent(new CustomEvent('kg:subtab-changed', { detail: { hub: hubId, subTab: tabId } }));
       if (updateUrl) {
         const url = new URL(window.location.href);
         url.searchParams.set('tab', hubId);
@@ -181,8 +182,8 @@ function ModuleHub({ hubId, tabs, initialTab }: { hubId: string; tabs: HubTab[];
 
   return (
     <div className="kg-module-hub min-h-full">
-      <div className="kg-module-tabs-wrap sticky top-0 z-30 border-b border-[var(--kg-border)] bg-[var(--kg-bg)]/90 px-2 sm:px-4 py-2 backdrop-blur-md transition-colors">
-        <div className="kg-module-tabs mx-auto flex max-w-7xl gap-1.5 overflow-x-auto rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface)] p-1.5 shadow-sm hide-scrollbar">
+      <div className="kg-module-tabs-wrap sticky top-0 z-30 bg-[var(--kg-bg)]/95 pb-2.5 pt-0.5 backdrop-blur-sm transition-colors">
+        <div className="kg-module-tabs mx-auto flex max-w-[1520px] gap-1.5 overflow-x-auto rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface)] p-1.5 shadow-xs hide-scrollbar">
           {allowedTabs.map(tab => {
             const Icon = tab.icon;
             const selected = tab.id === active.id;
@@ -194,17 +195,18 @@ function ModuleHub({ hubId, tabs, initialTab }: { hubId: string; tabs: HubTab[];
                   handleSelectTab(tab.id, true);
                   e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
                 }}
-                className={`kg-module-tab relative inline-flex min-w-max flex-1 items-center justify-center gap-2 rounded-xl px-3.5 sm:px-4 py-2 text-xs transition-all duration-150 active:scale-98 select-none touch-manipulation min-h-[40px] ${
+                aria-current={selected ? 'page' : undefined}
+                className={`kg-module-tab relative inline-flex min-w-max flex-1 items-center justify-center gap-2 rounded-xl px-3.5 py-2 text-xs transition-all duration-150 select-none touch-manipulation min-h-[40px] ${
                   selected
-                    ? 'bg-[var(--kg-primary)] text-white font-extrabold shadow-sm border border-[var(--kg-primary)]'
-                    : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)] font-bold border border-transparent'
+                    ? 'bg-[var(--kg-primary)] text-white font-bold shadow-xs'
+                    : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)] font-semibold'
                 }`}
               >
-                <Icon size={16} className={`flex-shrink-0 ${selected ? 'text-white' : 'text-[var(--kg-text-muted)]'}`} />
+                <Icon size={15} className={`flex-shrink-0 ${selected ? 'text-white' : 'text-[var(--kg-text-muted)]'}`} />
                 <span className="hidden sm:inline tracking-tight">{tab.label}</span>
                 <span className="inline sm:hidden tracking-tight">{tab.shortLabel || tab.label}</span>
                 {selected && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--kg-accent)] flex-shrink-0" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#FF8A73] flex-shrink-0" />
                 )}
               </button>
             );
@@ -220,7 +222,7 @@ function ModuleHub({ hubId, tabs, initialTab }: { hubId: string; tabs: HubTab[];
           return (
             <div
               key={tab.id}
-              className={isSelected ? 'block' : 'hidden'}
+              className={isSelected ? 'kg-hub-panel block' : 'hidden'}
               style={{ display: isSelected ? 'block' : 'none' }}
             >
               <AppErrorBoundary

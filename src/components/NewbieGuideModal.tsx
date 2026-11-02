@@ -159,7 +159,7 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
             <div className="space-y-6 animate-fade-in">
               <div className="p-4 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex items-start gap-3.5">
                 <div className="w-9 h-9 rounded-xl bg-[var(--kg-primary)] text-white flex items-center justify-center flex-shrink-0 font-black shadow-xs">
-                  ✨
+                  <Sparkles size={17} strokeWidth={1.75} />
                 </div>
                 <div>
                   <h3 className="text-sm font-black text-[var(--kg-text)]">
@@ -198,7 +198,7 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
                     target: 'work' as TabId,
                     btnText: 'Xem Bàn giao',
                     icon: Repeat,
-                    color: 'text-violet-600 bg-violet-50 dark:bg-violet-950/30'
+                    color: 'text-sky-700 bg-sky-50 dark:text-sky-300 dark:bg-sky-950/30'
                   },
                   {
                     step: '4',
@@ -225,19 +225,19 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
                     target: 'knowledge' as TabId,
                     btnText: 'Học SOP',
                     icon: Award,
-                    color: 'text-indigo-600 bg-indigo-50 dark:bg-indigo-950/30'
+                    color: 'text-[var(--kg-primary)] bg-[var(--kg-info-soft)]'
                   },
                 ].map((item, idx) => (
                   <div
                     key={idx}
-                    className="p-4 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex flex-col justify-between space-y-3 hover:border-blue-500/40 transition-all"
+                    className="p-4 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex flex-col justify-between space-y-3 hover:border-[var(--kg-border-strong)] transition-colors"
                   >
                     <div className="flex items-start gap-3">
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 font-black text-xs ${item.color}`}>
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 font-bold text-xs ${item.color}`}>
                         {item.step}
                       </div>
                       <div className="min-w-0">
-                        <h4 className="text-xs font-black text-[var(--kg-text)] leading-tight">{item.title}</h4>
+                        <h4 className="text-xs font-bold text-[var(--kg-text)] leading-tight">{item.title}</h4>
                         <p className="text-[11px] text-[var(--kg-text-muted)] mt-1 leading-relaxed font-medium">{item.desc}</p>
                       </div>
                     </div>
@@ -245,7 +245,7 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
                       <button
                         type="button"
                         onClick={() => handleNavigate(item.target)}
-                        className="inline-flex items-center gap-1 text-xs font-black text-blue-600 dark:text-indigo-400 hover:underline active:scale-95"
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--kg-primary)] hover:underline active:scale-95"
                       >
                         {item.btnText} <ChevronRight size={13} />
                       </button>
@@ -260,7 +260,7 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
           {activeTab === 'checkin' && (
             <div className="space-y-5 animate-fade-in">
               <div className="border-b border-[var(--kg-border)] pb-3">
-                <h3 className="text-sm font-black uppercase tracking-wider text-blue-600 dark:text-indigo-400 flex items-center gap-2">
+                <h3 className="text-sm font-black uppercase tracking-wider text-[var(--kg-primary)] flex items-center gap-2">
                   <Camera size={16} /> Quy trình Chấm công Face ID & Định vị GPS
                 </h3>
                 <p className="text-xs text-[var(--kg-text-muted)] mt-1 font-medium">
@@ -341,7 +341,7 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
           {activeTab === 'schedule' && (
             <div className="space-y-5 animate-fade-in">
               <div className="border-b border-[var(--kg-border)] pb-3">
-                <h3 className="text-sm font-black uppercase tracking-wider text-blue-600 dark:text-indigo-400 flex items-center gap-2">
+                <h3 className="text-sm font-black uppercase tracking-wider text-[var(--kg-primary)] flex items-center gap-2">
                   <Calendar size={16} /> Đăng Ký Lịch Làm Việc & Quy Trình Đổi Ca
                 </h3>
                 <p className="text-xs text-[var(--kg-text-muted)] mt-1 font-medium">
@@ -361,15 +361,15 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
                     <li>Nếu chọn OFF, bắt buộc nhập <b>Lý do nghỉ</b> vào ô ghi chú.</li>
                     <li>Bấm <b>"Đăng ký lịch làm"</b> để gửi lên Quản lý duyệt.</li>
                   </ol>
-                  <p className="text-[11px] font-bold text-amber-600 dark:text-amber-400">
-                    ⏱️ Hạn chót: Trước 17:00 Thứ Bảy hàng tuần.
+                  <p className="text-[11px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                    <Clock size={12} /> Hạn chót: Trước 17:00 Thứ Bảy hàng tuần.
                   </p>
                 </div>
 
                 {/* Swap Shift */}
                 <div className="p-4 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] space-y-3">
                   <h4 className="text-xs font-black text-[var(--kg-text)] flex items-center gap-1.5">
-                    <Repeat size={15} className="text-violet-500" /> 2. Đổi ca hoặc Xin nghỉ đột xuất
+                    <Repeat size={15} className="text-[var(--kg-primary)]" /> 2. Đổi ca hoặc Xin nghỉ đột xuất
                   </h4>
                   <ol className="text-xs text-[var(--kg-text-muted)] space-y-2 pl-4 list-decimal font-medium leading-relaxed">
                     <li>Vào mục <b>Đổi ca</b> &rarr; Bấm <b>"Tạo yêu cầu mới"</b>.</li>
@@ -377,8 +377,8 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
                     <li>Chọn hình thức: <i>"Đổi ca với đồng nghiệp"</i> hoặc <i>"Xin nghỉ phép (gửi Quản lý)"</i>.</li>
                     <li>Nhập lý do rõ ràng và bấm <b>"Gửi yêu cầu"</b>.</li>
                   </ol>
-                  <p className="text-[11px] font-bold text-blue-600 dark:text-indigo-400">
-                    🔄 Quy trình: Đồng nghiệp đồng ý &rarr; Quản lý duyệt &rarr; Lịch tự cập nhật.
+                  <p className="text-[11px] font-bold text-[var(--kg-primary)] flex items-center gap-1">
+                    <Repeat size={12} /> Quy trình: Đồng nghiệp đồng ý &rarr; Quản lý duyệt &rarr; Lịch tự cập nhật.
                   </p>
                 </div>
               </div>
@@ -412,7 +412,7 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
           {activeTab === 'checklist' && (
             <div className="space-y-5 animate-fade-in">
               <div className="border-b border-[var(--kg-border)] pb-3">
-                <h3 className="text-sm font-black uppercase tracking-wider text-blue-600 dark:text-indigo-400 flex items-center gap-2">
+                <h3 className="text-sm font-black uppercase tracking-wider text-[var(--kg-primary)] flex items-center gap-2">
                   <ClipboardCheck size={16} /> Checklist Vận Hành & Sổ Bàn Giao Ca
                 </h3>
                 <p className="text-xs text-[var(--kg-text-muted)] mt-1 font-medium">
@@ -481,7 +481,7 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
           {activeTab === 'payroll' && (
             <div className="space-y-5 animate-fade-in">
               <div className="border-b border-[var(--kg-border)] pb-3">
-                <h3 className="text-sm font-black uppercase tracking-wider text-blue-600 dark:text-indigo-400 flex items-center gap-2">
+                <h3 className="text-sm font-black uppercase tracking-wider text-[var(--kg-primary)] flex items-center gap-2">
                   <Banknote size={16} /> Phiếu Lương, Tạm Ứng & Điểm Thưởng King Coins
                 </h3>
                 <p className="text-xs text-[var(--kg-text-muted)] mt-1 font-medium">
@@ -583,7 +583,7 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
                 ].map((item, idx) => (
                   <div key={idx} className="p-4 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] space-y-2.5">
                     <h4 className="text-xs font-black text-[var(--kg-text)] flex items-center gap-1.5">
-                      <span className="w-5 h-5 rounded-lg bg-blue-500/15 text-blue-600 dark:text-indigo-400 flex items-center justify-center text-[10px] font-black">{idx + 1}</span>
+                      <span className="w-5 h-5 rounded-lg bg-blue-500/15 text-[var(--kg-primary)] flex items-center justify-center text-[10px] font-black">{idx + 1}</span>
                       {item.action}
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs">

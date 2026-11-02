@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Building2, Shield, Network, UserPlus, Save, CheckCircle2 } from 'lucide-react';
+import { Building2, Shield, Network, UserPlus, Save, CheckCircle2, Loader2 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { useAppStore } from '../../store/useAppStore';
 import { callApi } from '../../services/api';
-import { KgModuleHero } from '../../components/KgDesignSystem';
+import { KgModuleHero, KgBottomSheet, KgInput, KgButton } from '../../components/KgDesignSystem';
 
 
 export default function AdminOrg() {
@@ -22,6 +22,9 @@ export default function AdminOrg() {
     { id: 'official', name: 'Chính thức', salaryMultiplier: 1.0 }
   ]);
   const [isSaving, setIsSaving] = useState(false);
+  const [orgSheetMode, setOrgSheetMode] = useState<'role' | 'org' | null>(null);
+  const [draftName, setDraftName] = useState('');
+  const [draftSecondary, setDraftSecondary] = useState('');
 
   useEffect(() => {
     if (serverOrgConfig) {
@@ -40,11 +43,13 @@ export default function AdminOrg() {
       const data = await callApi('UPDATE_ORG_CONFIG', {
         role: currentUser.role,
         name: companyName,
-        address: companyAddress
+        address: companyAddress,
+        roles,
+        orgStructure,
       });
       
       if (data && data.ok) {
-        setServerOrgConfig({ name: companyName, address: companyAddress });
+        setServerOrgConfig({ name: companyName, address: companyAddress, roles, orgStructure });
         Swal.fire({
           icon: 'success',
           title: 'Đã lưu cấu hình Tổ chức',
@@ -66,50 +71,32 @@ export default function AdminOrg() {
     }
   };
 
-  const handleAddRole = async () => {
-    const { value: formValues } = await Swal.fire({
-      title: 'Thêm Role mới',
-      html: `
-        <input id="swal-input1" class="swal2-input" placeholder="Tên (VD: Trưởng ca)">
-        <input id="swal-input2" class="swal2-input" placeholder="Mô tả">
-      `,
-      focusConfirm: false,
-      showCancelButton: true,
-      preConfirm: () => {
-        return [
-          (document.getElementById('swal-input1') as HTMLInputElement).value,
-          (document.getElementById('swal-input2') as HTMLInputElement).value
-        ]
-      }
-    });
-    if (formValues && formValues[0]) {
-      setRoles([...roles, { id: 'role_' + Date.now(), name: formValues[0], description: formValues[1], isDefault: false }]);
-    }
+  const handleAddRole = () => {
+    setDraftName('');
+    setDraftSecondary('');
+    setOrgSheetMode('role');
   };
 
   const handleRemoveRole = (id: string) => {
     setRoles(roles.filter(r => r.id !== id));
   };
 
-  const handleAddOrg = async () => {
-    const { value: formValues } = await Swal.fire({
-      title: 'Thêm Loại nhân sự',
-      html: `
-        <input id="swal-input1" class="swal2-input" placeholder="Tên (VD: Part-time)">
-        <input id="swal-input2" class="swal2-input" type="number" step="0.1" placeholder="Hệ số lương (VD: 1.0)">
-      `,
-      focusConfirm: false,
-      showCancelButton: true,
-      preConfirm: () => {
-        return [
-          (document.getElementById('swal-input1') as HTMLInputElement).value,
-          (document.getElementById('swal-input2') as HTMLInputElement).value
-        ]
-      }
-    });
-    if (formValues && formValues[0]) {
-      setOrgStructure([...orgStructure, { id: 'org_' + Date.now(), name: formValues[0], salaryMultiplier: parseFloat(formValues[1]) || 1 }]);
+  const handleAddOrg = () => {
+    setDraftName('');
+    setDraftSecondary('1.0');
+    setOrgSheetMode('org');
+  };
+
+  const handleConfirmOrgSheet = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = draftName.trim();
+    if (!trimmed) return;
+    if (orgSheetMode === 'role') {
+      setRoles([...roles, { id: 'role_' + Date.now(), name: trimmed, description: draftSecondary.trim(), isDefault: false }]);
+    } else if (orgSheetMode === 'org') {
+      setOrgStructure([...orgStructure, { id: 'org_' + Date.now(), name: trimmed, salaryMultiplier: parseFloat(draftSecondary) || 1 }]);
     }
+    setOrgSheetMode(null);
   };
 
   const handleRemoveOrg = (id: string) => {
@@ -145,16 +132,16 @@ export default function AdminOrg() {
         
         <div className="space-y-3">
           <div>
-            <label className="block text-xs font-bold text-gray-500 mb-1">Tên quán / Doanh nghiệp</label>
-            <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500 dark:bg-gray-900 dark:border-gray-700 dark:text-white" />
+            <label htmlFor="org-company-name" className="block text-xs font-bold text-gray-500 mb-1">Tên quán / Doanh nghiệp</label>
+            <input id="org-company-name" type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500 dark:bg-gray-900 dark:border-gray-700 dark:text-white" />
           </div>
           <div>
-            <label className="block text-xs font-bold text-gray-500 mb-1">Địa chỉ</label>
-            <input type="text" value={companyAddress} onChange={e => setCompanyAddress(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500 dark:bg-gray-900 dark:border-gray-700 dark:text-white" />
+            <label htmlFor="org-company-address" className="block text-xs font-bold text-gray-500 mb-1">Địa chỉ</label>
+            <input id="org-company-address" type="text" value={companyAddress} onChange={e => setCompanyAddress(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500 dark:bg-gray-900 dark:border-gray-700 dark:text-white" />
           </div>
-          <button onClick={handleSave} disabled={isSaving} className={`w-full font-bold py-2.5 rounded-lg text-sm transition flex items-center justify-center mt-2 ${isSaving ? 'bg-ocean-400 text-white cursor-not-allowed' : 'bg-ocean-600 hover:bg-ocean-700 text-white'}`}>
+          <button type="button" onClick={handleSave} disabled={isSaving} className={`w-full font-bold py-2.5 rounded-lg text-sm transition flex items-center justify-center mt-2 ${isSaving ? 'bg-ocean-400 text-white cursor-not-allowed' : 'bg-ocean-600 hover:bg-ocean-700 text-white'}`}>
             {isSaving ? (
-              <><span className="animate-spin mr-2">⏳</span> Đang lưu...</>
+              <><Loader2 size={16} className="animate-spin mr-2" /> Đang lưu...</>
             ) : (
               <><Save size={16} className="mr-2" /> Lưu Thông Tin</>
             )}
@@ -195,17 +182,29 @@ export default function AdminOrg() {
         </h3>
         
         <div className="space-y-3">
-          {orgStructure.map((org, i) => (
+          {orgStructure.map((org) => (
             <div key={org.id} className="flex flex-wrap items-center justify-between gap-2 p-3 soft3d-bg rounded-xl border border-gray-100 dark:border-gray-800">
               <div className="min-w-0 pr-2">
                 <p className="text-sm font-bold text-gray-800 dark:text-gray-200 truncate">{org.name}</p>
-                <p className="text-[10px] text-gray-500 truncate">Hệ số lương: {org.salaryMultiplier}</p>
+                <p className="text-[10px] text-gray-500 font-mono tabular-nums truncate">Hệ số lương: {org.salaryMultiplier}</p>
               </div>
-              <button onClick={() => handleRemoveOrg(org.id)} className="text-red-500 text-xs font-bold px-2 py-1 hover:underline flex-shrink-0">Xóa</button>
+              <button type="button" onClick={() => handleRemoveOrg(org.id)} className="text-red-500 text-xs font-bold px-2 py-1 hover:underline flex-shrink-0">Xóa</button>
             </div>
           ))}
-          <button onClick={handleAddOrg} className="w-full border-2 border-dashed border-gray-200 text-gray-500 font-bold py-2.5 rounded-lg text-sm transition hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800 flex items-center justify-center mt-2">
+          <button type="button" onClick={handleAddOrg} className="w-full border-2 border-dashed border-gray-200 text-gray-500 font-bold py-2.5 rounded-lg text-sm transition hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800 flex items-center justify-center mt-2">
             + Thêm Loại nhân sự
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={isSaving}
+            className={`w-full font-bold py-2.5 rounded-lg text-sm transition flex items-center justify-center mt-2 ${isSaving ? 'bg-ocean-400 text-white cursor-not-allowed' : 'bg-ocean-600 hover:bg-ocean-700 text-white'}`}
+          >
+            {isSaving ? (
+              <><Loader2 size={16} className="animate-spin mr-2" /> Đang lưu...</>
+            ) : (
+              <><Save size={16} className="mr-2" /> Lưu Phân Quyền &amp; Cơ Cấu Tổ Chức</>
+            )}
           </button>
         </div>
       </div>
@@ -225,9 +224,56 @@ export default function AdminOrg() {
             <CheckCircle2 size={16} className="text-green-500" />
             <span>Thông báo trên Bảng tin nội bộ</span>
           </div>
-          <button className="text-ocean-600 text-xs font-bold mt-2">Cấu hình chi tiết →</button>
+          <button type="button" className="text-ocean-600 text-xs font-bold mt-2">Cấu hình chi tiết →</button>
         </div>
       </div>
+
+      <KgBottomSheet
+        isOpen={orgSheetMode !== null}
+        onClose={() => setOrgSheetMode(null)}
+        title={orgSheetMode === 'role' ? 'Thêm vai trò phân quyền (Role)' : 'Thêm loại nhân sự mới'}
+      >
+        <form onSubmit={handleConfirmOrgSheet} className="space-y-4">
+          <KgInput
+            id="org-draft-name"
+            label={orgSheetMode === 'role' ? 'Tên vai trò' : 'Tên loại nhân sự'}
+            placeholder={orgSheetMode === 'role' ? 'VD: Trưởng ca' : 'VD: Part-time'}
+            value={draftName}
+            onChange={(e) => setDraftName(e.target.value)}
+            required
+          />
+          {orgSheetMode === 'role' ? (
+            <KgInput
+              id="org-draft-desc"
+              label="Mô tả quyền hạn"
+              placeholder="VD: Duyệt lịch và kiểm soát ca làm"
+              value={draftSecondary}
+              onChange={(e) => setDraftSecondary(e.target.value)}
+            />
+          ) : (
+            <KgInput
+              id="org-draft-multiplier"
+              type="number"
+              step="0.1"
+              min="0.1"
+              label="Hệ số lương"
+              placeholder="VD: 1.0"
+              value={draftSecondary}
+              onChange={(e) => setDraftSecondary(e.target.value)}
+              className="font-mono tabular-nums text-right"
+              required
+            />
+          )}
+          <div className="flex gap-2.5 pt-2">
+            <KgButton type="button" variant="secondary" className="flex-1" onClick={() => setOrgSheetMode(null)}>
+              Hủy
+            </KgButton>
+            <KgButton type="submit" variant="primary" className="flex-1" disabled={!draftName.trim()}>
+              Thêm mới
+            </KgButton>
+          </div>
+        </form>
+      </KgBottomSheet>
     </div>
   );
 }

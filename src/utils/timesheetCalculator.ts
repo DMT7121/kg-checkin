@@ -119,9 +119,9 @@ export function calculateEmployeeMonthTimesheet(
   if (userDatesOrTimesheetData && typeof userDatesOrTimesheetData === 'object') {
     if ('timesheet' in userDatesOrTimesheetData) {
       const tsObj = userDatesOrTimesheetData;
-      daysInMonth = tsObj.daysInMonth || daysInMonth;
-      month = tsObj.month || month;
-      year = tsObj.year || year;
+      year = yearParam || tsObj.year || year;
+      month = monthParam || tsObj.month || month;
+      daysInMonth = daysInMonthParam || (monthParam && yearParam ? new Date(year, month, 0).getDate() : tsObj.daysInMonth) || daysInMonth;
       userDates = (tsObj.timesheet && (tsObj.timesheet[fullname] || {})) || {};
     } else {
       userDates = userDatesOrTimesheetData;

@@ -8,7 +8,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+        sans: ['"Be Vietnam Pro"', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Consolas', 'monospace'],
       },
       colors: {
         kg: {
@@ -44,10 +45,10 @@ export default {
           900: '#0c4a6e'
         },
         glass: {
-          light: 'rgba(255, 255, 255, 0.7)',
-          dark: 'rgba(17, 24, 39, 0.7)',
-          border: 'rgba(255, 255, 255, 0.2)',
-          borderDark: 'rgba(255, 255, 255, 0.05)',
+          light: 'rgba(255, 255, 255, 0.88)',
+          dark: 'rgba(19, 24, 34, 0.88)',
+          border: 'rgba(228, 228, 231, 0.8)',
+          borderDark: 'rgba(255, 255, 255, 0.1)',
         }
       },
       backgroundImage: {
@@ -59,18 +60,19 @@ export default {
         card: 'var(--shadow-card)',
         soft: 'var(--shadow-soft)',
         hero: 'var(--shadow-hero)',
+        'kumo-ring': 'var(--elev-ring)',
       },
-      animation: { 
-        'fade-in': 'fadeIn 0.3s ease-out', 
-        'slide-up': 'slideUp 0.3s ease-out',
-        'pulse-ring': 'pulseRing 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite'
+      animation: {
+        'fade-in': 'fadeIn 0.16s cubic-bezier(0.2, 0, 0, 1)',
+        'slide-up': 'slideUp 0.2s cubic-bezier(0.2, 0, 0, 1)',
+        'pulse-ring': 'pulseRing 1.6s cubic-bezier(0.215, 0.61, 0.355, 1) infinite'
       },
       keyframes: {
         fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
-        slideUp: { '0%': { transform: 'translateY(10px)', opacity: '0' }, '100%': { transform: 'none', opacity: '1' } },
+        slideUp: { '0%': { transform: 'translateY(8px)', opacity: '0' }, '100%': { transform: 'none', opacity: '1' } },
         pulseRing: {
-          '0%': { transform: 'scale(0.8)', opacity: '0.5' },
-          '100%': { transform: 'scale(2)', opacity: '0' }
+          '0%': { transform: 'scale(0.85)', opacity: '0.55' },
+          '100%': { transform: 'scale(1.9)', opacity: '0' }
         }
       }
     },

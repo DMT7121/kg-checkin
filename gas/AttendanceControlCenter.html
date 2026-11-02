@@ -1,0 +1,3453 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="light">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>King's Grill — Bảng Điều Khiển Chấm Công</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root, [data-theme="light"] {
+      --font-heading: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --font-body: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --font-mono: ui-monospace, 'Cascadia Code', 'Consolas', monospace;
+
+      --bg-shell: #1C1917;
+      --bg-shell-elevated: #292524;
+      --ink-shell: #FAFAF9;
+      --ink-shell-muted: #D6D3D1;
+      --ink-shell-accent: #FCD34D;
+      --border-shell: #3A342F;
+
+      --bg-canvas: #FAF8F5;
+      --bg-surface: #FFFFFF;
+      --bg-subtle: #F3EFEA;
+      --bg-hover: #EAE3DA;
+      --bg-selected: #FEF3C7;
+
+      --ink-primary: #1C1917;
+      --ink-secondary: #4E4843;
+      --ink-muted: #655E58;
+
+      --border-default: #DFD9CF;
+      --border-strong: #C2B9AC;
+
+      --accent-primary: #9A4206;
+      --accent-hover: #7C3305;
+      --accent-soft: #FEF3C7;
+      --accent-contrast: #FFFFFF;
+
+      --status-success: #146C3B;
+      --status-success-bg: #DCFCE7;
+      --status-warning: #853A05;
+      --status-warning-bg: #FEF3C7;
+      --status-danger: #9F1239;
+      --status-danger-bg: #FFE4E6;
+
+      --radius-sm: 4px;
+      --radius-md: 6px;
+      --radius-lg: 8px;
+      --radius-pill: 9999px;
+      --row-height: 36px;
+
+      --shadow-sm: 0 1px 2px rgba(28, 25, 23, 0.05);
+      --shadow-md: 0 10px 28px rgba(28, 25, 23, 0.10);
+      --motion-fast: 140ms cubic-bezier(0.2, 0, 0, 1);
+      --motion-base: 200ms cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    [data-theme="dark"] {
+      --bg-shell: #0F0D0C;
+      --bg-shell-elevated: #1C1917;
+      --ink-shell: #FAFAF9;
+      --ink-shell-muted: #D6D3D1;
+      --ink-shell-accent: #FCD34D;
+      --border-shell: #2E2925;
+
+      --bg-canvas: #141210;
+      --bg-surface: #1C1917;
+      --bg-subtle: #26221F;
+      --bg-hover: #332D29;
+      --bg-selected: #3F260D;
+
+      --ink-primary: #FAFAF9;
+      --ink-secondary: #D6D3D1;
+      --ink-muted: #B5AFA9;
+
+      --border-default: #38322D;
+      --border-strong: #524942;
+
+      --accent-primary: #F59E0B;
+      --accent-hover: #FBBF24;
+      --accent-soft: #3B230A;
+      --accent-contrast: #1C1917;
+
+      --status-success: #4ADE80;
+      --status-success-bg: #123320;
+      --status-warning: #FCD34D;
+      --status-warning-bg: #3B230A;
+      --status-danger: #FDA4AF;
+      --status-danger-bg: #451520;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    ::selection {
+      background: var(--accent-soft);
+      color: var(--ink-primary);
+    }
+
+    html, body {
+      height: 100%;
+      font-family: var(--font-body);
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--ink-primary);
+      background: var(--bg-canvas);
+      caret-color: var(--accent-primary);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Custom subtle scrollbars */
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-strong) transparent;
+    }
+    *::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    *::-webkit-scrollbar-thumb {
+      background: var(--border-strong);
+      border-radius: var(--radius-pill);
+    }
+
+    .tabular {
+      font-variant-numeric: tabular-nums;
+    }
+
+    .sr-only {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* Frame adapts smoothly: edge-to-edge inside 840x620 GAS modal, centered studio frame on 1440px+ desktop, fluid stack on 390px mobile */
+    .viewport-stage {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-subtle);
+      padding: 20px;
+    }
+
+    .cc-shell {
+      width: 100%;
+      max-width: 960px;
+      height: calc(100vh - 40px);
+      max-height: 620px;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-default);
+      box-shadow: var(--shadow-md);
+      overflow: hidden;
+      overflow: clip;
+    }
+
+    @media (max-width: 920px) and (min-width: 769px) {
+      .viewport-stage {
+        padding: 0;
+        background: transparent;
+      }
+      .cc-shell {
+        max-width: 100%;
+        height: 100vh;
+        max-height: 100vh;
+        border: none;
+        box-shadow: none;
+      }
+    }
+
+    /* Band 1: Warm Charcoal Header + Horizontal Tab Bar */
+    .cc-header {
+      background: var(--bg-shell);
+      color: var(--ink-shell);
+      border-bottom: 1px solid var(--border-shell);
+      flex-shrink: 0;
+    }
+
+    .cc-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 16px 8px;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--radius-md);
+      background: var(--accent-primary);
+      color: var(--accent-contrast);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .brand-title {
+      font-family: var(--font-heading);
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--ink-shell);
+      white-space: nowrap;
+    }
+
+    .header-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .context-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      background: var(--bg-shell-elevated);
+      border: 1px solid var(--border-shell);
+      color: var(--ink-shell-accent);
+      font-size: 12px;
+      font-weight: 600;
+      max-width: 260px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .icon-btn-shell {
+      width: 30px;
+      height: 30px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-shell);
+      background: var(--bg-shell-elevated);
+      color: var(--ink-shell-muted);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background var(--motion-fast), color var(--motion-fast);
+    }
+    .icon-btn-shell:hover {
+      color: var(--ink-shell);
+      border-color: var(--ink-shell-muted);
+    }
+
+    /* Tab Strip */
+    .cc-tabs {
+      display: flex;
+      align-items: stretch;
+      gap: 2px;
+      padding: 0 12px;
+      overflow-x: auto;
+    }
+
+    .cc-tab-btn {
+      appearance: none;
+      border: none;
+      background: transparent;
+      color: var(--ink-shell-muted);
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 8px 8px 9px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      flex-shrink: 0;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      white-space: nowrap;
+      transition: color var(--motion-fast), border-color var(--motion-fast), background var(--motion-fast);
+    }
+
+    .cc-tab-btn:hover {
+      color: var(--ink-shell);
+      background: var(--bg-shell-elevated);
+      border-top-left-radius: var(--radius-md);
+      border-top-right-radius: var(--radius-md);
+    }
+
+    .cc-tab-btn[aria-selected="true"] {
+      color: var(--ink-shell-accent);
+      border-bottom-color: var(--ink-shell-accent);
+    }
+
+    .kbd-hint {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      padding: 1px 4px;
+      border-radius: var(--radius-sm);
+      background: var(--bg-shell-elevated);
+      border: 1px solid var(--border-shell);
+      color: var(--ink-shell-muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    html.is-switching-theme *,
+    html.is-switching-theme *::before,
+    html.is-switching-theme *::after {
+      transition: none !important;
+    }
+
+    /* Band 2: Split Workspace Stage */
+    .cc-body {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      overflow: clip;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .tab-panel {
+      display: none;
+      flex: 1;
+      min-height: 0;
+    }
+    .tab-panel.is-active {
+      display: grid;
+      grid-template-columns: 54fr 46fr;
+      grid-template-rows: minmax(0, 1fr);
+      min-height: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+    .tab-panel.split-equal.is-active {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .pane {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+      padding: 14px 16px;
+      overflow-y: auto;
+    }
+    .pane-left {
+      background: var(--bg-surface);
+      border-right: 1px solid var(--border-default);
+    }
+    .pane-right {
+      background: var(--bg-canvas);
+    }
+
+    .pane-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+      flex-shrink: 0;
+    }
+
+    .pane-title {
+      font-family: var(--font-heading);
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.35;
+      color: var(--ink-primary);
+    }
+
+    .pane-desc {
+      font-size: 12.5px;
+      color: var(--ink-secondary);
+      margin-bottom: 10px;
+    }
+
+    /* Form Controls */
+    button:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    [tabindex]:focus-visible {
+      outline: 2px solid var(--accent-primary);
+      outline-offset: 2px;
+    }
+
+    .search-box {
+      position: relative;
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+      flex-shrink: 0;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 10px;
+      color: var(--ink-muted);
+      pointer-events: none;
+      display: inline-flex;
+    }
+
+    .text-input,
+    .select-input {
+      width: 100%;
+      height: var(--row-height);
+      padding: 0 10px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-default);
+      background: var(--bg-surface);
+      color: var(--ink-primary);
+      font-family: var(--font-body);
+      font-size: 13px;
+      transition: border-color var(--motion-fast), background var(--motion-fast);
+    }
+    .text-input::placeholder {
+      color: var(--ink-muted);
+    }
+    .text-input:hover,
+    .select-input:hover {
+      border-color: var(--border-strong);
+    }
+    .text-input.with-icon {
+      padding-left: 32px;
+      padding-right: 54px;
+    }
+
+    .search-kbd {
+      position: absolute;
+      right: 8px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--ink-muted);
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm);
+      padding: 1px 5px;
+      pointer-events: none;
+    }
+
+    /* Filter Toolbar & Toggle Pills */
+    .filter-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    .meta-count {
+      font-size: 12px;
+      color: var(--ink-secondary);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .link-toggle {
+      appearance: none;
+      border: 1px solid var(--border-default);
+      background: var(--bg-subtle);
+      color: var(--ink-secondary);
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 9px;
+      border-radius: var(--radius-pill);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: background var(--motion-fast), color var(--motion-fast), border-color var(--motion-fast);
+    }
+    .link-toggle:hover {
+      background: var(--bg-hover);
+      color: var(--ink-primary);
+    }
+    .link-toggle[aria-pressed="true"] {
+      background: var(--accent-soft);
+      border-color: var(--accent-primary);
+      color: var(--status-warning);
+    }
+
+    /* Selectable List (Sheets / Employees / Weeks) */
+    .item-list {
+      position: relative;
+      flex: 1;
+      min-height: 120px;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+      overflow-y: auto;
+    }
+
+    .list-row {
+      position: relative;
+      width: 100%;
+      min-height: var(--row-height);
+      padding: 6px 10px;
+      border: none;
+      border-bottom: 1px solid var(--border-default);
+      background: transparent;
+      color: var(--ink-primary);
+      font-family: var(--font-body);
+      font-size: 13px;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+      transition: background var(--motion-fast);
+    }
+    .list-row:last-child {
+      border-bottom: none;
+    }
+    .list-row:hover {
+      background: var(--bg-subtle);
+    }
+    .list-row.is-selected {
+      background: var(--bg-selected);
+      font-weight: 600;
+    }
+
+    .row-main {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .row-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 7px;
+      border-radius: var(--radius-pill);
+      font-size: 11px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .badge-neutral {
+      background: var(--bg-subtle);
+      color: var(--ink-secondary);
+      border: 1px solid var(--border-default);
+    }
+    .badge-copper {
+      background: var(--accent-soft);
+      color: var(--status-warning);
+    }
+    .badge-success {
+      background: var(--status-success-bg);
+      color: var(--status-success);
+    }
+    .badge-danger {
+      background: var(--status-danger-bg);
+      color: var(--status-danger);
+    }
+
+    /* Pairing Summary Strip */
+    .pairing-strip {
+      margin-top: 10px;
+      padding: 9px 11px;
+      border-radius: var(--radius-md);
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-default);
+      font-size: 12.5px;
+      color: var(--ink-secondary);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .pairing-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .pairing-strong {
+      font-weight: 600;
+      color: var(--ink-primary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Calendar Widget (Tab 1 Right Pane) */
+    .cal-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .cal-nav {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-sm {
+      height: 30px;
+      padding: 0 9px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-default);
+      background: var(--bg-surface);
+      color: var(--ink-primary);
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      cursor: pointer;
+      transition: background var(--motion-fast), border-color var(--motion-fast);
+    }
+    .btn-sm:hover:not(:disabled) {
+      background: var(--bg-hover);
+      border-color: var(--border-strong);
+    }
+    .btn-sm:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .cal-month-title {
+      font-weight: 700;
+      font-size: 13.5px;
+      min-width: 108px;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .segmented {
+      display: inline-flex;
+      padding: 2px;
+      border-radius: var(--radius-md);
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-default);
+    }
+    .seg-btn {
+      appearance: none;
+      border: none;
+      background: transparent;
+      color: var(--ink-secondary);
+      font-family: var(--font-body);
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-variant-numeric: tabular-nums;
+    }
+    .seg-btn[aria-pressed="true"][data-brush="x2"],
+    .seg-btn[aria-pressed="true"][data-sort-block] {
+      background: var(--accent-primary);
+      color: var(--accent-contrast);
+    }
+    .seg-btn[aria-pressed="true"][data-brush="x3"] {
+      background: var(--status-danger);
+      color: var(--accent-contrast);
+    }
+
+    .preset-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-bottom: 8px;
+    }
+
+    .chip-btn {
+      appearance: none;
+      border: 1px solid var(--border-default);
+      background: var(--bg-surface);
+      color: var(--ink-secondary);
+      font-family: var(--font-body);
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: var(--radius-pill);
+      cursor: pointer;
+      font-variant-numeric: tabular-nums;
+      transition: background var(--motion-fast), color var(--motion-fast), border-color var(--motion-fast);
+    }
+    .chip-btn:hover {
+      background: var(--bg-hover);
+      color: var(--ink-primary);
+      border-color: var(--border-strong);
+    }
+    .chip-btn[aria-pressed="true"] {
+      background: var(--accent-soft);
+      border-color: var(--accent-primary);
+      color: var(--status-warning);
+    }
+
+    .cal-weekdays,
+    .cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+    }
+    .cal-weekdays {
+      margin-bottom: 4px;
+    }
+    .cal-wd {
+      text-align: center;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--ink-muted);
+      padding: 2px 0;
+    }
+    .cal-cell {
+      height: 31px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-default);
+      background: var(--bg-surface);
+      color: var(--ink-primary);
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: background var(--motion-fast), border-color var(--motion-fast);
+    }
+    .cal-cell:hover {
+      background: var(--bg-hover);
+      border-color: var(--border-strong);
+    }
+    .cal-cell.is-empty {
+      border-color: transparent;
+      background: transparent;
+      pointer-events: none;
+    }
+    .cal-cell[data-day-state="x2"] {
+      background: var(--accent-primary);
+      border-color: var(--accent-primary);
+      color: var(--accent-contrast);
+    }
+    .cal-cell[data-day-state="x3"] {
+      background: var(--status-danger);
+      border-color: var(--status-danger);
+      color: var(--accent-contrast);
+    }
+
+    .tags-summary {
+      margin-top: 8px;
+      padding: 8px 10px;
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+      border: 1px solid var(--border-default);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      min-height: 38px;
+      align-items: center;
+    }
+
+    .day-tag {
+      appearance: none;
+      border: 1px solid transparent;
+      font-family: var(--font-body);
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 9px;
+      border-radius: var(--radius-pill);
+      font-size: 11.5px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      cursor: pointer;
+      transition: opacity var(--motion-fast), border-color var(--motion-fast);
+    }
+    .day-tag:hover {
+      border-color: currentColor;
+    }
+    .day-tag.is-x2 {
+      background: var(--accent-soft);
+      color: var(--status-warning);
+    }
+    .day-tag.is-x3 {
+      background: var(--status-danger-bg);
+      color: var(--status-danger);
+    }
+
+    /* Section Stack & Action Rows (Tab 2 / Tab 3 / Tab 4) */
+    .field-block {
+      margin-bottom: 12px;
+    }
+    .field-label {
+      display: block;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--ink-primary);
+      margin-bottom: 5px;
+    }
+
+    .check-row {
+      position: relative;
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+      padding: 9px 11px;
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+      border: 1px solid var(--border-default);
+      cursor: pointer;
+      font-size: 12.5px;
+      margin-bottom: 8px;
+      transition: border-color var(--motion-fast), background var(--motion-fast);
+    }
+    .check-row:hover {
+      border-color: var(--border-strong);
+    }
+
+    .check-box-ui {
+      width: 17px;
+      height: 17px;
+      border-radius: var(--radius-sm);
+      border: 1.5px solid var(--border-strong);
+      background: var(--bg-surface);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+      transition: background var(--motion-fast), border-color var(--motion-fast);
+    }
+    .list-row .check-box-ui {
+      margin-top: 0;
+    }
+    .check-box-ui::after {
+      content: "";
+      width: 9px;
+      height: 5px;
+      border-left: 2px solid var(--accent-contrast);
+      border-bottom: 2px solid var(--accent-contrast);
+      transform: rotate(-45deg) translate(0.5px, -0.5px);
+      opacity: 0;
+    }
+    input.sr-only:checked + .check-box-ui {
+      background: var(--accent-primary);
+      border-color: var(--accent-primary);
+    }
+    input.sr-only:checked + .check-box-ui::after {
+      opacity: 1;
+    }
+    input.sr-only:focus-visible + .check-box-ui {
+      outline: 2px solid var(--accent-primary);
+      outline-offset: 2px;
+    }
+    input.sr-only:disabled + .check-box-ui {
+      opacity: 0.45;
+    }
+
+    .stepper-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .num-input {
+      width: 68px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .tool-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .tool-item {
+      padding: 10px 12px;
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+      border: 1px solid var(--border-default);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .tool-info {
+      min-width: 0;
+      flex: 1;
+    }
+    .tool-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink-primary);
+    }
+    .tool-target {
+      font-size: 11.5px;
+      color: var(--ink-secondary);
+      margin-top: 2px;
+    }
+
+    /* Email Tag Chips */
+    .chips-box {
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+      padding: 6px 8px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      min-height: 74px;
+    }
+    .email-chip {
+      appearance: none;
+      font-family: var(--font-body);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-default);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--ink-primary);
+      cursor: pointer;
+      transition: background var(--motion-fast), border-color var(--motion-fast);
+    }
+    .email-chip:hover {
+      background: var(--bg-hover);
+      border-color: var(--border-strong);
+    }
+    .chip-inline-input {
+      border: none;
+      outline: none;
+      background: transparent;
+      color: var(--ink-primary);
+      font-family: var(--font-body);
+      font-size: 12.5px;
+      min-width: 160px;
+      flex: 1;
+      height: 28px;
+    }
+    .chip-inline-input::placeholder {
+      color: var(--ink-muted);
+    }
+    .field-error {
+      font-size: 12px;
+      color: var(--status-danger);
+      margin-top: 4px;
+      min-height: 18px;
+    }
+
+    /* Skeleton & Empty States */
+    .empty-msg {
+      padding: 18px 12px;
+      text-align: center;
+      font-size: 12.5px;
+      color: var(--ink-muted);
+    }
+
+    .skeleton-line {
+      height: 32px;
+      border-radius: var(--radius-sm);
+      background: var(--bg-subtle);
+      margin: 6px 8px;
+    }
+
+    /* Band 3: Sticky Bottom Action Dock */
+    .cc-dock {
+      flex-shrink: 0;
+      min-height: 58px;
+      padding: 10px 16px;
+      background: var(--bg-surface);
+      border-top: 1px solid var(--border-default);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .status-banner {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12.5px;
+      color: var(--ink-secondary);
+      min-width: 0;
+      flex: 1;
+    }
+    .status-banner[data-tone="success"] {
+      color: var(--status-success);
+      font-weight: 600;
+    }
+    .status-banner[data-tone="error"] {
+      color: var(--status-danger);
+      font-weight: 600;
+    }
+    .status-banner[data-tone="running"] {
+      color: var(--status-warning);
+      font-weight: 600;
+    }
+
+    .dock-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .btn-primary {
+      height: 38px;
+      padding: 0 16px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--accent-primary);
+      background: var(--accent-primary);
+      color: var(--accent-contrast);
+      font-family: var(--font-body);
+      font-size: 13px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      cursor: pointer;
+      transition: background var(--motion-fast), border-color var(--motion-fast);
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+    }
+    .btn-primary:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      height: 38px;
+      padding: 0 12px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-default);
+      background: var(--bg-subtle);
+      color: var(--ink-primary);
+      font-family: var(--font-body);
+      font-size: 13px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: background var(--motion-fast), border-color var(--motion-fast);
+    }
+    .btn-secondary:hover:not(:disabled) {
+      background: var(--bg-hover);
+      border-color: var(--border-strong);
+    }
+
+    /* Tab 5: Sheet Manager (API v4) */
+    .mgr-pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-bottom: 8px;
+      flex-shrink: 0;
+    }
+
+    .mgr-bulk-bar {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 6px;
+      margin-bottom: 8px;
+      flex-shrink: 0;
+    }
+    .mgr-bulk-bar .select-input {
+      height: 30px;
+      font-size: 12px;
+      padding: 0 7px;
+    }
+
+    .mgr-quick-links {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .mgr-card {
+      padding: 8px 11px;
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+      border: 1px solid var(--border-default);
+      margin-bottom: 7px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      flex-shrink: 0;
+    }
+    .mgr-card:last-child {
+      margin-bottom: 0;
+    }
+
+    .mgr-card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .mgr-card-title {
+      font-family: var(--font-heading);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--ink-primary);
+    }
+
+    .sort-preview-box {
+      padding: 6px 8px;
+      border-radius: var(--radius-sm);
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-default);
+      font-size: 11.5px;
+      line-height: 1.4;
+      color: var(--ink-secondary);
+      max-height: 78px;
+      overflow-y: auto;
+    }
+
+    .sort-preview-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 6px;
+    }
+
+    .sort-preview-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 1px 6px;
+      border-radius: var(--radius-sm);
+      background: var(--bg-surface);
+      border: 1px solid var(--border-default);
+      color: var(--ink-primary);
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .sort-preview-chip.is-pinned {
+      background: var(--accent-soft);
+      border-color: var(--accent-primary);
+      color: var(--status-warning);
+    }
+
+    .mgr-action-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-danger-outline {
+      height: 30px;
+      padding: 0 10px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--status-danger);
+      background: var(--status-danger-bg);
+      color: var(--status-danger);
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      cursor: pointer;
+      transition: opacity var(--motion-fast), border-color var(--motion-fast);
+    }
+    .btn-danger-outline:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .btn-danger {
+      height: 30px;
+      padding: 0 11px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--status-danger);
+      background: var(--status-danger);
+      color: var(--accent-contrast);
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      cursor: pointer;
+    }
+
+    .delete-confirm-box {
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      background: var(--status-danger-bg);
+      border: 1px solid var(--status-danger);
+      color: var(--status-danger);
+      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+    #deleteConfirmText {
+      max-height: 76px;
+      overflow-y: auto;
+      line-height: 1.45;
+    }
+    .delete-confirm-box[hidden] {
+      display: none !important;
+    }
+
+    .row-badges {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 920px) and (min-width: 769px) {
+      .cc-tabs {
+        gap: 2px;
+        padding: 0 10px;
+      }
+      .cc-tab-btn {
+        font-size: 11.5px;
+        padding: 8px 6px 9px;
+        gap: 4px;
+      }
+      .kbd-hint {
+        font-size: 9.5px;
+        padding: 1px 3px;
+      }
+    }
+
+    /* Responsive Tablet (<= 768px) & Mobile (<= 480px) Adaptation */
+    @media (max-width: 768px) {
+      .viewport-stage {
+        align-items: stretch;
+        padding: 0;
+        background: transparent;
+      }
+      .cc-shell {
+        height: auto;
+        min-height: 100vh;
+        max-height: none;
+        border: none;
+        box-shadow: none;
+      }
+      .cc-topbar {
+        flex-wrap: wrap;
+        padding: 10px 12px 6px;
+      }
+      .context-chip {
+        max-width: 190px;
+      }
+      .icon-btn-shell {
+        width: 38px;
+        height: 38px;
+      }
+      .kbd-hint,
+      .search-kbd {
+        display: none;
+      }
+      .cc-tab-btn {
+        min-height: 40px;
+        padding: 8px 11px;
+      }
+      .cc-body {
+        overflow: visible;
+      }
+      .tab-panel.is-active,
+      .tab-panel.split-equal.is-active {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto;
+        height: auto;
+        overflow: visible;
+      }
+      .pane {
+        overflow-y: visible;
+        padding: 12px;
+      }
+      .pane-left {
+        border-right: none;
+        border-bottom: 1px solid var(--border-default);
+      }
+      .item-list {
+        max-height: 220px;
+      }
+      .mgr-bulk-bar {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .list-row,
+      .text-input,
+      .select-input,
+      .mgr-bulk-bar .select-input,
+      .btn-sm,
+      .btn-danger-outline,
+      .btn-danger,
+      .seg-btn,
+      .cal-cell,
+      .chip-btn,
+      .link-toggle,
+      .day-tag,
+      .email-chip,
+      .chip-inline-input {
+        min-height: 38px;
+        min-width: 38px;
+      }
+      .cc-dock {
+        position: sticky;
+        bottom: 0;
+        flex-direction: column;
+        align-items: stretch;
+        padding: 10px 12px;
+      }
+      .dock-actions {
+        width: 100%;
+      }
+      .dock-actions .btn-primary {
+        flex: 1;
+        min-height: 42px;
+      }
+      .dock-actions .btn-secondary {
+        min-height: 42px;
+        min-width: 72px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .cc-tabs {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+        padding: 4px 12px 10px;
+        overflow-x: visible;
+      }
+      .cc-tab-btn {
+        border: 1px solid var(--border-shell);
+        border-radius: var(--radius-md);
+        padding: 8px 10px;
+        min-width: 0;
+        overflow: hidden;
+      }
+      .cc-tab-btn:last-child {
+        grid-column: 1 / -1;
+      }
+      .cc-tab-btn > span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .cc-tab-btn[aria-selected="true"] {
+        background: var(--bg-shell-elevated);
+        border-color: var(--ink-shell-accent);
+      }
+    }
+
+    @media (max-width: 480px) {
+      .icon-btn-shell {
+        width: 42px;
+        height: 42px;
+      }
+      .cc-tab-btn,
+      .list-row,
+      .text-input,
+      .select-input,
+      .mgr-bulk-bar .select-input,
+      .btn-sm,
+      .btn-danger-outline,
+      .btn-danger,
+      .seg-btn,
+      .cal-cell,
+      .chip-btn,
+      .link-toggle,
+      .day-tag,
+      .email-chip,
+      .chip-inline-input {
+        min-height: 42px;
+        min-width: 42px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="viewport-stage">
+    <main class="cc-shell" aria-label="Bảng Điều Khiển Chấm Công King's Grill">
+      <!-- BAND 1: HEADER & TABS -->
+      <header class="cc-header">
+        <div class="cc-topbar">
+          <div class="brand-group">
+            <span class="brand-mark" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2v4M8 4v2M16 4v2M4 10h16l-1.5 9a2 2 0 0 1-2 1.7H7.5a2 2 0 0 1-2-1.7L4 10Z"/>
+              </svg>
+            </span>
+            <h1 class="brand-title">King's Grill — Điều Khiển Chấm Công</h1>
+          </div>
+          <div class="header-meta">
+            <div class="context-chip" id="activeSheetBadge" title="Trang tính đang mở trên Google Sheets">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
+              </svg>
+              <span id="activeSheetText">Đang mở: ...</span>
+            </div>
+            <button type="button" class="icon-btn-shell" id="refreshMetaBtn" title="Làm mới danh sách trang tính" aria-label="Làm mới dữ liệu trang tính">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/>
+              </svg>
+            </button>
+            <button type="button" class="icon-btn-shell" id="themeToggleBtn" title="Đổi giao diện Sáng / Tối" aria-label="Đổi giao diện Sáng hoặc Tối">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <nav class="cc-tabs" role="tablist" aria-label="Phân hệ nghiệp vụ chấm công">
+          <button type="button" role="tab" class="cc-tab-btn" data-tab-btn="summary" aria-selected="true" aria-controls="panel-summary">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
+            <span>Tổng Hợp Công</span>
+            <span class="kbd-hint">Alt+1</span>
+          </button>
+          <button type="button" role="tab" class="cc-tab-btn" data-tab-btn="employees" aria-selected="false" aria-controls="panel-employees">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/>
+            </svg>
+            <span>Nhân Sự &amp; Bảng Mới</span>
+            <span class="kbd-hint">Alt+2</span>
+          </button>
+          <button type="button" role="tab" class="cc-tab-btn" data-tab-btn="roster" aria-selected="false" aria-controls="panel-roster">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01"/>
+            </svg>
+            <span>Đồng Bộ Lịch &amp; Bảo Trì</span>
+            <span class="kbd-hint">Alt+3</span>
+          </button>
+          <button type="button" role="tab" class="cc-tab-btn" data-tab-btn="automation" aria-selected="false" aria-controls="panel-automation">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>
+            </svg>
+            <span>Tự Động Hóa</span>
+            <span class="kbd-hint">Alt+4</span>
+          </button>
+          <button type="button" role="tab" class="cc-tab-btn" data-tab-btn="sheets" aria-selected="false" aria-controls="panel-sheets">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>
+            </svg>
+            <span>Quản Lý Sheet</span>
+            <span class="kbd-hint">Alt+5</span>
+          </button>
+        </nav>
+      </header>
+
+      <!-- BAND 2: TAB PANELS -->
+      <div class="cc-body">
+        <!-- TAB 1: TỔNG HỢP CÔNG & LỊCH HỆ SỐ -->
+        <section id="panel-summary" role="tabpanel" class="tab-panel is-active">
+          <div class="pane pane-left">
+            <div class="pane-head">
+              <h2 class="pane-title">Chọn Trang Tính Chấm Công Gốc</h2>
+              <span class="meta-count" id="sourceCountLabel">Đang tải...</span>
+            </div>
+
+            <div class="search-box">
+              <span class="search-icon" aria-hidden="true">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+                </svg>
+              </span>
+              <input type="text" id="sourceSearchInput" class="text-input with-icon" placeholder="Tìm nhanh sheet (gõ T10, bep, cham cong...)" autocomplete="off">
+              <span class="search-kbd">Ctrl+K</span>
+            </div>
+
+            <div class="filter-row">
+              <span class="meta-count" id="filterStatusHint">Đã ẩn các tab hệ thống &amp; bản sao</span>
+              <button type="button" class="link-toggle" id="toggleAllSheetsBtn" aria-pressed="false">
+                <span id="toggleAllSheetsText">Hiện đủ 131 tab</span>
+              </button>
+            </div>
+
+            <div class="item-list" id="sourceSheetList" role="listbox" aria-label="Danh sách trang tính chấm công">
+              <div class="skeleton-line"></div>
+              <div class="skeleton-line"></div>
+              <div class="skeleton-line"></div>
+            </div>
+
+            <div class="pairing-strip" id="pairingPreviewBox">
+              <div class="pairing-line">
+                <span>Sheet gốc đã chọn:</span>
+                <span class="pairing-strong" id="previewSourceText">—</span>
+              </div>
+              <div class="pairing-line">
+                <span>Báo cáo đích xuất ra:</span>
+                <span class="pairing-strong" id="previewTargetText">—</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="pane pane-right">
+            <div class="pane-head">
+              <h2 class="pane-title">Lịch Hệ Số Ngày Lễ (x2 / x3)</h2>
+              <div class="segmented" role="group" aria-label="Chế độ gán nhanh hệ số lễ">
+                <button type="button" class="seg-btn" data-brush="x2" aria-pressed="true">Gán x2</button>
+                <button type="button" class="seg-btn" data-brush="x3" aria-pressed="false">Gán x3</button>
+              </div>
+            </div>
+
+            <div class="cal-toolbar">
+              <div class="cal-nav">
+                <button type="button" class="btn-sm" id="calPrevBtn" aria-label="Tháng trước">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                </button>
+                <span class="cal-month-title" id="calMonthTitle">Tháng --/----</span>
+                <button type="button" class="btn-sm" id="calNextBtn" aria-label="Tháng sau">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                </button>
+              </div>
+              <button type="button" class="btn-sm" id="clearMonthTagsBtn" title="Gỡ các ngày lễ thuộc tháng đang xem">Xóa tháng này</button>
+            </div>
+
+            <div class="preset-row" aria-label="Gợi ý nhanh ngày lễ dương lịch Việt Nam">
+              <button type="button" class="chip-btn" data-holiday-preset="0101">+ Tết Dương 01/01</button>
+              <button type="button" class="chip-btn" data-holiday-preset="3004">+ Lễ 30/04–01/05</button>
+              <button type="button" class="chip-btn" data-holiday-preset="0209">+ Quốc khánh 02/09</button>
+            </div>
+
+            <div class="cal-weekdays" aria-hidden="true">
+              <span class="cal-wd">T2</span><span class="cal-wd">T3</span><span class="cal-wd">T4</span>
+              <span class="cal-wd">T5</span><span class="cal-wd">T6</span><span class="cal-wd">T7</span><span class="cal-wd">CN</span>
+            </div>
+            <div class="cal-grid" id="calendarGrid" aria-label="Lưới chọn ngày hệ số x2 x3"></div>
+
+            <div class="tags-summary" id="specialDaysSummary" aria-live="polite">
+              <span class="meta-count">Chưa gắn ngày hệ số lễ nào.</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 2: NHÂN SỰ & THÊM BẢNG TỔNG HỢP -->
+        <section id="panel-employees" role="tabpanel" class="tab-panel">
+          <div class="pane pane-left">
+            <div class="pane-head">
+              <h2 class="pane-title">Đối Chiếu Nhân Sự Chưa Có Bảng</h2>
+              <span class="badge badge-neutral tabular" id="existingTablesBadge">0 bảng hiện có</span>
+            </div>
+
+            <div class="field-block">
+              <label class="field-label" for="summaryTargetSelect">Sheet Báo Cáo Tổng Hợp mục tiêu</label>
+              <select id="summaryTargetSelect" class="select-input"></select>
+            </div>
+
+            <div class="search-box">
+              <span class="search-icon" aria-hidden="true">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+                </svg>
+              </span>
+              <input type="text" id="empSearchInput" class="text-input with-icon" placeholder="Lọc theo tên hoặc bộ phận (Bếp, Phục vụ...)" autocomplete="off">
+            </div>
+
+            <div class="filter-row">
+              <span class="meta-count" id="empSelectedSummary">Đã chọn 0 nhân viên</span>
+              <button type="button" class="link-toggle" id="selectMissingLogsBtn">Chọn người có log thiếu bảng</button>
+            </div>
+
+            <div class="item-list" id="empListContainer">
+              <div class="empty-msg">Đang đối chiếu danh sách nhân sự...</div>
+            </div>
+          </div>
+
+          <div class="pane pane-right">
+            <div class="pane-head">
+              <h2 class="pane-title">Tùy Chọn Khởi Tạo &amp; Đổ Giờ Công</h2>
+            </div>
+            <p class="pane-desc">Tích chọn nhân viên ở cột trái để tạo bảng kèm công thức <code>CCNV1</code>/<code>CCNV2</code> và nạp giờ vào/ra trong một lần bấm, hoặc tạo sẵn bảng trống.</p>
+
+            <label class="check-row" for="autoPopulateToggle">
+              <input type="checkbox" class="sr-only" id="autoPopulateToggle" checked>
+              <span class="check-box-ui" aria-hidden="true"></span>
+              <span><strong>Tự động đổ giờ chấm công ngay sau khi thêm bảng</strong><br><span class="meta-count">Đọc từ sheet gốc tương ứng qua Google Sheets API v4</span></span>
+            </label>
+
+            <div class="field-block">
+              <label class="field-label" for="blankCountInput">Hoặc số lượng bảng trống thêm dự phòng (khi không tích tên)</label>
+              <div class="stepper-row">
+                <button type="button" class="btn-sm" id="decBlankBtn" aria-label="Giảm số bảng trống">−</button>
+                <input type="number" id="blankCountInput" class="text-input num-input" value="1" min="1" max="25">
+                <button type="button" class="btn-sm" id="incBlankBtn" aria-label="Tăng số bảng trống">+</button>
+                <span class="meta-count">bảng mẫu 31 ngày</span>
+              </div>
+            </div>
+
+            <div class="tool-item">
+              <div class="tool-info">
+                <div class="tool-name">Quét &amp; Nạp Lại Các Bảng Đã Điền Tên</div>
+                <div class="tool-target">Dành cho bảng bạn vừa tự gõ tên trực tiếp trên ô bảng tính</div>
+              </div>
+              <button type="button" class="btn-sm" id="populateExistingBtn">Nạp ngay</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 3: ĐỒNG BỘ LỊCH LÀM & BẢO TRÌ SHEET -->
+        <section id="panel-roster" role="tabpanel" class="tab-panel split-equal">
+          <div class="pane pane-left">
+            <div class="pane-head">
+              <h2 class="pane-title">Đồng Bộ Tuần Sang Sheet Lịch Làm</h2>
+            </div>
+
+            <div class="field-block">
+              <label class="field-label" for="rosterMonthSelect">Chọn trang tính Lịch Tháng</label>
+              <select id="rosterMonthSelect" class="select-input"></select>
+            </div>
+
+            <div class="filter-row">
+              <span class="meta-count" id="rosterWeeksHint">Chọn các tuần có dòng duyệt (┗) để đồng bộ</span>
+              <button type="button" class="link-toggle" id="selectAllApprovedWeeksBtn">Chọn tuần đã duyệt</button>
+            </div>
+
+            <div class="item-list" id="rosterWeeksList">
+              <div class="empty-msg">Chọn tab Tháng MM/YYYY để xem danh sách tuần.</div>
+            </div>
+          </div>
+
+          <div class="pane pane-right">
+            <div class="pane-head">
+              <h2 class="pane-title">Công Cụ Chuẩn Hóa &amp; Sửa Lỗi Nhanh</h2>
+            </div>
+
+            <div class="field-block">
+              <label class="field-label" for="maintCheckinSelect">Sheet chấm công áp dụng sửa ảnh / làm đẹp</label>
+              <select id="maintCheckinSelect" class="select-input"></select>
+            </div>
+
+            <div class="tool-list">
+              <div class="tool-item">
+                <div class="tool-info">
+                  <div class="tool-name">Phục hồi Link Ảnh Drive &amp; lỗi #ERROR!</div>
+                  <div class="tool-target" id="healTargetHint"> Chuẩn hóa HYPERLINK dấu chấm phẩy trên sheet đã chọn</div>
+                </div>
+                <button type="button" class="btn-sm" data-maint-tool="heal_images">Sửa ảnh</button>
+              </div>
+
+              <div class="tool-item">
+                <div class="tool-info">
+                  <div class="tool-name">Làm đẹp định dạng &amp; ngày giờ chấm công</div>
+                  <div class="tool-target">Thêm giây :00 còn thiếu, căn chuẩn cột &amp; kẻ khung</div>
+                </div>
+                <button type="button" class="btn-sm" data-maint-tool="format_checkin">Làm đẹp</button>
+              </div>
+
+              <div class="tool-item">
+                <div class="tool-info">
+                  <div class="tool-name">Sửa công thức &amp; khoảng cách Tổng Hợp</div>
+                  <div class="tool-target" id="repairSumTargetHint">Áp dụng cho sheet Báo Cáo Tổng Hợp ở Tab 2</div>
+                </div>
+                <button type="button" class="btn-sm" data-maint-tool="repair_summary">Chuẩn hóa</button>
+              </div>
+
+              <div class="tool-item">
+                <div class="tool-info">
+                  <div class="tool-name">Chuẩn hóa tiêu đề DATA 2 dòng</div>
+                  <div class="tool-target">Cố định 2 dòng tiêu đề Tiếng Việt &amp; Kỹ thuật trên sheet DATA</div>
+                </div>
+                <button type="button" class="btn-sm" data-maint-tool="migrate_data_headers">Cấu hình</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 4: TỰ ĐỘNG HÓA & EMAIL BÁO CÁO -->
+        <section id="panel-automation" role="tabpanel" class="tab-panel split-equal">
+          <div class="pane pane-left">
+            <div class="pane-head">
+              <h2 class="pane-title">Lịch Tự Động Tổng Hợp Hàng Ngày</h2>
+              <span class="badge badge-neutral" id="triggerLiveBadge">Đang kiểm tra...</span>
+            </div>
+
+            <label class="check-row" for="autoEnableToggle">
+              <input type="checkbox" class="sr-only" id="autoEnableToggle" checked>
+              <span class="check-box-ui" aria-hidden="true"></span>
+              <span><strong>Bật chạy tự động &amp; gửi báo cáo mỗi ngày</strong><br><span class="meta-count" id="autoTargetSheetNote">Nguồn mặc định: Sheet CHẤM CÔNG</span></span>
+            </label>
+
+            <div class="field-block">
+              <label class="field-label" for="autoHourSelect">Khung giờ chạy tự động hàng ngày</label>
+              <select id="autoHourSelect" class="select-input tabular"></select>
+            </div>
+
+            <div class="pairing-strip">
+              <div class="pairing-line">
+                <span>Lần chạy gần nhất:</span>
+              </div>
+              <div class="pairing-strong tabular" id="lastRunStatusBox">Chưa có dữ liệu</div>
+            </div>
+          </div>
+
+          <div class="pane pane-right">
+            <div class="pane-head">
+              <h2 class="pane-title">Danh Sách Email Nhận Báo Cáo</h2>
+              <span class="meta-count tabular" id="emailCountBadge">0 email</span>
+            </div>
+
+            <div class="field-block">
+              <label class="field-label" for="emailChipInput">Nhập email rồi nhấn Enter hoặc dấu phẩy</label>
+              <div class="chips-box" id="emailChipsWrap">
+                <input type="email" id="emailChipInput" class="chip-inline-input" placeholder="ten@kingsgrill.vn" autocomplete="off">
+              </div>
+              <div class="field-error" id="emailChipError" role="alert"></div>
+            </div>
+
+            <div class="tool-item">
+              <div class="tool-info">
+                <div class="tool-name">Chạy thử tổng hợp &amp; gửi báo cáo ngay</div>
+                <div class="tool-target">Kiểm tra xuất PDF/PNG và gửi mail thực tế ngay lập tức</div>
+              </div>
+              <button type="button" class="btn-sm" id="runAutoTestBtn">Chạy thử</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 5: QUẢN LÝ TRANG TÍNH SIÊU TỐC (SHEETS API V4) -->
+        <section id="panel-sheets" role="tabpanel" class="tab-panel">
+          <div class="pane pane-left">
+            <div class="pane-head">
+              <h2 class="pane-title">Lọc &amp; Chọn Trang Tính</h2>
+              <span class="meta-count tabular" id="mgrSheetCountLabel">0 / 0 sheet</span>
+            </div>
+
+            <div class="search-box">
+              <span class="search-icon" aria-hidden="true">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+                </svg>
+              </span>
+              <input type="text" id="mgrSearchInput" class="text-input with-icon" placeholder="Tìm tên sheet, năm 2024/2025, bản sao..." autocomplete="off">
+              <span class="search-kbd">Ctrl+K</span>
+            </div>
+
+            <div class="mgr-pill-row" role="group" aria-label="Lọc theo nhóm trang tính">
+              <button type="button" class="chip-btn" data-mgr-group="all" aria-pressed="true">Tất cả</button>
+              <button type="button" class="chip-btn" data-mgr-group="schedule" aria-pressed="false">Lịch làm</button>
+              <button type="button" class="chip-btn" data-mgr-group="attendance_pair" aria-pressed="false">Chấm công &amp; TH</button>
+              <button type="button" class="chip-btn" data-mgr-group="archive_or_copy" aria-pressed="false">Bản sao/Nháp</button>
+              <button type="button" class="chip-btn" data-mgr-group="system_core" aria-pressed="false">Hệ thống</button>
+            </div>
+
+            <div class="mgr-bulk-bar">
+              <select id="mgrVisFilterSelect" class="select-input" aria-label="Lọc trạng thái ẩn hiện">
+                <option value="all">Mọi trạng thái</option>
+                <option value="visible">Đang hiện</option>
+                <option value="hidden">Đang ẩn</option>
+              </select>
+              <select id="mgrPeriodCutoffSelect" class="select-input tabular" aria-label="Chọn mốc kỳ tháng trở về trước"></select>
+              <button type="button" class="btn-sm" id="selectByPeriodCutoffBtn" title="Tích chọn mọi bảng có kỳ tháng nhỏ hơn hoặc bằng mốc đã chọn">Chọn &lt;= kỳ</button>
+            </div>
+
+            <div class="filter-row">
+              <span class="meta-count tabular" id="mgrSelectedSummary">Đã chọn 0 sheet</span>
+              <div class="mgr-quick-links">
+                <button type="button" class="link-toggle" id="selectFilteredSheetsBtn">Chọn đang lọc</button>
+                <button type="button" class="link-toggle" id="selectJunkSheetsBtn">Chọn Bản sao/Nháp</button>
+                <button type="button" class="link-toggle" id="clearMgrSelectionBtn">Bỏ chọn</button>
+              </div>
+            </div>
+
+            <div class="item-list" id="mgrSheetList" aria-label="Danh sách quản lý trang tính">
+              <div class="skeleton-line"></div>
+              <div class="skeleton-line"></div>
+            </div>
+          </div>
+
+          <div class="pane pane-right">
+            <div class="mgr-card">
+              <div class="mgr-card-head">
+                <h3 class="mgr-card-title">1. Sắp Xếp Thứ Tự Chuẩn</h3>
+                <div class="segmented" role="group" aria-label="Thứ tự ưu tiên khối sau 3 sheet ghim đầu">
+                  <button type="button" class="seg-btn" data-sort-block="schedule_first" aria-pressed="true">Lịch làm trước</button>
+                  <button type="button" class="seg-btn" data-sort-block="attendance_first" aria-pressed="false">Chấm công trước</button>
+                </div>
+              </div>
+              <p class="tool-target">Ghim cố định 3 sheet đầu bên trái, xếp kỳ mới đến cũ (cũ nhất bên phải).</p>
+              <div class="sort-preview-box">
+                <div class="sort-preview-list tabular" id="sortOrderPreviewList"></div>
+              </div>
+              <div class="mgr-action-row">
+                <button type="button" class="btn-sm" id="runReorderBtn">Sắp xếp ngay (1 lệnh API v4)</button>
+              </div>
+            </div>
+
+            <div class="mgr-card">
+              <div class="mgr-card-head">
+                <h3 class="mgr-card-title">2. Ẩn / Hiện Hàng Loạt</h3>
+                <span class="meta-count tabular" id="mgrVisibleSummaryBadge">0 đang hiện</span>
+              </div>
+              <div class="mgr-action-row">
+                <button type="button" class="btn-sm" id="hideSelectedSheetsBtn">Ẩn đã chọn (0)</button>
+                <button type="button" class="btn-sm" id="showSelectedSheetsBtn">Hiện đã chọn (0)</button>
+                <button type="button" class="btn-sm" id="smartTidySheetsBtn" title="Giữ 3 sheet ghim đầu + 2 kỳ mới nhất, ẩn toàn bộ sheet cũ &amp; hệ thống">Gọn thanh tab</button>
+              </div>
+            </div>
+
+            <div class="mgr-card">
+              <div class="mgr-card-head">
+                <h3 class="mgr-card-title">3. Dọn Xóa Theo Bộ Lọc</h3>
+                <span class="badge badge-neutral tabular" id="mgrDeletableBadge">0 có thể xóa</span>
+              </div>
+              <p class="tool-target">Tự động bảo vệ các bảng dữ liệu nền WebApp, nhân sự và chấm công đang chạy.</p>
+              <div class="mgr-action-row">
+                <button type="button" class="btn-danger-outline" id="requestDeleteSheetsBtn" disabled>Xóa sheet đã chọn (0)</button>
+              </div>
+              <div class="delete-confirm-box" id="deleteConfirmBox" hidden role="region" aria-label="Xác nhận xóa vĩnh viễn trang tính">
+                <div id="deleteConfirmText"></div>
+                <div class="mgr-action-row">
+                  <button type="button" class="btn-sm" id="cancelDeleteSheetsBtn">Hủy bỏ</button>
+                  <button type="button" class="btn-danger" id="confirmDeleteSheetsBtn">Xác nhận xóa vĩnh viễn</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- BAND 3: STICKY ACTION DOCK -->
+      <footer class="cc-dock">
+        <div class="status-banner" id="statusBanner" data-tone="idle" aria-live="polite">
+          <span>Sẵn sàng thao tác. Nhấn Ctrl+K để tìm nhanh trang tính.</span>
+        </div>
+        <div class="dock-actions">
+          <button type="button" class="btn-secondary" id="closeModalBtn">Đóng</button>
+          <button type="button" class="btn-primary" id="primaryActionBtn">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
+            <span id="primaryActionLabel">Bắt Đầu Tổng Hợp Công</span>
+          </button>
+        </div>
+      </footer>
+    </main>
+  </div>
+
+  <script>
+    (function() {
+      var BOOT_ACTIVE_SHEET = <?!= BOOT_ACTIVE_SHEET ?>;
+      var BOOT_INITIAL_TAB = <?!= BOOT_INITIAL_TAB ?>;
+
+      var state = {
+        activeTab: BOOT_INITIAL_TAB || 'summary',
+        activeSheetName: BOOT_ACTIVE_SHEET || '',
+        totalSheetCount: 0,
+        sheets: [],
+        showAllSheets: false,
+        sourceSearch: '',
+        selectedSourceSheet: '',
+        selectedSummarySheet: '',
+        selectedRosterSheet: '',
+        selectedMaintCheckinSheet: '',
+        calMonth: (new Date().getMonth() + 1),
+        calYear: new Date().getFullYear(),
+        brush: 'x2',
+        x2Days: [],
+        x3Days: [],
+        summaryContext: null,
+        empSearch: '',
+        selectedEmpNames: [],
+        rosterWeeks: [],
+        selectedWeeks: [],
+        autoEnabled: true,
+        autoHour: 1,
+        emails: [],
+        mgrSearch: '',
+        mgrGroup: 'all',
+        mgrVisFilter: 'all',
+        mgrSelectedIds: [],
+        mgrLastAnchorId: null,
+        mgrSortPrimaryBlock: 'schedule_first',
+        mgrDeleteConfirmOpen: false,
+        busy: false
+      };
+
+      function foldText(str) {
+        if (!str) return '';
+        return String(str)
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/đ/g, 'd')
+          .replace(/Đ/g, 'D')
+          .toLowerCase()
+          .trim();
+      }
+
+      function escapeHtml(str) {
+        return String(str || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function inferMonthYearClient(title) {
+        var meta = enrichSheetMetaClient({ id: 0, title: title }, 0);
+        return (meta.periodMonth && meta.periodYear)
+          ? { month: meta.periodMonth, year: meta.periodYear }
+          : null;
+      }
+
+      function setStatus(text, tone) {
+        var el = document.getElementById('statusBanner');
+        el.setAttribute('data-tone', tone || 'idle');
+        el.textContent = text;
+      }
+
+      function setBusy(flag, statusText) {
+        state.busy = Boolean(flag);
+        var btn = document.getElementById('primaryActionBtn');
+        btn.disabled = state.busy;
+        var auxIds = ['runReorderBtn', 'smartTidySheetsBtn', 'confirmDeleteSheetsBtn'];
+        for (var i = 0; i < auxIds.length; i++) {
+          var el = document.getElementById(auxIds[i]);
+          if (el) el.disabled = state.busy;
+        }
+        if (state.sheets && state.sheets.length > 0 && document.getElementById('mgrSheetList')) {
+          var hasSel = state.mgrSelectedIds.length > 0;
+          var hasDel = getSelectedMgrSheets().some(function(s) { return !s.protected; });
+          var hideBtn = document.getElementById('hideSelectedSheetsBtn');
+          var showBtn = document.getElementById('showSelectedSheetsBtn');
+          var reqDelBtn = document.getElementById('requestDeleteSheetsBtn');
+          if (hideBtn) hideBtn.disabled = !hasSel || state.busy;
+          if (showBtn) showBtn.disabled = !hasSel || state.busy;
+          if (reqDelBtn) reqDelBtn.disabled = !hasDel || state.busy;
+        }
+        if (statusText) setStatus(statusText, flag ? 'running' : 'idle');
+      }
+
+      function callGas(methodName, args, onOk, onErr) {
+        if (typeof google === 'undefined' || !google.script || !google.script.run) {
+          setBusy(false);
+          var envErr = new Error('Môi trường Google Apps Script chưa sẵn sàng.');
+          setStatus('Lỗi: ' + envErr.message, 'error');
+          if (onErr) onErr(envErr);
+          return;
+        }
+        var runner = google.script.run
+          .withSuccessHandler(function(res) {
+            if (onOk) onOk(res);
+          })
+          .withFailureHandler(function(err) {
+            setBusy(false);
+            var msg = (err && err.message) ? err.message : String(err || 'Lỗi không xác định');
+            setStatus('Lỗi: ' + msg, 'error');
+            if (onErr) onErr(err);
+          });
+        runner[methodName].apply(runner, args || []);
+      }
+
+      /* ---------------- TAB NAVIGATION ---------------- */
+      function switchTab(tabId) {
+        var valid = ['summary', 'employees', 'roster', 'automation', 'sheets'];
+        if (valid.indexOf(tabId) < 0) tabId = 'summary';
+        state.activeTab = tabId;
+
+        var btns = document.querySelectorAll('[data-tab-btn]');
+        for (var i = 0; i < btns.length; i++) {
+          var isAct = btns[i].getAttribute('data-tab-btn') === tabId;
+          btns[i].setAttribute('aria-selected', isAct ? 'true' : 'false');
+        }
+
+        var panels = document.querySelectorAll('.tab-panel');
+        for (var p = 0; p < panels.length; p++) {
+          panels[p].classList.toggle('is-active', panels[p].id === 'panel-' + tabId);
+        }
+
+        updatePrimaryDockLabel();
+
+        if (tabId === 'employees' && state.selectedSummarySheet) {
+          loadSummaryEmployeesContext(state.selectedSummarySheet);
+        } else if (tabId === 'roster' && state.selectedRosterSheet) {
+          loadRosterWeeks(state.selectedRosterSheet);
+        } else if (tabId === 'sheets') {
+          renderSheetManager();
+        }
+      }
+
+      function updatePrimaryDockLabel() {
+        var lbl = document.getElementById('primaryActionLabel');
+        if (state.activeTab === 'summary') {
+          lbl.textContent = 'Bắt Đầu Tổng Hợp Công';
+        } else if (state.activeTab === 'employees') {
+          var n = state.selectedEmpNames.length;
+          lbl.textContent = n > 0
+            ? ('Thêm & Nạp Công (' + n + ' NV)')
+            : ('Thêm ' + (document.getElementById('blankCountInput').value || 1) + ' Bảng Trống');
+        } else if (state.activeTab === 'roster') {
+          var w = state.selectedWeeks.length;
+          lbl.textContent = w > 0 ? ('Đồng Bộ ' + w + ' Tuần Đã Chọn') : 'Đồng Bộ Lịch Tuần';
+        } else if (state.activeTab === 'sheets') {
+          lbl.textContent = 'Sắp Xếp Chuẩn API v4';
+        } else {
+          lbl.textContent = 'Lưu Cấu Hình Tự Động';
+        }
+      }
+
+      /* ---------------- TAB 1: SOURCE LIST & CALENDAR ---------------- */
+      function renderSourceSheetList() {
+        var container = document.getElementById('sourceSheetList');
+        var q = foldText(state.sourceSearch);
+        var filtered = state.sheets.filter(function(s) {
+          if (!state.showAllSheets && s.category !== 'attendance_source') return false;
+          if (!q) return true;
+          return (s._titleFolded || foldText(s.title)).indexOf(q) >= 0;
+        });
+
+        document.getElementById('sourceCountLabel').textContent =
+          filtered.length + ' / ' + state.totalSheetCount + ' trang tính';
+        document.getElementById('toggleAllSheetsText').textContent =
+          state.showAllSheets ? 'Chỉ hiện sheet chấm công' : ('Hiện đủ ' + state.totalSheetCount + ' tab');
+        document.getElementById('toggleAllSheetsBtn').setAttribute('aria-pressed', state.showAllSheets ? 'true' : 'false');
+
+        if (filtered.length === 0) {
+          container.innerHTML = '<div class="empty-msg">Không tìm thấy trang tính phù hợp. Hãy thử bật "Hiện đủ ' + state.totalSheetCount + ' tab".</div>';
+          return;
+        }
+
+        container.innerHTML = filtered.map(function(s) {
+          var isSel = s.title === state.selectedSourceSheet;
+          var isAct = s.title === state.activeSheetName;
+          var badgeHtml = isAct
+            ? '<span class="badge badge-copper">Đang mở</span>'
+            : (s.rowCount ? '<span class="badge badge-neutral">' + s.rowCount + ' dòng</span>' : '');
+          return (
+            '<button type="button" role="option" class="list-row' + (isSel ? ' is-selected' : '') + '"' +
+            ' aria-selected="' + (isSel ? 'true' : 'false') + '"' +
+            ' data-sheet-title="' + escapeHtml(s.title) + '">' +
+              '<span class="row-main"><span class="row-label">' + escapeHtml(s.title) + '</span></span>' +
+              badgeHtml +
+            '</button>'
+          );
+        }).join('');
+      }
+
+      function selectSourceSheet(sheetTitle) {
+        state.selectedSourceSheet = sheetTitle;
+        var matchedMeta = state.sheets.find(function(s) { return s.title === sheetTitle; });
+        var guessed = (matchedMeta && matchedMeta.periodMonth && matchedMeta.periodYear)
+          ? { month: matchedMeta.periodMonth, year: matchedMeta.periodYear }
+          : inferMonthYearClient(sheetTitle);
+        if (guessed && guessed.month >= 1 && guessed.month <= 12) {
+          state.calMonth = guessed.month;
+          state.calYear = guessed.year;
+        }
+        var container = document.getElementById('sourceSheetList');
+        var rows = container ? container.querySelectorAll('[data-sheet-title]') : [];
+        if (rows.length > 0) {
+          for (var i = 0; i < rows.length; i++) {
+            var isSel = rows[i].getAttribute('data-sheet-title') === sheetTitle;
+            rows[i].classList.toggle('is-selected', isSel);
+            rows[i].setAttribute('aria-selected', isSel ? 'true' : 'false');
+          }
+        } else {
+          renderSourceSheetList();
+        }
+        renderPairingPreview();
+        renderCalendar();
+      }
+
+      function renderPairingPreview() {
+        var src = state.selectedSourceSheet || '—';
+        var expectedTarget = state.selectedSourceSheet ? ('\uD83D\uDCCA TỔNG HỢP ' + state.selectedSourceSheet) : '—';
+        var exists = state.sheets.some(function(s) { return s.title === expectedTarget; });
+        document.getElementById('previewSourceText').textContent = src;
+        document.getElementById('previewTargetText').textContent =
+          expectedTarget + (state.selectedSourceSheet ? (exists ? ' (Cập nhật)' : ' (Tạo mới)') : '');
+      }
+
+      function sortDayTags(arr) {
+        return arr.slice().sort(function(a, b) {
+          var pa = a.split('/');
+          var pb = b.split('/');
+          var ma = parseInt(pa[1], 10);
+          var mb = parseInt(pb[1], 10);
+          return ma !== mb ? ma - mb : parseInt(pa[0], 10) - parseInt(pb[0], 10);
+        });
+      }
+
+      function setDayMultiplier(ddmm, mode) {
+        state.x2Days = state.x2Days.filter(function(d) { return d !== ddmm; });
+        state.x3Days = state.x3Days.filter(function(d) { return d !== ddmm; });
+        if (mode === 'x2') state.x2Days.push(ddmm);
+        if (mode === 'x3') state.x3Days.push(ddmm);
+        state.x2Days = sortDayTags(state.x2Days);
+        state.x3Days = sortDayTags(state.x3Days);
+      }
+
+      function renderCalendar() {
+        var mmStr = String(state.calMonth).padStart(2, '0');
+        document.getElementById('calMonthTitle').textContent = 'Tháng ' + mmStr + '/' + state.calYear;
+
+        var grid = document.getElementById('calendarGrid');
+        var firstDayJs = new Date(state.calYear, state.calMonth - 1, 1).getDay(); // 0=CN..6=T7
+        var leadEmpty = (firstDayJs + 6) % 7; // Monday-first
+        var daysInMonth = new Date(state.calYear, state.calMonth, 0).getDate();
+
+        var html = '';
+        for (var e = 0; e < leadEmpty; e++) {
+          html += '<span class="cal-cell is-empty" aria-hidden="true"></span>';
+        }
+        for (var d = 1; d <= daysInMonth; d++) {
+          var tag = String(d).padStart(2, '0') + '/' + mmStr;
+          var dState = 'normal';
+          if (state.x2Days.indexOf(tag) >= 0) dState = 'x2';
+          else if (state.x3Days.indexOf(tag) >= 0) dState = 'x3';
+          html += '<button type="button" class="cal-cell" data-cal-tag="' + tag + '" data-day-state="' + dState + '">' + d + '</button>';
+        }
+        grid.innerHTML = html;
+        renderSpecialDayTagsSummary();
+      }
+
+      function renderSpecialDayTagsSummary() {
+        var wrap = document.getElementById('specialDaysSummary');
+        var parts = [];
+        state.x2Days.forEach(function(d) {
+          parts.push(
+            '<button type="button" class="day-tag is-x2" data-remove-tag="' + d + '" aria-label="Xóa ngày ' + d + '">' +
+            '<span>' + d + ' (x2)</span><span aria-hidden="true">&times;</span></button>'
+          );
+        });
+        state.x3Days.forEach(function(d) {
+          parts.push(
+            '<button type="button" class="day-tag is-x3" data-remove-tag="' + d + '" aria-label="Xóa ngày ' + d + '">' +
+            '<span>' + d + ' (x3)</span><span aria-hidden="true">&times;</span></button>'
+          );
+        });
+
+        if (parts.length === 0) {
+          wrap.innerHTML = '<span class="meta-count">Chưa gắn ngày lễ x2/x3. Bấm ô ngày trên lịch hoặc chip gợi ý để gán.</span>';
+          return;
+        }
+        wrap.innerHTML = parts.join('');
+      }
+
+      /* ---------------- TAB 2: EMPLOYEES & SUMMARY TABLES ---------------- */
+      function sortPeriodNewestFirst(list) {
+        return list.slice().sort(function(a, b) {
+          var ka = a.periodKey || '';
+          var kb = b.periodKey || '';
+          if (ka && !kb) return 1;
+          if (!ka && kb) return -1;
+          if (ka !== kb) return kb.localeCompare(ka);
+          var sa = String(a.title || '').indexOf('/') >= 0 ? 0 : 1;
+          var sb = String(b.title || '').indexOf('/') >= 0 ? 0 : 1;
+          if (sa !== sb) return sa - sb;
+          return (a.index || 0) - (b.index || 0);
+        });
+      }
+
+      function populateSelectOptions() {
+        var summaries = sortPeriodNewestFirst(state.sheets.filter(function(s) { return s.category === 'summary_report'; }));
+        var sumSel = document.getElementById('summaryTargetSelect');
+        sumSel.innerHTML = summaries.map(function(s) {
+          var sel = s.title === state.selectedSummarySheet ? ' selected' : '';
+          return '<option value="' + escapeHtml(s.title) + '"' + sel + '>' + escapeHtml(s.title) + '</option>';
+        }).join('') || '<option value="">-- Chưa có sheet \uD83D\uDCCA TỔNG HỢP --</option>';
+
+        var schedules = sortPeriodNewestFirst(state.sheets.filter(function(s) { return s.category === 'monthly_schedule'; }));
+        var rosSel = document.getElementById('rosterMonthSelect');
+        rosSel.innerHTML = schedules.map(function(s) {
+          var sel = s.title === state.selectedRosterSheet ? ' selected' : '';
+          return '<option value="' + escapeHtml(s.title) + '"' + sel + '>' + escapeHtml(s.title) + '</option>';
+        }).join('') || '<option value="">-- Chưa có sheet Tháng MM/YYYY --</option>';
+
+        var sources = sortPeriodNewestFirst(state.sheets.filter(function(s) { return s.category === 'attendance_source'; }));
+        var maintSel = document.getElementById('maintCheckinSelect');
+        maintSel.innerHTML = sources.map(function(s) {
+          var sel = s.title === state.selectedMaintCheckinSheet ? ' selected' : '';
+          return '<option value="' + escapeHtml(s.title) + '"' + sel + '>' + escapeHtml(s.title) + '</option>';
+        }).join('');
+
+        var hourSel = document.getElementById('autoHourSelect');
+        var hHtml = '';
+        for (var h = 0; h < 24; h++) {
+          var hh = String(h).padStart(2, '0') + ':00';
+          hHtml += '<option value="' + h + '"' + (h === state.autoHour ? ' selected' : '') + '>' + hh + ' hàng ngày</option>';
+        }
+        hourSel.innerHTML = hHtml;
+      }
+
+      function loadSummaryEmployeesContext(summarySheetName) {
+        if (!summarySheetName) return;
+        document.getElementById('empListContainer').innerHTML = '<div class="empty-msg">Đang đối chiếu dữ liệu nhân sự...</div>';
+        callGas('getSummaryTabContext', [summarySheetName], function(ctx) {
+          state.summaryContext = ctx;
+          // Auto-preselect employees who have logs in source sheet but no summary table yet!
+          state.selectedEmpNames = (ctx.missingWithLogs || []).map(function(e) { return e.fullName; });
+          document.getElementById('existingTablesBadge').textContent = (ctx.existingCount || 0) + ' bảng hiện có';
+          document.getElementById('repairSumTargetHint').textContent = 'Áp dụng cho: ' + summarySheetName;
+          renderEmployeePicker();
+          updatePrimaryDockLabel();
+        });
+      }
+
+      function syncEmployeeSelectionUI() {
+        document.getElementById('empSelectedSummary').textContent = 'Đã chọn ' + state.selectedEmpNames.length + ' nhân viên';
+        updatePrimaryDockLabel();
+      }
+
+      function renderEmployeePicker() {
+        var box = document.getElementById('empListContainer');
+        var ctx = state.summaryContext;
+        if (!ctx || !ctx.exists) {
+          box.innerHTML = '<div class="empty-msg">Hãy chạy Tổng Hợp Công ở Tab 1 để tạo sheet Báo Cáo Tổng Hợp trước.</div>';
+          return;
+        }
+
+        var q = foldText(state.empSearch);
+        var items = [];
+        (ctx.missingWithLogs || []).forEach(function(e) {
+          items.push({ fullName: e.fullName, position: e.position, logCount: e.logCount, group: 'logs' });
+        });
+        (ctx.missingFromData || []).forEach(function(e) {
+          items.push({ fullName: e.fullName, position: e.position, logCount: 0, group: 'data' });
+        });
+
+        var filtered = items.filter(function(it) {
+          if (!q) return true;
+          return foldText(it.fullName + ' ' + it.position).indexOf(q) >= 0;
+        });
+
+        document.getElementById('empSelectedSummary').textContent = 'Đã chọn ' + state.selectedEmpNames.length + ' nhân viên';
+
+        if (filtered.length === 0) {
+          box.innerHTML = '<div class="empty-msg">Tất cả nhân sự đang làm việc đều đã có bảng trong ' + escapeHtml(ctx.summarySheetName) + '.</div>';
+          return;
+        }
+
+        box.innerHTML = filtered.map(function(it) {
+          var checked = state.selectedEmpNames.indexOf(it.fullName) >= 0;
+          var badge = it.group === 'logs'
+            ? '<span class="badge badge-copper">' + it.logCount + ' lượt chấm công</span>'
+            : '<span class="badge badge-neutral">' + escapeHtml(it.position) + '</span>';
+          return (
+            '<label class="list-row' + (checked ? ' is-selected' : '') + '">' +
+              '<span class="row-main">' +
+                '<input type="checkbox" class="sr-only" data-emp-name="' + escapeHtml(it.fullName) + '"' + (checked ? ' checked' : '') + '>' +
+                '<span class="check-box-ui" aria-hidden="true"></span>' +
+                '<span class="row-label">' + escapeHtml(it.fullName) + '</span>' +
+              '</span>' +
+              badge +
+            '</label>'
+          );
+        }).join('');
+      }
+
+      /* ---------------- TAB 3: ROSTER WEEKS & MAINTENANCE ---------------- */
+      function loadRosterWeeks(monthSheetName) {
+        if (!monthSheetName) return;
+        document.getElementById('rosterWeeksList').innerHTML = '<div class="empty-msg">Đang đọc các khối tuần...</div>';
+        callGas('getRosterSyncPreview', [monthSheetName], function(res) {
+          state.rosterWeeks = (res && res.weeks) ? res.weeks : [];
+          state.selectedWeeks = state.rosterWeeks
+            .filter(function(w) { return w.approvedCount > 0; })
+            .map(function(w) { return w.weekLabel; });
+          renderRosterWeeks();
+          updatePrimaryDockLabel();
+        });
+      }
+
+      function renderRosterWeeks() {
+        var box = document.getElementById('rosterWeeksList');
+        if (!state.rosterWeeks.length) {
+          box.innerHTML = '<div class="empty-msg">Không tìm thấy khối TUẦN nào trong trang tính này.</div>';
+          return;
+        }
+        box.innerHTML = state.rosterWeeks.map(function(w) {
+          var checked = state.selectedWeeks.indexOf(w.weekLabel) >= 0;
+          var badge = w.approvedCount > 0
+            ? '<span class="badge badge-success">' + w.approvedCount + ' lịch đã duyệt</span>'
+            : '<span class="badge badge-neutral">Chưa duyệt (0)</span>';
+          return (
+            '<label class="list-row' + (checked ? ' is-selected' : '') + '">' +
+              '<span class="row-main">' +
+                '<input type="checkbox" class="sr-only" data-week-label="' + escapeHtml(w.weekLabel) + '"' +
+                (checked ? ' checked' : '') + (w.approvedCount === 0 ? ' disabled' : '') + '>' +
+                '<span class="check-box-ui" aria-hidden="true"></span>' +
+                '<span class="row-label">Tuần ' + escapeHtml(w.weekLabel) + '</span>' +
+              '</span>' +
+              badge +
+            '</label>'
+          );
+        }).join('');
+      }
+
+      /* ---------------- TAB 4: AUTOMATION & EMAIL CHIPS ---------------- */
+      function renderAutomationPanel() {
+        document.getElementById('autoEnableToggle').checked = state.autoEnabled;
+        document.getElementById('autoHourSelect').value = String(state.autoHour);
+        renderEmailChips();
+      }
+
+      function renderEmailChips() {
+        var wrap = document.getElementById('emailChipsWrap');
+        var input = document.getElementById('emailChipInput');
+        var existingChips = wrap.querySelectorAll('.email-chip');
+        for (var i = 0; i < existingChips.length; i++) {
+          existingChips[i].remove();
+        }
+        state.emails.forEach(function(em) {
+          var chip = document.createElement('button');
+          chip.type = 'button';
+          chip.className = 'email-chip';
+          chip.setAttribute('data-remove-email', em);
+          chip.setAttribute('aria-label', 'Xóa ' + em);
+          chip.innerHTML =
+            '<span>' + escapeHtml(em) + '</span>' +
+            '<span aria-hidden="true">&times;</span>';
+          wrap.insertBefore(chip, input);
+        });
+        document.getElementById('emailCountBadge').textContent = state.emails.length + ' email';
+      }
+
+      function tryCommitEmailInput(rawVal) {
+        var errEl = document.getElementById('emailChipError');
+        errEl.textContent = '';
+        var tokens = String(rawVal || '').split(/[,;\s]+/).map(function(t) { return t.trim(); }).filter(Boolean);
+        if (!tokens.length) return true;
+        for (var i = 0; i < tokens.length; i++) {
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(tokens[i])) {
+            errEl.textContent = 'Địa chỉ "' + tokens[i] + '" không đúng định dạng email.';
+            return false;
+          }
+          if (state.emails.indexOf(tokens[i]) < 0) {
+            state.emails.push(tokens[i]);
+          }
+        }
+        document.getElementById('emailChipInput').value = '';
+        renderEmailChips();
+        return true;
+      }
+
+      /* ---------------- TAB 5: SHEET MANAGER (API V4) ---------------- */
+      var PINNED_LEFT_TITLES = ['THÔNG TIN', 'DATA', '\u2714\uFE0FCHẤM CÔNG'];
+
+      function normalizeTitleNfc(str) {
+        return String(str || '').normalize('NFC').trim();
+      }
+
+      function enrichSheetMetaClient(s, idx) {
+        if (s && s.managerGroup) {
+          var fastPk = s.periodKey || '';
+          var fastFolded = s._titleFolded || foldText(s.title);
+          return {
+            id: Number(s.id),
+            title: s.title,
+            index: s.index !== undefined ? s.index : idx,
+            hidden: Boolean(s.hidden),
+            rowCount: s.rowCount || 0,
+            category: s.category || 'system_or_archive',
+            managerGroup: s.managerGroup,
+            isPinned: Boolean(s.isPinned),
+            pinnedOrder: s.pinnedOrder !== undefined ? s.pinnedOrder : -1,
+            protected: Boolean(s.protected),
+            periodYear: s.periodYear || null,
+            periodMonth: s.periodMonth || null,
+            periodKey: fastPk,
+            pairStem: s.pairStem || '',
+            _titleFolded: fastFolded,
+            _searchFolded: s._searchFolded || (fastFolded + ' ' + fastPk.toLowerCase())
+          };
+        }
+
+        var raw = normalizeTitleNfc(s && s.title);
+        var folded = foldText(raw);
+        var cleanFolded = folded.replace(/^[^a-z0-9]+/i, '').trim();
+        var cleanFoldedUpper = cleanFolded.toUpperCase();
+        var pinnedOrder = PINNED_LEFT_TITLES.indexOf(raw);
+        var isJunk = (
+          cleanFolded.indexOf('ban sao cua') === 0 ||
+          cleanFolded.indexOf('ban sao luu') === 0 ||
+          cleanFolded.indexOf('copy of ') === 0 ||
+          cleanFolded.indexOf('sao luu') === 0 ||
+          folded.indexOf('trang tinh') >= 0 ||
+          cleanFolded.indexOf('du lieu goc') === 0 ||
+          cleanFolded.indexOf('archive_') === 0 ||
+          /^w\d{2}\s*-\s*\d{2}/i.test(raw) ||
+          /^\d+$/.test(raw) ||
+          raw === '3 T' ||
+          /^(?:tong hop|t\.hop)(?:\s*\(\d+\))?$/i.test(cleanFolded) ||
+          /^(?:t\.hop|tong hop)\s+cham cong\s+\d+$/i.test(cleanFolded) ||
+          /^cham cong\s+[a-z0-9]$/i.test(cleanFolded)
+        );
+        var exactProtList = [
+          'THONG TIN', 'DATA', 'DATA2', 'DATA_SCHEDULES', 'DB_USERS', 'USERS',
+          'JSON_CACHE', 'API_KEYS', 'CHAT_LOGS', 'CAU HINH', 'CHECKLISTS',
+          'CHECKLIST_CONFIG', '01_DANH_SACH_CHECKLIST', '02_LUU_TRU_TIEN_DO',
+          'BO SUNG CONG', 'MISSED_CHECKINS', 'TONG HOP MAY CHAM CONG', 'AI_PROMPTS',
+          'FEEDBACKS', 'CHECKLISTLOGS', 'HANDOVERS', 'POSTS', 'SURVEYS',
+          'SWAPREQUESTS', 'PAYROLLDATA', 'SALARYCONFIG', 'SALARYMONTHLYCONFIG',
+          'SALARYADJUSTMENTREQUESTS', 'BONUSPENALTY', 'ADVANCES', 'OTPS',
+          'INCIDENTS', 'SOLDOUT', 'FRAUDALERTS', 'ACTIONLOGS', 'OPERATIONSCONFIG',
+          'OPERATIONTASKLOGS', 'TRAINING_PROGRESS', 'TRAINING_CONTENT',
+          'NOTIFICATIONS', 'KING_COINS', 'ATTENDANCE_QUEUE'
+        ];
+        var protPrefixes = ['TTS_', 'PAYROLL', 'SALARY', 'TRAINING_', 'CONFIG_', 'LOG_', 'JSON_', 'OPERATION', 'CHECKLIST', 'MISSED_'];
+        var isLiveFeed = raw === '\uD83D\uDCCA TỔNG HỢP \u2714\uFE0FCHẤM CÔNG' || raw === '\uD83D\uDC68\u200D\uD83C\uDF73 CHẤM CÔNG BẾP - TẠP VỤ';
+        var matchesSysProt = !isJunk && (
+          exactProtList.indexOf(cleanFoldedUpper) >= 0 ||
+          protPrefixes.some(function(px) { return cleanFoldedUpper.indexOf(px) === 0; }) ||
+          raw.toUpperCase().indexOf('API_KEYS') >= 0
+        );
+        var cat = (s && s.category) ? s.category : 'system_or_archive';
+        if (isJunk || (matchesSysProt && pinnedOrder < 0 && !isLiveFeed)) {
+          cat = 'system_or_archive';
+        }
+        var isProt = pinnedOrder >= 0 || isLiveFeed || matchesSysProt || (!isJunk && cat === 'system_or_archive');
+
+        var stemRaw = raw
+          .replace(/^\uD83D\uDCCA\s*TỔNG HỢP\s*/i, '')
+          .replace(/^T\.HỢP\s*/i, '')
+          .replace(/^TỔNG HỢP\s*/i, '')
+          .trim();
+        var normStem = stemRaw
+          .replace(/\u2714\uFE0F\s*/g, '\u2714\uFE0F')
+          .replace(/^CC\s+T?0?(\d{1,2})\s*[\/\-]\s*(20\d{2})$/i, function(_m, m1, y1) {
+            return 'CC ' + String(parseInt(m1, 10)).padStart(2, '0') + '/' + y1;
+          })
+          .replace(/\s+/g, ' ')
+          .toUpperCase();
+        var currentFullYear = new Date().getFullYear();
+        var hasCheck = stemRaw.indexOf('\u2714\uFE0F') >= 0;
+        var noCheck = stemRaw.replace(/\u2714\uFE0F/g, '').trim();
+        var py = null;
+        var pm = null;
+        if (!isJunk) {
+          var mTet = noCheck.match(/^TẾT\s*(20\d{2})$/i);
+          var mExp = noCheck.match(/(?:^|\D)(\d{1,2})\s*[\/\-\.]\s*(20\d{2})(?:\D|$)/);
+          var mPar = noCheck.match(/(?:THÁNG|Tháng|T)\s*0?(\d{1,2})\s*\(\s*(20\d{2})\s*\)/i);
+          var mCmp = noCheck.match(/^T0?(\d{1,2})(20\d{2})$/i);
+          var mShT = noCheck.match(/^(?:CC\s+)?T\s*0?(\d{1,2})$/i);
+          var mChk = hasCheck ? noCheck.match(/^(?:THÁNG|Tháng)\s*0?(\d{1,2})$/i) : null;
+          var mSch = !hasCheck ? noCheck.match(/^Tháng\s*0?(\d{1,2})$/) : null;
+          var mOld = !hasCheck ? noCheck.match(/^THÁNG\s*0?(\d{1,2})$/) : null;
+          if (mTet) { pm = 2; py = parseInt(mTet[1], 10); }
+          else if (mExp) { pm = parseInt(mExp[1], 10); py = parseInt(mExp[2], 10); }
+          else if (mPar) { pm = parseInt(mPar[1], 10); py = parseInt(mPar[2], 10); }
+          else if (mCmp) { pm = parseInt(mCmp[1], 10); py = parseInt(mCmp[2], 10); }
+          else if (mShT) { pm = parseInt(mShT[1], 10); py = currentFullYear; }
+          else if (mChk) { pm = parseInt(mChk[1], 10); py = 2025; }
+          else if (mSch) { pm = parseInt(mSch[1], 10); py = currentFullYear; }
+          else if (mOld) { pm = parseInt(mOld[1], 10); py = 2024; }
+        }
+        var pk = (py && pm) ? (String(py) + '-' + String(pm).padStart(2, '0')) : '';
+        var mgrGrp = 'attendance_pair';
+        if (pinnedOrder >= 0) mgrGrp = 'pinned';
+        else if (isJunk) mgrGrp = 'archive_or_copy';
+        else if (isProt && !isLiveFeed) mgrGrp = 'system_core';
+        else if (cat === 'monthly_schedule') mgrGrp = 'schedule';
+
+        return {
+          id: Number(s && s.id !== undefined ? s.id : 0),
+          title: s ? s.title : '',
+          index: (s && s.index !== undefined) ? s.index : idx,
+          hidden: Boolean(s && s.hidden),
+          rowCount: (s && s.rowCount) || 0,
+          category: cat,
+          managerGroup: mgrGrp,
+          isPinned: pinnedOrder >= 0,
+          pinnedOrder: pinnedOrder,
+          protected: isProt,
+          periodYear: py,
+          periodMonth: pm,
+          periodKey: pk,
+          pairStem: isJunk ? '' : normStem,
+          _titleFolded: folded,
+          _searchFolded: folded + ' ' + pk.toLowerCase()
+        };
+      }
+
+      function computeSortedSheetsClient(sheets, primaryBlock) {
+        var items = sheets.map(function(s, idx) {
+          return (s && s.managerGroup) ? s : enrichSheetMetaClient(s, idx);
+        });
+        var pinned = items.filter(function(s) { return s.managerGroup === 'pinned'; })
+          .sort(function(a, b) { return a.pinnedOrder - b.pinnedOrder; });
+        var schedule = items.filter(function(s) { return s.managerGroup === 'schedule'; })
+          .sort(function(a, b) {
+            if ((a.periodYear || 0) !== (b.periodYear || 0)) return (b.periodYear || 0) - (a.periodYear || 0);
+            if ((a.periodMonth || 0) !== (b.periodMonth || 0)) return (b.periodMonth || 0) - (a.periodMonth || 0);
+            var slashA = a.title.indexOf('/') >= 0 ? 0 : (a.title.indexOf('-') >= 0 ? 1 : 2);
+            var slashB = b.title.indexOf('/') >= 0 ? 0 : (b.title.indexOf('-') >= 0 ? 1 : 2);
+            if (slashA !== slashB) return slashA - slashB;
+            if (a.hidden !== b.hidden) return a.hidden ? 1 : -1;
+            return b.title.length - a.title.length || a.title.localeCompare(b.title, 'vi');
+          });
+        var attAll = items.filter(function(s) { return s.managerGroup === 'attendance_pair'; });
+        var attLive = attAll.filter(function(s) { return !s.periodKey; }).sort(function(a, b) {
+          var pa = normalizeTitleNfc(a.title) === '\uD83D\uDCCA TỔNG HỢP \u2714\uFE0FCHẤM CÔNG' ? 0 : (normalizeTitleNfc(a.title) === '\uD83D\uDC68\u200D\uD83C\uDF73 CHẤM CÔNG BẾP - TẠP VỤ' ? 1 : 2);
+          var pb = normalizeTitleNfc(b.title) === '\uD83D\uDCCA TỔNG HỢP \u2714\uFE0FCHẤM CÔNG' ? 0 : (normalizeTitleNfc(b.title) === '\uD83D\uDC68\u200D\uD83C\uDF73 CHẤM CÔNG BẾP - TẠP VỤ' ? 1 : 2);
+          if (pa !== pb) return pa - pb;
+          if (a.hidden !== b.hidden) return a.hidden ? 1 : -1;
+          return a.title.localeCompare(b.title, 'vi');
+        });
+        var attDatedRaw = attAll.filter(function(s) { return Boolean(s.periodKey); });
+        var periodMap = new Map();
+        attDatedRaw.forEach(function(s) {
+          if (!periodMap.has(s.periodKey)) {
+            periodMap.set(s.periodKey, { year: s.periodYear, month: s.periodMonth, list: [] });
+          }
+          periodMap.get(s.periodKey).list.push(s);
+        });
+        var sortedPeriods = Array.from(periodMap.values()).sort(function(a, b) {
+          if (a.year !== b.year) return b.year - a.year;
+          return b.month - a.month;
+        });
+        var attDated = [];
+        sortedPeriods.forEach(function(pg) {
+          var stemMap = new Map();
+          pg.list.forEach(function(s) {
+            var st = s.pairStem || normalizeTitleNfc(s.title).toUpperCase();
+            if (!stemMap.has(st)) stemMap.set(st, []);
+            stemMap.get(st).push(s);
+          });
+          var stemGroups = Array.from(stemMap.entries()).map(function(entry) {
+            var stemKey = entry[0];
+            var members = entry[1].slice().sort(function(a, b) {
+              var ra = a.category === 'summary_report' ? 0 : 1;
+              var rb = b.category === 'summary_report' ? 0 : 1;
+              if (ra !== rb) return ra - rb;
+              if (a.hidden !== b.hidden) return a.hidden ? 1 : -1;
+              return a.index - b.index;
+            });
+            return {
+              stemKey: stemKey,
+              hasVisible: members.some(function(m) { return !m.hidden; }),
+              isShortT: /^T\d{1,2}$/.test(stemKey) ? 0 : 1,
+              members: members
+            };
+          });
+          stemGroups.sort(function(a, b) {
+            if (a.hasVisible !== b.hasVisible) return a.hasVisible ? -1 : 1;
+            if (a.isShortT !== b.isShortT) return a.isShortT - b.isShortT;
+            return a.stemKey.localeCompare(b.stemKey, 'vi');
+          });
+          stemGroups.forEach(function(g) {
+            g.members.forEach(function(m) { attDated.push(m); });
+          });
+        });
+        var attBlock = attLive.concat(attDated);
+        var sysCore = items.filter(function(s) { return s.managerGroup === 'system_core'; }).sort(function(a, b) {
+          var ca = foldText(a.title).replace(/^[^a-z0-9]+/i, '');
+          var cb = foldText(b.title).replace(/^[^a-z0-9]+/i, '');
+          if (ca === 'cau hinh' && cb !== 'cau hinh') return -1;
+          if (cb === 'cau hinh' && ca !== 'cau hinh') return 1;
+          return ca.localeCompare(cb, 'vi');
+        });
+        var archive = items.filter(function(s) { return s.managerGroup === 'archive_or_copy'; }).sort(function(a, b) {
+          var rankArchive = function(t) {
+            var f = foldText(t).replace(/^[^a-z0-9]+/i, '').trim();
+            if (/^w\d{2}\s*-\s*\d{2}/i.test(t)) return 0;
+            if (f.indexOf('sao luu') === 0 || f.indexOf('ban sao luu') === 0) return 1;
+            if (f.indexOf('ban sao cua') === 0 || f.indexOf('copy of ') === 0) return 2;
+            if (f.indexOf('du lieu goc') === 0) return 3;
+            if (foldText(t).indexOf('trang tinh') >= 0) return 4;
+            return 5;
+          };
+          var ra = rankArchive(a.title);
+          var rb = rankArchive(b.title);
+          if (ra !== rb) return ra - rb;
+          return a.title.localeCompare(b.title, 'vi');
+        });
+        if (primaryBlock === 'attendance_first') {
+          return pinned.concat(attBlock, schedule, sysCore, archive);
+        }
+        return pinned.concat(schedule, attBlock, sysCore, archive);
+      }
+
+      function populateMgrPeriodCutoffOptions() {
+        var sel = document.getElementById('mgrPeriodCutoffSelect');
+        if (!sel) return;
+        var prevVal = sel.value;
+        var keys = [];
+        state.sheets.forEach(function(s) {
+          if (s.periodKey && keys.indexOf(s.periodKey) < 0) keys.push(s.periodKey);
+        });
+        keys.sort().reverse();
+        if (!keys.length) {
+          sel.innerHTML = '<option value="">-- Chưa có kỳ --</option>';
+          return;
+        }
+        var defaultKey = prevVal && keys.indexOf(prevVal) >= 0
+          ? prevVal
+          : (keys.indexOf('2025-12') >= 0 ? '2025-12' : keys[Math.min(2, keys.length - 1)]);
+        sel.innerHTML = keys.map(function(pk) {
+          var parts = pk.split('-');
+          var label = 'Kỳ <= ' + parts[1] + '/' + parts[0];
+          return '<option value="' + pk + '"' + (pk === defaultKey ? ' selected' : '') + '>' + label + '</option>';
+        }).join('');
+      }
+
+      function getFilteredMgrSheets() {
+        var q = foldText(state.mgrSearch);
+        return state.sheets.filter(function(s) {
+          if (state.mgrGroup !== 'all') {
+            if (state.mgrGroup === 'system_core') {
+              if (s.managerGroup !== 'system_core' && !(s.isPinned && s.category === 'system_or_archive')) return false;
+            } else if (state.mgrGroup === 'attendance_pair') {
+              if (s.managerGroup !== 'attendance_pair' && !(s.isPinned && s.category === 'attendance_source')) return false;
+            } else if (s.managerGroup !== state.mgrGroup) {
+              return false;
+            }
+          }
+          if (state.mgrVisFilter === 'visible' && s.hidden) return false;
+          if (state.mgrVisFilter === 'hidden' && !s.hidden) return false;
+          if (!q) return true;
+          return (s._searchFolded || foldText(s.title + ' ' + (s.periodKey || ''))).indexOf(q) >= 0;
+        });
+      }
+
+      function getSelectedMgrSheets() {
+        var idSet = new Set(state.mgrSelectedIds.map(Number));
+        return state.sheets.filter(function(s) { return idSet.has(Number(s.id)); });
+      }
+
+      function renderSortOrderPreview() {
+        var previewBox = document.getElementById('sortOrderPreviewList');
+        if (!previewBox) return;
+        var sorted = computeSortedSheetsClient(state.sheets, state.mgrSortPrimaryBlock);
+        var head = sorted.slice(0, 6);
+        var chips = head.map(function(s, idx) {
+          return (
+            '<span class="sort-preview-chip' + (s.isPinned ? ' is-pinned' : '') + '">' +
+            (idx + 1) + '. ' + escapeHtml(s.title) +
+            '</span>'
+          );
+        });
+        if (sorted.length > 6) {
+          var lastSheet = sorted[sorted.length - 1];
+          chips.push('<span class="meta-count">... (' + sorted.length + ' tab, cuối: ' + escapeHtml(lastSheet.title) + ')</span>');
+        }
+        previewBox.innerHTML = chips.join('');
+      }
+
+      function syncSheetManagerSummaryUI(optFilteredCount) {
+        var filteredLen = typeof optFilteredCount === 'number' ? optFilteredCount : getFilteredMgrSheets().length;
+        var visibleTotal = state.sheets.filter(function(s) { return !s.hidden; }).length;
+        var selectedObjs = getSelectedMgrSheets();
+        var deletableObjs = selectedObjs.filter(function(s) { return !s.protected; });
+
+        document.getElementById('mgrSheetCountLabel').textContent =
+          filteredLen + ' / ' + state.totalSheetCount + ' sheet';
+        document.getElementById('mgrVisibleSummaryBadge').textContent =
+          visibleTotal + ' đang hiện · ' + Math.max(0, state.totalSheetCount - visibleTotal) + ' ẩn';
+        document.getElementById('mgrSelectedSummary').textContent =
+          'Đã chọn ' + selectedObjs.length + ' sheet (' + deletableObjs.length + ' có thể xóa)';
+        document.getElementById('hideSelectedSheetsBtn').textContent = 'Ẩn đã chọn (' + selectedObjs.length + ')';
+        document.getElementById('showSelectedSheetsBtn').textContent = 'Hiện đã chọn (' + selectedObjs.length + ')';
+        document.getElementById('hideSelectedSheetsBtn').disabled = selectedObjs.length === 0 || state.busy;
+        document.getElementById('showSelectedSheetsBtn').disabled = selectedObjs.length === 0 || state.busy;
+
+        document.getElementById('mgrDeletableBadge').textContent = deletableObjs.length + ' có thể xóa';
+        var reqDelBtn = document.getElementById('requestDeleteSheetsBtn');
+        reqDelBtn.textContent = 'Xóa sheet đã chọn (' + deletableObjs.length + ')';
+        reqDelBtn.disabled = deletableObjs.length === 0 || state.busy;
+
+        var confirmBox = document.getElementById('deleteConfirmBox');
+        if (!state.mgrDeleteConfirmOpen || deletableObjs.length === 0) {
+          state.mgrDeleteConfirmOpen = false;
+          confirmBox.hidden = true;
+        } else {
+          confirmBox.hidden = false;
+          var skippedCount = selectedObjs.length - deletableObjs.length;
+          var allNames = deletableObjs.map(function(s) { return s.title; }).join(', ');
+          document.getElementById('deleteConfirmText').textContent =
+            'Sắp xóa vĩnh viễn ' + deletableObjs.length + ' sheet: ' + allNames +
+            (skippedCount > 0 ? (' — Đã tự động giữ lại ' + skippedCount + ' sheet Khóa bảo vệ.') : '.');
+        }
+      }
+
+      function renderSheetManager(opts) {
+        var listEl = document.getElementById('mgrSheetList');
+        if (!listEl) return;
+
+        var prevScrollTop = listEl.scrollTop;
+        var filtered = getFilteredMgrSheets();
+        var selectedIdSet = new Set(state.mgrSelectedIds.map(Number));
+
+        syncSheetManagerSummaryUI(filtered.length);
+        if (!opts || opts.skipSortPreview !== true) {
+          renderSortOrderPreview();
+        }
+
+        if (filtered.length === 0) {
+          listEl.innerHTML = '<div class="empty-msg">Không có trang tính nào khớp bộ lọc hiện tại.</div>';
+          return;
+        }
+
+        listEl.innerHTML = filtered.map(function(s) {
+          var isChecked = selectedIdSet.has(Number(s.id));
+          var badges = [];
+          if (s.isPinned) {
+            badges.push('<span class="badge badge-copper">Ghim đầu</span>');
+          } else if (s.protected) {
+            badges.push('<span class="badge badge-neutral">Khóa bảo vệ</span>');
+          } else if (s.periodKey) {
+            var pkParts = s.periodKey.split('-');
+            badges.push('<span class="badge badge-neutral tabular">' + pkParts[1] + '/' + pkParts[0] + '</span>');
+          } else if (s.managerGroup === 'archive_or_copy') {
+            badges.push('<span class="badge badge-danger">Nháp/Sao lưu</span>');
+          }
+          badges.push(
+            s.hidden
+              ? '<span class="badge badge-neutral">Ẩn</span>'
+              : '<span class="badge badge-success">Hiện</span>'
+          );
+
+          return (
+            '<label class="list-row' + (isChecked ? ' is-selected' : '') + '">' +
+              '<span class="row-main">' +
+                '<input type="checkbox" class="sr-only" data-mgr-sheet-id="' + s.id + '"' + (isChecked ? ' checked' : '') + '>' +
+                '<span class="check-box-ui" aria-hidden="true"></span>' +
+                '<span class="row-label">' + escapeHtml(s.title) + '</span>' +
+              '</span>' +
+              '<span class="row-badges">' + badges.join('') + '</span>' +
+            '</label>'
+          );
+        }).join('');
+
+        if (prevScrollTop > 0) {
+          listEl.scrollTop = prevScrollTop;
+        }
+      }
+
+      function syncSheetsStateFromRpc(updatedSheets, statusMsg) {
+        if (Array.isArray(updatedSheets)) {
+          state.sheets = updatedSheets.map(enrichSheetMetaClient);
+          state.totalSheetCount = state.sheets.length;
+          var validIds = new Set(state.sheets.map(function(s) { return Number(s.id); }));
+          state.mgrSelectedIds = state.mgrSelectedIds.filter(function(id) { return validIds.has(Number(id)); });
+
+          var titleSet = new Set(state.sheets.map(function(s) { return s.title; }));
+          var pickFirstByCategory = function(cat) {
+            var found = state.sheets.find(function(s) { return s.category === cat; });
+            return found ? found.title : '';
+          };
+          if (state.selectedSourceSheet && !titleSet.has(state.selectedSourceSheet)) {
+            state.selectedSourceSheet = pickFirstByCategory('attendance_source');
+          }
+          if (state.selectedSummarySheet && !titleSet.has(state.selectedSummarySheet)) {
+            state.selectedSummarySheet = pickFirstByCategory('summary_report');
+          }
+          if (state.selectedRosterSheet && !titleSet.has(state.selectedRosterSheet)) {
+            state.selectedRosterSheet = pickFirstByCategory('monthly_schedule');
+          }
+          if (state.selectedMaintCheckinSheet && !titleSet.has(state.selectedMaintCheckinSheet)) {
+            state.selectedMaintCheckinSheet = pickFirstByCategory('attendance_source');
+          }
+        }
+        state.mgrDeleteConfirmOpen = false;
+        populateSelectOptions();
+        populateMgrPeriodCutoffOptions();
+        renderSourceSheetList();
+        renderPairingPreview();
+        renderSheetManager();
+        if (statusMsg) setStatus(statusMsg, 'success');
+      }
+
+      function triggerReorderSheets() {
+        if (state.busy) return;
+        setBusy(true, 'Đang sắp xếp ' + state.totalSheetCount + ' trang tính bằng 1 lệnh Sheets API v4...');
+        callGas('rpcReorderSheetsV4', [{ primaryBlock: state.mgrSortPrimaryBlock }], function(res) {
+          setBusy(false);
+          syncSheetsStateFromRpc(res && res.sheets, (res && res.message) || 'Đã sắp xếp chuẩn thứ tự các trang tính.');
+        });
+      }
+
+      /* ---------------- BOOTSTRAP HYDRATION ---------------- */
+      function applyBootstrap(boot, preserveTab) {
+        state.activeSheetName = boot.activeSheetName || state.activeSheetName;
+        var rawSheets = boot.sheets || [];
+        state.sheets = rawSheets.map(enrichSheetMetaClient);
+        state.totalSheetCount = boot.totalSheetCount || state.sheets.length;
+        state.selectedSourceSheet = boot.pairedSourceSheet || '';
+        state.selectedSummarySheet = boot.pairedSummarySheet || '';
+        state.selectedRosterSheet = boot.pairedScheduleSheet || '';
+        state.selectedMaintCheckinSheet = boot.pairedSourceSheet || '\u2714\uFE0FCHẤM CÔNG';
+
+        if (boot.inferredPeriod) {
+          state.calMonth = boot.inferredPeriod.month || state.calMonth;
+          state.calYear = boot.inferredPeriod.year || state.calYear;
+        }
+        if (boot.specialDays) {
+          state.x2Days = sortDayTags(boot.specialDays.x2Days || []);
+          state.x3Days = sortDayTags(boot.specialDays.x3Days || []);
+        }
+        if (boot.automation) {
+          state.autoEnabled = Boolean(boot.automation.enabled);
+          state.autoHour = Number(boot.automation.hour || 1);
+          state.emails = (boot.automation.emails || []).slice();
+          document.getElementById('lastRunStatusBox').textContent = boot.automation.lastRunStatus || 'Chưa chạy lần nào';
+          document.getElementById('autoTargetSheetNote').textContent = 'Nguồn tự động hàng ngày: ' + (boot.automation.targetSheet || '\u2714\uFE0FCHẤM CÔNG');
+          var badge = document.getElementById('triggerLiveBadge');
+          badge.className = 'badge ' + (boot.automation.triggerActive ? 'badge-success' : 'badge-neutral');
+          badge.textContent = boot.automation.triggerActive
+            ? ('Đang bật (' + String(state.autoHour).padStart(2, '0') + ':00)')
+            : 'Đang tạm dừng';
+        }
+
+        document.getElementById('activeSheetText').textContent = 'Đang mở: ' + (state.activeSheetName || '—');
+        populateSelectOptions();
+        populateMgrPeriodCutoffOptions();
+        renderSourceSheetList();
+        renderPairingPreview();
+        renderCalendar();
+        renderAutomationPanel();
+        renderSheetManager();
+
+        switchTab(preserveTab ? state.activeTab : (BOOT_INITIAL_TAB || boot.initialTab || 'summary'));
+        setStatus('Đã đồng bộ ' + state.totalSheetCount + ' trang tính qua Sheets API v4.', 'idle');
+      }
+
+      /* ---------------- PRIMARY ACTION EXECUTION ---------------- */
+      function executePrimaryAction() {
+        if (state.busy) return;
+
+        if (state.activeTab === 'sheets') {
+          triggerReorderSheets();
+          return;
+        }
+
+        if (state.activeTab === 'summary') {
+          if (!state.selectedSourceSheet) {
+            setStatus('Vui lòng chọn trang tính chấm công gốc ở cột trái.', 'error');
+            return;
+          }
+          setBusy(true, 'Đang lưu hệ số ngày lễ và tổng hợp "' + state.selectedSourceSheet + '"...');
+          callGas('rpcRunAttendanceSummary', [{
+            sourceSheet: state.selectedSourceSheet,
+            x2Days: state.x2Days,
+            x3Days: state.x3Days,
+            activateSummary: true
+          }], function(res) {
+            setBusy(false);
+            setStatus(res.message || 'Tổng hợp hoàn tất!', 'success');
+            state.selectedSummarySheet = res.summarySheet || state.selectedSummarySheet;
+          });
+          return;
+        }
+
+        if (state.activeTab === 'employees') {
+          var targetSum = document.getElementById('summaryTargetSelect').value;
+          if (!targetSum) {
+            setStatus('Chưa có sheet Báo Cáo Tổng Hợp mục tiêu.', 'error');
+            return;
+          }
+          var blankCount = Math.max(1, parseInt(document.getElementById('blankCountInput').value || '1', 10));
+          var autoPop = document.getElementById('autoPopulateToggle').checked;
+          setBusy(true, 'Đang khởi tạo bảng nhân viên và nạp dữ liệu chấm công...');
+          callGas('rpcAddAndPopulateEmployees', [{
+            summarySheet: targetSum,
+            employeeNames: state.selectedEmpNames,
+            blankCount: blankCount,
+            autoPopulate: autoPop
+          }], function(res) {
+            setBusy(false);
+            setStatus(res.message || 'Đã thêm bảng thành công.', 'success');
+            loadSummaryEmployeesContext(targetSum);
+          });
+          return;
+        }
+
+        if (state.activeTab === 'roster') {
+          var mSheet = document.getElementById('rosterMonthSelect').value;
+          if (!mSheet || state.selectedWeeks.length === 0) {
+            setStatus('Vui lòng tích chọn ít nhất 1 tuần có lịch đã duyệt (┗) để đồng bộ.', 'error');
+            return;
+          }
+          setBusy(true, 'Đang đồng bộ ' + state.selectedWeeks.length + ' tuần sang Sheet Lịch Làm...');
+          callGas('rpcSyncRosterWeeks', [{
+            monthSheet: mSheet,
+            weekLabels: state.selectedWeeks
+          }], function(res) {
+            setBusy(false);
+            setStatus(res.message || 'Đồng bộ lịch hoàn tất.', 'success');
+          });
+          return;
+        }
+
+        if (state.activeTab === 'automation') {
+          var pendingInput = document.getElementById('emailChipInput').value.trim();
+          if (pendingInput && !tryCommitEmailInput(pendingInput)) return;
+          var enabled = document.getElementById('autoEnableToggle').checked;
+          var hour = parseInt(document.getElementById('autoHourSelect').value || '1', 10);
+          setBusy(true, 'Đang lưu thiết lập Trigger tự động hóa...');
+          callGas('rpcSaveAutomationConfig', [{
+            enabled: enabled,
+            hour: hour,
+            emails: state.emails
+          }], function(res) {
+            setBusy(false);
+            var badge = document.getElementById('triggerLiveBadge');
+            badge.className = 'badge ' + (res.triggerActive ? 'badge-success' : 'badge-neutral');
+            badge.textContent = res.triggerActive
+              ? ('Đang bật (' + String(res.hour).padStart(2, '0') + ':00)')
+              : 'Đang tạm dừng';
+            setStatus(res.message || 'Đã lưu thiết lập tự động hóa.', 'success');
+          });
+        }
+      }
+
+      /* ---------------- EVENT BINDINGS ---------------- */
+      function bindEvents() {
+        var tabBtns = document.querySelectorAll('[data-tab-btn]');
+        for (var i = 0; i < tabBtns.length; i++) {
+          tabBtns[i].addEventListener('click', function() {
+            switchTab(this.getAttribute('data-tab-btn'));
+          });
+        }
+
+        // Delegated list & chip listeners (zero per-render DOM listener churn)
+        document.getElementById('sourceSheetList').addEventListener('click', function(ev) {
+          var btn = ev.target && ev.target.closest ? ev.target.closest('[data-sheet-title]') : null;
+          if (btn) selectSourceSheet(btn.getAttribute('data-sheet-title'));
+        });
+
+        document.getElementById('calendarGrid').addEventListener('click', function(ev) {
+          var cell = ev.target && ev.target.closest ? ev.target.closest('[data-cal-tag]') : null;
+          if (!cell) return;
+          var t = cell.getAttribute('data-cal-tag');
+          var cur = cell.getAttribute('data-day-state');
+          var next = cur === 'normal' ? 'x2' : (cur === 'x2' ? 'x3' : 'normal');
+          setDayMultiplier(t, next);
+          renderCalendar();
+        });
+
+        document.getElementById('specialDaysSummary').addEventListener('click', function(ev) {
+          var rmBtn = ev.target && ev.target.closest ? ev.target.closest('[data-remove-tag]') : null;
+          if (!rmBtn) return;
+          setDayMultiplier(rmBtn.getAttribute('data-remove-tag'), 'normal');
+          renderCalendar();
+        });
+
+        document.getElementById('empListContainer').addEventListener('change', function(ev) {
+          var inp = ev.target;
+          if (!inp || !inp.hasAttribute || !inp.hasAttribute('data-emp-name')) return;
+          var nm = inp.getAttribute('data-emp-name');
+          if (inp.checked) {
+            if (state.selectedEmpNames.indexOf(nm) < 0) state.selectedEmpNames.push(nm);
+          } else {
+            state.selectedEmpNames = state.selectedEmpNames.filter(function(x) { return x !== nm; });
+          }
+          var row = inp.closest('.list-row');
+          if (row) row.classList.toggle('is-selected', inp.checked);
+          syncEmployeeSelectionUI();
+        });
+
+        document.getElementById('rosterWeeksList').addEventListener('change', function(ev) {
+          var inp = ev.target;
+          if (!inp || !inp.hasAttribute || !inp.hasAttribute('data-week-label')) return;
+          var wk = inp.getAttribute('data-week-label');
+          if (inp.checked) {
+            if (state.selectedWeeks.indexOf(wk) < 0) state.selectedWeeks.push(wk);
+          } else {
+            state.selectedWeeks = state.selectedWeeks.filter(function(x) { return x !== wk; });
+          }
+          var row = inp.closest('.list-row');
+          if (row) row.classList.toggle('is-selected', inp.checked);
+          updatePrimaryDockLabel();
+        });
+
+        document.getElementById('emailChipsWrap').addEventListener('click', function(ev) {
+          var rmChip = ev.target && ev.target.closest ? ev.target.closest('[data-remove-email]') : null;
+          if (!rmChip) return;
+          var target = rmChip.getAttribute('data-remove-email');
+          state.emails = state.emails.filter(function(e) { return e !== target; });
+          renderEmailChips();
+        });
+
+        var mgrListEl = document.getElementById('mgrSheetList');
+        var mgrSkipNextChange = false;
+
+        mgrListEl.addEventListener('click', function(ev) {
+          if (!ev.shiftKey || state.mgrLastAnchorId === null) return;
+          var row = ev.target && ev.target.closest ? ev.target.closest('.list-row') : null;
+          var inp = row ? row.querySelector('input[data-mgr-sheet-id]') : null;
+          if (!inp) return;
+
+          var desired;
+          if (ev.target === inp) {
+            desired = inp.checked;
+            mgrSkipNextChange = true;
+          } else {
+            ev.preventDefault();
+            desired = !inp.checked;
+          }
+
+          var allInputs = Array.prototype.slice.call(mgrListEl.querySelectorAll('input[data-mgr-sheet-id]'));
+          var anchorIdx = -1;
+          var curIdx = allInputs.indexOf(inp);
+          for (var ai = 0; ai < allInputs.length; ai++) {
+            if (Number(allInputs[ai].getAttribute('data-mgr-sheet-id')) === Number(state.mgrLastAnchorId)) {
+              anchorIdx = ai;
+              break;
+            }
+          }
+          if (anchorIdx < 0 || curIdx < 0) return;
+
+          var pinnedIds = new Set(
+            state.sheets
+              .filter(function(s) { return s.isPinned; })
+              .map(function(s) { return Number(s.id); })
+          );
+          var selectedSet = new Set(state.mgrSelectedIds.map(Number));
+          var startIdx = Math.min(anchorIdx, curIdx);
+          var endIdx = Math.max(anchorIdx, curIdx);
+
+          for (var r = startIdx; r <= endIdx; r++) {
+            var el = allInputs[r];
+            var rid = Number(el.getAttribute('data-mgr-sheet-id'));
+            if (desired && pinnedIds.has(rid)) continue;
+            el.checked = desired;
+            var rRow = el.closest('.list-row');
+            if (rRow) rRow.classList.toggle('is-selected', desired);
+            if (desired) selectedSet.add(rid);
+            else selectedSet.delete(rid);
+          }
+
+          state.mgrSelectedIds = Array.from(selectedSet);
+          state.mgrLastAnchorId = Number(inp.getAttribute('data-mgr-sheet-id'));
+          state.mgrDeleteConfirmOpen = false;
+          syncSheetManagerSummaryUI();
+          if (window.getSelection) {
+            try { window.getSelection().removeAllRanges(); } catch (_e) {}
+          }
+        });
+
+        mgrListEl.addEventListener('change', function(ev) {
+          var inp = ev.target;
+          if (!inp || !inp.hasAttribute || !inp.hasAttribute('data-mgr-sheet-id')) return;
+          if (mgrSkipNextChange) {
+            mgrSkipNextChange = false;
+            return;
+          }
+          var sid = Number(inp.getAttribute('data-mgr-sheet-id'));
+          state.mgrLastAnchorId = sid;
+          if (inp.checked) {
+            if (state.mgrSelectedIds.indexOf(sid) < 0) state.mgrSelectedIds.push(sid);
+          } else {
+            state.mgrSelectedIds = state.mgrSelectedIds.filter(function(x) { return Number(x) !== sid; });
+          }
+          var row = inp.closest('.list-row');
+          if (row) row.classList.toggle('is-selected', inp.checked);
+          state.mgrDeleteConfirmOpen = false;
+          syncSheetManagerSummaryUI();
+        });
+
+        document.getElementById('sourceSearchInput').addEventListener('input', function() {
+          state.sourceSearch = this.value;
+          renderSourceSheetList();
+        });
+
+        document.getElementById('toggleAllSheetsBtn').addEventListener('click', function() {
+          state.showAllSheets = !state.showAllSheets;
+          renderSourceSheetList();
+        });
+
+        var brushBtns = document.querySelectorAll('[data-brush]');
+        for (var b = 0; b < brushBtns.length; b++) {
+          brushBtns[b].addEventListener('click', function() {
+            state.brush = this.getAttribute('data-brush');
+            for (var k = 0; k < brushBtns.length; k++) {
+              brushBtns[k].setAttribute('aria-pressed', brushBtns[k] === this ? 'true' : 'false');
+            }
+          });
+        }
+
+        document.getElementById('calPrevBtn').addEventListener('click', function() {
+          state.calMonth--;
+          if (state.calMonth < 1) { state.calMonth = 12; state.calYear--; }
+          renderCalendar();
+        });
+        document.getElementById('calNextBtn').addEventListener('click', function() {
+          state.calMonth++;
+          if (state.calMonth > 12) { state.calMonth = 1; state.calYear++; }
+          renderCalendar();
+        });
+        document.getElementById('clearMonthTagsBtn').addEventListener('click', function() {
+          var mmSuffix = '/' + String(state.calMonth).padStart(2, '0');
+          state.x2Days = state.x2Days.filter(function(d) { return d.slice(2) !== mmSuffix; });
+          state.x3Days = state.x3Days.filter(function(d) { return d.slice(2) !== mmSuffix; });
+          renderCalendar();
+        });
+
+        var presets = document.querySelectorAll('[data-holiday-preset]');
+        for (var p = 0; p < presets.length; p++) {
+          presets[p].addEventListener('click', function() {
+            var code = this.getAttribute('data-holiday-preset');
+            if (code === '0101') {
+              setDayMultiplier('01/01', state.brush);
+              state.calMonth = 1;
+            } else if (code === '3004') {
+              setDayMultiplier('30/04', state.brush);
+              setDayMultiplier('01/05', state.brush);
+              state.calMonth = 4;
+            } else if (code === '0209') {
+              setDayMultiplier('02/09', state.brush);
+              state.calMonth = 9;
+            }
+            renderCalendar();
+          });
+        }
+
+        document.getElementById('summaryTargetSelect').addEventListener('change', function() {
+          state.selectedSummarySheet = this.value;
+          loadSummaryEmployeesContext(this.value);
+        });
+        document.getElementById('empSearchInput').addEventListener('input', function() {
+          state.empSearch = this.value;
+          renderEmployeePicker();
+        });
+        document.getElementById('selectMissingLogsBtn').addEventListener('click', function() {
+          if (!state.summaryContext) return;
+          state.selectedEmpNames = (state.summaryContext.missingWithLogs || []).map(function(e) { return e.fullName; });
+          renderEmployeePicker();
+          updatePrimaryDockLabel();
+        });
+        document.getElementById('decBlankBtn').addEventListener('click', function() {
+          var inp = document.getElementById('blankCountInput');
+          inp.value = Math.max(1, parseInt(inp.value || '1', 10) - 1);
+          updatePrimaryDockLabel();
+        });
+        document.getElementById('incBlankBtn').addEventListener('click', function() {
+          var inp = document.getElementById('blankCountInput');
+          inp.value = Math.min(25, parseInt(inp.value || '1', 10) + 1);
+          updatePrimaryDockLabel();
+        });
+        document.getElementById('blankCountInput').addEventListener('input', updatePrimaryDockLabel);
+
+        document.getElementById('populateExistingBtn').addEventListener('click', function() {
+          var targetSum = document.getElementById('summaryTargetSelect').value;
+          if (!targetSum) return;
+          setBusy(true, 'Đang quét và nạp dữ liệu chấm công cho các bảng đã điền tên...');
+          callGas('rpcPopulateExistingSummaryTables', [targetSum], function(res) {
+            setBusy(false);
+            setStatus(res.message || 'Đã nạp dữ liệu chấm công.', 'success');
+          });
+        });
+
+        document.getElementById('rosterMonthSelect').addEventListener('change', function() {
+          state.selectedRosterSheet = this.value;
+          loadRosterWeeks(this.value);
+        });
+        document.getElementById('selectAllApprovedWeeksBtn').addEventListener('click', function() {
+          state.selectedWeeks = state.rosterWeeks
+            .filter(function(w) { return w.approvedCount > 0; })
+            .map(function(w) { return w.weekLabel; });
+          renderRosterWeeks();
+          updatePrimaryDockLabel();
+        });
+
+        var maintBtns = document.querySelectorAll('[data-maint-tool]');
+        for (var m = 0; m < maintBtns.length; m++) {
+          maintBtns[m].addEventListener('click', function() {
+            var tool = this.getAttribute('data-maint-tool');
+            var target = '';
+            if (tool === 'repair_summary') {
+              target = document.getElementById('summaryTargetSelect').value || state.selectedSummarySheet;
+            } else if (tool === 'heal_images' || tool === 'format_checkin') {
+              target = document.getElementById('maintCheckinSelect').value || state.selectedSourceSheet;
+            }
+            setBusy(true, 'Đang thực thi công cụ chuẩn hóa trên "' + (target || 'DATA') + '"...');
+            callGas('rpcRunMaintenanceTool', [{ tool: tool, targetSheet: target }], function(res) {
+              setBusy(false);
+              setStatus(res.message || 'Hoàn tất chuẩn hóa.', 'success');
+            });
+          });
+        }
+
+        var emailInp = document.getElementById('emailChipInput');
+        emailInp.addEventListener('keydown', function(ev) {
+          if (ev.key === 'Enter' || ev.key === ',') {
+            ev.preventDefault();
+            tryCommitEmailInput(this.value);
+          } else if (ev.key === 'Backspace' && !this.value && state.emails.length > 0) {
+            state.emails.pop();
+            renderEmailChips();
+          }
+        });
+        emailInp.addEventListener('blur', function() {
+          if (this.value.trim()) tryCommitEmailInput(this.value);
+        });
+
+        document.getElementById('runAutoTestBtn').addEventListener('click', function() {
+          setBusy(true, 'Đang chạy thử tổng hợp và gửi báo cáo email...');
+          callGas('rpcRunAutomationTestNow', [], function(res) {
+            setBusy(false);
+            if (res && res.automation) {
+              document.getElementById('lastRunStatusBox').textContent = res.automation.lastRunStatus;
+            }
+            setStatus(res.message || 'Đã thực thi chạy thử.', res && res.success ? 'success' : 'error');
+          });
+        });
+
+        document.getElementById('refreshMetaBtn').addEventListener('click', function() {
+          setBusy(true, 'Đang làm mới danh sách ' + (state.totalSheetCount || 'các') + ' trang tính...');
+          callGas('getControlCenterBootstrap', [true], function(boot) {
+            setBusy(false);
+            applyBootstrap(boot, true);
+          });
+        });
+
+        /* --- Tab 5: Quản Lý Sheet (API v4) --- */
+        document.getElementById('mgrSearchInput').addEventListener('input', function() {
+          state.mgrSearch = this.value;
+          renderSheetManager({ skipSortPreview: true });
+        });
+
+        var mgrGroupBtns = document.querySelectorAll('[data-mgr-group]');
+        for (var mg = 0; mg < mgrGroupBtns.length; mg++) {
+          mgrGroupBtns[mg].addEventListener('click', function() {
+            state.mgrGroup = this.getAttribute('data-mgr-group');
+            for (var j = 0; j < mgrGroupBtns.length; j++) {
+              mgrGroupBtns[j].setAttribute('aria-pressed', mgrGroupBtns[j] === this ? 'true' : 'false');
+            }
+            renderSheetManager({ skipSortPreview: true });
+          });
+        }
+
+        document.getElementById('mgrVisFilterSelect').addEventListener('change', function() {
+          state.mgrVisFilter = this.value;
+          renderSheetManager({ skipSortPreview: true });
+        });
+
+        document.getElementById('selectByPeriodCutoffBtn').addEventListener('click', function() {
+          var cutoff = document.getElementById('mgrPeriodCutoffSelect').value;
+          if (!cutoff) return;
+          var ids = getFilteredMgrSheets()
+            .filter(function(s) { return !s.isPinned && s.periodKey && s.periodKey <= cutoff; })
+            .map(function(s) { return Number(s.id); });
+          state.mgrSelectedIds = ids;
+          state.mgrDeleteConfirmOpen = false;
+          renderSheetManager({ skipSortPreview: true });
+          setStatus('Đã chọn ' + ids.length + ' trang tính thuộc kỳ <= ' + cutoff.split('-').reverse().join('/') + '.', 'idle');
+        });
+
+        document.getElementById('selectFilteredSheetsBtn').addEventListener('click', function() {
+          var filtered = getFilteredMgrSheets().filter(function(s) { return !s.isPinned; });
+          var merged = new Set(state.mgrSelectedIds.map(Number));
+          filtered.forEach(function(s) { merged.add(Number(s.id)); });
+          state.mgrSelectedIds = Array.from(merged);
+          state.mgrDeleteConfirmOpen = false;
+          renderSheetManager({ skipSortPreview: true });
+        });
+
+        document.getElementById('selectJunkSheetsBtn').addEventListener('click', function() {
+          state.mgrSelectedIds = state.sheets
+            .filter(function(s) { return s.managerGroup === 'archive_or_copy'; })
+            .map(function(s) { return Number(s.id); });
+          state.mgrDeleteConfirmOpen = false;
+          renderSheetManager({ skipSortPreview: true });
+          setStatus('Đã chọn ' + state.mgrSelectedIds.length + ' trang tính Bản sao / Tuần lẻ / Nháp cũ.', 'idle');
+        });
+
+        document.getElementById('clearMgrSelectionBtn').addEventListener('click', function() {
+          state.mgrSelectedIds = [];
+          state.mgrLastAnchorId = null;
+          state.mgrDeleteConfirmOpen = false;
+          renderSheetManager({ skipSortPreview: true });
+        });
+
+        var sortBlockBtns = document.querySelectorAll('[data-sort-block]');
+        for (var sb = 0; sb < sortBlockBtns.length; sb++) {
+          sortBlockBtns[sb].addEventListener('click', function() {
+            state.mgrSortPrimaryBlock = this.getAttribute('data-sort-block');
+            for (var q = 0; q < sortBlockBtns.length; q++) {
+              sortBlockBtns[q].setAttribute('aria-pressed', sortBlockBtns[q] === this ? 'true' : 'false');
+            }
+            renderSortOrderPreview();
+          });
+        }
+
+        document.getElementById('runReorderBtn').addEventListener('click', triggerReorderSheets);
+
+        document.getElementById('hideSelectedSheetsBtn').addEventListener('click', function() {
+          if (state.busy || state.mgrSelectedIds.length === 0) return;
+          var ids = state.mgrSelectedIds.slice();
+          setBusy(true, 'Đang ẩn ' + ids.length + ' trang tính qua Sheets API v4...');
+          callGas('rpcSetSheetsVisibilityV4', [{ sheetIds: ids, hidden: true }], function(res) {
+            setBusy(false);
+            syncSheetsStateFromRpc(res && res.sheets, (res && res.message) || 'Đã ẩn các trang tính đã chọn.');
+          });
+        });
+
+        document.getElementById('showSelectedSheetsBtn').addEventListener('click', function() {
+          if (state.busy || state.mgrSelectedIds.length === 0) return;
+          var ids = state.mgrSelectedIds.slice();
+          setBusy(true, 'Đang hiện lại ' + ids.length + ' trang tính qua Sheets API v4...');
+          callGas('rpcSetSheetsVisibilityV4', [{ sheetIds: ids, hidden: false }], function(res) {
+            setBusy(false);
+            syncSheetsStateFromRpc(res && res.sheets, (res && res.message) || 'Đã hiện lại các trang tính đã chọn.');
+          });
+        });
+
+        document.getElementById('smartTidySheetsBtn').addEventListener('click', function() {
+          if (state.busy) return;
+          setBusy(true, 'Đang dọn gọn thanh tab (giữ 3 sheet ghim đầu + 2 kỳ mới nhất)...');
+          callGas('rpcSetSheetsVisibilityV4', [{ mode: 'smart_tidy' }], function(res) {
+            setBusy(false);
+            syncSheetsStateFromRpc(res && res.sheets, (res && res.message) || 'Đã dọn gọn thanh tab.');
+          });
+        });
+
+        document.getElementById('requestDeleteSheetsBtn').addEventListener('click', function() {
+          if (state.busy) return;
+          var deletable = getSelectedMgrSheets().filter(function(s) { return !s.protected; });
+          if (deletable.length === 0) return;
+          state.mgrDeleteConfirmOpen = true;
+          syncSheetManagerSummaryUI();
+          var cBox = document.getElementById('deleteConfirmBox');
+          if (cBox && typeof cBox.scrollIntoView === 'function') {
+            cBox.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          }
+        });
+
+        document.getElementById('cancelDeleteSheetsBtn').addEventListener('click', function() {
+          state.mgrDeleteConfirmOpen = false;
+          syncSheetManagerSummaryUI();
+        });
+
+        document.getElementById('confirmDeleteSheetsBtn').addEventListener('click', function() {
+          if (state.busy) return;
+          var deletableIds = getSelectedMgrSheets()
+            .filter(function(s) { return !s.protected; })
+            .map(function(s) { return Number(s.id); });
+          if (deletableIds.length === 0) return;
+          setBusy(true, 'Đang xóa vĩnh viễn ' + deletableIds.length + ' trang tính qua 1 lệnh Sheets API v4...');
+          callGas('rpcDeleteSheetsV4', [{ sheetIds: deletableIds }], function(res) {
+            setBusy(false);
+            syncSheetsStateFromRpc(res && res.sheets, (res && res.message) || 'Đã xóa các trang tính đã chọn.');
+          });
+        });
+
+        document.getElementById('themeToggleBtn').addEventListener('click', function() {
+          var root = document.documentElement;
+          var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+          root.classList.add('is-switching-theme');
+          root.setAttribute('data-theme', next);
+          void root.offsetHeight;
+          root.classList.remove('is-switching-theme');
+        });
+
+        document.getElementById('closeModalBtn').addEventListener('click', function() {
+          if (typeof google !== 'undefined' && google.script && google.script.host) {
+            google.script.host.close();
+          }
+        });
+
+        document.getElementById('primaryActionBtn').addEventListener('click', executePrimaryAction);
+
+        // Global keyboard shortcuts: Ctrl+K / Alt+1..5 / Esc
+        document.addEventListener('keydown', function(ev) {
+          if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'k') {
+            ev.preventDefault();
+            var targetInput = state.activeTab === 'sheets'
+              ? document.getElementById('mgrSearchInput')
+              : (state.activeTab === 'employees'
+                  ? document.getElementById('empSearchInput')
+                  : document.getElementById('sourceSearchInput'));
+            if (targetInput) { targetInput.focus(); targetInput.select(); }
+          } else if (ev.altKey && ['1', '2', '3', '4', '5'].indexOf(ev.key) >= 0) {
+            ev.preventDefault();
+            var map = { '1': 'summary', '2': 'employees', '3': 'roster', '4': 'automation', '5': 'sheets' };
+            switchTab(map[ev.key]);
+          } else if (ev.key === 'Escape') {
+            if (state.mgrDeleteConfirmOpen) {
+              state.mgrDeleteConfirmOpen = false;
+              syncSheetManagerSummaryUI();
+            } else if (document.activeElement === document.getElementById('mgrSearchInput') && state.mgrSearch) {
+              state.mgrSearch = '';
+              document.getElementById('mgrSearchInput').value = '';
+              renderSheetManager({ skipSortPreview: true });
+            } else if (document.activeElement === document.getElementById('empSearchInput') && state.empSearch) {
+              state.empSearch = '';
+              document.getElementById('empSearchInput').value = '';
+              renderEmployeePicker();
+            } else if (document.activeElement === document.getElementById('sourceSearchInput') && state.sourceSearch) {
+              state.sourceSearch = '';
+              document.getElementById('sourceSearchInput').value = '';
+              renderSourceSheetList();
+            }
+          }
+        });
+      }
+
+      /* ---------------- INIT ---------------- */
+      document.getElementById('activeSheetText').textContent = 'Đang mở: ' + (state.activeSheetName || '...');
+      bindEvents();
+      switchTab(state.activeTab);
+      renderCalendar();
+      callGas('getControlCenterBootstrap', [false], function(boot) {
+        applyBootstrap(boot, false);
+      });
+    })();
+  </script>
+</body>
+</html>

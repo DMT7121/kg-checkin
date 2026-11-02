@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Clock, CalendarRange, Save, Crosshair, AlertCircle, ShieldCheck } from 'lucide-react';
+import { MapPin, CalendarRange, Save, Crosshair, AlertCircle, ShieldCheck, Info, Loader2, ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { useAppStore } from '../../store/useAppStore';
 import { callApi } from '../../services/api';
-import { KgModuleHero } from '../../components/KgDesignSystem';
+import { KgModuleHero, KgBottomSheet, KgInput, KgSelect, KgButton } from '../../components/KgDesignSystem';
 import MissedCheckInModal from '../../components/MissedCheckInModal';
 import { normalizeGpsRadius } from '../../utils/helpers';
 
@@ -13,6 +13,10 @@ export default function AdminShift() {
   const currentUser = useAppStore((s) => s.currentUser);
   const setServerGpsConfig = useAppStore((s) => s.setServerGpsConfig);
   const [isMissedModalOpen, setIsMissedModalOpen] = useState(false);
+  const [isAddShiftOpen, setIsAddShiftOpen] = useState(false);
+  const [newShiftCode, setNewShiftCode] = useState('');
+  const [newShiftDesc, setNewShiftDesc] = useState('');
+  const [newShiftType, setNewShiftType] = useState<'standard' | 'admin' | 'penalty'>('standard');
   const [kgLat, setKgLat] = useState('10.9760826');
   const [kgLng, setKgLng] = useState('106.6646541');
   const [kgRadius, setKgRadius] = useState('25');
@@ -115,31 +119,19 @@ export default function AdminShift() {
     }
   };
 
-  const handleAddShiftCode = async () => {
-    const { value: formValues } = await Swal.fire({
-      title: 'Thêm Mã Ca Làm',
-      html: `
-        <input id="swal-input1" class="swal2-input" placeholder="Mã Ca (VD: T7_SANG)">
-        <input id="swal-input2" class="swal2-input" placeholder="Mô tả">
-        <select id="swal-input3" class="swal2-select">
-          <option value="standard">Tiêu chuẩn</option>
-          <option value="admin">Admin cấp</option>
-          <option value="penalty">Phạt</option>
-        </select>
-      `,
-      focusConfirm: false,
-      showCancelButton: true,
-      preConfirm: () => {
-        return [
-          (document.getElementById('swal-input1') as HTMLInputElement).value,
-          (document.getElementById('swal-input2') as HTMLInputElement).value,
-          (document.getElementById('swal-input3') as HTMLSelectElement).value
-        ]
-      }
-    });
-    if (formValues && formValues[0]) {
-      setShiftCodes([...shiftCodes, { id: 'shift_' + Date.now(), code: formValues[0], description: formValues[1], type: formValues[2] }]);
-    }
+  const handleAddShiftCode = () => {
+    setNewShiftCode('');
+    setNewShiftDesc('');
+    setNewShiftType('standard');
+    setIsAddShiftOpen(true);
+  };
+
+  const handleConfirmAddShiftCode = (e: React.FormEvent) => {
+    e.preventDefault();
+    const code = newShiftCode.trim();
+    if (!code) return;
+    setShiftCodes([...shiftCodes, { id: 'shift_' + Date.now(), code, description: newShiftDesc.trim(), type: newShiftType }]);
+    setIsAddShiftOpen(false);
   };
 
   const handleRemoveShiftCode = (id: string) => {
@@ -149,8 +141,8 @@ export default function AdminShift() {
   return (
     <div className="p-4 space-y-4 animate-slide-up pb-10">
       <div className="flex mb-2">
-        <button onClick={() => useAppStore.getState().setCurrentTab('admin_workforce')} className="flex items-center text-xs font-bold text-gray-500 hover:text-ocean-600 transition-colors">
-          <span className="mr-1">←</span> Quay lại Cài đặt chung
+        <button type="button" onClick={() => useAppStore.getState().setCurrentTab('admin_workforce')} className="flex items-center gap-1 text-xs font-bold text-[var(--kg-text-muted)] hover:text-[var(--kg-primary)] transition-colors">
+          <ArrowLeft size={14} /> Quay lại Cài đặt chung
         </button>
       </div>
       <KgModuleHero
@@ -186,36 +178,37 @@ export default function AdminShift() {
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-black text-[var(--kg-text-muted)] mb-1">Vĩ độ (Latitude)</label>
-              <input type="text" value={kgLat} onChange={e => setKgLat(e.target.value)} className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs font-bold text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <label htmlFor="kg-lat" className="block text-xs font-black text-[var(--kg-text-muted)] mb-1">Vĩ độ (Latitude)</label>
+              <input id="kg-lat" type="text" value={kgLat} onChange={e => setKgLat(e.target.value)} className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold tabular-nums text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)]" />
             </div>
             <div>
-              <label className="block text-xs font-black text-[var(--kg-text-muted)] mb-1">Kinh độ (Longitude)</label>
-              <input type="text" value={kgLng} onChange={e => setKgLng(e.target.value)} className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs font-bold text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <label htmlFor="kg-lng" className="block text-xs font-black text-[var(--kg-text-muted)] mb-1">Kinh độ (Longitude)</label>
+              <input id="kg-lng" type="text" value={kgLng} onChange={e => setKgLng(e.target.value)} className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold tabular-nums text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)]" />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-black text-[var(--kg-text-muted)] mb-1">Bán kính hợp lệ (Meters) - Chuẩn: 25m</label>
+            <label htmlFor="kg-radius" className="block text-xs font-black text-[var(--kg-text-muted)] mb-1">Bán kính hợp lệ (Meters) - Chuẩn: 25m</label>
             <div className="flex items-center gap-2">
-              <input type="number" value={kgRadius} onChange={e => setKgRadius(e.target.value)} className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs font-bold text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input id="kg-radius" type="number" value={kgRadius} onChange={e => setKgRadius(e.target.value)} className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold tabular-nums text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)]" />
               <button
                 type="button"
                 onClick={handleGetLiveLocation}
-                className="bg-[var(--kg-primary)] hover:opacity-90 text-white px-3.5 py-2.5 rounded-xl text-xs font-black whitespace-nowrap shadow-xs active:scale-95 transition-all flex items-center gap-1"
+                className="bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white px-3.5 py-2.5 rounded-xl text-xs font-black whitespace-nowrap shadow-xs active:scale-95 transition-all flex items-center gap-1"
                 title="Lấy tọa độ hiện tại của thiết bị"
               >
                 <Crosshair size={16} /> Lấy GPS
               </button>
             </div>
-            <p className="text-[11px] text-[var(--kg-text-muted)] mt-1.5 font-medium">
-              💡 <b>Khuyến nghị:</b> Đứng tại nhà hàng, nhấn <b>"Lấy GPS"</b> và bấm <b>"Lưu Cấu Hình GPS"</b> để hệ thống tự động chuẩn hóa vị trí gốc 25m.
+            <p className="text-[11px] text-[var(--kg-text-muted)] mt-1.5 font-medium flex items-start gap-1.5">
+              <Info size={14} className="text-[var(--kg-primary)] flex-shrink-0 mt-0.5" />
+              <span><b>Khuyến nghị:</b> Đứng tại nhà hàng, nhấn <b>"Lấy GPS"</b> và bấm <b>"Lưu Cấu Hình GPS"</b> để hệ thống tự động chuẩn hóa vị trí gốc 25m.</span>
             </p>
           </div>
 
-          <button onClick={handleSaveGPS} disabled={isSaving} className={`w-full font-black py-3 rounded-xl text-xs sm:text-sm transition flex items-center justify-center shadow-xs active:scale-95 ${isSaving ? 'bg-slate-400 text-white cursor-not-allowed' : 'bg-[var(--kg-primary)] text-white hover:opacity-90'}`}>
+          <button type="button" onClick={handleSaveGPS} disabled={isSaving} className={`w-full font-black py-3 rounded-xl text-xs sm:text-sm transition flex items-center justify-center shadow-xs active:scale-95 ${isSaving ? 'bg-slate-400 text-white cursor-not-allowed' : 'bg-[var(--kg-primary)] text-white hover:bg-[var(--kg-primary-hover)]'}`}>
             {isSaving ? (
-              <><span className="animate-spin mr-2">⏳</span> Đang lưu cấu hình...</>
+              <><Loader2 size={16} className="animate-spin mr-2" /> Đang lưu cấu hình...</>
             ) : (
               <><Save size={16} className="mr-2" /> Lưu Cấu Hình GPS (Bán kính {kgRadius}m)</>
             )}
@@ -241,12 +234,14 @@ export default function AdminShift() {
                 </div>
                 <p className={`text-[10px] truncate ${s.type === 'standard' ? 'text-[var(--kg-text-muted)]' : s.type === 'admin' ? 'text-amber-600' : 'text-rose-600'}`}>{s.description}</p>
               </div>
-              <button onClick={() => handleRemoveShiftCode(s.id)} className="text-rose-500 text-xs font-bold px-2 py-1 hover:underline flex-shrink-0">Xóa</button>
+              <button type="button" onClick={() => handleRemoveShiftCode(s.id)} className="text-rose-500 text-xs font-bold px-2 py-1 hover:underline flex-shrink-0 inline-flex items-center gap-1">
+                <Trash2 size={13} /> Xóa
+              </button>
             </div>
           ))}
 
-          <button onClick={handleAddShiftCode} className="w-full border-2 border-dashed border-[var(--kg-border)] text-[var(--kg-text-muted)] font-bold py-2.5 rounded-xl text-sm transition hover:bg-[var(--kg-surface-soft)] flex items-center justify-center mt-2">
-            + Thêm mã ca mới
+          <button type="button" onClick={handleAddShiftCode} className="w-full border border-dashed border-[var(--kg-border-strong)] text-[var(--kg-text-muted)] hover:text-[var(--kg-primary)] font-bold py-2.5 rounded-xl text-sm transition hover:bg-[var(--kg-surface-soft)] flex items-center justify-center gap-1.5 mt-2">
+            <Plus size={16} /> Thêm mã ca mới
           </button>
         </div>
       </div>
@@ -259,11 +254,11 @@ export default function AdminShift() {
         
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0 pr-2">
-              <p className="text-sm font-bold text-[var(--kg-text)] truncate">Giờ đóng cổng tự động</p>
-              <input type="text" value={registrationCloseTime} onChange={(e) => setRegistrationCloseTime(e.target.value)} className="w-full text-[10px] text-[var(--kg-text-muted)] bg-transparent border-b border-[var(--kg-border)] focus:outline-none focus:border-[var(--kg-primary)]" />
+            <div className="min-w-0 pr-2 flex-1">
+              <label htmlFor="reg-close-time" className="block text-sm font-bold text-[var(--kg-text)] mb-1">Giờ đóng cổng tự động</label>
+              <input id="reg-close-time" type="text" value={registrationCloseTime} onChange={(e) => setRegistrationCloseTime(e.target.value)} className="w-full max-w-xs text-xs font-semibold text-[var(--kg-text)] bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)]" />
             </div>
-            <button onClick={handleSaveGPS} disabled={isSaving} className="px-3 py-1 bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-border)] border border-[var(--kg-border)] text-[var(--kg-text)] font-bold text-xs rounded-xl transition flex-shrink-0">
+            <button type="button" onClick={handleSaveGPS} disabled={isSaving} className="px-3.5 py-2 bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-border)]/40 border border-[var(--kg-border)] text-[var(--kg-text)] font-bold text-xs rounded-xl transition flex-shrink-0">
               {isSaving ? 'Lưu...' : 'Lưu Tất cả'}
             </button>
           </div>
@@ -273,8 +268,8 @@ export default function AdminShift() {
       {/* Missed Check-ins Approval Quick Card */}
       <div className="bg-[var(--kg-surface)] border border-amber-500/30 p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-black shadow-xs flex-shrink-0">
-            <ShieldCheck size={22} />
+          <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black shadow-xs flex-shrink-0">
+            <ShieldCheck size={20} />
           </div>
           <div>
             <h4 className="text-xs sm:text-sm font-black text-[var(--kg-text)]">
@@ -288,11 +283,63 @@ export default function AdminShift() {
         <button
           type="button"
           onClick={() => setIsMissedModalOpen(true)}
-          className="w-full sm:w-auto px-4 py-2.5 bg-[var(--kg-primary)] text-white hover:opacity-90 rounded-xl text-xs font-black shadow-xs transition active:scale-95 whitespace-nowrap flex-shrink-0"
+          className="w-full sm:w-auto px-4 py-2.5 bg-[var(--kg-primary)] text-white hover:bg-[var(--kg-primary-hover)] rounded-xl text-xs font-black shadow-xs transition active:scale-95 whitespace-nowrap flex-shrink-0"
         >
           Mở hàng chờ duyệt →
         </button>
       </div>
+
+      {/* Add Shift Code Sheet */}
+      <KgBottomSheet
+        open={isAddShiftOpen}
+        onClose={() => setIsAddShiftOpen(false)}
+        title="Thêm mã ca làm mới"
+        subtitle="Thiết lập mã ca tiêu chuẩn, nghỉ phép Admin cấp hoặc mã phạt."
+        footer={
+          <div className="flex justify-end gap-2">
+            <KgButton variant="ghost" onClick={() => setIsAddShiftOpen(false)}>
+              Hủy
+            </KgButton>
+            <KgButton
+              variant="primary"
+              type="submit"
+              form="add-shift-code-form"
+              disabled={!newShiftCode.trim()}
+            >
+              Thêm mã ca
+            </KgButton>
+          </div>
+        }
+      >
+        <form id="add-shift-code-form" onSubmit={handleConfirmAddShiftCode} className="space-y-4">
+          <KgInput
+            id="new-shift-code"
+            label="Mã ca làm"
+            placeholder="VD: T7_SANG hoặc 14:30"
+            value={newShiftCode}
+            onChange={(e) => setNewShiftCode(e.target.value)}
+            required
+          />
+          <KgInput
+            id="new-shift-desc"
+            label="Mô tả chi tiết"
+            placeholder="VD: Ca tăng cường sáng Thứ Bảy"
+            value={newShiftDesc}
+            onChange={(e) => setNewShiftDesc(e.target.value)}
+          />
+          <KgSelect
+            id="new-shift-type"
+            label="Phân loại mã ca"
+            value={newShiftType}
+            onChange={(e) => setNewShiftType(e.target.value as 'standard' | 'admin' | 'penalty')}
+            options={[
+              { value: 'standard', label: 'Tiêu chuẩn (Nhân viên chọn được)' },
+              { value: 'admin', label: 'Admin cấp (OFF#)' },
+              { value: 'penalty', label: 'Phạt vi phạm (OFF!)' },
+            ]}
+          />
+        </form>
+      </KgBottomSheet>
 
       {/* Missed Check-in Modal */}
       {isMissedModalOpen && (

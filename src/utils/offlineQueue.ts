@@ -468,7 +468,7 @@ export async function processQueue(): Promise<void> {
           const isPermanentRejection =
             res?.code === 'OUT_OF_RADIUS' ||
             res?.code === 'SPOOF_DETECTED' ||
-            res?.code === 'SECURITY_TOKEN_MISMATCH' ||
+            res?.code === 'SECURITY_TOKEN_MISMATCH' || res?.code === 'SCHEDULE_REQUIRED' ||
             res?.code === 'UNAUTHORIZED';
 
           if (isPermanentRejection) {

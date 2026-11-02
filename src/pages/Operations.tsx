@@ -185,28 +185,28 @@ export default function Operations() {
         <>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="soft3d-card rounded-2xl p-4">
-              <CalendarDays className="text-cyan-600" size={20} />
-              <p className="mt-3 text-2xl font-black text-slate-900 dark:text-white">{todayAssignments.length}</p>
-              <p className="text-xs font-bold text-slate-500">Khu trực hôm nay</p>
+              <CalendarDays className="text-[var(--kg-info)]" size={20} />
+              <p className="mt-3 text-2xl font-bold font-mono tabular-nums text-[var(--kg-text)]">{todayAssignments.length}</p>
+              <p className="text-xs font-semibold text-[var(--kg-text-muted)]">Khu trực hôm nay</p>
             </div>
             <div className="soft3d-card rounded-2xl p-4">
-              <UsersRound className="text-violet-600" size={20} />
-              <p className="mt-3 truncate text-lg font-black text-slate-900 dark:text-white">{myTeam?.name || 'Chưa xếp'}</p>
-              <p className="text-xs font-bold text-slate-500">Nhóm của bạn</p>
+              <UsersRound className="text-[var(--kg-primary)]" size={20} />
+              <p className="mt-3 truncate text-lg font-bold text-[var(--kg-text)]">{myTeam?.name || 'Chưa xếp'}</p>
+              <p className="text-xs font-semibold text-[var(--kg-text-muted)]">Nhóm của bạn</p>
             </div>
             <div className="soft3d-card rounded-2xl p-4">
-              <ClipboardCheck className="text-emerald-600" size={20} />
-              <p className="mt-3 text-2xl font-black text-slate-900 dark:text-white">
+              <ClipboardCheck className="text-[var(--kg-success)]" size={20} />
+              <p className="mt-3 text-2xl font-bold font-mono tabular-nums text-[var(--kg-text)]">
                 {taskLogs.filter(log => log.date === todayIso()).length}
               </p>
-              <p className="text-xs font-bold text-slate-500">Việc đã hoàn thành</p>
+              <p className="text-xs font-semibold text-[var(--kg-text-muted)]">Việc đã hoàn thành</p>
             </div>
             <div className="soft3d-card rounded-2xl p-4">
-              <Star className="text-amber-500" size={20} />
-              <p className="mt-3 text-2xl font-black text-slate-900 dark:text-white">
+              <Star className="text-[var(--kg-warning)]" size={20} />
+              <p className="mt-3 text-2xl font-bold font-mono tabular-nums text-[var(--kg-text)]">
                 {operationScore(myEvaluation).toFixed(1)}
               </p>
-              <p className="text-xs font-bold text-slate-500">Điểm năng lực</p>
+              <p className="text-xs font-semibold text-[var(--kg-text-muted)]">Điểm năng lực</p>
             </div>
           </div>
 
@@ -286,24 +286,24 @@ export default function Operations() {
                               </span>
                             )}
                             {assignment.isVirtual && (
-                              <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-black uppercase text-violet-700 dark:bg-violet-950/30 dark:text-violet-400">
-                                ✨ Tự động
+                              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--kg-primary-soft)] px-2 py-0.5 text-[10px] font-bold uppercase text-[var(--kg-primary)]">
+                                <Sparkles size={10} /> Tự động
                               </span>
                             )}
                           </div>
-                          <p className="mt-1 text-xs text-slate-500">
+                          <p className="mt-1 text-xs font-mono tabular-nums text-[var(--kg-text-muted)]">
                             {formatOperationDate(assignment.date)} · {assignment.shift}
                           </p>
-                          <p className="mt-1 text-[11px] font-bold text-violet-600 dark:text-violet-300">
-                            {team?.name} · {completedIds.size}/{tasks.length} việc
+                          <p className="mt-1 text-[11px] font-bold text-[var(--kg-primary)]">
+                            {team?.name} · <span className="font-mono tabular-nums">{completedIds.size}/{tasks.length}</span> việc
                           </p>
                         </div>
                       </div>
-                      <ChevronDown className={`mt-2 flex-shrink-0 text-slate-400 transition ${expanded ? 'rotate-180' : ''}`} size={19} />
+                      <ChevronDown className={`mt-2 flex-shrink-0 text-[var(--kg-text-soft)] transition ${expanded ? 'rotate-180' : ''}`} size={19} />
                     </div>
-                    <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                    <div className="mt-4 h-2 overflow-hidden rounded-full bg-[var(--kg-surface-soft)]">
                       <div
-                        className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-emerald-500 transition-all"
+                        className="h-full rounded-full bg-[var(--kg-success)] transition-all"
                         style={{ width: `${tasks.length ? (completedIds.size / tasks.length) * 100 : 0}%` }}
                       />
                     </div>
@@ -452,7 +452,7 @@ export default function Operations() {
                                     {task.frequency}
                                   </span>
                                   {isTeammate && assigneeName && (
-                                    <span className="inline-block text-[9px] font-black text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 px-2 py-0.5 rounded-full">
+                                    <span className="inline-block text-[9.5px] font-bold text-[var(--kg-primary)] bg-[var(--kg-primary-soft)] px-2 py-0.5 rounded-full">
                                       Phụ trách: {assigneeName}
                                     </span>
                                   )}
@@ -464,7 +464,7 @@ export default function Operations() {
 
                         if (!tasks.length) {
                           return (
-                            <div className="py-8 text-center text-xs font-bold text-slate-400">
+                            <div className="py-8 text-center text-xs font-semibold text-[var(--kg-text-muted)]">
                               Khu trực này chưa có checklist công việc.
                             </div>
                           );
@@ -475,22 +475,26 @@ export default function Operations() {
                             {/* Section 1: My Tasks */}
                             <div>
                               <div className="flex items-center gap-1.5 mb-2.5">
-                                <span className="h-2 w-2 rounded-full bg-cyan-500 animate-pulse" />
-                                <p className="text-[10px] font-extrabold uppercase text-cyan-600 dark:text-cyan-400">🎯 Việc được giao cho bạn ({myTasks.length}) · Ca {myShift === 'OFF' ? 'Chưa rõ' : myShift}</p>
+                                <span className="h-2 w-2 rounded-full bg-[var(--kg-info)] animate-pulse" />
+                                <p className="text-[10.5px] font-bold uppercase tracking-wider text-[var(--kg-info)]">
+                                  Việc được giao cho bạn (<span className="font-mono tabular-nums">{myTasks.length}</span>) · Ca {myShift === 'OFF' ? 'Chưa rõ' : myShift}
+                                </p>
                               </div>
                               {myTasks.length > 0 ? (
                                 <div className="space-y-2">
                                   {myTasks.map(t => renderTaskItem(t, false))}
                                 </div>
                               ) : (
-                                <p className="text-xs text-slate-400 italic bg-slate-50 dark:bg-slate-800/40 rounded-xl p-3 text-center border border-dashed border-slate-200 dark:border-slate-700">Bạn không có công việc riêng trong ca trực này</p>
+                                <p className="text-xs text-[var(--kg-text-muted)] bg-[var(--kg-surface-soft)] rounded-xl p-3 text-center border border-dashed border-[var(--kg-border)]">Bạn không có công việc riêng trong ca trực này</p>
                               )}
                             </div>
 
                             {/* Section 2: Teammate Tasks */}
                             {teammateTasks.length > 0 && (
-                              <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
-                                <p className="text-[10px] font-extrabold uppercase text-slate-400 mb-2.5">👥 Việc của đồng đội ({teammateTasks.length})</p>
+                              <div className="pt-3 border-t border-[var(--kg-border)]">
+                                <p className="text-[10.5px] font-bold uppercase tracking-wider text-[var(--kg-text-muted)] mb-2.5 flex items-center gap-1.5">
+                                  <UsersRound size={12} /> Việc của đồng đội (<span className="font-mono tabular-nums">{teammateTasks.length}</span>)
+                                </p>
                                 <div className="space-y-2">
                                   {teammateTasks.map(t => renderTaskItem(t, true))}
                                 </div>
@@ -499,8 +503,10 @@ export default function Operations() {
 
                             {/* Section 3: General/Unassigned Tasks */}
                             {unassignedTasks.length > 0 && (
-                              <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
-                                <p className="text-[10px] font-extrabold uppercase text-slate-400 mb-2.5">📋 Công việc chung & Khác ({unassignedTasks.length})</p>
+                              <div className="pt-3 border-t border-[var(--kg-border)]">
+                                <p className="text-[10.5px] font-bold uppercase tracking-wider text-[var(--kg-text-muted)] mb-2.5 flex items-center gap-1.5">
+                                  <ClipboardCheck size={12} /> Công việc chung &amp; Khác (<span className="font-mono tabular-nums">{unassignedTasks.length}</span>)
+                                </p>
                                 <div className="space-y-2">
                                   {unassignedTasks.map(t => renderTaskItem(t, false))}
                                 </div>
