@@ -1,7 +1,7 @@
 {
   "name": "kg-checkin",
   "private": true,
-  "version": "4.0.0",
+  "version": "4.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "sync:gas": "node scripts/sync-gas-companion.mjs",
     "sync:gas:check": "node scripts/sync-gas-companion.mjs --check",
-    "test": "node --test --test-concurrency=1 tests/wave1-p0.test.ts tests/schedule-registration-enforcement.test.ts"
+    "test": "node --test --test-concurrency=1 tests/wave1-p0.test.ts tests/schedule-registration-enforcement.test.ts tests/checkin-history-completeness.test.ts"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4",

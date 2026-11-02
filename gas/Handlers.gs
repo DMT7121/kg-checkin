@@ -2385,6 +2385,9 @@ function handleGetData(payload) {
         var result = Object.assign({}, globalCached, userCached);
         if (isAdmin && adminCached) {
           Object.assign(result, adminCached);
+          if (Array.isArray(userCached.logs) && Array.isArray(adminCached.logs)) {
+            result.logs = _mergeUniqueAttendanceLogs(adminCached.logs, userCached.logs, 650);
+          }
         }
         attachCurrentWeekShiftsAndSanitize(result, null);
         return jsonResponse(true, result);
@@ -2411,6 +2414,9 @@ function handleGetData(payload) {
     var mergedResult = Object.assign({}, globalData, userData);
     if (isAdmin && adminData) {
       Object.assign(mergedResult, adminData);
+      if (Array.isArray(userData.logs) && Array.isArray(adminData.logs)) {
+        mergedResult.logs = _mergeUniqueAttendanceLogs(adminData.logs, userData.logs, 650);
+      }
     }
     attachCurrentWeekShiftsAndSanitize(mergedResult, db);
 
@@ -2418,6 +2424,235 @@ function handleGetData(payload) {
   } catch (e) {
     Logger.log("rebuildCache and read error: " + e.toString());
     return jsonResponse(false, 'Lỗi hệ thống khi tải dữ liệu: ' + e.message);
+  }
+}
+
+function _mergeUniqueAttendanceLogs(primaryLogs, extraLogs, maxItems) {
+  var combined = [];
+  var seen = {};
+  var lists = [primaryLogs || [], extraLogs || []];
+  for (var l = 0; l < lists.length; l++) {
+    var arr = lists[l];
+    for (var i = 0; i < arr.length; i++) {
+      var item = arr[i];
+      if (!item) continue;
+      var k = JsonCacheService.foldPersonName(item.fullname || '') + '|' + (item.time || '') + '|' + String(item.type || '').toLowerCase();
+      if (seen[k]) continue;
+      seen[k] = true;
+      combined.push(item);
+    }
+  }
+  combined.sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
+  return maxItems ? combined.slice(0, maxItems) : combined;
+}
+
+/**
+ * Dedicated Full Check-In History Endpoint (GET_CHECKIN_LOGS)
+ * - Scans 100% of rows in primary + secondary + historical monthly attendance_source sheets (no 60-item or 1,200-row truncation)
+ * - Handles NFC/NFD Unicode, Đ/đ folding, whitespace variations, and Col H JSON username matching
+ * - Enforces strict RBAC: non-admin staff ONLY ever receive their own punches
+ */
+function handleGetCheckinLogs(payload) {
+  try {
+    payload = payload || {};
+    var callerUser = payload.username ? String(payload.username).trim().toLowerCase() : '';
+    var callerName = payload.fullname ? String(payload.fullname).trim() : '';
+    var declaredRole = payload.role ? String(payload.role).trim().toLowerCase() : '';
+    var adminCandidate = payload.adminUsername || payload.actorUsername || callerUser;
+    var isCallerAdmin = (declaredRole === 'admin') && (callerUser === 'admin' || isAdminUser(adminCandidate));
+
+    var filterAllUsers = false;
+    var targetUser = callerUser;
+    var targetName = callerName;
+
+    if (isCallerAdmin) {
+      var reqUser = payload.targetUsername ? String(payload.targetUsername).trim() : '';
+      var reqName = payload.targetFullname ? String(payload.targetFullname).trim() : '';
+      if ((!reqUser || reqUser === 'ALL') && (!reqName || reqName === 'ALL')) {
+        filterAllUsers = true;
+      } else {
+        targetUser = (reqUser && reqUser !== 'ALL') ? reqUser.toLowerCase() : '';
+        targetName = (reqName && reqName !== 'ALL') ? reqName : '';
+      }
+    } else if (!callerUser && !callerName) {
+      return jsonResponse(false, 'Thiếu thông tin định danh nhân sự.');
+    }
+
+    // Cross-resolve username <-> fullname from DATA registry so both Col A fullname and Col H username match 100%
+    if (!filterAllUsers && (!targetUser || !targetName)) {
+      try {
+        var authUsers = getCachedAuthUsers() || [];
+        var foldedTargetName = targetName ? JsonCacheService.foldPersonName(targetName) : '';
+        for (var u = 0; u < authUsers.length; u++) {
+          var au = authUsers[u];
+          var auUser = au.username ? String(au.username).trim().toLowerCase() : '';
+          var auFolded = au.fullname ? JsonCacheService.foldPersonName(au.fullname) : '';
+          if ((targetUser && auUser === targetUser) || (foldedTargetName && auFolded === foldedTargetName)) {
+            if (!targetUser && auUser) targetUser = auUser;
+            if (!targetName && au.fullname) targetName = au.fullname;
+            break;
+          }
+        }
+      } catch (uErr) {}
+    }
+
+    var cleanTargetName = targetName ? JsonCacheService.normalizePersonName(targetName) : '';
+    var foldedTarget = targetName ? JsonCacheService.foldPersonName(targetName) : '';
+    var requestedMonth = payload.month ? String(payload.month).trim() : 'ALL';
+    var maxLimit = Math.min(Math.max(Number(payload.limit) || 5000, 100), 10000);
+
+    var ss = getSS();
+    var allSheetObjs = ss.getSheets();
+    var sheetNamesInSS = allSheetObjs.map(function(s) { return s.getName(); });
+
+    var availableMonthsMap = {};
+    var currentYm = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'yyyy-MM');
+    availableMonthsMap[currentYm] = true;
+
+    var datedSourceSheets = [];
+    var undatedExtraSheets = [];
+    var primaryFixed = [CONFIG.SHEET_LOGS, "👨‍🍳 CHẤM CÔNG BẾP - TẠP VỤ"];
+
+    for (var s = 0; s < sheetNamesInSS.length; s++) {
+      var title = sheetNamesInSS[s];
+      if (primaryFixed.indexOf(title) >= 0) continue;
+      var cat = (typeof classifySheetTitle === 'function')
+        ? classifySheetTitle(title)
+        : 'system_or_archive';
+      if (cat !== 'attendance_source') continue;
+
+      var period = (typeof ccParseHistoricalPeriod === 'function')
+        ? ccParseHistoricalPeriod(title)
+        : { month: null, year: null };
+      if (period && period.year && period.month) {
+        var ym = String(period.year) + '-' + String(period.month).padStart(2, '0');
+        availableMonthsMap[ym] = true;
+        datedSourceSheets.push({ name: title, ym: ym });
+      } else {
+        undatedExtraSheets.push(title);
+      }
+    }
+
+    datedSourceSheets.sort(function(a, b) {
+      return a.ym < b.ym ? 1 : (a.ym > b.ym ? -1 : 0);
+    });
+
+    var sheetsToFetch = [];
+    function queueSheet(shTitle) {
+      if (sheetNamesInSS.indexOf(shTitle) >= 0 && sheetsToFetch.indexOf(shTitle) < 0) {
+        sheetsToFetch.push(shTitle);
+      }
+    }
+
+    queueSheet(CONFIG.SHEET_LOGS);
+    queueSheet("👨‍🍳 CHẤM CÔNG BẾP - TẠP VỤ");
+    for (var ue = 0; ue < Math.min(undatedExtraSheets.length, 4); ue++) {
+      queueSheet(undatedExtraSheets[ue]);
+    }
+
+    if (requestedMonth && requestedMonth !== 'ALL') {
+      for (var ds = 0; ds < datedSourceSheets.length; ds++) {
+        if (datedSourceSheets[ds].ym === requestedMonth) {
+          queueSheet(datedSourceSheets[ds].name);
+        }
+      }
+    } else {
+      var maxArchiveSheets = payload.includeAllArchiveSheets ? 24 : 12;
+      for (var da = 0; da < Math.min(datedSourceSheets.length, maxArchiveSheets); da++) {
+        queueSheet(datedSourceSheets[da].name);
+      }
+    }
+
+    // Batch fetch all target sheets in a single Sheets API v4 round-trip
+    var sheetMatrixMap = {};
+    try {
+      var ranges = sheetsToFetch.map(function(n) { return "'" + n + "'!A1:H"; });
+      var batchRes = Sheets.Spreadsheets.Values.batchGet(ss.getId(), { ranges: ranges });
+      var vRanges = (batchRes && batchRes.valueRanges) ? batchRes.valueRanges : [];
+      for (var rIdx = 0; rIdx < sheetsToFetch.length; rIdx++) {
+        sheetMatrixMap[sheetsToFetch[rIdx]] = (vRanges[rIdx] && vRanges[rIdx].values) ? vRanges[rIdx].values : [];
+      }
+    } catch (batchErr) {
+      for (var fIdx = 0; fIdx < sheetsToFetch.length; fIdx++) {
+        var shObj = ss.getSheetByName(sheetsToFetch[fIdx]);
+        sheetMatrixMap[sheetsToFetch[fIdx]] = shObj ? shObj.getDataRange().getValues() : [];
+      }
+    }
+
+    var matchedLogs = [];
+    var seenKeys = {};
+    var totalCheckIn = 0;
+    var totalCheckOut = 0;
+    var validCount = 0;
+
+    for (var st = 0; st < sheetsToFetch.length; st++) {
+      var curSheetName = sheetsToFetch[st];
+      var rows = sheetMatrixMap[curSheetName];
+      if (!rows || rows.length <= 1) continue;
+
+      for (var i = 1; i < rows.length; i++) {
+        var row = rows[i];
+        if (!row || !row[0]) continue;
+        var parsed = JsonCacheService.parseLogRowToEntry(row, i + 1, curSheetName);
+        if (!parsed) continue;
+
+        if (!filterAllUsers) {
+          var isMatch = JsonCacheService.matchesLogPerson(
+            row[0],
+            parsed.rowJson,
+            targetUser,
+            cleanTargetName,
+            foldedTarget
+          );
+          if (!isMatch) continue;
+        }
+
+        var entryYm = '';
+        if (parsed.entry.timestamp > 0) {
+          entryYm = Utilities.formatDate(new Date(parsed.entry.timestamp), CONFIG.TIMEZONE, 'yyyy-MM');
+          if (entryYm) availableMonthsMap[entryYm] = true;
+        }
+
+        if (requestedMonth && requestedMonth !== 'ALL' && entryYm !== requestedMonth) {
+          continue;
+        }
+
+        var personKey = (!filterAllUsers && (targetUser || foldedTarget))
+          ? (targetUser || foldedTarget)
+          : JsonCacheService.foldPersonName(parsed.entry.fullname);
+        var dedupeKey = personKey + '|' + parsed.entry.time + '|' + parsed.entry.type.toLowerCase();
+        if (seenKeys[dedupeKey] && seenKeys[dedupeKey] !== curSheetName) continue;
+        seenKeys[dedupeKey] = curSheetName;
+
+        matchedLogs.push(parsed.entry);
+        if (parsed.isCheckIn) {
+          totalCheckIn++;
+        } else {
+          totalCheckOut++;
+        }
+        if (parsed.isHopLe) validCount++;
+      }
+    }
+
+    matchedLogs.sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
+    var availableMonths = Object.keys(availableMonthsMap).sort(function(a, b) {
+      return a < b ? 1 : (a > b ? -1 : 0);
+    });
+
+    return jsonResponse(true, {
+      logs: matchedLogs.slice(0, maxLimit),
+      totalCount: matchedLogs.length,
+      availableMonths: availableMonths,
+      stats: {
+        totalPunches: matchedLogs.length,
+        totalCheckIn: totalCheckIn,
+        totalCheckOut: totalCheckOut,
+        validCount: validCount
+      }
+    });
+  } catch (err) {
+    Logger.log('handleGetCheckinLogs error: ' + err.toString());
+    return jsonResponse(false, 'Lỗi tải lịch sử chấm công đầy đủ: ' + err.message);
   }
 }
 
@@ -4681,6 +4916,7 @@ function handleApproveMissedCheckin(payload) {
       } finally {
         try { lock.releaseLock(); } catch(e) {}
       }
+      try { invalidateGetDataCache(claim.username || ''); } catch (cacheErr) {}
     }
 
     if (typeof appendAuditLog_ === 'function') {
@@ -4752,7 +4988,8 @@ function handleUpdateCheckinType(payload) {
       return jsonResponse(false, 'Thiếu thông tin cập nhật loại chấm công.');
     }
     var ss = getSS();
-    var sheet = ss.getSheetByName(CONFIG.SHEET_LOGS);
+    var requestedSheetName = payload.sourceSheet ? String(payload.sourceSheet).trim() : CONFIG.SHEET_LOGS;
+    var sheet = ss.getSheetByName(requestedSheetName) || ss.getSheetByName(CONFIG.SHEET_LOGS);
     if (!sheet) return jsonResponse(false, 'Không tìm thấy sheet chấm công');
 
     var isAdmin = true;
@@ -4760,13 +4997,14 @@ function handleUpdateCheckinType(payload) {
     var lastRow = sheet.getLastRow();
     if (lastRow <= 1) return jsonResponse(false, 'Không có dữ liệu chấm công để cập nhật.');
 
-    var targetFullname = payload.fullname ? payload.fullname.trim().toLowerCase() : '';
+    var targetFullname = payload.fullname ? JsonCacheService.normalizePersonName(payload.fullname) : '';
+    var foldedTargetFullname = payload.fullname ? JsonCacheService.foldPersonName(payload.fullname) : '';
     var targetTime = payload.time ? payload.time.toString().trim().replace(/^'/, '') : '';
 
     // 1. Kiểm tra rowIndex gửi lên nếu hợp lệ
     if (payload.rowIndex && payload.rowIndex >= 2 && payload.rowIndex <= lastRow) {
       var checkRow = sheet.getRange(payload.rowIndex, 1, 1, 8).getValues()[0];
-      var checkName = checkRow[0] ? checkRow[0].toString().trim().toLowerCase() : '';
+      var checkName = checkRow[0] ? JsonCacheService.normalizePersonName(checkRow[0]) : '';
       var checkTime = checkRow[2] ? checkRow[2].toString().trim().replace(/^'/, '') : '';
 
       if (isAdmin || checkName === targetFullname || checkName === payload.username.toLowerCase()) {
@@ -4776,14 +5014,25 @@ function handleUpdateCheckinType(payload) {
       }
     }
 
-    // 2. Fallback quét 300 dòng đầu tìm theo fullname và time
+    // 2. Fallback quét toàn bộ sheet theo fullname/username và time (không bị giới hạn 300 dòng)
     if (targetRowIndex === -1) {
-      var scanRows = sheet.getRange(2, 1, Math.min(lastRow - 1, 300), 8).getValues();
+      var scanRows = sheet.getRange(2, 1, lastRow - 1, 8).getValues();
       for (var r = 0; r < scanRows.length; r++) {
         var row = scanRows[r];
-        var rName = row[0] ? row[0].toString().trim().toLowerCase() : '';
         var rTime = row[2] ? row[2].toString().trim().replace(/^'/, '') : '';
-        if ((isAdmin || rName === targetFullname || rName === payload.username.toLowerCase()) && rTime === targetTime) {
+        if (rTime !== targetTime) continue;
+        var rowJsonCheck = null;
+        if (row[7]) {
+          try { rowJsonCheck = JSON.parse(row[7].toString()); } catch (ejc) {}
+        }
+        var nameMatches = !targetFullname || JsonCacheService.matchesLogPerson(
+          row[0],
+          rowJsonCheck,
+          payload.targetUsername ? String(payload.targetUsername).toLowerCase() : '',
+          targetFullname,
+          foldedTargetFullname
+        );
+        if (nameMatches) {
           targetRowIndex = r + 2;
           break;
         }
@@ -4832,7 +5081,12 @@ function handleUpdateCheckinType(payload) {
       sheet.getRange(targetRowIndex, 8).setValue(JSON.stringify(dataJson));
     }
 
-    // Xóa cache để cập nhật ngay lập tức
+    // Xóa cache của cả nhân viên được sửa lẫn Admin để cập nhật ngay lập tức
+    if (dataJson && dataJson.username) {
+      invalidateGetDataCache(String(dataJson.username));
+    } else {
+      invalidateGetDataCache();
+    }
     invalidateGetDataCache(payload.username);
     if (typeof appendAuditLog_ === 'function') {
       try {

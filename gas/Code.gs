@@ -73,6 +73,7 @@ function doPost(e) {
       case 'DIAGNOSE_AND_HEAL_IMAGES': return handleDiagnoseAndHealImages(payload);
       case 'DIAGNOSE_CELLS': return handleDiagnoseCells(payload);
       case 'GET_DATA': return handleGetData(payload);
+      case 'GET_CHECKIN_LOGS': return handleGetCheckinLogs(payload);
       case 'SYNC_KEYS': return handleSyncKeys(payload);
       case 'UPDATE_AI_PROMPTS': return handleUpdateAiPrompts(payload);
       case 'GET_KEYS': return handleGetKeys(payload);

@@ -828,25 +828,46 @@ export function isSameCalendarDay(d1: Date, d2: Date): boolean {
   );
 }
 
+function normalizeIdentityToken(val: string | undefined | null): string {
+  if (!val) return '';
+  return String(val)
+    .normalize('NFC')
+    .replace(/^┗\s*/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function foldVietnameseIdentity(val: string): string {
+  if (!val) return '';
+  return val
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, 'd')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
 /**
- * Flexible User Matching: handles exact names, usernames, diacritic differences, and casing
+ * Flexible User Matching: handles exact names, usernames, NFC/NFD Unicode, Đ/đ folding, extra spaces, and casing
  */
 export function matchesUser(
   log: { fullname?: string; username?: string } | undefined | null,
   currentUser: { fullname: string; username?: string } | undefined | null
 ): boolean {
   if (!log || !currentUser) return false;
-  const userFullname = (currentUser.fullname || '').trim().toLowerCase();
-  const username = (currentUser.username || '').trim().toLowerCase();
-  const logFullname = (log.fullname || '').trim().toLowerCase();
-  const logUsername = (log.username || '').trim().toLowerCase();
+  const userFullname = normalizeIdentityToken(currentUser.fullname);
+  const username = normalizeIdentityToken(currentUser.username);
+  const logFullname = normalizeIdentityToken(log.fullname);
+  const logUsername = normalizeIdentityToken(log.username);
 
-  if (logFullname && (logFullname === userFullname || logFullname === username)) return true;
-  if (logUsername && (logUsername === username || logUsername === userFullname)) return true;
+  if (logFullname && (logFullname === userFullname || (username && logFullname === username))) return true;
+  if (logUsername && ((username && logUsername === username) || (userFullname && logUsername === userFullname))) return true;
 
-  // Normalized without diacritics (e.g. Nguyễn Văn A vs Nguyen Van A)
-  const normUser = userFullname.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  const normLog = logFullname.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  // Normalized without diacritics + Vietnamese Đ/đ -> d (e.g. Đặng Thị Hồng Ánh vs Dang Thi Hong Anh)
+  const normUser = foldVietnameseIdentity(userFullname);
+  const normLog = foldVietnameseIdentity(logFullname);
   if (normUser && normLog && normUser === normLog) return true;
 
   return false;

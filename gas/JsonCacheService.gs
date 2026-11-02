@@ -278,6 +278,7 @@ var JsonCacheService = (function() {
 
     addRange(CONFIG.SHEET_USERS, "A1:L");
     addRange(CONFIG.SHEET_LOGS, "A1:H");
+    addRange("👨‍🍳 CHẤM CÔNG BẾP - TẠP VỤ", "A1:H");
     addRange(CONFIG.SHEET_API_KEYS, "A1:C");
     addRange(CONFIG.SHEET_CHAT_LOGS, "A1:E");
     addRange(CONFIG.SHEET_CONFIG, "A1:B");
@@ -456,7 +457,7 @@ var JsonCacheService = (function() {
     var s = timeVal.toString().trim().replace(/^'/, '');
     var parts = s.split(' ');
     if (parts.length >= 2) {
-      var dParts = parts[0].split('/');
+      var dParts = parts[0].split(/[\/\-]/);
       var tParts = parts[1].split(':');
       if (dParts.length === 3 && tParts.length >= 2) {
         var day = parseInt(dParts[0], 10);
@@ -507,6 +508,106 @@ var JsonCacheService = (function() {
     return '';
   }
 
+  function foldPersonName(val) {
+    if (!val) return '';
+    var s = val.toString();
+    if (typeof s.normalize === 'function') {
+      s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }
+    return s
+      .replace(/^┗\s*/, '')
+      .replace(/[đĐ]/g, 'd')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+  }
+
+  function matchesLogPerson(rowCol0, rowJson, cleanUsername, cleanFullname, foldedFullname) {
+    var rowName = normalizePersonName(rowCol0);
+    var jsonUser = (rowJson && rowJson.username) ? rowJson.username.toString().trim().toLowerCase() : '';
+    if (cleanFullname && rowName && rowName === cleanFullname) return true;
+    if (cleanUsername && rowName && rowName === cleanUsername) return true;
+    if (cleanUsername && jsonUser && jsonUser === cleanUsername) return true;
+    if (cleanFullname && jsonUser && jsonUser === cleanFullname) return true;
+    if (foldedFullname && rowCol0) {
+      var rowFolded = foldPersonName(rowCol0);
+      if (rowFolded && rowFolded === foldedFullname) return true;
+    }
+    return false;
+  }
+
+  function parseLogRowToEntry(row, rowNumber1, sourceSheetName) {
+    if (!row || !row[0]) return null;
+    var rawName = row[0].toString().trim();
+    if (!rawName) return null;
+    var foldedHeader = foldPersonName(rawName);
+    if (
+      foldedHeader === 'ho va ten' ||
+      foldedHeader === 'nhan vien' ||
+      foldedHeader === 'ten nhan vien' ||
+      foldedHeader === 'fullname'
+    ) {
+      return null;
+    }
+
+    var rowJson = null;
+    if (row[7]) {
+      try { rowJson = JSON.parse(row[7].toString()); } catch (e) {}
+    }
+
+    var typeStr = row[1] ? row[1].toString().trim() : '';
+    var timeVal = row[2];
+    var timeStr = '';
+    if (timeVal instanceof Date && !isNaN(timeVal.getTime())) {
+      timeStr = Utilities.formatDate(timeVal, CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm:ss');
+    } else if (timeVal) {
+      timeStr = timeVal.toString().replace(/^'/, '').trim();
+    }
+    var ts = parseLogTimestamp(timeVal || timeStr, rowJson || row[7]);
+    if (!ts && !timeStr) return null;
+    if (sourceSheetName && sourceSheetName !== CONFIG.SHEET_LOGS && ts <= 0) return null;
+
+    var statusVal = row[4] ? row[4].toString() : '';
+    var upperStatus = statusVal.toUpperCase();
+    var isHopLe = upperStatus.indexOf('HỢP LỆ') >= 0 && upperStatus.indexOf('KHÔNG') < 0;
+    var note = rowJson && rowJson.ghiChu
+      ? rowJson.ghiChu
+      : (rowJson && rowJson.diTre ? 'Trễ ' + rowJson.diTre + 'p' : '');
+    if (rowJson && rowJson.isCorrected) {
+      note = (note ? note + ' • ' : '') + 'Đã sửa từ ' + (rowJson.originalType || 'loại cũ');
+    }
+
+    var cleanDisplayName = typeof rawName.normalize === 'function'
+      ? rawName.normalize('NFC').replace(/\s+/g, ' ').trim()
+      : rawName.replace(/\s+/g, ' ').trim();
+
+    var entry = {
+      rowIndex: rowNumber1,
+      sourceSheet: sourceSheetName || CONFIG.SHEET_LOGS,
+      username: (rowJson && rowJson.username) ? rowJson.username.toString().trim() : '',
+      fullname: cleanDisplayName,
+      type: typeStr,
+      time: timeStr,
+      location: row[3] ? row[3].toString() : '',
+      status: statusVal,
+      distance: row[5] ? row[5].toString() : '',
+      image: _resolveLogImageUrl(row[6], rowJson, timeStr),
+      note: note,
+      isCorrected: !!(rowJson && rowJson.isCorrected),
+      editReason: rowJson && rowJson.correctionReason ? rowJson.correctionReason : '',
+      originalType: rowJson && rowJson.originalType ? rowJson.originalType : '',
+      claimId: rowJson && rowJson.claimId ? rowJson.claimId : '',
+      timestamp: ts
+    };
+
+    return {
+      entry: entry,
+      rowJson: rowJson,
+      isHopLe: isHopLe,
+      isCheckIn: typeStr.toLowerCase().indexOf('vào ca') >= 0 || typeStr.toUpperCase() === 'IN'
+    };
+  }
+
   /**
    * Rebuilds and caches user-specific data.
    */
@@ -515,63 +616,41 @@ var JsonCacheService = (function() {
     var todayStr = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'dd/MM/yyyy');
 
     var cleanFullname = fullname ? normalizePersonName(fullname) : '';
+    var foldedFullname = fullname ? foldPersonName(fullname) : '';
     var cleanUsername = username ? String(username).trim().toLowerCase() : '';
 
-    // Logs & Stats
-    var logData = db.getValues(CONFIG.SHEET_LOGS);
-    if (logData && logData.length > 1) {
-      var logs = [], userCheckins = 0, validCount = 0;
-      var maxRows = Math.min(logData.length, 1200);
+    // Logs & Stats — scan 100% of active attendance sheets (no 1,200-row or 60-item cutoff)
+    var activeSheets = [CONFIG.SHEET_LOGS, "👨‍🍳 CHẤM CÔNG BẾP - TẠP VỤ"];
+    var logs = [], userCheckins = 0, validCount = 0;
+    var seenKeys = {};
 
-      // Sheet inserts new rows at Row 2, so index 1 is newest. Loop top-down.
-      for (var i = 1; i < maxRows; i++) {
+    for (var sIdx = 0; sIdx < activeSheets.length; sIdx++) {
+      var shName = activeSheets[sIdx];
+      var logData = db.getValues(shName);
+      if (!logData || logData.length <= 1) continue;
+
+      for (var i = 1; i < logData.length; i++) {
         var row = logData[i];
-        if (!row[0]) continue;
-        var rowName = row[0].toString().trim().toLowerCase();
-        var rowJson = null;
-        if (row[7]) {
-          try { rowJson = JSON.parse(row[7].toString()); } catch(e){}
-        }
-        var matchesUser = (cleanFullname && rowName === cleanFullname) || 
-                          (cleanUsername && rowName === cleanUsername) ||
-                          (rowJson && rowJson.username && rowJson.username.toString().toLowerCase() === cleanUsername);
+        if (!row || !row[0]) continue;
+        var parsed = parseLogRowToEntry(row, i + 1, shName);
+        if (!parsed) continue;
 
-        if (matchesUser) {
-          var timeVal = row[2];
-          var timeStr = timeVal ? timeVal.toString().replace(/^'/, '') : '';
-          var statusVal = row[4] ? row[4].toString() : '';
-          var isHopLe = statusVal.toUpperCase().indexOf('HỢP LỆ') >= 0 && statusVal.toUpperCase().indexOf('KHÔNG') < 0;
-          var ts = parseLogTimestamp(timeVal, row[7]);
+        if (matchesLogPerson(row[0], parsed.rowJson, cleanUsername, cleanFullname, foldedFullname)) {
+          var dedupeKey = (cleanUsername || foldedFullname || foldPersonName(parsed.entry.fullname)) +
+            '|' + parsed.entry.time + '|' + parsed.entry.type.toLowerCase();
+          if (seenKeys[dedupeKey] && seenKeys[dedupeKey] !== shName) continue;
+          seenKeys[dedupeKey] = shName;
 
-          var note = rowJson && rowJson.ghiChu ? rowJson.ghiChu : (rowJson && rowJson.diTre ? 'Trễ ' + rowJson.diTre + 'p' : '');
-          if (rowJson && rowJson.isCorrected) {
-            note = (note ? note + ' • ' : '') + 'Đã sửa từ ' + (rowJson.originalType || 'loại cũ');
-          }
-
-          logs.push({ 
-            rowIndex: i + 1,
-            fullname: row[0].toString(), 
-            type: row[1] ? row[1].toString() : '', 
-            time: timeStr, 
-            location: row[3] ? row[3].toString() : '', 
-            status: statusVal, 
-            distance: row[5] ? row[5].toString() : '', 
-            image: _resolveLogImageUrl(row[6], rowJson, timeStr),
-            note: note,
-            isCorrected: !!(rowJson && rowJson.isCorrected),
-            editReason: rowJson && rowJson.correctionReason ? rowJson.correctionReason : '',
-            originalType: rowJson && rowJson.originalType ? rowJson.originalType : '',
-            claimId: rowJson && rowJson.claimId ? rowJson.claimId : '',
-            timestamp: ts
-          });
-          if (row[1] && row[1].toString().toLowerCase().indexOf('vào ca') >= 0) userCheckins++;
-          if (isHopLe) validCount++;
+          logs.push(parsed.entry);
+          if (parsed.isCheckIn) userCheckins++;
+          if (parsed.isHopLe) validCount++;
         }
       }
+    }
 
-      // Sort newest first
+    if (logs.length > 0) {
       logs.sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
-      result.logs = logs.slice(0, 60);
+      result.logs = logs.slice(0, 500);
       result.stats = { totalCheckIn: userCheckins, validCount: validCount };
     }
 
@@ -747,49 +826,32 @@ var JsonCacheService = (function() {
     }
     result.users = users;
 
-    // All Logs (Admin sees everything)
-    var logData = db.getValues(CONFIG.SHEET_LOGS);
+    // All Logs (Admin sees everything across active attendance sheets, no 1,200-row cap)
+    var adminLogSheets = [CONFIG.SHEET_LOGS, "👨‍🍳 CHẤM CÔNG BẾP - TẠP VỤ"];
     var logs = [], totalCheckins = 0, validCount = 0;
-    if (logData && logData.length > 1) {
-      var maxRows = Math.min(logData.length, 1200);
-      for (var i = 1; i < maxRows; i++) {
+    var adminSeenKeys = {};
+    for (var asIdx = 0; asIdx < adminLogSheets.length; asIdx++) {
+      var aSheetName = adminLogSheets[asIdx];
+      var logData = db.getValues(aSheetName);
+      if (!logData || logData.length <= 1) continue;
+      for (var i = 1; i < logData.length; i++) {
         var row = logData[i];
-        if (!row[0]) continue;
-        var timeVal = row[2];
-        var timeStr = timeVal ? timeVal.toString().replace(/^'/, '') : '';
-        var statusVal = row[4] ? row[4].toString() : '';
-        var isHopLe = statusVal.toUpperCase().indexOf('HỢP LỆ') >= 0 && statusVal.toUpperCase().indexOf('KHÔNG') < 0;
-        var ts = parseLogTimestamp(timeVal, row[7]);
-        var rowJson = null;
-        if (row[7]) {
-          try { rowJson = JSON.parse(row[7].toString()); } catch(e){}
-        }
-        var note = rowJson && rowJson.ghiChu ? rowJson.ghiChu : (rowJson && rowJson.diTre ? 'Trễ ' + rowJson.diTre + 'p' : '');
-        if (rowJson && rowJson.isCorrected) {
-          note = (note ? note + ' • ' : '') + 'Đã sửa từ ' + (rowJson.originalType || 'loại cũ');
-        }
+        if (!row || !row[0]) continue;
+        var parsedAdmin = parseLogRowToEntry(row, i + 1, aSheetName);
+        if (!parsedAdmin) continue;
+        var aDedupe = foldPersonName(parsedAdmin.entry.fullname) +
+          '|' + parsedAdmin.entry.time + '|' + parsedAdmin.entry.type.toLowerCase();
+        if (adminSeenKeys[aDedupe] && adminSeenKeys[aDedupe] !== aSheetName) continue;
+        adminSeenKeys[aDedupe] = aSheetName;
 
-        logs.push({ 
-          rowIndex: i + 1,
-          fullname: row[0].toString(), 
-          type: row[1] ? row[1].toString() : '', 
-          time: timeStr, 
-          location: row[3] ? row[3].toString() : '', 
-          status: statusVal, 
-          distance: row[5] ? row[5].toString() : '', 
-          image: _resolveLogImageUrl(row[6], rowJson, timeStr),
-          note: note,
-          isCorrected: !!(rowJson && rowJson.isCorrected),
-          editReason: rowJson && rowJson.correctionReason ? rowJson.correctionReason : '',
-          originalType: rowJson && rowJson.originalType ? rowJson.originalType : '',
-          claimId: rowJson && rowJson.claimId ? rowJson.claimId : '',
-          timestamp: ts
-        });
-        if (row[1] && row[1].toString().toLowerCase().indexOf('vào ca') >= 0) totalCheckins++;
-        if (isHopLe) validCount++;
+        logs.push(parsedAdmin.entry);
+        if (parsedAdmin.isCheckIn) totalCheckins++;
+        if (parsedAdmin.isHopLe) validCount++;
       }
+    }
+    if (logs.length > 0) {
       logs.sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
-      result.logs = logs.slice(0, 60);
+      result.logs = logs.slice(0, 600);
       result.stats = { totalCheckIn: totalCheckins, validCount: validCount };
     }
 
@@ -928,6 +990,11 @@ var JsonCacheService = (function() {
     batchFetchRawData: batchFetchRawData,
     rebuildGlobalCache: rebuildGlobalCache,
     rebuildUserCache: rebuildUserCache,
-    rebuildAdminExtCache: rebuildAdminExtCache
+    rebuildAdminExtCache: rebuildAdminExtCache,
+    normalizePersonName: normalizePersonName,
+    foldPersonName: foldPersonName,
+    matchesLogPerson: matchesLogPerson,
+    parseLogTimestamp: parseLogTimestamp,
+    parseLogRowToEntry: parseLogRowToEntry
   };
 })();

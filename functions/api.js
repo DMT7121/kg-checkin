@@ -571,8 +571,33 @@ async function syncScheduleToGasWithRetry(env, scheduleId, payload, bodyText) {
   return { ok: false, queued: true };
 }
 
+function foldEdgePersonName(val) {
+  if (!val) return '';
+  return String(val)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, 'd')
+    .replace(/^┗\s*/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function extractYmFromVietnamTime(timeStr) {
+  const clean = String(timeStr || '').replace(/^'/, '').trim();
+  const dmy = clean.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if (dmy) {
+    return `${dmy[3]}-${String(parseInt(dmy[2], 10)).padStart(2, '0')}`;
+  }
+  const iso = clean.match(/^(\d{4})-(\d{2})-\d{2}/);
+  if (iso) {
+    return `${iso[1]}-${iso[2]}`;
+  }
+  return '';
+}
+
 // ============================================================================
-// 2. Real-Time D1 Overlays on Read Responses (`GET_DATA`, `GET_ALL_SCHEDULES`)
+// 2. Real-Time D1 Overlays on Read Responses (`GET_DATA`, `GET_CHECKIN_LOGS`, `GET_ALL_SCHEDULES`)
 // ============================================================================
 async function applyD1Overlays(action, payload, resultObj, env, verifiedSession = null) {
   if (!resultObj || !resultObj.ok || !resultObj.data) {
@@ -639,52 +664,56 @@ async function applyD1Overlays(action, payload, resultObj, env, verifiedSession 
         }
       }
 
-      // 2.2 Overlay recent check-in logs (last 15 minutes) from D1 so logs are never stale
-      const cutoff = Date.now() - 15 * 60 * 1000;
+      // 2.2 Overlay recent check-in logs (last 24 hours) from D1 so logs are never stale
+      const cutoff = Date.now() - 24 * 60 * 60 * 1000;
       const recentLogsRes = await env.DB.prepare(
-        `SELECT username, fullname, check_type, shift_name, time_str, status, distance, lat, lng, note, image_url
+        `SELECT username, fullname, check_type, shift_name, time_str, status, distance, lat, lng, note, image_url, created_at
          FROM edge_checkin_logs
          WHERE created_at >= ?1
          ORDER BY created_at DESC
-         LIMIT 25`
+         LIMIT 250`
       )
         .bind(cutoff)
         .all();
 
       if (recentLogsRes?.results?.length > 0 && Array.isArray(data.logs)) {
+        const foldedCaller = foldEdgePersonName(fullname);
         const existingKeys = new Set(
           data.logs.map(
             (l) =>
-              `${String(l.fullname || '').trim().toLowerCase()}|${String(l.time || '').replace(/^'/, '').trim()}`
+              `${foldEdgePersonName(l.fullname)}|${String(l.time || '').replace(/^'/, '').trim()}|${String(l.type || '').trim().toLowerCase()}`
           )
         );
         const missingLogs = [];
         for (const r of recentLogsRes.results) {
           const rowUser = String(r.username || '').trim().toLowerCase();
-          const rowFullname = String(r.fullname || '').trim().toLowerCase();
+          const rowFoldedName = foldEdgePersonName(r.fullname);
           // Non-admin staff must ONLY see their own check-in GPS & selfie logs
           if (!isStrictlyAdmin) {
             const matchesUser = username && rowUser && rowUser === username;
-            const matchesName = fullname && rowFullname && rowFullname === fullname.toLowerCase();
+            const matchesName = foldedCaller && rowFoldedName && rowFoldedName === foldedCaller;
             if (!matchesUser && !matchesName) {
               continue;
             }
           }
           const cleanTime = String(r.time_str || '').replace(/^'/, '').trim();
-          const key = `${rowFullname}|${cleanTime}`;
+          const cleanType = String(r.check_type || '').trim().toLowerCase();
+          const key = `${rowFoldedName}|${cleanTime}|${cleanType}`;
           if (!existingKeys.has(key)) {
             existingKeys.add(key);
             missingLogs.push({
+              username: r.username,
               time: r.time_str,
               fullname: r.fullname,
               type: r.check_type,
               shift: r.shift_name,
               status: r.status,
-              distance: r.distance,
+              distance: r.distance !== undefined && r.distance !== null ? `${r.distance}m` : '',
               lat: r.lat,
               lng: r.lng,
               note: r.note,
               image: r.image_url,
+              timestamp: Number(r.created_at || Date.now()),
             });
           }
         }
@@ -693,6 +722,116 @@ async function applyD1Overlays(action, payload, resultObj, env, verifiedSession 
         }
       }
 
+      return cloned;
+    }
+
+    if (action === 'GET_CHECKIN_LOGS') {
+      const cloned = JSON.parse(JSON.stringify(resultObj));
+      const data = cloned.data || {};
+      const baseLogs = Array.isArray(data.logs) ? data.logs : [];
+      const callerUser = String(payload.username || '').trim().toLowerCase();
+      const foldedCaller = foldEdgePersonName(payload.fullname || '');
+      const reqUser = String(payload.targetUsername || '').trim();
+      const reqName = String(payload.targetFullname || '').trim();
+      const requestedMonth = String(payload.month || 'ALL').trim();
+
+      const filterAllUsers =
+        isStrictlyAdmin && (!reqUser || reqUser === 'ALL') && (!reqName || reqName === 'ALL');
+      const targetUser = isStrictlyAdmin
+        ? reqUser && reqUser !== 'ALL'
+          ? reqUser.toLowerCase()
+          : ''
+        : callerUser;
+      const foldedTarget = isStrictlyAdmin
+        ? reqName && reqName !== 'ALL'
+          ? foldEdgePersonName(reqName)
+          : ''
+        : foldedCaller;
+
+      const cutoff7d = Date.now() - 7 * 86400 * 1000;
+      const d1LogsRes = await env.DB.prepare(
+        `SELECT username, fullname, check_type, shift_name, time_str, status, distance, lat, lng, note, image_url, created_at
+         FROM edge_checkin_logs
+         WHERE created_at >= ?1
+         ORDER BY created_at DESC
+         LIMIT 500`
+      )
+        .bind(cutoff7d)
+        .all();
+
+      if (d1LogsRes?.results?.length > 0) {
+        const existingKeys = new Set(
+          baseLogs.map(
+            (l) =>
+              `${foldEdgePersonName(l.fullname)}|${String(l.time || '').replace(/^'/, '').trim()}|${String(l.type || '').trim().toLowerCase()}`
+          )
+        );
+        const monthsSet = new Set(Array.isArray(data.availableMonths) ? data.availableMonths : []);
+        const missingLogs = [];
+
+        for (const r of d1LogsRes.results) {
+          const rowUser = String(r.username || '').trim().toLowerCase();
+          const rowFolded = foldEdgePersonName(r.fullname);
+          if (!filterAllUsers) {
+            const mUser = targetUser && rowUser && rowUser === targetUser;
+            const mName = foldedTarget && rowFolded && rowFolded === foldedTarget;
+            if (!mUser && !mName) continue;
+          }
+
+          const cleanTime = String(r.time_str || '').replace(/^'/, '').trim();
+          const ym = extractYmFromVietnamTime(cleanTime);
+          if (ym) monthsSet.add(ym);
+          if (requestedMonth && requestedMonth !== 'ALL' && ym && ym !== requestedMonth) {
+            continue;
+          }
+
+          const cleanType = String(r.check_type || '').trim().toLowerCase();
+          const key = `${rowFolded}|${cleanTime}|${cleanType}`;
+          if (!existingKeys.has(key)) {
+            existingKeys.add(key);
+            missingLogs.push({
+              username: r.username,
+              time: r.time_str,
+              fullname: r.fullname,
+              type: r.check_type,
+              shift: r.shift_name,
+              status: r.status,
+              distance: r.distance !== undefined && r.distance !== null ? `${r.distance}m` : '',
+              lat: r.lat,
+              lng: r.lng,
+              note: r.note,
+              image: r.image_url,
+              timestamp: Number(r.created_at || Date.now()),
+            });
+          }
+        }
+
+        if (missingLogs.length > 0) {
+          const merged = [...missingLogs, ...baseLogs];
+          merged.sort((a, b) => (Number(b.timestamp) || 0) - (Number(a.timestamp) || 0));
+          data.logs = merged;
+          data.totalCount = merged.length;
+          data.availableMonths = Array.from(monthsSet).sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
+          let totalCheckIn = 0;
+          let totalCheckOut = 0;
+          let validCount = 0;
+          for (const item of merged) {
+            const tLower = String(item.type || '').toLowerCase();
+            if (tLower.includes('vào ca') || tLower === 'in') totalCheckIn++;
+            else totalCheckOut++;
+            const sUpper = String(item.status || '').toUpperCase();
+            if (sUpper.includes('HỢP LỆ') && !sUpper.includes('KHÔNG')) validCount++;
+          }
+          data.stats = {
+            totalPunches: merged.length,
+            totalCheckIn,
+            totalCheckOut,
+            validCount,
+          };
+        }
+      }
+
+      cloned.data = data;
       return cloned;
     }
 
@@ -1971,6 +2110,66 @@ async function handleLegacyGasFallback(context, action, payload, preMergedCheckl
   const { env } = context;
   const now = Date.now();
   const vnTime = formatVietnamTimestampFromMs(now);
+
+  if (action === 'GET_CHECKIN_LOGS') {
+    try {
+      const legacyBody = JSON.stringify({
+        action: 'GET_DATA',
+        username: payload.username,
+        fullname: payload.fullname,
+        role: payload.role,
+        forceRefresh: Boolean(payload.forceRefresh),
+      });
+      const fallbackGasRes = await fetch(TARGET_GAS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: legacyBody,
+      });
+      const fallbackParsed = await fallbackGasRes.json();
+      if (fallbackParsed?.ok && Array.isArray(fallbackParsed?.data?.logs)) {
+        const isAdmin = String(payload.role || '').trim().toLowerCase() === 'admin';
+        const callerFolded = foldEdgePersonName(payload.fullname || '');
+        const callerUser = String(payload.username || '').trim().toLowerCase();
+        const reqName = String(payload.targetFullname || '').trim();
+        const reqUser = String(payload.targetUsername || '').trim().toLowerCase();
+        const reqMonth = String(payload.month || 'ALL').trim();
+
+        const monthsSet = new Set();
+        const filtered = fallbackParsed.data.logs.filter((l) => {
+          const ym = extractYmFromVietnamTime(l.time);
+          if (ym) monthsSet.add(ym);
+          if (!isAdmin) {
+            const lf = foldEdgePersonName(l.fullname);
+            const lu = String(l.username || '').trim().toLowerCase();
+            if (lf !== callerFolded && (!callerUser || lu !== callerUser)) return false;
+          } else if ((reqName && reqName !== 'ALL') || (reqUser && reqUser !== 'all')) {
+            const lf = foldEdgePersonName(l.fullname);
+            const lu = String(l.username || '').trim().toLowerCase();
+            const matchN = reqName && reqName !== 'ALL' && lf === foldEdgePersonName(reqName);
+            const matchU = reqUser && reqUser !== 'all' && lu === reqUser;
+            if (!matchN && !matchU) return false;
+          }
+          if (reqMonth && reqMonth !== 'ALL' && ym && ym !== reqMonth) return false;
+          return true;
+        });
+
+        return {
+          ok: true,
+          data: {
+            logs: filtered,
+            totalCount: filtered.length,
+            availableMonths: Array.from(monthsSet).sort((a, b) => (a < b ? 1 : a > b ? -1 : 0)),
+            stats: {
+              totalPunches: filtered.length,
+              totalCheckIn: filtered.filter((l) => String(l.type || '').toLowerCase().includes('vào ca')).length,
+              totalCheckOut: filtered.filter((l) => !String(l.type || '').toLowerCase().includes('vào ca')).length,
+              validCount: filtered.filter((l) => String(l.status || '').toUpperCase().includes('HỢP LỆ')).length,
+            },
+          },
+        };
+      }
+    } catch {}
+  }
 
   if (action === 'GET_INCIDENTS') {
     const incidents = [];

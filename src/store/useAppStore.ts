@@ -165,6 +165,8 @@ export interface Feedback {
 
 export interface LogEntry {
   rowIndex?: number;
+  username?: string;
+  sourceSheet?: string;
   fullname: string;
   type: string;
   time: string;
