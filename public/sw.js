@@ -1,5 +1,5 @@
 /* King's Grill Staff OS — Safe 4G PWA Service Worker */
-const CACHE_VERSION = 'kg-staff-os-v4';
+const CACHE_VERSION = 'kg-staff-os-v15';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const CORE_SHELL_URLS = [
   '/',

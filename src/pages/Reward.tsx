@@ -24,8 +24,8 @@ import {
   CalendarCheck,
   Banknote,
   ShoppingBag,
+  GraduationCap,
 } from 'lucide-react';
-import Swal from 'sweetalert2';
 import { motion } from 'framer-motion';
 import { KgModuleHero } from '../components/KgDesignSystem';
 
@@ -51,17 +51,20 @@ export default function Reward() {
   const [coinHistory, setCoinHistory] = useState<CoinEntry[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [activeTab, setActiveTab] = useState<'wallet' | 'leaderboard' | 'shop'>('wallet');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(Boolean(currentUser?.username));
 
   // Fetch data on mount
   useEffect(() => {
+    const username = currentUser?.username;
+    if (!username) return;
+    let cancelled = false;
     const fetchData = async () => {
-      setLoading(true);
       try {
         const [coinsRes, boardRes] = await Promise.all([
-          callApi('GET_USER_COINS', { username: currentUser!.username }, { background: true }),
+          callApi('GET_USER_COINS', { username }, { background: true }),
           callApi('GET_LEADERBOARD', {}, { background: true })
         ]);
+        if (cancelled) return;
         if (coinsRes?.ok) {
           setTotalPoints(coinsRes.data.totalPoints || 0);
           setCoinHistory(coinsRes.data.history || []);
@@ -70,46 +73,28 @@ export default function Reward() {
           setLeaderboard(boardRes.data || []);
         }
       } catch (e) { console.error('Reward fetch error:', e); }
-      setLoading(false);
+      if (!cancelled) setLoading(false);
     };
-    fetchData();
-  }, []);
+    void fetchData();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser?.username]);
 
   const healthyRanking = useMemo(
     () => buildHealthyReliabilityRanking(leaderboard, currentUser?.username),
     [leaderboard, currentUser?.username]
   );
 
-  // Find user positive rank (healthy recognition — never displays shaming bottom/negative rank)
+  // Find user positive rank (healthy recognition — only positive accumulated totals appear on leaderboard)
   const myRank = healthyRanking.myPositiveRank ?? '-';
-
-  const handleRedeem = (itemName: string, cost: number) => {
-    if (totalPoints >= cost) {
-      Swal.fire({
-        title: 'Xác nhận đổi quà',
-        html: `Bạn sẽ dùng <b class="tabular-nums">${cost} King Coins</b> để đổi lấy:<br/><br/><span class="text-base font-bold text-[#062B49]">${itemName}</span>`,
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#10b981',
-        cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Xác nhận đổi',
-        cancelButtonText: 'Hủy'
-      }).then((result) => {
-        if (result.isConfirmed) {
-          setTotalPoints(p => p - cost);
-          Swal.fire('Thành công!', 'Yêu cầu đổi quà đã được gửi cho Quản lý.', 'success');
-        }
-      });
-    } else {
-      Swal.fire('Không đủ điểm', `Bạn cần thêm ${cost - totalPoints} King Coins nữa để đổi món quà này.`, 'error');
-    }
-  };
 
   const renderSourceIcon = (source: string) => {
     switch (source) {
       case 'CheckIn': return <MapPin size={17} />;
       case 'Checklist': return <ClipboardCheck size={17} />;
       case 'Handover': return <ArrowLeftRight size={17} />;
+      case 'Training': return <GraduationCap size={17} />;
       case 'Discipline': return <Scale size={17} />;
       default: return <Coins size={17} />;
     }
@@ -121,14 +106,15 @@ export default function Reward() {
       <KgModuleHero
         moduleId="reward"
         title="King Coins"
-        description="Tích điểm từ mọi hoạt động chấm công, checklist công việc, bàn giao ca."
+        description="Tích điểm từ chấm công đúng giờ, checklist công việc, bàn giao ca và đào tạo SOP."
         eyebrow="Phần thưởng"
-        tipTitle="Cơ chế Tích lũy King Coins & Đổi thưởng"
+        tipTitle="Cơ chế Tích lũy King Coins (Theo hệ thống)"
         tips={[
-          "Chấm công đúng giờ: +10 Coins mỗi ca làm việc hợp lệ.",
-          "Hoàn thành Checklist 100%: +20 Coins cho khu vực phụ trách.",
-          "Bàn giao ca chuẩn xác không lệch quỹ: +15 Coins.",
-          "Coins tích lũy dùng để đổi voucher ăn uống, ngày nghỉ phép ưu tiên hoặc quy đổi quà tặng cuối năm."
+          "Chấm công đúng giờ: +5 Coins mỗi ca hợp lệ (đi trễ: -10 Coins).",
+          "Hoàn thành Checklist: +10 Coins khi đồng bộ tiến độ ca.",
+          "Bàn giao ca đầy đủ: +15 Coins mỗi lượt bàn giao xác nhận.",
+          "Đào tạo SOP & Thưởng/Phạt: Cộng điểm theo từng bài kiểm tra đạt ≥70%; Thưởng nóng +20 Coins, Phạt lỗi -15 Coins.",
+          "Cửa hàng đổi quà hiện đang ở chế độ Sắp mở / Chỉ xem để bạn theo dõi mốc tích lũy."
         ]}
       />
 
@@ -154,9 +140,9 @@ export default function Reward() {
           <button 
             type="button"
             onClick={() => setActiveTab('shop')}
-            className="bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-black px-4 py-2.5 sm:px-5 sm:py-3 rounded-xl text-xs sm:text-sm shadow-xs active:scale-95 transition-all"
+            className="min-h-[44px] sm:min-h-[40px] bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-black px-4 py-2.5 sm:px-5 sm:py-3 rounded-xl text-xs sm:text-sm shadow-xs active:scale-95 transition-all touch-manipulation"
           >
-            Đổi quà
+            Xem quà
           </button>
         </div>
       </div>
@@ -165,18 +151,19 @@ export default function Reward() {
       <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-3.5 shadow-xs">
         <div className="flex items-center gap-2 mb-2.5">
           <Sparkles size={14} className="text-amber-500" />
-          <span className="text-xs font-black text-[var(--kg-text)]">Cơ chế tích điểm thi đua</span>
+          <span className="text-xs font-black text-[var(--kg-text)]">Cơ chế tích điểm thi đua thực tế</span>
         </div>
         <div className="flex flex-wrap gap-1.5">
           {[
-            { label: 'Đúng giờ', pts: '+5', Icon: MapPin },
-            { label: 'Checklist', pts: '+10', Icon: ClipboardCheck },
-            { label: 'Bàn giao', pts: '+15', Icon: ArrowLeftRight },
-            { label: 'Thưởng nóng', pts: '+20', Icon: Star },
-            { label: 'Đi trễ', pts: '-10', Icon: Clock },
-            { label: 'Phạt lỗi', pts: '-15', Icon: AlertTriangle },
+            { label: 'Đúng giờ', pts: '+5', positive: true, Icon: MapPin },
+            { label: 'Checklist', pts: '+10', positive: true, Icon: ClipboardCheck },
+            { label: 'Bàn giao', pts: '+15', positive: true, Icon: ArrowLeftRight },
+            { label: 'Học SOP', pts: 'Theo bài', positive: true, Icon: GraduationCap },
+            { label: 'Thưởng nóng', pts: '+20', positive: true, Icon: Star },
+            { label: 'Đi trễ', pts: '-10', positive: false, Icon: Clock },
+            { label: 'Phạt lỗi', pts: '-15', positive: false, Icon: AlertTriangle },
           ].map((item, i) => (
-            <div key={i} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold ${item.pts.startsWith('+') ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-900/40' : 'bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400 border border-rose-200/50 dark:border-rose-900/40'}`}>
+            <div key={i} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold ${item.positive ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-900/40' : 'bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400 border border-rose-200/50 dark:border-rose-900/40'}`}>
               <item.Icon size={12} />
               <span>{item.label}</span>
               <span className="font-mono tabular-nums font-black">{item.pts}</span>
@@ -186,7 +173,6 @@ export default function Reward() {
       </div>
 
       {/* Navigation Tabs */}
-      {/* Tabs */}
       <div className="flex bg-[var(--kg-surface)] border border-[var(--kg-border)] p-1.5 rounded-2xl shadow-xs gap-1.5">
         {[
           { id: 'wallet', label: 'Lịch sử', icon: History },
@@ -199,7 +185,7 @@ export default function Reward() {
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex-1 flex items-center justify-center space-x-1.5 py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all active:scale-95 select-none ${
+              className={`min-h-[44px] sm:min-h-[40px] flex-1 flex items-center justify-center space-x-1.5 py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all active:scale-95 select-none touch-manipulation ${
                 isSelected 
                   ? 'bg-[var(--kg-primary)] text-white shadow-xs scale-[1.01]' 
                   : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
@@ -273,7 +259,7 @@ export default function Reward() {
                 Bảng Vàng Chuyên Cần &amp; Đồng Đội Tin Cậy
               </h3>
               <p className="text-xs sm:text-sm text-[var(--kg-text-muted)] font-medium">
-                Tôn vinh đóng góp tích cực từ chấm công đúng giờ, checklist chuẩn, bàn giao ca và đào tạo SOP (chỉ ghi nhận thành tích dương).
+                Vinh danh tổng điểm dương tích lũy từ chấm công đúng giờ (+5), checklist (+10), bàn giao ca (+15), đào tạo SOP và thưởng nóng (+20). Các khoản trừ điểm (-10 đi trễ, -15 phạt lỗi) được hiển thị riêng tại Lịch sử ví.
               </p>
               <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-xs font-semibold text-[var(--kg-text)]">
                 <Sparkles size={13} className="text-amber-500 shrink-0" />
@@ -331,44 +317,52 @@ export default function Reward() {
         {/* TAB 3: CỬA HÀNG */}
         {activeTab === 'shop' && (
           <div className="space-y-4">
-            <h3 className="font-bold text-[var(--kg-text)] flex items-center gap-2">
-              <Gift size={18} className="text-[var(--kg-accent)]" /> Quà tặng hiện có
-            </h3>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="font-bold text-[var(--kg-text)] flex items-center gap-2">
+                <Gift size={18} className="text-[var(--kg-accent-ink)]" /> Quà tặng dự kiến
+              </h3>
+              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] border border-[var(--kg-warning)]/25">
+                Sắp mở đổi quà / Chỉ xem
+              </span>
+            </div>
 
             <div className="grid grid-cols-2 gap-3.5">
               {[
-                { name: 'Voucher Trà Sữa Phúc Long', cost: 150, Icon: Coffee, badgeBg: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' },
-                { name: '1 Ngày Nghỉ Phép', cost: 500, Icon: CalendarCheck, badgeBg: 'bg-sky-500/15 text-sky-600 dark:text-sky-400' },
-                { name: 'Voucher 100k Tiền mặt', cost: 1000, Icon: Banknote, badgeBg: 'bg-amber-500/15 text-amber-600 dark:text-amber-400' },
-                { name: "Balo King's Grill", cost: 800, Icon: ShoppingBag, badgeBg: 'bg-[var(--kg-accent-soft)] text-[var(--kg-accent)]' },
+                { name: 'Voucher Trà Sữa Phúc Long', cost: 150, Icon: Coffee, badgeBg: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' },
+                { name: '1 Ngày Nghỉ Phép', cost: 500, Icon: CalendarCheck, badgeBg: 'bg-sky-500/15 text-sky-700 dark:text-sky-300' },
+                { name: 'Voucher 100k Tiền mặt', cost: 1000, Icon: Banknote, badgeBg: 'bg-amber-500/15 text-amber-700 dark:text-amber-300' },
+                { name: "Balo King's Grill", cost: 800, Icon: ShoppingBag, badgeBg: 'bg-[var(--kg-accent-soft)] text-[var(--kg-accent-ink)]' },
               ].map((item, idx) => (
                 <div key={idx} className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 flex flex-col shadow-2xs">
+                  <div className="flex justify-center mb-1">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)]">
+                      Sắp mở / Chỉ xem
+                    </span>
+                  </div>
                   <div className={`w-12 h-12 rounded-2xl ${item.badgeBg} flex items-center justify-center mx-auto mb-3 mt-1`}>
                     <item.Icon size={24} />
                   </div>
                   <h4 className="font-bold text-xs sm:text-sm text-[var(--kg-text)] text-center mb-3 line-clamp-2 min-h-[36px]">{item.name}</h4>
                   <div className="mt-auto">
-                    <button 
+                    <button
                       type="button"
-                      onClick={() => handleRedeem(item.name, item.cost)}
-                      className={`w-full py-2.5 rounded-xl text-xs font-mono tabular-nums font-black transition-all inline-flex items-center justify-center gap-1.5 ${
-                        totalPoints >= item.cost 
-                          ? 'bg-[var(--kg-primary)] text-white hover:bg-[var(--kg-primary-hover)]' 
-                          : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-soft)] border border-[var(--kg-border)] cursor-not-allowed'
-                      }`}
+                      disabled
+                      aria-disabled="true"
+                      className="w-full min-h-[44px] sm:min-h-[40px] py-2.5 px-2 rounded-xl text-xs font-mono tabular-nums font-bold inline-flex items-center justify-center gap-1.5 bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] opacity-85 cursor-not-allowed"
                     >
+                      <span className="font-sans">Chỉ xem ·</span>
                       <span>{item.cost}</span>
-                      <Coins size={13} className={totalPoints >= item.cost ? 'text-amber-300' : 'text-[var(--kg-text-soft)]'} />
+                      <Coins size={13} className="text-[var(--kg-warning)]" />
                     </button>
                   </div>
                 </div>
               ))}
             </div>
             
-            <div className="bg-[var(--kg-primary-soft)] p-4 rounded-xl border border-[var(--kg-primary)]/20 flex items-start gap-3 mt-4">
-              <AlertCircle size={18} className="text-[var(--kg-primary)] flex-shrink-0 mt-0.5" />
+            <div className="bg-[var(--kg-info-soft)] p-4 rounded-xl border border-[var(--kg-info)]/25 flex items-start gap-3 mt-4">
+              <AlertCircle size={18} className="text-[var(--kg-info)] flex-shrink-0 mt-0.5" />
               <p className="text-xs text-[var(--kg-text)] font-medium leading-relaxed">
-                Khi đổi quà thành công, Quản lý sẽ nhận được thông báo và liên hệ để trao phần thưởng cho bạn trực tiếp tại quán.
+                Danh mục quà tặng hiện đang ở chế độ <b>Sắp mở đổi quà / Chỉ xem</b> để bạn tham khảo mốc điểm. Cổng đổi quà trực tuyến có xác nhận Quản lý sẽ được kích hoạt ở bản cập nhật tiếp theo — số dư King Coins của bạn không bị trừ tại đây.
               </p>
             </div>
           </div>

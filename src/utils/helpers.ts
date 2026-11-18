@@ -9,13 +9,46 @@ import {
   playPreRecordedAudio,
   speakWithVietnameseLock
 } from './soundEffects';
+import {
+  clearEmployeePunchCooldown,
+  EMPLOYEE_COOLDOWN_MS,
+  formatWorkDurationVi,
+  getEmployeeLocalCooldownRecord,
+  isCheckInLabel,
+  isCheckOutLabel,
+  isPendingCheckInSupplementLabel,
+  isPendingCheckOutSupplementLabel,
+  isPendingSupplementLabel,
+  isRejectedSupplementLabel,
+  parseVietnamLogTimestampMs,
+  recordEmployeePunchCooldown,
+  recordLocalMissedClaim,
+  resolveNextAttendancePunch,
+  resolveSmartAttendanceIntent,
+  resolveSupplementActionForDate,
+} from './attendanceSequence';
 
 export {
   playPosSuccess,
   playPosWarning,
   playPosError,
   playPreRecordedAudio,
-  speakWithVietnameseLock
+  speakWithVietnameseLock,
+  clearEmployeePunchCooldown,
+  formatWorkDurationVi,
+  isCheckInLabel,
+  isCheckOutLabel,
+  isPendingCheckInSupplementLabel,
+  isPendingCheckOutSupplementLabel,
+  isPendingSupplementLabel,
+  isRejectedSupplementLabel,
+  parseVietnamLogTimestampMs,
+  recordEmployeePunchCooldown,
+  recordLocalMissedClaim,
+  resolveNextAttendancePunch,
+  resolveSmartAttendanceIntent,
+  resolveSupplementActionForDate,
+  EMPLOYEE_COOLDOWN_MS,
 };
 
 /** Haversine distance in km */
@@ -47,11 +80,11 @@ function resolveAudioNotification(text: string, customKey?: string): { clipKey?:
   const lower = text.toLowerCase();
 
   // Checkin In Success
-  if (lower.includes('vào ca') && (lower.includes('thành công') || lower.includes('chúc bạn') || lower.includes('ghi nhận'))) {
+  if ((lower.includes('vào ca') || /\bvào\s*[1-9]\b/.test(lower)) && (lower.includes('thành công') || lower.includes('chúc bạn') || lower.includes('ghi nhận'))) {
     return { clipKey: 'checkin_in', chimeType: 'success' };
   }
   // Checkin Out Success
-  if (lower.includes('ra ca') && (lower.includes('thành công') || lower.includes('chúc mừng') || lower.includes('ghi nhận'))) {
+  if ((lower.includes('ra ca') || /\bra\s*[1-9]\b/.test(lower)) && (lower.includes('thành công') || lower.includes('chúc mừng') || lower.includes('ghi nhận'))) {
     return { clipKey: 'checkin_out', chimeType: 'success' };
   }
   // Outside range
@@ -713,8 +746,8 @@ export const SHIFT_LABELS: Record<string, string> = {
 export const DAY_NAMES = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật'] as const;
 export const SHORT_DAY_NAMES = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'] as const;
 
-export const KG_LAT = 10.9760826;
-export const KG_LNG = 106.6646541;
+export const KG_LAT = 10.9760327;
+export const KG_LNG = 106.6645922;
 export const KG_RADIUS_METERS = 25;
 export const KG_STANDARD_ADDRESS = "King's Grill - Số 34, Hoàng Văn Thụ, Phường Thủ Dầu Một, Thành phố Hồ Chí Minh";
 
@@ -725,13 +758,24 @@ export function normalizeGpsRadius(rawRadius?: number | string | null): number {
   return num;
 }
 
-export type CheckInTypeString = 'Vào ca' | 'Ra ca' | 'Vào ca 2' | 'Ra ca 2' | 'Vào ca 3' | 'Ra ca 3' | string;
+export type CheckInTypeString =
+  | 'Vào 1'
+  | 'Ra 1'
+  | 'Vào 2'
+  | 'Ra 2'
+  | 'Vào ca'
+  | 'Ra ca'
+  | 'Vào ca 2'
+  | 'Ra ca 2'
+  | 'Vào ca 3'
+  | 'Ra ca 3'
+  | string;
 
 export interface CheckInRecommendation {
   recommendedType: CheckInTypeString;
   baseAction: 'Vào ca' | 'Ra ca';
-  shiftIndex: number; // 1, 2, 3...
-  displayAction: string; // e.g. "VÀO CA" | "RA CA" | "VÀO CA 2" | "RA CA 2"
+  shiftIndex: number; // 1, 2
+  displayAction: string; // e.g. "VÀO 1" | "RA 1" | "VÀO 2" | "RA 2"
   reason: string;
   hasInToday: boolean;
   hasOutToday: boolean;
@@ -744,6 +788,7 @@ export interface CheckInRecommendation {
   elapsedMinutes?: number;
   canCheckOutNow: boolean;
   minWaitMinutesRemaining: number;
+  isMaxPunchesReached?: boolean;
 }
 
 export interface EmployeeAttendanceStatus {
@@ -862,13 +907,23 @@ export function matchesUser(
   const logFullname = normalizeIdentityToken(log.fullname);
   const logUsername = normalizeIdentityToken(log.username);
 
-  if (logFullname && (logFullname === userFullname || (username && logFullname === username))) return true;
-  if (logUsername && ((username && logUsername === username) || (userFullname && logUsername === userFullname))) return true;
+  // Strict username isolation: when both records have non-empty usernames, never fall back to fullname!
+  if (username && logUsername) {
+    return logUsername === username;
+  }
 
-  // Normalized without diacritics + Vietnamese Đ/đ -> d (e.g. Đặng Thị Hồng Ánh vs Dang Thi Hong Anh)
-  const normUser = foldVietnameseIdentity(userFullname);
-  const normLog = foldVietnameseIdentity(logFullname);
-  if (normUser && normLog && normUser === normLog) return true;
+  if (logFullname && (logFullname === userFullname || (username && logFullname === username))) return true;
+  if (logUsername && userFullname && logUsername === userFullname) return true;
+
+  // Legacy username-less fallback: fold diacritics + Đ/đ -> d ONLY when one side is unaccented ASCII
+  // (preserves "Dang Thi Hong Anh" <-> "Đặng Thị Hồng Ánh" while preventing "Nguyễn Văn Hùng" <-> "Nguyễn Văn Hưng")
+  if (userFullname && logFullname) {
+    const normUser = foldVietnameseIdentity(userFullname);
+    const normLog = foldVietnameseIdentity(logFullname);
+    if ((userFullname === normUser || logFullname === normLog) && normUser && normLog && normUser === normLog) {
+      return true;
+    }
+  }
 
   return false;
 }
@@ -882,18 +937,20 @@ export function setLocalLastPunch(
   timeStr: string
 ): void {
   if (!currentUser) return;
+  const nowTs = Date.now();
   try {
     const item = {
       fullname: currentUser.fullname,
       username: currentUser.username,
       type,
       time: timeStr,
-      timestamp: Date.now()
+      timestamp: nowTs
     };
     localStorage.setItem('kg_last_punch_record', JSON.stringify(item));
   } catch (e) {
     console.warn('[Storage] setLocalLastPunch error:', e);
   }
+  recordEmployeePunchCooldown(currentUser, type, timeStr, nowTs);
 }
 
 export function getLocalLastPunch(
@@ -913,6 +970,34 @@ export function getLocalLastPunch(
   } catch {
     return null;
   }
+}
+
+export function clearLocalLastPunch(
+  currentUser: { fullname: string; username?: string } | null,
+  matchTimeStr?: string
+): void {
+  if (!currentUser) return;
+  try {
+    const raw = localStorage.getItem('kg_last_punch_record');
+    if (raw) {
+      const item = JSON.parse(raw);
+      if (item && matchesUser(item, currentUser)) {
+        const cleanMatch = String(matchTimeStr || '').trim();
+        const cleanSaved = String(item.time || '').trim();
+        if (
+          !cleanMatch ||
+          cleanSaved === cleanMatch ||
+          cleanSaved.includes(cleanMatch) ||
+          cleanMatch.includes(cleanSaved)
+        ) {
+          localStorage.removeItem('kg_last_punch_record');
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+  clearEmployeePunchCooldown(currentUser, matchTimeStr);
 }
 
 /**
@@ -941,8 +1026,10 @@ export function auditMissingCheckIns(
 
   for (let i = 0; i < userLogsWithDate.length; i++) {
     const item = userLogsWithDate[i];
-    const isCheckIn = item.log.type.includes('Vào ca') || item.log.type.includes('IN') || item.log.type.toLowerCase().includes('vào');
-    const isCheckOut = item.log.type.includes('Ra ca') || item.log.type.includes('OUT') || item.log.type.toLowerCase().includes('ra');
+    const isCheckIn =
+      isCheckInLabel(item.log.type) || isPendingCheckInSupplementLabel(item.log.type);
+    const isCheckOut =
+      isCheckOutLabel(item.log.type) || isPendingCheckOutSupplementLabel(item.log.type);
 
     if (isCheckIn) {
       if (pendingIn) {
@@ -1010,7 +1097,7 @@ export function auditMissingCheckIns(
  * - Provides intelligent reasoning and guidance
  */
 export function getRecommendedCheckInType(
-  logs: { fullname: string; type: string; time: string }[] | undefined,
+  logs: { fullname: string; username?: string; type: string; time: string }[] | undefined,
   currentUser: { fullname: string; username?: string; role?: string } | null,
   targetDate: Date = new Date()
 ): CheckInRecommendation {
@@ -1031,163 +1118,171 @@ export function getRecommendedCheckInType(
     };
   }
 
-  // Filter logs for user and parse dates with Universal Parser
+  // Filter logs for user and parse dates with Universal Parser (including pending supplements for immediate slot awareness)
+  const isSeqPunch = (t: string) =>
+    isCheckInLabel(t) || isCheckOutLabel(t) || isPendingSupplementLabel(t);
+
   let userLogsWithDates = (logs || [])
-    .filter((l) => matchesUser(l, currentUser) && l.time)
-    .map((l) => ({ log: l, date: parseLogDate(l.time) }))
-    .filter((item): item is { log: { fullname: string; type: string; time: string }; date: Date } => item.date !== null)
+    .filter((l) => matchesUser(l, currentUser) && l.time && isSeqPunch(l.type))
+    .map((l) => {
+      const vnTs = parseVietnamLogTimestampMs(l.time);
+      const d = vnTs !== null ? new Date(vnTs) : parseLogDate(l.time);
+      return { log: l, date: d };
+    })
+    .filter((item): item is { log: { fullname: string; username?: string; type: string; time: string }; date: Date } => item.date !== null)
     .sort((a, b) => a.date.getTime() - b.date.getTime());
 
-  // Fallback 1: If store has user-specific logs but name spelling differed, use logs if non-empty
-  if (userLogsWithDates.length === 0 && (logs || []).length > 0 && currentUser.role !== 'admin') {
-    const candidateLogs = (logs || [])
-      .map((l) => ({ log: l, date: parseLogDate(l.time) }))
-      .filter((item): item is { log: { fullname: string; type: string; time: string }; date: Date } => item.date !== null)
-      .sort((a, b) => a.date.getTime() - b.date.getTime());
-    if (candidateLogs.length > 0) {
-      userLogsWithDates = candidateLogs;
-    }
-  }
-
-  // Fallback 2: If no server logs found, check local storage punch cache
+  // Fallback: If no server logs found for this user yet, check strictly user-scoped local punch cache
+  // (NEVER hijack unmatched rows from `logs`, which may belong to another employee on a shared phone!)
   if (userLogsWithDates.length === 0) {
     const localLast = getLocalLastPunch(currentUser);
-    if (localLast) {
-      const localDate = parseLogDate(localLast.time) || new Date(localLast.timestamp);
-      userLogsWithDates = [{ log: { fullname: currentUser.fullname, type: localLast.type, time: localLast.time }, date: localDate }];
+    if (localLast && (isCheckInLabel(localLast.type) || isCheckOutLabel(localLast.type))) {
+      const vnTs = parseVietnamLogTimestampMs(localLast.time);
+      const localDate = vnTs !== null ? new Date(vnTs) : (parseLogDate(localLast.time) || new Date(localLast.timestamp));
+      userLogsWithDates = [{ log: { fullname: currentUser.fullname, username: currentUser.username, type: localLast.type, time: localLast.time }, date: localDate }];
     }
   }
 
-  const currentMinutes = targetDate.getHours() * 60 + targetDate.getMinutes();
-  const isBefore0600 = currentMinutes < (6 * 60); // 00:00 - 06:00
-  const isEarlyRange = currentMinutes >= (6 * 60) && currentMinutes <= (20 * 60); // 06:00 - 20:00
+  const seqResolution = resolveNextAttendancePunch({
+    user: currentUser,
+    logs: userLogsWithDates.map((item) => ({
+      username: item.log.username || currentUser.username,
+      fullname: item.log.fullname || currentUser.fullname,
+      type: item.log.type,
+      time: item.log.time,
+      timestamp: item.date.getTime(),
+    })),
+    now: targetDate,
+    cooldownMs: 0,
+  });
 
-  // Inspect the very last punch in user history
-  const lastItem = userLogsWithDates.length > 0 ? userLogsWithDates[userLogsWithDates.length - 1] : null;
-  const isLastIn = lastItem ? (lastItem.log.type.includes('Vào ca') || lastItem.log.type.includes('IN') || lastItem.log.type.toLowerCase().includes('vào')) : false;
-  const elapsedHrs = lastItem ? (targetDate.getTime() - lastItem.date.getTime()) / (1000 * 60 * 60) : 999;
-
-  // Determine the start boundary of the active restaurant workday (06:00 -> 05:59 next day)
-  let cycleStartDate: Date;
-  if (isBefore0600 && isLastIn && elapsedHrs <= 16) {
-    // Overnight checkout window: shift began yesterday
-    cycleStartDate = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate() - 1, 6, 0, 0, 0);
-  } else if (isBefore0600) {
-    // Early morning before 06:00 without active open shift: treat as previous day's late window
-    cycleStartDate = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate() - 1, 6, 0, 0, 0);
-  } else {
-    // Regular day cycle starting at 06:00 today
-    cycleStartDate = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 6, 0, 0, 0);
-  }
-
-  // Filter punches in this active work cycle
+  const cycleEndMs = seqResolution.cycleStartMs + 24 * 60 * 60 * 1000;
   const cycleLogs = userLogsWithDates.filter(
-    (item) => item.date.getTime() >= cycleStartDate.getTime() && item.date.getTime() <= targetDate.getTime()
+    (item) => item.date.getTime() >= seqResolution.cycleStartMs && item.date.getTime() < cycleEndMs
   );
 
-  // Reconstruct completed pairs and active open shift in current cycle
-  let completedShiftPairs = 0;
   let activeOpenIn: { log: { fullname: string; type: string; time: string }; date: Date } | null = null;
   let lastOutInCycle: { log: { fullname: string; type: string; time: string }; date: Date } | null = null;
   let firstInInCycle: { log: { fullname: string; type: string; time: string }; date: Date } | null = null;
 
   for (const item of cycleLogs) {
-    const isIn = item.log.type.includes('Vào ca') || item.log.type.includes('IN') || item.log.type.toLowerCase().includes('vào');
-    const isOut = item.log.type.includes('Ra ca') || item.log.type.includes('OUT') || item.log.type.toLowerCase().includes('ra');
-
+    const isIn = isCheckInLabel(item.log.type) || isPendingCheckInSupplementLabel(item.log.type);
+    const isOut = isCheckOutLabel(item.log.type) || isPendingCheckOutSupplementLabel(item.log.type);
     if (isIn) {
       if (!firstInInCycle) firstInInCycle = item;
       activeOpenIn = item;
-    } else if (isOut && activeOpenIn) {
-      completedShiftPairs++;
+    } else if (isOut) {
       lastOutInCycle = item;
       activeOpenIn = null;
     }
   }
 
-  // If open shift is older than 16 hours, consider it expired/unclosed
-  if (activeOpenIn && (targetDate.getTime() - activeOpenIn.date.getTime()) > (16 * 60 * 60 * 1000)) {
-    activeOpenIn = null;
+  const lastItem = userLogsWithDates.length > 0 ? userLogsWithDates[userLogsWithDates.length - 1] : null;
+  const hasInToday = cycleLogs.some(
+    (l) => isCheckInLabel(l.log.type) || isPendingCheckInSupplementLabel(l.log.type)
+  );
+  const hasOutToday = cycleLogs.some(
+    (l) => isCheckOutLabel(l.log.type) || isPendingCheckOutSupplementLabel(l.log.type)
+  );
+  const firstInTime = firstInInCycle
+    ? `${String(firstInInCycle.date.getHours()).padStart(2, '0')}:${String(firstInInCycle.date.getMinutes()).padStart(2, '0')}`
+    : undefined;
+
+  if (!seqResolution.canPunch && seqResolution.blockedReason === 'MAX_4_PUNCHES') {
+    return {
+      recommendedType: 'Ra ca',
+      baseAction: 'Ra ca',
+      shiftIndex: 2,
+      displayAction: 'ĐÃ ĐỦ 4 LƯỢT',
+      reason: seqResolution.blockedMessage || 'Đã hoàn thành đủ 4 lượt Vào ca – Ra ca trong ngày công.',
+      hasInToday,
+      hasOutToday,
+      firstInTime,
+      lastPunch: lastItem ? { type: lastItem.log.type, time: lastItem.log.time, date: lastItem.date } : undefined,
+      isOpenShift: false,
+      isOvernightShift: seqResolution.isOvernightBefore06,
+      todayLogsCount: cycleLogs.length,
+      canCheckOutNow: false,
+      minWaitMinutesRemaining: 0,
+      isMaxPunchesReached: true,
+    };
   }
 
-  const hasInToday = cycleLogs.some((l) => l.log.type.includes('Vào ca') || l.log.type.includes('IN') || l.log.type.toLowerCase().includes('vào'));
-  const hasOutToday = cycleLogs.some((l) => l.log.type.includes('Ra ca') || l.log.type.includes('OUT') || l.log.type.toLowerCase().includes('ra'));
-  const firstInTime = firstInInCycle ? `${String(firstInInCycle.date.getHours()).padStart(2, '0')}:${String(firstInInCycle.date.getMinutes()).padStart(2, '0')}` : undefined;
+  const nextType: CheckInTypeString = seqResolution.nextType || 'Vào ca';
+  const displayAction = nextType.toUpperCase();
+  const isNextOut = seqResolution.baseAction === 'Ra ca';
 
-  // -------------------------------------------------------------
-  // STATE 1: Có lượt Vào ca đang mở -> ĐỀ XUẤT RA CA
-  // -------------------------------------------------------------
-  if (activeOpenIn) {
-    const shiftIndex = completedShiftPairs + 1;
-    const inTimeStr = `${String(activeOpenIn.date.getHours()).padStart(2, '0')}:${String(activeOpenIn.date.getMinutes()).padStart(2, '0')}`;
-    const inDateStr = formatDateShort(activeOpenIn.date);
-    const minsSinceIn = Math.max(0, Math.floor((targetDate.getTime() - activeOpenIn.date.getTime()) / 60000));
-    const isOvernight = isBefore0600 && !isSameCalendarDay(activeOpenIn.date, targetDate);
-
-    // Rule: Yêu cầu tối thiểu hơn 15 phút sau khi Vào ca mới được Ra ca (trừ ca qua đêm)
+  if (isNextOut) {
+    const inTimeStr = activeOpenIn
+      ? `${String(activeOpenIn.date.getHours()).padStart(2, '0')}:${String(activeOpenIn.date.getMinutes()).padStart(2, '0')}`
+      : undefined;
+    const inDateStr = activeOpenIn ? formatDateShort(activeOpenIn.date) : '';
+    const minsSinceIn = activeOpenIn
+      ? Math.max(0, Math.floor((targetDate.getTime() - activeOpenIn.date.getTime()) / 60000))
+      : 15;
+    const isOvernight = seqResolution.isOvernightBefore06;
     const canCheckOutNow = isOvernight || minsSinceIn >= 15;
     const minWaitMinutesRemaining = canCheckOutNow ? 0 : Math.max(0, 15 - minsSinceIn);
 
-    const recommendedType: CheckInTypeString = shiftIndex === 1 ? 'Ra ca' : `Ra ca ${shiftIndex}`;
-    const displayAction = shiftIndex === 1 ? 'RA CA' : `RA CA ${shiftIndex}`;
-
+    const resolvedInTime = inTimeStr || seqResolution.lastPunchTimeStr;
     let reason: string;
     if (isOvernight) {
-      reason = `🌙 Ra ca cho ca đêm bắt đầu từ hôm qua (Vào lúc ${inTimeStr} ${inDateStr})`;
+      reason = resolvedInTime
+        ? `Ca đêm trước 06:00 sáng → Tự động ghi nhận Ra ca của ngày hôm trước (Vào lúc ${resolvedInTime}${inDateStr ? ` ${inDateStr}` : ''})`
+        : `Trước 06:00 sáng → Tự động ghi nhận Ra ca thuộc ca ngày hôm trước`;
     } else if (!canCheckOutNow) {
-      reason = `Đã vào ca lúc ${inTimeStr} (mới ${minsSinceIn} phút). Quy định làm việc tối thiểu hơn 15 phút mới được Ra ca (còn thiếu ${minWaitMinutesRemaining} phút)`;
+      reason = resolvedInTime
+        ? `Đã vào ca lúc ${resolvedInTime} (${minsSinceIn} phút trước). Cần tối thiểu 15 phút mới chấm lượt tiếp theo (còn ${minWaitMinutesRemaining} phút)`
+        : `Vừa ghi nhận Vào ca. Cần tối thiểu 15 phút mới chấm lượt tiếp theo (còn ${minWaitMinutesRemaining} phút)`;
     } else {
-      reason = `Đã vào ca lúc ${inTimeStr} (${minsSinceIn} phút trước) → Đề xuất ${displayAction} để hoàn tất ca`;
+      reason = resolvedInTime
+        ? `Đã vào ca lúc ${resolvedInTime} (${minsSinceIn} phút trước) → Đề xuất ${displayAction} để hoàn tất ca`
+        : `Đã ghi nhận Vào ca trước đó → Đề xuất ${displayAction} để hoàn tất ca`;
     }
 
     return {
-      recommendedType,
+      recommendedType: nextType,
       baseAction: 'Ra ca',
-      shiftIndex,
+      shiftIndex: seqResolution.shiftIndex,
       displayAction,
       reason,
       hasInToday,
       hasOutToday,
       firstInTime,
-      lastPunch: { type: activeOpenIn.log.type, time: activeOpenIn.log.time, date: activeOpenIn.date },
-      isOpenShift: true,
+      lastPunch: activeOpenIn
+        ? { type: activeOpenIn.log.type, time: activeOpenIn.log.time, date: activeOpenIn.date }
+        : lastItem
+          ? { type: lastItem.log.type, time: lastItem.log.time, date: lastItem.date }
+          : undefined,
+      isOpenShift: Boolean(activeOpenIn),
       openShiftTime: inTimeStr,
       isOvernightShift: isOvernight,
       todayLogsCount: cycleLogs.length,
-      elapsedMinutes: minsSinceIn,
+      elapsedMinutes: activeOpenIn ? minsSinceIn : undefined,
       canCheckOutNow,
-      minWaitMinutesRemaining
+      minWaitMinutesRemaining,
     };
   }
 
-  // -------------------------------------------------------------
-  // STATE 2: Chưa có ca nào đang mở -> ĐỀ XUẤT VÀO CA
-  // -------------------------------------------------------------
-  const shiftIndex = completedShiftPairs + 1;
-  const recommendedType: CheckInTypeString = shiftIndex === 1 ? 'Vào ca' : `Vào ca ${shiftIndex}`;
-  const displayAction = shiftIndex === 1 ? 'VÀO CA' : `VÀO CA ${shiftIndex}`;
-
   let reason: string;
-  if (completedShiftPairs === 0) {
-    reason = isEarlyRange
-      ? 'Chấm công lần đầu trong ngày (06:00 - 20:00) → Tự động gợi ý Vào ca'
-      : 'Lần đầu trong ca làm việc → Tự động gợi ý Vào ca';
+  if (seqResolution.shiftIndex === 1) {
+    reason = 'Lần đầu trong ngày công (từ 06:00 sáng) → Tự động chọn Vào ca';
   } else {
     const lastOutTimeStr = lastOutInCycle
       ? `${String(lastOutInCycle.date.getHours()).padStart(2, '0')}:${String(lastOutInCycle.date.getMinutes()).padStart(2, '0')}`
       : '';
-    reason = `Đã hoàn thành Ca ${completedShiftPairs}${lastOutTimeStr ? ` (Ra ca lúc ${lastOutTimeStr})` : ''} → Đề xuất Vào ca ${shiftIndex} (Ca gãy / Tăng ca)`;
+    reason = `Đã hoàn thành cặp Vào ca – Ra ca trước đó${lastOutTimeStr ? ` (Ra ca lúc ${lastOutTimeStr})` : ''} → Tự động chọn Vào ca tiếp theo`;
   }
 
   return {
-    recommendedType,
+    recommendedType: nextType,
     baseAction: 'Vào ca',
-    shiftIndex,
+    shiftIndex: seqResolution.shiftIndex,
     displayAction,
     reason,
     hasInToday,
     hasOutToday,
-    firstInTime: undefined,
+    firstInTime,
     lastPunch: lastItem ? { type: lastItem.log.type, time: lastItem.log.time, date: lastItem.date } : undefined,
     isOpenShift: false,
     openShiftTime: undefined,
@@ -1195,7 +1290,7 @@ export function getRecommendedCheckInType(
     todayLogsCount: cycleLogs.length,
     elapsedMinutes: undefined,
     canCheckOutNow: false,
-    minWaitMinutesRemaining: 0
+    minWaitMinutesRemaining: 0,
   };
 }
 
@@ -1249,8 +1344,8 @@ export function auditAllEmployeesAttendance(
     let lastOut: { log: any; date: Date } | null = null;
 
     for (const item of userLogs) {
-      const isIn = item.log.type.includes('Vào ca') || item.log.type.includes('IN') || item.log.type.toLowerCase().includes('vào');
-      const isOut = item.log.type.includes('Ra ca') || item.log.type.includes('OUT') || item.log.type.toLowerCase().includes('ra');
+      const isIn = isCheckInLabel(item.log.type);
+      const isOut = isCheckOutLabel(item.log.type);
 
       if (isIn) {
         openIn = item;
@@ -1548,32 +1643,38 @@ export interface CheckInCooldownInfo {
 }
 
 /**
- * Calculates whether the current user is subject to the mandatory 15-minute anti-spam cooldown.
+ * Calculates whether the current user is subject to the mandatory 30-minute per-employee anti-spam cooldown.
+ * Keyed strictly per employee (`kg_user_cooldown_v2`) so shared devices never block coworkers.
  */
 export function getCheckInCooldown(
-  logs: { fullname: string; type: string; time: string; timestamp?: number }[] | undefined,
+  logs: { fullname: string; username?: string; type: string; time: string; timestamp?: number }[] | undefined,
   currentUser: { fullname: string; username?: string; role?: string } | null,
-  lastCheckInTime?: number
+  _lastCheckInTime?: number
 ): CheckInCooldownInfo {
   if (!currentUser) {
     return { isBlocked: false, remainingSeconds: 0, remainingMinutesFormatted: '00:00' };
   }
 
-  // 1. Read persistent localStorage values (safe against F5 / page reload)
-  let storageLastMs = 0;
-  try {
-    const rawSaved = localStorage.getItem('kg_last_checkin');
-    if (rawSaved) storageLastMs = parseInt(rawSaved, 10) || 0;
-  } catch {}
+  const perUserRec = getEmployeeLocalCooldownRecord(currentUser);
+  const perUserMs = perUserRec?.timestamp || 0;
 
   const localPunch = getLocalLastPunch(currentUser);
   const localPunchMs = localPunch?.timestamp || 0;
 
-  // 2. Find most recent punch from logs for this user
+  // Find most recent valid LIVE attendance punch from logs strictly matching this user (skip administrative supplement claims)
   const userLogsWithDates = (logs || [])
-    .filter((l) => matchesUser(l, currentUser) && l.time)
+    .filter((l) => {
+      if (!matchesUser(l, currentUser) || !l.time) return false;
+      if (!isCheckInLabel(l.type) && !isCheckOutLabel(l.type)) return false;
+      const anyLog = l as Record<string, unknown>;
+      if (anyLog.claimId || String(anyLog.checkinId || '').startsWith('MC_')) return false;
+      if (/bổ\s*sung|giải\s*trình/i.test(String(anyLog.status || ''))) return false;
+      if (/giải\s*trình\s*bổ\s*sung/i.test(String(anyLog.note || ''))) return false;
+      return true;
+    })
     .map((l) => {
-      const ts = (l.timestamp && l.timestamp > 0) ? l.timestamp : (parseLogDate(l.time)?.getTime() || 0);
+      const vnTs = parseVietnamLogTimestampMs(l.time);
+      const ts = vnTs !== null && vnTs > 0 ? vnTs : ((l.timestamp && l.timestamp > 0) ? l.timestamp : (parseLogDate(l.time)?.getTime() || 0));
       return { log: l, timestamp: ts };
     })
     .filter((item) => item.timestamp > 0)
@@ -1581,10 +1682,9 @@ export function getCheckInCooldown(
 
   const newestLog = userLogsWithDates[0];
   const newestLogMs = newestLog ? newestLog.timestamp : 0;
-  const storeLastMs = lastCheckInTime || 0;
 
-  // Combine ALL sources of truth (persists through F5, cache reload, or network delay)
-  const mostRecentMs = Math.max(newestLogMs, storeLastMs, storageLastMs, localPunchMs);
+  // Combine strictly user-scoped sources of truth (persists through F5 without bleeding across coworkers)
+  const mostRecentMs = Math.max(newestLogMs, perUserMs, localPunchMs);
 
   if (mostRecentMs <= 0) {
     return { isBlocked: false, remainingSeconds: 0, remainingMinutesFormatted: '00:00' };
@@ -1592,7 +1692,7 @@ export function getCheckInCooldown(
 
   const now = Date.now();
   const diffMs = now - mostRecentMs;
-  const COOLDOWN_MS = 15 * 60 * 1000; // 15 minutes
+  const COOLDOWN_MS = EMPLOYEE_COOLDOWN_MS; // 15 minutes per employee
 
   if (diffMs < COOLDOWN_MS && diffMs >= 0) {
     const remainingSeconds = Math.max(0, Math.ceil((COOLDOWN_MS - diffMs) / 1000));
@@ -1601,10 +1701,10 @@ export function getCheckInCooldown(
     const remainingMinutesFormatted = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
     const minutesSinceLast = Math.max(0, Math.floor(diffMs / 60000));
 
-    const mostRecentDate = new Date(mostRecentMs);
-    const timeStr = `${String(mostRecentDate.getHours()).padStart(2, '0')}:${String(mostRecentDate.getMinutes()).padStart(2, '0')}`;
+    const vnDate = new Date(mostRecentMs + 7 * 3600 * 1000);
+    const timeStr = `${String(vnDate.getUTCHours()).padStart(2, '0')}:${String(vnDate.getUTCMinutes()).padStart(2, '0')}`;
 
-    const effectiveType = newestLog?.log.type || localPunch?.type || undefined;
+    const effectiveType = newestLog?.log.type || perUserRec?.type || localPunch?.type || undefined;
 
     return {
       isBlocked: remainingSeconds > 0,
@@ -1621,7 +1721,7 @@ export function getCheckInCooldown(
     remainingSeconds: 0,
     remainingMinutesFormatted: '00:00',
     minutesSinceLast: Math.floor(diffMs / 60000),
-    lastType: newestLog?.log.type || localPunch?.type || undefined,
+    lastType: newestLog?.log.type || perUserRec?.type || localPunch?.type || undefined,
   };
 }
 
@@ -1658,8 +1758,8 @@ export function auditCheckInAnomalies(
 
   for (let i = 0; i < userLogsWithDates.length; i++) {
     const item = userLogsWithDates[i];
-    const isIn = item.log.type.includes('Vào ca') || item.log.type.includes('IN') || item.log.type.toLowerCase().includes('vào');
-    const isOut = item.log.type.includes('Ra ca') || item.log.type.includes('OUT') || item.log.type.toLowerCase().includes('ra');
+    const isIn = isCheckInLabel(item.log.type);
+    const isOut = isCheckOutLabel(item.log.type);
 
     if (isIn) {
       if (prevAction === 'IN' && prevItem) {
@@ -1713,7 +1813,7 @@ export function evaluateCheckInGeofence(params: {
 }): boolean {
   if (params.isAuthorizedTest) return true;
   if (params.hasCapturedPhoto && params.capturedGps) {
-    const snapAllowance = Math.min((params.capturedGps.acc || 0) * 0.35, 10);
+    const snapAllowance = Math.min(Math.max(0, params.capturedGps.acc || 0) * 0.45, 15);
     const effectiveSnapDist = Math.max(0, params.capturedGps.dist - snapAllowance);
     return effectiveSnapDist <= params.targetRadius;
   }

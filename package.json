@@ -10,13 +10,15 @@
     "preview": "vite preview",
     "sync:gas": "node scripts/sync-gas-companion.mjs",
     "sync:gas:check": "node scripts/sync-gas-companion.mjs --check",
-    "test": "node --test --test-concurrency=1 tests/wave1-p0.test.ts tests/schedule-registration-enforcement.test.ts tests/checkin-history-completeness.test.ts"
+    "test": "node --test --test-concurrency=1 tests/ui-upgrade-wave1-p0.test.ts tests/wave1-p0.test.ts tests/schedule-registration-enforcement.test.ts tests/checkin-history-completeness.test.ts tests/face-checkin-v2.test.ts tests/edge-kv-quota-guard.test.ts tests/checkin-v1-zero-loss-smart-intent.test.ts tests/instant-checkin-sheet-image-iphone.test.ts tests/anti-false-spam-checkin.test.ts tests/wave2-ops-fnb.test.ts tests/wave3-hr-payroll-audit.test.ts tests/wave4-perf-training.test.ts"
   },
   "dependencies": {
+    "@mediapipe/tasks-vision": "^1.2.0",
     "canvas-confetti": "^1.9.4",
     "face-api.js": "^0.22.2",
     "framer-motion": "^12.38.0",
     "lucide-react": "^1.7.0",
+    "onnxruntime-web": "^1.31.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "sweetalert2": "^11.26.24",

@@ -12,19 +12,23 @@ import {
 import { setupAudioUnlock, preloadAudioClips } from './utils/soundEffects';
 import { refreshAppData, restoreFromCache } from './utils/refreshData';
 import { initOfflineQueueSync } from './utils/offlineQueue';
+import { callApi, PRIMARY_EDGE_API_URL } from './services/api';
+import { setCachedFaceProfiles } from './utils/faceProfileCache';
+import { isAdminUser } from './utils/permissions';
 import LoadingScreen from './components/LoadingScreen';
-import ZaloWarning from './components/ZaloWarning';
-import ImagePreview from './components/ImagePreview';
 import AppErrorBoundary from './components/AppErrorBoundary';
-import VersionReleaseModal from './components/VersionReleaseModal';
 import type { TabId } from './types/navigation';
 
 const AIAssistant = lazy(() => import('./components/AIAssistant'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Login = lazy(() => import('./pages/Login'));
+const ZaloWarning = lazy(() => import('./components/ZaloWarning'));
+const ImagePreview = lazy(() => import('./components/ImagePreview'));
+const VersionReleaseModal = lazy(() => import('./components/VersionReleaseModal'));
 
 export default function App() {
   const currentUser = useAppStore((s) => s.currentUser);
+  const isPreviewOpen = useAppStore((s) => s.isPreviewOpen);
 
   // Init on mount - matches original initApp()
   useEffect(() => {
@@ -48,9 +52,30 @@ export default function App() {
       }, 1500);
     }
 
-    // Validate stored GAS URL configuration (preserve valid custom GAS Web App URLs and /api proxy)
+    // Preload lightweight 5KB D1 face profiles in background without pulling WASM on Login / Desktop Admin boot
+    window.setTimeout(() => {
+      void callApi(
+        'GET_FACE_PROFILES',
+        { isKiosk: true, preloadOnly: true, fastEdge: true },
+        { background: true, cacheTtlMs: 0, timeoutMs: 8000 }
+      ).then((res) => {
+        if (res?.ok && Array.isArray(res.data?.profiles)) {
+          setCachedFaceProfiles(res.data.profiles);
+        }
+      }).catch(() => {});
+    }, 250);
+
+    // Migrate legacy direct GAS URLs in production so every device routes through Cloudflare Edge D1 (/api)
     const storedGas = localStorage.getItem('kg_gas_url');
-    if (storedGas && !storedGas.trim().startsWith('https://script.google.com/macros/s/') && storedGas.trim() !== '/api') {
+    const isProdBuild = Boolean((import.meta as any).env?.PROD);
+    if (
+      storedGas &&
+      ((isProdBuild && storedGas.trim() !== '/api' && storedGas.trim() !== PRIMARY_EDGE_API_URL) ||
+        (!isProdBuild &&
+          storedGas.trim() !== '/api' &&
+          storedGas.trim() !== PRIMARY_EDGE_API_URL &&
+          !/^https:\/\/script\.google\.com\/macros\//.test(storedGas.trim())))
+    ) {
       localStorage.removeItem('kg_gas_url');
     }
 
@@ -170,19 +195,48 @@ export default function App() {
     };
   }, []);
 
+  // Prewarm WASM biometric engine ONLY after login for non-constrained, non-desktop-only-admin sessions
+  const currentUsername = currentUser?.username;
+  const currentUserRole = currentUser?.role;
+  useEffect(() => {
+    if (!currentUsername) return;
+    const navConn = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+    const isConstrainedNetwork = Boolean(navConn?.saveData || /^(slow-)?2g$/i.test(navConn?.effectiveType || ''));
+    const isDesktopAdminSession =
+      isAdminUser({ role: currentUserRole } as any) && typeof window !== 'undefined' && window.innerWidth >= 1024;
+    if (isConstrainedNetwork || isDesktopAdminSession) return;
+
+    const timerId = window.setTimeout(() => {
+      void import('./services/faceRecognitionV2')
+        .then(({ prewarmFaceRecognitionSystem }) => prewarmFaceRecognitionSystem(callApi))
+        .catch(() => {});
+    }, 600);
+    return () => window.clearTimeout(timerId);
+  }, [currentUsername, currentUserRole]);
+
   return (
-    <div className="soft3d-bg text-gray-800 dark:text-gray-100 transition-colors duration-300 min-h-screen">
+    <div className="bg-[var(--kg-bg)] text-[var(--kg-text)] transition-colors duration-200 min-h-screen">
       {/* Zalo/Facebook in-app browser warning */}
-      {isInAppBrowser() && <ZaloWarning />}
+      {isInAppBrowser() && (
+        <Suspense fallback={null}>
+          <ZaloWarning />
+        </Suspense>
+      )}
 
       {/* Global Loading Modal */}
       <LoadingScreen />
 
-      {/* Image Preview Modal */}
-      <ImagePreview />
+      {/* Image Preview Modal - lazy-loaded on demand */}
+      {isPreviewOpen && (
+        <Suspense fallback={null}>
+          <ImagePreview />
+        </Suspense>
+      )}
 
-      {/* v4.0.0 Release Center & What's New Modal */}
-      <VersionReleaseModal />
+      {/* v4.0.1 Release Center & What's New Modal */}
+      <Suspense fallback={null}>
+        <VersionReleaseModal />
+      </Suspense>
 
       {/* AI Chatbot Assistant - loaded only after login */}
       {currentUser && (
@@ -195,27 +249,27 @@ export default function App() {
       <AppErrorBoundary
         resetKey={currentUser?.username || 'guest'}
         fallback={({ reset }) => (
-          <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 dark:bg-slate-950">
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl p-6 text-center max-w-sm w-full">
-              <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
+          <div className="min-h-screen flex items-center justify-center p-6 bg-[var(--kg-bg)] text-[var(--kg-text)]">
+            <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-card p-6 text-center max-w-sm w-full">
+              <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/25 text-[var(--kg-warning)] flex items-center justify-center font-bold">
                 <AlertTriangle size={22} />
               </div>
-              <h3 className="text-base font-bold text-slate-800 dark:text-white mb-2">Đang phục hồi giao diện</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mb-5 leading-relaxed">
+              <h3 className="text-base font-bold text-[var(--kg-text)] mb-2">Đang phục hồi giao diện</h3>
+              <p className="text-xs text-[var(--kg-text-muted)] mb-5 leading-relaxed">
                 Hệ thống đang làm mới kết nối. Nếu màn hình không tự tải lại sau vài giây, bạn vui lòng nhấn nút bên dưới.
               </p>
               <div className="flex gap-2 justify-center">
                 <button
                   type="button"
                   onClick={() => reset()}
-                  className="px-4 py-2 text-xs font-semibold rounded-xl bg-teal-600 hover:bg-teal-700 text-white transition-all shadow-sm"
+                  className="min-h-[44px] sm:min-h-[38px] px-4 py-2 text-xs font-semibold rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white transition-colors duration-150 shadow-soft"
                 >
                   Thử lại
                 </button>
                 <button
                   type="button"
                   onClick={() => window.location.reload()}
-                  className="px-4 py-2 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-all border border-slate-200 dark:border-slate-700"
+                  className="min-h-[44px] sm:min-h-[38px] px-4 py-2 text-xs font-semibold rounded-xl bg-[var(--kg-surface-soft)] hover:border-[var(--kg-border-strong)] text-[var(--kg-text)] transition-colors duration-150 border border-[var(--kg-border)]"
                 >
                   Tải lại trang
                 </button>

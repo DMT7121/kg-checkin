@@ -1,19 +1,21 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { useAppStore } from '../store/useAppStore';
+import { useAppStore, type LogEntry } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import KalmanFilter from '../utils/kalman';
 import {
   getDist,
   speak,
   getCurrentTimeString,
+  getVietnamDateParts,
   computeWeekInfo,
   KG_LAT,
   KG_LNG,
-  KG_RADIUS_METERS,
   normalizeGpsRadius,
   KG_STANDARD_ADDRESS,
   getRecommendedCheckInType,
+  resolveSmartAttendanceIntent,
+  recordLocalMissedClaim,
   setLocalLastPunch,
   auditMissingCheckIns,
   type MissingCheckInAlert,
@@ -26,6 +28,19 @@ import {
   isNextWeekScheduleRegistered,
   isScheduleRegistrationRequired
 } from '../utils/helpers';
+import {
+  formatUnifiedPunchLabel,
+  isCheckInLabel,
+  isCheckOutLabel,
+  isPrimaryFirstCheckInLabel,
+} from '../utils/attendanceSequence';
+import {
+  getCachedFaceProfiles,
+  setCachedFaceProfiles,
+  subscribeCachedFaceProfiles,
+  upsertCachedFaceProfile,
+  type RawFaceProfileDto,
+} from '../services/faceRecognitionV2';
 import { refreshAppData } from '../utils/refreshData';
 import { renderCheckInWatermarkCanvas } from '../utils/checkinWatermark';
 import {
@@ -45,9 +60,8 @@ import {
   CheckCircle2,
   Info,
   Moon,
-  Send,
   ChevronRight,
-  HelpCircle,
+  ChevronDown,
   Check,
   PartyPopper,
   Users,
@@ -59,7 +73,11 @@ import {
   Meh,
   Frown,
   Sun,
-  Zap
+  Zap,
+  ScanFace,
+  UserPlus,
+  Loader2,
+  CloudUpload
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import {
@@ -72,7 +90,20 @@ import {
 } from '../components/KgDesignSystem';
 import { isWorkEligible } from '../utils/employment';
 import EmploymentStatusNotice from '../components/EmploymentStatusNotice';
-import { enqueueTask, savePunchToVault, markPunchVaultSynced, markPunchVaultImageUploaded, subscribePunchStatus } from '../utils/offlineQueue';
+import {
+  enqueueTask,
+  savePunchToVault,
+  markPunchVaultSynced,
+  markPunchVaultEdgeBuffered,
+  markPunchVaultImageUploaded,
+  markPunchVaultImageQueuedOnEdge,
+  subscribePunchStatus,
+  markCheckinInFlight,
+  clearCheckinInFlight,
+  markImageUploadInFlight,
+  clearImageUploadInFlight,
+  rollbackRejectedPunchGlobally
+} from '../utils/offlineQueue';
 import MissedCheckInModal from '../components/MissedCheckInModal';
 import EmployeeAttendanceMonitor from '../components/EmployeeAttendanceMonitor';
 import {
@@ -82,6 +113,12 @@ import {
   recordGpsSample,
   clearGpsSamples
 } from '../utils/antiFraud';
+
+import type { StaffFacePickerCandidate } from '../components/AdminStaffFacePickerModal';
+
+const FastFaceScannerV2 = lazy(() => import('../components/FastFaceScannerV2'));
+const FaceEnrollmentModal = lazy(() => import('../components/FaceEnrollmentModal'));
+const AdminStaffFacePickerModal = lazy(() => import('../components/AdminStaffFacePickerModal'));
 
 export default function CheckIn() {
   const store = useAppStore(
@@ -137,7 +174,7 @@ export default function CheckIn() {
   const currentDist = (gps.lat !== null && gps.lng !== null)
     ? Math.round(getDist(gps.lat, gps.lng, targetLat, targetLng) * 1000)
     : (gps.distance ?? null);
-  const liveIndoorAllowance = Math.min((gps.accuracy || 0) * 0.35, 10);
+  const liveIndoorAllowance = Math.min((gps.accuracy || 0) * 0.45, 15);
   const effectiveCurrentDist = currentDist !== null ? Math.max(0, currentDist - liveIndoorAllowance) : null;
   const isAuthorizedTest = isAuthorizedTestUser(currentUser);
   const isWithinRadius = evaluateCheckInGeofence({
@@ -149,9 +186,98 @@ export default function CheckIn() {
     targetRadius,
   });
 
-  // Smart check-in recommendation & state machine
-  const recommendation = getRecommendedCheckInType(store.logs, currentUser);
-  const missingAlerts = auditMissingCheckIns(store.logs, currentUser);
+  // Ultra-fast Edge D1 attendance punch hydration (<180ms) across devices so Vào/Ra state is always fresh
+  const [fastEdgeLogs, setFastEdgeLogs] = useState<LogEntry[]>([]);
+
+  const refreshFastAttendanceState = useCallback(async () => {
+    if (!currentUser?.username && !currentUser?.fullname) return;
+    try {
+      const res = await callApi(
+        'GET_KIOSK_ATTENDANCE_STATE',
+        {
+          isKiosk: false,
+          fastEdge: true,
+          username: currentUser.username,
+          fullname: currentUser.fullname,
+          role: currentUser.role || 'user',
+        },
+        { background: true, cacheTtlMs: 0, timeoutMs: 4500 }
+      );
+      if (res?.ok && Array.isArray(res.data?.logs)) {
+        const mapped: LogEntry[] = res.data.logs.map((r: any) => ({
+          username: String(r.username || ''),
+          fullname: String(r.fullname || ''),
+          type: String(r.type || 'Vào ca'),
+          time: String(r.time || '').replace(/^'/, '').trim(),
+          status: String(r.type || '').toLowerCase().startsWith('chờ duyệt')
+            ? 'Chờ Admin duyệt'
+            : 'Hợp lệ',
+          timestamp: Number(r.timestamp || 0),
+        }));
+        setFastEdgeLogs(mapped);
+      }
+    } catch {
+      // keep existing store logs on offline/transient error
+    }
+  }, [currentUser?.username, currentUser?.fullname, currentUser?.role]);
+
+  useEffect(() => {
+    void refreshFastAttendanceState();
+    const onFocusOrVis = () => {
+      if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+        void refreshFastAttendanceState();
+      }
+    };
+    window.addEventListener('focus', onFocusOrVis);
+    document.addEventListener('visibilitychange', onFocusOrVis);
+    return () => {
+      window.removeEventListener('focus', onFocusOrVis);
+      document.removeEventListener('visibilitychange', onFocusOrVis);
+    };
+  }, [refreshFastAttendanceState]);
+
+  const mergedAttendanceLogs = useMemo(() => {
+    if (fastEdgeLogs.length === 0) return store.logs;
+    const seen = new Set(
+      store.logs.map(
+        (l) =>
+          `${String(l.fullname || '').trim().toLowerCase()}|${String(l.time || '').replace(/^'/, '').trim()}|${String(l.type || '').trim().toLowerCase()}`
+      )
+    );
+    const extras: LogEntry[] = [];
+    for (const fl of fastEdgeLogs) {
+      const k = `${String(fl.fullname || '').trim().toLowerCase()}|${String(fl.time || '').replace(/^'/, '').trim()}|${String(fl.type || '').trim().toLowerCase()}`;
+      if (!seen.has(k)) {
+        seen.add(k);
+        extras.push(fl);
+      }
+    }
+    return extras.length > 0 ? [...extras, ...store.logs] : store.logs;
+  }, [fastEdgeLogs, store.logs]);
+
+  // Smart check-in recommendation & 4-signal context-aware intent engine (06:00 -> 05:59 alternating Vào/Ra)
+  const recommendation = getRecommendedCheckInType(mergedAttendanceLogs, currentUser);
+  const todayScheduledShift = useMemo(() => {
+    const activeTodayShifts = store.currentWeekApprovedShifts ?? approvedShifts;
+    if (!Array.isArray(activeTodayShifts)) return null;
+    const vnParts = getVietnamDateParts();
+    const dayIdx = vnParts.dayOfWeek === 0 ? 6 : vnParts.dayOfWeek - 1;
+    return activeTodayShifts[dayIdx] ?? null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store.currentWeekApprovedShifts, approvedShifts, currentTime]);
+
+  const smartIntent = useMemo(
+    () =>
+      resolveSmartAttendanceIntent({
+        user: currentUser,
+        logs: mergedAttendanceLogs,
+        todayShift: todayScheduledShift,
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [currentUser, mergedAttendanceLogs, todayScheduledShift, currentTime]
+  );
+
+  const missingAlerts = auditMissingCheckIns(mergedAttendanceLogs, currentUser);
   const [selectedMissingAlert, setSelectedMissingAlert] = useState<MissingCheckInAlert | null>(null);
 
   // Mandatory weekly schedule pre-check-in gate (Thu 00:00 -> Sat 17:00 VN)
@@ -172,6 +298,7 @@ export default function CheckIn() {
   const goToMandatorySchedule = useCallback(() => {
     try {
       sessionStorage.setItem('kg_hub_subtab_workforce', 'schedule');
+      sessionStorage.setItem('kg_schedule_return_tab', 'checkin');
     } catch { /* ignore */ }
     store.setCurrentTab('schedule');
   }, [store]);
@@ -179,8 +306,8 @@ export default function CheckIn() {
   // Live second ticker for real-time 15-minute countdown (only active when user is actually within cooldown lockout)
   const [cooldownTicker, setCooldownTicker] = useState(0);
   const initialCooldown = useMemo(
-    () => getCheckInCooldown(store.logs, currentUser, store.lastCheckInTime),
-    [store.logs, currentUser, store.lastCheckInTime]
+    () => getCheckInCooldown(mergedAttendanceLogs, currentUser, store.lastCheckInTime),
+    [mergedAttendanceLogs, currentUser, store.lastCheckInTime]
   );
 
   useEffect(() => {
@@ -190,31 +317,158 @@ export default function CheckIn() {
   }, [initialCooldown.isBlocked]);
 
   const cooldown = useMemo(
-    () => getCheckInCooldown(store.logs, currentUser, store.lastCheckInTime),
+    () => getCheckInCooldown(mergedAttendanceLogs, currentUser, store.lastCheckInTime),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [store.logs, currentUser, store.lastCheckInTime, cooldownTicker]
+    [mergedAttendanceLogs, currentUser, store.lastCheckInTime, cooldownTicker]
   );
-  const anomalies = auditCheckInAnomalies(store.logs, currentUser);
+  const anomalies = auditCheckInAnomalies(mergedAttendanceLogs, currentUser);
 
-  // Post-capture confirmation modal & dynamic type selection state
+  // Post-capture confirmation modal, smart disambiguation & verified commit state
   const [confirmCheckInModalOpen, setConfirmCheckInModalOpen] = useState(false);
-  const [modalChosenType, setModalChosenType] = useState<CheckInTypeString>(recommendation.recommendedType);
-  const [hasAcknowledgedMissingIn, setHasAcknowledgedMissingIn] = useState(false);
+  const [modalChosenType, setModalChosenType] = useState<CheckInTypeString>(smartIntent.smartSuggestedAction);
+  const [userResolvedDisambiguation, setUserResolvedDisambiguation] = useState<CheckInTypeString | null>(null);
+  const [comboSupplementTime, setComboSupplementTime] = useState<string>(
+    smartIntent.suggestedSupplementTime || '15:00'
+  );
+  const [comboSupplementReason, setComboSupplementReason] = useState<string>('Quên bấm đầu ca');
+  const [isSubmittingPunch, setIsSubmittingPunch] = useState(false);
+  const isSubmittingPunchRef = useRef(false);
   const [hasAcknowledgedEarlyOut, setHasAcknowledgedEarlyOut] = useState(false);
   const [confirmInvertedTypeOpen, setConfirmInvertedTypeOpen] = useState(false);
   const [pendingTypeToSubmit, setPendingTypeToSubmit] = useState<CheckInTypeString>('Vào ca');
   const [employeeAttendanceModalOpen, setEmployeeAttendanceModalOpen] = useState(false);
 
-  // Auto-sync modal type with recommendation whenever recommendation changes (if modal is closed)
   useEffect(() => {
-    if (!confirmCheckInModalOpen) {
-      setModalChosenType(recommendation.recommendedType);
-      setHasAcknowledgedMissingIn(false);
-      setHasAcknowledgedEarlyOut(false);
+    if (smartIntent.suggestedSupplementTime) {
+      setComboSupplementTime(smartIntent.suggestedSupplementTime);
     }
-  }, [recommendation.recommendedType, confirmCheckInModalOpen]);
+  }, [smartIntent.suggestedSupplementTime]);
+
+  // Always keep modalChosenType & watermark synchronized with smart intent when user hasn't manually overridden
+  useEffect(() => {
+    const targetType = userResolvedDisambiguation || smartIntent.smartSuggestedAction;
+    if (modalChosenType !== targetType) {
+      handleTypeChangeInModal(targetType);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [smartIntent.smartSuggestedAction, userResolvedDisambiguation]);
 
   const [missedModalOpen, setMissedModalOpen] = useState(false);
+
+  // Parallel Mode Switcher (v1 Photo Confirmation <-> v2 Ultra-Fast Face ID) & 5-Angle Face Profile state
+  const [checkinMode, setCheckinMode] = useState<'v1' | 'v2'>(() => {
+    try {
+      return localStorage.getItem('kg_checkin_mode_v2') === 'v2' ? 'v2' : 'v1';
+    } catch {
+      return 'v1';
+    }
+  });
+  const [faceEnrollModalOpen, setFaceEnrollModalOpen] = useState(false);
+  const [adminPickerOpen, setAdminPickerOpen] = useState(false);
+  const [adminSelectedEnrollTarget, setAdminSelectedEnrollTarget] =
+    useState<StaffFacePickerCandidate | null>(null);
+  const [allFaceProfiles, setAllFaceProfiles] = useState<RawFaceProfileDto[]>(() =>
+    getCachedFaceProfiles()
+  );
+  const [faceProfilesSynced, setFaceProfilesSynced] = useState(
+    () => getCachedFaceProfiles().length > 0
+  );
+  const [unenrolledV2PromptOpen, setUnenrolledV2PromptOpen] = useState(false);
+  const [statusStripExpanded, setStatusStripExpanded] = useState(false);
+  const v1CameraSuspendedRef = useRef(checkinMode === 'v2');
+  v1CameraSuspendedRef.current = checkinMode === 'v2' || faceEnrollModalOpen || adminPickerOpen;
+  const stopCameraRef = useRef<() => void>(() => {});
+
+  const switchCheckinMode = useCallback((nextMode: 'v1' | 'v2') => {
+    v1CameraSuspendedRef.current = nextMode === 'v2' || faceEnrollModalOpen || adminPickerOpen;
+    if (nextMode === 'v2') {
+      stopCameraRef.current();
+    }
+    setCheckinMode(nextMode);
+    try {
+      localStorage.setItem('kg_checkin_mode_v2', nextMode);
+    } catch {
+      // ignore storage quota errors
+    }
+  }, [adminPickerOpen, faceEnrollModalOpen]);
+
+  const openFaceEnrollmentModal = useCallback(() => {
+    v1CameraSuspendedRef.current = true;
+    stopCameraRef.current();
+    setAdminSelectedEnrollTarget(null);
+    setFaceEnrollModalOpen(true);
+  }, []);
+
+  const openAdminStaffFacePicker = useCallback(() => {
+    v1CameraSuspendedRef.current = true;
+    stopCameraRef.current();
+    setAdminPickerOpen(true);
+  }, []);
+
+  const handleCloseFaceEnroll = useCallback(() => {
+    setFaceEnrollModalOpen(false);
+    setAdminSelectedEnrollTarget(null);
+  }, []);
+
+  const handleFaceEnrolledSuccess = useCallback((newDto: RawFaceProfileDto) => {
+    upsertCachedFaceProfile(newDto);
+    setAllFaceProfiles(getCachedFaceProfiles());
+  }, []);
+
+  const refreshFaceProfiles = useCallback(async () => {
+    if (!currentUser?.username) return;
+    try {
+      const res = await callApi(
+        'GET_FACE_PROFILES',
+        {
+          isKiosk: true,
+          preloadOnly: true,
+          username: currentUser.username,
+          role: currentUser.role || 'user',
+          fastEdge: true,
+        },
+        { background: true, cacheTtlMs: 0, timeoutMs: 8000 }
+      );
+      if (res?.ok && Array.isArray(res.data?.profiles)) {
+        setCachedFaceProfiles(res.data.profiles);
+        setAllFaceProfiles(res.data.profiles);
+      }
+    } catch {
+      // keep existing profile list on transient offline error
+    } finally {
+      setFaceProfilesSynced(true);
+    }
+  }, [currentUser?.username, currentUser?.role]);
+
+  useEffect(() => {
+    setAllFaceProfiles(getCachedFaceProfiles());
+    const unsub = subscribeCachedFaceProfiles((list) => {
+      setAllFaceProfiles(list);
+    });
+    void refreshFaceProfiles();
+    return unsub;
+  }, [refreshFaceProfiles]);
+
+  const selfFaceProfile = useMemo(() => {
+    if (!currentUser?.username) return null;
+    const uname = currentUser.username.trim().toUpperCase();
+    return (
+      allFaceProfiles.find((p) => String(p.username || '').trim().toUpperCase() === uname) || null
+    );
+  }, [allFaceProfiles, currentUser?.username]);
+
+  const handleSelectV2Mode = useCallback(() => {
+    const cachedProfiles = allFaceProfiles.length > 0 ? allFaceProfiles : getCachedFaceProfiles();
+    const isKnownUnenrolled =
+      currentUser?.role !== 'admin' &&
+      !selfFaceProfile &&
+      (faceProfilesSynced || cachedProfiles.length > 0);
+    if (isKnownUnenrolled) {
+      setUnenrolledV2PromptOpen(true);
+      return;
+    }
+    switchCheckinMode('v2');
+  }, [allFaceProfiles, currentUser?.role, faceProfilesSynced, selfFaceProfile, switchCheckinMode]);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -339,6 +593,8 @@ export default function CheckIn() {
     shift: string;
     email: string;
     sheetSaved?: boolean;
+    edgeBuffered?: boolean;
+    supplementSubmittedText?: string;
     lateMins?: number;
     penaltyAmount?: number;
     checklistPending?: boolean;
@@ -358,9 +614,27 @@ export default function CheckIn() {
   useEffect(() => {
     const unsubscribe = subscribePunchStatus((update) => {
       if (update.status === 'synced') {
-        setLastSubmittedPunch((prev) => (prev ? { ...prev, sheetSaved: true } : prev));
+        setLastSubmittedPunch((prev) =>
+          prev ? { ...prev, sheetSaved: true, edgeBuffered: false } : prev
+        );
+        const curState = useAppStore.getState();
+        if (update.checkinId) {
+          curState.setLogs(
+            curState.logs.map((l) =>
+              l.checkinId === update.checkinId
+                ? {
+                    ...l,
+                    status: 'Hợp lệ',
+                    sheetSynced: true,
+                    edgeBuffered: false,
+                    localQueued: false,
+                  }
+                : l
+            )
+          );
+        }
         const weekInfo = computeWeekInfo();
-        const user = useAppStore.getState().currentUser;
+        const user = curState.currentUser;
         if (user) {
           callApi('GET_DATA', {
             username: user.username,
@@ -379,8 +653,9 @@ export default function CheckIn() {
           });
         }
       } else if (update.status === 'failed') {
-        setFeedbackTitle('Chấm công chưa được máy chủ ghi nhận');
-        setFeedbackMessage(update.message || 'Không thể lưu dữ liệu chấm công lên Google Sheets. Vui lòng kiểm tra kết nối và thử lại.');
+        setLastSubmittedPunch(null);
+        setFeedbackTitle('Chấm công bị từ chối hoặc chưa thể ghi Sheet');
+        setFeedbackMessage(update.message || 'Máy chủ không thể ghi nhận lượt chấm công này vào Google Sheets. Vui lòng kiểm tra kết nối và chấm lại.');
         setFeedbackType('warning');
         setFeedbackSheetOpen(true);
       }
@@ -437,8 +712,8 @@ export default function CheckIn() {
     const isAuthorizedTest = isAuthorizedTestUser(s.currentUser);
 
     const rawDist = getDist(rawLat, rawLng, targetLat, targetLng) * 1000;
-    // Indoor tolerance: Compensate for structural signal attenuation (max 10m deduction if accuracy is coarse)
-    const indoorAllowance = Math.min(acc * 0.35, 10);
+    // Indoor tolerance: Compensate for structural signal attenuation (max 15m deduction synchronized with GAS & v2)
+    const indoorAllowance = Math.min(acc * 0.45, 15);
     const rawEffectiveDist = Math.max(0, rawDist - indoorAllowance);
 
     // Phase 1: Fast Seed Check
@@ -717,7 +992,7 @@ export default function CheckIn() {
       const lng = pos.coords.longitude;
       const acc = pos.coords.accuracy;
       const dist = getDist(lat, lng, targetLat, targetLng) * 1000;
-      const indoorAllowance = Math.min(acc * 0.35, 10);
+      const indoorAllowance = Math.min(acc * 0.45, 15);
       const effectiveDist = Math.max(0, dist - indoorAllowance);
 
       samples.push({ lat, lng, acc, dist, effectiveDist });
@@ -763,7 +1038,7 @@ export default function CheckIn() {
   // Camera Logic
   const cameraSessionRef = useRef(0);
 
-  const stopCamera = () => {
+  const stopCamera = useCallback(() => {
     cameraSessionRef.current += 1;
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
@@ -773,12 +1048,13 @@ export default function CheckIn() {
       videoRef.current.srcObject = null;
     }
     setCameraActive(false);
-  };
+  }, []);
+  stopCameraRef.current = stopCamera;
 
   const isStartingCameraRef = useRef(false);
 
-  const startCamera = async () => {
-    if (isStartingCameraRef.current) return;
+  const startCamera = useCallback(async () => {
+    if (isStartingCameraRef.current || v1CameraSuspendedRef.current) return;
     isStartingCameraRef.current = true;
     const sessionId = ++cameraSessionRef.current;
     setCameraError(false);
@@ -800,27 +1076,11 @@ export default function CheckIn() {
         {
           video: {
             facingMode: { ideal: 'user' },
-            width: { ideal: 1920 },
-            height: { ideal: 1080 }
-          }
-        },
-        {
-          video: {
-            facingMode: { ideal: 'user' },
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          }
-        },
-        {
-          video: {
-            facingMode: 'user' as const,
             width: { ideal: 1280 },
             height: { ideal: 720 }
           }
         },
         { video: { facingMode: { ideal: 'user' } } },
-        { video: { facingMode: 'user' as const } },
-        { video: { facingMode: 'environment' as const } },
         { video: true }
       ];
 
@@ -850,6 +1110,21 @@ export default function CheckIn() {
           video.playsInline = true;
           video.srcObject = stream;
 
+          // Recover automatically if iOS Safari / WKWebView terminates MediaStreamTrack after phone call or lock screen
+          const primaryTrack = stream.getVideoTracks?.()[0];
+          if (primaryTrack) {
+            primaryTrack.onended = () => {
+              if (
+                cameraSessionRef.current === sessionId &&
+                !v1CameraSuspendedRef.current &&
+                document.visibilityState === 'visible'
+              ) {
+                setCameraActive(false);
+                void startCamera();
+              }
+            };
+          }
+
           await new Promise<void>((resolve, reject) => {
             let settled = false;
             const timeoutId = setTimeout(() => {
@@ -857,7 +1132,7 @@ export default function CheckIn() {
                 settled = true;
                 reject(new Error('Camera initialization timeout'));
               }
-            }, 4500);
+            }, 2200);
 
             const tryPlay = () => {
               if (settled) return;
@@ -874,13 +1149,13 @@ export default function CheckIn() {
                     clearTimeout(timeoutId);
                     setCameraActive(true);
                     resolve();
-                  } else if (Date.now() - pollStart > 2500) {
+                  } else if (Date.now() - pollStart > 1200) {
                     settled = true;
                     clearInterval(pollInterval);
                     clearTimeout(timeoutId);
                     reject(new Error('Video stream empty'));
                   }
-                }, 100);
+                }, 80);
               }).catch((playErr) => {
                 if (!settled) {
                   settled = true;
@@ -910,36 +1185,46 @@ export default function CheckIn() {
         } catch (error) {
           const cameraException = error as DOMException;
           if (cameraException?.name === 'NotAllowedError' || cameraException?.name === 'SecurityError') {
-            setCameraErrorMessage('Quyền camera đang bị tắt. Hãy cấp quyền rồi thử lại.');
+            setCameraErrorMessage('Quyền camera đang bị tắt. Nhấn nút chụp ảnh để dùng máy ảnh điện thoại hoặc cấp quyền lại.');
             break;
           }
           if (cameraException?.name === 'NotFoundError') {
-            setCameraErrorMessage('Không tìm thấy camera trên thiết bị.');
+            setCameraErrorMessage('Không tìm thấy camera trực tiếp. Nhấn nút chụp ảnh để mở máy ảnh điện thoại.');
             break;
           }
         }
       }
       setCameraError(true);
-      setCameraErrorMessage((message) => message || 'Không thể mở camera. Bạn vẫn có thể dùng máy ảnh hệ thống.');
-      speak('Không thể mở máy ảnh. Vui lòng kiểm tra quyền truy cập.');
+      setCameraErrorMessage((message) => message || 'Nhấn nút chụp ảnh bên dưới để chụp trực tiếp bằng máy ảnh hệ thống điện thoại.');
+      speak('Đang chuyển sang chế độ chụp bằng máy ảnh điện thoại.');
     } finally {
       isStartingCameraRef.current = false;
     }
-  };
+  }, []);
 
   const cleanCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  // Preserves the verified in-radius GPS snapshot right when native camera (<input capture>) opens on mobile
+  const preNativeCaptureGpsRef = useRef<{
+    lat: number;
+    lng: number;
+    acc: number;
+    dist: number;
+    address: string;
+    message: string;
+    timestampMs: number;
+  } | null>(null);
 
   const drawWatermarkAndSave = (
     canvas: HTMLCanvasElement,
     ctx: CanvasRenderingContext2D,
     exactTime: string,
     addr: string,
-    typeToStamp: CheckInTypeString = modalChosenType || recommendation.recommendedType,
+    typeToStamp: CheckInTypeString = modalChosenType || smartIntent.smartSuggestedAction,
     gpsOverride?: { lat: number; lng: number; acc: number; dist: number; address: string; message: string } | null
-  ) => {
+  ): string | null => {
     if (!isWithinRadius && !gpsOverride) {
       speak(`Bạn đang ở ngoài bán kính ${targetRadius}m. Không thể tạo ảnh đóng dấu.`);
-      return;
+      return null;
     }
 
     const currentGpsState = useAppStore.getState().gps;
@@ -967,6 +1252,7 @@ export default function CheckIn() {
 
     store.setCapturedImage(dataUrl);
     store.setCapturedTime(exactTime);
+    return dataUrl;
   };
 
   const takePhoto = () => {
@@ -1014,8 +1300,9 @@ export default function CheckIn() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Upgraded resolution for Super HD sharpness: 1080x1920 (9:16 portrait ratio, matching camera view)
-    const targetWidth = 1080, targetHeight = 1920;
+    // Optimized HD portrait 720x1280 (9:16): crisp watermark legibility + 60% lighter payload & WebKit canvas RAM on iPhone
+    const targetW = 720, targetH = 1280;
+    const targetWidth = targetW, targetHeight = targetH;
     canvas.width = targetWidth; canvas.height = targetHeight;
     const vw = video.videoWidth, vh = video.videoHeight;
     const canvasRatio = targetWidth / targetHeight, videoRatio = vw / vh;
@@ -1066,9 +1353,9 @@ export default function CheckIn() {
     };
     setCapturedGps(snapGps);
 
-    const activeType = recommendation.recommendedType;
+    const activeType = smartIntent.smartSuggestedAction;
+    setUserResolvedDisambiguation(null);
     setModalChosenType(activeType);
-    setHasAcknowledgedMissingIn(false);
     setHasAcknowledgedEarlyOut(false);
 
     drawWatermarkAndSave(canvas, ctx, exactTime, addr, activeType, snapGps);
@@ -1080,6 +1367,120 @@ export default function CheckIn() {
     const isAdminOrTester = currentUser?.role === 'admin' || currentUser?.role === 'tester';
     if (!cooldown.isBlocked || isAdminOrTester) {
       setConfirmCheckInModalOpen(true);
+    }
+  };
+
+  // Synchronous user-gesture handler for BOTH the camera viewport shutter and the primary "CHỤP ẢNH VÀO CA / RA CA" button.
+  // Keeping this 100% synchronous guarantees iOS Safari & Android WebView never drop userActivation before fileInputRef.current.click().
+  const handleCaptureTrigger = () => {
+    const isCooldownActive = Boolean(cooldown.isBlocked && currentUser?.role !== 'admin');
+    if (isCooldownActive) {
+      speak(`Vui lòng đợi thêm ${cooldown.remainingMinutesFormatted} để chấm công lại.`);
+      setSpamWarningText(
+        `Quy định chống trùng lặp: Bạn vừa chấm ${formatUnifiedPunchLabel(cooldown.lastType || 'công')} lúc ${cooldown.lastTimeStr || ''}. Vui lòng đợi thêm ${cooldown.remainingMinutesFormatted} trước lượt chấm tiếp theo.`
+      );
+      setSpamWarningOpen(true);
+      return;
+    }
+
+    if (recommendation.isMaxPunchesReached) {
+      speak('Bạn đã hoàn thành đủ 4 lượt chấm công trong chu kỳ ngày hôm nay.');
+      setFeedbackTitle('Đã đủ 4 lượt chấm công trong ngày');
+      setFeedbackMessage(
+        'Hệ thống đã ghi nhận đủ 2 cặp Vào ca – Ra ca (4 lượt) trong chu kỳ 06:00 – 05:59 hiện tại. Bạn có thể kiểm tra chi tiết tại tab Lịch sử.'
+      );
+      setFeedbackType('info');
+      setFeedbackSheetOpen(true);
+      return;
+    }
+
+    if (isScheduleGateBlocked) {
+      speak('Bắt buộc đăng ký lịch làm tuần tới trước khi chấm công.');
+      setFeedbackTitle(`Chưa đăng ký lịch tuần ${upcomingWeekInfo.weekDisplay}`);
+      setFeedbackMessage(
+        `Theo quy định từ Thứ 5 đến trước 17:00 Thứ Bảy, 100% nhân sự bắt buộc hoàn thành đăng ký ca làm tuần tới (${upcomingWeekInfo.weekDisplay}) trước khi chấm công Vào ca / Ra ca.`
+      );
+      setFeedbackType('warning');
+      setFeedbackSheetOpen(true);
+      goToMandatorySchedule();
+      return;
+    }
+
+    if (!isWithinRadius || (!isAuthorizedTest && (gps.lat === null || gps.lng === null))) {
+      if (!isPrecisionScanning) {
+        if (gps.lat === null || gps.lng === null) {
+          startGpsWatch();
+        } else {
+          handlePrecisionRescan();
+        }
+      }
+      if (gps.lat === null || gps.lng === null) {
+        speak('Hệ thống đang lấy vị trí GPS. Vui lòng bật định vị và chờ vài giây.');
+        setFeedbackTitle('Đang xác thực vị trí GPS');
+        setFeedbackMessage(
+          `${gps.status || 'Đang thu nhận tín hiệu GPS...'}\n\nVui lòng đảm bảo đã bật Định vị (GPS) trên điện thoại và cấp quyền Vị trí cho trình duyệt, sau đó bấm chụp lại sau 2–3 giây.`
+        );
+      } else {
+        speak(`Bạn đang ở ngoài bán kính chấm công. Khoảng cách ${currentDist ?? 'không xác định'} mét.`);
+        setFeedbackTitle(`Ngoài bán kính chấm công (≤${targetRadius}m)`);
+        setFeedbackMessage(
+          `Vị trí hiện tại cách nhà hàng ${currentDist ?? 'quá'}m (quy định ≤ ${targetRadius}m).\n\nHệ thống vừa tự động quét lại sóng vệ tinh mới nhất cho bạn. Nếu đang đứng trong nhà hàng, vui lòng chờ 2–3 giây rồi bấm chụp lại.`
+        );
+      }
+      setFeedbackType('warning');
+      setFeedbackSheetOpen(true);
+      return;
+    }
+
+    const spoofResult = detectGpsSpoofing();
+    if (spoofResult.isSuspicious && !isAuthorizedTest) {
+      speak('Cảnh báo! Phát hiện nghi vấn giả lập vị trí GPS.');
+      setFeedbackTitle('Cảnh báo Gian Lận Vị Trí (Fake GPS)');
+      setFeedbackMessage(
+        `Hệ thống an ninh KG-OS phát hiện tín hiệu vị trí bất thường:\n- ${spoofResult.reasons.join('\n- ')}\n\nVui lòng tắt tất cả ứng dụng giả lập GPS hoặc VPN/Proxy và quét lại vị trí thực tế.`
+      );
+      setFeedbackType('warning');
+      setFeedbackSheetOpen(true);
+      return;
+    }
+
+    const video = videoRef.current;
+    const hasLiveVideoFrame = Boolean(
+      !cameraError &&
+        video &&
+        video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
+        video.videoWidth > 0 &&
+        video.videoHeight > 0
+    );
+
+    if (hasLiveVideoFrame) {
+      takePhoto();
+      return;
+    }
+
+    // Snapshot valid in-radius GPS before native camera backgrounding
+    const currentGps = useAppStore.getState().gps;
+    preNativeCaptureGpsRef.current = {
+      lat: currentGps.lat ?? targetLat,
+      lng: currentGps.lng ?? targetLng,
+      acc: currentGps.accuracy ?? 10,
+      dist: currentDist ?? 0,
+      address: currentGps.address || KG_STANDARD_ADDRESS,
+      message: currentGps.message || '',
+      timestampMs: Date.now(),
+    };
+
+    if (!cameraActive && !isStartingCameraRef.current) {
+      void startCamera();
+    } else if (video && video.paused) {
+      void video.play().catch(() => undefined);
+    }
+
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    } else {
+      setCameraError(true);
+      setCameraErrorMessage('Vui lòng chọn Chụp ảnh minh chứng bằng máy ảnh điện thoại.');
     }
   };
 
@@ -1097,7 +1498,13 @@ export default function CheckIn() {
       return;
     }
 
-    if (!isWithinRadius) {
+    const recentPreSnap =
+      preNativeCaptureGpsRef.current &&
+      Date.now() - preNativeCaptureGpsRef.current.timestampMs <= 90_000
+        ? preNativeCaptureGpsRef.current
+        : null;
+
+    if (!isWithinRadius && !recentPreSnap) {
       speak('Bạn đang ở ngoài bán kính 25m. Không thể tải ảnh minh chứng.');
       setFeedbackTitle('Ngoài bán kính chấm công (≤25m)');
       setFeedbackMessage(
@@ -1133,8 +1540,9 @@ export default function CheckIn() {
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
         
-        // Upgraded resolution for Super HD sharpness: 1080x1920 (9:16 portrait ratio, matching camera view)
-        const targetWidth = 1080, targetHeight = 1920;
+        // Optimized HD portrait 720x1280 (9:16): crisp watermark legibility + 60% lighter payload & WebKit canvas RAM on iPhone
+        const targetW = 720, targetH = 1280;
+        const targetWidth = targetW, targetHeight = targetH;
         canvas.width = targetWidth; canvas.height = targetHeight;
         const vw = img.width, vh = img.height;
         const canvasRatio = targetWidth / targetHeight, imgRatio = vw / vh;
@@ -1171,20 +1579,21 @@ export default function CheckIn() {
         const exactTime = `${d}/${m}/${y} ${h}:${min}:${s}`;
         
         const currentGps = useAppStore.getState().gps;
-        const addr = currentGps.address || KG_STANDARD_ADDRESS;
+        const addr = currentGps.address || recentPreSnap?.address || KG_STANDARD_ADDRESS;
         const snapGps = {
-          lat: currentGps.lat ?? targetLat,
-          lng: currentGps.lng ?? targetLng,
-          acc: currentGps.accuracy ?? 10,
-          dist: currentDist ?? 0,
+          lat: isWithinRadius ? (currentGps.lat ?? targetLat) : (recentPreSnap?.lat ?? currentGps.lat ?? targetLat),
+          lng: isWithinRadius ? (currentGps.lng ?? targetLng) : (recentPreSnap?.lng ?? currentGps.lng ?? targetLng),
+          acc: isWithinRadius ? (currentGps.accuracy ?? 10) : (recentPreSnap?.acc ?? currentGps.accuracy ?? 10),
+          dist: isWithinRadius ? (currentDist ?? 0) : (recentPreSnap?.dist ?? currentDist ?? 0),
           address: addr,
-          message: currentGps.message || ''
+          message: (isWithinRadius ? currentGps.message : recentPreSnap?.message) || ''
         };
         setCapturedGps(snapGps);
+        preNativeCaptureGpsRef.current = null;
 
-        const activeType = recommendation.recommendedType;
+        const activeType = smartIntent.smartSuggestedAction;
+        setUserResolvedDisambiguation(null);
         setModalChosenType(activeType);
-        setHasAcknowledgedMissingIn(false);
         setHasAcknowledgedEarlyOut(false);
 
         drawWatermarkAndSave(canvas, ctx, exactTime, addr, activeType, snapGps);
@@ -1203,9 +1612,8 @@ export default function CheckIn() {
     e.target.value = '';
   };
 
-  const handleTypeChangeInModal = (newType: CheckInTypeString) => {
+  const handleTypeChangeInModal = (newType: CheckInTypeString): string | null => {
     setModalChosenType(newType);
-    setHasAcknowledgedMissingIn(false);
     setHasAcknowledgedEarlyOut(false);
     
     // Re-render watermark in real-time onto canvas using locked capturedGps snapshot
@@ -1217,13 +1625,15 @@ export default function CheckIn() {
         ctx.drawImage(cleanCanvas, 0, 0);
         const exactTime = store.capturedTime || `${String(new Date().getDate()).padStart(2, '0')}/${String(new Date().getMonth() + 1).padStart(2, '0')}/${new Date().getFullYear()} ${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}:${String(new Date().getSeconds()).padStart(2, '0')}`;
         const addr = capturedGps?.address || useAppStore.getState().gps.address || KG_STANDARD_ADDRESS;
-        drawWatermarkAndSave(canvas, ctx, exactTime, addr, newType, capturedGps);
+        return drawWatermarkAndSave(canvas, ctx, exactTime, addr, newType, capturedGps);
       }
     }
+    return useAppStore.getState().capturedImage;
   };
 
   // Submit flow triggers
   const submitCheck = async (type: string) => {
+    if (isSubmittingPunchRef.current) return;
     const activeLat = capturedGps?.lat ?? gps.lat;
     const activeLng = capturedGps?.lng ?? gps.lng;
     if (!capturedImage || !isWithinRadius || activeLat === null || activeLng === null) return;
@@ -1233,18 +1643,25 @@ export default function CheckIn() {
       return;
     }
 
-    const isOutAction = type.includes('Ra ca') || type.includes('OUT') || type.toLowerCase().includes('ra');
-    // Safety guard: If user manually chose 'Ra ca' but has no active open shift or Vào ca record
-    if (isOutAction && !recommendation.isOpenShift && !recommendation.hasInToday) {
+    const isOutAction = isCheckOutLabel(type);
+    // Safety guard: If user manually chose 'Ra ca' without resolving disambiguation and has no active open shift
+    if (
+      isOutAction &&
+      !recommendation.isOpenShift &&
+      !recommendation.hasInToday &&
+      userResolvedDisambiguation !== 'Ra ca'
+    ) {
+      setConfirmCheckInModalOpen(false);
       setPendingTypeToSubmit(type as CheckInTypeString);
       setConfirmInvertedTypeOpen(true);
       return;
     }
 
-    proceedSubmitCheck(type);
+    await proceedSubmitCheck(type);
   };
 
   const proceedSubmitCheck = async (type: string) => {
+    if (isSubmittingPunchRef.current) return;
     if (!capturedImage) {
       speak('Chưa có ảnh chụp. Vui lòng chụp ảnh minh chứng trước khi gửi.');
       setFeedbackTitle('Chưa có ảnh chụp');
@@ -1283,56 +1700,66 @@ export default function CheckIn() {
       return;
     }
 
-    // Anti-spam 15-minute cooldown check
-    const cooldownInfo = getCheckInCooldown(store.logs, currentUser, useAppStore.getState().lastCheckInTime);
+    // Anti-spam 15-minute per-employee cooldown check (cross-device via mergedAttendanceLogs)
+    const cooldownInfo = getCheckInCooldown(mergedAttendanceLogs, currentUser, useAppStore.getState().lastCheckInTime);
     const isAdminUser = currentUser?.role === 'admin';
     if (cooldownInfo.isBlocked && !isAdminUser) {
+      setConfirmCheckInModalOpen(false);
       speak(`Vui lòng đợi thêm ${cooldownInfo.remainingMinutesFormatted} để chấm công lại.`);
-      setSpamWarningText(`Quy định chống spam: Bạn vừa chấm công lúc ${cooldownInfo.lastTimeStr || ''} (${cooldownInfo.minutesSinceLast || 0} phút trước). Hệ thống yêu cầu sau tối thiểu 15 phút mới được chấm tiếp để tránh trùng lặp. Thời gian còn lại: ${cooldownInfo.remainingMinutesFormatted}.`);
+      setSpamWarningText(`Quy định chống trùng lặp: Bạn vừa chấm công lúc ${cooldownInfo.lastTimeStr || ''} (${cooldownInfo.minutesSinceLast || 0} phút trước). Hệ thống yêu cầu sau tối thiểu 15 phút mới được chấm tiếp. Thời gian còn lại: ${cooldownInfo.remainingMinutesFormatted}.`);
       setSpamWarningOpen(true);
       return;
     }
 
-    // Late check-in warning (always check current week's approved shifts first!)
+    // Late check-in warning (only evaluate on primary 1st Vào ca of workday cycle, never fine 2nd Vào ca, and skip >120m anomaly)
     let lateMinsInfo = 0;
     let shiftString = '';
-    const isInAction = type.includes('Vào ca') || type.includes('IN') || type.toLowerCase().includes('vào');
+    const isPrimaryFirstIn = isPrimaryFirstCheckInLabel(type) && recommendation.shiftIndex === 1;
     const activeTodayShifts = store.currentWeekApprovedShifts ?? approvedShifts;
-    if (isInAction && activeTodayShifts) {
-      const todayDate = new Date();
-      let dayIdx = todayDate.getDay() - 1;
-      if (dayIdx === -1) dayIdx = 6;
+    if (activeTodayShifts) {
+      const vnParts = getVietnamDateParts();
+      const dayIdx = vnParts.dayOfWeek === 0 ? 6 : vnParts.dayOfWeek - 1;
       const todayShift = activeTodayShifts[dayIdx];
-      if (todayShift && todayShift !== 'OFF' && todayShift !== 'OFF#') {
+      if (isPrimaryFirstIn && todayShift && todayShift !== 'OFF' && todayShift !== 'OFF#') {
         const parts = todayShift.split(':');
         if (parts.length === 2) {
           const shiftTotal = parseInt(parts[0]) * 60 + parseInt(parts[1]);
-          const currentTotal = todayDate.getHours() * 60 + todayDate.getMinutes();
+          const currentTotal = vnParts.hour * 60 + vnParts.minute;
           if (currentTotal > shiftTotal) {
             lateMinsInfo = currentTotal - shiftTotal;
-            speak(`Cảnh báo, bạn đang vào ca trễ ${lateMinsInfo} phút.`);
-            
-            // Set late variables and open bottom confirmation sheet instead of SweetAlert
-            setPendingTypeToSubmit(type as CheckInTypeString);
-            setPendingLateMins(lateMinsInfo);
-            setPendingShiftStr(todayShift);
-            setConfirmLateOpen(true);
-            return;
+            if (lateMinsInfo > 5 && lateMinsInfo <= 120) {
+              setConfirmCheckInModalOpen(false);
+              speak(`Cảnh báo, bạn đang vào ca trễ ${lateMinsInfo} phút.`);
+
+              // Set late variables and open bottom confirmation sheet instead of SweetAlert
+              setPendingTypeToSubmit(type as CheckInTypeString);
+              setPendingLateMins(lateMinsInfo);
+              setPendingShiftStr(todayShift);
+              setConfirmLateOpen(true);
+              return;
+            }
           }
         }
       }
       shiftString = todayShift || 'Không có ca';
     }
 
-    // Directly execute check if not late
-    executeCheck(type, false, lateMinsInfo, shiftString);
+    // Directly execute verified check if not late
+    await executeCheck(type, false, lateMinsInfo, shiftString);
   };
 
-  // Real execution call
-  const executeCheck = async (type: string, _isLate: boolean, lateMinsInfo: number, shiftString: string) => {
+  // Real execution call — Verified Server / Edge D1 Commit BEFORE mutating local logs/cooldown or announcing success
+  const executeCheck = async (
+    type: string,
+    _isLate: boolean,
+    lateMinsInfo: number,
+    shiftString: string,
+    options?: { imageOverride?: string; supplementSubmittedText?: string }
+  ): Promise<boolean> => {
+    if (isSubmittingPunchRef.current) return false;
     if (!currentUser) {
       speak('Vui lòng đăng nhập lại để tiếp tục.');
-      return;
+      return false;
     }
 
     // Hard client + cold-boot server verification gate during T5 00:00 -> T7 17:00 VN
@@ -1359,22 +1786,25 @@ export default function CheckIn() {
         setFeedbackType('warning');
         setFeedbackSheetOpen(true);
         goToMandatorySchedule();
-        return;
+        return false;
       }
     }
 
-    if (!capturedImage) {
+    const effectiveCapturedImage =
+      options?.imageOverride || useAppStore.getState().capturedImage || capturedImage;
+
+    if (!effectiveCapturedImage) {
       speak('Vui lòng chụp ảnh selfie trước khi điểm danh.');
       setFeedbackTitle('Chưa có ảnh minh chứng');
       setFeedbackMessage('Vui lòng chụp ảnh selfie rõ nét trước khi thực hiện điểm danh.');
       setFeedbackType('warning');
       setFeedbackSheetOpen(true);
-      return;
+      return false;
     }
 
     if (!photoCapturedAtMs || Date.now() - photoCapturedAtMs > PHOTO_EXPIRATION_SECONDS * 1000) {
       handlePhotoExpired();
-      return;
+      return false;
     }
 
     const activeLat = capturedGps?.lat ?? gps.lat;
@@ -1384,107 +1814,54 @@ export default function CheckIn() {
     const activeLocation = capturedGps?.address || gps.address || gps.status || KG_STANDARD_ADDRESS;
 
     if (!isWithinRadius || activeLat === null || activeLng === null) {
+      setConfirmCheckInModalOpen(false);
       speak(`Từ chối chấm công: Bạn đang ở ngoài bán kính ${targetRadius}m.`);
       setFeedbackTitle('Từ chối chấm công');
       setFeedbackMessage(`Khoảng cách hiện tại là ${activeDist ?? 'quá'}m (quy định ≤ ${targetRadius}m). Hệ thống không ghi nhận lượt chấm công này.`);
       setFeedbackType('warning');
       setFeedbackSheetOpen(true);
-      return;
+      return false;
     }
 
-    const now = new Date();
-    const d = String(now.getDate()).padStart(2, '0');
-    const m = String(now.getMonth() + 1).padStart(2, '0');
-    const y = now.getFullYear();
-    const h = String(now.getHours()).padStart(2, '0');
-    const min = String(now.getMinutes()).padStart(2, '0');
-    const s = String(now.getSeconds()).padStart(2, '0');
-    const fallbackExactTime = `${d}/${m}/${y} ${h}:${min}:${s}`;
+    const vnNow = getVietnamDateParts();
+    const fallbackExactTime = `${String(vnNow.day).padStart(2, '0')}/${String(vnNow.month).padStart(2, '0')}/${vnNow.year} ${String(vnNow.hour).padStart(2, '0')}:${String(vnNow.minute).padStart(2, '0')}:${String(vnNow.second).padStart(2, '0')}`;
 
     // Exactly use the photo's captured time, guaranteeing 100% match with the watermark
     const actualTime = store.capturedTime || fallbackExactTime;
-    const previousLastCheckInTime = store.lastCheckInTime;
-    const tempLog = {
-      fullname: currentUser.fullname,
-      type,
-      time: actualTime,
-      status: 'Đang đồng bộ...',
-      image: capturedImage || undefined
-    };
-    
-    // Save to store and local persistent punch cache immediately
-    store.prependLog(tempLog);
-    setLocalLastPunch(currentUser, type, actualTime);
-    const punchNowMs = Date.now();
-    store.setLastCheckInTime(punchNowMs);
-    try {
-      localStorage.setItem('kg_last_checkin', String(punchNowMs));
-    } catch {}
-    const isClockInType = type.includes('Vào ca') || type.includes('IN') || type.toLowerCase().includes('vào');
-    if (isClockInType) store.setStats({ ...store.stats, totalCheckIn: store.stats.totalCheckIn + 1 });
-    
-    const payloadImage = capturedImage;
+    const payloadImage = effectiveCapturedImage;
     const payloadTime = actualTime;
     const capturedTimestamp = photoCapturedAtMs;
-    store.setCapturedImage(null);
-    store.setCapturedTime(null);
-    setCapturedGps(null);
-    setPhotoCapturedAtMs(null);
-    setPhotoTimeLeftSeconds(PHOTO_EXPIRATION_SECONDS);
+    const isClockInType = isCheckInLabel(type);
 
-    // Release 1080x1920 offscreen canvas memory once punch is submitted
-    if (cleanCanvasRef.current) {
-      cleanCanvasRef.current.width = 0;
-      cleanCanvasRef.current.height = 0;
-      cleanCanvasRef.current = null;
-    }
+    const releaseCapturedPreview = () => {
+      store.setCapturedImage(null);
+      store.setCapturedTime(null);
+      setCapturedGps(null);
+      setPhotoCapturedAtMs(null);
+      setPhotoTimeLeftSeconds(PHOTO_EXPIRATION_SECONDS);
+      setUserResolvedDisambiguation(null);
+      setConfirmCheckInModalOpen(false);
+      if (cleanCanvasRef.current) {
+        cleanCanvasRef.current.width = 0;
+        cleanCanvasRef.current.height = 0;
+        cleanCanvasRef.current = null;
+      }
+    };
 
-    // Ensure reliable email delivery: resolve fallback to dmt.7121@gmail.com for admin / placeholder domains
     const effectiveEmail = (currentUser.email && !currentUser.email.includes('@kingsgrill.com'))
       ? currentUser.email
       : (currentUser.username.toLowerCase() === 'admin' ? 'dmt.7121@gmail.com' : (currentUser.email || 'dmt.7121@gmail.com'));
 
-    const isLate = Boolean(lateMinsInfo && lateMinsInfo > 5 && type.includes('Vào'));
+    const isLate = Boolean(lateMinsInfo && lateMinsInfo > 5 && lateMinsInfo <= 120 && isPrimaryFirstCheckInLabel(type));
     const penaltyAmount = isLate ? Math.max(10000, Math.floor(lateMinsInfo / 15) * 10000) : 0;
 
-    // Save details for synchronized rich feedback modal
-    setLastSubmittedPunch({
-      type,
-      fullname: currentUser.fullname,
-      time: actualTime,
-      location: activeLocation,
-      distMeters: typeof activeDist === 'number' ? `${Math.round(activeDist)}m` : `<= ${targetRadius}m`,
-      isValid: true,
-      shift: shiftString,
-      email: effectiveEmail,
-      sheetSaved: false, // will update to true once sheet ack arrives in background
-      lateMins: isLate ? lateMinsInfo : 0,
-      penaltyAmount,
-      checklistPending: false
-    });
-
-    // INSTANT OPTIMISTIC FEEDBACK (<100ms): Confetti + Audio + Success Sheet immediately!
-    confetti({
-      particleCount: 160,
-      spread: 80,
-      origin: { y: 0.6 },
-      colors: type.includes('Vào')
-        ? ['#10b981', '#06b6d4', '#facc15', '#3b82f6', '#ec4899']
-        : ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981']
-    });
-
-    if (type.includes('Vào')) {
-      speak('Ting! Đã ghi nhận thành công điểm danh vào ca. Chúc bạn ca làm việc vui vẻ!');
-    } else {
-      speak('Ting! Đã ghi nhận thành công điểm danh ra ca. Chúc mừng bạn đã hoàn thành ca làm việc!');
-    }
-
-    setFeedbackTitle(type.includes('Vào') ? 'Điểm Danh Vào Ca Thành Công!' : 'Điểm Danh Ra Ca Thành Công!');
-    setFeedbackMessage('Đã tiếp nhận lượt chấm công! Dữ liệu và hình ảnh đang được tự động đồng bộ vào Bảng chấm công.');
-    setFeedbackType('success');
-    setFeedbackSheetOpen(true);
-
-    const clientCheckinId = 'CHK_' + (currentUser.username ? currentUser.username.replace(/[^a-zA-Z0-9]/g, '') : 'user') + '_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7).toUpperCase();
+    const clientCheckinId =
+      'CHK_' +
+      (currentUser.username ? currentUser.username.replace(/[^a-zA-Z0-9]/g, '') : 'user') +
+      '_' +
+      Date.now() +
+      '_' +
+      Math.random().toString(36).substring(2, 7).toUpperCase();
     const timeISO = new Date().toISOString();
 
     const payload = {
@@ -1499,182 +1876,401 @@ export default function CheckIn() {
       distance: activeDist,
       image: payloadImage || null,
       time: payloadTime,
-      actualTime: actualTime, // Guaranteed 100% match with photo watermark timestamp
+      actualTime: actualTime,
       location: activeLocation,
       shift: shiftString,
       lateMins: lateMinsInfo,
       photoCapturedMs: capturedTimestamp,
       clientNowMs: Date.now(),
-      sendEmailInline: true,
-      securityToken: generateLocationSecurityToken(currentUser.username, activeLat ?? 0, activeLng ?? 0, payloadTime)
+      sendEmailAfterUpload: true,
+      securityToken: generateLocationSecurityToken(
+        currentUser.username,
+        activeLat ?? 0,
+        activeLng ?? 0,
+        payloadTime
+      ),
     };
 
-    // ZERO-LOSS VAULT: Save immediately to persistent storage before network call (with quota-safe image compaction)
-    savePunchToVault(payload);
-
-    // FAST SYNC: Send lightweight payload without heavy base64 to guarantee sub-second (<0.5s) Google Sheet write with keepalive=true
+    // INSTANT EDGE SYNC: <100ms Cloudflare D1 write-ahead commit + server-ordered Google Sheets & Drive photo sync
     const fastSyncPayload = {
       ...payload,
       image: 'PENDING',
       fastSync: true,
-      sendEmailInline: true
+      instantEdge: true,
     };
 
-    // PIPELINE 1 -> 2 SEQUENCED: Gửi chấm công lên Google Sheet trước, sau khi dòng đã tạo xong mới tải ảnh lên Drive (tránh tranh chấp LockService & tránh tải trùng ảnh)
-    callApi('CHECK_IN_OUT', fastSyncPayload, { background: true, timeoutMs: 30000, maxAttempts: 2 }).then((res) => {
-      const isAlreadyCheckedIn = res?.code === 'ALREADY_CHECKED_IN' || res?.isSpamCooldown || (typeof res?.message === 'string' && res.message.includes('chống spam'));
-      if (res?.ok || isAlreadyCheckedIn) {
-        // Mark punch as synced in permanent vault
-        markPunchVaultSynced(clientCheckinId, res?.data);
-        setLastSubmittedPunch(prev => prev ? {
-          ...prev,
-          sheetSaved: true,
-          shift: res?.data?.shift || prev.shift,
-          lateMins: res?.data?.lateMins ?? prev.lateMins,
-          checklistPending: Boolean(res?.data?.checklistPending)
-        } : prev);
+    isSubmittingPunchRef.current = true;
+    setIsSubmittingPunch(true);
+    savePunchToVault(payload);
+    markCheckinInFlight(clientCheckinId);
 
-        // Update local log status
-        const currentState = useAppStore.getState();
-        currentState.setLogs(currentState.logs.map(l => l.time === actualTime ? { ...l, status: 'Hợp lệ' } : l));
+    try {
+      let res: any = null;
+      let networkErrorOccurred = false;
+      try {
+        res = await callApi('CHECK_IN_OUT', fastSyncPayload, {
+          background: true,
+          timeoutMs: 25000,
+          maxAttempts: 2,
+        });
+        if (!res) {
+          networkErrorOccurred = true;
+        }
+      } catch {
+        networkErrorOccurred = true;
+      }
 
-        // Queue pulse survey to open smoothly AFTER user finishes reading shift summary
+      const errCode = String(res?.code || res?.data?.code || '');
+      const isAlreadyCheckedIn =
+        !networkErrorOccurred &&
+        (errCode === 'ALREADY_CHECKED_IN' ||
+          Boolean(res?.isSpamCooldown && errCode !== 'COOLDOWN_15M' && errCode !== 'COOLDOWN_30M'));
+
+      if (!networkErrorOccurred && (res?.ok || isAlreadyCheckedIn)) {
+        const isInstantEdge = Boolean(res?.data?.instantEdgeCommitted);
+        const isEdgeBuffered = Boolean(res?.data?.edgeBuffered && res?.data?.sheetSaved === false);
+        const isSheetSaved = !isEdgeBuffered;
+        const confirmedTime = String(res?.data?.thoiGian || actualTime).replace(/^'/, '');
+        const canonicalFullname = String(
+          res?.data?.fullname || res?.data?.hoVaTen || currentUser.fullname
+        ).trim();
+
+        if (isSheetSaved) {
+          markPunchVaultSynced(clientCheckinId, res?.data);
+        } else {
+          markPunchVaultEdgeBuffered(clientCheckinId, res?.data);
+        }
+        releaseCapturedPreview();
+
+        // Commit verified state ONLY AFTER Google Sheets or Cloudflare Edge D1 confirmed persistence
+        store.prependLog({
+          checkinId: clientCheckinId,
+          username: currentUser.username,
+          fullname: canonicalFullname,
+          type: String(res?.data?.loaiChamCong || type),
+          time: confirmedTime,
+          status: isInstantEdge
+            ? 'Đã ghi nhận tức thì • Tự động đồng bộ Sheet & Ảnh'
+            : isEdgeBuffered
+            ? 'Đám mây bảo lãnh • Đang ghi Sheet'
+            : 'Hợp lệ',
+          location: String(res?.data?.viTri || activeLocation),
+          distance: typeof activeDist === 'number' ? `${Math.round(activeDist)}m` : undefined,
+          sheetSynced: isSheetSaved,
+          edgeBuffered: isEdgeBuffered,
+          localQueued: false,
+          image: payloadImage || undefined,
+          timestamp: Date.now(),
+        });
+        setLocalLastPunch(currentUser, type, confirmedTime);
+        store.setLastCheckInTime(Date.now());
+        if (isClockInType) {
+          store.setStats({ ...store.stats, totalCheckIn: store.stats.totalCheckIn + 1 });
+        }
+
+        setLastSubmittedPunch({
+          type,
+          fullname: canonicalFullname,
+          time: confirmedTime,
+          location: activeLocation,
+          distMeters: typeof activeDist === 'number' ? `${Math.round(activeDist)}m` : `<= ${targetRadius}m`,
+          isValid: true,
+          shift: res?.data?.shift || shiftString,
+          email: effectiveEmail,
+          sheetSaved: isSheetSaved,
+          edgeBuffered: isEdgeBuffered,
+          supplementSubmittedText: options?.supplementSubmittedText,
+          lateMins: res?.data?.lateMins ?? (isLate ? lateMinsInfo : 0),
+          penaltyAmount,
+          checklistPending: Boolean(res?.data?.checklistPending),
+        });
+
+        confetti({
+          particleCount: 150,
+          spread: 80,
+          origin: { y: 0.6 },
+          colors: isClockInType
+            ? ['#10b981', '#06b6d4', '#facc15', '#3b82f6', '#ec4899']
+            : ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'],
+        });
+
+        if (isClockInType) {
+          speak(`Ting! Đã ghi nhận thành công điểm danh ${type}. Chúc bạn ca làm việc vui vẻ!`);
+        } else {
+          speak(`Ting! Đã ghi nhận thành công điểm danh ${type}. Chúc mừng bạn đã hoàn thành ca làm việc!`);
+        }
+
+        setFeedbackTitle(`Điểm Danh ${formatUnifiedPunchLabel(type)} Thành Công!`);
+        setFeedbackMessage(
+          isSheetSaved
+            ? 'Đã ghi nhận trực tiếp vào Bảng chấm công Google Sheets!'
+            : 'Đã ghi nhận tức thì! Hệ thống đang tự động ghi vào Bảng chấm công Google Sheets và gắn link ảnh minh chứng Google Drive.'
+        );
+        setFeedbackType('success');
+        setFeedbackSheetOpen(true);
+
         if (isClockInType && Math.random() < 0.4) {
           setPendingSurveyAfterPunch(true);
         }
 
-        // Immediate lightweight Email Notification fallback (if server didn't already send inline)
-        // Stripping base64 image ensures <1KB payload so fetch keepalive=true completes even if iPhone screen locks!
-        if (effectiveEmail && !res?.data?.emailSentDirectly) {
-          const { image: _rawImg, ...cleanEmailPayload } = payload;
-          callApi('SEND_EMAIL_NOTIFICATION', {
-            ...cleanEmailPayload,
-            email: effectiveEmail,
-            imageUrl: res?.data?.imageUrl || '',
-            distMeters: res?.data?.distMeters ?? activeDist,
-            isValid: true,
-            viTri: res?.data?.viTri || activeLocation,
-            timeISO: res?.data?.timeISO || timeISO
-          }, { background: true, timeoutMs: 25000, maxAttempts: 2 }).catch(() => {});
-        }
-
-        // PIPELINE 2: Upload ảnh selfie lên Google Drive ngay sau khi CHECK_IN_OUT đã tạo dòng trên Sheet
+        // PIPELINE 2: Stage selfie immediately on Edge (<100ms) so Google Drive link attaches to exact Sheet row even if iPhone screen locks
         if (payloadImage) {
           const uploadPayload = {
             checkinId: clientCheckinId,
             username: currentUser.username,
-            fullname: currentUser.fullname,
+            fullname: canonicalFullname,
+            email: effectiveEmail,
+            type,
+            location: activeLocation,
+            distMeters: activeDist,
             timeISO: res?.data?.timeISO || timeISO,
-            time: res?.data?.thoiGian || actualTime,
-            image: payloadImage
+            time: confirmedTime,
+            image: payloadImage,
+            sendEmailAfterUpload: true,
+            instantEdge: true,
           };
 
+          markImageUploadInFlight(clientCheckinId);
           callApi('UPLOAD_CHECKIN_IMAGE', uploadPayload, {
             background: true,
-            timeoutMs: 45000,
-            maxAttempts: 2
-          }).then((imgRes) => {
-            if (imgRes?.ok) {
-              const driveUrl = imgRes.data?.url || imgRes.data?.imageUrl;
-              if (driveUrl) {
-                markPunchVaultImageUploaded(clientCheckinId, driveUrl);
-                useAppStore.getState().updateLogImage(uploadPayload.time, driveUrl);
-                useAppStore.getState().updateLogImage(uploadPayload.timeISO, driveUrl);
+            timeoutMs: 30000,
+            maxAttempts: 2,
+          })
+            .then((imgRes) => {
+              if (imgRes?.ok) {
+                const driveUrl = imgRes.data?.url || imgRes.data?.imageUrl;
+                if (driveUrl) {
+                  markPunchVaultImageUploaded(clientCheckinId, driveUrl);
+                  useAppStore.getState().updateLogImage(uploadPayload.time, driveUrl);
+                  useAppStore.getState().updateLogImage(uploadPayload.timeISO, driveUrl);
+                } else if (imgRes.data?.edgeImageQueued || imgRes.data?.queuedForDrive) {
+                  markPunchVaultImageQueuedOnEdge(clientCheckinId);
+                }
+              } else {
+                enqueueTask('UPLOAD_CHECKIN_IMAGE', uploadPayload, {
+                  priority: 'high',
+                  maxAttempts: 15,
+                });
               }
-            } else {
-              enqueueTask('UPLOAD_CHECKIN_IMAGE', uploadPayload, { priority: 'high', maxAttempts: 15 });
-            }
-          }).catch((imgErr) => {
-            console.warn('[CheckIn] Upload checkin image error, enqueued to offline queue:', imgErr);
-            enqueueTask('UPLOAD_CHECKIN_IMAGE', uploadPayload, { priority: 'high', maxAttempts: 15 });
-          });
+            })
+            .catch((imgErr) => {
+              console.warn('[CheckIn] Upload checkin image error, enqueued to offline queue:', imgErr);
+              enqueueTask('UPLOAD_CHECKIN_IMAGE', uploadPayload, {
+                priority: 'high',
+                maxAttempts: 15,
+              });
+            })
+            .finally(() => {
+              clearImageUploadInFlight(clientCheckinId);
+            });
+        } else if (effectiveEmail && !res?.data?.emailSentDirectly) {
+          const cleanEmailPayload: Record<string, any> = { ...payload };
+          delete cleanEmailPayload.image;
+          callApi(
+            'SEND_EMAIL_NOTIFICATION',
+            {
+              ...cleanEmailPayload,
+              email: effectiveEmail,
+              imageUrl: res?.data?.imageUrl || '',
+              distMeters: res?.data?.distMeters ?? activeDist,
+              isValid: true,
+              viTri: res?.data?.viTri || activeLocation,
+              timeISO: res?.data?.timeISO || timeISO,
+            },
+            { background: true, timeoutMs: 25000, maxAttempts: 2 }
+          ).catch(() => {});
         }
 
         // Background sync of logs and stats after 2,500ms
         setTimeout(() => {
           const weekInfo = computeWeekInfo();
-          callApi('GET_DATA', {
-            username: currentUser!.username,
-            fullname: currentUser!.fullname,
-            role: currentUser!.role,
-            monthSheet: weekInfo.monthSheet,
-            weekLabel: weekInfo.weekLabel,
-            forceRefresh: true,
-            cacheBuster: Date.now()
-          }, { background: true, cacheTtlMs: 0 }).then((dataRes) => {
-            if (dataRes?.ok) {
-              const latestStore = useAppStore.getState();
-              latestStore.setLogs(dataRes.data.logs || []);
-              latestStore.setStats(dataRes.data.stats || latestStore.stats);
-              try {
-                localStorage.setItem('kg_stats', JSON.stringify(dataRes.data.stats));
-              } catch {}
-            }
-          }).catch(() => {});
+          callApi(
+            'GET_DATA',
+            {
+              username: currentUser.username,
+              fullname: currentUser.fullname,
+              role: currentUser.role,
+              monthSheet: weekInfo.monthSheet,
+              weekLabel: weekInfo.weekLabel,
+              forceRefresh: true,
+              cacheBuster: Date.now(),
+            },
+            { background: true, cacheTtlMs: 0 }
+          )
+            .then((dataRes) => {
+              if (dataRes?.ok) {
+                const latestStore = useAppStore.getState();
+                latestStore.setLogs(dataRes.data.logs || []);
+                latestStore.setStats(dataRes.data.stats || latestStore.stats);
+                try {
+                  localStorage.setItem('kg_stats', JSON.stringify(dataRes.data.stats));
+                } catch {
+                  /* ignore quota error */
+                }
+              }
+            })
+            .catch(() => {});
         }, 2500);
 
-        store.setLastCheckInTime(Date.now());
-        try {
-          localStorage.setItem('kg_last_checkin', Date.now().toString());
-        } catch {}
-      } else {
-        const isPermanentValidationError =
-          res?.code === 'OUT_OF_RADIUS' ||
-          res?.code === 'PHOTO_EXPIRED' ||
-          res?.code === 'CLOCK_DESYNC' ||
-          res?.code === 'SPOOF_DETECTED' ||
-          res?.code === 'GPS_REQUIRED' ||
-          res?.code === 'SCHEDULE_REQUIRED' ||
-          res?.code === 'SECURITY_TOKEN_MISMATCH';
-
-        if (isPermanentValidationError) {
-          // Roll back optimistic log & cooldown so user can immediately retry properly
-          const currentState = useAppStore.getState();
-          currentState.setLogs(currentState.logs.filter(l => l.time !== actualTime));
-          currentState.setLastCheckInTime(previousLastCheckInTime);
-          try {
-            if (previousLastCheckInTime) {
-              localStorage.setItem('kg_last_checkin', String(previousLastCheckInTime));
-            } else {
-              localStorage.removeItem('kg_last_checkin');
-            }
-          } catch {}
-
-          if (res?.code === 'SCHEDULE_REQUIRED') {
-            currentState.setScheduleRegistered(false);
-            try {
-              localStorage.removeItem(`kg_registered_week_${currentUser.username.trim().toLowerCase()}`);
-              localStorage.removeItem(`kg_schedule_reg_v2_${currentUser.username.trim().toLowerCase()}`);
-            } catch {}
-            speak('Bắt buộc đăng ký ca làm tuần tới trước khi chấm công.');
-            setLastSubmittedPunch(null);
-            setFeedbackTitle('Chưa đăng ký lịch làm tuần tới');
-            setFeedbackMessage(
-              res?.message ||
-                `Bắt buộc đăng ký ca làm tuần tới (${upcomingWeekInfo.weekDisplay}) trước khi chấm công! Vui lòng hoàn tất đăng ký ca rồi chấm công lại.`
-            );
-            setFeedbackType('warning');
-            setFeedbackSheetOpen(true);
-            goToMandatorySchedule();
-            return;
-          }
-
-          speak('Chấm công bị từ chối bởi máy chủ. Vui lòng kiểm tra thông báo.');
-          setLastSubmittedPunch(null);
-          setFeedbackTitle('Từ chối chấm công từ máy chủ');
-          setFeedbackMessage(res?.message || 'Máy chủ từ chối ghi nhận lượt chấm công này. Vui lòng chụp lại ảnh mới và thử lại.');
-          setFeedbackType('warning');
-          setFeedbackSheetOpen(true);
-          return;
-        }
-
-        // RESILIENT OFFLINE/CONCURRENCY SYNC: Enqueue to background queue (offlineQueue will automatically upload payload.image after CHECK_IN_OUT syncs)
-        enqueueTask('CHECK_IN_OUT', payload, { priority: 'high', maxAttempts: 20 });
+        return true;
       }
-    }).catch(() => {
-      // Network timeout / connection error fallback: Enqueue and preserve
-      enqueueTask('CHECK_IN_OUT', payload, { priority: 'high', maxAttempts: 20 });
+
+      const isTemporaryServerContention =
+        errCode === 'LOCK_TIMEOUT' ||
+        errCode === 'SAVE_ERROR' ||
+        errCode === 'CONCURRENCY_QUEUED';
+
+      if (networkErrorOccurred || isTemporaryServerContention) {
+        releaseCapturedPreview();
+        enqueueTask('CHECK_IN_OUT', payload, { priority: 'high', maxAttempts: 20 });
+        store.prependLog({
+          checkinId: clientCheckinId,
+          username: currentUser.username,
+          fullname: currentUser.fullname,
+          type,
+          time: actualTime,
+          status: 'Lưu tạm trên máy • Chờ mạng',
+          location: activeLocation,
+          distance: typeof activeDist === 'number' ? `${Math.round(activeDist)}m` : undefined,
+          localQueued: true,
+          sheetSynced: false,
+          image: payloadImage || undefined,
+          timestamp: Date.now(),
+        });
+        setLocalLastPunch(currentUser, type, actualTime);
+        store.setLastCheckInTime(Date.now());
+        setLastSubmittedPunch(null);
+
+        speak(
+          'Mạng hiện đang gián đoạn. Lượt chấm công đã được lưu bảo mật trên điện thoại và sẽ tự động gửi lên Google Sheets ngay khi có mạng.'
+        );
+        setFeedbackTitle('Đang ngoại tuyến • Đã lưu tạm trên máy');
+        setFeedbackMessage(
+          `Hệ thống chưa kết nối được máy chủ Google Sheets lúc ${actualTime}.\n\n• Lượt ${formatUnifiedPunchLabel(type)} và ảnh chụp đã được khóa an toàn trong bộ nhớ chống mất dữ liệu của máy.\n• Ngay khi có Wi-Fi/4G ổn định, ứng dụng sẽ tự động đồng bộ lên Bảng chấm công.`
+        );
+        setFeedbackType('warning');
+        setFeedbackSheetOpen(true);
+        return true;
+      }
+
+      // Server rejected the punch (validation / cooldown / schedule / max punches): NEVER pollute local logs!
+      rollbackRejectedPunchGlobally({
+        checkinId: clientCheckinId,
+        username: currentUser.username,
+        fullname: currentUser.fullname,
+        time: actualTime,
+        reason: res?.message,
+      });
+
+      if (errCode === 'COOLDOWN_15M' || errCode === 'COOLDOWN_30M') {
+        releaseCapturedPreview();
+        void refreshFastAttendanceState();
+        speak('Bạn vừa chấm công trên thiết bị khác. Vui lòng đợi đủ 15 phút giãn cách.');
+        setSpamWarningText(
+          res?.message ||
+            'Hệ thống phát hiện bạn vừa chấm công trong vòng 15 phút gần đây. Không cần chấm lặp lại!'
+        );
+        setSpamWarningOpen(true);
+        return false;
+      }
+
+      if (errCode === 'SCHEDULE_REQUIRED') {
+        const currentState = useAppStore.getState();
+        currentState.setScheduleRegistered(false);
+        try {
+          localStorage.removeItem(`kg_registered_week_${currentUser.username.trim().toLowerCase()}`);
+          localStorage.removeItem(`kg_schedule_reg_v2_${currentUser.username.trim().toLowerCase()}`);
+        } catch {
+          /* ignore storage error */
+        }
+        setConfirmCheckInModalOpen(false);
+        speak('Bắt buộc đăng ký ca làm tuần tới trước khi chấm công.');
+        setLastSubmittedPunch(null);
+        setFeedbackTitle('Chưa đăng ký lịch làm tuần tới');
+        setFeedbackMessage(
+          res?.message ||
+            `Bắt buộc đăng ký ca làm tuần tới (${upcomingWeekInfo.weekDisplay}) trước khi chấm công! Vui lòng hoàn tất đăng ký ca rồi chấm công lại.`
+        );
+        setFeedbackType('warning');
+        setFeedbackSheetOpen(true);
+        goToMandatorySchedule();
+        return false;
+      }
+
+      if (errCode === 'PHOTO_EXPIRED' || errCode === 'OUT_OF_RADIUS') {
+        releaseCapturedPreview();
+      } else {
+        setConfirmCheckInModalOpen(false);
+      }
+
+      speak('Chấm công bị từ chối bởi máy chủ. Vui lòng kiểm tra thông báo.');
+      setLastSubmittedPunch(null);
+      setFeedbackTitle('Từ chối chấm công từ máy chủ');
+      setFeedbackMessage(
+        res?.message || 'Máy chủ từ chối ghi nhận lượt chấm công này. Vui lòng chụp lại ảnh mới và thử lại.'
+      );
+      setFeedbackType('warning');
+      setFeedbackSheetOpen(true);
+      return false;
+    } finally {
+      clearCheckinInFlight(clientCheckinId);
+      isSubmittingPunchRef.current = false;
+      setIsSubmittingPunch(false);
+    }
+  };
+
+  // 1-Tap Smart Combo: Submit verified "Ra ca" now + submit "Bổ sung Vào ca" for forgotten shift start sequentially
+  const handleComboOutAndSupplementIn = async () => {
+    if (!currentUser || isSubmittingPunchRef.current) return;
+    const vn = getVietnamDateParts();
+    const fallbackTodayStr = `${String(vn.day).padStart(2, '0')}/${String(vn.month).padStart(2, '0')}/${vn.year}`;
+    const suppDate = smartIntent.suggestedSupplementDate || fallbackTodayStr;
+    const suppTime = (comboSupplementTime || smartIntent.suggestedSupplementTime || '15:00').slice(0, 5);
+    const suppReason = comboSupplementReason.trim() || 'Quên bấm đầu ca';
+    const shiftStr = todayScheduledShift || 'Không có ca';
+
+    const restampedRaCaImage = handleTypeChangeInModal('Ra ca') || undefined;
+    setUserResolvedDisambiguation('Ra ca');
+
+    const ok = await executeCheck('Ra ca', false, 0, shiftStr, {
+      imageOverride: restampedRaCaImage,
+      supplementSubmittedText: `Đã gửi bổ sung Vào ca lúc ${suppTime} (${suppDate}) • Chờ Admin duyệt`,
     });
+    if (!ok) return;
+
+    recordLocalMissedClaim({
+      username: currentUser.username,
+      fullname: currentUser.fullname,
+      date: suppDate,
+      time: suppTime,
+      type: 'Vào ca',
+      shift: shiftStr,
+      reason: suppReason,
+    });
+
+    const missedPayload = {
+      username: currentUser.username,
+      fullname: currentUser.fullname,
+      date: suppDate,
+      time: suppTime,
+      type: 'Vào ca',
+      shift: shiftStr,
+      reason: suppReason,
+    };
+
+    callApi('SUBMIT_MISSED_CHECKIN', missedPayload, {
+      background: true,
+      timeoutMs: 25000,
+      maxAttempts: 2,
+    })
+      .then((mRes) => {
+        if (!mRes?.ok) {
+          enqueueTask('SUBMIT_MISSED_CHECKIN', missedPayload, { priority: 'high', maxAttempts: 12 });
+        }
+      })
+      .catch(() => {
+        enqueueTask('SUBMIT_MISSED_CHECKIN', missedPayload, { priority: 'high', maxAttempts: 12 });
+      });
   };
 
   // Submit survey action
@@ -1699,7 +2295,9 @@ export default function CheckIn() {
 
   // Init camera & GPS immediately on mount (non-blocking for 4G)
   useEffect(() => {
-    startCamera();
+    if (!v1CameraSuspendedRef.current) {
+      startCamera();
+    }
     startGpsWatch();
     return () => {
       stopCamera();
@@ -1709,6 +2307,20 @@ export default function CheckIn() {
       if (precisionScanTimeoutRef.current) clearTimeout(precisionScanTimeoutRef.current);
     };
   }, []);
+
+  // Coordinate camera hardware exclusively between v1 viewfinder and v2 Full-Screen Scanner / Enrollment HUD
+  useEffect(() => {
+    if (checkinMode === 'v2' || faceEnrollModalOpen) {
+      v1CameraSuspendedRef.current = true;
+      stopCamera();
+      return;
+    }
+    v1CameraSuspendedRef.current = false;
+    if (!capturedImage) {
+      startCamera();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkinMode, faceEnrollModalOpen]);
 
   // Lazy-load face-api.js + tfjs-core ONLY after live camera stream is active so 4G viewfinder opens instantly
   useEffect(() => {
@@ -1741,8 +2353,8 @@ export default function CheckIn() {
         const isStreamDead = !stream || stream.getTracks().some(t => t.readyState === 'ended' || t.muted);
         const isVideoPaused = video && (video.paused || video.ended);
 
-        // Revive camera if inactive or frozen
-        if (!capturedImage && (isStreamDead || isVideoPaused || !cameraActive)) {
+        // Revive camera if inactive or frozen (only when v1 viewfinder owns camera)
+        if (!v1CameraSuspendedRef.current && !capturedImage && (isStreamDead || isVideoPaused || !cameraActive)) {
           startCamera();
         }
 
@@ -1879,408 +2491,536 @@ export default function CheckIn() {
 
   const activeLat = capturedGps?.lat ?? gps.lat;
   const activeLng = capturedGps?.lng ?? gps.lng;
-  const canCapture = Boolean(!capturedImage && isWithinRadius && gps.lat !== null && gps.lng !== null && (cameraActive || cameraError));
   const canSubmit = Boolean(capturedImage && isWithinRadius && activeLat !== null && activeLng !== null && photoTimeLeftSeconds > 0);
   const isCooldownBlocked = Boolean(cooldown.isBlocked && currentUser?.role !== 'admin');
-  const isPrimaryActionReady = capturedImage ? canSubmit : canCapture;
 
   if (currentUser && !isWorkEligible(currentUser)) {
     return <EmploymentStatusNotice user={currentUser} actionLabel="chấm công tại nhà hàng" />;
   }
 
   return (
-    <div className="space-y-4 animate-fade-in pb-10">
+    <div className="space-y-3 sm:space-y-4 animate-fade-in pb-24 md:pb-10">
       
-      {/* Header Banner */}
-      <KgModuleHero
-        moduleId="checkin"
-        title="Chấm công GPS"
-        description="Chụp ảnh minh chứng tại nhà hàng trong bán kính 25m để hoàn tất chấm công."
-        features={['Xác thực GPS ≤25m', 'Nhận diện Live AI', 'Chống chọn nhầm ca']}
-        tipTitle="Quy chuẩn Chấm công Hợp lệ"
-        tips={[
-          "Đứng trong bán kính 25m tại khuôn viên nhà hàng King's Grill.",
-          "Bật định vị độ chính xác cao trên điện thoại và cho phép quyền truy cập vị trí.",
-          "Chụp ảnh khuôn mặt rõ nét, đủ ánh sáng, không dùng ảnh chụp lại từ màn hình khác.",
-          "Sau khi chấm Vào ca, hệ thống giãn cách 15 phút chống spam trước khi có thể chấm Ra ca."
-        ]}
-      />
-
-      {/* 15-Minute Anti-Spam Cooldown Banner */}
-      {cooldown.isBlocked && currentUser?.role !== 'admin' && (
-        <div className="bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 border border-amber-500/30 rounded-2xl p-4 text-[var(--kg-text)] shadow-xs max-w-md mx-auto animate-fade-in">
-          <div className="flex items-start gap-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0 shadow-xs mt-0.5">
-              <Clock size={18} className="animate-spin" style={{ animationDuration: '8s' }} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider">
-                  ⏳ Chống Spam: Giãn cách 15 phút
-                </span>
-                <span className="font-mono text-xs font-black text-amber-600 dark:text-amber-400 bg-amber-500/20 px-2 py-0.5 rounded-lg border border-amber-500/30">
-                  {cooldown.remainingMinutesFormatted}
-                </span>
-              </div>
-              <p className="text-xs font-bold text-[var(--kg-text)] mt-1">
-                Bạn vừa chấm {cooldown.lastType || 'công'} lúc {cooldown.lastTimeStr || ''} ({cooldown.minutesSinceLast || 0} phút trước).
-              </p>
-              <p className="text-[11px] text-[var(--kg-text-muted)] mt-0.5 leading-relaxed">
-                Quy định hệ thống yêu cầu sau tối thiểu 15 phút mới được chấm tiếp để tránh ghi nhận trùng lặp.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Check-In Anomaly Alert Banner - Compact & Icon-Driven */}
-      {anomalies.length > 0 && (
-        <div className="bg-gradient-to-r from-rose-500/15 via-red-500/10 to-rose-500/15 border border-rose-500/30 rounded-2xl p-3 text-[var(--kg-text)] shadow-xs max-w-md mx-auto animate-fade-in">
-          <div className="flex items-center justify-between gap-2.5">
-            <div className="flex items-center gap-2.5 min-w-0 flex-1">
-              <div className="w-8 h-8 rounded-xl bg-rose-500 text-white flex items-center justify-center flex-shrink-0 shadow-xs">
-                <AlertTriangle size={16} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-wider bg-rose-500/20 px-1.5 py-0.5 rounded">
-                    Cần kiểm tra
-                  </span>
-                  <span className="text-xs font-bold text-[var(--kg-text)] font-mono tabular-nums">
-                    {anomalies[0].logTime}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 mt-1 text-xs font-semibold text-[var(--kg-text)] flex-wrap">
-                  <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/15 px-1.5 py-0.5 rounded-md">
-                    Đề xuất: "{anomalies[0].suggestedType}"
-                  </span>
-                  <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded-md text-[11px]">
-                    Hiện tại: "{anomalies[0].type}"
-                  </span>
-                  {anomalies.length > 1 && (
-                    <span className="text-[10px] text-[var(--kg-text-muted)] font-medium">
-                      (+{anomalies.length - 1} ca khác)
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => store.setCurrentTab('history')}
-              className="px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black shadow-xs whitespace-nowrap active:scale-95 transition-all flex-shrink-0"
-            >
-              Sửa loại →
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Missing Check-in Alerts Banner - Compact & Icon-Driven */}
-      {missingAlerts.length > 0 && (
-        <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 text-[var(--kg-text)] shadow-xs max-w-md mx-auto animate-fade-in">
-          <div className="flex items-center justify-between gap-2.5">
-            <div className="flex items-center gap-2.5 min-w-0 flex-1">
-              <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0 shadow-xs">
-                <AlertTriangle size={16} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider bg-amber-500/20 px-1.5 py-0.5 rounded">
-                    Cần kiểm tra
-                  </span>
-                  <span className="text-xs font-bold font-mono tabular-nums text-[var(--kg-text)]">
-                    {missingAlerts[0].dateStr}{missingAlerts[0].timeStr ? ` (${missingAlerts[0].timeStr})` : ''}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 mt-1 text-xs font-semibold text-[var(--kg-text)] flex-wrap">
-                  <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-300 font-bold bg-amber-500/15 px-1.5 py-0.5 rounded-md">
-                    Thiếu lượt "{missingAlerts[0].missingType}"
-                  </span>
-                  {missingAlerts.length > 1 && (
-                    <span className="text-[10px] text-[var(--kg-text-muted)] font-medium">
-                      (+{missingAlerts.length - 1} ca khác)
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedMissingAlert(missingAlerts[0]);
-                setMissedModalOpen(true);
-              }}
-              className="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl text-xs shadow-xs whitespace-nowrap active:scale-95 transition-all flex-shrink-0"
-            >
-              Báo ngay →
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Mandatory Schedule Pre-Check-In Gate Card (Thu 00:00 -> Sat 17:00 VN) */}
-      {isScheduleGateBlocked && (
-        <div className="bg-[var(--kg-warning-soft)] border-2 border-amber-500/45 rounded-2xl p-4 text-[var(--kg-text)] shadow-sm max-w-md mx-auto animate-fade-in space-y-3">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center justify-center flex-shrink-0">
-              <CalendarClock size={20} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] border border-[var(--kg-danger)]/20 mb-1">
-                Khóa chấm công tạm thời
-              </span>
-              <h4 className="text-xs sm:text-sm font-black text-[var(--kg-text)] leading-snug">
-                Bắt buộc đăng ký lịch làm tuần {upcomingWeekInfo.weekDisplay} trước khi chấm công
-              </h4>
-              <p className="text-[11px] text-[var(--kg-text-muted)] mt-1 leading-relaxed font-medium">
-                {scheduleRegWindow.message}. Vui lòng chọn đủ ca 7 ngày tuần tới (hoặc OFF kèm lý do) trước <b className="font-mono tabular-nums text-[var(--kg-text)]">17:00 Thứ Bảy</b> để mở khóa chấm công ngay lập tức.
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={goToMandatorySchedule}
-            className="w-full py-3 px-4 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-black text-xs sm:text-sm tracking-wide shadow-xs transition-all active:scale-[0.98] touch-manipulation flex items-center justify-center gap-1.5 min-h-[44px]"
-          >
-            <span>ĐĂNG KÝ LỊCH LÀM TUẦN {upcomingWeekInfo.weekDisplay} NGAY</span>
-            <ChevronRight size={16} />
-          </button>
-        </div>
-      )}
-
-      {/* Current Shift Status Card (Clean, Informative & Multi-shift Ready) */}
-      <div className="bg-[var(--kg-surface)] p-3 rounded-2xl border border-[var(--kg-border)] text-[var(--kg-text)] shadow-xs max-w-md mx-auto space-y-2.5">
-        <div className="flex items-center justify-between gap-2.5">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0 font-bold">
-              <Clock size={18} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[10px] font-black text-[var(--kg-text-muted)] uppercase tracking-wider">Hôm nay</p>
-              <h4 className="text-xs font-black text-[var(--kg-text)] truncate">
-                {currentUser?.fullname || 'Nhân viên'}
-              </h4>
-            </div>
-          </div>
-
-          <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-xl flex-shrink-0 border ${
-            recommendation.isOpenShift
-              ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/25'
-              : recommendation.isOvernightShift
-              ? 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/25'
-              : recommendation.hasInToday
-              ? 'bg-[var(--kg-primary-soft)] text-[var(--kg-primary)] border-[var(--kg-primary)]/20'
-              : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)]'
-          }`}>
-            {recommendation.isOvernightShift ? (
-              <>
-                <Moon size={11} />
-                <span>Ca đêm ({recommendation.openShiftTime})</span>
-              </>
-            ) : recommendation.isOpenShift ? (
-              <>
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span>Đang trong Ca {recommendation.shiftIndex} ({recommendation.openShiftTime})</span>
-              </>
-            ) : recommendation.shiftIndex > 1 ? (
-              <span>✓ Xong Ca {recommendation.shiftIndex - 1} • Chờ Ca {recommendation.shiftIndex}</span>
-            ) : recommendation.hasInToday ? (
-              <span>✓ Đã vào ca</span>
-            ) : (
-              <span>Chưa vào ca</span>
-            )}
-          </span>
-        </div>
-
-        {/* Quick Shift Pulse / Team Attendance Banner */}
-        <div className="pt-2 border-t border-[var(--kg-border)]/60 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 text-[11px] text-[var(--kg-text-muted)] min-w-0 flex-1">
-            <Sparkles size={12} className="text-blue-500 flex-shrink-0" />
-            <span className="truncate font-medium">{recommendation.reason}</span>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setEmployeeAttendanceModalOpen(true)}
-            className="px-2 py-1 sm:px-2.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-bold text-[10px] flex items-center gap-1 whitespace-nowrap transition active:scale-95 flex-shrink-0"
-            title="Xem danh sách ca toàn đội hôm nay"
-          >
-            <Users size={12} />
-            <span>Toàn đội →</span>
-          </button>
-        </div>
+      {/* Header Banner — Desktop/Tablet context, hidden on mobile so Camera & Shutter appear immediately without excessive scroll */}
+      <div className="hidden md:block">
+        <KgModuleHero
+          moduleId="checkin"
+          title="Chấm công GPS"
+          description="Hỗ trợ song song 2 chế độ: Chụp ảnh xác nhận (v1) và Quét nhận diện khuôn mặt siêu tốc 5 góc (v2)."
+          features={['Xác thực GPS ≤25m', 'Face ID 5 Góc (v2)', 'Giãn cách 15 phút/NV']}
+          tipTitle="Quy chuẩn Chấm công Hợp lệ"
+          tips={[
+            "Đứng trong bán kính 25m tại khuôn viên nhà hàng King's Grill.",
+            "Bật định vị độ chính xác cao trên điện thoại và cho phép quyền truy cập vị trí.",
+            "Đăng ký khuôn mặt đủ 5 góc để quét tự động siêu nhanh không cần bấm xác nhận.",
+            "Mỗi nhân viên sau khi chấm công thành công sẽ giãn cách 15 phút trước lượt tiếp theo (tối đa 4 lượt/ngày theo 2 cặp Vào ca – Ra ca)."
+          ]}
+        />
       </div>
 
-      {/* GPS Status Card */}
-      <div className="bg-[var(--kg-surface)] p-3.5 sm:p-5 rounded-2xl md:rounded-3xl relative overflow-hidden border border-[var(--kg-border)] text-[var(--kg-text)] shadow-xs max-w-md mx-auto">
-        <div className="absolute -right-4 -top-4 opacity-5 text-8xl transform rotate-12 text-blue-600/10 pointer-events-none"><MapPin size={100} /></div>
-        <div className="flex items-start justify-between gap-3 relative z-10">
-          <div className="flex items-start space-x-3 min-w-0">
-            <div className={`p-2.5 sm:p-3 rounded-2xl relative flex-shrink-0 ${gps.isValid ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-blue-500/10 text-blue-600 dark:text-blue-400'}`}>
-              <MapPin className="relative z-10" size={20} />
-              {gps.status.includes('Đang') && <div className="gps-ping absolute inset-0 rounded-2xl" />}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <p className="text-[10px] font-black text-[var(--kg-text-muted)] uppercase tracking-wider">Định vị GPS (≤{targetRadius}m)</p>
-                {gps.accuracy && (
-                  <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                    ±{gps.accuracy}m
-                  </span>
-                )}
-                <KgFeatureTip
-                  title="Mẹo Định vị GPS chính xác"
-                  tips={[
-                    "Vị trí chuẩn: Khuôn viên nhà hàng King's Grill (bán kính ≤25m).",
-                    "Cần bật Quyền truy cập vị trí và Vị trí chính xác (Precise Location) trên Safari/Chrome.",
-                    "Nếu sóng yếu hoặc báo Chưa nhận được vị trí, hãy bấm 'Làm mới' hoặc 'Quét lại vị trí (GPS Vệ Tinh)'."
-                  ]}
-                  size="sm"
-                  variant="subtle"
-                />
-              </div>
-              <h3 className="font-black text-xs sm:text-sm mt-0.5 leading-tight break-words text-[var(--kg-text)] pr-2">
-                {gps.address ? gps.address : gps.status}
-              </h3>
-              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                <div className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-[11px] font-black border ${gps.isValid ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'}`}>
-                  <span className="truncate">{gps.message}</span>
-                </div>
-                {gps.isValid && (
-                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                    ✓ Đủ điều kiện
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
+      {/* Parallel Check-In Mode Switcher (v1 <-> v2) + 1 Compact Expandable Status Strip */}
+      <div className="max-w-md mx-auto space-y-2">
+        <div
+          data-testid="checkin-mode-toggle"
+          role="tablist"
+          aria-label="Chuyển đổi phiên bản chấm công"
+          className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] shadow-xs"
+        >
           <button
             type="button"
-            onClick={restartGps}
-            disabled={isPrecisionScanning}
-            className="text-xs bg-[var(--kg-primary)] hover:opacity-90 text-white px-3 py-2 rounded-xl transition font-black flex items-center min-h-[44px] touch-manipulation shadow-xs active:scale-95 flex-shrink-0 disabled:opacity-60"
+            role="tab"
+            aria-selected={checkinMode === 'v1'}
+            data-testid="mode-v1-btn"
+            onClick={() => switchCheckinMode('v1')}
+            className={`min-h-[44px] px-3 py-2 rounded-lg text-xs font-black tracking-tight flex items-center justify-center gap-1.5 transition-colors touch-manipulation ${
+              checkinMode === 'v1'
+                ? 'bg-[var(--kg-surface-soft)] text-[var(--kg-text)] border border-[var(--kg-border)] shadow-xs'
+                : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
+            }`}
           >
-            <RefreshCw size={13} className={`mr-1.5 ${isPrecisionScanning || gps.status.includes('Đang') ? 'animate-spin' : ''}`} />
-            {isPrecisionScanning ? 'Đang quét...' : 'Làm mới'}
+            <Camera size={15} className="shrink-0" />
+            <span>Chụp ảnh (v1)</span>
+          </button>
+
+          <button
+            type="button"
+            role="tab"
+            aria-selected={checkinMode === 'v2'}
+            data-testid="mode-v2-btn"
+            onClick={handleSelectV2Mode}
+            className={`min-h-[44px] px-3 py-2 rounded-lg text-xs font-black tracking-tight flex items-center justify-center gap-1.5 transition-colors touch-manipulation ${
+              checkinMode === 'v2'
+                ? 'bg-[var(--kg-primary)] text-white shadow-xs'
+                : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
+            }`}
+          >
+            <ScanFace size={15} className="shrink-0" />
+            <span>Face ID Nhanh</span>
+            <span
+              className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded font-mono tabular-nums ${
+                checkinMode === 'v2'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-[var(--kg-primary-soft)] text-[var(--kg-primary)]'
+              }`}
+            >
+              V2
+            </span>
           </button>
         </div>
 
-        {/* Live Multi-Sample Precision Radar Scan Feedback */}
-        {isPrecisionScanning && (
-          <div className="mt-3 p-3 bg-blue-500/10 border border-blue-500/25 rounded-2xl animate-fade-in text-xs">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <Radio size={16} className="text-blue-600 dark:text-blue-400 animate-pulse flex-shrink-0" />
-                <span className="font-black text-blue-700 dark:text-blue-300 truncate">
-                  Đang dò sóng vệ tinh ({scanProgress.current}/{scanProgress.total} mẫu)...
-                </span>
+        {/* Blocking State 1: 15-Minute Anti-Spam Per-Employee Cooldown Banner */}
+        {cooldown.isBlocked && currentUser?.role !== 'admin' && (
+          <div className="bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 border border-amber-500/30 rounded-2xl p-3.5 text-[var(--kg-text)] shadow-xs animate-fade-in">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0 shadow-xs mt-0.5">
+                <Clock size={18} className="animate-spin" style={{ animationDuration: '8s' }} />
               </div>
-              {scanProgress.bestAcc !== null && (
-                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-blue-500/20 text-blue-700 dark:text-blue-300 flex-shrink-0">
-                  Sai số: ±{scanProgress.bestAcc}m
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+                    Chống trùng lặp: Giãn cách 15 phút
+                  </span>
+                  <span className="font-mono tabular-nums text-xs font-black text-amber-600 dark:text-amber-400 bg-amber-500/20 px-2 py-0.5 rounded-lg border border-amber-500/30">
+                    {cooldown.remainingMinutesFormatted}
+                  </span>
+                </div>
+                <p className="text-xs font-bold text-[var(--kg-text)] mt-1">
+                  Bạn vừa chấm {formatUnifiedPunchLabel(cooldown.lastType || 'công')} lúc {cooldown.lastTimeStr || ''} ({cooldown.minutesSinceLast || 0} phút trước).
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Blocking State 2: Mandatory Schedule Pre-Check-In Gate Card (Thu 00:00 -> Sat 17:00 VN) */}
+        {isScheduleGateBlocked && (
+          <div className="bg-[var(--kg-warning-soft)] border-2 border-amber-500/45 rounded-2xl p-3.5 text-[var(--kg-text)] shadow-sm animate-fade-in space-y-2.5">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center justify-center flex-shrink-0">
+                <CalendarClock size={18} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] border border-[var(--kg-danger)]/20 mb-1">
+                  Khóa chấm công tạm thời
+                </span>
+                <h4 className="text-xs sm:text-sm font-black text-[var(--kg-text)] leading-snug">
+                  Bắt buộc đăng ký lịch làm tuần {upcomingWeekInfo.weekDisplay} trước khi chấm công
+                </h4>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={goToMandatorySchedule}
+              className="w-full py-2.5 px-4 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-black text-xs sm:text-sm tracking-wide shadow-xs transition-all active:scale-[0.98] touch-manipulation flex items-center justify-center gap-1.5 min-h-[44px]"
+            >
+              <span>ĐĂNG KÝ LỊCH LÀM TUẦN {upcomingWeekInfo.weekDisplay} NGAY</span>
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        )}
+
+        {/* Single Compact Expandable Pre-Capture Status Strip (keeps viewport-shutter-btn above the fold on 360-390px) */}
+        <div
+          data-testid="checkin-status-strip"
+          className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl px-2.5 py-1.5 shadow-xs"
+        >
+          <div className="flex items-center justify-between gap-1.5">
+            {/* Compact Status Summary Pills */}
+            <button
+              type="button"
+              onClick={() => setStatusStripExpanded((v) => !v)}
+              aria-expanded={statusStripExpanded}
+              className="min-h-[44px] sm:min-h-[36px] flex-1 min-w-0 flex items-center gap-1.5 text-left rounded-xl px-1.5 py-1 hover:bg-[var(--kg-surface-soft)] transition-colors touch-manipulation"
+            >
+              {/* Shift Status Pill */}
+              <span
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-bold border truncate ${
+                  recommendation.isOpenShift
+                    ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/25'
+                    : recommendation.isOvernightShift
+                    ? 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/25'
+                    : recommendation.hasInToday
+                    ? 'bg-[var(--kg-primary-soft)] text-[var(--kg-primary)] border-[var(--kg-primary)]/20'
+                    : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)]'
+                }`}
+              >
+                {recommendation.isOpenShift && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                )}
+                <span className="truncate">
+                  {recommendation.isOvernightShift
+                    ? `Ca đêm ${recommendation.openShiftTime}`
+                    : recommendation.isOpenShift
+                    ? `Trong ca${smartIntent.openShiftDurationFormatted ? ` • ${smartIntent.openShiftDurationFormatted}` : ''}`
+                    : recommendation.hasInToday
+                    ? 'Đã vào ca'
+                    : 'Chưa vào ca'}
+                </span>
+              </span>
+
+              {/* GPS Status Pill */}
+              <span
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-bold font-mono tabular-nums border shrink-0 ${
+                  gps.isValid
+                    ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/25'
+                    : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/25'
+                }`}
+              >
+                <MapPin size={11} className="shrink-0" />
+                <span>
+                  {gps.isValid
+                    ? `≤${targetRadius}m ✓`
+                    : currentDist !== null
+                    ? `${currentDist}m`
+                    : 'GPS...'}
+                </span>
+              </span>
+
+              {/* Warning Counter Pill (if any non-blocking alerts exist) */}
+              {(anomalies.length > 0 || missingAlerts.length > 0) && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-[10px] font-black bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/35 shrink-0 font-mono tabular-nums">
+                  <AlertTriangle size={10} />
+                  <span>{anomalies.length + missingAlerts.length}</span>
                 </span>
               )}
-            </div>
-            <div className="w-full bg-blue-200/50 dark:bg-blue-950/60 rounded-full h-1.5 mt-2 overflow-hidden">
-              <div
-                className="bg-blue-600 dark:bg-blue-400 h-1.5 rounded-full transition-all duration-300"
-                style={{ width: `${Math.min(100, Math.max(15, (scanProgress.current / scanProgress.total) * 100))}%` }}
-              />
-            </div>
-            <p className="text-[10px] text-[var(--kg-text-muted)] mt-1.5 font-medium">
-              Đang loại bỏ vị trí cache cũ, tự động chọn mẫu vệ tinh có sai số nhỏ nhất.
-            </p>
-          </div>
-        )}
-
-        {/* Dedicated In-Store Satellite Rescan for Staff */}
-        {!gps.isValid && gps.lat !== null && !isPrecisionScanning && (
-          <div className="mt-3 pt-2.5 border-t border-[var(--kg-border)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 bg-[var(--kg-info-soft)] p-3 rounded-2xl border border-[var(--kg-info)]/25 animate-fade-in shadow-xs">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-sky-600/15 text-sky-700 dark:text-sky-300 flex items-center justify-center flex-shrink-0">
-                <Crosshair size={18} className="animate-spin" style={{ animationDuration: '6s' }} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-bold text-sky-800 dark:text-sky-300 leading-tight">
-                  Đang ở quán nhưng chưa nhận diện?
-                </p>
-                <p className="text-[10px] text-[var(--kg-text-muted)] mt-0.5">
-                  Lấy mẫu vệ tinh mới nhất (bỏ qua cache) để khóa vị trí chính xác
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={handlePrecisionRescan}
-              className="w-full sm:w-auto px-3.5 py-2 bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-bold text-xs rounded-xl min-h-[40px] touch-manipulation flex items-center justify-center gap-1.5 flex-shrink-0 active:scale-95 transition shadow-xs whitespace-nowrap"
-            >
-              <Radio size={14} />
-              Quét lại vị trí (GPS Vệ Tinh)
             </button>
-          </div>
-        )}
 
-        {/* Admin Quick Fix Calibrate Banner */}
-        {((currentUser?.role === 'admin' || currentUser?.username === 'ADMIN') && !gps.isValid && gps.lat !== null) && (
-          <div className="mt-3 pt-2.5 border-t border-[var(--kg-border)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 bg-[var(--kg-primary-soft)] p-2.5 rounded-xl border border-[var(--kg-primary)]/20">
-            <div className="text-xs">
-              <p className="font-bold text-[var(--kg-primary)] flex items-center gap-1.5">
-                <Crosshair size={13} /> <b>Quản lý:</b> Đang ở nhà hàng?
-              </p>
-              <p className="text-[10px] text-[var(--kg-text-muted)] mt-0.5 font-medium">
-                Đặt tọa độ hiện tại làm vị trí gốc chuẩn (Bán kính 25m).
-              </p>
+            {/* Right Quick Action Cluster (>=44px mobile touch targets) */}
+            <div className="flex items-center gap-1 shrink-0">
+              {!selfFaceProfile && (
+                <button
+                  type="button"
+                  data-testid="open-face-enroll-btn"
+                  onClick={openFaceEnrollmentModal}
+                  className="min-h-[44px] sm:min-h-[34px] px-2.5 py-1 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-extrabold whitespace-nowrap inline-flex items-center gap-1 transition-colors touch-manipulation"
+                  title="Đăng ký Face ID 5 góc"
+                >
+                  <UserPlus size={13} />
+                  <span>ĐK Face</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={restartGps}
+                disabled={isPrecisionScanning}
+                aria-label="Làm mới định vị GPS"
+                title="Làm mới định vị GPS"
+                className="w-11 h-11 sm:w-9 sm:h-9 min-w-[44px] min-h-[44px] sm:min-w-[36px] sm:min-h-[36px] rounded-xl bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-border)] border border-[var(--kg-border)] text-[var(--kg-primary)] flex items-center justify-center transition-colors disabled:opacity-60 touch-manipulation"
+              >
+                <RefreshCw
+                  size={15}
+                  className={isPrecisionScanning || gps.status.includes('Đang') ? 'animate-spin' : ''}
+                />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStatusStripExpanded((v) => !v)}
+                aria-expanded={statusStripExpanded}
+                aria-label={statusStripExpanded ? 'Thu gọn chi tiết trạng thái' : 'Mở rộng chi tiết trạng thái'}
+                title={statusStripExpanded ? 'Thu gọn' : 'Chi tiết ca & GPS'}
+                className="w-11 h-11 sm:w-9 sm:h-9 min-w-[44px] min-h-[44px] sm:min-w-[36px] sm:min-h-[36px] rounded-xl bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-border)] border border-[var(--kg-border)] text-[var(--kg-text-muted)] flex items-center justify-center transition-colors touch-manipulation"
+              >
+                <ChevronDown
+                  size={16}
+                  className={`transition-transform duration-150 ${statusStripExpanded ? 'rotate-180' : ''}`}
+                />
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={handleAdminCalibrateGps}
-              className="w-full sm:w-auto px-3.5 py-2 bg-[var(--kg-primary)] text-white hover:opacity-90 rounded-xl text-xs font-black shadow-xs transition active:scale-95 min-h-[44px] touch-manipulation whitespace-nowrap flex-shrink-0"
-            >
-              Đặt vị trí gốc (25m)
-            </button>
           </div>
-        )}
 
-        {/* Quick GPS out-of-range helper banner for staff */}
-        {!gps.isValid && gps.lat !== null && (
-          <div className="mt-3 pt-2.5 border-t border-[var(--kg-border)] flex items-center justify-between gap-2.5 bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/25 animate-fade-in">
-            <div className="flex items-center gap-2 min-w-0">
-              <AlertTriangle size={16} className="text-amber-500 flex-shrink-0" />
-              <div className="min-w-0">
-                <p className="text-xs font-black text-[var(--kg-text)] leading-tight">Chưa vào bán kính {targetRadius}m?</p>
-                <p className="text-[10px] text-[var(--kg-text-muted)] mt-0.5">Gửi giải trình bổ sung công cho quản lý duyệt</p>
+          {/* Slim Live Precision Scan Progress when scanning even if collapsed */}
+          {isPrecisionScanning && (
+            <div className="mt-1.5 px-1.5 pb-1 space-y-1">
+              <div className="flex items-center justify-between text-[10px] font-bold text-blue-700 dark:text-blue-300">
+                <span className="inline-flex items-center gap-1">
+                  <Radio size={11} className="animate-pulse" />
+                  Đang dò vệ tinh ({scanProgress.current}/{scanProgress.total})...
+                </span>
+                {scanProgress.bestAcc !== null && (
+                  <span className="font-mono tabular-nums">±{scanProgress.bestAcc}m</span>
+                )}
+              </div>
+              <div className="w-full bg-blue-200/50 dark:bg-blue-950/60 rounded-full h-1 overflow-hidden">
+                <div
+                  className="bg-blue-600 dark:bg-blue-400 h-1 rounded-full transition-all duration-300"
+                  style={{ width: `${Math.min(100, Math.max(15, (scanProgress.current / scanProgress.total) * 100))}%` }}
+                />
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setMissedModalOpen(true)}
-              className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-xl min-h-[40px] touch-manipulation flex-shrink-0 active:scale-95 transition shadow-xs whitespace-nowrap"
-            >
-              Báo công →
-            </button>
-          </div>
-        )}
+          )}
+
+          {/* Expanded Details Panel */}
+          {statusStripExpanded && (
+            <div className="mt-2 pt-2.5 border-t border-[var(--kg-border)] space-y-2.5 pb-1 animate-fade-in">
+              {/* Face ID Status & Quick Actions */}
+              <div className="rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] p-2.5 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${
+                        selfFaceProfile
+                          ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-600 dark:text-emerald-400'
+                          : 'bg-amber-500/10 border-amber-500/25 text-amber-600 dark:text-amber-400'
+                      }`}
+                    >
+                      <ScanFace size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs font-black text-[var(--kg-text)] truncate">
+                          {selfFaceProfile ? 'Face ID 5 góc: Sẵn sàng' : 'Chưa đăng ký Face ID'}
+                        </span>
+                        {selfFaceProfile && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25">
+                            <Lock size={9} /> Khóa bảo mật
+                          </span>
+                        )}
+                        {allFaceProfiles.length > 0 && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono tabular-nums font-bold bg-[var(--kg-surface)] border border-[var(--kg-border)] text-[var(--kg-text-muted)]">
+                            {allFaceProfiles.length} hồ sơ
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-[var(--kg-text-muted)] leading-snug truncate">
+                        {selfFaceProfile
+                          ? 'Nhận diện tức thì trên mọi điện thoại tại quán'
+                          : 'Đăng ký 5 góc 1 lần để chấm công siêu tốc'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {currentUser?.role !== 'admin' && selfFaceProfile && (
+                    <button
+                      type="button"
+                      onClick={() => switchCheckinMode('v2')}
+                      className="min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs font-extrabold whitespace-nowrap inline-flex items-center gap-1.5 transition-colors shrink-0 touch-manipulation"
+                    >
+                      <ScanFace size={14} />
+                      <span>Mở Quét v2</span>
+                    </button>
+                  )}
+                </div>
+
+                {currentUser?.role === 'admin' && (
+                  <div className="grid grid-cols-2 gap-2 pt-0.5">
+                    {selfFaceProfile ? (
+                      <button
+                        type="button"
+                        onClick={() => switchCheckinMode('v2')}
+                        className="min-h-[44px] px-3 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition-colors touch-manipulation"
+                      >
+                        <ScanFace size={14} />
+                        <span>Mở Trạm Quét v2</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={openFaceEnrollmentModal}
+                        className="min-h-[44px] px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition-colors touch-manipulation"
+                      >
+                        <UserPlus size={14} />
+                        <span>ĐK cho tôi</span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      data-testid="admin-enroll-staff-btn"
+                      onClick={openAdminStaffFacePicker}
+                      className="min-h-[44px] px-3 py-2 rounded-xl bg-[#0B253C] hover:opacity-90 text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition-colors touch-manipulation"
+                    >
+                      <Users size={14} />
+                      <span>ĐK cho nhân viên</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Check-In Anomaly Alert Banner */}
+              {anomalies.length > 0 && (
+                <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-2.5 text-[var(--kg-text)]">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-wider bg-rose-500/20 px-1.5 py-0.5 rounded">
+                          Cần kiểm tra
+                        </span>
+                        <span className="text-xs font-bold font-mono tabular-nums">{anomalies[0].logTime}</span>
+                      </div>
+                      <p className="text-[11px] font-semibold mt-1">
+                        Đề xuất: <b>&quot;{formatUnifiedPunchLabel(anomalies[0].suggestedType)}&quot;</b> (hiện tại: &quot;{formatUnifiedPunchLabel(anomalies[0].type)}&quot;)
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => store.setCurrentTab('history')}
+                      className="min-h-[44px] sm:min-h-[36px] px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black whitespace-nowrap active:scale-95 transition-all flex-shrink-0 touch-manipulation"
+                    >
+                      Sửa loại →
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Missing Check-in Alerts Banner */}
+              {missingAlerts.length > 0 && (
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-2.5 text-[var(--kg-text)]">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider bg-amber-500/20 px-1.5 py-0.5 rounded">
+                          Thiếu lượt &quot;{missingAlerts[0].missingType}&quot;
+                        </span>
+                        <span className="text-xs font-bold font-mono tabular-nums">
+                          {missingAlerts[0].dateStr}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedMissingAlert(missingAlerts[0]);
+                        setMissedModalOpen(true);
+                      }}
+                      className="min-h-[44px] sm:min-h-[36px] px-3 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl text-xs whitespace-nowrap active:scale-95 transition-all flex-shrink-0 touch-manipulation"
+                    >
+                      Báo ngay →
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Current Shift Details + Team Attendance */}
+              <div className="rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] p-2.5 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-black text-[var(--kg-text)] truncate">
+                      {currentUser?.fullname || 'Nhân viên'}
+                    </p>
+                    <p className="text-[11px] text-[var(--kg-text-muted)] leading-snug font-medium">
+                      {recommendation.reason}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEmployeeAttendanceModalOpen(true)}
+                    className="min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-bold text-xs flex items-center gap-1.5 whitespace-nowrap transition active:scale-95 flex-shrink-0 touch-manipulation"
+                    title="Xem danh sách ca toàn đội hôm nay"
+                  >
+                    <Users size={13} />
+                    <span>Toàn đội →</span>
+                  </button>
+                </div>
+
+                {smartIntent.requiresDisambiguation && (
+                  <div className="p-2 rounded-lg bg-amber-500/15 border border-amber-500/35 flex items-start gap-2 text-[11px]">
+                    <AlertTriangle size={14} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="font-black text-amber-800 dark:text-amber-300 leading-snug">
+                        {smartIntent.guidanceTitle}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* GPS Details & Precision Rescan */}
+              <div className="rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] p-2.5 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] font-black text-[var(--kg-text-muted)] uppercase tracking-wider">
+                        Định vị GPS (≤{targetRadius}m)
+                      </span>
+                      {gps.accuracy && (
+                        <span className="text-[10px] font-extrabold font-mono tabular-nums px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                          ±{gps.accuracy}m
+                        </span>
+                      )}
+                      <KgFeatureTip
+                        title="Mẹo Định vị GPS chính xác"
+                        tips={[
+                          "Vị trí chuẩn: Khuôn viên nhà hàng King's Grill (bán kính ≤25m).",
+                          "Cần bật Quyền truy cập vị trí và Vị trí chính xác (Precise Location) trên Safari/Chrome.",
+                          "Nếu sóng yếu hoặc báo Chưa nhận được vị trí, hãy bấm 'Làm mới' hoặc 'Quét lại vị trí (GPS Vệ Tinh)'."
+                        ]}
+                        size="sm"
+                        variant="subtle"
+                      />
+                    </div>
+                    <p className="font-bold text-xs mt-0.5 leading-snug break-words text-[var(--kg-text)]">
+                      {gps.address ? gps.address : gps.status}
+                    </p>
+                    <span className={`mt-1 inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-bold border ${gps.isValid ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'}`}>
+                      {gps.message}
+                    </span>
+                  </div>
+                </div>
+
+                {!gps.isValid && gps.lat !== null && !isPrecisionScanning && (
+                  <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={handlePrecisionRescan}
+                      className="flex-1 px-3 py-2 bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-bold text-xs rounded-xl min-h-[44px] touch-manipulation flex items-center justify-center gap-1.5 active:scale-95 transition whitespace-nowrap"
+                    >
+                      <Radio size={14} />
+                      Quét lại vị trí (GPS Vệ Tinh)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMissedModalOpen(true)}
+                      className="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-xl min-h-[44px] touch-manipulation flex-shrink-0 active:scale-95 transition whitespace-nowrap"
+                    >
+                      Báo công →
+                    </button>
+                  </div>
+                )}
+
+                {((currentUser?.role === 'admin' || currentUser?.username === 'ADMIN') && !gps.isValid && gps.lat !== null) && (
+                  <button
+                    type="button"
+                    onClick={handleAdminCalibrateGps}
+                    className="w-full px-3.5 py-2 bg-[var(--kg-primary)] text-white hover:opacity-90 rounded-xl text-xs font-black shadow-xs transition active:scale-95 min-h-[44px] touch-manipulation flex items-center justify-center gap-1.5"
+                  >
+                    <Crosshair size={13} />
+                    <span>Đặt vị trí hiện tại làm gốc (25m)</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Camera Viewport: Extended Vertical Height (x2 height, 9:16 portrait format) */}
-      <div className={`relative bg-slate-950 rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm aspect-[9/16] min-h-[520px] max-h-[580px] sm:max-h-[620px] group border-[4px] sm:border-[5px] max-w-sm mx-auto transition-all ${isWithinRadius ? 'border-blue-600' : 'border-red-500'}`}>
+      {/* Camera Viewport: Ergonomic mobile height so Camera + Shutter + Primary CTA stay immediately accessible */}
+      <div className={`relative bg-slate-950 rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm aspect-[3/4] sm:aspect-[9/16] min-h-[340px] max-h-[410px] sm:min-h-[480px] sm:max-h-[580px] group border-[4px] sm:border-[5px] max-w-sm mx-auto transition-all ${isWithinRadius ? 'border-blue-600' : 'border-red-500'}`}>
         <video ref={videoRef} autoPlay muted playsInline {...{ 'webkit-playsinline': 'true' }} className={`w-full h-full object-cover mirror-cam ${(cameraError || capturedImage) ? 'hidden' : ''}`} />
         <canvas ref={overlayCanvasRef} className={`absolute inset-0 w-full h-full object-cover pointer-events-none ${(cameraError || capturedImage) ? 'hidden' : ''}`} />
         <canvas ref={canvasRef} className="hidden" />
+        <input
+          type="file"
+          ref={fileInputRef}
+          data-testid="native-camera-file-input"
+          accept="image/*"
+          capture="user"
+          className="hidden"
+          onChange={handleFileUpload}
+        />
 
         {/* Camera Error / No Video */}
         {cameraError && !capturedImage && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 text-white p-6 text-center z-50">
             <CameraOff size={44} className="mb-4 text-slate-500" />
-            <p className="mb-2 text-sm font-black">Chưa thể mở camera</p>
+            <p className="mb-2 text-sm font-black">Chưa thể mở camera trực tiếp</p>
             <p className="mb-6 text-xs text-slate-300 leading-normal max-w-[240px]">{cameraErrorMessage || 'Hãy dùng máy ảnh hệ thống điện thoại để chụp ảnh chấm công.'}</p>
-            <input type="file" ref={fileInputRef} accept="image/*" capture="user" className="hidden" onChange={handleFileUpload} />
-            <KgButton onClick={() => fileInputRef.current?.click()} variant="primary" size="md" icon={Camera} className="w-full max-w-[200px]">
-              Chụp ảnh minh chứng
+            <KgButton onClick={handleCaptureTrigger} variant="primary" size="md" icon={Camera} className="w-full max-w-[220px]">
+              {recommendation.baseAction === 'Ra ca' ? 'Chụp ảnh Ra ca' : 'Chụp ảnh Vào ca'}
             </KgButton>
-            <button onClick={() => startCamera()} className="text-xs text-slate-400 hover:text-white underline flex items-center mt-6 min-h-[44px] p-2">
-              <RotateCcw className="mr-1.5" size={13} /> Thử lại Camera WebRTC
+            <button type="button" onClick={() => void startCamera()} className="text-xs text-slate-400 hover:text-white underline flex items-center mt-5 min-h-[44px] p-2">
+              <RotateCcw className="mr-1.5" size={13} /> Thử lại Camera trực tiếp
             </button>
           </div>
         )}
@@ -2326,56 +3066,54 @@ export default function CheckIn() {
           </div>
         )}
 
-        {/* Controls inside camera viewport */}
+        {/* Controls inside camera viewport — always interactive so shutter is NEVER dead */}
         {!capturedImage && !cameraError && (
           <div className="absolute bottom-6 left-0 right-0 flex justify-center items-center space-x-6 z-20">
             <button
-              onClick={() => { stopCamera(); setTimeout(startCamera, 300); }}
-              className="w-12 h-12 bg-black/50 hover:bg-black/60 text-white rounded-full flex items-center justify-center backdrop-blur-md shadow-lg border border-white/10 active:scale-90 transition-all"
+              type="button"
+              onClick={() => { stopCamera(); setTimeout(() => void startCamera(), 250); }}
+              className="w-12 h-12 bg-black/55 hover:bg-black/70 text-white rounded-full flex items-center justify-center shadow-lg border border-white/15 active:scale-90 transition-all touch-manipulation"
               title="Khởi động lại camera"
             >
               <RotateCcw size={18} />
             </button>
-            
-            {cameraActive ? (
-              !isWithinRadius ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    speak(`Bạn đang ở ngoài bán kính chấm công. Khoảng cách hiện tại ${currentDist ?? 'không xác định'} mét.`);
-                    setFeedbackTitle(`Ngoài bán kính chấm công (≤${targetRadius}m)`);
-                    setFeedbackMessage(
-                      `Vị trí của bạn đang cách nhà hàng ${currentDist ?? 'quá'}m (quy định ≤ ${targetRadius}m).\n\nĐể đảm bảo tính minh bạch và chống gian lận, camera chụp ảnh chấm công đã được khóa. Vui lòng di chuyển vào khu vực nhà hàng và nhấn "Quét lại" để tiếp tục.`
-                    );
-                    setFeedbackType('warning');
-                    setFeedbackSheetOpen(true);
-                  }}
-                  aria-label="Camera bị khóa do ngoài bán kính"
-                  className="group relative touch-manipulation transition-all duration-300 scale-100 active:scale-95"
-                  title="Ngoài bán kính quy định - Đã khóa camera"
-                >
+
+            <button
+              type="button"
+              data-testid="viewport-shutter-btn"
+              onClick={handleCaptureTrigger}
+              aria-label="Chụp ảnh chấm công"
+              title={
+                !isWithinRadius
+                  ? 'Kiểm tra vị trí GPS & chụp ảnh chấm công'
+                  : recommendation.baseAction === 'Ra ca'
+                  ? 'Chụp ảnh Ra ca'
+                  : 'Chụp ảnh Vào ca'
+              }
+              className="group relative touch-manipulation transition-all duration-150 scale-100 active:scale-95"
+            >
+              {!isWithinRadius ? (
+                <>
                   <div className="absolute inset-0 bg-rose-600 rounded-full opacity-30 scale-110 animate-ping" />
-                  <div className="w-16 h-16 bg-rose-950/80 border-4 border-rose-500 rounded-full flex items-center justify-center shadow-lg backdrop-blur-md">
+                  <div className="w-16 h-16 bg-rose-950/85 border-4 border-rose-500 rounded-full flex items-center justify-center shadow-lg">
                     <Lock size={22} className="text-rose-400" />
                   </div>
-                </button>
+                </>
               ) : (
-                <button
-                  onClick={takePhoto}
-                  aria-label="Chụp ảnh chấm công"
-                  className="group relative touch-manipulation transition-all duration-300 scale-100 active:scale-95"
-                >
+                <>
                   <div className="absolute inset-0 bg-white rounded-full opacity-35 scale-110" />
                   <div className="w-16 h-16 bg-transparent border-4 border-white rounded-full flex items-center justify-center shadow-lg">
-                    <div className={`w-11 h-11 rounded-full transition-all ${isFaceDetected ? 'bg-green-500' : 'bg-white'} group-hover:scale-105`} />
+                    <div
+                      className={`w-11 h-11 rounded-full transition-all flex items-center justify-center ${
+                        isFaceDetected ? 'bg-green-500' : 'bg-white'
+                      } group-hover:scale-105`}
+                    >
+                      {!cameraActive && <Camera size={18} className="text-slate-900" />}
+                    </div>
                   </div>
-                </button>
-              )
-            ) : (
-              <button onClick={() => startCamera()} className="bg-white/20 backdrop-blur text-white p-4 rounded-full min-h-[44px]">
-                <RotateCcw size={20} />
-              </button>
-            )}
+                </>
+              )}
+            </button>
           </div>
         )}
 
@@ -2410,18 +3148,18 @@ export default function CheckIn() {
                   </span>
                 </div>
 
-                {/* Right: Fast Actions (Full text visible, zero clipping) */}
-                <div className="flex items-center gap-1 shrink-0">
+                {/* Right: Fast Actions (>=44px mobile touch targets, zero clipping) */}
+                <div className="flex items-center gap-1.5 shrink-0">
                   <button
                     type="button"
                     onClick={() => {
                       store.setPreviewImageUrl(capturedImage);
                       store.setPreviewOpen(true);
                     }}
-                    className="inline-flex items-center gap-1 px-2 py-1 bg-white/10 hover:bg-white/20 active:scale-95 text-white rounded-lg border border-white/15 backdrop-blur-sm transition-all text-[11px] font-semibold whitespace-nowrap shrink-0"
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 min-h-[44px] sm:min-h-[32px] bg-white/10 hover:bg-white/20 active:scale-95 text-white rounded-lg border border-white/15 backdrop-blur-sm transition-all text-[11px] font-semibold whitespace-nowrap shrink-0 touch-manipulation"
                     title="Xem toàn màn hình"
                   >
-                    <Maximize2 size={11} className="shrink-0" />
+                    <Maximize2 size={12} className="shrink-0" />
                     <span>Xem to</span>
                   </button>
                   <button
@@ -2432,52 +3170,19 @@ export default function CheckIn() {
                       setCapturedGps(null);
                       setPhotoCapturedAtMs(null);
                       setPhotoTimeLeftSeconds(PHOTO_EXPIRATION_SECONDS);
+                      setUserResolvedDisambiguation(null);
                     }}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-lg border border-rose-400/40 shadow-md transition-all text-[11px] font-bold whitespace-nowrap shrink-0"
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 min-h-[44px] sm:min-h-[32px] bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-lg border border-rose-400/40 shadow-md transition-all text-[11px] font-bold whitespace-nowrap shrink-0 touch-manipulation"
                     title="Chụp lại ảnh"
                   >
-                    <RotateCcw size={11} className="shrink-0" />
+                    <RotateCcw size={12} className="shrink-0" />
                     <span>Chụp lại</span>
                   </button>
                 </div>
               </div>
             </div>
 
-            {/* Bottom Floating Quick-Submit CTA inside Camera Frame (Ergonomic 1-Thumb Access on iPhone without scrolling) */}
-            <div className="absolute bottom-3 inset-x-3 z-40 pointer-events-auto">
-              <button
-                type="button"
-                disabled={!canSubmit || isCooldownBlocked}
-                onClick={() => {
-                  if (isCooldownBlocked) {
-                    speak(`Vui lòng đợi thêm ${cooldown.remainingMinutesFormatted} để chấm công lại.`);
-                    setSpamWarningText(`Quy định chống spam: Bạn vừa chấm công lúc ${cooldown.lastTimeStr || ''}. Vui lòng đợi thêm ${cooldown.remainingMinutesFormatted} trước khi chấm công lần tiếp theo.`);
-                    setSpamWarningOpen(true);
-                    return;
-                  }
-                  setModalChosenType(recommendation.recommendedType);
-                  setHasAcknowledgedMissingIn(false);
-                  setHasAcknowledgedEarlyOut(false);
-                  setConfirmCheckInModalOpen(true);
-                }}
-                className={`w-full py-3 px-4 rounded-xl font-black text-xs sm:text-sm tracking-wide shadow-2xl border flex items-center justify-center gap-2 active:scale-[0.98] transition-all touch-manipulation ${
-                  isCooldownBlocked
-                    ? 'bg-amber-600/95 border-amber-400/40 text-white'
-                    : canSubmit
-                    ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 border-emerald-400/50 text-white shadow-emerald-950/60'
-                    : 'bg-slate-800/90 border-white/15 text-slate-300 opacity-75'
-                }`}
-              >
-                <Send size={15} className="shrink-0" />
-                <span>
-                  {isCooldownBlocked
-                    ? `⏳ Giãn cách (${cooldown.remainingMinutesFormatted})`
-                    : `XÁC NHẬN & GỬI ${recommendation.recommendedType.toUpperCase()} (${photoTimeLeftSeconds}s)`}
-                </span>
-              </button>
-            </div>
-
-            {/* Bottom Progress Bar: 60s Visual Depletion */}
+            {/* Bottom Progress Bar: 60s Visual Depletion (single primary CTA below frame avoids 3-way confirmation overlap) */}
             <div className="absolute bottom-0 inset-x-0 h-1.5 bg-black/40 overflow-hidden z-40 pointer-events-none">
               <div
                 className={`h-full transition-all duration-500 ${
@@ -2494,25 +3199,29 @@ export default function CheckIn() {
         )}
       </div>
 
-      {/* Primary Action Button: Triggers Capture (when no photo yet) or Smart Confirmation Modal (when photo captured) */}
+      {/* Primary Action Button: Always interactive when !capturedImage so staff NEVER hit a dead button */}
       <div className="max-w-sm mx-auto space-y-2.5">
         <KgButton
-          variant="primary"
+          data-testid="primary-capture-action-btn"
+          variant={(userResolvedDisambiguation || smartIntent.smartSuggestedAction) === 'Ra ca' && capturedImage ? 'danger' : 'primary'}
           size="lg"
-          disabled={!isPrimaryActionReady || isCooldownBlocked}
+          disabled={capturedImage ? !canSubmit || isSubmittingPunch : false}
           onClick={() => {
+            if (!capturedImage) {
+              handleCaptureTrigger();
+              return;
+            }
             if (isCooldownBlocked) {
               speak(`Vui lòng đợi thêm ${cooldown.remainingMinutesFormatted} để chấm công lại.`);
-              setSpamWarningText(`Quy định chống spam: Bạn vừa chấm công lúc ${cooldown.lastTimeStr || ''}. Vui lòng đợi thêm ${cooldown.remainingMinutesFormatted} trước khi chấm công lần tiếp theo.`);
+              setSpamWarningText(`Quy định chống trùng lặp: Bạn vừa chấm ${formatUnifiedPunchLabel(cooldown.lastType || 'công')} lúc ${cooldown.lastTimeStr || ''}. Vui lòng đợi thêm ${cooldown.remainingMinutesFormatted} trước lượt chấm tiếp theo.`);
               setSpamWarningOpen(true);
               return;
             }
-            if (!capturedImage) {
-              if (cameraError) {
-                fileInputRef.current?.click();
-              } else {
-                takePhoto();
-              }
+            if (recommendation.isMaxPunchesReached) {
+              setFeedbackTitle('Đã đủ 4 lượt chấm công trong ngày');
+              setFeedbackMessage('Hệ thống đã ghi nhận đủ 2 cặp Vào ca – Ra ca trong chu kỳ 06:00 – 05:59 hiện tại.');
+              setFeedbackType('info');
+              setFeedbackSheetOpen(true);
               return;
             }
             if (!isWithinRadius) {
@@ -2523,59 +3232,97 @@ export default function CheckIn() {
               setFeedbackSheetOpen(true);
               return;
             }
-            // Prepare modal state
-            setModalChosenType(recommendation.recommendedType);
-            setHasAcknowledgedMissingIn(false);
+            setModalChosenType(userResolvedDisambiguation || smartIntent.smartSuggestedAction);
             setHasAcknowledgedEarlyOut(false);
             setConfirmCheckInModalOpen(true);
           }}
-          className={`w-full h-14 min-h-[52px] shadow-lg rounded-2xl text-[15px] font-black tracking-wider border-none active:scale-[0.97] transition-all touch-manipulation flex items-center justify-center gap-2.5 ${
+          className={`w-full h-14 min-h-[52px] shadow-lg rounded-2xl text-[15px] font-black tracking-wide border-none active:scale-[0.97] transition-all touch-manipulation flex items-center justify-center gap-2.5 ${
             isCooldownBlocked
-              ? 'bg-amber-600 text-white opacity-90'
-              : !isPrimaryActionReady
-              ? 'opacity-60 cursor-not-allowed bg-slate-400 text-white'
-              : 'bg-[var(--kg-primary)] hover:opacity-90 text-white shadow-md'
+              ? 'bg-amber-600 hover:bg-amber-700 text-white'
+              : recommendation.isMaxPunchesReached
+              ? 'bg-slate-600 hover:bg-slate-700 text-white'
+              : capturedImage
+              ? !canSubmit || isSubmittingPunch
+                ? 'opacity-60 cursor-not-allowed bg-slate-400 text-white'
+                : (userResolvedDisambiguation || smartIntent.smartSuggestedAction) === 'Ra ca'
+                ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-md'
+                : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md'
+              : smartIntent.requiresDisambiguation
+              ? 'bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-md'
+              : smartIntent.smartSuggestedAction === 'Ra ca'
+              ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-md'
+              : 'bg-[var(--kg-primary)] hover:opacity-95 text-white shadow-md'
           }`}
-            icon={capturedImage ? Send : Camera}
-          >
-            {isCooldownBlocked
-              ? `GIÃN CÁCH (${cooldown.remainingMinutesFormatted})`
-              : capturedImage ? `GỬI CHẤM CÔNG (${photoTimeLeftSeconds}s)` : 'CHỤP ẢNH ĐỂ CHẤM CÔNG'}
-          </KgButton>
+          icon={
+            isSubmittingPunch
+              ? Loader2
+              : capturedImage
+              ? (userResolvedDisambiguation || smartIntent.smartSuggestedAction) === 'Ra ca'
+                ? LogOut
+                : LogIn
+              : Camera
+          }
+        >
+          {isSubmittingPunch
+            ? 'ĐANG XÁC NHẬN TỨC THÌ...'
+            : isCooldownBlocked
+            ? `GIÃN CÁCH (${cooldown.remainingMinutesFormatted})`
+            : recommendation.isMaxPunchesReached
+            ? 'ĐÃ ĐỦ 4 LƯỢT TRONG NGÀY'
+            : capturedImage
+            ? `${(userResolvedDisambiguation || smartIntent.smartSuggestedAction) === 'Ra ca' ? 'Xác nhận Ra ca' : 'Xác nhận Vào ca'} (${photoTimeLeftSeconds}s)`
+            : smartIntent.requiresDisambiguation
+            ? 'CHỤP ẢNH XÁC NHẬN CA'
+            : smartIntent.smartSuggestedAction === 'Ra ca'
+            ? 'CHỤP ẢNH RA CA'
+            : 'CHỤP ẢNH VÀO CA'}
+        </KgButton>
 
         {!canSubmit && (
           <p className="text-[11px] text-center text-[var(--kg-text-muted)] font-medium">
             {isCooldownBlocked
               ? `Cần chờ thêm ${cooldown.remainingMinutesFormatted} theo quy định giãn cách 15 phút.`
+              : recommendation.isMaxPunchesReached
+              ? 'Bạn đã hoàn tất đủ 2 cặp Vào ca – Ra ca trong chu kỳ ngày công hiện tại.'
               : !capturedImage && !isWithinRadius
-              ? `Ngoài bán kính ${targetRadius}m (${currentDist ?? 'quá'}m). Vui lòng di chuyển vào nhà hàng.`
+              ? gps.lat === null
+                ? 'Đang lấy vị trí GPS... Nhấn nút chụp ảnh để tự động quét vị trí.'
+                : `Ngoài bán kính ${targetRadius}m (${currentDist ?? 'quá'}m). Nhấn nút chụp ảnh để quét lại GPS vệ tinh.`
               : !isWithinRadius
               ? `Ngoài bán kính ${targetRadius}m (${currentDist ?? 'quá'}m). Không thể gửi chấm công.`
               : photoTimeLeftSeconds <= 0
               ? 'Ảnh chụp đã hết hạn 60 giây. Vui lòng chụp lại ảnh mới.'
-              : 'Nhấn nút chụp ảnh tròn trên khung hình hoặc nút "CHỤP ẢNH ĐỂ CHẤM CÔNG" để tiếp tục.'}
+              : `Nhấn nút chụp ảnh để thực hiện ${recommendation.baseAction.toLowerCase()}.`}
           </p>
         )}
       </div>
 
-      {/* Missed Checkin Helper Card - iPhone Ergonomic & High Visibility */}
+      {/* Missed Checkin Helper Card - Streamlined Guidance to "Bổ sung chấm công" */}
       <div className="max-w-sm mx-auto pt-2 pb-8">
         <button
           type="button"
-          onClick={() => setMissedModalOpen(true)}
-          className="w-full p-3.5 min-h-[54px] rounded-2xl bg-gradient-to-r from-amber-500/10 via-[var(--kg-surface)] to-amber-500/5 hover:from-amber-500/15 hover:to-amber-500/10 text-[var(--kg-text)] border border-amber-500/30 text-left shadow-xs transition active:scale-98 touch-manipulation flex items-center justify-between gap-3 group"
+          data-testid="open-missed-checkin-helper-btn"
+          onClick={() => {
+            setSelectedMissingAlert(null);
+            setMissedModalOpen(true);
+          }}
+          className="w-full p-3.5 min-h-[54px] rounded-2xl bg-[var(--kg-surface)] hover:bg-[var(--kg-surface-soft)] text-[var(--kg-text)] border border-amber-500/35 text-left shadow-xs transition active:scale-[0.98] touch-manipulation flex items-center justify-between gap-3 group"
         >
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-500 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition">
               <Clock size={20} />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-black text-[var(--kg-text)] leading-tight flex items-center gap-1.5">
-                <span>Gặp sự cố không chấm được?</span>
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-600 dark:text-amber-400">Trợ giúp</span>
+              <p className="text-xs font-black text-[var(--kg-text)] leading-tight flex items-center gap-1.5 flex-wrap">
+                <span>Bổ sung chấm công</span>
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300">
+                  Chờ Admin duyệt
+                </span>
               </p>
-              <p className="text-[11px] text-[var(--kg-text-muted)] mt-0.5 truncate font-medium">
-                Gửi giải trình bổ sung công cho quản lý duyệt →
+              <p className="text-[11px] text-[var(--kg-text-muted)] mt-0.5 leading-snug font-medium">
+                {recommendation.baseAction === 'Vào ca'
+                  ? 'Quên bấm Vào ca đầu giờ? Bổ sung ngay để chuyển sang Ra ca →'
+                  : 'Quên bấm lượt trước hoặc lỗi mạng? Chọn ngày để bổ sung →'}
               </p>
             </div>
           </div>
@@ -2585,13 +3332,21 @@ export default function CheckIn() {
         </button>
       </div>
 
-      {/* Smart Check-In Type Confirmation Bottom Sheet */}
+      {/* Smart Context-Aware Confirmation & Disambiguation Bottom Sheet (Zero Wrong Vào/Ra Clicks) */}
       <KgBottomSheet
         isOpen={confirmCheckInModalOpen}
-        onClose={() => setConfirmCheckInModalOpen(false)}
-        title="Xác Nhận Loại Chấm Công"
+        onClose={() => {
+          if (!isSubmittingPunch) setConfirmCheckInModalOpen(false);
+        }}
+        title={
+          smartIntent.requiresDisambiguation && userResolvedDisambiguation === null
+            ? 'Kiểm Tra & Xác Nhận Lượt Ca'
+            : (userResolvedDisambiguation || smartIntent.smartSuggestedAction) === 'Ra ca'
+            ? 'Xác Nhận Ra Ca'
+            : 'Xác Nhận Vào Ca'
+        }
       >
-        <div className="space-y-4 py-1">
+        <div className="space-y-3.5 py-1">
           {/* Summary Proof Pill Card */}
           <div className="p-3 bg-[var(--kg-surface-soft)] rounded-2xl border border-[var(--kg-border)] flex items-center gap-3">
             {capturedImage && (
@@ -2618,227 +3373,430 @@ export default function CheckIn() {
             </div>
           </div>
 
-          {/* Smart Recommendation Banner */}
-          <div className="px-3 py-2 bg-blue-500/10 border border-blue-500/20 rounded-xl flex items-start gap-2">
-            <Sparkles size={15} className="text-blue-500 mt-0.5 flex-shrink-0" />
-            <div className="text-xs">
-              <p className="font-black text-blue-600 dark:text-blue-400">
-                Gợi ý: {recommendation.recommendedType.toUpperCase()}
-              </p>
-              <p className="text-[11px] text-[var(--kg-text-muted)] font-medium leading-tight mt-0.5">
-                {recommendation.reason}
-              </p>
-            </div>
-          </div>
-
-          {/* Dynamic Shift Action Choices */}
-          {(() => {
-            const shiftIdx = recommendation.shiftIndex || 1;
-            const inType: CheckInTypeString = shiftIdx === 1 ? 'Vào ca' : `Vào ca ${shiftIdx}`;
-            const inLabel = shiftIdx === 1 ? 'VÀO CA' : `VÀO CA ${shiftIdx}`;
-            const outType: CheckInTypeString = shiftIdx === 1 ? 'Ra ca' : `Ra ca ${shiftIdx}`;
-            const outLabel = shiftIdx === 1 ? 'RA CA' : `RA CA ${shiftIdx}`;
-
-            const isChosenIn = modalChosenType.includes('Vào') || modalChosenType === inType;
-            const isChosenOut = modalChosenType.includes('Ra') || modalChosenType === outType;
-
-            const isRecommendedIn = recommendation.recommendedType.includes('Vào');
-            const isRecommendedOut = recommendation.recommendedType.includes('Ra');
-
-            return (
-              <div>
-                <p className="text-[11px] font-black uppercase tracking-wider text-[var(--kg-text-muted)] mb-2 px-1">
-                  Chọn loại chấm công thực tế ({shiftIdx > 1 ? `Lượt ca ${shiftIdx}` : 'Ca chính'}):
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                  {/* VÀO CA */}
-                  <button
-                    type="button"
-                    onClick={() => handleTypeChangeInModal(inType)}
-                    className={`relative p-3.5 rounded-2xl border-2 flex flex-col items-center justify-center min-h-[58px] touch-manipulation transition-all duration-200 active:scale-95 gap-1 ${
-                      isChosenIn
-                        ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-emerald-400 shadow-md shadow-emerald-600/30 ring-2 ring-emerald-400/40'
-                        : 'bg-[var(--kg-surface)] text-[var(--kg-text)] border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5 font-black text-sm">
-                      <LogIn size={18} className={isChosenIn ? 'text-white' : 'text-emerald-500'} />
-                      <span>{inLabel}</span>
-                      {isChosenIn && <Check size={16} className="text-white" />}
-                    </div>
-                    {isRecommendedIn && (
-                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
-                        isChosenIn ? 'bg-white/20 text-white' : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
-                      }`}>
-                        Đề xuất
-                      </span>
-                    )}
-                  </button>
-
-                  {/* RA CA */}
-                  <button
-                    type="button"
-                    onClick={() => handleTypeChangeInModal(outType)}
-                    className={`relative p-3.5 rounded-2xl border-2 flex flex-col items-center justify-center min-h-[58px] touch-manipulation transition-all duration-150 active:scale-95 gap-1 ${
-                      isChosenOut
-                        ? 'bg-rose-600 text-white border-rose-500 shadow-sm ring-2 ring-rose-500/30'
-                        : 'bg-[var(--kg-surface)] text-[var(--kg-text)] border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5 font-black text-sm">
-                      <LogOut size={18} className={isChosenOut ? 'text-white' : 'text-rose-500'} />
-                      <span>{outLabel}</span>
-                      {isChosenOut && <Check size={16} className="text-white" />}
-                    </div>
-                    {isRecommendedOut && (
-                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
-                        isChosenOut ? 'bg-white/20 text-white' : 'bg-rose-500/15 text-rose-700 dark:text-rose-400'
-                      }`}>
-                        {recommendation.isOvernightShift ? <Moon size={10} /> : null}
-                        <span>{recommendation.isOvernightShift ? 'Ca đêm' : 'Đề xuất'}</span>
-                      </span>
-                    )}
-                  </button>
+          {smartIntent.requiresDisambiguation && userResolvedDisambiguation === null ? (
+            <div
+              data-testid="smart-disambiguation-card"
+              className="p-3.5 rounded-2xl border-2 border-amber-500/45 bg-amber-500/10 space-y-3 text-[var(--kg-text)]"
+            >
+              <div className="flex items-start gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center shrink-0 shadow-xs">
+                  <AlertTriangle size={20} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm font-black text-amber-800 dark:text-amber-300 leading-snug">
+                    {smartIntent.guidanceTitle}
+                  </p>
+                  <p className="text-[11px] text-[var(--kg-text-muted)] font-medium leading-relaxed mt-1">
+                    {smartIntent.guidanceDetail}
+                  </p>
                 </div>
               </div>
-            );
-          })()}
 
-          {/* Safety Warning 1: if Ra ca without prior Vào ca */}
-          {modalChosenType.includes('Ra') && !recommendation.isOpenShift && !recommendation.hasInToday && (
-            <div className="p-3.5 bg-amber-500/10 dark:bg-amber-950/30 border-2 border-amber-500/30 rounded-2xl space-y-2.5 animate-fade-in">
-              <div className="flex items-start gap-2 text-amber-600 dark:text-amber-400 font-bold text-xs">
-                <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" />
-                <span>Cảnh báo: Chưa có lượt Vào ca hôm nay!</span>
-              </div>
-              <p className="text-[11px] text-[var(--kg-text-muted)] leading-relaxed font-medium">
-                Hệ thống chưa tìm thấy dữ liệu Vào ca của bạn. Nếu bạn quên chấm Vào ca trước đó, vui lòng báo với Quản lý hoặc gửi giải trình bổ sung công tại app để được duyệt.
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setConfirmCheckInModalOpen(false);
-                  setMissedModalOpen(true);
-                }}
-                className="w-full py-2.5 px-3 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-xs transition active:scale-98"
-              >
-                <Clock size={15} />
-                <span>Báo sự cố không chấm công được tại app →</span>
-              </button>
-              <label className="flex items-center gap-2.5 pt-1 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={hasAcknowledgedMissingIn}
-                  onChange={(e) => setHasAcknowledgedMissingIn(e.target.checked)}
-                  className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
-                />
-                <span className="text-xs font-black text-amber-700 dark:text-amber-300">
-                  Tôi hiểu và xác nhận vẫn muốn chấm {modalChosenType.toUpperCase()}
-                </span>
-              </label>
-            </div>
-          )}
-
-          {/* Safety Warning 2: if Ra ca earlier than 15 minutes after Vào ca */}
-          {modalChosenType.includes('Ra') && recommendation.isOpenShift && !recommendation.canCheckOutNow && (
-            <div className="p-3.5 bg-amber-500/10 dark:bg-amber-950/30 border-2 border-amber-500/30 rounded-2xl space-y-2.5 animate-fade-in">
-              <div className="flex items-start gap-2 text-amber-600 dark:text-amber-400 font-bold text-xs">
-                <Clock size={18} className="flex-shrink-0 mt-0.5" />
-                <span>Cảnh báo: Quy định làm việc tối thiểu hơn 15 phút!</span>
-              </div>
-              <p className="text-[11px] text-[var(--kg-text-muted)] leading-relaxed font-medium">
-                Bạn vừa Vào ca lúc <b>{recommendation.openShiftTime}</b> (mới được <b>{recommendation.elapsedMinutes} phút</b>). Theo quy định, sau khi Vào ca cần tối thiểu hơn 15 phút mới được Ra ca (còn thiếu <b>{recommendation.minWaitMinutesRemaining} phút</b>).
-              </p>
-              <label className="flex items-center gap-2.5 pt-1 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={hasAcknowledgedEarlyOut}
-                  onChange={(e) => setHasAcknowledgedEarlyOut(e.target.checked)}
-                  className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
-                />
-                <span className="text-xs font-black text-amber-700 dark:text-amber-300">
-                  Tôi xác nhận có việc đột xuất và vẫn muốn RA CA sớm
-                </span>
-              </label>
-            </div>
-          )}
-
-          {/* Final Confirmation Action Buttons */}
-          {(() => {
-            const isOutSelection = modalChosenType.includes('Ra');
-            const isMissingInGuard = isOutSelection && !recommendation.isOpenShift && !recommendation.hasInToday && !hasAcknowledgedMissingIn;
-            const isEarlyOutGuard = isOutSelection && recommendation.isOpenShift && !recommendation.canCheckOutNow && !hasAcknowledgedEarlyOut;
-            const isSubmitDisabled = isMissingInGuard || isEarlyOutGuard || !isWithinRadius || photoTimeLeftSeconds <= 0;
-
-            return (
-              <div className="space-y-2 pt-2">
-                {/* 60s Expiry Indicator in Modal */}
-                <div className={`p-2.5 rounded-xl border flex items-center justify-between text-xs font-bold transition-all ${
-                  photoTimeLeftSeconds <= 15
-                    ? 'bg-rose-500/15 border-rose-500/40 text-rose-600 dark:text-rose-400 animate-pulse'
-                    : photoTimeLeftSeconds <= 30
-                    ? 'bg-amber-500/15 border-amber-500/40 text-amber-600 dark:text-amber-400'
-                    : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
-                }`}>
-                  <div className="flex items-center gap-1.5">
-                    <Clock size={15} />
-                    <span>Thời hạn hiệu lực ảnh:</span>
+              {smartIntent.ambiguityReason === 'LATE_SHIFT_MISSING_IN' ? (
+                <div className="space-y-2.5 pt-1">
+                  <div className="p-2.5 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <label
+                        htmlFor="combo-supp-time-input"
+                        className="text-[11px] font-black text-[var(--kg-text)]"
+                      >
+                        Giờ Vào ca thực tế đầu giờ ({smartIntent.suggestedSupplementDate}):
+                      </label>
+                      <input
+                        id="combo-supp-time-input"
+                        type="time"
+                        value={comboSupplementTime}
+                        onChange={(e) => setComboSupplementTime(e.target.value)}
+                        className="px-2.5 py-1.5 min-h-[38px] rounded-lg border border-[var(--kg-border-strong)] bg-[var(--kg-surface-soft)] text-base sm:text-xs font-mono tabular-nums font-black text-[var(--kg-text)]"
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        'Quên bấm đầu ca',
+                        'Bận phục vụ khách đầu ca',
+                        'Điện thoại hết pin / lỗi mạng',
+                      ].map((rText) => (
+                        <button
+                          key={rText}
+                          type="button"
+                          onClick={() => setComboSupplementReason(rText)}
+                          className={`px-2.5 py-1.5 min-h-[44px] sm:min-h-[34px] rounded-lg text-[11px] font-bold border transition touch-manipulation ${
+                            comboSupplementReason === rText
+                              ? 'bg-amber-500 text-slate-950 border-amber-600 font-black'
+                              : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)]'
+                          }`}
+                        >
+                          {rText}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <span className="font-mono font-black text-sm">
-                    {photoTimeLeftSeconds}s
-                  </span>
-                </div>
 
-                {!isWithinRadius && (
-                  <div className="p-3 bg-rose-500/10 border-2 border-rose-500/30 rounded-2xl flex items-center gap-2 text-rose-600 dark:text-rose-400 font-bold text-xs">
-                    <Lock size={16} className="flex-shrink-0" />
-                    <span>Bạn đang cách nhà hàng {currentDist ?? 'quá'}m (quy định ≤ {targetRadius}m). Đã khóa gửi chấm công.</span>
+                  <button
+                    type="button"
+                    data-testid="smart-combo-out-and-supplement-btn"
+                    disabled={isSubmittingPunch || !isWithinRadius || photoTimeLeftSeconds <= 0}
+                    onClick={() => void handleComboOutAndSupplementIn()}
+                    className="w-full min-h-[52px] px-4 py-2.5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white text-xs sm:text-sm font-black shadow-md active:scale-[0.98] transition flex items-center justify-center gap-2 disabled:opacity-55 disabled:pointer-events-none touch-manipulation"
+                  >
+                    {isSubmittingPunch ? (
+                      <Loader2 size={18} className="animate-spin shrink-0" />
+                    ) : (
+                      <LogOut size={18} className="shrink-0" />
+                    )}
+                    <span>
+                      {isSubmittingPunch
+                        ? 'Đang xác nhận tức thì...'
+                        : 'Chấm RA CA ngay + Báo quên Vào ca đầu giờ'}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    data-testid="smart-confirm-late-in-btn"
+                    disabled={isSubmittingPunch}
+                    onClick={() => {
+                      setUserResolvedDisambiguation('Vào ca');
+                      handleTypeChangeInModal('Vào ca');
+                    }}
+                    className="w-full min-h-[48px] px-4 py-2 rounded-2xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-800 dark:text-emerald-300 text-xs font-black active:scale-[0.98] transition flex items-center justify-center gap-1.5 touch-manipulation"
+                  >
+                    <LogIn size={16} className="shrink-0" />
+                    <span>Không, tôi mới bắt đầu VÀO CA lúc này</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2 pt-1">
+                  <button
+                    type="button"
+                    disabled={isSubmittingPunch}
+                    onClick={() => {
+                      setUserResolvedDisambiguation('Ra ca');
+                      handleTypeChangeInModal('Ra ca');
+                    }}
+                    className="w-full min-h-[48px] px-4 py-2.5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white text-xs sm:text-sm font-black shadow-xs active:scale-[0.98] transition flex items-center justify-center gap-2 touch-manipulation"
+                  >
+                    <LogOut size={17} className="shrink-0" />
+                    <span>Tôi đang RA CA (Kết thúc ca trước)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isSubmittingPunch}
+                    onClick={() => {
+                      setUserResolvedDisambiguation('Vào ca');
+                      handleTypeChangeInModal('Vào ca');
+                    }}
+                    className="w-full min-h-[48px] px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-black shadow-xs active:scale-[0.98] transition flex items-center justify-center gap-2 touch-manipulation"
+                  >
+                    <LogIn size={17} className="shrink-0" />
+                    <span>Tôi đang VÀO CA mới</span>
+                  </button>
+
+                  {(smartIntent.unclosedYesterdayDateStr || smartIntent.suggestedSupplementDate) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetDate =
+                          smartIntent.unclosedYesterdayDateStr || smartIntent.suggestedSupplementDate || '';
+                        const targetTime = smartIntent.openShiftStartTime || '';
+                        setConfirmCheckInModalOpen(false);
+                        setSelectedMissingAlert(
+                          targetDate
+                            ? {
+                                id: `missing_out_disambig_${targetDate}_${targetTime}`,
+                                dateStr: targetDate,
+                                timeStr: targetTime,
+                                missingType: 'Ra ca',
+                                existingType: 'Vào ca',
+                                message: `Thiếu Ra ca ngày ${targetDate}${targetTime ? ` (Vào lúc ${targetTime})` : ''}`,
+                              }
+                            : null
+                        );
+                        setMissedModalOpen(true);
+                      }}
+                      className="w-full min-h-[44px] sm:min-h-[40px] px-3 py-1.5 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-800 dark:text-amber-300 text-[11px] font-black inline-flex items-center justify-center gap-1.5 touch-manipulation"
+                    >
+                      <Clock size={13} />
+                      <span>Bổ sung lượt Ra ca bị quên trước đó →</span>
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* 60s Expiry Indicator inside Disambiguation Mode */}
+              <div className="p-2 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] flex items-center justify-between text-[11px] font-bold">
+                <span className="text-[var(--kg-text-muted)] inline-flex items-center gap-1">
+                  <Clock size={13} /> Thời hạn hiệu lực ảnh:
+                </span>
+                <span className="font-mono tabular-nums font-black text-[var(--kg-text)]">
+                  {photoTimeLeftSeconds}s
+                </span>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Single Smart Locked Action Card (06:00 -> 05:59 Cycle) */}
+              {(() => {
+                const effectiveType: CheckInTypeString =
+                  userResolvedDisambiguation || smartIntent.smartSuggestedAction;
+                const isSmartOut = effectiveType === 'Ra ca';
+                const smartActionTitle = isSmartOut ? 'RA CA' : 'VÀO CA';
+                const canonicalBadge = recommendation.isOvernightShift
+                  ? `Ca đêm (${recommendation.openShiftTime})`
+                  : recommendation.shiftIndex > 1
+                  ? `Lượt ca ${recommendation.shiftIndex} trong ngày`
+                  : 'Chu kỳ 06:00 – 05:59';
+
+                return (
+                  <div
+                    data-testid="smart-locked-action-card"
+                    className={`p-3.5 rounded-2xl border-2 flex items-start gap-3 ${
+                      isSmartOut
+                        ? 'bg-rose-500/10 border-rose-500/35 text-[var(--kg-text)]'
+                        : 'bg-emerald-500/10 border-emerald-500/35 text-[var(--kg-text)]'
+                    }`}
+                  >
+                    <div
+                      className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 text-white shadow-xs ${
+                        isSmartOut ? 'bg-rose-600' : 'bg-emerald-600'
+                      }`}
+                    >
+                      {isSmartOut ? <LogOut size={20} /> : <LogIn size={20} />}
+                    </div>
+                    <div className="min-w-0 flex-1 space-y-1.5">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span
+                          className={`text-sm font-black tracking-tight inline-flex items-center gap-1.5 ${
+                            isSmartOut
+                              ? 'text-rose-700 dark:text-rose-300'
+                              : 'text-emerald-700 dark:text-emerald-300'
+                          }`}
+                        >
+                          <Check size={15} />
+                          <span>Lượt chấm công: {smartActionTitle}</span>
+                        </span>
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 ${
+                            isSmartOut
+                              ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300'
+                              : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                          }`}
+                        >
+                          {recommendation.isOvernightShift && <Moon size={10} />}
+                          <span>{canonicalBadge}</span>
+                        </span>
+                      </div>
+
+                      {isSmartOut && smartIntent.openShiftDurationFormatted && (
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-border)] text-[11px] font-mono tabular-nums font-black text-[var(--kg-text)]">
+                          <Clock size={12} className="text-rose-500 shrink-0" />
+                          <span>
+                            Đã làm việc: {smartIntent.openShiftDurationFormatted} (từ {smartIntent.openShiftStartTime})
+                          </span>
+                        </div>
+                      )}
+
+                      <p className="text-[11px] text-[var(--kg-text-muted)] font-medium leading-snug">
+                        {recommendation.reason}
+                      </p>
+
+                      <div className="pt-0.5 flex items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          disabled={isSubmittingPunch}
+                          onClick={() => {
+                            const nextChoice: CheckInTypeString = isSmartOut ? 'Vào ca' : 'Ra ca';
+                            setUserResolvedDisambiguation(nextChoice);
+                            handleTypeChangeInModal(nextChoice);
+                          }}
+                          className="text-[11px] font-bold text-[var(--kg-primary)] hover:underline inline-flex items-center gap-1 min-h-[44px] sm:min-h-[32px] touch-manipulation"
+                        >
+                          <RefreshCw size={11} />
+                          <span>{isSmartOut ? 'Đổi sang Vào ca' : 'Đổi sang Ra ca'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Forgotten Earlier Vào Ca Escape Hatch -> Direct to "Bổ sung chấm công" */}
+              {(userResolvedDisambiguation || smartIntent.smartSuggestedAction) === 'Vào ca' ? (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center justify-between gap-2.5">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-black text-amber-800 dark:text-amber-300 leading-tight">
+                      Quên bấm Vào ca lúc đầu giờ?
+                    </p>
+                    <p className="text-[11px] text-[var(--kg-text-muted)] mt-0.5 leading-snug">
+                      Nếu hiện đang cuối ca, hãy bổ sung Vào ca trước để hệ thống chuyển sang Ra ca.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    data-testid="confirm-sheet-open-supplement-btn"
+                    onClick={() => {
+                      setConfirmCheckInModalOpen(false);
+                      setSelectedMissingAlert(null);
+                      setMissedModalOpen(true);
+                    }}
+                    className="px-3 py-2 min-h-[44px] bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition active:scale-95 flex-shrink-0 whitespace-nowrap"
+                  >
+                    <Clock size={14} />
+                    <span>Bổ sung chấm công →</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-end px-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConfirmCheckInModalOpen(false);
+                      setSelectedMissingAlert(null);
+                      setMissedModalOpen(true);
+                    }}
+                    className="text-[11px] font-bold text-amber-700 dark:text-amber-400 hover:underline inline-flex items-center gap-1 min-h-[44px] sm:min-h-[36px] touch-manipulation"
+                  >
+                    <Clock size={12} />
+                    <span>Thiếu lượt chấm công ngày trước? Bổ sung chấm công →</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Safety Warning: if Ra ca earlier than 15 minutes after Vào ca */}
+              {(userResolvedDisambiguation || smartIntent.smartSuggestedAction) === 'Ra ca' &&
+                recommendation.isOpenShift &&
+                !recommendation.canCheckOutNow && (
+                  <div className="p-3.5 bg-amber-500/10 dark:bg-amber-950/30 border-2 border-amber-500/30 rounded-2xl space-y-2.5 animate-fade-in">
+                    <div className="flex items-start gap-2 text-amber-600 dark:text-amber-400 font-bold text-xs">
+                      <Clock size={18} className="flex-shrink-0 mt-0.5" />
+                      <span>Cảnh báo: Quy định giãn cách tối thiểu 15 phút!</span>
+                    </div>
+                    <p className="text-[11px] text-[var(--kg-text-muted)] leading-relaxed font-medium">
+                      Bạn vừa Vào ca lúc <b className="font-mono tabular-nums">{recommendation.openShiftTime}</b> (mới được <b className="font-mono tabular-nums">{recommendation.elapsedMinutes} phút</b>). Theo quy định, sau khi Vào ca cần tối thiểu 15 phút mới được Ra ca (còn thiếu <b className="font-mono tabular-nums">{recommendation.minWaitMinutesRemaining} phút</b>).
+                    </p>
+                    <label className="flex items-center gap-2.5 pt-1 cursor-pointer select-none min-h-[44px]">
+                      <input
+                        type="checkbox"
+                        checked={hasAcknowledgedEarlyOut}
+                        onChange={(e) => setHasAcknowledgedEarlyOut(e.target.checked)}
+                        className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
+                      />
+                      <span className="text-xs font-black text-amber-700 dark:text-amber-300">
+                        Tôi xác nhận có việc đột xuất và vẫn muốn Ra ca sớm
+                      </span>
+                    </label>
                   </div>
                 )}
 
-                <KgButton
-                  variant={modalChosenType.includes('Vào') ? 'primary' : 'danger'}
-                  size="lg"
-                  disabled={isSubmitDisabled}
-                  onClick={() => {
-                    setConfirmCheckInModalOpen(false);
-                    proceedSubmitCheck(modalChosenType);
-                  }}
-                  className={`w-full h-13 min-h-[52px] shadow-lg rounded-2xl text-[15px] font-black tracking-wider border-none active:scale-[0.97] transition-all touch-manipulation flex items-center justify-center gap-2 ${
-                    modalChosenType.includes('Vào')
-                      ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700 hover:from-emerald-700 hover:to-teal-700 text-white shadow-emerald-600/30'
-                      : 'bg-gradient-to-r from-rose-500 via-red-600 to-rose-700 hover:from-rose-600 hover:to-red-700 text-white shadow-rose-600/30'
-                  }`}
-                  icon={modalChosenType.includes('Vào') ? LogIn : LogOut}
-                >
-                  XÁC NHẬN CHẤM {modalChosenType.toUpperCase()}
-                </KgButton>
+              {/* Final Single Smart Confirmation Button */}
+              {(() => {
+                const effectiveType: CheckInTypeString =
+                  userResolvedDisambiguation || smartIntent.smartSuggestedAction;
+                const isOutSelection = effectiveType === 'Ra ca';
+                const isEarlyOutGuard =
+                  isOutSelection &&
+                  recommendation.isOpenShift &&
+                  !recommendation.canCheckOutNow &&
+                  !hasAcknowledgedEarlyOut;
+                const isSubmitDisabled =
+                  isSubmittingPunch ||
+                  isEarlyOutGuard ||
+                  !isWithinRadius ||
+                  photoTimeLeftSeconds <= 0 ||
+                  Boolean(recommendation.isMaxPunchesReached);
+                const confirmBtnLabel = isSubmittingPunch
+                  ? 'Đang xác nhận tức thì...'
+                  : isOutSelection
+                  ? 'Xác nhận Ra ca'
+                  : 'Xác nhận Vào ca';
 
-                <button
-                  type="button"
-                  onClick={() => setConfirmCheckInModalOpen(false)}
-                  className="w-full py-2.5 text-center text-xs font-bold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition min-h-[44px] touch-manipulation"
-                >
-                  Đóng / Xem lại ảnh
-                </button>
-              </div>
-            );
-          })()}
+                return (
+                  <div className="space-y-2 pt-1">
+                    {/* 60s Expiry Indicator in Modal */}
+                    <div
+                      className={`p-2.5 rounded-xl border flex items-center justify-between text-xs font-bold transition-all ${
+                        photoTimeLeftSeconds <= 15
+                          ? 'bg-rose-500/15 border-rose-500/40 text-rose-600 dark:text-rose-400 animate-pulse'
+                          : photoTimeLeftSeconds <= 30
+                          ? 'bg-amber-500/15 border-amber-500/40 text-amber-600 dark:text-amber-400'
+                          : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <Clock size={15} />
+                        <span>Thời hạn hiệu lực ảnh:</span>
+                      </div>
+                      <span className="font-mono tabular-nums font-black text-sm">
+                        {photoTimeLeftSeconds}s
+                      </span>
+                    </div>
+
+                    {!isWithinRadius && (
+                      <div className="p-3 bg-rose-500/10 border-2 border-rose-500/30 rounded-2xl flex items-center gap-2 text-rose-600 dark:text-rose-400 font-bold text-xs">
+                        <Lock size={16} className="flex-shrink-0" />
+                        <span>
+                          Bạn đang cách nhà hàng {currentDist ?? 'quá'}m (quy định ≤ {targetRadius}m). Đã khóa gửi chấm công.
+                        </span>
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      data-testid="smart-confirm-punch-btn"
+                      disabled={isSubmitDisabled}
+                      onClick={() => {
+                        void submitCheck(effectiveType);
+                      }}
+                      className={`w-full h-13 min-h-[52px] px-5 py-2.5 shadow-md rounded-2xl text-[15px] font-black tracking-wide active:scale-[0.97] transition-all touch-manipulation flex items-center justify-center gap-2 disabled:opacity-55 disabled:pointer-events-none ${
+                        isOutSelection
+                          ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                          : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                      }`}
+                    >
+                      {isSubmittingPunch ? (
+                        <Loader2 size={18} className="animate-spin" />
+                      ) : isOutSelection ? (
+                        <LogOut size={18} />
+                      ) : (
+                        <LogIn size={18} />
+                      )}
+                      <span>{confirmBtnLabel}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={isSubmittingPunch}
+                      onClick={() => setConfirmCheckInModalOpen(false)}
+                      className="w-full py-2.5 text-center text-xs font-bold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition min-h-[44px] touch-manipulation disabled:opacity-50"
+                    >
+                      Đóng / Xem lại ảnh
+                    </button>
+                  </div>
+                );
+              })()}
+            </>
+          )}
         </div>
       </KgBottomSheet>
 
-      {/* Missed Check-in Claim Modal */}
+      {/* Missed Check-in Claim Modal ("Bổ sung chấm công") */}
       {missedModalOpen && (
         <MissedCheckInModal
           isOpen={missedModalOpen}
           onClose={() => {
             setMissedModalOpen(false);
             setSelectedMissingAlert(null);
+            void refreshFastAttendanceState();
           }}
-          defaultType={selectedMissingAlert ? selectedMissingAlert.missingType : (modalChosenType.includes('Ra') ? 'Ra ca' : 'Vào ca')}
+          existingLogs={mergedAttendanceLogs}
+          onSubmitted={() => {
+            void refreshFastAttendanceState();
+          }}
+          defaultType={selectedMissingAlert ? selectedMissingAlert.missingType : 'Vào ca'}
           defaultDate={selectedMissingAlert ? selectedMissingAlert.dateStr : undefined}
           defaultTime={selectedMissingAlert ? selectedMissingAlert.timeStr : undefined}
-          defaultReason="Quên bấm máy khi vào việc gấp"
+          defaultReason="Quên bấm đầu ca"
         />
       )}
 
@@ -2850,6 +3808,21 @@ export default function CheckIn() {
           onClose={() => setEmployeeAttendanceModalOpen(false)}
         />
       )}
+
+      {/* Unenrolled Employee Face ID v2 Pre-Boot Enrollment Prompt (avoids double camera boot/teardown) */}
+      <KgConfirmSheet
+        isOpen={unenrolledV2PromptOpen}
+        onClose={() => setUnenrolledV2PromptOpen(false)}
+        title="Chưa đăng ký Face ID 5 góc"
+        message="Bạn chưa có hồ sơ khuôn mặt 5 góc trên hệ thống. Hãy đăng ký ngay (~15 giây) để mở khóa chấm công tự động không chạm."
+        confirmLabel="Đăng ký 5 góc ngay"
+        cancelLabel="Đóng"
+        variant="primary"
+        onConfirm={() => {
+          setUnenrolledV2PromptOpen(false);
+          openFaceEnrollmentModal();
+        }}
+      />
 
       {/* Safety Confirmation for Inverted Type Choice */}
       <KgConfirmSheet
@@ -2905,17 +3878,17 @@ export default function CheckIn() {
       />
 
       {/* General info feedback sheet */}
-      <KgBottomSheet isOpen={feedbackSheetOpen} onClose={() => setFeedbackSheetOpen(false)} title={feedbackType === 'success' ? (lastSubmittedPunch?.type === 'Vào ca' ? 'Bắt đầu ca làm việc' : 'Hoàn thành ca làm việc') : 'Thông báo'}>
+      <KgBottomSheet isOpen={feedbackSheetOpen} onClose={() => setFeedbackSheetOpen(false)} title={feedbackType === 'success' ? (isCheckInLabel(lastSubmittedPunch?.type || '') ? 'Bắt đầu ca làm việc' : 'Hoàn thành ca làm việc') : 'Thông báo'}>
         {feedbackType === 'success' && lastSubmittedPunch ? (
           <div className="space-y-4 py-2">
             {/* Operational Receipt Header */}
             <div className="text-center">
               <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-xs ${
-                lastSubmittedPunch.type === 'Vào ca'
+                isCheckInLabel(lastSubmittedPunch.type)
                   ? 'bg-emerald-600 text-white'
                   : 'bg-[var(--kg-primary)] text-white'
               }`}>
-                {lastSubmittedPunch.type === 'Vào ca' ? (
+                {isCheckInLabel(lastSubmittedPunch.type) ? (
                   <Sparkles size={28} />
                 ) : (
                   <PartyPopper size={28} />
@@ -2923,20 +3896,20 @@ export default function CheckIn() {
               </div>
 
               <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${
-                lastSubmittedPunch.type === 'Vào ca'
+                isCheckInLabel(lastSubmittedPunch.type)
                   ? 'bg-[var(--kg-success-soft)] text-[var(--kg-success)] border border-[var(--kg-success)]/25'
                   : 'bg-[var(--kg-primary-soft)] text-[var(--kg-primary)] border border-[var(--kg-primary)]/20'
               }`}>
-                <span className={`w-2 h-2 rounded-full ${lastSubmittedPunch.type === 'Vào ca' ? 'bg-emerald-500' : 'bg-[var(--kg-primary)]'}`} />
-                {lastSubmittedPunch.type === 'Vào ca' ? 'VÀO CA THÀNH CÔNG' : 'RA CA THÀNH CÔNG'}
+                <span className={`w-2 h-2 rounded-full ${isCheckInLabel(lastSubmittedPunch.type) ? 'bg-emerald-500' : 'bg-[var(--kg-primary)]'}`} />
+                {`${formatUnifiedPunchLabel(lastSubmittedPunch.type).toUpperCase()} THÀNH CÔNG`}
               </span>
 
               <h3 className="mt-2 text-lg sm:text-xl font-bold text-[var(--kg-text)] tracking-tight">
-                {lastSubmittedPunch.type === 'Vào ca' ? 'Điểm danh vào ca thành công' : 'Điểm danh ra ca thành công'}
+                {`Điểm danh ${formatUnifiedPunchLabel(lastSubmittedPunch.type)} thành công`}
               </h3>
 
               <p className="mt-1 text-xs text-[var(--kg-text-muted)] max-w-xs mx-auto leading-relaxed">
-                {lastSubmittedPunch.type === 'Vào ca'
+                {isCheckInLabel(lastSubmittedPunch.type)
                   ? 'Chúc bạn một ca làm việc tràn đầy năng lượng và phục vụ khách hàng chu đáo!'
                   : 'Cảm ơn bạn đã hoàn thành ca trực hôm nay. Hãy nghỉ ngơi thật tốt nhé!'}
               </p>
@@ -2944,20 +3917,53 @@ export default function CheckIn() {
 
             {/* Synchronized Detail Metrics Card */}
             <div className="bg-[var(--kg-surface-soft)] rounded-2xl p-3.5 border border-[var(--kg-border)] space-y-2 text-xs">
-              {/* Prominent Google Sheet Confirmation Badge */}
-              <div className="flex items-center justify-between pb-2 border-b border-[var(--kg-success)]/20 bg-[var(--kg-success-soft)] -mx-3.5 -mt-3.5 p-3 rounded-t-2xl">
-                <span className="text-[var(--kg-success)] font-bold uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-                  <CheckCircle2 size={15} />
+              {/* Prominent Honest Google Sheet / Cloud Ledger Confirmation Badge */}
+              <div
+                className={`flex items-center justify-between pb-2 border-b -mx-3.5 -mt-3.5 p-3 rounded-t-2xl ${
+                  lastSubmittedPunch.sheetSaved
+                    ? 'border-[var(--kg-success)]/20 bg-[var(--kg-success-soft)]'
+                    : 'border-sky-500/25 bg-sky-500/10'
+                }`}
+              >
+                <span
+                  className={`font-bold uppercase tracking-wider text-[11px] flex items-center gap-1.5 ${
+                    lastSubmittedPunch.sheetSaved
+                      ? 'text-[var(--kg-success)]'
+                      : 'text-sky-700 dark:text-sky-300'
+                  }`}
+                >
+                  {lastSubmittedPunch.sheetSaved ? (
+                    <CheckCircle2 size={15} />
+                  ) : (
+                    <CloudUpload size={15} />
+                  )}
                   Bảng Chấm Công
                 </span>
-                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                  lastSubmittedPunch.sheetSaved
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-[var(--kg-primary)] text-white animate-pulse'
-                }`}>
-                  {lastSubmittedPunch.sheetSaved ? '✓ ĐÃ GHI NHẬN 100%' : 'ĐÃ TIẾP NHẬN • ĐANG ĐỒNG BỘ'}
+                <span
+                  className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                    lastSubmittedPunch.sheetSaved
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-sky-600 text-white'
+                  }`}
+                >
+                  {lastSubmittedPunch.sheetSaved
+                    ? '✓ ĐÃ GHI GOOGLE SHEETS 100%'
+                    : '☁️ ĐÃ BẢO LÃNH ĐÁM MÂY • ĐANG GHI SHEET'}
                 </span>
               </div>
+
+              {!lastSubmittedPunch.sheetSaved && lastSubmittedPunch.edgeBuffered && (
+                <div className="p-2 rounded-xl bg-sky-500/10 border border-sky-500/25 text-[11px] text-sky-800 dark:text-sky-300 font-semibold leading-snug">
+                  Lượt chấm đã được khóa an toàn trên Đám mây Cloudflare D1 và tự động ghi vào Google Sheets kể cả khi bạn đóng ứng dụng.
+                </div>
+              )}
+
+              {Boolean(lastSubmittedPunch.supplementSubmittedText) && (
+                <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-[11px] text-emerald-800 dark:text-emerald-300 font-bold flex items-center gap-1.5 leading-snug">
+                  <CheckCircle2 size={14} className="shrink-0 text-emerald-600 dark:text-emerald-400" />
+                  <span>{lastSubmittedPunch.supplementSubmittedText}</span>
+                </div>
+              )}
 
               <div className="flex items-center justify-between pb-2 border-b border-[var(--kg-border)]">
                 <span className="text-[var(--kg-text-muted)] font-semibold uppercase tracking-wider text-[10px]">Nhân sự</span>
@@ -3022,7 +4028,7 @@ export default function CheckIn() {
                 }
               }}
               className={`w-full py-3.5 rounded-xl font-bold text-sm text-white shadow-xs active:scale-[0.98] transition-colors flex items-center justify-center gap-2 min-h-[44px] ${
-                lastSubmittedPunch.type === 'Vào ca'
+                isCheckInLabel(lastSubmittedPunch.type)
                   ? 'bg-emerald-600 hover:bg-emerald-700'
                   : 'bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)]'
               }`}
@@ -3042,6 +4048,33 @@ export default function CheckIn() {
             <p className="text-xs text-[var(--kg-text-muted)] whitespace-pre-line leading-relaxed">
               {feedbackMessage}
             </p>
+            {feedbackType === 'warning' && !isWithinRadius && (
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFeedbackSheetOpen(false);
+                    handlePrecisionRescan();
+                  }}
+                  className="min-h-[44px] px-3 py-2 rounded-xl bg-[var(--kg-primary)] hover:opacity-90 text-white text-xs font-black inline-flex items-center justify-center gap-1.5 active:scale-95 transition touch-manipulation"
+                >
+                  <Radio size={14} />
+                  <span>Quét lại GPS</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFeedbackSheetOpen(false);
+                    setSelectedMissingAlert(null);
+                    setMissedModalOpen(true);
+                  }}
+                  className="min-h-[44px] px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black inline-flex items-center justify-center gap-1.5 active:scale-95 transition touch-manipulation"
+                >
+                  <Clock size={14} />
+                  <span>Bổ sung công</span>
+                </button>
+              </div>
+            )}
             <KgButton variant="secondary" size="md" className="w-full" onClick={() => setFeedbackSheetOpen(false)}>
               Đóng
             </KgButton>
@@ -3116,6 +4149,72 @@ export default function CheckIn() {
           )}
         </div>
       </KgBottomSheet>
+
+      {/* Parallel v2 Full-Screen Face Recognition Scanner & 5-Angle Enrollment HUD */}
+      <Suspense fallback={null}>
+        {checkinMode === 'v2' && (
+          <FastFaceScannerV2
+            isOpen={true}
+            isKioskMode={false}
+            onClose={() => {
+              switchCheckinMode('v1');
+              void refreshFaceProfiles();
+              void refreshFastAttendanceState();
+              void refreshAppData(true);
+            }}
+            onSwitchToV1={() => {
+              switchCheckinMode('v1');
+              void refreshFaceProfiles();
+              void refreshFastAttendanceState();
+              void refreshAppData(true);
+            }}
+          />
+        )}
+        {adminPickerOpen && currentUser?.role === 'admin' && (
+          <AdminStaffFacePickerModal
+            isOpen={adminPickerOpen}
+            adminUsername={currentUser.username}
+            initialProfiles={allFaceProfiles}
+            onClose={() => {
+              setAdminPickerOpen(false);
+              void refreshFaceProfiles();
+            }}
+            onSelectEmployee={(emp, latestProfiles) => {
+              if (latestProfiles.length > 0) {
+                setAllFaceProfiles(latestProfiles);
+              }
+              setAdminSelectedEnrollTarget(emp);
+              setAdminPickerOpen(false);
+              setFaceEnrollModalOpen(true);
+            }}
+          />
+        )}
+        {faceEnrollModalOpen && currentUser && (
+          <FaceEnrollmentModal
+            isOpen={faceEnrollModalOpen}
+            onClose={handleCloseFaceEnroll}
+            user={adminSelectedEnrollTarget || currentUser}
+            existingProfiles={allFaceProfiles}
+            enrolledByAdmin={Boolean(adminSelectedEnrollTarget && currentUser.role === 'admin')}
+            adminActorUsername={currentUser.username}
+            onEnrolledSuccess={handleFaceEnrolledSuccess}
+            onStartScanningNow={() => {
+              setFaceEnrollModalOpen(false);
+              setAdminSelectedEnrollTarget(null);
+              switchCheckinMode('v2');
+            }}
+            onPickAnotherStaff={
+              currentUser.role === 'admin'
+                ? () => {
+                    setFaceEnrollModalOpen(false);
+                    setAdminSelectedEnrollTarget(null);
+                    setAdminPickerOpen(true);
+                  }
+                : undefined
+            }
+          />
+        )}
+      </Suspense>
 
     </div>
   );

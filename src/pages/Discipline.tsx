@@ -1,118 +1,205 @@
-import { useState, useEffect } from 'react';
-import { useAppStore } from '../store/useAppStore';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AnimatePresence } from 'framer-motion';
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  Award,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
+  X,
+} from 'lucide-react';
+import {
+  KgButton,
+  KgConfirmSheet,
+  KgEmptyState,
+  KgErrorState,
+  KgInput,
+  KgModuleHero,
+  KgSkeleton,
+  KgStatusBadge,
+  KgToast,
+  type ToastMessage,
+} from '../components/KgDesignSystem';
 import { callApi } from '../services/api';
-import Swal from 'sweetalert2';
-import { Award, Plus, Trash2, ArrowUpRight, ArrowDownRight, Search, AlertOctagon, ShieldAlert } from 'lucide-react';
-import { KgModuleHero } from '../components/KgDesignSystem';
+import { useAppStore } from '../store/useAppStore';
 
+type DisciplineFilterType = 'ALL' | 'BONUS' | 'PENALTY';
+
+const formatVnd = (amount: number) => `${Math.round(Number(amount) || 0).toLocaleString('vi-VN')} VNĐ`;
 
 export default function Discipline({ mode = 'user' }: { mode?: 'user' | 'admin' }) {
   const currentUser = useAppStore((s) => s.currentUser);
   const bonusPenalties = useAppStore((s) => s.bonusPenalties);
   const users = useAppStore((s) => s.users);
   const setBonusPenalties = useAppStore((s) => s.setBonusPenalties);
-  const setLoading = useAppStore((s) => s.setLoading);
-  const store = { setBonusPenalties, setLoading };
   const isManagerView = mode === 'admin' && (currentUser?.role === 'admin' || currentUser?.role === 'tester');
-  
+
   const [type, setType] = useState<'BONUS' | 'PENALTY'>('BONUS');
   const [targetUsername, setTargetUsername] = useState('');
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
+  const [formError, setFormError] = useState('');
 
-  const loadRecords = async () => {
-    const res = await callApi('GET_BONUS_PENALTY', {
-      username: currentUser?.username,
-      role: currentUser?.role
-    });
-    if (res?.ok) {
-      store.setBonusPenalties(res.data);
-    }
-  };
+  const [initialLoading, setInitialLoading] = useState(() => bonusPenalties.length === 0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadRecords();
+  const [typeFilter, setTypeFilter] = useState<DisciplineFilterType>('ALL');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const [pendingSubmit, setPendingSubmit] = useState<{
+    targetUsername: string;
+    targetFullname: string;
+    amount: number;
+  } | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  const pushToast = useCallback((title: string, toastType: ToastMessage['type']) => {
+    setToasts((prev) => [...prev.slice(-2), { id: `${Date.now()}_${Math.random()}`, title, type: toastType }]);
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!targetUsername) {
-      Swal.fire('Lỗi', 'Vui lòng chọn nhân viên.', 'error');
-      return;
-    }
-    const numAmount = parseInt(amount.replace(/\D/g, ''));
-    if (!numAmount || numAmount <= 0) {
-      Swal.fire('Lỗi', 'Vui lòng nhập số tiền hợp lệ.', 'error');
-      return;
-    }
-    if (!reason.trim()) {
-      Swal.fire('Lỗi', 'Vui lòng nhập lý do.', 'error');
-      return;
-    }
+  const dismissToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
-    const targetUser = users.find(u => u.username === targetUsername);
-
-    Swal.fire({
-      title: 'Xác nhận',
-      text: `Bạn muốn thêm khoản ${type === 'BONUS' ? 'THƯỞNG' : 'PHẠT'} ${numAmount.toLocaleString()} VNĐ cho ${targetUser?.fullname}?`,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonColor: type === 'BONUS' ? '#10b981' : '#ef4444',
-      cancelButtonColor: '#6b7280',
-      confirmButtonText: 'Đồng ý'
-    }).then((res) => {
-      if (res.isConfirmed) {
-        store.setLoading(true, 'Đang ghi nhận...');
-        callApi('ADD_BONUS_PENALTY', {
-          targetUsername: targetUser?.username,
-          targetFullname: targetUser?.fullname,
-          type,
-          amount: numAmount,
-          reason
-        }).then((apiRes) => {
-          store.setLoading(false);
-          if (apiRes?.ok) {
-            Swal.fire('Thành công', apiRes.message, 'success');
-            setAmount('');
-            setReason('');
-            loadRecords();
-          } else {
-            Swal.fire('Lỗi', apiRes?.message || 'Có lỗi xảy ra', 'error');
-          }
+  const loadRecords = useCallback(
+    async (isInitial = false) => {
+      if (isInitial) setInitialLoading(true);
+      else setIsRefreshing(true);
+      setLoadError('');
+      try {
+        const res = await callApi('GET_BONUS_PENALTY', {
+          username: currentUser?.username,
+          role: currentUser?.role,
         });
+        if (res?.ok && Array.isArray(res.data)) {
+          setBonusPenalties(res.data);
+        } else if (!res?.ok) {
+          setLoadError(res?.message || 'Không thể tải lịch sử thưởng phạt.');
+        }
+      } catch {
+        setLoadError('Lỗi kết nối máy chủ khi tải lịch sử thưởng phạt.');
+      } finally {
+        setInitialLoading(false);
+        setIsRefreshing(false);
       }
-    });
-  };
+    },
+    [currentUser?.role, currentUser?.username, setBonusPenalties],
+  );
 
-  const handleDelete = (id: string) => {
-    Swal.fire({
-      title: 'Xóa bản ghi?',
-      text: 'Bạn có chắc chắn muốn xóa bản ghi này?',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#ef4444',
-      confirmButtonText: 'Xóa'
-    }).then(res => {
-      if (res.isConfirmed) {
-        store.setLoading(true);
-        callApi('DELETE_BONUS_PENALTY', { recordId: id }).then(apiRes => {
-          store.setLoading(false);
-          if (apiRes?.ok) {
-            Swal.fire('Thành công', 'Đã xóa bản ghi', 'success');
-            loadRecords();
-          } else {
-            Swal.fire('Lỗi', apiRes?.message || 'Có lỗi xảy ra', 'error');
-          }
-        });
-      }
-    });
-  };
+  useEffect(() => {
+    loadRecords(bonusPenalties.length === 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const formatMoney = (val: string) => {
-    const num = parseInt(val.replace(/\D/g, ''));
+  const formatMoneyInput = (val: string) => {
+    const num = parseInt(val.replace(/\D/g, ''), 10);
     if (isNaN(num)) return '';
     return num.toLocaleString('vi-VN');
   };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError('');
+    if (!targetUsername) {
+      setFormError('Vui lòng chọn nhân viên áp dụng.');
+      return;
+    }
+    const numAmount = parseInt(amount.replace(/\D/g, ''), 10);
+    if (!numAmount || numAmount <= 0) {
+      setFormError('Vui lòng nhập số tiền hợp lệ.');
+      return;
+    }
+    if (!reason.trim()) {
+      setFormError('Vui lòng nhập lý do cụ thể.');
+      return;
+    }
+    const targetUser = users.find((u) => u.username === targetUsername);
+    setPendingSubmit({
+      targetUsername: targetUser?.username || targetUsername,
+      targetFullname: targetUser?.fullname || targetUsername,
+      amount: numAmount,
+    });
+  };
+
+  const executeAddRecord = async () => {
+    if (!pendingSubmit) return;
+    setIsSubmitting(true);
+    try {
+      const apiRes = await callApi('ADD_BONUS_PENALTY', {
+        targetUsername: pendingSubmit.targetUsername,
+        targetFullname: pendingSubmit.targetFullname,
+        type,
+        amount: pendingSubmit.amount,
+        reason: reason.trim(),
+      });
+      if (apiRes?.ok) {
+        setPendingSubmit(null);
+        setAmount('');
+        setReason('');
+        setFormError('');
+        pushToast(apiRes.message || 'Đã ghi nhận bản ghi vào hệ thống', 'success');
+        await loadRecords(false);
+      } else {
+        setPendingSubmit(null);
+        setFormError(apiRes?.message || 'Có lỗi xảy ra khi ghi nhận.');
+      }
+    } catch {
+      setPendingSubmit(null);
+      setFormError('Lỗi kết nối máy chủ. Vui lòng thử lại.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const executeDelete = async () => {
+    if (!pendingDeleteId) return;
+    const id = pendingDeleteId;
+    setDeletingId(id);
+    try {
+      const apiRes = await callApi('DELETE_BONUS_PENALTY', { recordId: id });
+      if (apiRes?.ok) {
+        setPendingDeleteId(null);
+        pushToast('Đã xóa bản ghi', 'success');
+        await loadRecords(false);
+      } else {
+        pushToast(apiRes?.message || 'Không thể xóa bản ghi', 'error');
+      }
+    } catch {
+      pushToast('Lỗi kết nối khi xóa bản ghi.', 'error');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const counts = useMemo(
+    () => ({
+      all: bonusPenalties.length,
+      bonus: bonusPenalties.filter((r) => r.type === 'BONUS').length,
+      penalty: bonusPenalties.filter((r) => r.type === 'PENALTY').length,
+    }),
+    [bonusPenalties],
+  );
+
+  const filteredRecords = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    return bonusPenalties.filter((rec) => {
+      if (typeFilter !== 'ALL' && rec.type !== typeFilter) return false;
+      if (q) {
+        const matchName = (rec.targetFullname || '').toLowerCase().includes(q);
+        const matchUser = (rec.targetUsername || '').toLowerCase().includes(q);
+        const matchReason = (rec.reason || '').toLowerCase().includes(q);
+        if (!matchName && !matchUser && !matchReason) return false;
+      }
+      return true;
+    });
+  }, [bonusPenalties, typeFilter, searchTerm]);
 
   return (
     <div className="p-4 space-y-5 animate-fade-in pb-16">
@@ -125,123 +212,377 @@ export default function Discipline({ mode = 'user' }: { mode?: 'user' | 'admin' 
       />
 
       {isManagerView && (
-        <form onSubmit={handleSubmit} className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-4 sm:p-5 rounded-2xl shadow-xs space-y-4">
+        <form
+          onSubmit={handleSubmit}
+          className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-4 sm:p-5 rounded-2xl shadow-xs space-y-4"
+        >
           <h3 className="font-black flex items-center text-[var(--kg-text)] pb-3 border-b border-[var(--kg-border)] text-sm sm:text-base">
             <Plus size={18} className="mr-2 text-[var(--kg-primary)]" /> Thêm bản ghi thưởng / phạt
           </h3>
-          
+
           <div className="space-y-3.5">
             <div className="flex gap-2">
-              <button 
+              <button
                 type="button"
                 onClick={() => setType('BONUS')}
-                className={`flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-black border-2 transition-all flex justify-center items-center active:scale-95 ${type === 'BONUS' ? 'bg-emerald-50 border-emerald-500 text-emerald-600 dark:bg-emerald-950/30' : 'border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)]'}`}
+                className={`flex-1 min-h-[44px] py-2.5 rounded-xl text-xs sm:text-sm font-black border-2 transition-all flex justify-center items-center active:scale-95 touch-manipulation ${
+                  type === 'BONUS'
+                    ? 'bg-emerald-50 border-emerald-500 text-emerald-700 dark:text-emerald-300 dark:bg-emerald-950/30'
+                    : 'border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)]'
+                }`}
               >
                 <ArrowUpRight size={16} className="mr-1" /> THƯỞNG (+)
               </button>
-              <button 
+              <button
                 type="button"
                 onClick={() => setType('PENALTY')}
-                className={`flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-black border-2 transition-all flex justify-center items-center active:scale-95 ${type === 'PENALTY' ? 'bg-rose-50 border-rose-500 text-rose-600 dark:bg-rose-950/30' : 'border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)]'}`}
+                className={`flex-1 min-h-[44px] py-2.5 rounded-xl text-xs sm:text-sm font-black border-2 transition-all flex justify-center items-center active:scale-95 touch-manipulation ${
+                  type === 'PENALTY'
+                    ? 'bg-rose-50 border-rose-500 text-rose-700 dark:text-rose-300 dark:bg-rose-950/30'
+                    : 'border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)]'
+                }`}
               >
                 <ArrowDownRight size={16} className="mr-1" /> PHẠT (-)
               </button>
             </div>
 
             <div>
-              <label htmlFor="discipline-target-user" className="block text-xs font-black text-[var(--kg-text)] mb-1">Nhân viên áp dụng</label>
-              <select 
+              <label htmlFor="discipline-target-user" className="block text-xs font-black text-[var(--kg-text)] mb-1">
+                Nhân viên áp dụng
+              </label>
+              <select
                 id="discipline-target-user"
                 value={targetUsername}
-                onChange={(e) => setTargetUsername(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text)] focus:ring-2 focus:ring-[var(--kg-primary)] outline-none text-xs sm:text-sm font-medium"
+                onChange={(e) => {
+                  setTargetUsername(e.target.value);
+                  if (formError) setFormError('');
+                }}
+                className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text)] focus:ring-2 focus:ring-[var(--kg-primary)] outline-none text-xs sm:text-sm font-medium"
               >
                 <option value="">-- Chọn nhân viên --</option>
-                {users.map(u => (
-                  <option key={u.username} value={u.username}>{u.fullname}</option>
+                {users.map((u) => (
+                  <option key={u.username} value={u.username}>
+                    {u.fullname}
+                  </option>
                 ))}
               </select>
             </div>
 
             <div>
-              <label htmlFor="discipline-amount" className="block text-xs font-black text-[var(--kg-text)] mb-1">Số tiền (VNĐ)</label>
-              <input 
-                id="discipline-amount"
-                type="text" 
-                inputMode="numeric"
-                value={amount}
-                onChange={(e) => setAmount(formatMoney(e.target.value))}
-                placeholder="Ví dụ: 100,000"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text)] focus:ring-2 focus:ring-[var(--kg-primary)] font-mono tabular-nums text-right font-black text-base sm:text-lg outline-none"
-              />
+              <label htmlFor="discipline-amount" className="block text-xs font-black text-[var(--kg-text)] mb-1">
+                Số tiền (VNĐ)
+              </label>
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-mono font-bold text-[var(--kg-text-muted)] pointer-events-none">
+                  VNĐ
+                </span>
+                <input
+                  id="discipline-amount"
+                  type="text"
+                  inputMode="numeric"
+                  value={amount}
+                  onChange={(e) => {
+                    setAmount(formatMoneyInput(e.target.value));
+                    if (formError) setFormError('');
+                  }}
+                  placeholder="Ví dụ: 100.000"
+                  className="w-full min-h-[44px] pl-14 pr-3.5 py-2.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text)] focus:ring-2 focus:ring-[var(--kg-primary)] font-mono tabular-nums text-right font-black text-base sm:text-lg outline-none"
+                />
+              </div>
             </div>
-            
+
             <div>
-              <label htmlFor="discipline-reason" className="block text-xs font-black text-[var(--kg-text)] mb-1">Lý do cụ thể</label>
-              <input 
+              <label htmlFor="discipline-reason" className="block text-xs font-black text-[var(--kg-text)] mb-1">
+                Lý do cụ thể
+              </label>
+              <input
                 id="discipline-reason"
                 type="text"
                 value={reason}
-                onChange={(e) => setReason(e.target.value)}
+                onChange={(e) => {
+                  setReason(e.target.value);
+                  if (formError) setFormError('');
+                }}
                 placeholder="Nhập lý do khen thưởng / vi phạm..."
-                className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text)] focus:ring-2 focus:ring-[var(--kg-primary)] outline-none text-xs sm:text-sm"
+                className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text)] focus:ring-2 focus:ring-[var(--kg-primary)] outline-none text-xs sm:text-sm"
               />
             </div>
-            
-            <button 
-              type="submit" 
-              className={`w-full text-white font-black py-3.5 rounded-xl transition shadow-xs active:scale-99 flex items-center justify-center text-xs sm:text-sm uppercase tracking-wider ${type === 'BONUS' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}
+
+            {formError && (
+              <p className="text-xs font-semibold text-[var(--kg-danger)] bg-[var(--kg-danger-soft)] border border-[var(--kg-danger)]/20 rounded-xl px-3 py-2">
+                {formError}
+              </p>
+            )}
+
+            <KgButton
+              type="submit"
+              variant={type === 'BONUS' ? 'primary' : 'danger'}
+              size="lg"
+              loading={isSubmitting}
+              icon={Plus}
+              className="w-full uppercase tracking-wider text-xs sm:text-sm"
             >
-              <Plus size={18} className="mr-1.5" /> Ghi nhận vào hệ thống
-            </button>
+              Ghi nhận vào hệ thống
+            </KgButton>
           </div>
         </form>
       )}
 
       {/* History */}
-      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-4 sm:p-5 rounded-2xl shadow-xs">
-        <h3 className="font-black flex items-center text-[var(--kg-text)] mb-4 border-b border-[var(--kg-border)] pb-3 text-sm sm:text-base">
-          <Search size={18} className="mr-2 text-[var(--kg-primary)]" /> {isManagerView ? 'Lịch sử khen thưởng / kỷ luật toàn quán' : 'Lịch sử khen thưởng & kỷ luật của bạn'}
-        </h3>
-        
-        {bonusPenalties.length === 0 ? (
-          <div className="text-center py-8 text-[var(--kg-text-muted)] bg-[var(--kg-surface-soft)] rounded-2xl border border-dashed border-[var(--kg-border)]">
-            <Award size={32} className="mx-auto mb-2 opacity-30" />
-            <p className="text-xs font-bold">Chưa có bản ghi nào</p>
-          </div>
-        ) : (
-          <div className="space-y-2.5">
-            {bonusPenalties.map((record) => {
-              const isBonus = record.type === 'BONUS';
-              
+      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-4 sm:p-5 rounded-2xl shadow-xs space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--kg-border)] pb-3">
+          <h3 className="font-black flex items-center text-[var(--kg-text)] text-sm sm:text-base">
+            <Search size={18} className="mr-2 text-[var(--kg-primary)]" />
+            {isManagerView ? 'Lịch sử khen thưởng / kỷ luật toàn quán' : 'Lịch sử khen thưởng & kỷ luật của bạn'}
+          </h3>
+          <button
+            type="button"
+            onClick={() => loadRecords(false)}
+            disabled={isRefreshing || initialLoading}
+            aria-label="Làm mới lịch sử thưởng phạt"
+            className="min-w-[44px] min-h-[44px] sm:min-w-[36px] sm:min-h-[36px] rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition-colors touch-manipulation"
+          >
+            <RefreshCw size={15} className={isRefreshing ? 'animate-spin' : ''} />
+          </button>
+        </div>
+
+        {/* Search & Category Filters */}
+        <div className="space-y-2.5">
+          <KgInput
+            aria-label="Tìm theo tên hoặc lý do"
+            placeholder={isManagerView ? 'Tìm nhân viên hoặc lý do...' : 'Tìm theo lý do thưởng / phạt...'}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            icon={Search}
+            rightAdornment={
+              searchTerm ? (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm('')}
+                  aria-label="Xóa từ khóa tìm kiếm"
+                  className="w-9 h-9 rounded-lg flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]"
+                >
+                  <X size={15} />
+                </button>
+              ) : null
+            }
+          />
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            {(
+              [
+                { id: 'ALL', label: `Tất cả (${counts.all})` },
+                { id: 'BONUS', label: `Khen thưởng (${counts.bonus})` },
+                { id: 'PENALTY', label: `Kỷ luật / Phạt (${counts.penalty})` },
+              ] as { id: DisciplineFilterType; label: string }[]
+            ).map((pill) => {
+              const active = typeFilter === pill.id;
               return (
-                <div key={record.id} className={`p-3.5 sm:p-4 rounded-2xl border ${isBonus ? 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-200/60 dark:border-emerald-900/30' : 'bg-rose-50/60 dark:bg-rose-950/20 border-rose-200/60 dark:border-rose-900/30'}`}>
-                  <div className="flex justify-between items-start mb-1.5">
-                    <div>
-                      {isManagerView && <p className="font-black text-[var(--kg-text)] text-sm">{record.targetFullname}</p>}
-                      <p className={`font-mono tabular-nums font-black text-base sm:text-lg ${isBonus ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                        {isBonus ? '+' : '-'}{record.amount.toLocaleString('vi-VN')} đ
-                      </p>
-                      <p className="text-[11px] font-mono tabular-nums text-[var(--kg-text-muted)] mt-0.5">{new Date(record.createdAt).toLocaleString('vi-VN')}</p>
-                    </div>
-                    {isManagerView && (
-                      <button 
-                        type="button"
-                        onClick={() => handleDelete(record.id)}
-                        className="p-1.5 text-[var(--kg-text-muted)] hover:text-rose-600 hover:bg-rose-100/50 rounded-xl transition-all"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-xs sm:text-sm text-[var(--kg-text)] bg-[var(--kg-surface)] border border-[var(--kg-border)] p-2.5 rounded-xl mt-2 font-medium">
-                    <span className="font-bold text-[var(--kg-text-muted)] mr-1">Lý do:</span> {record.reason}
-                  </p>
-                </div>
+                <button
+                  key={pill.id}
+                  type="button"
+                  onClick={() => setTypeFilter(pill.id)}
+                  className={`min-h-[44px] sm:min-h-[34px] px-3 py-1.5 rounded-full text-xs font-bold border transition-colors touch-manipulation ${
+                    active
+                      ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)]'
+                      : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)] hover:text-[var(--kg-text)]'
+                  }`}
+                >
+                  {pill.label}
+                </button>
               );
             })}
           </div>
+        </div>
+
+        {loadError ? (
+          <KgErrorState title="Không thể tải dữ liệu thưởng phạt" description={loadError} onRetry={() => loadRecords(false)} />
+        ) : initialLoading ? (
+          <div className="space-y-2.5">
+            <KgSkeleton className="h-16 w-full" />
+            <KgSkeleton className="h-16 w-full" />
+            <KgSkeleton className="h-16 w-full" />
+          </div>
+        ) : filteredRecords.length === 0 ? (
+          <KgEmptyState
+            icon={Award}
+            title={bonusPenalties.length === 0 ? 'Chưa có bản ghi nào' : 'Không có bản ghi khớp bộ lọc'}
+            description={
+              bonusPenalties.length === 0
+                ? 'Lịch sử khen thưởng và vi phạm sẽ hiển thị tại đây.'
+                : 'Thử chọn loại khác hoặc xóa từ khóa tìm kiếm.'
+            }
+            action={
+              bonusPenalties.length > 0 ? (
+                <KgButton
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    setTypeFilter('ALL');
+                    setSearchTerm('');
+                  }}
+                >
+                  Xóa bộ lọc
+                </KgButton>
+              ) : undefined
+            }
+          />
+        ) : (
+          <>
+            {/* Desktop Sticky-Header Table */}
+            <div className="hidden md:block overflow-auto max-h-[520px] rounded-xl border border-[var(--kg-border)]">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead className="sticky top-0 z-10 bg-[var(--kg-surface-soft)] border-b border-[var(--kg-border)] text-[11px] uppercase tracking-wider text-[var(--kg-text-muted)]">
+                  <tr>
+                    {isManagerView && <th className="py-3 px-3.5 font-bold">Nhân viên</th>}
+                    <th className="py-3 px-3.5 font-bold">Thời gian</th>
+                    <th className="py-3 px-3 font-bold">Loại</th>
+                    <th className="py-3 px-3 font-bold text-right">Số tiền</th>
+                    <th className="py-3 px-3 font-bold">Lý do</th>
+                    {isManagerView && <th className="py-3 px-3.5 font-bold text-right w-16">Xóa</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--kg-border)] bg-[var(--kg-surface)]">
+                  {filteredRecords.map((record) => {
+                    const isBonus = record.type === 'BONUS';
+                    return (
+                      <tr key={record.id} className="hover:bg-[var(--kg-surface-soft)]/60 transition-colors">
+                        {isManagerView && (
+                          <td className="py-3 px-3.5">
+                            <p className="font-bold text-sm text-[var(--kg-text)]">{record.targetFullname}</p>
+                            <p className="text-[11px] font-mono text-[var(--kg-text-muted)]">@{record.targetUsername}</p>
+                          </td>
+                        )}
+                        <td className="py-3 px-3.5 font-mono tabular-nums text-[var(--kg-text-muted)] whitespace-nowrap">
+                          {new Date(record.createdAt).toLocaleString('vi-VN')}
+                        </td>
+                        <td className="py-3 px-3 whitespace-nowrap">
+                          <KgStatusBadge variant={isBonus ? 'success' : 'error'}>
+                            {isBonus ? 'Thưởng' : 'Phạt'}
+                          </KgStatusBadge>
+                        </td>
+                        <td
+                          className={`py-3 px-3 text-right font-mono tabular-nums font-black text-sm whitespace-nowrap ${
+                            isBonus ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+                          }`}
+                        >
+                          {isBonus ? '+' : '-'}
+                          {formatVnd(record.amount)}
+                        </td>
+                        <td className="py-3 px-3 max-w-md text-[var(--kg-text)]">{record.reason}</td>
+                        {isManagerView && (
+                          <td className="py-3 px-3.5 text-right">
+                            <button
+                              type="button"
+                              aria-label="Xóa bản ghi"
+                              onClick={() => setPendingDeleteId(record.id)}
+                              disabled={deletingId === record.id}
+                              className="min-w-[36px] min-h-[36px] inline-flex items-center justify-center text-[var(--kg-text-muted)] hover:text-rose-600 hover:bg-rose-500/10 rounded-lg transition-colors"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Card List */}
+            <div className="md:hidden space-y-2.5">
+              {filteredRecords.map((record) => {
+                const isBonus = record.type === 'BONUS';
+                return (
+                  <div
+                    key={record.id}
+                    className={`p-3.5 rounded-2xl border ${
+                      isBonus
+                        ? 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-200/60 dark:border-emerald-900/30'
+                        : 'bg-rose-50/60 dark:bg-rose-950/20 border-rose-200/60 dark:border-rose-900/30'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start gap-2 mb-1.5">
+                      <div>
+                        {isManagerView && (
+                          <p className="font-black text-[var(--kg-text)] text-sm">{record.targetFullname}</p>
+                        )}
+                        <p
+                          className={`font-mono tabular-nums font-black text-base ${
+                            isBonus ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+                          }`}
+                        >
+                          {isBonus ? '+' : '-'}
+                          {formatVnd(record.amount)}
+                        </p>
+                        <p className="text-[11px] font-mono tabular-nums text-[var(--kg-text-muted)] mt-0.5">
+                          {new Date(record.createdAt).toLocaleString('vi-VN')}
+                        </p>
+                      </div>
+                      {isManagerView && (
+                        <button
+                          type="button"
+                          aria-label="Xóa bản ghi"
+                          onClick={() => setPendingDeleteId(record.id)}
+                          disabled={deletingId === record.id}
+                          className="min-w-[44px] min-h-[44px] -mr-1 -mt-1 flex items-center justify-center text-[var(--kg-text-muted)] hover:text-rose-600 hover:bg-rose-100/50 rounded-xl transition-all touch-manipulation"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-xs text-[var(--kg-text)] bg-[var(--kg-surface)] border border-[var(--kg-border)] p-2.5 rounded-xl mt-2 font-medium">
+                      <span className="font-bold text-[var(--kg-text-muted)] mr-1">Lý do:</span> {record.reason}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
+      </div>
+
+      {/* Add Confirmation Sheet */}
+      <KgConfirmSheet
+        isOpen={Boolean(pendingSubmit)}
+        onClose={() => {
+          if (!isSubmitting) setPendingSubmit(null);
+        }}
+        onConfirm={executeAddRecord}
+        loading={isSubmitting}
+        title="Xác nhận ghi nhận?"
+        message={
+          pendingSubmit
+            ? `Bạn muốn thêm khoản ${type === 'BONUS' ? 'THƯỞNG' : 'PHẠT'} ${formatVnd(pendingSubmit.amount)} cho ${pendingSubmit.targetFullname}?`
+            : ''
+        }
+        confirmLabel="Đồng ý"
+        cancelLabel="Hủy"
+        variant={type === 'BONUS' ? 'primary' : 'danger'}
+      />
+
+      {/* Delete Confirmation Sheet */}
+      <KgConfirmSheet
+        isOpen={Boolean(pendingDeleteId)}
+        onClose={() => {
+          if (!deletingId) setPendingDeleteId(null);
+        }}
+        onConfirm={executeDelete}
+        loading={Boolean(deletingId)}
+        title="Xóa bản ghi thưởng / phạt?"
+        message="Bản ghi này sẽ bị xóa khỏi lịch sử và không còn tính vào bảng lương."
+        confirmLabel="Xóa bản ghi"
+        cancelLabel="Hủy"
+        variant="danger"
+      />
+
+      <div className="fixed bottom-20 md:bottom-6 right-4 z-[10100] flex flex-col gap-2 pointer-events-none">
+        <AnimatePresence>
+          {toasts.map((t) => (
+            <KgToast key={t.id} message={t} onClose={dismissToast} />
+          ))}
+        </AnimatePresence>
       </div>
     </div>
   );

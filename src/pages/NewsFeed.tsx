@@ -1,112 +1,139 @@
-import { useState, useEffect } from 'react';
-import { Newspaper, Heart, MessageSquare, Send, Edit3, Loader2, Megaphone, Image as ImageIcon, X } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { AnimatePresence } from 'framer-motion';
+import { Heart, MessageSquare, Send, Edit3, Loader2, Image as ImageIcon, X, RefreshCw } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import { fileToBase64, uploadImageToDrive } from '../utils/helpers';
-import Swal from 'sweetalert2';
-import { KgModuleHero } from '../components/KgDesignSystem';
-
+import {
+  KgButton,
+  KgEmptyState,
+  KgErrorState,
+  KgModuleHero,
+  KgSkeleton,
+  KgToast,
+  type ToastMessage,
+} from '../components/KgDesignSystem';
 
 export default function NewsFeed() {
   const currentUser = useAppStore((s) => s.currentUser);
   const posts = useAppStore((s) => s.news);
   const setPosts = useAppStore((s) => s.setNews);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [activeCommentPostId, setActiveCommentPostId] = useState<number | null>(null);
-  const [commentInput, setCommentInput] = useState('');
+  const [commentInputs, setCommentInputs] = useState<Record<number, string>>({});
   const [newPostContent, setNewPostContent] = useState('');
   const [isPosting, setIsPosting] = useState(false);
-  
+
   // Image Upload state
   const [newPostImagePreview, setNewPostImagePreview] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  // Lấy dữ liệu bài đăng thực tế khi mở tab và auto-refresh khi đang xem
-  useEffect(() => {
-    const fetchPosts = async (isBackground = false) => {
+  const pushToast = useCallback((title: string, type: ToastMessage['type']) => {
+    setToasts((prev) => [...prev.slice(-2), { id: `${Date.now()}_${Math.random()}`, title, type }]);
+  }, []);
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  const fetchPosts = useCallback(
+    async (isBackground = false) => {
       if (isBackground) {
         const activeTab = useAppStore.getState().currentTab;
-        if (activeTab !== 'communications' || (typeof document !== 'undefined' && document.visibilityState !== 'visible')) {
+        if (
+          activeTab !== 'communications' ||
+          (typeof document !== 'undefined' && document.visibilityState !== 'visible')
+        ) {
           return;
         }
       }
-      if (!isBackground) setLoading(true);
-      const res = await callApi('GET_POSTS', {}, { background: isBackground });
-      if (res?.ok && res.data) {
-        setPosts(res.data);
-      } else if (!isBackground) {
-        if (posts.length === 0) {
-          setPosts([
-            {
-              id: 1, author: 'Hệ thống King Grill', role: 'System', time: 'Vừa xong',
-              content: 'Chào mừng bạn đến với Bảng tin phiên bản Mới! Hiện tại chưa có dữ liệu từ máy chủ. Admin hãy đăng bài đầu tiên nhé!',
-              likes: [], comments: []
-            }
-          ]);
-        }
+      if (!isBackground) {
+        setLoading(true);
+        setLoadError('');
       }
-      if (!isBackground) setLoading(false);
-    };
-    
-    fetchPosts(false); // Initial load
+      try {
+        const res = await callApi('GET_POSTS', {}, { background: isBackground });
+        if (res?.ok && Array.isArray(res.data)) {
+          setPosts(res.data);
+        } else if (!isBackground && useAppStore.getState().news.length === 0) {
+          setLoadError(res?.message || 'Không thể tải bảng tin từ máy chủ.');
+        }
+      } catch {
+        if (!isBackground && useAppStore.getState().news.length === 0) {
+          setLoadError('Lỗi kết nối máy chủ khi tải bảng tin.');
+        }
+      } finally {
+        if (!isBackground) setLoading(false);
+      }
+    },
+    [setPosts],
+  );
 
-    // Poll every 45 seconds only when user is actively viewing communications
+  useEffect(() => {
+    fetchPosts(false);
     const interval = setInterval(() => {
       fetchPosts(true);
     }, 45000);
-
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchPosts]);
 
   const toggleLike = async (id: number) => {
-    // Optimistic Update
     const currentUsername = currentUser?.username || 'Guest';
-    let isLiking = true;
-    
-    setPosts(posts.map(p => {
-      if (p.id === id) {
-        const hasLiked = p.likes.includes(currentUsername);
-        isLiking = !hasLiked;
-        return { 
-          ...p, 
-          likes: hasLiked ? p.likes.filter(u => u !== currentUsername) : [...p.likes, currentUsername] 
-        };
-      }
-      return p;
-    }));
 
-    // Gửi lên Backend ngầm
+    setPosts(
+      posts.map((p) => {
+        if (p.id === id) {
+          const hasLiked = p.likes.includes(currentUsername);
+          return {
+            ...p,
+            likes: hasLiked ? p.likes.filter((u) => u !== currentUsername) : [...p.likes, currentUsername],
+          };
+        }
+        return p;
+      }),
+    );
+
     callApi('INTERACT_POST', { postId: id, subAction: 'LIKE', username: currentUsername }, { background: true });
   };
 
   const handleAddComment = async (postId: number) => {
-    if (!commentInput.trim()) return;
-    const content = commentInput.trim();
-    setCommentInput('');
-    
-    // Optimistic Update
-    setPosts(posts.map(p => {
-      if (p.id === postId) {
-        return {
-          ...p,
-          comments: [...p.comments, {
-            id: Date.now(),
-            author: currentUser?.fullname || 'Bạn',
-            content,
-            time: 'Vừa xong'
-          }]
-        };
-      }
-      return p;
-    }));
-    
-    // Gửi lên Backend ngầm
-    callApi('INTERACT_POST', { 
-      postId, 
-      subAction: 'COMMENT', 
-      author: currentUser?.fullname || 'Ẩn danh',
-      content
-    }, { background: true });
+    const raw = commentInputs[postId] || '';
+    if (!raw.trim()) return;
+    const content = raw.trim();
+    setCommentInputs((prev) => ({ ...prev, [postId]: '' }));
+
+    setPosts(
+      posts.map((p) => {
+        if (p.id === postId) {
+          return {
+            ...p,
+            comments: [
+              ...p.comments,
+              {
+                id: Date.now(),
+                author: currentUser?.fullname || 'Bạn',
+                content,
+                time: 'Vừa xong',
+              },
+            ],
+          };
+        }
+        return p;
+      }),
+    );
+
+    callApi(
+      'INTERACT_POST',
+      {
+        postId,
+        subAction: 'COMMENT',
+        author: currentUser?.fullname || 'Ẩn danh',
+        content,
+      },
+      { background: true },
+    );
   };
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -116,19 +143,17 @@ export default function NewsFeed() {
     try {
       setUploadingImage(true);
       const base64 = await fileToBase64(file);
-      setNewPostImagePreview(base64); // Show preview immediately
+      setNewPostImagePreview(base64);
 
-      // Upload in background
       const url = await uploadImageToDrive(base64, `newsfeed_${Date.now()}.webp`);
       if (url) {
-        setNewPostImagePreview(url); // Replace preview with real URL
+        setNewPostImagePreview(url);
       } else {
-        Swal.fire('Lỗi', 'Không thể tải ảnh lên. Vui lòng thử lại.', 'error');
+        pushToast('Không thể tải ảnh lên. Vui lòng thử lại.', 'error');
         setNewPostImagePreview(null);
       }
-    } catch (err) {
-      console.error(err);
-      Swal.fire('Lỗi', 'Có lỗi xảy ra khi xử lý ảnh', 'error');
+    } catch {
+      pushToast('Có lỗi xảy ra khi xử lý ảnh.', 'error');
     } finally {
       setUploadingImage(false);
     }
@@ -136,41 +161,41 @@ export default function NewsFeed() {
 
   const handleAddPost = async () => {
     if (uploadingImage) {
-      Swal.fire('Đang tải ảnh', 'Vui lòng chờ tải ảnh hoàn tất trước khi đăng bài.', 'info');
+      pushToast('Vui lòng chờ tải ảnh hoàn tất trước khi đăng bài.', 'info');
       return;
     }
     if (!newPostContent.trim() && !newPostImagePreview) return;
     if (newPostImagePreview && newPostImagePreview.startsWith('data:') && newPostImagePreview.length > 45000) {
-      Swal.fire('Ảnh chưa sẵn sàng', 'Ảnh dung lượng lớn chưa tải xong lên máy chủ. Vui lòng chọn lại ảnh.', 'warning');
+      pushToast('Ảnh dung lượng lớn chưa tải xong lên máy chủ. Vui lòng chọn lại ảnh.', 'warning');
       return;
     }
     setIsPosting(true);
-    
-    const content = newPostContent.trim();
-    
-    // Gọi API
-    const res = await callApi('ADD_POST', {
-      author: currentUser?.fullname || 'Admin',
-      content,
-      image: newPostImagePreview || ''
-    });
+    try {
+      const content = newPostContent.trim();
+      const res = await callApi('ADD_POST', {
+        author: currentUser?.fullname || 'Admin',
+        content,
+        image: newPostImagePreview || '',
+      });
 
-    if (res?.ok) {
-      setNewPostContent('');
-      setNewPostImagePreview(null);
-      // Tải lại bài đăng để lấy ID chuẩn từ DB
-      const reloadRes = await callApi('GET_POSTS', {});
-      if (reloadRes?.ok) setPosts(reloadRes.data);
-      Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Đã đăng bài lên Bảng tin', showConfirmButton: false, timer: 2000 });
-    } else {
-      Swal.fire('Lỗi', 'Không thể đăng bài. Vui lòng kiểm tra lại Google Apps Script!', 'error');
+      if (res?.ok) {
+        setNewPostContent('');
+        setNewPostImagePreview(null);
+        const reloadRes = await callApi('GET_POSTS', {});
+        if (reloadRes?.ok && Array.isArray(reloadRes.data)) setPosts(reloadRes.data);
+        pushToast('Đã đăng bài lên Bảng tin', 'success');
+      } else {
+        pushToast(res?.message || 'Không thể đăng bài lên Bảng tin.', 'error');
+      }
+    } catch {
+      pushToast('Lỗi kết nối máy chủ khi đăng bài.', 'error');
+    } finally {
+      setIsPosting(false);
     }
-    
-    setIsPosting(false);
   };
 
   return (
-    <div className="p-4 animate-slide-up pb-10">
+    <div className="p-4 animate-slide-up pb-24 md:pb-10 space-y-5">
       <KgModuleHero
         moduleId="news"
         title="Bảng tin Nội bộ"
@@ -178,17 +203,30 @@ export default function NewsFeed() {
         eyebrow="Thông tin"
         tipTitle="Quy chế Bảng tin Nội bộ"
         tips={[
-          "Mọi nhân viên cần theo dõi bảng tin hàng ngày để cập nhật các thông báo điều hành và sự kiện quan trọng.",
-          "Quản lý có thể ghim bài viết quan trọng và gửi thông báo trực tiếp tới toàn bộ nhân sự.",
-          "Thả tim và bình luận tích cực để xây dựng tinh thần đồng đội tại King's Grill."
+          'Mọi nhân viên cần theo dõi bảng tin hàng ngày để cập nhật các thông báo điều hành và sự kiện quan trọng.',
+          'Quản lý có thể ghim bài viết quan trọng và gửi thông báo trực tiếp tới toàn bộ nhân sự.',
+          "Thả tim và bình luận tích cực để xây dựng tinh thần đồng đội tại King's Grill.",
         ]}
+        actions={
+          <button
+            type="button"
+            onClick={() => fetchPosts(false)}
+            disabled={loading}
+            aria-label="Làm mới bảng tin"
+            className="min-w-[44px] min-h-[44px] sm:min-w-[36px] sm:min-h-[36px] rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition-colors touch-manipulation"
+          >
+            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+          </button>
+        }
       />
-
 
       {/* Admin Post Box */}
       {currentUser?.role === 'admin' && (
-        <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl overflow-hidden mb-6 p-4 sm:p-5 shadow-xs space-y-3">
-          <label htmlFor="newsfeed-post-input" className="font-black text-[var(--kg-text)] flex items-center text-xs sm:text-sm cursor-pointer">
+        <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl overflow-hidden p-4 sm:p-5 shadow-xs space-y-3">
+          <label
+            htmlFor="newsfeed-post-input"
+            className="font-black text-[var(--kg-text)] flex items-center text-xs sm:text-sm cursor-pointer"
+          >
             <Edit3 size={16} className="mr-2 text-[var(--kg-primary)]" /> Tạo thông báo mới cho toàn quán
           </label>
           <textarea
@@ -200,17 +238,16 @@ export default function NewsFeed() {
             className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)] resize-none"
           />
 
-          {/* Image Preview */}
           {newPostImagePreview && (
             <div className="relative w-32 h-32 rounded-xl overflow-hidden border border-[var(--kg-border)]">
               <img src={newPostImagePreview} alt="Preview" className="w-full h-full object-cover" />
-              <button 
+              <button
                 type="button"
                 onClick={() => setNewPostImagePreview(null)}
-                className="absolute top-1.5 right-1.5 bg-black/60 text-white rounded-full p-1 hover:bg-black/80 transition"
+                className="absolute top-1 right-1 min-w-[36px] min-h-[36px] bg-black/65 text-white rounded-full flex items-center justify-center hover:bg-black/80 transition"
                 aria-label="Xóa ảnh đính kèm"
               >
-                <X size={13} />
+                <X size={14} />
               </button>
               {uploadingImage && (
                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
@@ -221,47 +258,81 @@ export default function NewsFeed() {
           )}
 
           <div className="flex justify-between items-center pt-1">
-            <label aria-label="Đính kèm hình ảnh" className="cursor-pointer text-[var(--kg-primary)] hover:opacity-80 p-2 hover:bg-[var(--kg-surface-soft)] rounded-xl transition">
-              <input type="file" accept="image/*" className="hidden" onChange={handleImageSelect} disabled={uploadingImage} />
+            <label
+              aria-label="Đính kèm hình ảnh"
+              className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center cursor-pointer text-[var(--kg-primary-ink)] hover:opacity-80 hover:bg-[var(--kg-surface-soft)] rounded-xl transition touch-manipulation"
+            >
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageSelect}
+                disabled={uploadingImage}
+              />
               <ImageIcon size={20} />
             </label>
-            <button 
+            <KgButton
               type="button"
-              onClick={handleAddPost}
+              variant="primary"
+              size="md"
+              loading={isPosting}
               disabled={isPosting || uploadingImage || (!newPostContent.trim() && !newPostImagePreview)}
-              className="bg-[var(--kg-primary)] hover:brightness-110 text-white font-black py-2.5 px-5 rounded-xl transition-all shadow-xs active:scale-98 flex items-center text-xs sm:text-sm disabled:opacity-50"
+              icon={Send}
+              onClick={handleAddPost}
             >
-              {isPosting ? <Loader2 size={15} className="animate-spin mr-1.5" /> : <Send size={15} className="mr-1.5 text-[var(--kg-accent)]" />}
               Đăng tin
-            </button>
+            </KgButton>
           </div>
         </div>
       )}
 
-      {loading && posts.length === 0 ? (
-        <div className="flex justify-center items-center py-12">
-          <Loader2 className="w-8 h-8 text-[var(--kg-primary)] animate-spin" />
+      {loadError ? (
+        <KgErrorState title="Không thể tải bảng tin" description={loadError} onRetry={() => fetchPosts(false)} />
+      ) : loading && posts.length === 0 ? (
+        <div className="space-y-4">
+          <KgSkeleton className="h-40 w-full" />
+          <KgSkeleton className="h-40 w-full" />
         </div>
+      ) : posts.length === 0 ? (
+        <KgEmptyState
+          title="Chưa có bài đăng nào"
+          description="Các thông báo vận hành và tin tức nội bộ mới nhất sẽ hiển thị tại đây."
+        />
       ) : (
         <div className="space-y-4">
-          {posts.map(post => {
+          {posts.map((post) => {
             const hasLiked = post.likes.includes(currentUser?.username || 'Guest');
-            
+            const isCommentsOpen = activeCommentPostId === post.id;
+            const commentValue = commentInputs[post.id] || '';
+
             return (
-              <div key={post.id} className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl overflow-hidden shadow-xs animate-fade-in">
+              <article
+                key={post.id}
+                className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl overflow-hidden shadow-xs animate-fade-in"
+              >
                 {/* Author */}
                 <div className="p-3.5 sm:p-4 flex items-center justify-between">
                   <div className="flex items-center">
-                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[var(--kg-primary-soft)] text-[var(--kg-primary)] flex items-center justify-center font-black text-sm sm:text-base mr-3 border border-[var(--kg-border)] shrink-0">
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] flex items-center justify-center font-black text-sm sm:text-base mr-3 border border-[var(--kg-border)] shrink-0">
                       {post.author.charAt(0)}
                     </div>
                     <div>
                       <h4 className="font-black text-[var(--kg-text)] text-xs sm:text-sm flex items-center">
-                        {post.author} 
-                        {(post.author === 'Admin' || post.role === 'Admin') && <span className="ml-2 bg-rose-500/10 text-rose-600 dark:text-rose-400 text-[9px] px-2 py-0.5 rounded-full font-black border border-rose-500/20">ADMIN</span>}
-                        {post.role === 'System' && <span className="ml-2 bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[9px] px-2 py-0.5 rounded-full font-black border border-blue-500/20">SYSTEM</span>}
+                        {post.author}
+                        {(post.author === 'Admin' || post.role === 'Admin') && (
+                          <span className="ml-2 bg-rose-500/10 text-rose-600 dark:text-rose-400 text-[9px] px-2 py-0.5 rounded-full font-black border border-rose-500/20">
+                            ADMIN
+                          </span>
+                        )}
+                        {post.role === 'System' && (
+                          <span className="ml-2 bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[9px] px-2 py-0.5 rounded-full font-black border border-blue-500/20">
+                            SYSTEM
+                          </span>
+                        )}
                       </h4>
-                      <p className="text-[10px] text-[var(--kg-text-muted)] font-medium mt-0.5">{post.time || 'Gần đây'}</p>
+                      <p className="text-[10px] text-[var(--kg-text-muted)] font-medium mt-0.5 font-mono tabular-nums">
+                        {post.time || 'Gần đây'}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -281,45 +352,70 @@ export default function NewsFeed() {
                 )}
 
                 {/* Stats */}
-                <div className="px-3.5 sm:px-4 py-2 flex justify-between text-[11px] text-[var(--kg-text-muted)] font-medium border-t border-[var(--kg-border)]/50">
+                <div className="px-3.5 sm:px-4 py-2 flex justify-between items-center text-[11px] text-[var(--kg-text-muted)] font-medium border-t border-[var(--kg-border)]/50">
                   <div className="flex items-center space-x-3 w-full">
-                    <div className="flex items-center cursor-help">
-                      <Heart size={13} className="mr-1 text-rose-500 fill-current" /> 
-                      <span className="mr-1 font-bold">{post.likes.length}</span>
+                    <div className="flex items-center">
+                      <Heart size={13} className="mr-1 text-rose-500 fill-current" />
+                      <span className="mr-1 font-bold font-mono tabular-nums">{post.likes.length}</span>
                       {post.likes.length > 0 && (
-                        <span className="text-[10px] opacity-70 truncate max-w-[120px]">
-                          ({post.likes.length <= 2 ? post.likes.join(', ') : `${post.likes[0]} và ${post.likes.length - 1} người khác`})
+                        <span className="text-[10px] opacity-75 truncate max-w-[140px]">
+                          (
+                          {post.likes.length <= 2
+                            ? post.likes.join(', ')
+                            : `${post.likes[0]} và ${post.likes.length - 1} người khác`}
+                          )
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center ml-auto cursor-pointer hover:text-blue-500 font-bold" onClick={() => setActiveCommentPostId(activeCommentPostId === post.id ? null : post.id)}>
-                      <MessageSquare size={13} className="mr-1 text-blue-500" /> {post.comments.length} bình luận
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveCommentPostId(isCommentsOpen ? null : post.id)}
+                      aria-expanded={isCommentsOpen}
+                      className="flex items-center ml-auto min-h-[44px] sm:min-h-[32px] px-2 -mr-2 rounded-lg hover:text-[var(--kg-info)] font-bold touch-manipulation"
+                    >
+                      <MessageSquare size={13} className="mr-1 text-[var(--kg-info)]" />
+                      <span className="font-mono tabular-nums mr-1">{post.comments.length}</span> bình luận
+                    </button>
                   </div>
                 </div>
 
                 {/* Actions */}
-                <div className="flex px-2 py-1 border-t border-[var(--kg-border)]">
-                  <button 
+                <div className="flex gap-1.5 px-2 py-1.5 border-t border-[var(--kg-border)]">
+                  <button
                     type="button"
-                    onClick={() => toggleLike(post.id)} 
-                    className={`flex-1 flex justify-center items-center py-2 text-xs font-black rounded-xl transition-all active:scale-95 ${hasLiked ? 'text-rose-500 bg-rose-500/10' : 'text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)]'}`}
+                    onClick={() => toggleLike(post.id)}
+                    aria-pressed={hasLiked}
+                    className={`flex-1 min-h-[44px] sm:min-h-[40px] flex justify-center items-center py-2 text-xs font-black rounded-xl transition-all active:scale-95 touch-manipulation ${
+                      hasLiked
+                        ? 'text-rose-600 dark:text-rose-400 bg-rose-500/10'
+                        : 'text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)]'
+                    }`}
                   >
-                    <Heart size={15} className={`mr-1.5 ${hasLiked ? 'fill-current' : ''}`} /> {hasLiked ? 'Đã thích' : 'Thích'}
+                    <Heart size={15} className={`mr-1.5 flex-shrink-0 ${hasLiked ? 'fill-current' : ''}`} />{' '}
+                    {hasLiked ? 'Đã thích' : 'Thích'}
                   </button>
-                  <button 
+                  <button
                     type="button"
-                    onClick={() => setActiveCommentPostId(activeCommentPostId === post.id ? null : post.id)} 
-                    className={`flex-1 flex justify-center items-center py-2 text-xs font-black rounded-xl transition-all active:scale-95 ${activeCommentPostId === post.id ? 'text-blue-600 bg-blue-500/10' : 'text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)]'}`}
+                    onClick={() => setActiveCommentPostId(isCommentsOpen ? null : post.id)}
+                    aria-expanded={isCommentsOpen}
+                    className={`flex-1 min-h-[44px] sm:min-h-[40px] flex justify-center items-center py-2 text-xs font-black rounded-xl transition-all active:scale-95 touch-manipulation ${
+                      isCommentsOpen
+                        ? 'text-[var(--kg-info)] bg-[var(--kg-info-soft)]'
+                        : 'text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)]'
+                    }`}
                   >
-                    <MessageSquare size={15} className="mr-1.5" /> Bình luận
+                    <MessageSquare size={15} className="mr-1.5 flex-shrink-0" /> Bình luận
                   </button>
                 </div>
 
-                {/* Latest Comment Preview (if not expanded) */}
-                {activeCommentPostId !== post.id && post.comments.length > 0 && (
-                  <div className="px-3.5 sm:px-4 py-2.5 bg-[var(--kg-surface-soft)]/50 cursor-pointer hover:bg-[var(--kg-surface-soft)] transition-colors border-t border-[var(--kg-border)]" onClick={() => setActiveCommentPostId(post.id)}>
-                    <div className="flex space-x-2">
+                {/* Latest Comment Preview (accessible button) */}
+                {!isCommentsOpen && post.comments.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveCommentPostId(post.id)}
+                    className="w-full min-h-[44px] text-left px-3.5 sm:px-4 py-2.5 bg-[var(--kg-surface-soft)]/50 hover:bg-[var(--kg-surface-soft)] transition-colors border-t border-[var(--kg-border)] touch-manipulation"
+                  >
+                    <div className="flex items-center space-x-2">
                       <div className="w-5 h-5 rounded-full bg-[var(--kg-border)] flex-shrink-0 flex items-center justify-center text-[9px] font-black text-[var(--kg-text)]">
                         {post.comments[post.comments.length - 1].author.charAt(0)}
                       </div>
@@ -330,63 +426,78 @@ export default function NewsFeed() {
                         </p>
                       </div>
                     </div>
-                  </div>
+                  </button>
                 )}
 
                 {/* Comments Section */}
-                {activeCommentPostId === post.id && (
+                {isCommentsOpen && (
                   <div className="bg-[var(--kg-surface-soft)]/40 p-3.5 sm:p-4 border-t border-[var(--kg-border)] space-y-3 animate-fade-in">
                     <div className="space-y-3 max-h-[250px] overflow-y-auto hide-scrollbar pr-1">
-                      {post.comments.map(comment => (
+                      {post.comments.map((comment) => (
                         <div key={comment.id} className="flex space-x-2">
                           <div className="w-7 h-7 rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-border)] flex-shrink-0 flex items-center justify-center text-xs font-black text-[var(--kg-text)]">
                             {comment.author.charAt(0)}
                           </div>
                           <div className="flex-1 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl rounded-tl-none p-2.5 shadow-2xs">
                             <h5 className="text-[11px] font-black text-[var(--kg-text)] mb-0.5">{comment.author}</h5>
-                            <p className="text-xs text-[var(--kg-text)] font-medium leading-relaxed">{comment.content}</p>
-                            <p className="text-[9px] text-[var(--kg-text-muted)] mt-1">{comment.time}</p>
+                            <p className="text-xs text-[var(--kg-text)] font-medium leading-relaxed">
+                              {comment.content}
+                            </p>
+                            <p className="text-[9px] text-[var(--kg-text-muted)] mt-1 font-mono tabular-nums">
+                              {comment.time}
+                            </p>
                           </div>
                         </div>
                       ))}
                       {post.comments.length === 0 && (
-                        <p className="text-xs text-center text-[var(--kg-text-muted)] py-2 font-medium">Chưa có bình luận nào. Hãy là người đầu tiên!</p>
+                        <p className="text-xs text-center text-[var(--kg-text-muted)] py-2 font-medium">
+                          Chưa có bình luận nào. Hãy là người đầu tiên!
+                        </p>
                       )}
                     </div>
-                    
-                    {/* Add Comment Input */}
+
                     <div className="flex items-center space-x-2 pt-1">
-                      <div className="w-7 h-7 rounded-lg bg-[var(--kg-primary-soft)] flex-shrink-0 flex items-center justify-center text-[var(--kg-primary)] text-xs font-black">
+                      <div className="w-8 h-8 rounded-lg bg-[var(--kg-primary-soft)] flex-shrink-0 flex items-center justify-center text-[var(--kg-primary-ink)] text-xs font-black">
                         {currentUser?.fullname.charAt(0) || 'U'}
                       </div>
                       <div className="flex-1 relative">
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           aria-label="Viết bình luận"
-                          value={commentInput}
-                          onChange={(e) => setCommentInput(e.target.value)}
+                          value={commentValue}
+                          onChange={(e) =>
+                            setCommentInputs((prev) => ({ ...prev, [post.id]: e.target.value }))
+                          }
                           onKeyDown={(e) => e.key === 'Enter' && handleAddComment(post.id)}
-                          placeholder="Viết bình luận..." 
-                          className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-full pl-3.5 pr-9 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)]"
+                          placeholder="Viết bình luận..."
+                          className="w-full min-h-[44px] bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-full pl-3.5 pr-12 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)]"
                         />
-                        <button 
+                        <button
                           type="button"
                           aria-label="Gửi bình luận"
                           onClick={() => handleAddComment(post.id)}
-                          disabled={!commentInput.trim()}
-                          className="absolute right-1.5 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center bg-[var(--kg-primary)] text-white rounded-full hover:opacity-90 transition-opacity disabled:opacity-50"
+                          disabled={!commentValue.trim()}
+                          className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center bg-[var(--kg-primary)] text-white rounded-full hover:opacity-90 transition-opacity disabled:opacity-50"
                         >
-                          <Send size={11} className="ml-0.5" />
+                          <Send size={14} className="ml-0.5" />
                         </button>
                       </div>
                     </div>
                   </div>
                 )}
-              </div>
+              </article>
             );
           })}
         </div>
       )}
+
+      <div className="fixed bottom-20 md:bottom-6 right-4 z-[10100] flex flex-col gap-2 pointer-events-none">
+        <AnimatePresence>
+          {toasts.map((t) => (
+            <KgToast key={t.id} message={t} onClose={dismissToast} />
+          ))}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

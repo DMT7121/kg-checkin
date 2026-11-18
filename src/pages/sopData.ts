@@ -23,14 +23,14 @@ export const sopData: SopSection[] = [
         </ul>` }
   ]},
   { id: 'noi-quy', title: 'Nội Quy Nhà Hàng', icon: 'fa-solid fa-shield-halved', group: 'general', content: [
-      { subtitle: '1. Thời Gian Làm Việc & Nghỉ Ngơi (File 1.pdf)', icon: 'fa-solid fa-calendar-clock',
+      { subtitle: '1. Thời Gian Làm Việc & Nghỉ Ngơi', icon: 'fa-solid fa-calendar-clock',
         details: `<ul>
           <li><i class="fa-solid fa-calendar-clock"></i><span><strong>Ca làm việc:</strong> Tuân thủ lịch phân công của Quản lý, đảm bảo đúng giờ. (Cần đăng ký lịch đầy đủ).</span></li>
           <li><i class="fa-solid fa-dollar-sign"></i><span><strong>Lương Lễ/Tết:</strong> Các ngày 01/05, 02/09, 01/01, Tết Nguyên Đán sẽ được tính lương theo thỏa thuận (x2, x3 hoặc khung lương riêng).</span></li>
           <li><i class="fa-solid fa-calendar-xmark"></i><span><strong>Nghỉ phép:</strong> Phải xin phép Quản lý duyệt trước 03 ngày.</span></li>
           <li><i class="fa-solid fa-thermometer-half"></i><span><strong>Nghỉ ốm:</strong> Phải có giấy xác nhận của bác sĩ và thông báo ngay cho Quản lý để sắp xếp ca.</span></li>
         </ul>` },
-      { subtitle: '2. Trật Tự & Tác Phong (File 1.pdf)', icon: 'fa-solid fa-user-check',
+      { subtitle: '2. Trật Tự & Tác Phong', icon: 'fa-solid fa-user-check',
         details: `<ul>
           <li><i class="fa-solid fa-fingerprint"></i><span><strong>Chấm công:</strong> Chấm vân tay/ứng dụng mỗi ngày. Nghiêm cấm chấm hộ hoặc gian lận.</span></li>
           <li><i class="fa-solid fa-shirt"></i><span><strong>Hình thức:</strong> Đồng phục luôn sạch sẽ, gọn gàng. Nữ trang điểm nhẹ, nam tóc tai gọn gàng.</span></li>
@@ -40,7 +40,7 @@ export const sopData: SopSection[] = [
           <li><i class="fa-solid fa-briefcase"></i><span><strong>Đồ thất lạc:</strong> Giao nộp ngay cho Quản lý, ghi chép chi tiết (mô tả, thời gian, ai nhặt, bàn số mấy).</span></li>
           <li><i class="fa-solid fa-user-secret"></i><span><strong>Bảo mật:</strong> Tuyệt đối không mang tài sản hoặc thông tin bí mật (doanh thu, dữ liệu khách hàng, quy trình) ra ngoài.</span></li>
         </ul>` },
-      { subtitle: '3. An Toàn Lao Động & PCCC (File 1.pdf)', icon: 'fa-solid fa-fire',
+      { subtitle: '3. An Toàn Lao Động & PCCC', icon: 'fa-solid fa-fire',
         details: `<ul>
           <li><i class="fa-solid fa-ban-smoking"></i><span><strong>An toàn PCCC:</strong> Nghiêm cấm hút thuốc trong nhà hàng (trừ khu vực cho phép).</span></li>
           <li class="icon-danger"><i class="fa-solid fa-triangle-exclamation"></i><span><strong>Khi có sự cố cháy:</strong>
@@ -54,7 +54,7 @@ export const sopData: SopSection[] = [
           </span></li>
           <li><i class="fa-solid fa-hard-hat"></i><span><strong>Vệ sinh lao động:</strong> Tuân thủ quy định vệ sinh, sử dụng thiết bị bảo hộ (găng tay, khẩu trang) khi cần.</span></li>
         </ul>` },
-      { subtitle: '4. Xử Lý Kỷ Luật & Trách Nhiệm (File 1.pdf)', icon: 'fa-solid fa-gavel',
+      { subtitle: '4. Xử Lý Kỷ Luật & Trách Nhiệm', icon: 'fa-solid fa-gavel',
         details: `<ul>
           <li class="icon-note"><i class="fa-solid fa-note-sticky"></i><span><strong>Phạt tiền (50.000đ/lần):</strong> Đi muộn, về sớm, không chấm công, vắng mặt không phép, sai đồng phục, ngủ trong giờ, lãng phí tài sản.</span></li>
           <li class="icon-note"><i class="fa-solid fa-note-sticky"></i><span><strong>Phạt tiền (10% lương tháng):</strong> Tự ý sử dụng thiết bị, tự nấu ăn/pha chế, ký thay chấm công, hút thuốc trong ca.</span></li>
@@ -113,15 +113,14 @@ export const sopData: SopSection[] = [
         </ul>` }
   ]},
   { id: 'ky-thuat', title: 'Kỹ Thuật & Liên Kết', icon: 'fa-solid fa-link', group: 'general', content: [
-      { subtitle: '1. Các Link Công Việc Quan Trọng (File 2)', icon: 'fa-solid fa-link',
+      { subtitle: '1. Các Phân Hệ & Công Cụ Vận Hành Nội Bộ', icon: 'fa-solid fa-link',
         details: `<ul>
-          <li><i class="fa-solid fa-calendar-days"></i><span><strong>Xem Lịch Đặt Bàn:</strong> <a href="https://docs.google.com/spreadsheets/d/1R_oCd3xadulFLR74FTKqtRnqcRkkc7pMqw53q8HrjMY" target="_blank" rel="noopener noreferrer">Link Google Sheet</a></span></li>
-          <li><i class="fa-solid fa-calendar-plus"></i><span><strong>Đăng Ký Lịch Làm:</strong> <a href="http://bit.ly/KG-DANGKYLICHLAM" target="_blank" rel="noopener noreferrer">bit.ly/KG-DANGKYLICHLAM</a></span></li>
-          <li><i class="fa-solid fa-calendar"></i><span><strong>Kiểm Tra Lịch Làm/Phân Công:</strong> <a href="http://bit.ly/KG-LICHLAMNV" target="_blank" rel="noopener noreferrer">bit.ly/KG-LICHLAMNV</a></span></li>
-          <li><i class="fa-solid fa-dollar-sign"></i><span><strong>Kiểm Tra Công/Lương:</strong> <a href="http://tinyurl.com/KG-CongluongNV" target="_blank" rel="noopener noreferrer">tinyurl.com/KG-CongluongNV</a></span></li>
-          <li><i class="fa-solid fa-list-check"></i><span><strong>Checklist Công Việc Hằng Ngày:</strong> <a href="http://bit.ly/KG-CHECKLIST" target="_blank" rel="noopener noreferrer">bit.ly/KG-CHECKLIST</a></span></li>
+          <li><i class="fa-solid fa-calendar-days"></i><span><strong>Xem Lịch Đặt Bàn:</strong> <a href="https://docs.google.com/spreadsheets/d/1R_oCd3xadulFLR74FTKqtRnqcRkkc7pMqw53q8HrjMY" target="_blank" rel="noopener noreferrer">Link Google Sheet Đặt Bàn</a></span></li>
+          <li><i class="fa-solid fa-calendar-plus"></i><span><strong>Đăng Ký Lịch Làm &amp; Đổi Ca:</strong> Thực hiện trực tiếp tại phân hệ <strong>Lịch làm (Lịch của tôi / Lịch tổng / Đổi ca)</strong> ngay trên ứng dụng Staff OS.</span></li>
+          <li><i class="fa-solid fa-dollar-sign"></i><span><strong>Kiểm Tra Công &amp; Phiếu Lương:</strong> Tra cứu trực tiếp tại phân hệ <strong>Công &amp; Lương (Phiếu lương / Bảng công / Lịch sử)</strong> trên ứng dụng.</span></li>
+          <li><i class="fa-solid fa-list-check"></i><span><strong>Checklist &amp; Bàn Giao Ca:</strong> Thực hiện và lưu vết theo 4 phân khu tại phân hệ <strong>Công việc (Checklist / Phân công trực / Bàn giao)</strong>.</span></li>
         </ul>` },
-      { subtitle: '2. Các Nhóm Zalo Tương Tác (File 2)', icon: 'fa-solid fa-message',
+      { subtitle: '2. Các Nhóm Zalo Tương Tác', icon: 'fa-solid fa-message',
         details: `<ul>
           <li><i class="fa-solid fa-bolt"></i><span><strong>KG - CHUYỂN KHOẢN:</strong> <a href="http://zalo.me/g/itpfoj409" target="_blank" rel="noopener noreferrer">Tham gia nhóm</a> (Thông tin chung, bán hàng, thanh toán...).</span></li>
           <li><i class="fa-solid fa-calendar-days"></i><span><strong>KG - LỊCH LÀM, PHÂN CÔNG, LƯƠNG:</strong> <a href="http://zalo.me/g/zkowlm391" target="_blank" rel="noopener noreferrer">Tham gia nhóm</a> (Phản hồi, tương tác về lịch, công, lương).</span></li>
@@ -218,28 +217,28 @@ export const sopData: SopSection[] = [
         </ul>` }
   ]},
   { id: 'tiep-thuc', title: 'Tiếp Thực', icon: 'fa-solid fa-person-walking-luggage', group: 'department', content: [
-      { subtitle: '1. Vai Trò & Chuẩn Bị Đầu Ca (File 18)', icon: 'fa-solid fa-bullseye',
+      { subtitle: '1. Vai Trò & Chuẩn Bị Đầu Ca', icon: 'fa-solid fa-bullseye',
         details: `<ul>
           <li class="icon-tip"><i class="fa-solid fa-lightbulb"></i><span><strong>Vai trò:</strong> Cầu nối VÀNG giữa Bếp và Phục vụ. Đảm bảo món ăn ra: (1) Đúng, (2) Nhanh (nóng/lạnh), (3) Chất lượng.</span></li>
           <li><i class="fa-solid fa-square-check"></i><span>Chuẩn bị dụng cụ: Khay sạch (lau khô), kẹp gắp, khăn lau.</span></li>
           <li><i class="fa-solid fa-square-check"></i><span>Bổ sung đầy đủ các loại gia vị, nước chấm tại trạm (station).</span></li>
           <li><i class="fa-solid fa-circle-info"></i><span>Họp đầu ca: Nắm rõ món hết, món tạm ngưng, món ưu tiên.</span></li>
         </ul>` },
-      { subtitle: '2. Nhận & Báo Order (File 18)', icon: 'fa-solid fa-ticket',
+      { subtitle: '2. Nhận & Báo Order', icon: 'fa-solid fa-ticket',
         details: `<ul>
           <li><i class="fa-solid fa-ticket"></i><span>Nhận order (app/giấy), kiểm tra kỹ (số bàn, yêu cầu đặc biệt).</span></li>
           <li class="icon-note"><i class="fa-solid fa-note-sticky"></i><span><strong>Lưu ý:</strong> Order bất thường (số lượng lớn, yêu cầu lạ...) phải xác minh lại với Phục vụ trước khi báo Bếp.</span></li>
           <li><i class="fa-solid fa-bullhorn"></i><span><strong>Đọc order:</strong> Đọc rõ tên món, số lượng, yêu cầu cho Bếp.</span></li>
           <li><i class="fa-solid fa-clock"></i><span>Theo dõi tiến độ, chủ động nhắc Bếp nếu món ra quá lâu.</span></li>
         </ul>` },
-      { subtitle: '3. Kiểm Tra & Chuyển Món (File 18)', icon: 'fa-solid fa-check-double',
+      { subtitle: '3. Kiểm Tra & Chuyển Món', icon: 'fa-solid fa-check-double',
         details: `<ul>
           <li><i class="fa-solid fa-eye"></i><span><strong>Kiểm tra 2 chiều:</strong> (1) Kiểm tra món Bếp ra so với order (đúng món, đủ số lượng, đúng yêu cầu). (2) Kiểm tra chất lượng (trình bày đẹp, đĩa sạch, món đủ nóng/lạnh).</span></li>
           <li><i class="fa-solid fa-bell-concierge"></i><span><strong>Sắp xếp khay:</strong> Món nặng ở giữa, món nhẹ/cao ở ngoài, nước chấm đi kèm.</span></li>
           <li><i class="fa-solid fa-arrow-right"></i><span>Di chuyển an toàn, nhanh nhẹn. "Food first" - luôn ưu tiên món ăn.</span></li>
           <li><i class="fa-solid fa-bell-concierge"></i><span>Đặt món xuống bàn (hoặc giao Phục vụ), báo rõ tên món ăn.</span></li>
         </ul>` },
-      { subtitle: '4. Giao Tiếp & Xử Lý Sự Cố (File 18)', icon: 'fa-solid fa-comments',
+      { subtitle: '4. Giao Tiếp & Xử Lý Sự Cố', icon: 'fa-solid fa-comments',
         details: `<ul>
           <li class="icon-script"><i class="fa-solid fa-quote-right"></i><span><strong>Giao tiếp Bếp:</strong> "Order bàn 12, 1 Gà 2 Lẩu!", "Bếp ơi, gấp món bàn 5 giúp em!", "Xác nhận, 5 phút có!".</span></li>
           <li class="icon-script"><i class="fa-solid fa-quote-right"></i><span><strong>Giao tiếp Phục vụ:</strong> "Món ra bàn 12!", "Khay nóng nhé!", "Thiếu nước chấm bàn 10!".</span></li>
@@ -258,7 +257,7 @@ export const sopData: SopSection[] = [
           <li><i class="fa-solid fa-heart"></i><span><strong>Triết lý Bếp:</strong> Bếp là trái tim của nhà hàng, quyết định 80% sự hài lòng. 3 Yếu tố vàng: <strong>Tốc độ - Nhất quán - Sạch sẽ</strong>.</span></li>
           <li><i class="fa-solid fa-list-check"></i><span><strong>Mise en Place ("Mọi thứ đúng chỗ"):</strong> Không chỉ là sơ chế. Là chuẩn bị TẤT CẢ mọi thứ (nguyên liệu, dụng cụ, khăn lau, gia vị...) trong tầm tay TRƯỚC KHI mở cửa.</span></li>
         </ul>` },
-      { subtitle: '2. Chuẩn Bị Đầu Ca (File 24)', icon: 'fa-solid fa-list-check',
+      { subtitle: '2. Chuẩn Bị Đầu Ca', icon: 'fa-solid fa-list-check',
         details: `<ul>
           <li><i class="fa-solid fa-clipboard-check"></i><span>Kiểm tra nguyên liệu, thực phẩm tồn từ ca trước (theo checklist).</span></li>
           <li><i class="fa-solid fa-square-check"></i><span>Kiểm tra trang bị, dụng cụ, gas, nhiệt độ tủ lạnh/tủ đông.</span></li>
@@ -279,7 +278,7 @@ export const sopData: SopSection[] = [
               </ol>
           </span></li>
         </ul>` },
-      { subtitle: '4. Chế Biến & Ra Món (File 24)', icon: 'fa-solid fa-mortar-pestle',
+      { subtitle: '4. Chế Biến & Ra Món', icon: 'fa-solid fa-mortar-pestle',
         details: `<ul>
           <li><i class="fa-solid fa-ticket"></i><span>Nhận order từ Tiếp thực, chế biến theo thứ tự. Ưu tiên món khai vị, món trẻ em.</span></li>
           <li><i class="fa-solid fa-shield-check"></i><span><strong>Nhất quán:</strong> Đảm bảo chất lượng (đúng công thức, đúng định lượng, đúng vị) mọi lúc.</span></li>
@@ -287,7 +286,7 @@ export const sopData: SopSection[] = [
           <li><i class="fa-solid fa-stopwatch-20"></i><span><strong>Thời gian ra món:</strong> Đảm bảo thời gian chuẩn (VD: Khai vị <10p, Món chính <15p). Báo Tiếp thực/QL nếu có món bị trễ.</span></li>
           <li><i class="fa-solid fa-circle-exclamation"></i><span>Hỗ trợ xử lý lỗi món ăn khi Tiếp thực/Phục vụ phản hồi.</span></li>
         </ul>` },
-      { subtitle: '5. Vệ Sinh & Kết Thúc Ca (File 24)', icon: 'fa-solid fa-sparkles',
+      { subtitle: '5. Vệ Sinh & Kết Thúc Ca', icon: 'fa-solid fa-sparkles',
         details: `<ul>
           <li><i class="fa-solid fa-recycle"></i><span><strong>Vệ sinh trạm (Clean as you go):</strong> Luôn giữ trạm của mình sạch sẽ NGAY CẢ TRONG LÚC ĐÔNG KHÁCH. Không đợi cuối ca.</span></li>
           <li><i class="fa-solid fa-box-archive"></i><span>Lau chùi, dọn dẹp khu vực Bếp, vệ sinh thiết bị (bếp, lò, dao...).</span></li>
@@ -297,14 +296,14 @@ export const sopData: SopSection[] = [
         </ul>` }
   ]},
   { id: 'pha-che', title: 'Pha Chế & Kho Nước', icon: 'fa-solid fa-glass-water', group: 'department', content: [
-      { subtitle: '1. Chuẩn Bị Đầu Ca (File 19, 20)', icon: 'fa-solid fa-list-check',
+      { subtitle: '1. Chuẩn Bị Đầu Ca', icon: 'fa-solid fa-list-check',
         details: `<ul>
           <li><i class="fa-solid fa-square-check"></i><span>Kiểm tra dụng cụ: Shaker, ly, bình đong, máy ép, máy xay (phải sạch).</span></li>
           <li><i class="fa-solid fa-square-check"></i><span>Kiểm tra nguyên liệu: Trái cây tươi, siro, đá, soda...</span></li>
           <li><i class="fa-solid fa-box"></i><span>Kiểm tra kho nước: Vệ sinh xô ướp bia, chuẩn bị dĩa trái cây (nếu có tiệc), kiểm tồn bia/nước ngọt.</span></li>
           <li><i class="fa-solid fa-circle-info"></i><span>Nắm rõ menu, món hết, món tạm ngưng.</span></li>
         </ul>` },
-      { subtitle: '2. Nhận Order & Pha Chế (File 19, 20)', icon: 'fa-solid fa-martini-glass-citrus',
+      { subtitle: '2. Nhận Order & Pha Chế', icon: 'fa-solid fa-martini-glass-citrus',
         details: `<ul>
           <li><i class="fa-solid fa-ticket"></i><span>Nhận order từ Phục vụ, xác minh lại nếu cần. Ưu tiên đồ uống ra trước món ăn.</span></li>
           <li><i class="fa-solid fa-martini-glass"></i><span>Tuân thủ đúng công thức, đúng định lượng (không đong dư/thiếu).</span></li>
@@ -318,7 +317,7 @@ export const sopData: SopSection[] = [
           <li><i class="fa-solid fa-box-archive"></i><span>Vệ sinh vòi bia, họng máy xay, thùng đá cuối ca.</span></li>
           <li><i class="fa-solid fa-box-check"></i><span>Thực hiện kiểm kho (inventory) hàng ngày/tuần theo quy định.</span></li>
         </ul>` },
-      { subtitle: '4. Kết Thúc Ca (File 19, 20)', icon: 'fa-solid fa-power-off',
+      { subtitle: '4. Kết Thúc Ca', icon: 'fa-solid fa-power-off',
         details: `<ul>
           <li><i class="fa-solid fa-clipboard-list"></i><span>Kiểm tra tồn kho, lập danh sách bổ sung nguyên liệu/hàng hóa.</span></li>
           <li><i class="fa-solid fa-sparkles"></i><span>Tổng vệ sinh khu vực, sắp xếp dụng cụ, cất trữ nguyên liệu.</span></li>
@@ -326,13 +325,13 @@ export const sopData: SopSection[] = [
         </ul>` }
   ]},
   { id: 'thu-ngan', title: 'Thu Ngân', icon: 'fa-solid fa-money-bill-wave', group: 'department', content: [
-      { subtitle: '1. Chuẩn Bị Đầu Ca (File 21)', icon: 'fa-solid fa-list-check',
+      { subtitle: '1. Chuẩn Bị Đầu Ca', icon: 'fa-solid fa-list-check',
         details: `<ul>
           <li><i class="fa-solid fa-cash-register"></i><span>Kiểm tra thiết bị: Máy POS, máy tính tiền, máy quẹt thẻ, giấy in (đảm bảo còn).</span></li>
           <li><i class="fa-solid fa-coins"></i><span>Nhận và kiểm đếm tiền lẻ đầu ca (quỹ).</span></li>
           <li><i class="fa-solid fa-database"></i><span>Kiểm tra hệ thống, phần mềm, giá cả, CTKM đã cập nhật đúng.</span></li>
         </ul>` },
-      { subtitle: '2. Thanh Toán (File 21)', icon: 'fa-solid fa-credit-card',
+      { subtitle: '2. Thanh Toán', icon: 'fa-solid fa-credit-card',
         details: `<ul>
           <li><i class="fa-solid fa-receipt"></i><span>Nhận yêu cầu thanh toán từ Phục vụ (đã kiểm tra bàn).</span></li>
           <li><i class="fa-solid fa-clipboard-check"></i><span>Kiểm tra lại đơn hàng trên hệ thống đảm bảo chính xác.</span></li>
@@ -340,7 +339,7 @@ export const sopData: SopSection[] = [
           <li><i class="fa-solid fa-check-double"></i><span>Nhận xác nhận thanh toán (tiền mặt/thẻ/QR) từ Phục vụ.</span></li>
           <li><i class="fa-solid fa-circle-check"></i><span>Xác nhận giao dịch thành công. In bill tất toán (hóa đơn GTGT nếu khách cần).</span></li>
         </ul>` },
-      { subtitle: '3. Xử Lý Thông Tin Phát Sinh (File 21)', icon: 'fa-solid fa-circle-exclamation',
+      { subtitle: '3. Xử Lý Thông Tin Phát Sinh', icon: 'fa-solid fa-circle-exclamation',
         details: `<ul>
           <li><i class="fa-solid fa-circle-exclamation"></i><span>Nếu có sai sót, lịch sự xin lỗi và điều chỉnh ngay (cần Quản lý xác nhận hủy/sửa).</span></li>
           <li><i class="fa-solid fa-newspaper"></i><span><strong>Xuất hóa đơn VAT:</strong> Lấy đủ thông tin (MST, Tên công ty, Địa chỉ, Zalo, Email). Hẹn khách thời gian gửi.</span></li>
@@ -351,7 +350,7 @@ export const sopData: SopSection[] = [
           <li><i class="fa-solid fa-calculator"></i><span><strong>Xử lý thối nhầm:</strong> Nếu phát hiện thối nhầm (dư hoặc thiếu), báo Quản lý ngay để kiểm tra camera và xử lý.</span></li>
           <li class="icon-danger"><i class="fa-solid fa-triangle-exclamation"></i><span><strong>Cảnh báo lừa đảo:</strong> Luôn xác nhận "Đã nhận tiền" trên app ngân hàng trước khi xác nhận. Cảnh giác với ảnh chụp màn hình "đang xử lý".</span></li>
         </ul>` },
-      { subtitle: '5. Kết Thúc Ca & Đối Soát (File 21)', icon: 'fa-solid fa-box-archive',
+      { subtitle: '5. Kết Thúc Ca & Đối Soát', icon: 'fa-solid fa-box-archive',
         details: `<ul>
           <li><i class="fa-solid fa-book-bookmark"></i><span>Kiểm tra và nhập các phiếu đặt cọc cho ngày tiếp theo.</span></li>
           <li><i class="fa-solid fa-calculator"></i><span><strong>Đối soát:</strong> In Z-Report (tổng kết) từ máy POS.</span></li>
@@ -362,28 +361,28 @@ export const sopData: SopSection[] = [
         </ul>` }
   ]},
   { id: 'bao-ve', title: 'Bảo Vệ', icon: 'fa-solid fa-shield-virus', group: 'department', content: [
-      { subtitle: '1. Vai Trò & Chuẩn Bị Đầu Ca (File 22)', icon: 'fa-solid fa-shield-check',
+      { subtitle: '1. Vai Trò & Chuẩn Bị Đầu Ca', icon: 'fa-solid fa-shield-check',
         details: `<ul>
           <li class="icon-tip"><i class="fa-solid fa-lightbulb"></i><span><strong>Vai trò:</strong> Bạn là "Đại sứ ấn tượng đầu tiên" và "Người bảo vệ an toàn" cho nhà hàng. Thái độ của bạn quyết định khách có muốn quay lại hay không.</span></li>
           <li><i class="fa-solid fa-square-check"></i><span>Nhận bàn giao ca, nắm tình hình (số lượng xe, sự cố ca trước).</span></li>
           <li><i class="fa-solid fa-square-check"></i><span>Kiểm tra dụng cụ: Bộ đàm (sạc pin), đèn pin, còi, sổ, vé giữ xe.</span></li>
           <li><i class="fa-solid fa-door-open"></i><span>Mở cửa, dọn dẹp khu vực đậu xe, đảm bảo lối đi thông thoáng.</span></li>
         </ul>` },
-      { subtitle: '2. Tiếp Nhận Xe (File 22)', icon: 'fa-solid fa-car',
+      { subtitle: '2. Tiếp Nhận Xe', icon: 'fa-solid fa-car',
         details: `<ul>
           <li><i class="fa-solid fa-face-smile"></i><span>Chào hỏi khách lịch sự, niềm nở, chủ động mở cửa xe (nếu là ô tô).</span></li>
           <li><i class="fa-solid fa-ticket"></i><span>Phát vé xe (Ghi rõ biển số, loại xe). Hướng dẫn khách cất đồ giá trị.</span></li>
           <li><i class="fa-solid fa-magnifying-glass"></i><span>Quan sát nhanh tình trạng xe (hư hỏng, bất thường) để tránh tranh chấp.</span></li>
           <li><i class="fa-solid fa-car"></i><span><strong>Xe Ôtô:</strong> Hướng dẫn vị trí đậu, xin SĐT để liên hệ dời xe. Chủ động che nắng (nếu có).</span></li>
         </ul>` },
-      { subtitle: '3. Giám Sát & Trả Xe (File 22)', icon: 'fa-solid fa-video',
+      { subtitle: '3. Giám Sát & Trả Xe', icon: 'fa-solid fa-video',
         details: `<ul>
           <li><i class="fa-solid fa-arrows-up-down-left-right"></i><span>Sắp xếp xe gọn gàng, an toàn, khoa học (xe dễ ra trước, xe khó ra sau), luôn chừa lối đi.</span></li>
           <li><i class="fa-solid fa-eye"></i><span>Thường xuyên tuần tra, giám sát, đề phòng trộm cắp, phá hoại.</span></li>
           <li><i class="fa-solid fa-circle-check"></i><span>Khi khách lấy xe: Yêu cầu vé, so sánh thông tin vé với xe. Không vé phải báo Quản lý xác minh.</span></li>
           <li><i class="fa-solid fa-hand-holding-heart"></i><span>Hỗ trợ khách dắt xe, dời xe, chào cảm ơn khách.</span></li>
         </ul>` },
-      { subtitle: '4. Xử Lý Sự Cố & Cuối Ca (File 22)', icon: 'fa-solid fa-triangle-exclamation',
+      { subtitle: '4. Xử Lý Sự Cố & Cuối Ca', icon: 'fa-solid fa-triangle-exclamation',
         details: `<ul>
           <li class="icon-danger"><i class="fa-solid fa-triangle-exclamation"></i><span><strong>Khách say xỉn/Gây rối:</strong> (1) Giữ bình tĩnh, không đối đầu. (2) Dùng giọng điệu kiên quyết nhưng lịch sự mời khách ra ngoài. (3) Tuyệt đối không dùng vũ lực. (4) Báo Quản lý/Gọi 113 nếu tình hình nghiêm trọng.</span></li>
           <li><i class="fa-solid fa-triangle-exclamation"></i><span>Xử lý sự cố (mất cắp, va chạm xe): Báo cáo Quản lý ngay, giữ nguyên hiện trường (nếu cần).</span></li>
@@ -392,14 +391,14 @@ export const sopData: SopSection[] = [
         </ul>` }
   ]},
   { id: 'tap-vu', title: 'Tạp Vụ', icon: 'fa-solid fa-spray-can-sparkles', group: 'department', content: [
-      { subtitle: '1. Vai Trò & Chuẩn Bị Đầu Ca (File 23)', icon: 'fa-solid fa-sparkles',
+      { subtitle: '1. Vai Trò & Chuẩn Bị Đầu Ca', icon: 'fa-solid fa-sparkles',
         details: `<ul>
           <li class="icon-tip"><i class="fa-solid fa-lightbulb"></i><span><strong>Vai trò:</strong> Bạn là "Người hùng thầm lặng" giữ cho nhà hàng luôn sạch sẽ, an toàn và vệ sinh. Sự sạch sẽ là yếu tố cốt lõi giữ chân khách hàng.</span></li>
           <li><i class="fa-solid fa-square-check"></i><span>Mặc đồng phục, đeo găng tay, khẩu trang, giày bảo hộ.</span></li>
           <li><i class="fa-solid fa-square-check"></i><span>Chuẩn bị dụng cụ, hóa chất (khăn lau, chất tẩy rửa, cây lau sàn...).</span></li>
           <li><i class="fa-solid fa-circle-info"></i><span>Nắm lịch làm vệ sinh định kỳ (VD: Hôm nay tổng vệ sinh kho, lau kính...).</span></li>
         </ul>` },
-      { subtitle: '2. Vệ Sinh & Dọn Dẹp (File 23)', icon: 'fa-solid fa-trash-can',
+      { subtitle: '2. Vệ Sinh & Dọn Dẹp', icon: 'fa-solid fa-trash-can',
         details: `<ul>
           <li><i class="fa-solid fa-hand-sparkles"></i><span>Rửa đồ dùng (chén, ly...) còn lại, đảm bảo sạch, khô và cất đúng nơi.</span></li>
           <li><i class="fa-solid fa-sparkles"></i><span>Lau chùi khu vực công cộng (sảnh, lối vào, tay nắm cửa, menu...).</span></li>
@@ -412,7 +411,7 @@ export const sopData: SopSection[] = [
           <li><i class="fa-solid fa-flask-vial"></i><span><strong>An toàn Hóa chất:</strong> Pha hóa chất đúng tỷ lệ, đúng loại. Đeo găng tay/khẩu trang khi tiếp xúc hóa chất mạnh. Để hóa chất ở khu vực riêng, xa thực phẩm.</span></li>
           <li class="icon-danger"><i class="fa-solid fa-triangle-exclamation"></i><span><strong>An toàn Sàn:</strong> Luôn đặt biển "Sàn ướt" khi đang lau. Xử lý ngay các vết đổ, tràn.</span></li>
         </ul>` },
-      { subtitle: '4. Kết Thúc Ca (File 23)', icon: 'fa-solid fa-check-double',
+      { subtitle: '4. Kết Thúc Ca', icon: 'fa-solid fa-check-double',
         details: `<ul>
           <li><i class="fa-solid fa-clipboard-list"></i><span>Kiểm tra tồn kho (vật tư, hóa chất) báo cáo Quản lý.</span></li>
           <li><i class="fa-solid fa-box-archive"></i><span>Giặt, phơi khăn lau. Vệ sinh dụng cụ (xe lau, thùng rác...).</span></li>

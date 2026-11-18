@@ -77,6 +77,32 @@ export const emptyOperationsConfig = (): OperationsConfig => ({
   evaluations: [],
 });
 
+export const normalizeOperationsConfig = (
+  raw?: Partial<OperationsConfig> | null,
+): OperationsConfig => ({
+  version: typeof raw?.version === 'number' ? raw.version : 1,
+  teams: Array.isArray(raw?.teams)
+    ? raw.teams.map((team) => ({
+        ...team,
+        id: String(team?.id ?? ''),
+        name: String(team?.name ?? ''),
+        color: String(team?.color || '#0e7490'),
+        description: String(team?.description ?? ''),
+        leaderUsername: String(team?.leaderUsername ?? ''),
+        memberUsernames: Array.isArray(team?.memberUsernames) ? team.memberUsernames : [],
+      }))
+    : [],
+  zones: Array.isArray(raw?.zones) ? raw.zones : [],
+  tasks: Array.isArray(raw?.tasks) ? raw.tasks : [],
+  assignments: Array.isArray(raw?.assignments)
+    ? raw.assignments.map((assignment) => ({
+        ...assignment,
+        date: typeof assignment?.date === 'string' ? assignment.date : '',
+      }))
+    : [],
+  evaluations: Array.isArray(raw?.evaluations) ? raw.evaluations : [],
+});
+
 export const operationScore = (evaluation?: OperationEvaluation) => {
   if (!evaluation) return 3;
   return (

@@ -8,12 +8,17 @@ import {
   auditCheckInAnomalies,
   matchesUser,
   parseLogDate,
+  isCheckInLabel,
+  isCheckOutLabel,
+  isPendingSupplementLabel,
+  isPendingCheckInSupplementLabel,
+  isPendingCheckOutSupplementLabel,
+  isRejectedSupplementLabel,
 } from '../utils/helpers';
-import { escapeHtml } from '../utils/security';
+import { formatUnifiedPunchLabel } from '../utils/attendanceSequence';
 import { callApi } from '../services/api';
 import { refreshAppData } from '../utils/refreshData';
 import { enqueueTask } from '../utils/offlineQueue';
-import Swal from 'sweetalert2';
 import confetti from 'canvas-confetti';
 import {
   CalendarCheck,
@@ -35,8 +40,10 @@ import {
   ChevronDown,
   Layers,
   X,
+  CloudUpload,
+  Smartphone,
 } from 'lucide-react';
-import { KgModuleHero, KgBottomSheet, KgButton, KgTextarea } from '../components/KgDesignSystem';
+import { KgModuleHero, KgBottomSheet, KgButton, KgTextarea, KgAlertCard, KgConfirmSheet, KgToast, type ToastMessage } from '../components/KgDesignSystem';
 
 type TypeFilter = 'ALL' | 'IN' | 'OUT' | 'ANOMALY';
 
@@ -138,6 +145,27 @@ export default function ActivityHistory() {
   const [newTypeChoice, setNewTypeChoice] = useState<string>('Vào ca');
   const [editReason, setEditReason] = useState<string>('');
   const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
+  const [sheetConfirmOpen, setSheetConfirmOpen] = useState(false);
+  const [aiReviewSheet, setAiReviewSheet] = useState<{
+    open: boolean;
+    loading: boolean;
+    text: string;
+    error?: string;
+  }>({ open: false, loading: false, text: '' });
+  const [inlineNotice, setInlineNotice] = useState<{
+    variant: 'error' | 'warning' | 'success' | 'info';
+    title: string;
+    text: string;
+  } | null>(null);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  const pushToast = useCallback((title: string, type: ToastMessage['type'] = 'info') => {
+    setToasts((prev) => [...prev.slice(-2), { id: `${Date.now()}_${Math.random()}`, title, type }]);
+  }, []);
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   const selectedAdminTarget = useMemo(() => {
     if (!isAdmin || selectedUser === 'ALL') return null;
@@ -280,13 +308,21 @@ export default function ActivityHistory() {
     let valid = 0;
     let anomalyCnt = 0;
     for (const l of monthScopedLogs) {
-      const isIn = l.type.includes('Vào ca') || l.type.includes('IN');
-      if (isIn) checkIn++;
-      else checkOut++;
+      if (isCheckInLabel(l.type) || isPendingCheckInSupplementLabel(l.type)) checkIn++;
+      else if (isCheckOutLabel(l.type) || isPendingCheckOutSupplementLabel(l.type)) checkOut++;
+      const isLocalQueued = Boolean(
+        l.localQueued || l.status?.includes('Lưu tạm') || l.status?.includes('Chờ mạng')
+      );
+      const isEdgeBuffered = Boolean(
+        !isLocalQueued &&
+          (l.edgeBuffered || l.sheetSynced === false || l.status?.includes('Đám mây'))
+      );
       const isVal =
-        l.status?.includes('Hợp lệ') ||
-        l.status?.includes('HỢP LỆ') ||
-        l.status === 'Đồng bộ...';
+        !isLocalQueued &&
+        (isEdgeBuffered ||
+          l.status?.includes('Hợp lệ') ||
+          l.status?.includes('HỢP LỆ') ||
+          l.status === 'Đồng bộ...');
       if (isVal) valid++;
       if (anomalyTimeSet.has(l.time)) anomalyCnt++;
     }
@@ -302,9 +338,10 @@ export default function ActivityHistory() {
   const displayLogs = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return monthScopedLogs.filter((log) => {
-      const isIn = log.type.includes('Vào ca') || log.type.includes('IN');
+      const isIn = isCheckInLabel(log.type) || isPendingCheckInSupplementLabel(log.type);
+      const isOut = isCheckOutLabel(log.type) || isPendingCheckOutSupplementLabel(log.type);
       if (typeFilter === 'IN' && !isIn) return false;
-      if (typeFilter === 'OUT' && isIn) return false;
+      if (typeFilter === 'OUT' && !isOut) return false;
       if (typeFilter === 'ANOMALY' && !anomalyTimeSet.has(log.time)) return false;
 
       if (q) {
@@ -339,9 +376,8 @@ export default function ActivityHistory() {
         map.set(key, grp);
         groups.push(grp);
       }
-      const isIn = log.type.includes('Vào ca') || log.type.includes('IN');
-      if (isIn) grp.inCount++;
-      else grp.outCount++;
+      if (isCheckInLabel(log.type) || isPendingCheckInSupplementLabel(log.type)) grp.inCount++;
+      else if (isCheckOutLabel(log.type) || isPendingCheckOutSupplementLabel(log.type)) grp.outCount++;
       grp.items.push(log);
     }
     return groups;
@@ -353,37 +389,22 @@ export default function ActivityHistory() {
   };
 
   const openTimesheet = () => {
-    Swal.fire({
-      title: 'Hướng dẫn xem dữ liệu',
-      html: '<p class="text-sm">Bạn sắp được chuyển đến Bảng dữ liệu gốc.</p><p class="text-sm font-bold text-[#062B49] mt-2">Vui lòng tìm và chọn sheet có tên <span class="bg-gray-100 px-2 py-1 rounded border border-gray-200">CHẤM CÔNG</span> ở thanh công cụ phía dưới cùng để xem dữ liệu của mình nhé!</p>',
-      icon: 'info',
-      showCancelButton: true,
-      confirmButtonColor: '#10b981',
-      cancelButtonColor: '#6b7280',
-      confirmButtonText: 'Đã hiểu, tới Bảng tính',
-      cancelButtonText: 'Đóng',
-    }).then((result) => {
-      if (result.isConfirmed) {
-        window.open(
-          'https://docs.google.com/spreadsheets/d/1UtDinbNZdOF8LRwxX1SlTKxUBFvr0UG6_iu7NyXDteY',
-          '_blank'
-        );
-      }
-    });
+    setSheetConfirmOpen(true);
   };
 
   const analyzeMyProductivity = async () => {
+    setInlineNotice(null);
     const myLogsList = mergedUserScopedLogs.filter((l) => matchesUser(l, currentUser));
     if (myLogsList.length === 0) {
-      Swal.fire('Chú ý', 'Bạn chưa có dữ liệu chấm công.', 'info');
+      setInlineNotice({
+        variant: 'info',
+        title: 'Chưa có dữ liệu',
+        text: 'Bạn chưa có dữ liệu chấm công để AI đánh giá.',
+      });
       return;
     }
 
-    Swal.fire({
-      title: 'Llama 3.3 đang đánh giá...',
-      allowOutsideClick: false,
-      didOpen: () => Swal.showLoading(),
-    });
+    setAiReviewSheet({ open: true, loading: true, text: '' });
 
     const myLogs = myLogsList
       .slice(0, 12)
@@ -419,11 +440,12 @@ export default function ActivityHistory() {
           groqKeys.length > 0 ? groqKeys[Math.floor(Math.random() * groqKeys.length)] : null;
         const apiKey = typeof selectedKey === 'string' ? selectedKey : selectedKey?.key;
         if (!apiKey) {
-          Swal.fire(
-            'Cảnh báo',
-            proxyRes?.message || 'Hệ thống AI máy chủ đang bảo trì hoặc chưa đồng bộ khóa API.',
-            'warning'
-          );
+          setAiReviewSheet({
+            open: true,
+            loading: false,
+            text: '',
+            error: proxyRes?.message || 'Hệ thống AI máy chủ đang bảo trì hoặc chưa đồng bộ khóa API.',
+          });
           return;
         }
         const result = await fetchWithRetry('https://api.groq.com/openai/v1/chat/completions', {
@@ -439,24 +461,22 @@ export default function ActivityHistory() {
         aiText = result.choices?.[0]?.message?.content || 'Không thể phân tích lúc này.';
       }
 
-      const safeText = escapeHtml(aiText);
-      Swal.fire({
-        title: 'Lời Khuyên Quản Lý AI',
-        html: `<div class="text-left text-sm leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-wrap">${safeText}</div>`,
-        icon: 'info',
-        confirmButtonColor: '#062B49',
-        confirmButtonText: 'Cảm ơn AI!',
-      });
+      setAiReviewSheet({ open: true, loading: false, text: aiText });
       speak(aiText);
     } catch {
       speak('Lỗi kết nối Gờ rốc AI.');
-      Swal.fire('Lỗi', 'Lỗi kết nối AI. Vui lòng thử lại sau.', 'error');
+      setAiReviewSheet({
+        open: true,
+        loading: false,
+        text: '',
+        error: 'Lỗi kết nối AI. Vui lòng thử lại sau.',
+      });
     }
   };
 
   const handleOpenEdit = (log: LogEntry) => {
     setEditingLog(log);
-    const isIn = log.type.includes('Vào ca') || log.type.includes('IN');
+    const isIn = isCheckInLabel(log.type);
     setNewTypeChoice(isIn ? 'Ra ca' : 'Vào ca');
     setEditReason('');
     setEditModalOpen(true);
@@ -465,6 +485,7 @@ export default function ActivityHistory() {
   const handleConfirmEditType = async () => {
     if (!editingLog || !currentUser) return;
     setIsSubmittingEdit(true);
+    setInlineNotice(null);
     try {
       if (!isAdmin) {
         const now = new Date();
@@ -483,23 +504,26 @@ export default function ActivityHistory() {
         try {
           const claimRes = await callApi('SUBMIT_MISSED_CHECKIN', claimPayload);
           if (claimRes && !claimRes.ok) {
-            Swal.fire('Không thể gửi yêu cầu', claimRes.message || 'Máy chủ từ chối yêu cầu.', 'error');
+            setInlineNotice({
+              variant: 'error',
+              title: 'Không thể gửi yêu cầu',
+              text: claimRes.message || 'Máy chủ từ chối yêu cầu.',
+            });
             return;
           }
           setEditModalOpen(false);
           confetti({ particleCount: 55, spread: 55, origin: { y: 0.6 } });
-          Swal.fire({
-            icon: 'success',
+          pushToast(`Đã gửi yêu cầu đổi sang "${newTypeChoice}" tới Quản lý duyệt!`, 'success');
+          setInlineNotice({
+            variant: 'success',
             title: 'Đã gửi Quản lý duyệt!',
             text: `Yêu cầu đổi sang "${newTypeChoice}" đã được chuyển tới Ban Quản Lý phê duyệt.`,
-            timer: 2400,
-            showConfirmButton: false,
           });
         } catch {
           enqueueTask('SUBMIT_MISSED_CHECKIN', claimPayload);
           setEditModalOpen(false);
-          Swal.fire({
-            icon: 'info',
+          setInlineNotice({
+            variant: 'info',
             title: 'Đã lưu vào hàng đợi Offline',
             text: 'Yêu cầu điều chỉnh loại ca sẽ tự động gửi tới Quản lý ngay khi có mạng.',
           });
@@ -540,20 +564,22 @@ export default function ActivityHistory() {
         setEditModalOpen(false);
         confetti({ particleCount: 70, spread: 60, origin: { y: 0.6 } });
         speak('Đã cập nhật loại chấm công thành công.');
-        Swal.fire({
-          icon: 'success',
-          title: 'Đã cập nhật!',
-          text: `Đã sửa thành "${newTypeChoice}" trên Bảng Chấm Công gốc.`,
-          timer: 2000,
-          showConfirmButton: false,
-        });
+        pushToast(`Đã sửa thành "${newTypeChoice}" trên Bảng Chấm Công gốc!`, 'success');
         refreshAppData(true);
         fetchCompleteHistory(true);
       } else {
-        Swal.fire('Lỗi', res?.message || 'Không thể cập nhật loại chấm công.', 'error');
+        setInlineNotice({
+          variant: 'error',
+          title: 'Lỗi cập nhật',
+          text: res?.message || 'Không thể cập nhật loại chấm công.',
+        });
       }
     } catch (err: any) {
-      Swal.fire('Lỗi', err.message || 'Lỗi hệ thống khi cập nhật.', 'error');
+      setInlineNotice({
+        variant: 'error',
+        title: 'Lỗi hệ thống',
+        text: err.message || 'Lỗi hệ thống khi cập nhật.',
+      });
     } finally {
       setIsSubmittingEdit(false);
     }
@@ -569,6 +595,12 @@ export default function ActivityHistory() {
         description="Tải đầy đủ 100% các lượt vào ca, ra ca trên toàn bộ sổ chấm công để đối chiếu minh bạch."
         eyebrow="Nhật ký đầy đủ"
       />
+
+      {inlineNotice && (
+        <KgAlertCard variant={inlineNotice.variant} title={inlineNotice.title}>
+          {inlineNotice.text}
+        </KgAlertCard>
+      )}
 
       {/* Anomaly Detection Banner */}
       {anomalies.length > 0 && (
@@ -589,10 +621,10 @@ export default function ActivityHistory() {
                 </div>
                 <div className="flex items-center gap-1.5 mt-1 text-xs font-semibold text-[var(--kg-text)] flex-wrap">
                   <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/15 px-1.5 py-0.5 rounded-md">
-                    <CircleCheck size={11} /> "{anomalies[0].suggestedType}"
+                    <CircleCheck size={11} /> "{formatUnifiedPunchLabel(anomalies[0].suggestedType)}"
                   </span>
                   <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded-md text-[11px]">
-                    <CircleAlert size={11} /> "{anomalies[0].type}"
+                    <CircleAlert size={11} /> "{formatUnifiedPunchLabel(anomalies[0].type)}"
                   </span>
                   {anomalies.length > 1 && (
                     <span className="text-[10px] text-[var(--kg-text-muted)] font-medium tabular-nums">
@@ -605,7 +637,7 @@ export default function ActivityHistory() {
             <button
               type="button"
               onClick={() => setTypeFilter(typeFilter === 'ANOMALY' ? 'ALL' : 'ANOMALY')}
-              className="px-2.5 py-1.5 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-danger)]/30 text-[11px] font-bold text-[var(--kg-danger)] whitespace-nowrap hover:opacity-90 transition active:scale-95"
+              className="min-h-[44px] sm:min-h-[34px] px-3 py-1.5 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-danger)]/30 text-[11px] font-bold text-[var(--kg-danger)] whitespace-nowrap hover:opacity-90 transition active:scale-95 touch-manipulation"
             >
               {typeFilter === 'ANOMALY' ? 'Xem tất cả' : 'Lọc ca lỗi'}
             </button>
@@ -613,14 +645,14 @@ export default function ActivityHistory() {
         </div>
       )}
 
-      {/* Accurate Full-Dataset KPI Summary */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-3.5">
-        <div className="soft3d-card p-2.5 sm:p-4 rounded-2xl">
+      {/* Accurate Full-Dataset KPI Summary (360px-safe 2-col -> 3-col) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3.5">
+        <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-3 sm:p-4 rounded-2xl min-w-0">
           <div className="flex items-center gap-1.5 mb-1">
             <div className="p-1 sm:p-1.5 bg-[var(--kg-primary-soft)] rounded-lg text-[var(--kg-primary)] flex-shrink-0">
               <Layers size={13} />
             </div>
-            <p className="text-[10px] sm:text-xs text-[var(--kg-text-muted)] font-bold uppercase tracking-tight sm:tracking-wider whitespace-nowrap">
+            <p className="text-[10.5px] sm:text-xs text-[var(--kg-text-muted)] font-bold uppercase tracking-tight sm:tracking-wider truncate">
               Tổng lượt
             </p>
           </div>
@@ -632,12 +664,12 @@ export default function ActivityHistory() {
           </p>
         </div>
 
-        <div className="soft3d-card p-2.5 sm:p-4 rounded-2xl">
+        <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-3 sm:p-4 rounded-2xl min-w-0">
           <div className="flex items-center gap-1.5 mb-1">
             <div className="p-1 sm:p-1.5 bg-[var(--kg-accent-soft)] rounded-lg text-[var(--kg-accent-ink)] flex-shrink-0">
               <CalendarCheck size={13} />
             </div>
-            <p className="text-[10px] sm:text-xs text-[var(--kg-text-muted)] font-bold uppercase tracking-tight sm:tracking-wider whitespace-nowrap">
+            <p className="text-[10.5px] sm:text-xs text-[var(--kg-text-muted)] font-bold uppercase tracking-tight sm:tracking-wider truncate">
               Vào / Ra
             </p>
           </div>
@@ -651,12 +683,12 @@ export default function ActivityHistory() {
           </p>
         </div>
 
-        <div className="soft3d-card p-2.5 sm:p-4 rounded-2xl">
+        <div className="col-span-2 sm:col-span-1 bg-[var(--kg-surface)] border border-[var(--kg-border)] p-3 sm:p-4 rounded-2xl min-w-0">
           <div className="flex items-center gap-1.5 mb-1">
             <div className="p-1 sm:p-1.5 bg-[var(--kg-success-soft)] rounded-lg text-[var(--kg-success)] flex-shrink-0">
               <ShieldCheck size={13} />
             </div>
-            <p className="text-[10px] sm:text-xs text-[var(--kg-text-muted)] font-bold uppercase tracking-tight sm:tracking-wider whitespace-nowrap">
+            <p className="text-[10.5px] sm:text-xs text-[var(--kg-text-muted)] font-bold uppercase tracking-tight sm:tracking-wider truncate">
               Hợp lệ
             </p>
           </div>
@@ -716,7 +748,7 @@ export default function ActivityHistory() {
           <button
             type="button"
             onClick={handleManualRefresh}
-            className="min-h-[36px] px-2.5 py-1.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] hover:border-[var(--kg-border-strong)] text-[var(--kg-text)] text-xs font-bold inline-flex items-center gap-1.5 transition active:scale-95 flex-shrink-0 touch-manipulation"
+            className="min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] hover:border-[var(--kg-border-strong)] text-[var(--kg-text)] text-xs font-bold inline-flex items-center gap-1.5 transition active:scale-95 flex-shrink-0 touch-manipulation"
             title="Tải lại toàn bộ dữ liệu chấm công từ Google Sheets"
           >
             <RotateCcw size={13} className={isSyncingAny ? 'animate-spin' : ''} />
@@ -808,7 +840,7 @@ export default function ActivityHistory() {
                 key={pill.id}
                 type="button"
                 onClick={() => setTypeFilter(pill.id)}
-                className={`min-h-[34px] px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap inline-flex items-center gap-1.5 transition-all touch-manipulation ${
+                className={`min-h-[44px] sm:min-h-[34px] px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap inline-flex items-center gap-1.5 transition-all touch-manipulation ${
                   active
                     ? 'bg-[var(--kg-primary)] text-white shadow-2xs'
                     : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] hover:text-[var(--kg-text)]'
@@ -883,19 +915,43 @@ export default function ActivityHistory() {
                 {/* Day Punches */}
                 <div className="space-y-2">
                   {group.items.map((log, idx) => {
-                    const isIn = log.type.includes('Vào ca') || log.type.includes('IN');
+                    const isPendingSupp = isPendingSupplementLabel(log.type);
+                    const isRejectedSupp = isRejectedSupplementLabel(log.type);
+                    const isIn = isCheckInLabel(log.type);
+                    const isLocalQueued = Boolean(
+                      log.localQueued ||
+                        log.status?.includes('Lưu tạm') ||
+                        log.status?.includes('Chờ mạng')
+                    );
+                    const isEdgeBuffered = Boolean(
+                      !isLocalQueued &&
+                        (log.edgeBuffered ||
+                          log.sheetSynced === false ||
+                          log.status?.includes('Đám mây'))
+                    );
+                    const isPendingStatus = Boolean(log.status?.includes('Chờ'));
                     const isValid =
-                      log.status?.includes('Hợp lệ') ||
-                      log.status?.includes('HỢP LỆ') ||
-                      log.status === 'Đồng bộ...';
+                      !isLocalQueued &&
+                      !isEdgeBuffered &&
+                      (log.status?.includes('Hợp lệ') ||
+                        log.status?.includes('HỢP LỆ') ||
+                        log.status === 'Đồng bộ...' ||
+                        log.status === 'Đang đồng bộ...');
                     const logAnomaly = anomalies.find((a) => a.logTime === log.time);
-                    const canEdit = isAdmin || matchesUser(log, currentUser);
+                    const canEdit =
+                      !isPendingSupp && !isRejectedSupp && (isAdmin || matchesUser(log, currentUser));
 
                     return (
                       <div
                         key={`${makeLogDedupeKey(log)}_${idx}`}
                         className={`group soft3d-card p-3.5 sm:p-4 rounded-2xl hover:shadow-sm transition-all relative overflow-hidden ${
-                          logAnomaly ? 'border-2 border-rose-500/40 bg-rose-500/5' : ''
+                          logAnomaly
+                            ? 'border-2 border-rose-500/40 bg-rose-500/5'
+                            : isPendingSupp || isLocalQueued
+                            ? 'border border-amber-500/40 bg-amber-500/5'
+                            : isEdgeBuffered
+                            ? 'border border-sky-500/35 bg-sky-500/5'
+                            : ''
                         }`}
                       >
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
@@ -903,17 +959,27 @@ export default function ActivityHistory() {
                             <div className="flex flex-wrap items-center gap-2 mb-1">
                               <span
                                 className={`font-black text-xs px-2.5 py-0.5 rounded-lg inline-flex items-center gap-1.5 ${
-                                  isIn
+                                  isPendingSupp
+                                    ? 'bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-500/35'
+                                    : isRejectedSupp
+                                    ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-400/30 line-through'
+                                    : isIn
                                     ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/35 dark:text-emerald-400 border border-emerald-500/25'
                                     : 'bg-rose-50 text-rose-700 dark:bg-rose-950/35 dark:text-rose-400 border border-rose-500/25'
                                 }`}
                               >
                                 <span
                                   className={`w-1.5 h-1.5 rounded-full ${
-                                    isIn ? 'bg-emerald-500' : 'bg-rose-500'
+                                    isPendingSupp
+                                      ? 'bg-amber-500 animate-pulse'
+                                      : isRejectedSupp
+                                      ? 'bg-slate-400'
+                                      : isIn
+                                      ? 'bg-emerald-500'
+                                      : 'bg-rose-500'
                                   }`}
                                 />
-                                {log.type.toUpperCase()}
+                                {formatUnifiedPunchLabel(log.type).toUpperCase()}
                               </span>
 
                               {log.isCorrected && (
@@ -941,20 +1007,43 @@ export default function ActivityHistory() {
                             )}
 
                             <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--kg-text-muted)]">
-                              <p className="inline-flex items-center">
-                                {isValid ? (
-                                  <CircleCheck
-                                    size={12}
-                                    className="mr-1 text-emerald-600 dark:text-emerald-400 flex-shrink-0"
-                                  />
-                                ) : (
-                                  <CircleAlert
-                                    size={12}
-                                    className="mr-1 text-rose-600 dark:text-rose-400 flex-shrink-0"
-                                  />
-                                )}
-                                <span>{log.status}</span>
-                              </p>
+                              {isLocalQueued ? (
+                                <span
+                                  data-testid="log-sync-badge-local"
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/35 font-bold text-[11px]"
+                                >
+                                  <Smartphone size={11} className="flex-shrink-0" />
+                                  <span>Lưu tạm trên máy • Chờ mạng</span>
+                                </span>
+                              ) : isEdgeBuffered ? (
+                                <span
+                                  data-testid="log-sync-badge-edge"
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-sky-500/15 text-sky-800 dark:text-sky-300 border border-sky-500/35 font-bold text-[11px]"
+                                >
+                                  <CloudUpload size={11} className="flex-shrink-0" />
+                                  <span>Đám mây bảo lãnh • Đang ghi Sheet</span>
+                                </span>
+                              ) : (
+                                <p className="inline-flex items-center">
+                                  {isValid ? (
+                                    <CircleCheck
+                                      size={12}
+                                      className="mr-1 text-emerald-600 dark:text-emerald-400 flex-shrink-0"
+                                    />
+                                  ) : isPendingSupp || isPendingStatus ? (
+                                    <Loader2
+                                      size={12}
+                                      className="mr-1 text-amber-600 dark:text-amber-400 flex-shrink-0"
+                                    />
+                                  ) : (
+                                    <CircleAlert
+                                      size={12}
+                                      className="mr-1 text-rose-600 dark:text-rose-400 flex-shrink-0"
+                                    />
+                                  )}
+                                  <span>{log.status}</span>
+                                </p>
+                              )}
                               {log.distance && (
                                 <span className="text-[11px] font-mono tabular-nums opacity-85">
                                   • {log.distance}
@@ -989,7 +1078,7 @@ export default function ActivityHistory() {
                               <button
                                 type="button"
                                 onClick={() => handleOpenEdit(log)}
-                                className="min-h-[36px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 text-xs font-bold transition-all active:scale-95 shadow-xs touch-manipulation"
+                                className="min-h-[44px] sm:min-h-[36px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 text-xs font-bold transition-all active:scale-95 shadow-xs touch-manipulation"
                                 title="Đổi giữa Vào ca và Ra ca nếu ghi nhận nhầm"
                               >
                                 <Edit3
@@ -1006,7 +1095,7 @@ export default function ActivityHistory() {
                               <button
                                 type="button"
                                 onClick={() => openPreview(log.image!)}
-                                className="min-h-[36px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-900 dark:bg-sky-950/40 dark:text-sky-300 border border-sky-200 dark:border-sky-800/60 text-xs font-bold transition-all active:scale-95 shadow-xs touch-manipulation"
+                                className="min-h-[44px] sm:min-h-[36px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-900 dark:bg-sky-950/40 dark:text-sky-300 border border-sky-200 dark:border-sky-800/60 text-xs font-bold transition-all active:scale-95 shadow-xs touch-manipulation"
                                 title="Xem ảnh minh chứng sắc nét tức thì"
                               >
                                 <ImageIcon
@@ -1091,7 +1180,7 @@ export default function ActivityHistory() {
               <div className="flex justify-between items-center text-xs">
                 <span className="text-[var(--kg-text-muted)] font-medium">Loại hiện tại:</span>
                 <span className="font-black px-2 py-0.5 rounded bg-slate-500/15 text-[var(--kg-text)]">
-                  {editingLog.type}
+                  {formatUnifiedPunchLabel(editingLog.type)}
                 </span>
               </div>
             </div>
@@ -1104,8 +1193,6 @@ export default function ActivityHistory() {
                 {[
                   { id: 'Vào ca', label: 'Vào ca', desc: 'Bắt đầu ca làm việc' },
                   { id: 'Ra ca', label: 'Ra ca', desc: 'Kết thúc ca làm việc' },
-                  { id: 'Vào ca 2', label: 'Vào ca 2', desc: 'Bắt đầu ca gãy / tăng ca' },
-                  { id: 'Ra ca 2', label: 'Ra ca 2', desc: 'Kết thúc ca gãy' },
                 ].map((item) => {
                   const isSelected = newTypeChoice === item.id;
                   return (
@@ -1145,7 +1232,7 @@ export default function ActivityHistory() {
                     key={reasonText}
                     type="button"
                     onClick={() => setEditReason(reasonText)}
-                    className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition ${
+                    className={`min-h-[44px] sm:min-h-[34px] px-2.5 py-1 rounded-xl text-xs font-bold border transition touch-manipulation ${
                       editReason === reasonText
                         ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)]'
                         : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)] hover:text-[var(--kg-text)]'
@@ -1169,7 +1256,7 @@ export default function ActivityHistory() {
               <button
                 type="button"
                 onClick={() => setEditModalOpen(false)}
-                className="flex-1 py-3 rounded-xl border border-[var(--kg-border)] text-[var(--kg-text-muted)] text-xs font-black hover:bg-slate-100 dark:hover:bg-slate-800 transition active:scale-95"
+                className="flex-1 min-h-[44px] py-3 rounded-xl border border-[var(--kg-border)] text-[var(--kg-text-muted)] text-xs font-black hover:bg-[var(--kg-surface-soft)] transition active:scale-95 touch-manipulation"
               >
                 Hủy bỏ
               </button>
@@ -1188,6 +1275,65 @@ export default function ActivityHistory() {
           </div>
         )}
       </KgBottomSheet>
+
+      <KgConfirmSheet
+        isOpen={sheetConfirmOpen}
+        onClose={() => setSheetConfirmOpen(false)}
+        onConfirm={() => {
+          setSheetConfirmOpen(false);
+          window.open(
+            'https://docs.google.com/spreadsheets/d/1UtDinbNZdOF8LRwxX1SlTKxUBFvr0UG6_iu7NyXDteY',
+            '_blank',
+            'noopener,noreferrer'
+          );
+        }}
+        title="Hướng dẫn xem dữ liệu gốc"
+        message='Bạn sắp được chuyển đến Bảng dữ liệu gốc. Vui lòng tìm và chọn sheet có tên "CHẤM CÔNG" ở thanh công cụ phía dưới cùng để xem dữ liệu của mình nhé!'
+        confirmLabel="Đã hiểu, tới Bảng tính"
+        cancelLabel="Đóng"
+        variant="info"
+      />
+
+      <KgBottomSheet
+        isOpen={aiReviewSheet.open}
+        onClose={() => setAiReviewSheet((prev) => ({ ...prev, open: false }))}
+        title="Lời Khuyên Quản Lý AI"
+        footer={
+          !aiReviewSheet.loading ? (
+            <KgButton
+              variant="primary"
+              size="md"
+              className="w-full"
+              onClick={() => setAiReviewSheet((prev) => ({ ...prev, open: false }))}
+            >
+              Cảm ơn AI!
+            </KgButton>
+          ) : undefined
+        }
+      >
+        {aiReviewSheet.loading ? (
+          <div className="py-8 flex flex-col items-center justify-center gap-3 text-center">
+            <Loader2 size={28} className="animate-spin text-[var(--kg-primary)]" />
+            <p className="text-sm font-bold text-[var(--kg-text)]">Llama 3.3 đang đánh giá năng suất...</p>
+          </div>
+        ) : aiReviewSheet.error ? (
+          <KgAlertCard variant="warning" title="Chưa thể đánh giá AI">
+            {aiReviewSheet.error}
+          </KgAlertCard>
+        ) : (
+          <div className="text-sm leading-relaxed text-[var(--kg-text)] whitespace-pre-wrap py-1">
+            {aiReviewSheet.text}
+          </div>
+        )}
+      </KgBottomSheet>
+
+      {toasts.length > 0 && (
+        <div className="fixed bottom-20 md:bottom-6 right-4 z-[10090] flex flex-col gap-2 pointer-events-none">
+          {toasts.map((toast) => (
+            <KgToast key={toast.id} message={toast} onClose={dismissToast} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

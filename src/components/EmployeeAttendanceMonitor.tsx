@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { auditAllEmployeesAttendance, type EmployeeAttendanceStatus, ResponsiveShift, getPreviewShiftClass } from '../utils/helpers';
 import {
@@ -206,14 +206,14 @@ export default function EmployeeAttendanceMonitor({
             placeholder="Tìm theo tên nhân viên, vị trí..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-8 py-2.5 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-xs text-[var(--kg-text)] placeholder-[var(--kg-text-muted)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15"
+            className="w-full min-h-[44px] sm:min-h-[40px] pl-9 pr-11 py-2.5 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-xs text-[var(--kg-text)] placeholder-[var(--kg-text-muted)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15"
           />
           {searchQuery && (
             <button
               type="button"
               onClick={() => setSearchQuery('')}
               aria-label="Xóa từ khóa tìm kiếm"
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] p-1"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 w-9 h-9 rounded-lg flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]"
             >
               <X size={14} />
             </button>
@@ -225,7 +225,7 @@ export default function EmployeeAttendanceMonitor({
           <button
             type="button"
             onClick={() => setFilterTab('ALL')}
-            className={`px-3 py-1.5 rounded-full font-bold whitespace-nowrap transition-colors ${
+            className={`min-h-[44px] sm:min-h-[34px] px-3 py-1.5 rounded-full font-bold whitespace-nowrap transition-colors touch-manipulation ${
               filterTab === 'ALL'
                 ? 'bg-[var(--kg-primary)] text-white shadow-xs'
                 : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
@@ -236,7 +236,7 @@ export default function EmployeeAttendanceMonitor({
           <button
             type="button"
             onClick={() => setFilterTab('IN_SHIFT')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold whitespace-nowrap transition-colors ${
+            className={`min-h-[44px] sm:min-h-[34px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold whitespace-nowrap transition-colors touch-manipulation ${
               filterTab === 'IN_SHIFT'
                 ? 'bg-emerald-600 text-white shadow-xs'
                 : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
@@ -248,7 +248,7 @@ export default function EmployeeAttendanceMonitor({
           <button
             type="button"
             onClick={() => setFilterTab('NOT_IN_YET')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold whitespace-nowrap transition-colors ${
+            className={`min-h-[44px] sm:min-h-[34px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold whitespace-nowrap transition-colors touch-manipulation ${
               filterTab === 'NOT_IN_YET'
                 ? 'bg-amber-600 text-white shadow-xs'
                 : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
@@ -260,7 +260,7 @@ export default function EmployeeAttendanceMonitor({
           <button
             type="button"
             onClick={() => setFilterTab('COMPLETED')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold whitespace-nowrap transition-colors ${
+            className={`min-h-[44px] sm:min-h-[34px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold whitespace-nowrap transition-colors touch-manipulation ${
               filterTab === 'COMPLETED'
                 ? 'bg-sky-600 text-white shadow-xs'
                 : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
@@ -272,7 +272,7 @@ export default function EmployeeAttendanceMonitor({
           <button
             type="button"
             onClick={() => setFilterTab('OFF')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold whitespace-nowrap transition-colors ${
+            className={`min-h-[44px] sm:min-h-[34px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold whitespace-nowrap transition-colors touch-manipulation ${
               filterTab === 'OFF'
                 ? 'bg-slate-700 text-white shadow-xs'
                 : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
@@ -347,10 +347,11 @@ export default function EmployeeAttendanceMonitor({
                       <div className="text-[11px] text-[var(--kg-text-muted)] mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
                         {isUserInShift && (
                           <span className="font-semibold flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                            <Clock size={11} /> Vào ca: <b>{item.inTime}</b>
+                            <Clock size={11} /> Vào ca:{' '}
+                            <b className="font-mono tabular-nums">{item.inTime}</b>
                             {item.elapsedMins !== undefined && (
-                              <span className="text-[10px] text-[var(--kg-text-muted)]">
-                                ({Math.floor(item.elapsedMins / 60)}h{item.elapsedMins % 60}p)
+                              <span className="text-[10px] font-mono tabular-nums text-[var(--kg-text-muted)]">
+                                ({Math.floor(item.elapsedMins / 60)}h{String(item.elapsedMins % 60).padStart(2, '0')}p)
                               </span>
                             )}
                           </span>
@@ -358,8 +359,9 @@ export default function EmployeeAttendanceMonitor({
 
                         {isUserCompleted && (
                           <span className="font-semibold flex items-center gap-1 text-blue-600 dark:text-blue-400">
-                            <CheckCircle2 size={11} /> Ra ca lúc: <b>{item.outTime}</b>
-                            <span className="text-[10px] text-[var(--kg-text-muted)]">
+                            <CheckCircle2 size={11} /> Ra ca lúc:{' '}
+                            <b className="font-mono tabular-nums">{item.outTime}</b>
+                            <span className="text-[10px] font-mono tabular-nums text-[var(--kg-text-muted)]">
                               (Tổng {(item.totalWorkedMinutes / 60).toFixed(1)}h)
                             </span>
                           </span>
@@ -438,7 +440,7 @@ export default function EmployeeAttendanceMonitor({
   }
 
   return (
-    <div className="bg-[var(--kg-surface)] p-4 sm:p-5 rounded-2xl md:rounded-3xl border border-[var(--kg-border)] text-[var(--kg-text)] shadow-xs max-w-md mx-auto space-y-3">
+    <div className="w-full bg-[var(--kg-surface)] p-4 sm:p-5 rounded-2xl md:rounded-3xl border border-[var(--kg-border)] text-[var(--kg-text)] shadow-xs space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-xl bg-blue-500/15 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold">
@@ -448,7 +450,7 @@ export default function EmployeeAttendanceMonitor({
             <h3 className="text-xs font-black uppercase tracking-wider text-[var(--kg-text)]">
               Ca Làm Việc Hôm Nay
             </h3>
-            <p className="text-[10px] text-[var(--kg-text-muted)] font-medium">
+            <p className="text-[10px] text-[var(--kg-text-muted)] font-medium font-mono tabular-nums">
               Đang làm: {counts.inShift} • Chưa vào: {counts.notInYet}
             </p>
           </div>
@@ -457,10 +459,11 @@ export default function EmployeeAttendanceMonitor({
         <button
           type="button"
           onClick={() => setTicker((t) => t + 1)}
-          className="p-1.5 rounded-lg bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-surface)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition active:scale-95"
+          aria-label="Làm mới dữ liệu"
+          className="min-w-[44px] min-h-[44px] sm:min-w-[36px] sm:min-h-[36px] rounded-lg bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-surface)] border border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] flex items-center justify-center transition active:scale-95 touch-manipulation"
           title="Làm mới dữ liệu"
         >
-          <RefreshCw size={13} />
+          <RefreshCw size={14} />
         </button>
       </div>
 

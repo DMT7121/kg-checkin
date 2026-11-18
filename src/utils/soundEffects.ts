@@ -42,35 +42,60 @@ export function preloadAudioClips(keys: string[]) {
   });
 }
 
-/** Auto unlock AudioContext on first user touch/click (crucial for iOS Safari) */
+let unlockListenersAttached = false;
+
+/** Auto unlock AudioContext on user gesture (touchend/click — crucial for iOS Safari & Home-Screen PWA) */
 export function setupAudioUnlock() {
-  if (typeof window === 'undefined' || isAudioUnlocked) return;
+  if (typeof window === 'undefined' || isAudioUnlocked || unlockListenersAttached) return;
+  unlockListenersAttached = true;
+
+  const events = ['touchend', 'click', 'pointerup', 'keydown'] as const;
+
+  const removeListeners = () => {
+    events.forEach((evt) => {
+      window.removeEventListener(evt, unlock);
+    });
+    unlockListenersAttached = false;
+  };
 
   const unlock = () => {
     try {
       const ctx = getAudioContext();
-      if (ctx && ctx.state === 'suspended') {
-        ctx.resume().then(() => {
+      if (ctx) {
+        // Play 1-sample silent buffer inside active touchend/click gesture to unmute iOS WebKit hardware channel
+        try {
+          const silentBuf = ctx.createBuffer(1, 1, 22050);
+          const src = ctx.createBufferSource();
+          src.buffer = silentBuf;
+          src.connect(ctx.destination);
+          src.start(0);
+        } catch { /* ignore */ }
+
+        if (ctx.state === 'running') {
           isAudioUnlocked = true;
-        }).catch(() => {});
-      } else {
-        isAudioUnlocked = true;
+          removeListeners();
+        } else {
+          ctx
+            .resume()
+            .then(() => {
+              if (ctx.state === 'running') {
+                isAudioUnlocked = true;
+                removeListeners();
+              }
+            })
+            .catch(() => {});
+        }
       }
-      
+
       // Warm up audio elements on first user gesture
-      audioCache.forEach(audio => {
+      audioCache.forEach((audio) => {
         audio.load();
       });
     } catch { /* ignore */ }
-
-    // Remove listeners once unlocked
-    ['touchstart', 'touchend', 'click', 'keydown'].forEach(evt => {
-      window.removeEventListener(evt, unlock);
-    });
   };
 
-  ['touchstart', 'touchend', 'click', 'keydown'].forEach(evt => {
-    window.addEventListener(evt, unlock, { once: true, passive: true });
+  events.forEach((evt) => {
+    window.addEventListener(evt, unlock, { passive: true });
   });
 }
 
@@ -247,6 +272,8 @@ export function getVietnameseSpeechVoice(): SpeechSynthesisVoice | null {
 export function speakWithVietnameseLock(text: string): boolean {
   try {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return false;
+    // Prevent iOS Safari background SpeechSynthesis queue freeze when screen is locked
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return false;
 
     const viVoice = getVietnameseSpeechVoice();
     if (!viVoice) {

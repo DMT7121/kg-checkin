@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Bell, CheckCheck, Info, AlertTriangle, CheckCircle2, ArrowRight, X, Sparkles } from 'lucide-react';
 import { callApi } from '../services/api';
 import { useAppStore } from '../store/useAppStore';
+import type { TabId } from '../types/navigation';
 
 interface Notification {
   id: string;
@@ -167,11 +168,11 @@ export default function NotificationBell() {
         }}
         aria-expanded={isOpen}
         aria-haspopup="dialog"
-        className="relative w-10 h-10 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] active:scale-95 transition-all shadow-sm"
+        className="relative w-11 h-11 min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 md:w-10 md:h-10 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] active:scale-95 transition-all shadow-sm"
         aria-label="Thông báo"
         title="Thông báo hệ thống"
       >
-        <Bell size={18} />
+        <Bell size={17} />
         {unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 min-w-[19px] h-[19px] flex items-center justify-center bg-red-500 text-white text-[10px] font-black rounded-full px-1 shadow-md border-2 border-[var(--kg-surface)] animate-pulse">
             {unreadCount > 9 ? '9+' : unreadCount}
@@ -213,7 +214,7 @@ export default function NotificationBell() {
                   <button 
                     type="button"
                     onClick={handleMarkAllRead}
-                    className="text-xs text-[var(--kg-primary)] font-semibold hover:underline flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-border)] active:scale-95 transition-colors"
+                    className="text-xs text-[var(--kg-primary-ink)] font-semibold hover:underline flex items-center gap-1 px-3 py-1.5 min-h-[44px] md:min-h-[34px] rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-border)] active:scale-95 transition-colors"
                   >
                     <CheckCheck size={14} /> Đọc hết
                   </button>
@@ -221,7 +222,7 @@ export default function NotificationBell() {
                 <button 
                   type="button"
                   onClick={() => setIsOpen(false)} 
-                  className="w-9 h-9 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] active:scale-95 transition-all"
+                  className="w-11 h-11 min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 md:w-9 md:h-9 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] active:scale-95 transition-all"
                   aria-label="Đóng"
                 >
                   <X size={16} />
@@ -244,19 +245,44 @@ export default function NotificationBell() {
                   const config = typeConfig[n.type] || typeConfig.info;
                   const IconComp = config.icon;
                   return (
-                    <div
+                    <button
+                      type="button"
                       key={n.id}
                       onClick={() => {
                         if (!n.isRead) handleMarkRead(n.id);
                         if (n.link) {
-                          const cleanLink = n.link.replace(/^\?tab=/, '').trim();
-                          if (cleanLink) {
-                            setCurrentTab(cleanLink as any);
+                          const rawLink = n.link.trim();
+                          let targetTab = rawLink;
+                          let targetSub = '';
+                          if (rawLink.includes('?') || rawLink.includes('=')) {
+                            const queryStr = rawLink.includes('?')
+                              ? rawLink.slice(rawLink.indexOf('?') + 1)
+                              : rawLink;
+                            const params = new URLSearchParams(queryStr);
+                            targetTab = params.get('tab') || '';
+                            targetSub = params.get('sub') || '';
+                          }
+                          if (targetTab) {
+                            if (targetSub) {
+                              try {
+                                sessionStorage.setItem(`kg_hub_subtab_${targetTab}`, targetSub);
+                              } catch { /* ignore */ }
+                            }
+                            setCurrentTab(targetTab as TabId);
+                            if (targetSub) {
+                              window.setTimeout(() => {
+                                window.dispatchEvent(
+                                  new CustomEvent('kg:subtab-select', {
+                                    detail: { hub: targetTab, subTab: targetSub },
+                                  })
+                                );
+                              }, 30);
+                            }
                             setIsOpen(false);
                           }
                         }
                       }}
-                      className={`flex items-start gap-3 p-3.5 cursor-pointer transition-all ${
+                      className={`w-full text-left flex items-start gap-3 p-3.5 min-h-[44px] cursor-pointer transition-all ${
                         n.isRead 
                           ? 'opacity-65 hover:opacity-100 hover:bg-[var(--kg-surface-soft)]' 
                           : 'bg-blue-50/50 dark:bg-blue-950/20 hover:bg-blue-100/40 dark:hover:bg-blue-900/30'
@@ -281,7 +307,7 @@ export default function NotificationBell() {
                           {formatNotificationTime(n.createdAt)}
                         </p>
                       </div>
-                    </div>
+                    </button>
                   );
                 })
               )}
@@ -292,7 +318,7 @@ export default function NotificationBell() {
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="px-4 py-2 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] text-xs font-bold text-[var(--kg-text)] active:scale-95 transition-all"
+                className="px-4 py-2 min-h-[44px] md:min-h-[36px] rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] text-xs font-bold text-[var(--kg-text)] active:scale-95 transition-all"
               >
                 Đóng thông báo
               </button>

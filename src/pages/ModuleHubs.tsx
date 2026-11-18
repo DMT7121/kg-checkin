@@ -1,15 +1,13 @@
-import { lazy, Suspense, useState, useEffect, type ComponentType } from 'react';
+import { lazy, Suspense, useState, useEffect, type ComponentType, type ReactNode } from 'react';
 import {
-  Activity,
+  AlertTriangle,
   Banknote,
   BarChart3,
   BookOpen,
-  Building2,
   CalendarDays,
   CalendarRange,
   ClipboardCheck,
   Clock3,
-  Coins,
   GraduationCap,
   HandCoins,
   History,
@@ -29,36 +27,38 @@ import {
 } from 'lucide-react';
 import AppErrorBoundary from '../components/AppErrorBoundary';
 import { useAppStore } from '../store/useAppStore';
-import { hasTabPermission } from '../utils/permissions';
+import { callApi } from '../services/api';
+import { normalizeIncidentStatus } from '../utils/operationsReconciliation';
+import { hasTabPermission, isAdminUser } from '../utils/permissions';
+import { moduleLoaders } from '../config/moduleRegistry';
 import { prefetchHubData } from '../utils/refreshData';
 import type { TabId } from '../types/navigation';
 
-const CheckIn = lazy(() => import('./CheckIn'));
-const ActivityHistory = lazy(() => import('./ActivityHistory'));
-const Timesheet = lazy(() => import('./Timesheet'));
-const Schedule = lazy(() => import('./Schedule'));
-const Roster = lazy(() => import('./Roster'));
-const SwapShift = lazy(() => import('./SwapShift'));
-const Operations = lazy(() => import('./Operations'));
-const Checklist = lazy(() => import('./Checklist'));
-const Handover = lazy(() => import('./Handover'));
-const Payroll = lazy(() => import('./Payroll'));
-const Advance = lazy(() => import('./Advance'));
-const Discipline = lazy(() => import('./Discipline'));
-const Reward = lazy(() => import('./Reward'));
-const NewsFeed = lazy(() => import('./NewsFeed'));
-const SoldOut = lazy(() => import('./SoldOut'));
-const Feedback = lazy(() => import('./Feedback'));
-const Training = lazy(() => import('./Training'));
-const Guide = lazy(() => import('./Guide'));
-const HrList = lazy(() => import('./admin/HrList'));
-const AdminOrg = lazy(() => import('./admin/AdminOrg'));
-const AdminShift = lazy(() => import('./admin/AdminShift'));
-const AdminOperations = lazy(() => import('./admin/AdminOperations'));
-const AdminChecklist = lazy(() => import('./admin/AdminChecklistConfig'));
-const AdminPayroll = lazy(() => import('./admin/AdminPayroll'));
-const Admin = lazy(() => import('./Admin'));
-const AdminAnalytics = lazy(() => import('./admin/AdminAnalytics'));
+const ActivityHistory = lazy(moduleLoaders.history);
+const Timesheet = lazy(moduleLoaders.timesheet);
+const Schedule = lazy(moduleLoaders.schedule);
+const Roster = lazy(moduleLoaders.roster);
+const SwapShift = lazy(moduleLoaders.swap);
+const Operations = lazy(moduleLoaders.operations);
+const Checklist = lazy(moduleLoaders.checklist);
+const Handover = lazy(moduleLoaders.handover);
+const Payroll = lazy(moduleLoaders.payroll);
+const Advance = lazy(moduleLoaders.advance);
+const Discipline = lazy(moduleLoaders.discipline);
+const Reward = lazy(moduleLoaders.reward);
+const NewsFeed = lazy(moduleLoaders.news);
+const SoldOut = lazy(moduleLoaders.soldout);
+const Feedback = lazy(moduleLoaders.feedback);
+const Training = lazy(moduleLoaders.training);
+const Guide = lazy(moduleLoaders.guide);
+const HrList = lazy(moduleLoaders.hr_list);
+const AdminOrg = lazy(moduleLoaders.admin_org);
+const AdminShift = lazy(moduleLoaders.admin_shift);
+const AdminOperations = lazy(moduleLoaders.admin_operations);
+const AdminChecklist = lazy(moduleLoaders.admin_checklist);
+const AdminPayroll = lazy(moduleLoaders.admin_payroll);
+const Admin = lazy(moduleLoaders.admin);
+const AdminAnalytics = lazy(moduleLoaders.admin_analytics);
 
 const UserPayroll = () => <Payroll mode="user" />;
 const PayrollAdmin = () => <Payroll mode="admin" />;
@@ -110,9 +110,22 @@ function SubmoduleErrorFallback({ label, onRetry }: { label: string; onRetry: ()
   );
 }
 
-function ModuleHub({ hubId, tabs, initialTab }: { hubId: string; tabs: HubTab[]; initialTab?: string }) {
+function ModuleHub({
+  hubId,
+  tabs,
+  initialTab,
+  summaryStrip,
+}: {
+  hubId: string;
+  tabs: HubTab[];
+  initialTab?: string;
+  summaryStrip?: ReactNode;
+}) {
   const currentUser = useAppStore(state => state.currentUser);
-  const allowedTabs = tabs.filter(tab => hasTabPermission(tab.id as TabId, currentUser));
+  const isAdminBlocked = hubId.startsWith('admin_') && !isAdminUser(currentUser);
+  const allowedTabs = isAdminBlocked
+    ? []
+    : tabs.filter(tab => hasTabPermission(tab.id as TabId, currentUser));
 
   const resolveInitialSubTab = () => {
     try {
@@ -130,17 +143,17 @@ function ModuleHub({ hubId, tabs, initialTab }: { hubId: string; tabs: HubTab[];
     return initialTab || tabs[0]?.id || '';
   };
 
+  const MAX_KEEP_ALIVE_SUBTABS = 2;
   const [activeId, setActiveId] = useState(resolveInitialSubTab);
   const active = allowedTabs.find(tab => tab.id === activeId) || allowedTabs[0];
-  const [visitedTabs, setVisitedTabs] = useState<Set<string>>(() => new Set([resolveInitialSubTab()]));
+  const [visitedTabs, setVisitedTabs] = useState<string[]>(() => [resolveInitialSubTab()]);
 
   const handleSelectTab = (tabId: string, updateUrl = true) => {
     setActiveId(tabId);
     setVisitedTabs(prev => {
-      if (prev.has(tabId)) return prev;
-      const next = new Set(prev);
-      next.add(tabId);
-      return next;
+      if (prev[prev.length - 1] === tabId) return prev;
+      const next = [...prev.filter(id => id !== tabId), tabId];
+      return next.length > MAX_KEEP_ALIVE_SUBTABS ? next.slice(next.length - MAX_KEEP_ALIVE_SUBTABS) : next;
     });
     try {
       sessionStorage.setItem(`kg_hub_subtab_${hubId}`, tabId);
@@ -178,12 +191,24 @@ function ModuleHub({ hubId, tabs, initialTab }: { hubId: string; tabs: HubTab[];
     };
   }, [hubId]);
 
-  if (!active) return null;
+  if (isAdminBlocked || !active) return null;
+
+  const isFourTabHub = allowedTabs.length === 4;
+  const mobileTabsLayoutClass =
+    allowedTabs.length === 2
+      ? 'grid grid-cols-2 sm:flex'
+      : allowedTabs.length === 3
+        ? 'grid grid-cols-3 sm:flex'
+        : allowedTabs.length === 4
+          ? 'grid grid-cols-4 sm:flex'
+          : 'flex overflow-x-auto hide-scrollbar';
 
   return (
     <div className="kg-module-hub min-h-full">
-      <div className="kg-module-tabs-wrap sticky top-0 z-30 bg-[var(--kg-bg)]/95 pb-2.5 pt-0.5 backdrop-blur-sm transition-colors">
-        <div className="kg-module-tabs mx-auto flex max-w-[1520px] gap-1.5 overflow-x-auto rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface)] p-1.5 shadow-xs hide-scrollbar">
+      <div className="kg-module-tabs-wrap relative md:sticky md:top-[60px] z-20 bg-[var(--kg-bg)]/95 pb-2.5 pt-0.5 md:backdrop-blur-sm transition-colors">
+        <div
+          className={`kg-module-tabs mx-auto max-w-[1520px] ${mobileTabsLayoutClass} gap-1 sm:gap-1.5 rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface)] p-1 sm:p-1.5 shadow-xs`}
+        >
           {allowedTabs.map(tab => {
             const Icon = tab.icon;
             const selected = tab.id === active.id;
@@ -196,27 +221,32 @@ function ModuleHub({ hubId, tabs, initialTab }: { hubId: string; tabs: HubTab[];
                   e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
                 }}
                 aria-current={selected ? 'page' : undefined}
-                className={`kg-module-tab relative inline-flex min-w-max flex-1 items-center justify-center gap-2 rounded-xl px-3.5 py-2 text-xs transition-all duration-150 select-none touch-manipulation min-h-[40px] ${
+                className={`kg-module-tab relative inline-flex min-w-0 sm:min-w-max sm:flex-1 items-center justify-center rounded-xl transition-all duration-150 select-none touch-manipulation ${
+                  isFourTabHub
+                    ? 'flex-col sm:flex-row gap-0.5 sm:gap-2 px-1 sm:px-3.5 py-1.5 sm:py-2 text-[11px] sm:text-xs min-h-[46px] sm:min-h-[40px]'
+                    : 'flex-row gap-1 sm:gap-2 px-2 sm:px-3.5 py-2 text-[11.5px] sm:text-xs min-h-[40px]'
+                } ${
                   selected
                     ? 'bg-[var(--kg-primary)] text-white font-bold shadow-xs'
                     : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)] font-semibold'
                 }`}
               >
-                <Icon size={15} className={`flex-shrink-0 ${selected ? 'text-white' : 'text-[var(--kg-text-muted)]'}`} />
-                <span className="hidden sm:inline tracking-tight">{tab.label}</span>
-                <span className="inline sm:hidden tracking-tight">{tab.shortLabel || tab.label}</span>
+                <Icon size={isFourTabHub ? 14 : 15} className={`flex-shrink-0 ${selected ? 'text-white' : 'text-[var(--kg-text-muted)]'}`} />
+                <span className="hidden sm:inline tracking-tight whitespace-nowrap">{tab.label}</span>
+                <span className="inline sm:hidden tracking-tight leading-tight truncate max-w-full">{tab.shortLabel || tab.label}</span>
                 {selected && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#FF8A73] flex-shrink-0" />
+                  <span className="hidden sm:inline-block w-1.5 h-1.5 rounded-full bg-[#FF8A73] flex-shrink-0" />
                 )}
               </button>
             );
           })}
         </div>
       </div>
+      {summaryStrip}
       <div className="kg-module-content">
         {allowedTabs.map(tab => {
           const isSelected = tab.id === active.id;
-          const isVisited = visitedTabs.has(tab.id) || isSelected;
+          const isVisited = visitedTabs.includes(tab.id) || isSelected;
           if (!isVisited) return null;
           const Component = tab.component;
           return (
@@ -267,7 +297,98 @@ export function WorkforceHub() {
 }
 
 export function WorkHub() {
-  return <ModuleHub hubId="work" tabs={[
+  const currentUser = useAppStore(state => state.currentUser);
+  const soldOutItems = useAppStore(state => state.soldOutItems);
+  const [openIncidentCount, setOpenIncidentCount] = useState<number>(0);
+
+  const canViewSoldOut = hasTabPermission('soldout', currentUser);
+  const canViewHandover = hasTabPermission('handover', currentUser);
+
+  useEffect(() => {
+    if (!currentUser?.username || !canViewHandover) return;
+    let cancelled = false;
+    callApi(
+      'GET_INCIDENTS',
+      { username: currentUser.username, role: currentUser.role },
+      { background: true }
+    ).then((res) => {
+      if (cancelled || !res?.ok) return;
+      const raw = Array.isArray(res.data?.incidents)
+        ? res.data.incidents
+        : Array.isArray(res.data)
+          ? res.data
+          : [];
+      const openCount = raw.filter((item: any) => {
+        const st = normalizeIncidentStatus(item?.status);
+        return st === 'Open' || st === 'Investigating';
+      }).length;
+      setOpenIncidentCount(openCount);
+    }).catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser?.username, currentUser?.role, canViewHandover]);
+
+  const jumpToWorkSubTab = (subTab: 'soldout' | 'handover') => {
+    try {
+      sessionStorage.setItem('kg_hub_subtab_work', subTab);
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', 'work');
+      url.searchParams.set('sub', subTab);
+      window.history.replaceState({ tab: 'work', sub: subTab }, '', url.toString());
+    } catch { /* ignore */ }
+    window.dispatchEvent(new CustomEvent('kg:subtab-select', { detail: { hub: 'work', subTab } }));
+  };
+
+  const summaryStrip =
+    canViewSoldOut || canViewHandover ? (
+      <div className="mb-3 rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface)] px-3 py-2 flex flex-wrap items-center justify-between gap-2 shadow-xs">
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
+          {canViewSoldOut && (
+            <button
+              type="button"
+              onClick={() => jumpToWorkSubTab('soldout')}
+              className={`min-h-[44px] sm:min-h-[34px] px-3 py-1.5 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 transition-colors active:scale-95 ${
+                soldOutItems.length > 0
+                  ? 'bg-[var(--kg-warning-soft)] border-[var(--kg-warning)]/30 text-amber-800 dark:text-amber-300'
+                  : 'bg-[var(--kg-surface-soft)] border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
+              }`}
+            >
+              <UtensilsCrossed size={14} className="flex-shrink-0" />
+              <span>
+                Món hết: <span className="font-mono tabular-nums font-extrabold">{soldOutItems.length}</span>
+              </span>
+              {soldOutItems.length > 0 && (
+                <span className="hidden md:inline text-[11px] font-medium opacity-90 truncate max-w-[200px]">
+                  ({soldOutItems.slice(0, 2).map((i) => i.itemName).join(', ')}{soldOutItems.length > 2 ? '…' : ''})
+                </span>
+              )}
+            </button>
+          )}
+          {canViewHandover && (
+            <button
+              type="button"
+              onClick={() => jumpToWorkSubTab('handover')}
+              className={`min-h-[44px] sm:min-h-[34px] px-3 py-1.5 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 transition-colors active:scale-95 ${
+                openIncidentCount > 0
+                  ? 'bg-[var(--kg-danger-soft)] border-[var(--kg-danger)]/30 text-[var(--kg-danger)]'
+                  : 'bg-[var(--kg-surface-soft)] border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
+              }`}
+            >
+              <AlertTriangle size={14} className="flex-shrink-0" />
+              <span>
+                Sự cố mở: <span className="font-mono tabular-nums font-extrabold">{openIncidentCount}</span>
+              </span>
+            </button>
+          )}
+        </div>
+        <span className="hidden sm:inline text-[11px] font-medium text-[var(--kg-text-soft)]">
+          Chạm để mở nhanh mục xử lý
+        </span>
+      </div>
+    ) : null;
+
+  return <ModuleHub hubId="work" summaryStrip={summaryStrip} tabs={[
     { id: 'checklist', label: 'Checklist phân khu', shortLabel: 'Checklist', icon: ClipboardCheck, component: Checklist },
     { id: 'operations', label: 'Phân công trực', shortLabel: 'Phân công', icon: Network, component: Operations },
     { id: 'handover', label: 'Bàn giao', shortLabel: 'Bàn giao', icon: Repeat2, component: Handover },
@@ -330,6 +451,5 @@ export function AdminSystemHub() {
   return <ModuleHub hubId="admin_system" tabs={[
     { id: 'analytics', label: 'Báo cáo', shortLabel: 'Báo cáo', icon: BarChart3, component: AdminAnalytics },
     { id: 'ai', label: 'AI & API', shortLabel: 'AI & API', icon: Sparkles, component: Admin },
-    { id: 'organization', label: 'Doanh nghiệp', shortLabel: 'Doanh nghiệp', icon: Building2, component: AdminOrg },
   ]} />;
 }

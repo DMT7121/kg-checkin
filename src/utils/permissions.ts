@@ -8,11 +8,19 @@ import { moduleLabel, navigationModules } from '../config/moduleRegistry';
 export type { TabId } from '../types/navigation';
 
 /**
+ * Check whether a user has strict administrator privileges.
+ * Note: 'tester' is intentionally NOT treated as admin.
+ */
+export function isAdminUser(user: User | null | undefined): boolean {
+  return user?.role === 'admin';
+}
+
+/**
  * Check if a user with a given role and position has permission to access a specific tab/module.
  * 
  * Rules:
- * 1. Admin and Tester roles have full access to everything.
- * 2. Management and Configuration tabs are strictly restricted to Admin & Tester roles.
+ * 1. Strictly Admin role has full access to everything (tester does NOT get admin access).
+ * 2. Management and Configuration tabs are strictly restricted to Admin role.
  * 3. Personal/Core tabs (Dashboard, Check-in, Schedule, Payroll, History, Profile, etc.) are available to all staff.
  * 4. Operational tabs are filtered based on the user's specific work position (e.g. Cleaners and Security
  *    do not see Sold-out reports, training materials, or shift handovers).
@@ -20,12 +28,11 @@ export type { TabId } from '../types/navigation';
 export function hasTabPermission(tabId: TabId, user: User | null): boolean {
   if (!user) return false;
 
-  const role = user.role || 'user';
   const position = user.position || 'Phục vụ';
   const registryModule = navigationModules.find(module => module.id === tabId);
 
   // 1. Strictly Admin bypasses all restrictions (tester does NOT get admin access)
-  if (role === 'admin') {
+  if (isAdminUser(user)) {
     return true;
   }
 

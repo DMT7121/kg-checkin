@@ -1,5 +1,4 @@
-// ============================================================================
-// King's Grill HR - Timesheet & Overtime Calculation Engine
+import { isCheckInLabel, isCheckOutLabel } from './attendanceSequence';
 // - Pairs in/out check-in records cleanly in a day ("Vào ca" - "Ra ca")
 // - Consolidates overnight check-outs (00:00 - 06:00 next day) to previous day
 // - Threshold 00:15:
@@ -78,16 +77,14 @@ export function isLogValid(record: RawLogItem): boolean {
  * Checks if a record status is a Check-in (Vào ca)
  */
 export function isCheckIn(status: string): boolean {
-  const s = (status || '').toUpperCase();
-  return s.includes('VÀO CA') || s.includes('VÀO') || s === 'IN';
+  return isCheckInLabel(status);
 }
 
 /**
- * Checks if a record status is a Check-out (Ra ca)
+ * Checks if a record status is a Check-out (Ra ca / Ra 1 / Ra 2)
  */
 export function isCheckOut(status: string): boolean {
-  const s = (status || '').toUpperCase();
-  return s.includes('RA CA') || s.includes('RA') || s === 'OUT';
+  return isCheckOutLabel(status);
 }
 
 /**

@@ -48,7 +48,7 @@ export default function MonthDayVisibility({
         <button
           type="button"
           onClick={() => setOpen(value => !value)}
-          className="inline-flex items-center gap-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-2 text-xs font-extrabold text-[var(--kg-text)]"
+          className="inline-flex min-h-[44px] sm:min-h-[38px] items-center gap-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-2 text-xs font-extrabold text-[var(--kg-text)] touch-manipulation"
         >
           <SlidersHorizontal size={15} />
           {open ? 'Đóng lựa chọn' : 'Chọn ngày'}
@@ -58,13 +58,13 @@ export default function MonthDayVisibility({
       {open && (
         <div className="mt-3 border-t border-[var(--kg-border)] pt-3">
           <div className="mb-3 flex flex-wrap gap-2">
-            <button type="button" onClick={() => onChange(monthDates.map(date => date.dateKey))} className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--kg-primary)] px-3 py-2 text-[11px] font-bold text-white">
+            <button type="button" onClick={() => onChange(monthDates.map(date => date.dateKey))} className="inline-flex min-h-[44px] sm:min-h-[36px] items-center gap-1.5 rounded-lg bg-[var(--kg-primary)] px-3 py-2 text-[11px] font-bold text-white touch-manipulation">
               <Eye size={13} /> Tất cả
             </button>
-            <button type="button" onClick={() => onChange(monthDates.filter(date => date.dayIndex < 5).map(date => date.dateKey))} className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--kg-surface-soft)] px-3 py-2 text-[11px] font-bold text-[var(--kg-text)]">
+            <button type="button" onClick={() => onChange(monthDates.filter(date => date.dayIndex < 5).map(date => date.dateKey))} className="inline-flex min-h-[44px] sm:min-h-[36px] items-center gap-1.5 rounded-lg bg-[var(--kg-surface-soft)] px-3 py-2 text-[11px] font-bold text-[var(--kg-text)] touch-manipulation">
               <EyeOff size={13} /> Chỉ T2–T6
             </button>
-            <button type="button" onClick={showNextSevenDays} className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--kg-surface-soft)] px-3 py-2 text-[11px] font-bold text-[var(--kg-text)]">
+            <button type="button" onClick={showNextSevenDays} className="inline-flex min-h-[44px] sm:min-h-[36px] items-center gap-1.5 rounded-lg bg-[var(--kg-surface-soft)] px-3 py-2 text-[11px] font-bold text-[var(--kg-text)] touch-manipulation">
               <RotateCcw size={13} /> 7 ngày gần nhất
             </button>
           </div>

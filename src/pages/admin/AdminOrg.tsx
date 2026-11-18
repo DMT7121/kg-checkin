@@ -2,11 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { Building2, Shield, Network, UserPlus, Save, CheckCircle2, Loader2 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { useAppStore } from '../../store/useAppStore';
+import { isAdminUser } from '../../utils/permissions';
 import { callApi } from '../../services/api';
 import { KgModuleHero, KgBottomSheet, KgInput, KgButton } from '../../components/KgDesignSystem';
 
 
 export default function AdminOrg() {
+  const currentUser = useAppStore((s) => s.currentUser);
+  if (!isAdminUser(currentUser)) return null;
+  return <AdminOrgContent />;
+}
+
+function AdminOrgContent() {
   const serverOrgConfig = useAppStore((s) => s.serverOrgConfig);
   const currentUser = useAppStore((s) => s.currentUser);
   const setServerOrgConfig = useAppStore((s) => s.setServerOrgConfig);
@@ -21,6 +28,18 @@ export default function AdminOrg() {
     { id: 'probation', name: 'Thử việc', salaryMultiplier: 0.8 },
     { id: 'official', name: 'Chính thức', salaryMultiplier: 1.0 }
   ]);
+  const [savedSnapshot, setSavedSnapshot] = useState<string>(() => JSON.stringify({
+    name: 'King\'s Grill',
+    address: 'Dĩ An, Bình Dương',
+    roles: [
+      { id: 'admin', name: 'Quản lý (Admin)', description: 'Toàn quyền truy cập Cấu hình', isDefault: true },
+      { id: 'staff', name: 'Nhân viên (Staff)', description: 'Chỉ xem và thao tác cá nhân', isDefault: false }
+    ],
+    orgStructure: [
+      { id: 'probation', name: 'Thử việc', salaryMultiplier: 0.8 },
+      { id: 'official', name: 'Chính thức', salaryMultiplier: 1.0 }
+    ]
+  }));
   const [isSaving, setIsSaving] = useState(false);
   const [orgSheetMode, setOrgSheetMode] = useState<'role' | 'org' | null>(null);
   const [draftName, setDraftName] = useState('');
@@ -28,12 +47,46 @@ export default function AdminOrg() {
 
   useEffect(() => {
     if (serverOrgConfig) {
-      setCompanyName(serverOrgConfig.name || 'King\'s Grill');
-      setCompanyAddress(serverOrgConfig.address || 'Dĩ An, Bình Dương');
+      const nextName = serverOrgConfig.name || 'King\'s Grill';
+      const nextAddress = serverOrgConfig.address || 'Dĩ An, Bình Dương';
+      const nextRoles = serverOrgConfig.roles || [
+        { id: 'admin', name: 'Quản lý (Admin)', description: 'Toàn quyền truy cập Cấu hình', isDefault: true },
+        { id: 'staff', name: 'Nhân viên (Staff)', description: 'Chỉ xem và thao tác cá nhân', isDefault: false }
+      ];
+      const nextOrg = serverOrgConfig.orgStructure || [
+        { id: 'probation', name: 'Thử việc', salaryMultiplier: 0.8 },
+        { id: 'official', name: 'Chính thức', salaryMultiplier: 1.0 }
+      ];
+      setCompanyName(nextName);
+      setCompanyAddress(nextAddress);
       if (serverOrgConfig.roles) setRoles(serverOrgConfig.roles);
       if (serverOrgConfig.orgStructure) setOrgStructure(serverOrgConfig.orgStructure);
+      setSavedSnapshot(JSON.stringify({
+        name: nextName,
+        address: nextAddress,
+        roles: nextRoles,
+        orgStructure: nextOrg
+      }));
     }
   }, [serverOrgConfig]);
+
+  const currentSnapshot = JSON.stringify({
+    name: companyName,
+    address: companyAddress,
+    roles,
+    orgStructure
+  });
+  const isDirty = currentSnapshot !== savedSnapshot;
+
+  const handleDiscardChanges = () => {
+    try {
+      const parsed = JSON.parse(savedSnapshot);
+      setCompanyName(parsed.name || 'King\'s Grill');
+      setCompanyAddress(parsed.address || 'Dĩ An, Bình Dương');
+      setRoles(parsed.roles || []);
+      setOrgStructure(parsed.orgStructure || []);
+    } catch { /* ignore */ }
+  };
   
   const handleSave = async () => {
     if (!currentUser) return;
@@ -47,25 +100,27 @@ export default function AdminOrg() {
         roles,
         orgStructure,
       });
-      
-      if (data && data.ok) {
-        setServerOrgConfig({ name: companyName, address: companyAddress, roles, orgStructure });
+
+      if (!data) return;
+
+      if (data.ok) {
+        const nextConfig = { name: companyName, address: companyAddress, roles, orgStructure };
+        setServerOrgConfig(nextConfig);
+        setSavedSnapshot(JSON.stringify(nextConfig));
         Swal.fire({
           icon: 'success',
           title: 'Đã lưu cấu hình Tổ chức',
           text: 'Thông tin tổ chức đã được cập nhật thành công.',
-          confirmButtonColor: '#006994'
+          confirmButtonColor: '#0b253c'
         });
       } else {
-        throw new Error(data.message || 'Lỗi không xác định');
+        Swal.fire({
+          icon: 'error',
+          title: 'Lỗi lưu cấu hình',
+          text: data.message || 'Lỗi không xác định',
+          confirmButtonColor: '#dc2626'
+        });
       }
-    } catch (error: any) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Lỗi lưu cấu hình',
-        text: error.message || 'Không thể kết nối đến máy chủ',
-        confirmButtonColor: '#dc2626'
-      });
     } finally {
       setIsSaving(false);
     }
@@ -104,12 +159,7 @@ export default function AdminOrg() {
   };
 
   return (
-    <div className="p-4 space-y-4 animate-slide-up pb-10">
-      <div className="flex mb-2 -mt-2">
-        <button onClick={() => setCurrentTab('admin_people')} className="flex items-center text-xs font-bold text-gray-500 hover:text-ocean-600 transition-colors">
-          <span className="mr-1">←</span> Quay lại Cài đặt chung
-        </button>
-      </div>
+    <div className="p-4 space-y-4 animate-slide-up pb-24 md:pb-12">
       <KgModuleHero
         moduleId="admin-org"
         title="Tổ chức & Quyền"
@@ -139,13 +189,6 @@ export default function AdminOrg() {
             <label htmlFor="org-company-address" className="block text-xs font-bold text-gray-500 mb-1">Địa chỉ</label>
             <input id="org-company-address" type="text" value={companyAddress} onChange={e => setCompanyAddress(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500 dark:bg-gray-900 dark:border-gray-700 dark:text-white" />
           </div>
-          <button type="button" onClick={handleSave} disabled={isSaving} className={`w-full font-bold py-2.5 rounded-lg text-sm transition flex items-center justify-center mt-2 ${isSaving ? 'bg-ocean-400 text-white cursor-not-allowed' : 'bg-ocean-600 hover:bg-ocean-700 text-white'}`}>
-            {isSaving ? (
-              <><Loader2 size={16} className="animate-spin mr-2" /> Đang lưu...</>
-            ) : (
-              <><Save size={16} className="mr-2" /> Lưu Thông Tin</>
-            )}
-          </button>
         </div>
       </div>
 
@@ -163,13 +206,19 @@ export default function AdminOrg() {
                 <p className={`text-[10px] truncate ${i === 0 ? 'text-ocean-600' : 'text-gray-500'}`}>{r.description}</p>
               </div>
               {r.isDefault ? (
-                <span className="text-[10px] bg-ocean-200 text-ocean-700 px-2 py-1 rounded font-bold flex-shrink-0">Mặc định</span>
+                <span className="text-[10px] bg-ocean-200 text-ocean-700 px-2.5 py-1 rounded-lg font-bold flex-shrink-0">Mặc định</span>
               ) : (
-                <button onClick={() => handleRemoveRole(r.id)} className="text-red-500 text-xs font-bold px-2 py-1 hover:underline flex-shrink-0">Xóa</button>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveRole(r.id)}
+                  className="min-h-[36px] px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-bold transition-colors flex-shrink-0"
+                >
+                  Xóa
+                </button>
               )}
             </div>
           ))}
-          <button onClick={handleAddRole} className="w-full border-2 border-dashed border-gray-200 text-gray-500 font-bold py-2.5 rounded-lg text-sm transition hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800 flex items-center justify-center">
+          <button type="button" onClick={handleAddRole} className="w-full min-h-[42px] border-2 border-dashed border-gray-200 text-gray-500 font-bold py-2.5 rounded-xl text-sm transition hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800 flex items-center justify-center">
             + Thêm Role mới
           </button>
         </div>
@@ -188,23 +237,17 @@ export default function AdminOrg() {
                 <p className="text-sm font-bold text-gray-800 dark:text-gray-200 truncate">{org.name}</p>
                 <p className="text-[10px] text-gray-500 font-mono tabular-nums truncate">Hệ số lương: {org.salaryMultiplier}</p>
               </div>
-              <button type="button" onClick={() => handleRemoveOrg(org.id)} className="text-red-500 text-xs font-bold px-2 py-1 hover:underline flex-shrink-0">Xóa</button>
+              <button
+                type="button"
+                onClick={() => handleRemoveOrg(org.id)}
+                className="min-h-[36px] px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-bold transition-colors flex-shrink-0"
+              >
+                Xóa
+              </button>
             </div>
           ))}
-          <button type="button" onClick={handleAddOrg} className="w-full border-2 border-dashed border-gray-200 text-gray-500 font-bold py-2.5 rounded-lg text-sm transition hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800 flex items-center justify-center mt-2">
+          <button type="button" onClick={handleAddOrg} className="w-full min-h-[44px] border-2 border-dashed border-gray-200 text-gray-500 font-bold py-2.5 rounded-lg text-sm transition hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800 flex items-center justify-center mt-2">
             + Thêm Loại nhân sự
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={isSaving}
-            className={`w-full font-bold py-2.5 rounded-lg text-sm transition flex items-center justify-center mt-2 ${isSaving ? 'bg-ocean-400 text-white cursor-not-allowed' : 'bg-ocean-600 hover:bg-ocean-700 text-white'}`}
-          >
-            {isSaving ? (
-              <><Loader2 size={16} className="animate-spin mr-2" /> Đang lưu...</>
-            ) : (
-              <><Save size={16} className="mr-2" /> Lưu Phân Quyền &amp; Cơ Cấu Tổ Chức</>
-            )}
           </button>
         </div>
       </div>
@@ -224,7 +267,52 @@ export default function AdminOrg() {
             <CheckCircle2 size={16} className="text-green-500" />
             <span>Thông báo trên Bảng tin nội bộ</span>
           </div>
-          <button type="button" className="text-ocean-600 text-xs font-bold mt-2">Cấu hình chi tiết →</button>
+          <button
+            type="button"
+            onClick={() => setCurrentTab('admin_work')}
+            className="min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl bg-ocean-50 dark:bg-ocean-900/20 hover:bg-ocean-100 dark:hover:bg-ocean-900/35 border border-ocean-200 dark:border-ocean-800 text-ocean-700 dark:text-ocean-300 text-xs font-bold inline-flex items-center gap-1.5 mt-2 transition-colors"
+          >
+            Cấu hình chi tiết →
+          </button>
+        </div>
+      </div>
+
+      {/* Unified Sticky Save Bar */}
+      <div className="sticky bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] md:bottom-4 z-30 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface)] p-3 shadow-lg">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-extrabold text-[var(--kg-text)] flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${isDirty ? 'bg-[var(--kg-warning)]' : 'bg-[var(--kg-success)]'}`} />
+            <span className="truncate">
+              {isDirty ? 'Có thay đổi tổ chức & phân quyền chưa lưu' : 'Cấu hình tổ chức đã đồng bộ'}
+            </span>
+          </p>
+          <p className="text-[11px] text-[var(--kg-text-muted)] font-mono tabular-nums mt-0.5 truncate">
+            {roles.length} vai trò · {orgStructure.length} loại nhân sự
+          </p>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {isDirty && (
+            <button
+              type="button"
+              onClick={handleDiscardChanges}
+              disabled={isSaving}
+              className="min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-xs font-bold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition-colors disabled:opacity-50"
+            >
+              Hoàn tác
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={isSaving || !isDirty}
+            className="min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs font-extrabold inline-flex items-center gap-1.5 shadow-xs transition-colors disabled:opacity-45 disabled:cursor-not-allowed"
+          >
+            {isSaving ? (
+              <><Loader2 size={15} className="animate-spin" /> Đang lưu...</>
+            ) : (
+              <><Save size={15} /> Lưu cấu hình Tổ chức</>
+            )}
+          </button>
         </div>
       </div>
 

@@ -26,6 +26,7 @@ var CONFIG = {
   SHEET_CHAT_LOGS: "\uD83D\uDCACCHAT_LOGS",
   SHEET_CONFIG: "\u2699\uFE0F C\u1EA4U H\u00CCNH",
   SHEET_CHECKLIST_CONFIG: "CHECKLIST_CONFIG",
+  SHEET_FACE_ID: "CONFIG_FACE_ID",
   LOCATION: {
     LAT: 10.9760826,
     LNG: 106.6646541,
@@ -253,6 +254,14 @@ function doPost(e) {
         return handleGetAnalytics(payload);
       case 'GET_AUDIT_LOGS':
         return handleGetAuditLogs(payload);
+      case 'GET_FACE_PROFILES':
+        return handleGetFaceProfiles(payload);
+      case 'ENROLL_FACE_PROFILE':
+        return handleEnrollFaceProfile(payload);
+      case 'RESET_FACE_PROFILE':
+        return handleResetFaceProfile(payload);
+      case 'GET_KIOSK_ATTENDANCE_STATE':
+        return handleGetKioskAttendanceState(payload);
 
       default:
         return jsonResponse(false, 'Unknown action');

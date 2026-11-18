@@ -112,7 +112,8 @@ function processTimesheetDataWithDominantMonth(data, targetMonthYear) {
     var timeStr = data[i][2];
     var validStatus = data[i][4] ? data[i][4].toString().toUpperCase() : '';
     if (!name || !status || !timeStr) continue;
-    if (validStatus && validStatus.indexOf('KHÔNG') >= 0) continue;
+    if (validStatus && (validStatus.indexOf('KHÔNG') >= 0 || validStatus.indexOf('CHỜ') >= 0 || validStatus.indexOf('TỪ CHỐI') >= 0)) continue;
+    if (/^\s*(chờ\s*duyệt|từ\s*chối)\s*:/i.test(status.toString())) continue;
 
     // Hỗ trợ cả Date object lẫn string DD/MM/YYYY HH:MM:SS hoặc DD/MM/YYYY HH:MM
     var time;
@@ -1825,6 +1826,20 @@ function fillRowStyle(r, cStart, len, bgArr, bgVal, fcArr, fcVal, fwArr, fwVal) 
 }
 
 /** Tạo dữ liệu cho 1 dòng ngày công - NÂNG CẤP CA ĐÊM v2 */
+/** Phân loại thống nhất nhãn Vào/Ra cho cả bản v1 và bản v2 */
+function isCheckInStatus_(status) {
+  if (!status) return false;
+  return /^\s*(vào(\s+ca)?(\s*[1-9])?|in)\b/i.test(String(status).normalize('NFC').trim().toLowerCase());
+}
+function isCheckOutStatus_(status) {
+  if (!status) return false;
+  return /^\s*(ra(\s+ca)?(\s*[1-9])?|out)\b/i.test(String(status).normalize('NFC').trim().toLowerCase());
+}
+function isPrimaryCheckInStatus_(status) {
+  if (!isCheckInStatus_(status)) return false;
+  return !/^\s*(vào(\s+ca)?\s*[2-9]|in\s*[2-9])\b/i.test(String(status).normalize('NFC').trim().toLowerCase());
+}
+
 function createRowData(name, dateStr, dateObj, datesMap, x2Days, x3Days) {
   var records = datesMap.get(dateStr) || [];
   var OVERNIGHT_THRESHOLD = '00:15'; // Ngưỡng phân biệt qua đêm
@@ -1843,7 +1858,7 @@ function createRowData(name, dateStr, dateObj, datesMap, x2Days, x3Days) {
   var normalRecords = [];
 
   filtered.forEach(function(r) {
-    var isOut = r.status.indexOf('Ra ca') === 0 || r.status.indexOf('OUT') === 0;
+    var isOut = isCheckOutStatus_(r.status);
     if (isOut && r.time < '06:00') {
       earlyMorningOuts.push(r);
     } else {
@@ -1871,8 +1886,8 @@ function createRowData(name, dateStr, dateObj, datesMap, x2Days, x3Days) {
   // ═══════════════════════════════════════════════════════════════
   // STEP 3: Xử lý Vào 1/Ra 1/Vào 2/Ra 2 (ca trong ngày, ≥ 06:00)
   // ═══════════════════════════════════════════════════════════════
-  var inTimes = normalRecords.filter(function(r) { return r.status.indexOf('Vào ca') === 0 || r.status.indexOf('IN') === 0; }).map(function(r) { return r.time; });
-  var outTimes = normalRecords.filter(function(r) { return r.status.indexOf('Ra ca') === 0 || r.status.indexOf('OUT') === 0; }).map(function(r) { return r.time; });
+  var inTimes = normalRecords.filter(function(r) { return isCheckInStatus_(r.status); }).map(function(r) { return r.time; });
+  var outTimes = normalRecords.filter(function(r) { return isCheckOutStatus_(r.status); }).map(function(r) { return r.time; });
 
   var vao1 = inTimes[0] || '';
   var ra1 = outTimes[0] || '';
@@ -1888,7 +1903,7 @@ function createRowData(name, dateStr, dateObj, datesMap, x2Days, x3Days) {
   nextRecords.sort(function(a, b) { return a.originalTime - b.originalTime; });
 
   var nextEarlyOuts = nextRecords.filter(function(r) {
-    return (r.status.indexOf('Ra ca') === 0 || r.status.indexOf('OUT') === 0) && r.time < '06:00';
+    return isCheckOutStatus_(r.status) && r.time < '06:00';
   });
   // Loại trùng lặp
   nextEarlyOuts = nextEarlyOuts.filter(function(r, i, arr) {
@@ -1991,7 +2006,7 @@ function parseDateUTC(str) {
 function parseDDMMYYYY(str) {
   try {
     if (!str || typeof str !== 'string') return null;
-    var parts = str.trim().split(' ');
+    var parts = str.replace(/^'+/, '').trim().split(' ');
     var dateParts = parts[0].split('/');
     if (dateParts.length < 3) return null;
 
@@ -3980,7 +3995,8 @@ function handleGetPayroll(payload) {
       var timeStr = logsData[i][2];
       var status = logsData[i][4] ? logsData[i][4].toString().toUpperCase() : '';
       
-      if (status.indexOf('HỢP LỆ') === -1 || status.indexOf('KHÔNG') >= 0) continue;
+      if (status.indexOf('HỢP LỆ') === -1 || status.indexOf('KHÔNG') >= 0 || status.indexOf('CHỜ') >= 0 || status.indexOf('TỪ CHỐI') >= 0) continue;
+      if (/^\s*(CHỜ\s*DUYỆT|TỪ\s*CHỐI)\s*:/i.test(type)) continue;
       
       var time = 0;
       if (timeStr instanceof Date) {
@@ -3999,7 +4015,7 @@ function handleGetPayroll(payload) {
       var nextMmNum = mmNum === 12 ? 1 : mmNum + 1;
       var nextYyyy = mmNum === 12 ? yyyy + 1 : yyyy;
       var nextMonthDay1Str = nextYyyy + '-' + String(nextMmNum).padStart(2, '0') + '-01';
-      var isNextMonthEarlyCheckout = (logYmd === nextMonthDay1Str && logHour >= 0 && logHour < 6 && (type.indexOf('RA') >= 0 || type === 'OUT'));
+      var isNextMonthEarlyCheckout = (logYmd === nextMonthDay1Str && logHour >= 0 && logHour < 6 && isCheckOutStatus_(type));
       if (logYm !== targetYmStr && !isNextMonthEarlyCheckout) continue;
       if (!userLogs[fullname]) userLogs[fullname] = [];
       userLogs[fullname].push({ type: type, time: time, ym: logYm });
@@ -4014,8 +4030,8 @@ function handleGetPayroll(payload) {
       var workedDateKeys = {};
       
       for (var j = 0; j < logs.length; j++) {
-        var isCheckIn = logs[j].type.indexOf('VÀO') >= 0 || logs[j].type === 'IN';
-        var isCheckOut = logs[j].type.indexOf('RA') >= 0 || logs[j].type === 'OUT';
+        var isCheckIn = isCheckInStatus_(logs[j].type);
+        var isCheckOut = isCheckOutStatus_(logs[j].type);
 
         if (isCheckIn && logs[j].ym === targetYmForLoop) {
           lastIn = logs[j].time;

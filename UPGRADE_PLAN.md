@@ -1,49 +1,48 @@
-# BẢN THIẾT KẾ KIẾN TRÚC ỨNG DỤNG KING'S GRILL (MASTER BLUEPRINT - PHASE 6) 🏗️
+# BẢN THIẾT KẾ KIẾN TRÚC ỨNG DỤNG KING'S GRILL (`v4.0.1` — 11-Hub Super-App & Edge D1) 🏗️
 
-Kiến trúc mới được chia thành **Các Nhóm Tính Năng (Modules)** chính và **Luồng Xác Thực (Authentication)**. Giao diện (Sidebar) sẽ thay đổi linh hoạt theo phân quyền (Role) của người dùng đăng nhập (Admin hoặc User).
+Kiến trúc hiện hành (`v4.0.1`) tổ chức ứng dụng theo mô hình **11-Hub Super-App IA** (`Warm Hospitality Edition`) với tuyến **Cloudflare Edge D1 (`/api`)** làm gateway chính, **Google Apps Script + Google Sheets/Drive** đồng bộ nền, và phân quyền chặt chẽ qua `isAdminUser(user)` (`admin` vs `tester`/`user`).
+
+> **Trạng thái đối chiếu thực tế (`v4.0.1`):** Các nhóm chức năng cốt lõi dưới đây đã triển khai và chuẩn hóa theo `DESIGN.md`, `CORE_WEBAPP_ARCHITECTURE.md`, và `UPGRADE_PROGRESS.md`. Các mục đánh dấu `📌 Roadmap` là phần định hướng mở rộng dài hạn chưa bật chính thức.
 
 ---
 
-## 🔐 LUỒNG XÁC THỰC (Authentication Flow)
-*Quản lý truy cập, bảo mật tài khoản và cấp phép nhân sự.*
+## 🔐 LUỒNG XÁC THỰC & RBAC (Authentication & Access Control)
+*Quản lý truy cập, bảo mật tài khoản, Face ID V2 Kiosk và cấp phép nhân sự.*
 
-**1. Đăng ký tài khoản (Sign Up) ✅:**
-- **Sử dụng ngay:** Nhân viên mới đăng ký tài khoản thành công sẽ có thể đăng nhập và sử dụng ứng dụng ngay lập tức mà không cần chờ Admin duyệt.
-- **Bảo mật & Thông tin:** Form đăng ký chuyên nghiệp yêu cầu điền: Họ tên, Tài khoản, Mật khẩu, Số điện thoại (Zalo), Email (bắt buộc để lấy lại pass), và Ngày sinh.
-- **Admin theo dõi:** Quản lý sẽ nhận được thông báo khi có người đăng ký mới để kiểm soát danh sách nhân sự.
+**1. Đăng ký & Đăng nhập (Sign Up / Login / Kiosk Face ID) ✅:**
+- **Sử dụng ngay:** Nhân viên mới đăng ký tài khoản thành công có thể đăng nhập ngay, với `role='user'` mặc định.
+- **Kiosk Face ID V2:** Đăng nhập / chấm công không chạm bằng `@mediapipe/tasks-vision` + `onnxruntime-web/wasm` (kèm cache profile zero-WASM tại `src/utils/faceProfileCache.ts`).
+- **RBAC chuẩn hóa:** Tập trung tại `src/utils/permissions.ts` (`isAdminUser` chỉ cho phép `role === 'admin'`; `tester` không có quyền Admin).
 
 **2. Quên mật khẩu (Forgot Password) ✅:**
-- **Giao diện người dùng:** Thêm nút "Quên mật khẩu?" ở màn hình Login. User nhập Email hoặc Số điện thoại đã đăng ký.
-- **Cơ chế OTP (Email/Zalo):** Hệ thống tạo mã OTP 6 số ngẫu nhiên có hiệu lực trong 5 phút và gửi về Email. User nhập đúng OTP sẽ được đổi mật khẩu mới.
-- **Admin can thiệp (Force Reset):** Nếu nhân viên không rành công nghệ, Admin có thể vào trang Quản trị, chọn tài khoản đó và bấm biểu tượng "Chìa khóa". Mật khẩu sẽ tự động trở về mặc định (`Kg123456`) để nhân viên đăng nhập lại.
+- **Cơ chế OTP:** Gửi mã OTP 6 số có hiệu lực 5 phút qua Email để đặt lại mật khẩu.
+- **Admin Reset:** Quản trị viên có thể reset mật khẩu nhân viên về mặc định trong phân hệ Nhân sự (`HrList`).
 
 ---
 
 ## 📑 Nhóm 1: THÔNG TIN (Information)
 *Kênh truyền thông, báo cáo tổng quan và kiến thức nội bộ.*
 
-**1. Tổng quan (Dashboard) ✅:**
-- **Admin:** Bảng điều khiển (Dashboard) cơ bản cho nhà hàng. Hiển thị số lượng nhân sự đang trong ca, tỷ lệ hoàn thành checklist công việc, tổng quan đi trễ/về sớm. *(Lưu ý: Không xây dựng Analytics Hub phức tạp ở giai đoạn này, nếu cần sẽ xây dựng trong tương lai).*
-- **User:** Bảng thông tin cá nhân. Hiển thị số giờ làm việc lũy kế, tiến độ hoàn thành checklist cá nhân, số lần đi trễ.
+**1. Tổng quan (Dashboard & Command Center) ✅:**
+- **Admin:** Trung tâm điều hành ca trực hợp nhất hiển thị KPI quân số ca, cảnh báo đi trễ/vắng, Checklist/Bàn giao, Món hết, và **Hàng chờ phê duyệt thống nhất** (Bổ sung công, Đối soát lệch quỹ, Sự cố mở, Khiếu nại/ĐC lương, Đổi ca, Xin nghỉ, Ứng lương, Góp ý).
+- **User:** Thẻ ca trực cá nhân với `<LiveClockDisplay />` cô lập re-render, CTA chấm công theo chu kỳ `06:00–05:59`, cảnh báo thiếu công & tiện ích nhanh.
 
-**2. Bảng tin nội bộ (NewsFeed):**
-- **Admin:** Có quyền Đăng bài mới, Đính kèm ảnh/thông báo, Thích và Bình luận.
-- **User:** Chỉ có quyền Đọc, Thích và Bình luận (Không được phép đăng bài mới).
+**2. Bảng tin nội bộ (NewsFeed) ✅:**
+- **Admin:** Đăng bài, đính kèm ảnh, thích và bình luận.
+- **User:** Đọc, thích và bình luận (cache invalidation có mục tiêu cho `LIKE_POST`/`COMMENT_POST`).
 
 **3. Món hết (Sold Out / 86) ✅:**
-- **Admin & User:** Đều có quyền báo cáo các món hết nguyên liệu trong ngày.
-- **Hiển thị:** Nhập tên món -> Hệ thống ghi nhận hiển thị realtime cho toàn bộ nhân viên. Thông tin bao gồm: Tên món, Tên người báo, Thời gian báo.
+- **Admin & User (theo vị trí):** Báo cáo và theo dõi món hết thời gian thực; hiển thị live strip trực tiếp trong `WorkHub`.
 
 **4. Hòm thư Góp ý / Khiếu nại ✅:**
-- **Admin:** Tiếp nhận và phản hồi các ý kiến đóng góp, khiếu nại về lương/ca làm.
-- **User:** Gửi phản hồi (có thể chọn ẩn danh) về các vấn đề trong ca làm, thái độ đồng nghiệp, hoặc khiếu nại sai sót chấm công.
+- **Admin:** Lọc trạng thái/danh mục, tiếp nhận và phản hồi ý kiến.
+- **User:** Gửi phản hồi ẩn danh hoặc công khai.
 
-**5. Đào tạo & Hội nhập (Training & Onboarding Workflow) 🆕:**
-- **Onboarding Checklist:** Danh sách việc cần làm cho nhân sự mới.
-- **E-learning & Test:** Xem video và làm trắc nghiệm trước khi nhận ca đầu tiên.
+**5. Đào tạo & Hội nhập (Training & Onboarding Workflow) ✅:**
+- Tài liệu SOP, hướng dẫn CUKCUK POS, và bài kiểm tra trắc nghiệm (ngưỡng đạt 70%, cộng điểm King Coins).
 
-**6. Khảo sát nội bộ (Pulse Surveys) 🆕:**
-- Hiển thị pop-up ngẫu nhiên khi nhân viên Check-in.
+**6. Khảo sát nội bộ (Pulse Surveys) ✅:**
+- Hiển thị sau khi hoàn thành chấm công mà không chồng chéo popup.
 
 ---
 
@@ -101,11 +100,11 @@ Kiến trúc mới được chia thành **Các Nhóm Tính Năng (Modules)** ch�
 **3. Bảng lương:**
 - Bảng lương tổng quát tự động tính toán, User xem Payslip chi tiết.
 
-**4. Kỷ luật & Đãi ngộ (Discipline, Rewards & Gamification) 🆕:**
-- Ghi nhận lỗi, khen thưởng, tích điểm đổi phúc lợi.
+**4. Kỷ luật & Đãi ngộ (Discipline, Rewards & Gamification) ✅:**
+- Ghi nhận thưởng/phạt (`Discipline`), theo dõi điểm King Coins (`Reward`, phần danh mục đổi quà đang ở chế độ xem trước sắp mở), và bảng xếp hạng.
 
-**5. Đánh giá Năng lực & Lộ trình thăng tiến 🆕:**
-- Đánh giá định kỳ làm cơ sở tăng lương/thăng cấp.
+**5. Đánh giá Năng lực & Phân công Khu trực (`AdminOperations` / `Operations`) ✅ / 📌 Roadmap:**
+- Đánh giá nhân sự theo khu vực & ca trực đã vận hành trong `AdminOperations`; lộ trình thăng tiến mở rộng thuộc roadmap tương lai.
 
 ---
 

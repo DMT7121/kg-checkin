@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '../store/useAppStore';
+import { isAdminUser } from '../utils/permissions';
 import { callApi } from '../services/api';
 import { speak, fetchWithRetry } from '../utils/helpers';
 import { sha256, ADMIN_PIN_HASH, MASTER_PIN_HASH, escapeHtml, checkRateLimit, recordFailedAttempt, resetFailedAttempts } from '../utils/security';
@@ -63,6 +64,12 @@ interface EdgeDbStatus {
 }
 
 export default function Admin() {
+  const currentUser = useAppStore((s) => s.currentUser);
+  if (!isAdminUser(currentUser)) return null;
+  return <AdminContent />;
+}
+
+function AdminContent() {
   const store = useAppStore(
     useShallow((s) => ({
       isAdminUnlocked: s.isAdminUnlocked,
@@ -87,23 +94,28 @@ export default function Admin() {
   const [localPrompts, setLocalPrompts] = useState<AIPrompt[]>(aiPrompts || []);
   const [editingPromptId, setEditingPromptId] = useState<string | null>(null);
   const [edgeStatus, setEdgeStatus] = useState<EdgeDbStatus | null>(null);
+  const [edgeError, setEdgeError] = useState('');
   const [checkingEdge, setCheckingEdge] = useState(false);
   const [pinInput, setPinInput] = useState('');
   const [verifyingPin, setVerifyingPin] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  const [auditError, setAuditError] = useState('');
   const [loadingAudit, setLoadingAudit] = useState(false);
   const [auditActionFilter, setAuditActionFilter] = useState<string>('ALL');
   const [auditQuery, setAuditQuery] = useState<string>('');
 
   const loadEdgeDbStatus = async () => {
     setCheckingEdge(true);
+    setEdgeError('');
     try {
       const res = await callApi('GET_EDGE_DB_STATUS', {}, { background: true, cacheTtlMs: 0 });
-      if (res && typeof res === 'object') {
+      if (res && typeof res === 'object' && res.ok !== false) {
         setEdgeStatus(res);
+      } else {
+        setEdgeError(res?.message || 'Không thể kiểm tra trạng thái Edge D1 / KV.');
       }
     } catch {
-      // ignore
+      setEdgeError('Không thể kết nối đến Edge DB.');
     } finally {
       setCheckingEdge(false);
     }
@@ -111,6 +123,7 @@ export default function Admin() {
 
   const refreshAuditLogs = async (forceRefresh = true) => {
     setLoadingAudit(true);
+    setAuditError('');
     try {
       const res = await callApi(
         'GET_AUDIT_LOGS',
@@ -119,9 +132,11 @@ export default function Admin() {
       );
       if (res?.ok && Array.isArray(res.data?.logs)) {
         setAuditLogs(res.data.logs as AuditLogEntry[]);
+      } else {
+        setAuditError(res?.message || 'Không thể tải nhật ký kiểm toán.');
       }
     } catch {
-      // ignore background audit load failure
+      setAuditError('Mất kết nối khi tải nhật ký kiểm toán.');
     } finally {
       setLoadingAudit(false);
     }
@@ -131,19 +146,31 @@ export default function Admin() {
     let cancelled = false;
     callApi('GET_EDGE_DB_STATUS', {}, { background: true, cacheTtlMs: 0 })
       .then((res) => {
-        if (!cancelled && res && typeof res === 'object') {
+        if (cancelled) return;
+        if (res && typeof res === 'object' && res.ok !== false) {
           setEdgeStatus(res);
+          setEdgeError('');
+        } else {
+          setEdgeError(res?.message || 'Không thể kiểm tra trạng thái Edge D1 / KV.');
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!cancelled) setEdgeError('Không thể kết nối đến Edge DB.');
+      });
 
     callApi('GET_AUDIT_LOGS', { limit: 50 }, { background: true, cacheTtlMs: 0 })
       .then((res) => {
-        if (!cancelled && res?.ok && Array.isArray(res.data?.logs)) {
+        if (cancelled) return;
+        if (res?.ok && Array.isArray(res.data?.logs)) {
           setAuditLogs(res.data.logs as AuditLogEntry[]);
+          setAuditError('');
+        } else {
+          setAuditError(res?.message || 'Không thể tải nhật ký kiểm toán.');
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!cancelled) setAuditError('Mất kết nối khi tải nhật ký kiểm toán.');
+      });
 
     return () => {
       cancelled = true;
@@ -242,22 +269,24 @@ export default function Admin() {
     store.setLoading(true, 'Đang đồng bộ...');
     const res = await callApi('SYNC_KEYS', { keys: keyArray });
     store.setLoading(false);
-    if (res?.ok) {
+    if (!res) return;
+    if (res.ok) {
       Swal.fire('Thành công', 'Đã lưu trữ hệ thống Key an toàn', 'success');
       const updatedKeys = keyArray.map((k, i) => ({ key: k, tag: 'Key ' + (i + 1), status: 'Active' }));
       store.setGroqKeys(updatedKeys);
-    } else { Swal.fire('Lỗi', 'Không thể đồng bộ Key lúc này', 'error'); }
+    } else { Swal.fire('Lỗi', res.message || 'Không thể đồng bộ Key lúc này', 'error'); }
   };
 
   const syncAiPrompts = async () => {
     store.setLoading(true, 'Đang lưu cấu hình Prompt...');
     const res = await callApi('UPDATE_AI_PROMPTS', { prompts: localPrompts, role: 'admin' });
     store.setLoading(false);
-    if (res?.ok) {
+    if (!res) return;
+    if (res.ok) {
       Swal.fire('Thành công', 'Đã lưu cấu hình AI Prompt', 'success');
       store.setAiPrompts(localPrompts);
     } else {
-      Swal.fire('Lỗi', 'Không thể lưu cấu hình Prompt lúc này', 'error');
+      Swal.fire('Lỗi', res.message || 'Không thể lưu cấu hình Prompt lúc này', 'error');
     }
   };
 
@@ -297,7 +326,7 @@ export default function Admin() {
   });
 
   return (
-    <div className="p-4 space-y-4 animate-slide-up pb-10">
+    <div className="p-4 space-y-4 animate-slide-up pb-24 md:pb-12">
       <KgModuleHero
         moduleId="admin"
         title="AI & Tích Hợp"
@@ -367,19 +396,33 @@ export default function Admin() {
             type="button"
             onClick={loadEdgeDbStatus}
             disabled={checkingEdge}
-            className="text-xs bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 font-bold px-3 py-1.5 rounded-lg flex items-center hover:bg-emerald-100 transition-colors disabled:opacity-60"
+            className="min-h-[38px] text-xs bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-500/25 text-emerald-700 dark:text-emerald-300 font-bold px-3.5 py-2 rounded-xl inline-flex items-center hover:bg-emerald-100 transition-colors disabled:opacity-60"
           >
-            <RefreshCw size={13} className={`mr-1.5 ${checkingEdge ? 'animate-spin' : ''}`} />
+            <RefreshCw size={13} className={`mr-1.5 flex-shrink-0 ${checkingEdge ? 'animate-spin' : ''}`} />
             Kiểm tra DB
           </button>
         </div>
+
+        {edgeError && (
+          <div className="mb-3 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-rose-700 dark:text-rose-300">
+            <span>{edgeError}</span>
+            <button
+              type="button"
+              onClick={loadEdgeDbStatus}
+              disabled={checkingEdge}
+              className="min-h-[34px] px-3 py-1 rounded-lg bg-[var(--kg-primary)] text-white text-xs font-bold inline-flex items-center gap-1"
+            >
+              <RefreshCw size={12} className={checkingEdge ? 'animate-spin' : ''} /> Thử lại
+            </button>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-3">
           <div className="p-3 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-800/50">
             <p className="text-[10px] font-bold uppercase text-emerald-700 dark:text-emerald-400">D1 SQLite (APAC)</p>
             <p className="text-sm font-black text-emerald-800 dark:text-emerald-200 mt-1 flex items-center gap-1.5">
-              <span className={`w-2 h-2 rounded-full ${edgeStatus?.d1Bound ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
-              {edgeStatus ? (edgeStatus.d1Bound ? 'Đang hoạt động' : 'Local / Fallback') : 'Đang kiểm tra...'}
+              <span className={`w-2 h-2 rounded-full ${edgeStatus?.d1Bound ? 'bg-emerald-500 animate-pulse' : edgeError ? 'bg-rose-500' : 'bg-amber-500'}`} />
+              {edgeStatus ? (edgeStatus.d1Bound ? 'Đang hoạt động' : 'Local / Fallback') : edgeError ? 'Chưa kết nối' : 'Đang kiểm tra...'}
             </p>
           </div>
           <div className="p-3 rounded-xl bg-sky-50/70 dark:bg-sky-950/30 border border-sky-200/60 dark:border-sky-800/50">
@@ -434,7 +477,7 @@ export default function Admin() {
                 store.setGroqKeysInput('');
                 store.setAdminUnlocked(false);
               }}
-              className="text-xs text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1 hover:underline"
+              className="min-h-[36px] px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-xs text-amber-700 dark:text-amber-400 font-bold inline-flex items-center gap-1 transition-colors"
             >
               <Lock size={12} /> Khóa lại
             </button>
@@ -503,20 +546,26 @@ export default function Admin() {
       </div>
 
       <div className="soft3d-card p-5 rounded-2xl  ">
-        <div className="flex justify-between items-center mb-4 border-b dark:border-gray-700 pb-2">
+        <div className="flex flex-wrap justify-between items-center gap-2 mb-4 border-b dark:border-gray-700 pb-2">
           <h3 className="font-bold flex items-center text-gray-800 dark:text-white">
-            <ShieldAlert size={18} className="mr-2 text-rose-500" /> Cấu hình System Prompts (AI)
+            <ShieldAlert size={18} className="mr-2 text-rose-500 flex-shrink-0" /> Cấu hình System Prompts (AI)
           </h3>
-          <button onClick={addPrompt} className="text-xs bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 font-bold px-3 py-1.5 rounded-lg flex items-center hover:bg-rose-100 transition-colors">
-            <Plus size={14} className="mr-1" /> Thêm Prompt
+          <button type="button" onClick={addPrompt} className="min-h-[38px] text-xs bg-rose-50 dark:bg-rose-900/30 border border-rose-500/25 text-rose-600 dark:text-rose-400 font-bold px-3.5 py-2 rounded-xl inline-flex items-center hover:bg-rose-100 transition-colors">
+            <Plus size={14} className="mr-1 flex-shrink-0" /> Thêm Prompt
           </button>
         </div>
         
         <div className="space-y-4">
           {localPrompts.length === 0 ? (
             <div className="text-center py-6 soft3d-bg/50 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Chưa có System Prompt nào được cấu hình.</p>
-              <button onClick={addPrompt} className="text-xs text-rose-500 font-bold hover:underline">Tạo prompt đầu tiên</button>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">Chưa có System Prompt nào được cấu hình.</p>
+              <button
+                type="button"
+                onClick={addPrompt}
+                className="min-h-[38px] px-4 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 text-xs text-rose-600 dark:text-rose-400 font-bold inline-flex items-center justify-center transition-colors"
+              >
+                + Tạo prompt đầu tiên
+              </button>
             </div>
           ) : (
             localPrompts.map((prompt) => (
@@ -552,7 +601,7 @@ export default function Admin() {
                         />
                         <span className="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">Kích hoạt sử dụng</span>
                       </label>
-                      <button onClick={() => setEditingPromptId(null)} className="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white text-xs font-bold py-1.5 px-4 rounded-lg flex items-center transition">
+                      <button type="button" onClick={() => setEditingPromptId(null)} className="min-h-[38px] bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white text-xs font-bold py-2 px-4 rounded-xl inline-flex items-center transition">
                         <Check size={14} className="mr-1" /> Xong
                       </button>
                     </div>
@@ -564,11 +613,11 @@ export default function Admin() {
                         <span className={`w-2 h-2 rounded-full mr-2 ${prompt.isActive ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-gray-300 dark:bg-gray-600'}`}></span>
                         <h4 className="font-bold text-gray-800 dark:text-white text-sm">{prompt.name}</h4>
                       </div>
-                      <div className="flex space-x-2">
-                        <button onClick={() => setEditingPromptId(prompt.id)} className="p-1.5 text-gray-500 hover:text-ocean-600 hover:bg-ocean-50 dark:hover:bg-ocean-900/30 rounded-md transition-colors">
+                      <div className="flex gap-1.5">
+                        <button type="button" aria-label="Sửa prompt" onClick={() => setEditingPromptId(prompt.id)} className="w-9 h-9 min-w-[36px] min-h-[36px] inline-flex items-center justify-center text-gray-500 hover:text-ocean-600 hover:bg-ocean-50 dark:hover:bg-ocean-900/30 rounded-xl transition-colors">
                           <Edit2 size={14} />
                         </button>
-                        <button onClick={() => removePrompt(prompt.id)} className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-md transition-colors">
+                        <button type="button" aria-label="Xóa prompt" onClick={() => removePrompt(prompt.id)} className="w-9 h-9 min-w-[36px] min-h-[36px] inline-flex items-center justify-center text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl transition-colors">
                           <Trash2 size={14} />
                         </button>
                       </div>
@@ -604,9 +653,9 @@ export default function Admin() {
             type="button"
             onClick={() => refreshAuditLogs(true)}
             disabled={loadingAudit}
-            className="text-xs bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-bold px-3 py-1.5 rounded-lg flex items-center hover:bg-indigo-100 transition-colors disabled:opacity-60"
+            className="min-h-[38px] text-xs bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-500/25 text-indigo-700 dark:text-indigo-300 font-bold px-3.5 py-2 rounded-xl inline-flex items-center hover:bg-indigo-100 transition-colors disabled:opacity-60"
           >
-            <RefreshCw size={13} className={`mr-1.5 ${loadingAudit ? 'animate-spin' : ''}`} />
+            <RefreshCw size={13} className={`mr-1.5 flex-shrink-0 ${loadingAudit ? 'animate-spin' : ''}`} />
             Tải lại nhật ký
           </button>
         </div>
@@ -637,7 +686,19 @@ export default function Admin() {
           </div>
         </div>
 
-        {filteredAuditLogs.length === 0 ? (
+        {auditError ? (
+          <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-rose-700 dark:text-rose-300">
+            <span>{auditError}</span>
+            <button
+              type="button"
+              onClick={() => refreshAuditLogs(true)}
+              disabled={loadingAudit}
+              className="min-h-[36px] px-3.5 py-1.5 rounded-xl bg-[var(--kg-primary)] text-white text-xs font-bold inline-flex items-center gap-1.5"
+            >
+              <RefreshCw size={13} className={loadingAudit ? 'animate-spin' : ''} /> Thử lại
+            </button>
+          </div>
+        ) : filteredAuditLogs.length === 0 ? (
           <div className="text-center py-6 rounded-xl border border-dashed border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400">
             {loadingAudit
               ? 'Đang đồng bộ nhật ký kiểm toán từ Edge D1 / Google Sheets...'

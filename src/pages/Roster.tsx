@@ -5,8 +5,7 @@ import { computeWeekInfo, SHORT_DAY_NAMES, getAdminShiftClass, generateMonthDate
 import type { MonthDateInfo } from '../utils/helpers';
 import { RefreshCw, Info, Calendar, ChevronLeft, ChevronRight, LayoutGrid, CalendarRange, Filter, ShieldAlert } from 'lucide-react';
 import CalendarGrid from '../components/CalendarGrid';
-import Swal from 'sweetalert2';
-import { KgModuleHero } from '../components/KgDesignSystem';
+import { KgModuleHero, KgBottomSheet, KgAlertCard, KgButton } from '../components/KgDesignSystem';
 import { getCalendarDayMeta } from '../utils/calendarHighlights';
 import { isWorkEligible } from '../utils/employment';
 import SmartPersonName from '../components/SmartPersonName';
@@ -15,7 +14,6 @@ import { useMonthDayVisibility } from '../hooks/useMonthDayVisibility';
 
 
 import { saveModuleCache } from '../utils/refreshData';
-import { escapeHtml } from '../utils/security';
 
 export default function Roster() {
   const monthSchedules = useAppStore((s) => s.monthSchedules);
@@ -46,10 +44,16 @@ export default function Roster() {
     return Array.isArray(store.monthSchedules) ? store.monthSchedules : [];
   });
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [dayDetailsModal, setDayDetailsModal] = useState<{
+    title: string;
+    grouped: Array<[string, string[]]>;
+  } | null>(null);
 
   const loadSchedules = useCallback(async () => {
     const currentStore = useAppStore.getState();
     const hasData = (Array.isArray(currentStore.monthSchedules) && currentStore.monthSchedules.length > 0);
+    setLoadError(null);
     if (!hasData) {
       setIsRefreshing(true);
     }
@@ -70,11 +74,13 @@ export default function Roster() {
         setMonthData(res.data.weeks);
         useAppStore.getState().setMonthSchedules(res.data.weeks);
         saveModuleCache('roster', res.data.weeks);
-      } else if (!hasData) {
-        Swal.fire('Lỗi', 'Không thể tải lịch làm việc', 'error');
+        setLoadError(null);
+      } else {
+        setLoadError('Không thể tải lịch làm việc. Vui lòng kiểm tra mạng và thử lại.');
       }
     } catch {
       setIsRefreshing(false);
+      setLoadError('Mất kết nối khi tải lịch làm việc. Vui lòng thử lại.');
     }
   }, [selectedMonth, selectedYear, monthDates]);
 
@@ -120,35 +126,15 @@ export default function Roster() {
       shift: empMonthMap[u.fullname]?.[`${mDate.weekLabel}_${mDate.dayIndex}`] || ''
     })).filter(u => u.shift && u.shift !== 'OFF');
 
-    let html = '<div class="text-left mt-2 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">';
-    if (dayShifts.length === 0) {
-      html += '<p class="text-gray-500 italic text-center py-4">Không có ai làm việc hôm nay.</p>';
-    } else {
-      const grouped: Record<string, string[]> = {};
-      dayShifts.forEach(item => {
-        if (!grouped[item.shift]) grouped[item.shift] = [];
-        grouped[item.shift].push(item.name);
-      });
-      Object.entries(grouped).forEach(([shift, names]) => {
-        const safeShift = escapeHtml(shift);
-        html += `<div class="mb-4 paint-layer p-3 rounded-xl ">
-          <div class="font-bold text-[#062B49] dark:text-blue-400 border-b border-slate-200 dark:border-slate-700 mb-2 pb-1 text-sm flex items-center tabular-nums">
-            <span class="w-2 h-2 rounded-full bg-[#062B49] dark:bg-blue-400 mr-2"></span>${safeShift}
-          </div>
-          <div class="text-sm text-gray-700 dark:text-gray-300 pl-1 grid grid-cols-2 gap-1">
-            ${names.map(n => `<div class="flex items-center"><span class="text-gray-400 mr-1.5">•</span>${escapeHtml(n)}</div>`).join('')}
-          </div>
-        </div>`;
-      });
-    }
-    html += '</div>';
+    const grouped: Record<string, string[]> = {};
+    dayShifts.forEach(item => {
+      if (!grouped[item.shift]) grouped[item.shift] = [];
+      grouped[item.shift].push(item.name);
+    });
 
-    Swal.fire({
-      title: `<div class="text-lg font-bold tabular-nums">Lịch Ngày ${mDate.date.getDate()}/${mDate.date.getMonth() + 1}</div>`,
-      html,
-      confirmButtonText: 'Đóng',
-      confirmButtonColor: '#062B49',
-      customClass: { popup: 'rounded-2xl' }
+    setDayDetailsModal({
+      title: `Lịch Ngày ${mDate.date.getDate()}/${mDate.date.getMonth() + 1}`,
+      grouped: Object.entries(grouped),
     });
   };
 
@@ -171,14 +157,16 @@ export default function Roster() {
             const myShift = empMonthMap[store.currentUser?.fullname || '']?.[`${mDate.weekLabel}_${mDate.dayIndex}`] || '';
             const isOff = myShift === 'OFF' || !myShift;
             return (
-              <div 
-                className={`w-full h-full flex flex-col justify-center items-center cursor-pointer hover:scale-95 transition-transform rounded-xl p-1 border border-transparent hover:border-[var(--kg-primary)]/40 ${getAdminShiftClass(myShift)}`}
+              <button
+                type="button"
+                className={`w-full h-full min-h-[44px] flex flex-col justify-center items-center cursor-pointer active:scale-95 transition-transform rounded-lg sm:rounded-xl p-1 border border-transparent hover:border-[var(--kg-primary)]/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--kg-primary-ink)] touch-manipulation ${getAdminShiftClass(myShift)}`}
                 onClick={() => showDayDetails(mDate, empMonthMap)}
                 title="Nhấn để xem chi tiết toàn quán"
+                aria-label={`Xem lịch ngày ${mDate.date.getDate()}/${mDate.date.getMonth() + 1}`}
               >
-                {!isOff && <span className="text-[10px] sm:text-xs font-bold leading-tight text-center tabular-nums"><ResponsiveShift shift={myShift} /></span>}
+                {!isOff && <span className="text-[10px] sm:text-xs font-bold leading-tight text-center font-mono tabular-nums break-words max-w-full"><ResponsiveShift shift={myShift} /></span>}
                 {isOff && <span className="text-[9px] opacity-60">OFF</span>}
-              </div>
+              </button>
             );
           }}
         />
@@ -321,20 +309,20 @@ export default function Roster() {
           visibleKeys={visibleMonthDateKeys}
           onChange={setVisibleMonthDateKeys}
         />
-        <div className="overflow-x-auto w-full soft3d-bg rounded-xl border border-gray-200 dark:border-gray-700 pb-10 custom-scrollbar">
+        <div className="overflow-x-auto w-full bg-[var(--kg-surface)] rounded-xl border border-[var(--kg-border)] pb-10 custom-scrollbar">
         <table className="w-full text-sm text-left whitespace-nowrap">
-          <thead className="text-[10px] text-gray-500 dark:text-gray-400 uppercase paint-layer/80 border-b border-gray-200 dark:border-gray-700">
+          <thead className="text-[10px] text-[var(--kg-text-muted)] uppercase bg-[var(--kg-surface-soft)] border-b border-[var(--kg-border)]">
             <tr>
-              <th className="px-3 py-3 sticky left-0 paint-layer z-20 font-bold border-r border-gray-200 dark:border-gray-700 shadow-[1px_0_0_0_rgba(0,0,0,0.05)]">Nhân Viên</th>
+              <th className="px-3 py-3 sticky left-0 bg-[var(--kg-surface-soft)] z-20 font-bold border-r border-[var(--kg-border)] shadow-[1px_0_0_0_rgba(0,0,0,0.05)]">Nhân Viên</th>
               {visibleMonthDates.map((mDate) => {
                 const idx = monthDates.findIndex(date => date.dateKey === mDate.dateKey);
                 const isUnderstaffed = dailyWaitstaffCounts[idx] < 3;
                 return (
-                <th key={mDate.dateKey} className={`px-1 py-2 text-center border-r border-gray-200 dark:border-gray-700 min-w-[50px] relative ${mDate.isWeekend ? 'bg-gray-200 dark:bg-gray-700/50' : ''}`}>
-                  <div className="font-bold text-gray-700 dark:text-gray-300 text-[13px]">{formatDateShort(mDate.date)}</div>
-                  <div className="text-[10px] font-normal opacity-70 mt-0.5">{SHORT_DAY_NAMES[mDate.dayIndex]}</div>
+                <th key={mDate.dateKey} className={`px-1 py-2 text-center border-r border-[var(--kg-border)] min-w-[50px] relative ${mDate.isWeekend ? 'bg-[var(--kg-surface-soft)]/80' : ''}`}>
+                  <div className="font-bold text-[var(--kg-text)] text-[13px] font-mono tabular-nums">{formatDateShort(mDate.date)}</div>
+                  <div className="text-[10px] font-normal opacity-75 mt-0.5">{SHORT_DAY_NAMES[mDate.dayIndex]}</div>
                   {isUnderstaffed && (
-                     <div className="absolute top-0.5 right-0.5 text-red-500 animate-pulse" title={`Thiếu nhân sự phục vụ (${dailyWaitstaffCounts[idx]} người)`}>
+                     <div className="absolute top-0.5 right-0.5 text-[var(--kg-danger)] animate-pulse" title={`Thiếu nhân sự phục vụ (${dailyWaitstaffCounts[idx]} người)`}>
                         <ShieldAlert size={10} />
                      </div>
                   )}
@@ -353,7 +341,7 @@ export default function Roster() {
                   const shift = emp.shifts[dayIdx] || '';
                   const isOff = shift === 'OFF' || !shift;
                   return (
-                    <td key={mDate.dateKey} className={`px-1 py-1 border-r border-gray-100 dark:border-gray-700/50 text-center ${mDate.isWeekend ? 'paint-layer/80' : ''}`}>
+                    <td key={mDate.dateKey} className={`px-1 py-1 border-r border-[var(--kg-border)]/50 text-center ${mDate.isWeekend ? 'bg-[var(--kg-surface-soft)]/40' : ''}`}>
                       <div className={`inline-flex items-center justify-center text-[9px] font-bold w-full py-1 rounded-md ${getAdminShiftClass(shift)}`}>
                         {isOff ? 'OFF' : <ResponsiveShift shift={shift} />}
                       </div>
@@ -385,43 +373,70 @@ export default function Roster() {
       />
 
       {/* Toggle Mode & Time Navigation */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 relative z-10 gap-3 w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] p-2 rounded-2xl shadow-xs">
-          <div className="flex items-center space-x-1 bg-[var(--kg-surface-soft)] p-1 rounded-xl border border-[var(--kg-border)]/60">
+        <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center mb-6 relative z-10 gap-2.5 w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] p-2 rounded-2xl shadow-xs">
+          <div className="flex items-center gap-1 bg-[var(--kg-surface-soft)] p-1 rounded-xl border border-[var(--kg-border)]/60 w-full sm:w-auto">
             <button 
               type="button"
               onClick={() => setViewMode('week')} 
-              className={`flex items-center px-4 py-2 rounded-lg text-xs sm:text-sm font-black transition-all ${viewMode === 'week' ? 'bg-[var(--kg-primary)] text-white shadow-xs' : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'}`}
+              className={`flex-1 sm:flex-initial flex items-center justify-center min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-lg text-xs sm:text-sm font-black transition-all touch-manipulation ${viewMode === 'week' ? 'bg-[var(--kg-primary)] text-white shadow-xs' : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'}`}
             >
-              <CalendarRange size={15} className="mr-1.5" /> Tuần
+              <CalendarRange size={15} className="mr-1.5 flex-shrink-0" /> Tuần
             </button>
             <button 
               type="button"
               onClick={() => setViewMode('month')} 
-              className={`flex items-center px-4 py-2 rounded-lg text-xs sm:text-sm font-black transition-all ${viewMode === 'month' ? 'bg-[var(--kg-primary)] text-white shadow-xs' : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'}`}
+              className={`flex-1 sm:flex-initial flex items-center justify-center min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-lg text-xs sm:text-sm font-black transition-all touch-manipulation ${viewMode === 'month' ? 'bg-[var(--kg-primary)] text-white shadow-xs' : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'}`}
             >
-              <LayoutGrid size={15} className="mr-1.5" /> Tháng
+              <LayoutGrid size={15} className="mr-1.5 flex-shrink-0" /> Tháng
             </button>
           </div>
           
-          <div className="flex items-center space-x-2 bg-[var(--kg-surface-soft)] rounded-xl p-1.5 border border-[var(--kg-border)] w-full sm:w-auto justify-between sm:justify-start">
-            <button onClick={() => viewMode === 'week' ? changeWeek(-1) : changeMonth(-1)} className="p-1.5 hover:bg-[var(--kg-surface)] hover:text-[var(--kg-text)] rounded-lg transition-all text-[var(--kg-text-muted)]"><ChevronLeft size={18} /></button>
-            <div className="text-xs sm:text-sm font-black px-2 min-w-[140px] text-center text-[var(--kg-text)]">
+          <div className="flex items-center gap-1.5 bg-[var(--kg-surface-soft)] rounded-xl p-1 border border-[var(--kg-border)] w-full sm:w-auto justify-between sm:justify-start">
+            <button
+              type="button"
+              aria-label="Kỳ trước"
+              onClick={() => viewMode === 'week' ? changeWeek(-1) : changeMonth(-1)}
+              className="w-11 h-11 sm:w-9 sm:h-9 min-w-[44px] min-h-[44px] sm:min-w-[36px] sm:min-h-[36px] flex items-center justify-center hover:bg-[var(--kg-surface)] hover:text-[var(--kg-text)] rounded-lg transition-all text-[var(--kg-text-muted)] touch-manipulation"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <div className="text-xs sm:text-sm font-black px-2 min-w-[140px] text-center text-[var(--kg-text)] font-mono tabular-nums">
               {viewMode === 'week' ? weekInfo.weekDisplay : `Tháng ${selectedMonth}/${selectedYear}`}
             </div>
-            <button onClick={() => viewMode === 'week' ? changeWeek(1) : changeMonth(1)} className="p-1.5 hover:bg-[var(--kg-surface)] hover:text-[var(--kg-text)] rounded-lg transition-all text-[var(--kg-text-muted)]"><ChevronRight size={18} /></button>
+            <button
+              type="button"
+              aria-label="Kỳ tiếp theo"
+              onClick={() => viewMode === 'week' ? changeWeek(1) : changeMonth(1)}
+              className="w-11 h-11 sm:w-9 sm:h-9 min-w-[44px] min-h-[44px] sm:min-w-[36px] sm:min-h-[36px] flex items-center justify-center hover:bg-[var(--kg-surface)] hover:text-[var(--kg-text)] rounded-lg transition-all text-[var(--kg-text-muted)] touch-manipulation"
+            >
+              <ChevronRight size={18} />
+            </button>
           </div>
         </div>
 
         <div className="calendar-highlight-legend mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-[10px] font-bold text-[var(--kg-text-muted)]">
-          <span className="inline-flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-full bg-red-500" /> Lễ/Tết Việt Nam</span>
-          <span className="inline-flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-full bg-[#cc6049]" /> Cao điểm F&amp;B</span>
-          <span className="inline-flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-full bg-amber-400" /> T6 · T7 · CN</span>
+          <span className="inline-flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-full bg-[var(--kg-danger)]" /> Lễ/Tết Việt Nam</span>
+          <span className="inline-flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-full bg-[var(--kg-accent)]" /> Cao điểm F&amp;B</span>
+          <span className="inline-flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-full bg-[var(--kg-warning)]" /> T6 · T7 · CN</span>
         </div>
+
+        {loadError && (
+          <div className="mb-4">
+            <KgAlertCard variant="error" title="Lỗi tải lịch làm việc">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-1">
+                <span>{loadError}</span>
+                <KgButton size="sm" variant="secondary" icon={RefreshCw} onClick={() => void loadSchedules()}>
+                  Thử lại
+                </KgButton>
+              </div>
+            </KgAlertCard>
+          </div>
+        )}
 
       <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-4 sm:p-5 rounded-2xl shadow-xs">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 border-b border-[var(--kg-border)] pb-3 gap-3">
           <h3 className="font-black flex items-center text-[var(--kg-text)] text-sm sm:text-base">
-            <Calendar size={18} className="mr-2 text-[var(--kg-primary)] dark:text-cyan-400" /> Bảng phân ca toàn quán
+            <Calendar size={18} className="mr-2 text-[var(--kg-primary-ink)]" /> Bảng phân ca toàn quán
           </h3>
           <div className="flex items-center space-x-2 w-full sm:w-auto">
             <div className="relative w-full sm:w-48">
@@ -431,7 +446,7 @@ export default function Roster() {
               <select 
                 value={selectedRole}
                 onChange={(e) => setSelectedRole(e.target.value)}
-                className="w-full pl-8 pr-4 py-2 text-xs rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] focus:ring-2 focus:ring-[var(--kg-primary)] appearance-none text-[var(--kg-text)] font-bold min-h-[38px]"
+                className="w-full pl-8 pr-4 py-2 text-xs rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] focus:ring-2 focus:ring-[var(--kg-primary)] appearance-none text-[var(--kg-text)] font-bold min-h-[44px] sm:min-h-[38px]"
               >
                 <option value="ALL">Tất cả chức vụ</option>
                 {uniqueRoles.map(role => (
@@ -439,23 +454,67 @@ export default function Roster() {
                 ))}
               </select>
             </div>
-            <button onClick={loadSchedules} className="text-xs bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-text)] hover:bg-[var(--kg-border)]/40 px-3 py-2 rounded-xl transition flex items-center font-bold flex-shrink-0 min-h-[38px]">
-              <RefreshCw size={13} className="mr-1.5" /> Làm mới
+            <button type="button" onClick={() => void loadSchedules()} disabled={isRefreshing} className="text-xs bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-text)] hover:bg-[var(--kg-border)]/40 px-3 py-2 rounded-xl transition flex items-center font-bold flex-shrink-0 min-h-[44px] sm:min-h-[38px] touch-manipulation disabled:opacity-60">
+              <RefreshCw size={13} className={`mr-1.5 ${isRefreshing ? 'animate-spin' : ''}`} /> Làm mới
             </button>
           </div>
         </div>
 
         <div className="mb-4 text-xs text-[var(--kg-text-muted)] bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] p-3 rounded-xl flex items-start font-medium">
-          <Info size={14} className="mr-2 text-[var(--kg-primary)] dark:text-cyan-400 mt-0.5 flex-shrink-0" />
+          <Info size={14} className="mr-2 text-[var(--kg-primary-ink)] mt-0.5 flex-shrink-0" />
           <p>Đây là lịch làm việc chính thức đã được Quản lý phê duyệt. Nếu có nhu cầu thay đổi, vui lòng báo Quản lý (Admin).</p>
         </div>
 
         {filteredUsers.length > 0 ? (
           viewMode === 'week' ? renderWeekView() : (store.currentUser?.role === 'admin' || store.currentUser?.role === 'tester' ? renderAdminMonthView() : renderUserMonthView())
         ) : (
-          <div className="text-center py-10 text-gray-400">Không có dữ liệu nhân viên cho chức vụ này</div>
+          <div className="text-center py-10 text-[var(--kg-text-muted)]">Không có dữ liệu nhân viên cho chức vụ này</div>
         )}
       </div>
+
+      <KgBottomSheet
+        isOpen={Boolean(dayDetailsModal)}
+        onClose={() => setDayDetailsModal(null)}
+        title={dayDetailsModal?.title || 'Chi tiết ca làm'}
+        footer={
+          <KgButton variant="primary" size="md" className="w-full" onClick={() => setDayDetailsModal(null)}>
+            Đóng
+          </KgButton>
+        }
+      >
+        {dayDetailsModal && (
+          <div className="space-y-3">
+            {dayDetailsModal.grouped.length === 0 ? (
+              <p className="text-sm text-[var(--kg-text-muted)] italic text-center py-6">
+                Không có ai làm việc hôm nay.
+              </p>
+            ) : (
+              dayDetailsModal.grouped.map(([shift, names]) => (
+                <div
+                  key={shift}
+                  className="p-3 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] space-y-2"
+                >
+                  <div className="font-bold text-[var(--kg-primary-ink)] border-b border-[var(--kg-border)] pb-1.5 text-sm flex items-center gap-2 font-mono tabular-nums">
+                    <span className="w-2 h-2 rounded-full bg-[var(--kg-primary)] shrink-0" />
+                    <span>{shift}</span>
+                    <span className="ml-auto text-xs font-semibold text-[var(--kg-text-muted)]">
+                      {names.length} NV
+                    </span>
+                  </div>
+                  <div className="text-xs sm:text-sm text-[var(--kg-text)] grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    {names.map((name) => (
+                      <div key={name} className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-[var(--kg-text-soft)]">•</span>
+                        <span className="truncate font-medium">{name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </KgBottomSheet>
     </div>
   );
 }

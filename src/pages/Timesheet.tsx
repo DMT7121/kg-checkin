@@ -1,12 +1,12 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { generateMonthDates, SHORT_DAY_NAMES } from '../utils/helpers';
 import CalendarGrid from '../components/CalendarGrid';
+import MissedCheckInModal from '../components/MissedCheckInModal';
 import { callApi } from '../services/api';
-import { CalendarClock, Clock, ListOrdered, Calendar, FileClock, Search, List, Eye, ArrowLeft, RefreshCw, Zap, AlertTriangle } from 'lucide-react';
-import Swal from 'sweetalert2';
-import { KgModuleHero, KgInput, KgCard, KgButton } from '../components/KgDesignSystem';
-import { saveModuleCache } from '../utils/refreshData';
+import { CalendarClock, Clock, ListOrdered, Calendar, Search, List, Eye, ArrowLeft, RefreshCw, Zap, AlertTriangle, PlusCircle } from 'lucide-react';
+import { KgModuleHero, KgInput, KgCard, KgButton, KgAlertCard } from '../components/KgDesignSystem';
+import { refreshAppData, saveModuleCache } from '../utils/refreshData';
 import { calculateEmployeeMonthTimesheet, formatDayDateKey, type UserMonthSummary } from '../utils/timesheetCalculator';
 
 type ViewMode = 'HOURS' | 'TIMESTAMPS';
@@ -16,6 +16,7 @@ export default function Timesheet() {
   const currentUser = useAppStore((s) => s.currentUser);
   const timesheetData = useAppStore((s) => s.timesheetData);
   const users = useAppStore((s) => s.users);
+  const logs = useAppStore((s) => s.logs);
   const setTimesheetData = useAppStore((s) => s.setTimesheetData);
   const isAdmin = currentUser?.role === 'admin';
   const defaultMonth = useMemo(() => {
@@ -31,6 +32,12 @@ export default function Timesheet() {
   const [mobileDetailView, setMobileDetailView] = useState<DetailMobileView>('LIST');
   const [onlyShowWorkdays, setOnlyShowWorkdays] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [missedModalTarget, setMissedModalTarget] = useState<{
+    dateStr: string;
+    missingType: 'Vào ca' | 'Ra ca';
+    timeStr?: string;
+  } | null>(null);
 
   const [year, month, daysInTargetMonth] = useMemo(() => {
     const [yStr, mStr] = selectedMonth.split('-');
@@ -50,46 +57,49 @@ export default function Timesheet() {
     }
   };
 
-  useEffect(() => {
-    let isCancelled = false;
+  const currentUsername = currentUser?.username;
+  const currentUserRole = currentUser?.role;
 
-    const fetchMonthTimesheet = async () => {
-      const isCurrentMonth = selectedMonth === defaultMonth;
-      const cachedTs = useAppStore.getState().timesheetData;
-      const hasCached = Boolean(isCurrentMonth && cachedTs && cachedTs.timesheet);
+  const fetchMonthTimesheet = useCallback(async () => {
+    const isCurrentMonth = selectedMonth === defaultMonth;
+    const cachedTs = useAppStore.getState().timesheetData;
+    const hasCached = Boolean(isCurrentMonth && cachedTs && cachedTs.timesheet);
+    setLoadError(null);
+    if (!hasCached) {
+      setIsRefreshing(true);
+    }
+    try {
+      const res = await callApi('GET_TIMESHEET', {
+        username: currentUsername,
+        role: currentUserRole,
+        month: selectedMonth,
+      }, { background: true, cacheTtlMs: isCurrentMonth ? undefined : 0 });
+
+      setIsRefreshing(false);
+      if (res?.ok && res.data) {
+        setViewTimesheetData(res.data);
+        if (isCurrentMonth) {
+          setTimesheetData(res.data);
+          saveModuleCache('timesheet', res.data);
+        }
+        setLoadError(null);
+      } else if (!hasCached) {
+        setLoadError(res?.message || 'Không thể tải bảng tổng hợp công. Vui lòng thử lại.');
+      }
+    } catch {
+      setIsRefreshing(false);
       if (!hasCached) {
-        setIsRefreshing(true);
+        setLoadError('Mất kết nối khi tải bảng công. Vui lòng thử lại.');
       }
-      try {
-        const res = await callApi('GET_TIMESHEET', {
-          username: currentUser?.username,
-          role: currentUser?.role,
-          month: selectedMonth,
-        }, { background: true, cacheTtlMs: isCurrentMonth ? undefined : 0 });
+    }
+  }, [currentUsername, currentUserRole, defaultMonth, selectedMonth, setTimesheetData]);
 
-        if (isCancelled) return;
-        setIsRefreshing(false);
-        if (res?.ok && res.data) {
-          setViewTimesheetData(res.data);
-          if (isCurrentMonth) {
-            setTimesheetData(res.data);
-            saveModuleCache('timesheet', res.data);
-          }
-        } else if (!hasCached && isCurrentMonth) {
-          Swal.fire('Lỗi', res?.message || 'Không thể tải bảng tổng hợp công', 'error');
-        }
-      } catch {
-        if (!isCancelled) {
-          setIsRefreshing(false);
-        }
-      }
-    };
-
-    fetchMonthTimesheet();
-    return () => {
-      isCancelled = true;
-    };
-  }, [currentUser?.username, currentUser?.role, defaultMonth, selectedMonth, setTimesheetData]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void fetchMonthTimesheet();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [fetchMonthTimesheet]);
 
   // Pre-calculate all employee monthly summaries for the exact selected (month, year)
   const employeeSummaries = useMemo<Record<string, UserMonthSummary>>(() => {
@@ -126,13 +136,22 @@ export default function Timesheet() {
               />
             </label>
           </div>
-          {isRefreshing ? (
+          {loadError ? (
+            <KgAlertCard variant="error" title="Lỗi tải bảng công">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-1">
+                <span>{loadError}</span>
+                <KgButton size="sm" variant="secondary" icon={RefreshCw} onClick={() => void fetchMonthTimesheet()}>
+                  Thử lại
+                </KgButton>
+              </div>
+            </KgAlertCard>
+          ) : isRefreshing ? (
             <div className="flex items-center gap-2 py-4 text-xs font-bold text-[var(--kg-text-muted)]">
               <RefreshCw size={16} className="animate-spin text-[var(--kg-primary)]" />
               <span>Đang tải nhanh bảng công...</span>
             </div>
           ) : (
-            <p className="text-[var(--kg-text-muted)] font-bold relative z-10 text-xs sm:text-sm">Chưa có dữ liệu bảng công cho tháng {month}/{year}.</p>
+            <p className="text-[var(--kg-text-muted)] font-bold relative z-10 text-xs sm:text-sm">Chưa có dữ liệu bảng công cho tháng <span className="font-mono tabular-nums">{month}/{year}</span>.</p>
           )}
         </div>
       </div>
@@ -176,54 +195,65 @@ export default function Timesheet() {
         ]}
       />
 
+      {loadError && (
+        <KgAlertCard variant="error" title="Lỗi đồng bộ bảng công">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-1">
+            <span>{loadError}</span>
+            <KgButton size="sm" variant="secondary" icon={RefreshCw} onClick={() => void fetchMonthTimesheet()}>
+              Thử lại
+            </KgButton>
+          </div>
+        </KgAlertCard>
+      )}
+
       <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-4 sm:p-5 rounded-2xl shadow-xs">
         {/* Thanh công cụ tìm kiếm và lọc */}
         <div className="flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-4 mb-6">
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="inline-flex items-center gap-2 rounded-xl bg-[var(--kg-surface-soft)] px-3 py-1.5 border border-[var(--kg-border)] min-h-[38px]">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <label className="inline-flex items-center gap-2 rounded-xl bg-[var(--kg-surface-soft)] px-3 py-2 border border-[var(--kg-border)] min-h-[44px] sm:min-h-[40px] w-full sm:w-auto">
               <Calendar size={15} className="text-[var(--kg-primary)] flex-shrink-0" />
               <input
                 type="month"
                 value={selectedMonth}
                 onChange={(e) => handleMonthChange(e.target.value)}
-                className="bg-transparent text-xs sm:text-sm font-black text-[var(--kg-text)] outline-none"
+                className="bg-transparent text-xs sm:text-sm font-black font-mono tabular-nums text-[var(--kg-text)] outline-none flex-1 min-h-0 border-none p-0"
                 aria-label="Chọn tháng bảng công"
               />
             </label>
 
-            <div className="flex bg-[var(--kg-surface-soft)] p-1 rounded-xl border border-[var(--kg-border)]/60">
+            <div className="flex w-full sm:w-auto bg-[var(--kg-surface-soft)] p-1 rounded-xl border border-[var(--kg-border)]/60 gap-1">
               <button
                 type="button"
                 onClick={() => setViewMode('HOURS')}
-                className={`flex items-center px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-black transition-all ${viewMode === 'HOURS' ? 'bg-[var(--kg-primary)] text-white shadow-xs' : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'}`}
+                className={`flex-1 sm:flex-initial flex items-center justify-center min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-lg text-xs sm:text-sm font-black transition-all whitespace-nowrap touch-manipulation ${viewMode === 'HOURS' ? 'bg-[var(--kg-primary)] text-white shadow-xs' : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'}`}
               >
-                <Clock size={15} className="mr-1.5" /> Giờ làm
+                <Clock size={15} className="mr-1.5 flex-shrink-0" /> Giờ làm
               </button>
               <button
                 type="button"
                 onClick={() => setViewMode('TIMESTAMPS')}
-                className={`flex items-center px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-black transition-all ${viewMode === 'TIMESTAMPS' ? 'bg-[var(--kg-primary)] text-white shadow-xs' : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'}`}
+                className={`flex-1 sm:flex-initial flex items-center justify-center min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-lg text-xs sm:text-sm font-black transition-all whitespace-nowrap touch-manipulation ${viewMode === 'TIMESTAMPS' ? 'bg-[var(--kg-primary)] text-white shadow-xs' : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'}`}
               >
-                <ListOrdered size={15} className="mr-1.5" /> Mốc thời gian
+                <ListOrdered size={15} className="mr-1.5 flex-shrink-0" /> Mốc thời gian
               </button>
             </div>
 
             {/* Bộ chuyển đổi chế độ xem Lịch / Danh sách cho cá nhân */}
             {(selectedUser !== 'ALL' || !isAdmin) && (
-              <div className="flex bg-[var(--kg-surface-soft)] p-1 rounded-xl border border-[var(--kg-border)]/60">
+              <div className="flex w-full sm:w-auto bg-[var(--kg-surface-soft)] p-1 rounded-xl border border-[var(--kg-border)]/60 gap-1">
                 <button
                   type="button"
                   onClick={() => setMobileDetailView('CALENDAR')}
-                  className={`flex items-center px-3 py-1.5 rounded-lg text-xs sm:text-sm font-black transition-all ${mobileDetailView === 'CALENDAR' ? 'bg-[var(--kg-primary)] text-white shadow-xs' : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'}`}
+                  className={`flex-1 sm:flex-initial flex items-center justify-center min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-lg text-xs sm:text-sm font-black transition-all whitespace-nowrap touch-manipulation ${mobileDetailView === 'CALENDAR' ? 'bg-[var(--kg-primary)] text-white shadow-xs' : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'}`}
                 >
-                  <Calendar size={15} className="mr-1.5" /> Lịch
+                  <Calendar size={15} className="mr-1.5 flex-shrink-0" /> Lịch
                 </button>
                 <button
                   type="button"
                   onClick={() => setMobileDetailView('LIST')}
-                  className={`flex items-center px-3 py-1.5 rounded-lg text-xs sm:text-sm font-black transition-all ${mobileDetailView === 'LIST' ? 'bg-[var(--kg-primary)] text-white shadow-xs' : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'}`}
+                  className={`flex-1 sm:flex-initial flex items-center justify-center min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-lg text-xs sm:text-sm font-black transition-all whitespace-nowrap touch-manipulation ${mobileDetailView === 'LIST' ? 'bg-[var(--kg-primary)] text-white shadow-xs' : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'}`}
                 >
-                  <List size={15} className="mr-1.5" /> Danh sách
+                  <List size={15} className="mr-1.5 flex-shrink-0" /> Danh sách
                 </button>
               </div>
             )}
@@ -307,10 +337,10 @@ export default function Timesheet() {
                           <td className="px-4 py-3 font-bold text-[var(--kg-text)] sticky left-0 bg-[var(--kg-surface)] border-r border-[var(--kg-border)] z-10">
                             {name}
                           </td>
-                          <td className="px-4 py-3 font-black text-center font-mono text-[var(--kg-primary)] dark:text-cyan-300 sticky left-[150px] bg-[var(--kg-surface-soft)] border-r border-[var(--kg-border)] z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.06)]">
+                          <td className="px-4 py-3 font-black text-center font-mono tabular-nums text-[var(--kg-primary)] dark:text-cyan-300 sticky left-[150px] bg-[var(--kg-surface-soft)] border-r border-[var(--kg-border)] z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.06)]">
                             {totalMonthHours.toFixed(2)}h
                             {summary?.totalOvertimeHours > 0 && (
-                              <span className="block text-[10px] text-amber-500 font-bold">
+                              <span className="block text-[10px] font-mono tabular-nums text-amber-500 font-bold">
                                 +{summary.totalOvertimeHours.toFixed(1)}h TC
                               </span>
                             )}
@@ -324,7 +354,7 @@ export default function Timesheet() {
                             return (
                               <td key={d} className="px-2 py-2 border-r border-[var(--kg-border)] text-center relative group">
                                 {(hours > 0 || text !== '') ? (
-                                  <div className={`py-1 px-1.5 rounded-lg text-xs font-mono font-bold mx-auto w-fit whitespace-pre-line border ${
+                                  <div className={`py-1 px-1.5 rounded-lg text-xs font-mono tabular-nums font-bold mx-auto w-fit whitespace-pre-line border ${
                                     hasOvertime
                                       ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30'
                                       : 'bg-[var(--kg-primary)]/10 text-[var(--kg-primary)] dark:bg-[var(--kg-primary)]/30 dark:text-cyan-200 border-[var(--kg-primary)]/20'
@@ -371,7 +401,7 @@ export default function Timesheet() {
                         </div>
                         <div>
                           <h4 className="font-extrabold text-[var(--kg-text)] text-sm leading-snug">{name}</h4>
-                          <span className="text-[11px] text-[var(--kg-text-muted)] block font-medium mt-0.5">
+                          <span className="text-[11px] text-[var(--kg-text-muted)] block font-medium mt-0.5 font-mono tabular-nums">
                             {workDaysCount} ngày công • Tháng {month}/{year}
                           </span>
                         </div>
@@ -380,11 +410,11 @@ export default function Timesheet() {
                       <div className="flex items-center gap-3">
                         <div className="text-right">
                           <span className="text-[10px] text-[var(--kg-text-muted)] font-bold block uppercase tracking-wider">Tổng giờ</span>
-                          <span className="text-sm font-mono font-black text-[var(--kg-primary)] dark:text-cyan-300">
+                          <span className="text-sm font-mono tabular-nums font-black text-[var(--kg-primary)] dark:text-cyan-300">
                             {totalMonthHours.toFixed(2)}h
                           </span>
                           {summary?.totalOvertimeHours > 0 && (
-                            <span className="text-[10px] text-amber-600 dark:text-amber-400 block font-bold">
+                            <span className="text-[10px] font-mono tabular-nums text-amber-600 dark:text-amber-400 block font-bold">
                               +{summary.totalOvertimeHours.toFixed(1)}h TC
                             </span>
                           )}
@@ -394,7 +424,7 @@ export default function Timesheet() {
                           variant="secondary"
                           icon={Eye}
                           onClick={() => setSelectedUser(name)}
-                          className="!px-3 !py-1.5 !min-h-[36px]"
+                          className="!px-3 !py-1.5"
                         >
                           Chi tiết
                         </KgButton>
@@ -478,7 +508,6 @@ export default function Timesheet() {
                         variant="secondary"
                         icon={ArrowLeft}
                         onClick={() => setSelectedUser('ALL')}
-                        className="!min-h-[36px]"
                       >
                         Quay lại danh sách
                       </KgButton>
@@ -520,10 +549,10 @@ export default function Timesheet() {
                     <div className="space-y-4 animate-fade-in">
                       {/* Tiêu đề & Bộ lọc */}
                       <div className="flex justify-between items-center pb-2 border-b border-[var(--kg-border)]">
-                        <span className="text-xs text-[var(--kg-text-muted)] font-bold tabular-nums">
+                        <span className="text-xs text-[var(--kg-text-muted)] font-bold font-mono tabular-nums">
                           Đang hiển thị {filteredWorkdays.length} ngày
                         </span>
-                        <label htmlFor="timesheet-only-workdays" className="flex items-center gap-2 cursor-pointer select-none">
+                        <label htmlFor="timesheet-only-workdays" className="flex items-center gap-2 cursor-pointer select-none min-h-[44px] sm:min-h-[32px]">
                           <input
                             id="timesheet-only-workdays"
                             type="checkbox"
@@ -564,7 +593,7 @@ export default function Timesheet() {
                                 {/* Cột 1: Ngày tháng */}
                                 <div className="flex items-center gap-3 min-w-0">
                                   <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-black text-center flex-shrink-0 ${dayBg}`}>
-                                    <span className="text-sm font-mono leading-none">{item.day.toString().padStart(2, '0')}</span>
+                                    <span className="text-sm font-mono tabular-nums leading-none">{item.day.toString().padStart(2, '0')}</span>
                                     <span className="text-[9px] uppercase mt-1 tracking-wider">{item.dayLabel}</span>
                                   </div>
 
@@ -574,7 +603,7 @@ export default function Timesheet() {
                                       <div className="flex flex-col gap-1.5">
                                         {item.sessions.map((session, sIdx) => (
                                           <div key={sIdx} className="flex flex-wrap items-center gap-1.5 text-xs">
-                                            <span className="px-2.5 py-1 rounded-xl font-mono font-bold bg-[var(--kg-surface-soft)] text-[var(--kg-text)] border border-[var(--kg-border)] flex items-center gap-1">
+                                            <span className="px-2.5 py-1 rounded-xl font-mono tabular-nums font-bold bg-[var(--kg-surface-soft)] text-[var(--kg-text)] border border-[var(--kg-border)] flex items-center gap-1">
                                               <span className="text-[10px] text-[var(--kg-text-muted)] uppercase font-semibold">Vào:</span>
                                               <span>{session.inTime}</span>
                                               <span className="text-[var(--kg-text-muted)] mx-0.5">→</span>
@@ -582,7 +611,7 @@ export default function Timesheet() {
                                               <span className={session.isMissingOut ? 'text-amber-500 font-black animate-pulse' : ''}>{session.outTime}</span>
                                             </span>
                                             {session.overtimeHours > 0 && (
-                                              <span className="px-2 py-0.5 rounded-lg text-[10px] font-mono font-black bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 flex items-center gap-0.5">
+                                              <span className="px-2 py-0.5 rounded-lg text-[10px] font-mono tabular-nums font-black bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 flex items-center gap-0.5">
                                                 <Zap size={11} className="text-amber-500" />
                                                 +{session.overtimeHours.toFixed(1)}h Tăng ca
                                               </span>
@@ -594,11 +623,28 @@ export default function Timesheet() {
                                       <span className="text-xs text-[var(--kg-text-muted)] font-medium">Nghỉ</span>
                                     )}
                                     
-                                    {/* Cảnh báo thiếu ra ca */}
+                                    {/* Cảnh báo thiếu ra ca + 1-tap Bổ sung công */}
                                     {item.hasMissingCheckout && (
-                                      <span className="text-[10px] text-amber-600 dark:text-amber-400 font-extrabold inline-flex items-center gap-1 mt-1">
-                                        <AlertTriangle size={11} /> Thiếu giờ ra ca
-                                      </span>
+                                      <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                                        <span className="text-[10px] text-amber-600 dark:text-amber-400 font-extrabold inline-flex items-center gap-1">
+                                          <AlertTriangle size={11} /> Thiếu giờ ra ca
+                                        </span>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const missingSess = item.sessions.find((s) => s.isMissingOut);
+                                            setMissedModalTarget({
+                                              dateStr: item.dateStr,
+                                              missingType: 'Ra ca',
+                                              timeStr: missingSess?.inTime,
+                                            });
+                                          }}
+                                          className="min-h-[44px] sm:min-h-[32px] px-2.5 py-1 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-[11px] inline-flex items-center gap-1 shadow-2xs active:scale-95 transition touch-manipulation"
+                                        >
+                                          <PlusCircle size={12} />
+                                          <span>Bổ sung công</span>
+                                        </button>
+                                      </div>
                                     )}
                                   </div>
                                 </div>
@@ -629,6 +675,25 @@ export default function Timesheet() {
           </div>
         )}
       </div>
+
+      {missedModalTarget && (
+        <MissedCheckInModal
+          isOpen={Boolean(missedModalTarget)}
+          onClose={() => {
+            setMissedModalTarget(null);
+            void fetchMonthTimesheet();
+          }}
+          existingLogs={logs}
+          onSubmitted={() => {
+            void refreshAppData(true);
+            void fetchMonthTimesheet();
+          }}
+          defaultType={missedModalTarget.missingType}
+          defaultDate={missedModalTarget.dateStr}
+          defaultTime={missedModalTarget.timeStr}
+          defaultReason="Quên bấm cuối ca"
+        />
+      )}
     </div>
   );
 }

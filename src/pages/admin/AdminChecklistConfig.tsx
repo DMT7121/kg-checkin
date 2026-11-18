@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
-import { useAppStore } from '../../store/useAppStore';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { callApi } from '../../services/api';
+import { useAppStore } from '../../store/useAppStore';
+import { isAdminUser } from '../../utils/permissions';
 import Swal from 'sweetalert2';
-import { ClipboardCheck, ClipboardList, Plus, Save, Trash2, Edit2, Loader2, RefreshCw } from 'lucide-react';
+import { ClipboardCheck, ClipboardList, Plus, Save, Trash2, Edit2, Loader2, RefreshCw, AlertTriangle, Search, X } from 'lucide-react';
 import { KgModuleHero } from '../../components/KgDesignSystem';
 
 interface ChecklistTemplateItem {
@@ -16,22 +17,77 @@ interface ChecklistTemplateItem {
   subtasksText: string; // joined by newlines
 }
 
+const PHASES = ['CHECKLIST ĐẦU CA', 'CHECKLIST CUỐI CA'];
+const SHIFTS = [
+  'CA 15H: SETUP BÀN',
+  'CA 17H: RÀ SOÁT & HOÀN THIỆN',
+  'XUỐNG CA LẦN 1',
+  'XUỐNG CA SAU CÙNG',
+];
+
 export default function AdminChecklistConfig() {
-  const setCurrentTab = useAppStore((s) => s.setCurrentTab);
-  const store = { setCurrentTab };
+  const currentUser = useAppStore((s) => s.currentUser);
+  if (!isAdminUser(currentUser)) return null;
+  return <AdminChecklistConfigContent />;
+}
+
+function AdminChecklistConfigContent() {
   const [items, setItems] = useState<ChecklistTemplateItem[]>([]);
+  const [savedSnapshot, setSavedSnapshot] = useState('[]');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  // Filters
+  const [filterPhase, setFilterPhase] = useState('ALL');
+  const [filterShift, setFilterShift] = useState('ALL');
+  const [filterSection, setFilterSection] = useState('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Form states
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<ChecklistTemplateItem>>({});
+  const [formBaseline, setFormBaseline] = useState('');
 
-  const fetchConfig = async () => {
+  const isDirty = useMemo(() => JSON.stringify(items) !== savedSnapshot, [items, savedSnapshot]);
+  const isFormDirty = useMemo(
+    () => Boolean(editingId && JSON.stringify(formData) !== formBaseline),
+    [editingId, formData, formBaseline]
+  );
+
+  useEffect(() => {
+    if (!isDirty && !isFormDirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [isDirty, isFormDirty]);
+
+  const fetchConfig = useCallback(async (skipDirtyCheck = false) => {
+    if (!skipDirtyCheck && (isDirty || isFormDirty)) {
+      const confirmReload = await Swal.fire({
+        title: 'Bỏ thay đổi chưa lưu?',
+        text: 'Bạn có chỉnh sửa checklist chưa lưu lên Google Sheets. Tải lại sẽ làm mất các thay đổi này.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        confirmButtonText: 'Tải lại & Bỏ thay đổi',
+        cancelButtonText: 'Giữ lại',
+      });
+      if (!confirmReload.isConfirmed) return;
+    }
+
     setLoading(true);
+    setLoadError('');
     try {
-      const res = await callApi('GET_OPS_CHECKLIST_INIT');
-      if (res?.ok && res.data?.checklist) {
+      const res = await callApi('GET_OPS_CHECKLIST_INIT', {}, { background: true, cacheTtlMs: 0 });
+      if (!res) {
+        setLoadError('Mất kết nối máy chủ. Không thể tải cấu hình checklist.');
+        return;
+      }
+      if (res.ok && res.data?.checklist) {
         // Flatten grouped checklist from API response
         const flatList: ChecklistTemplateItem[] = [];
         res.data.checklist.forEach((group: any) => {
@@ -51,17 +107,23 @@ export default function AdminChecklistConfig() {
         // Sort items by STT
         flatList.sort((a, b) => a.no - b.no);
         setItems(flatList);
+        setSavedSnapshot(JSON.stringify(flatList));
+        setEditingId(null);
+        setFormBaseline('');
+      } else {
+        setLoadError(res.message || 'Không thể lấy dữ liệu cấu hình checklist.');
       }
     } catch (err) {
       console.error(err);
-      Swal.fire('Lỗi', 'Không thể lấy dữ liệu cấu hình checklist.', 'error');
+      setLoadError('Không thể lấy dữ liệu cấu hình checklist.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [isDirty, isFormDirty]);
 
   useEffect(() => {
-    fetchConfig();
+    void fetchConfig(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSaveAll = async () => {
@@ -81,7 +143,9 @@ export default function AdminChecklistConfig() {
 
     try {
       const res = await callApi('SAVE_OPS_CHECKLIST_CONFIG', { items: apiItems });
-      if (res?.ok) {
+      if (!res) return;
+      if (res.ok) {
+        setSavedSnapshot(JSON.stringify(items));
         Swal.fire({ 
           toast: true, 
           position: 'top-end', 
@@ -91,33 +155,55 @@ export default function AdminChecklistConfig() {
           timer: 2000 
         });
       } else {
-        throw new Error(res?.message || 'API error');
+        Swal.fire('Lỗi', res.message || 'Không thể lưu cấu hình checklist.', 'error');
       }
-    } catch (err: any) {
-      console.error(err);
-      Swal.fire('Lỗi', err.message || 'Không thể lưu cấu hình checklist.', 'error');
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleAdd = () => {
-    setEditingId('NEW');
-    setFormData({
+  const confirmDiscardFormIfNeeded = async (): Promise<boolean> => {
+    if (!isFormDirty) return true;
+    const confirm = await Swal.fire({
+      title: 'Hủy chỉnh sửa hạng mục?',
+      text: 'Nội dung đang nhập trong form sẽ không được lưu.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc2626',
+      confirmButtonText: 'Bỏ thay đổi',
+      cancelButtonText: 'Tiếp tục sửa',
+    });
+    return confirm.isConfirmed;
+  };
+
+  const handleAdd = async () => {
+    if (!(await confirmDiscardFormIfNeeded())) return;
+    const draft: Partial<ChecklistTemplateItem> = {
       id: 'item_' + Date.now().toString().slice(-6),
       no: items.length > 0 ? Math.max(...items.map(i => i.no)) + 1 : 1,
-      phase: 'CHECKLIST ĐẦU CA',
-      shift: 'CA 15H: SETUP BÀN',
-      section: 'I. Vệ sinh & setup khu trực',
+      phase: filterPhase !== 'ALL' ? filterPhase : 'CHECKLIST ĐẦU CA',
+      shift: filterShift !== 'ALL' ? filterShift : 'CA 15H: SETUP BÀN',
+      section: filterSection !== 'ALL' ? filterSection : 'I. Vệ sinh & setup khu trực',
       title: '',
       desc: '',
       subtasksText: ''
-    });
+    };
+    setEditingId('NEW');
+    setFormData(draft);
+    setFormBaseline(JSON.stringify(draft));
   };
 
-  const handleEdit = (item: ChecklistTemplateItem) => {
+  const handleEdit = async (item: ChecklistTemplateItem) => {
+    if (editingId !== item.id && !(await confirmDiscardFormIfNeeded())) return;
     setEditingId(item.id);
     setFormData(item);
+    setFormBaseline(JSON.stringify(item));
+  };
+
+  const handleCancelEdit = async () => {
+    if (!(await confirmDiscardFormIfNeeded())) return;
+    setEditingId(null);
+    setFormBaseline('');
   };
 
   const handleDelete = (id: string) => {
@@ -164,24 +250,42 @@ export default function AdminChecklistConfig() {
       setItems(prev => prev.map(i => i.id === editingId ? updatedItem : i).sort((a, b) => a.no - b.no));
     }
     setEditingId(null);
+    setFormBaseline('');
   };
 
-  const PHASES = ['CHECKLIST ĐẦU CA', 'CHECKLIST CUỐI CA'];
-  const SHIFTS = [
-    'CA 15H: SETUP BÀN', 
-    'CA 17H: RÀ SOÁT & HOÀN THIỆN', 
-    'XUỐNG CA LẦN 1', 
-    'XUỐNG CA SAU CÙNG'
-  ];
+  const availablePhases = useMemo(
+    () => Array.from(new Set([...PHASES, ...items.map((i) => i.phase).filter(Boolean)])),
+    [items]
+  );
+  const availableShifts = useMemo(
+    () => Array.from(new Set([...SHIFTS, ...items.map((i) => i.shift).filter(Boolean)])),
+    [items]
+  );
+  const availableSections = useMemo(
+    () => Array.from(new Set(items.map((i) => i.section).filter(Boolean))),
+    [items]
+  );
+
+  const filteredItems = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return items.filter((item) => {
+      if (filterPhase !== 'ALL' && item.phase !== filterPhase) return false;
+      if (filterShift !== 'ALL' && item.shift !== filterShift) return false;
+      if (filterSection !== 'ALL' && item.section !== filterSection) return false;
+      if (!q) return true;
+      return (
+        item.title.toLowerCase().includes(q) ||
+        item.desc.toLowerCase().includes(q) ||
+        item.section.toLowerCase().includes(q) ||
+        item.id.toLowerCase().includes(q)
+      );
+    });
+  }, [items, filterPhase, filterShift, filterSection, searchQuery]);
+
+  const hasActiveFilter = filterPhase !== 'ALL' || filterShift !== 'ALL' || filterSection !== 'ALL' || searchQuery.trim() !== '';
 
   return (
-    <div className="p-4 space-y-6 animate-slide-up pb-10 max-w-6xl mx-auto">
-      <div className="flex mb-2 -mt-2">
-        <button onClick={() => store.setCurrentTab('admin_work')} className="flex items-center text-xs font-bold text-gray-500 hover:text-ocean-600 transition-colors">
-          <span className="mr-1">←</span> Quay lại Cài đặt chung
-        </button>
-      </div>
-      
+    <div className="p-4 space-y-6 animate-slide-up pb-24 md:pb-12 max-w-6xl mx-auto">
       <KgModuleHero
         moduleId="checklist"
         title="Cấu hình Checklist Phân Khu"
@@ -195,43 +299,152 @@ export default function AdminChecklistConfig() {
         ]}
       />
 
+      {isDirty && (
+        <div className="rounded-2xl border border-amber-400/50 bg-amber-50 dark:bg-amber-950/25 px-4 py-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-bold">
+            <AlertTriangle size={15} className="flex-shrink-0" />
+            <span>Bạn có thay đổi danh mục checklist chưa lưu lên Google Sheets.</span>
+          </div>
+          <button
+            type="button"
+            onClick={handleSaveAll}
+            disabled={isSaving}
+            className="min-h-[36px] px-3.5 py-1.5 rounded-xl bg-[var(--kg-primary)] text-white font-extrabold inline-flex items-center gap-1.5 shadow-xs"
+          >
+            {isSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+            <span>Lưu ngay</span>
+          </button>
+        </div>
+      )}
+
       <div className="soft3d-card p-5">
-        <div className="flex flex-wrap items-center justify-between mb-6 gap-4 border-b border-[var(--kg-border)] pb-4">
+        <div className="flex flex-wrap items-center justify-between mb-4 gap-4 border-b border-[var(--kg-border)] pb-4">
           <h3 className="font-extrabold text-base text-gray-800 dark:text-white flex items-center gap-2">
             <ClipboardCheck size={20} className="text-teal-600" />
-            <span>Danh sách Hạng mục ({items.length})</span>
+            <span>Danh sách Hạng mục (<span className="font-mono tabular-nums">{filteredItems.length}/{items.length}</span>)</span>
           </h3>
           
-          <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
             <button 
-              onClick={fetchConfig}
-              className="flex items-center justify-center bg-gray-50 text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 px-4 py-2 rounded-xl font-bold text-xs transition-colors"
+              type="button"
+              onClick={() => void fetchConfig(false)}
+              className="min-h-[44px] sm:min-h-[38px] flex items-center justify-center bg-gray-50 text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 border border-[var(--kg-border)] px-3.5 py-2 rounded-xl font-bold text-xs transition-colors"
             >
-              <RefreshCw size={14} className="mr-1" />
+              <RefreshCw size={14} className="mr-1.5 flex-shrink-0" />
               <span>Tải lại</span>
             </button>
             
             <button 
-              onClick={handleAdd} 
-              className="flex items-center justify-center bg-teal-50 text-teal-600 hover:bg-teal-100 dark:bg-teal-900/30 dark:text-teal-400 dark:hover:bg-teal-900/50 px-4 py-2 rounded-xl font-bold text-xs transition-colors"
+              type="button"
+              onClick={() => void handleAdd()} 
+              className="min-h-[44px] sm:min-h-[38px] flex items-center justify-center bg-teal-50 text-teal-700 hover:bg-teal-100 dark:bg-teal-900/30 dark:text-teal-300 dark:hover:bg-teal-900/50 border border-teal-500/25 px-3.5 py-2 rounded-xl font-bold text-xs transition-colors"
             >
-              <Plus size={14} className="mr-1" /> 
+              <Plus size={14} className="mr-1.5 flex-shrink-0" /> 
               <span>Thêm Mới</span>
             </button>
             
             <button 
+              type="button"
               onClick={handleSaveAll} 
               disabled={isSaving}
-              className="flex items-center justify-center bg-[var(--kg-primary)] hover:opacity-90 text-white px-5 py-2 rounded-xl font-bold text-xs transition-all disabled:opacity-50 shadow-xs active:scale-95"
+              className="min-h-[44px] sm:min-h-[38px] flex items-center justify-center bg-[var(--kg-primary)] hover:opacity-90 text-white px-4 py-2 rounded-xl font-bold text-xs transition-all disabled:opacity-50 shadow-xs active:scale-95"
             >
-              {isSaving ? <Loader2 size={14} className="mr-1 animate-spin" /> : <Save size={14} className="mr-1" />} 
-              <span>Lưu Cấu Hình</span>
+              {isSaving ? <Loader2 size={14} className="mr-1.5 animate-spin flex-shrink-0" /> : <Save size={14} className="mr-1.5 flex-shrink-0" />} 
+              <span>Lưu Cấu Hình{isDirty ? ' *' : ''}</span>
             </button>
+          </div>
+        </div>
+
+        {/* Phase / Shift / Section Filters */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 mb-4">
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--kg-text-muted)] pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Tìm tiêu đề, mô tả, mã..."
+              aria-label="Tìm hạng mục checklist"
+              className="w-full min-h-[44px] sm:min-h-[38px] pl-9 pr-8 py-2 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-xs font-semibold text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                aria-label="Xóa từ khóa tìm kiếm"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]"
+              >
+                <X size={13} />
+              </button>
+            )}
+          </div>
+          <select
+            value={filterPhase}
+            onChange={(e) => setFilterPhase(e.target.value)}
+            aria-label="Lọc phân loại checklist"
+            className="min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-xs font-bold text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
+          >
+            <option value="ALL">Tất cả phân loại (Phase)</option>
+            {availablePhases.map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
+          <select
+            value={filterShift}
+            onChange={(e) => setFilterShift(e.target.value)}
+            aria-label="Lọc ca làm việc checklist"
+            className="min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-xs font-bold text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
+          >
+            <option value="ALL">Tất cả ca trực (Shift)</option>
+            {availableShifts.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+          <div className="flex gap-2">
+            <select
+              value={filterSection}
+              onChange={(e) => setFilterSection(e.target.value)}
+              aria-label="Lọc phần checklist"
+              className="flex-1 min-w-0 min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-xs font-bold text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
+            >
+              <option value="ALL">Tất cả phần (Section)</option>
+              {availableSections.map((sec) => (
+                <option key={sec} value={sec}>{sec}</option>
+              ))}
+            </select>
+            {hasActiveFilter && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterPhase('ALL');
+                  setFilterShift('ALL');
+                  setFilterSection('ALL');
+                  setSearchQuery('');
+                }}
+                className="min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface)] text-xs font-bold text-[var(--kg-accent-ink)] hover:bg-[var(--kg-surface-soft)] shrink-0"
+              >
+                Xóa lọc
+              </button>
+            )}
           </div>
         </div>
 
         {loading ? (
           <div className="flex justify-center py-16"><Loader2 size={32} className="animate-spin text-teal-500" /></div>
+        ) : loadError ? (
+          <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 text-xs sm:text-sm font-bold text-rose-700 dark:text-rose-300">
+              <AlertTriangle size={18} className="flex-shrink-0" />
+              <span>{loadError}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => void fetchConfig(true)}
+              className="min-h-[44px] sm:min-h-[36px] px-4 py-2 rounded-xl bg-[var(--kg-primary)] text-white text-xs font-bold inline-flex items-center justify-center gap-1.5 shrink-0"
+            >
+              <RefreshCw size={14} /> Thử lại
+            </button>
+          </div>
         ) : (
           <div className="space-y-6">
             
@@ -330,12 +543,14 @@ export default function AdminChecklistConfig() {
 
                 <div className="flex justify-end gap-2 pt-3 border-t border-gray-200 dark:border-gray-800">
                   <button 
-                    onClick={() => setEditingId(null)} 
+                    type="button"
+                    onClick={() => void handleCancelEdit()} 
                     className="px-4 py-2 text-gray-600 bg-white dark:bg-gray-800 border border-[var(--kg-border)] rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 text-xs font-bold"
                   >
                     Hủy
                   </button>
                   <button 
+                    type="button"
                     onClick={handleSaveItem} 
                     className="px-5 py-2 bg-teal-600 text-white rounded-xl hover:bg-teal-700 text-xs font-bold"
                   >
@@ -346,10 +561,10 @@ export default function AdminChecklistConfig() {
             )}
 
             {/* LIST TABLE */}
-            <div className="overflow-x-auto border border-[var(--kg-border)] rounded-3xl">
+            <div className="overflow-x-auto max-h-[65vh] overflow-y-auto border border-[var(--kg-border)] rounded-2xl">
               <table className="w-full text-left border-collapse min-w-[900px]">
-                <thead>
-                  <tr className="bg-gray-50 dark:bg-gray-800/40 border-b border-[var(--kg-border)] text-[10px] font-black uppercase text-gray-500 tracking-wider">
+                <thead className="sticky top-0 z-10 bg-[var(--kg-surface-soft)]">
+                  <tr className="border-b border-[var(--kg-border)] text-[10px] font-black uppercase text-[var(--kg-text-muted)] tracking-wider">
                     <th className="py-3 px-4 w-12 text-center">STT</th>
                     <th className="py-3 px-4 w-44">Phân loại / Ca</th>
                     <th className="py-3 px-4 w-44">Phần</th>
@@ -358,11 +573,13 @@ export default function AdminChecklistConfig() {
                   </tr>
                 </thead>
                 <tbody className="text-xs divide-y divide-[var(--kg-border)]">
-                  {items.length === 0 ? (
+                  {filteredItems.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="text-center py-12 text-gray-400 italic">Chưa có hạng mục checklist nào.</td>
+                      <td colSpan={5} className="text-center py-12 text-gray-400 italic">
+                        {items.length === 0 ? 'Chưa có hạng mục checklist nào.' : 'Không có hạng mục nào khớp bộ lọc hiện tại.'}
+                      </td>
                     </tr>
-                  ) : items.map((item) => {
+                  ) : filteredItems.map((item) => {
                     const subtaskCount = item.subtasksText ? item.subtasksText.split('\n').filter(Boolean).length : 0;
                     return (
                       <tr key={item.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
@@ -387,18 +604,22 @@ export default function AdminChecklistConfig() {
                           )}
                         </td>
                         <td className="py-4 px-4 text-right">
-                          <div className="flex justify-end space-x-2">
+                          <div className="flex justify-end gap-1.5">
                             <button 
-                              onClick={() => handleEdit(item)} 
-                              className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                              type="button"
+                              aria-label="Sửa hạng mục"
+                              onClick={() => void handleEdit(item)} 
+                              className="w-9 h-9 min-w-[36px] min-h-[36px] inline-flex items-center justify-center text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl transition-colors"
                             >
-                              <Edit2 size={14} />
+                              <Edit2 size={15} />
                             </button>
                             <button 
+                              type="button"
+                              aria-label="Xóa hạng mục"
                               onClick={() => handleDelete(item.id)} 
-                              className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                              className="w-9 h-9 min-w-[36px] min-h-[36px] inline-flex items-center justify-center text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-xl transition-colors"
                             >
-                              <Trash2 size={14} />
+                              <Trash2 size={15} />
                             </button>
                           </div>
                         </td>

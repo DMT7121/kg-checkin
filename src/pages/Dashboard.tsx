@@ -2,9 +2,25 @@ import { lazy, Suspense, useState, useEffect } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
-import { computeWeekInfo, auditMissingCheckIns, type MissingCheckInAlert, ResponsiveShift, getPreviewShiftClass, getScheduleRegistrationWindow, isNextWeekScheduleRegistered, isScheduleRegistrationRequired, getScheduleRegistrationMeta } from '../utils/helpers';
+import {
+  computeWeekInfo,
+  auditMissingCheckIns,
+  type MissingCheckInAlert,
+  ResponsiveShift,
+  getPreviewShiftClass,
+  getScheduleRegistrationWindow,
+  isNextWeekScheduleRegistered,
+  isScheduleRegistrationRequired,
+  getScheduleRegistrationMeta,
+  isCheckInLabel,
+  getVietnamDateParts,
+  getRecommendedCheckInType,
+  parseVietnamLogTimestampMs,
+} from '../utils/helpers';
+import { getWorkdayCycleBounds } from '../utils/attendanceSequence';
+import { normalizeIncidentStatus } from '../utils/operationsReconciliation';
 import { refreshAppData } from '../utils/refreshData';
-import { hasTabPermission, getTabLabel } from '../utils/permissions';
+import { hasTabPermission, getTabLabel, isAdminUser } from '../utils/permissions';
 import {
   Camera, Calendar, Clock, ShieldAlert,
   Newspaper, GraduationCap,
@@ -17,7 +33,6 @@ import {
 } from 'lucide-react';
 import AppErrorBoundary from '../components/AppErrorBoundary';
 import KgAppShell from '../components/KgAppShell';
-import NewbieGuideModal from '../components/NewbieGuideModal';
 import MissedCheckInModal from '../components/MissedCheckInModal';
 import MandatoryScheduleModal from '../components/MandatoryScheduleModal';
 import {
@@ -183,6 +198,33 @@ const ModuleRecoverFallback = ({ onRetry, onGoHome }: { onRetry?: () => void; on
   );
 };
 
+function LiveClockDisplay() {
+  const currentTime = useAppStore((s) => s.currentTime);
+  const vnNow = getVietnamDateParts();
+  const displayTime = currentTime
+    ? currentTime.split(' ').pop()
+    : `${String(vnNow.hour).padStart(2, '0')}:${String(vnNow.minute).padStart(2, '0')}`;
+  const dayNames = ['CN', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+  const displayDate = `${dayNames[vnNow.dayOfWeek]}, ${String(vnNow.day).padStart(2, '0')}/${String(vnNow.month).padStart(2, '0')}`;
+
+  return (
+    <div className="flex-shrink-0 bg-black/30 border border-white/15 rounded-xl px-2.5 py-1.5 sm:px-3 sm:py-2 flex flex-col items-end justify-center">
+      <div className="flex items-center gap-1.5">
+        <span className="relative flex h-2 w-2 flex-shrink-0">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+        </span>
+        <span className="text-xs sm:text-base font-extrabold font-mono tabular-nums text-white leading-none">
+          {displayTime}
+        </span>
+      </div>
+      <span className="text-[11px] font-medium font-mono tabular-nums text-white/80 whitespace-nowrap block text-right mt-1 leading-none">
+        {displayDate}
+      </span>
+    </div>
+  );
+}
+
 const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void }) => {
   const store = useAppStore(
     useShallow((s) => ({
@@ -202,7 +244,6 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
       users: s.users,
       swapRequests: s.swapRequests,
       advances: s.advances,
-      currentTime: s.currentTime,
       todayChecklistDone: s.todayChecklistDone,
       todayHandoverDone: s.todayHandoverDone,
       soldOutItems: s.soldOutItems,
@@ -210,12 +251,22 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
     }))
   );
   const { currentUser } = store;
-  const isAdmin = currentUser?.role === 'admin';
-  const { stats, logs, approvedShifts, currentWeekApprovedShifts } = store;
+  const isAdmin = isAdminUser(currentUser);
+  const { logs, approvedShifts, currentWeekApprovedShifts } = store;
   const recentLogs = logs.filter(l => l.fullname === currentUser?.fullname).slice(0, 3);
-  const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isMissedModalOpen, setIsMissedModalOpen] = useState(false);
   const [pendingMissedClaims, setPendingMissedClaims] = useState<any[]>([]);
+
+  const navigateToHubSubTab = (hub: TabId, subTab: string) => {
+    try {
+      sessionStorage.setItem(`kg_hub_subtab_${hub}`, subTab);
+    } catch { /* ignore */ }
+    onTabChange(hub);
+    window.dispatchEvent(new CustomEvent('kg:subtab-select', { detail: { hub, subTab } }));
+    window.setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('kg:subtab-select', { detail: { hub, subTab } }));
+    }, 30);
+  };
 
   const missingAlerts = auditMissingCheckIns(logs, currentUser);
   const [selectedMissingAlert, setSelectedMissingAlert] = useState<MissingCheckInAlert | null>(null);
@@ -260,50 +311,116 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
       const isNever = localStorage.getItem(`kg_onboarding_never_${currentUser.username}`);
       if (!isCompleted && !isNever) {
         const timer = setTimeout(() => {
-          setIsGuideOpen(true);
+          window.dispatchEvent(new CustomEvent('kg:open-newbie-guide'));
         }, 600);
         return () => clearTimeout(timer);
       }
     }
   }, [currentUser?.username, shouldPromptSchedule, store.currentTab]);
 
-  // Determine today's shift (strictly current week, falling back only if legacy endpoint)
-  const todayDay = new Date().getDay();
-  const dayIdx = todayDay === 0 ? 6 : todayDay - 1; // 0=Mon, 6=Sun
+  // Determine today's shift using Vietnam 06:00 -> 05:59 workday cycle
+  const vnNow = getVietnamDateParts();
+  const { isOvernightBefore06, workdayDateKey, cycleStartMs } = getWorkdayCycleBounds();
+  const cycleEndMs = cycleStartMs + 24 * 3600 * 1000;
+  const operationalDayOfWeek = isOvernightBefore06 ? (vnNow.dayOfWeek + 6) % 7 : vnNow.dayOfWeek;
+  const dayIdx = operationalDayOfWeek === 0 ? 6 : operationalDayOfWeek - 1; // 0=Mon, 6=Sun
   const effectiveTodayShifts = currentWeekApprovedShifts ?? approvedShifts;
   const todayShift = effectiveTodayShifts ? effectiveTodayShifts[dayIdx] : 'Chưa xếp ca';
   const isOff = !todayShift || todayShift === 'OFF' || todayShift === 'Chưa xếp ca';
 
   const [dashboardSchedules, setDashboardSchedules] = useState<any[]>([]);
+  const [cashAuditDisputesCount, setCashAuditDisputesCount] = useState(0);
+  const [openIncidentsCount, setOpenIncidentsCount] = useState(0);
+  const [payrollDisputesCount, setPayrollDisputesCount] = useState(0);
 
-  // Admin shift logic (current week so today's staffing counts & EmployeeAttendanceMonitor match today)
+  // Admin shift & unified command queue fetch (primitive deps avoid double-fetch when profile object refreshes)
   useEffect(() => {
-    if (isAdmin) {
-      const weekInfo = computeWeekInfo(undefined, false);
-      callApi('GET_ALL_SCHEDULES', { monthSheet: weekInfo.monthSheet, weekLabel: weekInfo.weekLabel }, { background: true }).then((res) => {
-        if (res?.ok) {
-          const parsedSchedules = Array.isArray(res.data) ? res.data : (res.data.schedules || []);
-          const cleanSchedules = parsedSchedules.map((emp: any) => {
-            const shifts: string[] = [];
-            (emp.shifts || []).forEach((s: string, idx: number) => {
-              if (s && s.includes('\n')) shifts[idx] = s.split('\n')[0].trim();
-              else shifts[idx] = s;
-            });
-            return { ...emp, shifts };
+    const username = currentUser?.username;
+    const role = currentUser?.role;
+    if (!isAdmin || !username) return;
+
+    let cancelled = false;
+    const weekInfo = computeWeekInfo(undefined, false);
+    const vn = getVietnamDateParts();
+    const currentMonthStr = `${String(vn.month).padStart(2, '0')}/${vn.year}`;
+
+    void Promise.allSettled([
+      callApi('GET_ALL_SCHEDULES', { monthSheet: weekInfo.monthSheet, weekLabel: weekInfo.weekLabel }, { background: true }),
+      callApi('GET_SWAP_REQUESTS', { username, role }, { background: true }),
+      callApi('GET_ADVANCES', { username, role }, { background: true }),
+      callApi('GET_HANDOVERS', { role }, { background: true }),
+      callApi('GET_INCIDENTS', { username, role }, { background: true }),
+      callApi('GET_SALARY_ADJUSTMENTS', { username, role }, { background: true }),
+      callApi('GET_PAYROLL', { username, role, month: currentMonthStr }, { background: true }),
+    ]).then(([schedRes, swapRes, advRes, hoRes, incRes, adjRes, payRes]) => {
+      if (cancelled) return;
+      if (schedRes.status === 'fulfilled' && schedRes.value?.ok) {
+        const parsedSchedules = Array.isArray(schedRes.value.data)
+          ? schedRes.value.data
+          : (schedRes.value.data?.schedules || []);
+        const cleanSchedules = parsedSchedules.map((emp: any) => {
+          const shifts: string[] = [];
+          (emp.shifts || []).forEach((s: string, idx: number) => {
+            if (s && s.includes('\n')) shifts[idx] = s.split('\n')[0].trim();
+            else shifts[idx] = s;
           });
-          setDashboardSchedules(cleanSchedules);
-          store.setAdminSchedules(cleanSchedules);
+          return { ...emp, shifts };
+        });
+        setDashboardSchedules(cleanSchedules);
+        useAppStore.getState().setAdminSchedules(cleanSchedules);
+      }
+      if (swapRes.status === 'fulfilled' && swapRes.value?.ok && Array.isArray(swapRes.value.data)) {
+        useAppStore.getState().setSwapRequests(swapRes.value.data);
+      }
+      if (advRes.status === 'fulfilled' && advRes.value?.ok && Array.isArray(advRes.value.data)) {
+        useAppStore.getState().setAdvances(advRes.value.data);
+      }
+      if (hoRes.status === 'fulfilled' && hoRes.value?.ok) {
+        const rawHandovers = Array.isArray(hoRes.value.data?.handovers)
+          ? hoRes.value.data.handovers
+          : Array.isArray(hoRes.value.data)
+            ? hoRes.value.data
+            : [];
+        const disputes = rawHandovers.filter(
+          (h: any) =>
+            h?.ackStatus === 'Disputed' ||
+            h?.reconcileStatus === 'Disputed' ||
+            ((Number(h?.discrepancy) || 0) !== 0 && h?.reconcileStatus !== 'ManagerConfirmed')
+        ).length;
+        setCashAuditDisputesCount(disputes);
+      }
+      if (incRes.status === 'fulfilled' && incRes.value?.ok) {
+        const rawIncidents = Array.isArray(incRes.value.data?.incidents)
+          ? incRes.value.data.incidents
+          : Array.isArray(incRes.value.data)
+            ? incRes.value.data
+            : [];
+        const openCount = rawIncidents.filter((inc: any) => {
+          const st = normalizeIncidentStatus(inc?.status);
+          return st === 'Open' || st === 'Investigating';
+        }).length;
+        setOpenIncidentsCount(openCount);
+      }
+      let nextPayrollQueue = 0;
+      if (adjRes.status === 'fulfilled' && adjRes.value?.ok) {
+        const reqs = Array.isArray(adjRes.value.data?.requests) ? adjRes.value.data.requests : [];
+        nextPayrollQueue += reqs.filter((r: any) => r?.status === 'Pending').length;
+      }
+      if (payRes.status === 'fulfilled' && payRes.value?.ok) {
+        const confirmations = payRes.value.data?.workflow?.confirmations;
+        if (confirmations && typeof confirmations === 'object') {
+          nextPayrollQueue += Object.values(confirmations).filter(
+            (c: any) => c?.status === 'DISPUTED'
+          ).length;
         }
-      });
-      // Fetch approval queue for Admin
-      callApi('GET_SWAP_REQUESTS', { username: currentUser!.username, role: currentUser!.role }, { background: true }).then((res) => {
-        if (res?.ok) store.setSwapRequests(res.data);
-      });
-      callApi('GET_ADVANCES', { username: currentUser!.username, role: currentUser!.role }, { background: true }).then((res) => {
-        if (res?.ok) store.setAdvances(res.data);
-      });
-    }
-  }, [isAdmin, currentUser]);
+      }
+      setPayrollDisputesCount(nextPayrollQueue);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin, currentUser?.username, currentUser?.role]);
 
   const shiftCounts: Record<string, number> = {};
   let waitstaffCount = 0;
@@ -322,16 +439,30 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
     });
   }
 
-  const pendingLeaves = store.swapRequests.filter(req => req.status === 'Pending_Admin' && req.targetUsername === 'ADMIN');
-  const pendingSwaps = store.swapRequests.filter(req => req.status === 'Pending_Admin' && req.targetUsername !== 'ADMIN');
-  const pendingAdvances = store.advances.filter(adv => adv.status === 'Pending');
-  const hasPendingApprovals = isAdmin && (pendingLeaves.length > 0 || pendingSwaps.length > 0 || pendingAdvances.length > 0);
+  const safeSwapRequests = Array.isArray(store.swapRequests) ? store.swapRequests : [];
+  const safeAdvances = Array.isArray(store.advances) ? store.advances : [];
+  const pendingLeaves = safeSwapRequests.filter(req => req.status === 'Pending_Admin' && req.targetUsername === 'ADMIN');
+  const pendingSwaps = safeSwapRequests.filter(req => req.status === 'Pending_Admin' && req.targetUsername !== 'ADMIN');
+  const pendingAdvances = safeAdvances.filter(adv => adv.status === 'Pending');
+  const totalAdminQueueCount =
+    pendingMissedClaims.length +
+    pendingSwaps.length +
+    pendingLeaves.length +
+    pendingAdvances.length +
+    cashAuditDisputesCount +
+    openIncidentsCount +
+    payrollDisputesCount +
+    (store.pendingFeedbackCount || 0);
+  const hasPendingApprovals = isAdmin && totalAdminQueueCount > 0;
 
-  // Discrepancy Logic
-  const todayPrefix = String(new Date().getDate()).padStart(2, '0') + '/' + String(new Date().getMonth() + 1).padStart(2, '0') + '/' + new Date().getFullYear();
+  // Discrepancy Logic (synced with 06:00–05:59 Vietnam workday cycle)
+  const [wdYear, wdMonth, wdDay] = workdayDateKey.split('-');
+  const todayPrefix = `${wdDay}/${wdMonth}/${wdYear}`;
   const checkinMap = new Map();
   store.logs.forEach(l => {
-    if (l.time.startsWith(todayPrefix)) {
+    const ts = typeof l.timestamp === 'number' && l.timestamp > 0 ? l.timestamp : parseVietnamLogTimestampMs(l.time);
+    const inCycle = ts !== null ? (ts >= cycleStartMs && ts < cycleEndMs) : l.time.startsWith(todayPrefix);
+    if (inCycle) {
       if (!checkinMap.has(l.fullname)) checkinMap.set(l.fullname, []);
       checkinMap.get(l.fullname).push(l);
     }
@@ -345,7 +476,7 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
 
   const notArrived = scheduledToday.filter(emp => {
     const userLogs = checkinMap.get(emp.fullname) || [];
-    const hasIn = userLogs.some((l: any) => l.type.includes('Vào ca') || l.type.includes('IN'));
+    const hasIn = userLogs.some((l: any) => isCheckInLabel(l.type));
     return !hasIn;
   });
 
@@ -354,19 +485,22 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
     return userLogs.some((l: any) => l.type.includes('Trễ'));
   });
 
-  // Check user's check-in/out status for today
-  const userTodayLogs = store.logs.filter(l => l.fullname === currentUser?.fullname && l.time.startsWith(todayPrefix));
-  const userHasIn = userTodayLogs.some(l => l.type.includes('Vào ca') || l.type.includes('IN'));
-  const userHasOut = userTodayLogs.some(l => l.type.includes('Ra ca') || l.type.includes('OUT'));
+  // Check user's check-in/out status for current 06:00–05:59 workday cycle (handles overnight shifts <06:00)
+  const checkInRec = getRecommendedCheckInType(store.logs, currentUser);
+  const userHasIn = checkInRec.isOpenShift || checkInRec.hasInToday;
+  const userHasOut = !checkInRec.isOpenShift && checkInRec.hasOutToday;
 
   // Work status text
   let statusText = 'Chưa vào ca';
   let statusVariant: 'success' | 'warning' | 'error' | 'info' | 'neutral' = 'error';
-  if (isOff) {
-    statusText = 'Hôm nay OFF';
-    statusVariant = 'neutral';
+  if (checkInRec.isOpenShift) {
+    statusText = 'Đã vào ca';
+    statusVariant = 'success';
   } else if (userHasOut) {
     statusText = 'Đã ra ca';
+    statusVariant = 'neutral';
+  } else if (isOff) {
+    statusText = 'Hôm nay OFF';
     statusVariant = 'neutral';
   } else if (userHasIn) {
     statusText = 'Đã vào ca';
@@ -417,7 +551,7 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
             <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-[#0B253C] dark:bg-[#131926] p-4 sm:p-5 text-white shadow-[0_16px_36px_-14px_rgba(11,37,60,0.45)] border border-white/10">
               <div
                 aria-hidden="true"
-                className="pointer-events-none absolute -right-12 -top-12 w-48 h-48 rounded-full bg-[#C8432B]/25 blur-3xl"
+                className="pointer-events-none absolute right-0 top-0 w-48 h-48 rounded-full bg-[#C8432B]/25 blur-3xl"
               />
               <div className="relative z-10 flex flex-col justify-between h-full space-y-3.5">
                 <div className="flex items-center justify-between gap-2 sm:gap-3">
@@ -429,7 +563,7 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
                       <p className="text-white/85 text-[10.5px] sm:text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 overflow-hidden">
                         <span className="inline-flex items-center gap-1 whitespace-nowrap flex-shrink-0">
                           {(() => {
-                            const h = new Date().getHours();
+                            const h = vnNow.hour;
                             if (h >= 5 && h < 12) return <><Sun size={12} className="text-amber-300" /> Chào buổi sáng</>;
                             if (h >= 12 && h < 18) return <><Sunset size={12} className="text-amber-300" /> Chào buổi chiều</>;
                             return <><MoonStar size={12} className="text-sky-300" /> Chào buổi tối</>;
@@ -446,25 +580,8 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
                     </div>
                   </div>
 
-                  {/* Operational Time & Date pill */}
-                  <div className="flex-shrink-0 bg-black/30 border border-white/15 rounded-xl px-2.5 py-1.5 sm:px-3 sm:py-2 flex flex-col items-end justify-center">
-                    <div className="flex items-center gap-1.5">
-                      <span className="relative flex h-2 w-2 flex-shrink-0">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
-                      </span>
-                      <span className="text-xs sm:text-base font-extrabold font-mono tabular-nums text-white leading-none">
-                        {store.currentTime ? store.currentTime.split(' ').pop() : `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}`}
-                      </span>
-                    </div>
-                    <span className="text-[11px] font-medium font-mono tabular-nums text-white/80 whitespace-nowrap block text-right mt-1 leading-none">
-                      {(() => {
-                        const dayNames = ['CN', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
-                        const now = new Date();
-                        return `${dayNames[now.getDay()]}, ${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}`;
-                      })()}
-                    </span>
-                  </div>
+                  {/* Operational Time & Date pill (isolated 1-minute clock subscriber) */}
+                  <LiveClockDisplay />
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 bg-black/25 rounded-xl p-3 border border-white/15">
@@ -510,7 +627,7 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
             </div>
 
             {/* Primary Check-In CTA (Terracotta Grill Ember Signature Action) */}
-            {isOff ? (
+            {isOff && !userHasIn ? (
               <KgAlertCard variant="info" icon={Calendar}>
                 Hôm nay bạn không có ca làm việc nào được xếp. Chúc bạn có một ngày nghỉ vui vẻ!
               </KgAlertCard>
@@ -550,8 +667,8 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
               </div>
               <button
                 type="button"
-                onClick={() => setIsGuideOpen(true)}
-                className="px-3.5 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs font-bold shadow-xs active:scale-95 transition-colors flex-shrink-0 flex items-center gap-1 min-h-[40px]"
+                onClick={() => window.dispatchEvent(new CustomEvent('kg:open-newbie-guide'))}
+                className="px-3.5 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs font-bold shadow-xs active:scale-95 transition-colors flex-shrink-0 flex items-center gap-1 min-h-[44px]"
               >
                 <span>Xem ngay</span> <ArrowRight size={13} />
               </button>
@@ -559,9 +676,10 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
 
             {/* Pending Missed Claims Warning Card on Dashboard */}
             {pendingMissedClaims.length > 0 && (
-              <div
+              <button
+                type="button"
                 onClick={() => setIsMissedModalOpen(true)}
-                className="p-3.5 rounded-2xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/35 cursor-pointer hover:brightness-[0.98] transition-all flex items-center justify-between gap-3 shadow-xs animate-slide-up"
+                className="w-full text-left p-3.5 min-h-[44px] rounded-2xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/35 cursor-pointer hover:brightness-[0.98] transition-all flex items-center justify-between gap-3 shadow-xs animate-slide-up"
               >
                 <div className="flex items-center gap-2.5 min-w-0 flex-1">
                   <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center justify-center flex-shrink-0">
@@ -579,17 +697,18 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
                 <span className="text-xs font-bold text-amber-800 dark:text-amber-300 whitespace-nowrap bg-amber-500/15 px-3 py-1.5 rounded-xl border border-amber-500/35 flex-shrink-0">
                   Chi tiết →
                 </span>
-              </div>
+              </button>
             )}
 
             {/* Detected Missing Check-in Shifts Alert on Dashboard */}
             {missingAlerts.length > 0 && (
-              <div
+              <button
+                type="button"
                 onClick={() => {
                   setSelectedMissingAlert(missingAlerts[0]);
                   setIsMissedModalOpen(true);
                 }}
-                className="p-3.5 rounded-2xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/35 cursor-pointer hover:brightness-[0.98] transition-all flex items-center justify-between gap-3 shadow-xs animate-slide-up"
+                className="w-full text-left p-3.5 min-h-[44px] rounded-2xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/35 cursor-pointer hover:brightness-[0.98] transition-all flex items-center justify-between gap-3 shadow-xs animate-slide-up"
               >
                 <div className="flex items-center gap-2.5 min-w-0 flex-1">
                   <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center justify-center flex-shrink-0">
@@ -607,7 +726,7 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
                 <span className="text-xs font-bold text-amber-800 dark:text-amber-300 whitespace-nowrap bg-amber-500/15 px-3 py-1.5 rounded-xl border border-amber-500/35 flex-shrink-0">
                   Bổ sung →
                 </span>
-              </div>
+              </button>
             )}
 
             <KgCard className="p-4 sm:p-5">
@@ -824,7 +943,7 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
               {recentLogs.length > 0 ? (
                 <div className="space-y-2">
                   {recentLogs.map((log, i) => {
-                    const isCheckin = log.type.includes('Vào ca') || log.type.includes('IN');
+                    const isCheckin = isCheckInLabel(log.type);
                     return (
                       <div key={i} className="flex items-center justify-between p-2.5 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)]">
                         <div className="flex items-center space-x-2.5 min-w-0">
@@ -858,7 +977,7 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
           <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-[#0B253C] dark:bg-[#131926] border border-white/10 p-4 sm:p-6 text-white shadow-[0_18px_42px_-16px_rgba(11,37,60,0.45)]">
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute -right-14 -top-14 w-56 h-56 rounded-full bg-[#C8432B]/25 blur-3xl"
+              className="pointer-events-none absolute right-0 top-0 w-56 h-56 rounded-full bg-[#C8432B]/25 blur-3xl"
             />
             <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div className="flex items-center gap-3.5 min-w-0">
@@ -873,8 +992,7 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
                     <span className="text-[11px] font-mono tabular-nums text-slate-200">
                       {(() => {
                         const dayNames = ['CN', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
-                        const now = new Date();
-                        return `${dayNames[now.getDay()]}, ${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+                        return `${dayNames[vnNow.dayOfWeek]}, ${String(vnNow.day).padStart(2, '0')}/${String(vnNow.month).padStart(2, '0')}/${vnNow.year}`;
                       })()}
                     </span>
                   </div>
@@ -1069,16 +1187,63 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
               </KgCard>
             </div>
 
-            {/* Right Column: Approvals, Quick Shortcuts & v4.0.0 Changelog Summary */}
+            {/* Right Column: Unified Admin Approval Queue, Quick Shortcuts & Release Summary */}
             <div className="lg:col-span-4 space-y-4">
-              {/* Approvals Widget */}
+              {/* Unified Approvals & Operations Queue Widget */}
               {hasPendingApprovals ? (
                 <KgCard className="p-4 border-[var(--kg-danger)]/25">
-                  <div className="flex items-center space-x-2 mb-3 border-b border-[var(--kg-border)] pb-2">
-                    <BellRing size={16} className="text-[var(--kg-danger)] animate-pulse" />
-                    <h3 className="text-xs font-extrabold text-[var(--kg-text)] uppercase tracking-wider">Cần duyệt gấp</h3>
+                  <div className="flex items-center justify-between gap-2 mb-3 border-b border-[var(--kg-border)] pb-2">
+                    <div className="flex items-center space-x-2 min-w-0">
+                      <BellRing size={16} className="text-[var(--kg-danger)] animate-pulse flex-shrink-0" />
+                      <h3 className="text-xs font-extrabold text-[var(--kg-text)] uppercase tracking-wider truncate">
+                        Cần duyệt &amp; xử lý
+                      </h3>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full bg-[var(--kg-danger)] text-white dark:text-[#0D1015] text-[11px] font-mono tabular-nums font-extrabold flex-shrink-0">
+                      {totalAdminQueueCount}
+                    </span>
                   </div>
                   <div className="grid grid-cols-1 gap-2">
+                    {pendingMissedClaims.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => navigateToHubSubTab('admin_workforce', 'settings')}
+                        className="flex items-center justify-between p-3 rounded-xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/25 text-amber-800 dark:text-amber-300 hover:brightness-95 transition-all text-xs font-bold min-h-[44px]"
+                      >
+                        <span>Bổ sung công (<span className="font-mono tabular-nums">{pendingMissedClaims.length}</span>)</span>
+                        <span>Duyệt →</span>
+                      </button>
+                    )}
+                    {cashAuditDisputesCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => navigateToHubSubTab('admin_work', 'operations')}
+                        className="flex items-center justify-between p-3 rounded-xl bg-[var(--kg-danger-soft)] border border-[var(--kg-danger)]/20 text-[var(--kg-danger)] hover:brightness-95 transition-all text-xs font-bold min-h-[44px]"
+                      >
+                        <span>Đối soát lệch quỹ (<span className="font-mono tabular-nums">{cashAuditDisputesCount}</span>)</span>
+                        <span>Kiểm tra →</span>
+                      </button>
+                    )}
+                    {openIncidentsCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => navigateToHubSubTab('admin_work', 'operations')}
+                        className="flex items-center justify-between p-3 rounded-xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/25 text-amber-800 dark:text-amber-300 hover:brightness-95 transition-all text-xs font-bold min-h-[44px]"
+                      >
+                        <span>Sự cố đang mở (<span className="font-mono tabular-nums">{openIncidentsCount}</span>)</span>
+                        <span>Xử lý →</span>
+                      </button>
+                    )}
+                    {payrollDisputesCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => navigateToHubSubTab('admin_income', 'payroll')}
+                        className="flex items-center justify-between p-3 rounded-xl bg-[var(--kg-danger-soft)] border border-[var(--kg-danger)]/20 text-[var(--kg-danger)] hover:brightness-95 transition-all text-xs font-bold min-h-[44px]"
+                      >
+                        <span>Khiếu nại / ĐC lương (<span className="font-mono tabular-nums">{payrollDisputesCount}</span>)</span>
+                        <span>Xem →</span>
+                      </button>
+                    )}
                     {pendingSwaps.length > 0 && (
                       <button type="button" onClick={() => onTabChange('swap')} className="flex items-center justify-between p-3 rounded-xl bg-[var(--kg-success-soft)] border border-[var(--kg-success)]/20 text-[var(--kg-success)] hover:brightness-95 transition-all text-xs font-bold min-h-[44px]">
                         <span>Đổi ca (<span className="font-mono tabular-nums">{pendingSwaps.length}</span>)</span>
@@ -1092,9 +1257,15 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
                       </button>
                     )}
                     {pendingAdvances.length > 0 && (
-                      <button type="button" onClick={() => onTabChange('advance')} className="flex items-center justify-between p-3 rounded-xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/25 text-amber-800 dark:text-amber-300 hover:brightness-95 transition-all text-xs font-bold min-h-[44px]">
+                      <button type="button" onClick={() => navigateToHubSubTab('admin_income', 'advance')} className="flex items-center justify-between p-3 rounded-xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/25 text-amber-800 dark:text-amber-300 hover:brightness-95 transition-all text-xs font-bold min-h-[44px]">
                         <span>Ứng lương (<span className="font-mono tabular-nums">{pendingAdvances.length}</span>)</span>
                         <span>Chi tiết →</span>
+                      </button>
+                    )}
+                    {store.pendingFeedbackCount > 0 && (
+                      <button type="button" onClick={() => onTabChange('feedback')} className="flex items-center justify-between p-3 rounded-xl bg-[var(--kg-info-soft)] border border-[var(--kg-info)]/20 text-[var(--kg-info)] hover:brightness-95 transition-all text-xs font-bold min-h-[44px]">
+                        <span>Góp ý chưa trả lời (<span className="font-mono tabular-nums">{store.pendingFeedbackCount}</span>)</span>
+                        <span>Trả lời →</span>
                       </button>
                     )}
                   </div>
@@ -1103,26 +1274,7 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
                 <KgCard className="p-4 text-center py-5 border-dashed">
                   <CheckCircle2 size={24} className="mx-auto mb-2 text-[var(--kg-success)] opacity-85" />
                   <p className="text-xs font-extrabold text-[var(--kg-text)]">Không có yêu cầu chờ duyệt</p>
-                  <p className="text-[11px] text-[var(--kg-text-muted)] mt-0.5">Tất cả ca làm và ứng lương đã được giải quyết gọn gàng</p>
-                </KgCard>
-              )}
-
-              {/* Feedback awaiting reply */}
-              {store.pendingFeedbackCount > 0 && (
-                <KgCard className="p-4 border-[var(--kg-danger)]/25">
-                  <div className="flex justify-between items-center text-xs gap-2">
-                    <div className="flex items-center space-x-2.5 min-w-0">
-                      <div className="w-8 h-8 rounded-lg bg-[var(--kg-danger-soft)] flex items-center justify-center text-[var(--kg-danger)] font-bold relative flex-shrink-0">
-                        <MessageSquareWarning size={16} />
-                        <span className="absolute -top-1 -right-1 w-4 h-4 bg-[var(--kg-danger)] rounded-full text-white text-[9px] font-mono tabular-nums font-bold flex items-center justify-center">{store.pendingFeedbackCount}</span>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-bold text-[var(--kg-text)] truncate">Góp ý chưa xử lý</p>
-                        <p className="text-[11px] text-[var(--kg-text-muted)] mt-0.5"><span className="font-mono tabular-nums">{store.pendingFeedbackCount}</span> phản hồi cần trả lời</p>
-                      </div>
-                    </div>
-                    <button type="button" onClick={() => onTabChange('feedback')} className="text-xs font-bold text-[var(--kg-danger)] hover:underline min-h-[40px] px-2 inline-flex items-center flex-shrink-0">Trả lời →</button>
-                  </div>
+                  <p className="text-[11px] text-[var(--kg-text-muted)] mt-0.5">Tất cả công, ca, quỹ, sự cố và lương đã được xử lý gọn gàng</p>
                 </KgCard>
               )}
 
@@ -1141,9 +1293,10 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
                       type="button"
                       onClick={() => {
                         if ((item as any).subTab) {
-                          try { sessionStorage.setItem(`kg_hub_subtab_${item.tab}`, (item as any).subTab); } catch { /* ignore */ }
+                          navigateToHubSubTab(item.tab, (item as any).subTab);
+                        } else {
+                          onTabChange(item.tab);
                         }
-                        onTabChange(item.tab);
                       }}
                       className="flex items-center gap-2 p-2.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)]/50 hover:bg-[var(--kg-surface-soft)] active:scale-[0.98] transition-colors text-xs font-bold text-[var(--kg-text)] min-h-[46px]"
                     >
@@ -1201,13 +1354,6 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
         </div>
       )}
 
-      {/* Newbie Guide Modal */}
-      <NewbieGuideModal
-        isOpen={isGuideOpen && !shouldPromptSchedule && store.currentTab === 'dashboard'}
-        onClose={() => setIsGuideOpen(false)}
-        onNavigateTab={onTabChange}
-      />
-
       {/* Missed Check-in Modal */}
       {isMissedModalOpen && (
         <MissedCheckInModal
@@ -1241,7 +1387,7 @@ export default function Dashboard() {
       connection?: { saveData?: boolean; effectiveType?: string };
     }).connection;
     const isSlowConnection = !!connection?.saveData || connection?.effectiveType === '2g';
-    const isAdmin = currentUser?.role === 'admin';
+    const isAdmin = isAdminUser(currentUser);
     const run = () => prefetchModuleScreens(isAdmin, isSlowConnection);
     if (typeof window.requestIdleCallback === 'function') {
       const id = window.requestIdleCallback(run, { timeout: 3000 });
@@ -1261,20 +1407,19 @@ export default function Dashboard() {
     }
   };
 
-  const [visitedTabs, setVisitedTabs] = useState<Set<TabId>>(() => new Set([currentTab]));
+  const MAX_KEEP_ALIVE_TABS = 3;
+  const [visitedTabs, setVisitedTabs] = useState<TabId[]>(() => [currentTab]);
+  const [prevTrackedTab, setPrevTrackedTab] = useState<TabId>(currentTab);
 
-  useEffect(() => {
-    const unsubscribe = useAppStore.subscribe((state) => {
-      const nextTab = state.currentTab;
-      setVisitedTabs(prev => {
-        if (prev.has(nextTab)) return prev;
-        const next = new Set(prev);
-        next.add(nextTab);
-        return next;
-      });
+  if (prevTrackedTab !== currentTab) {
+    setPrevTrackedTab(currentTab);
+    setVisitedTabs((prev) => {
+      if (prev[prev.length - 1] === currentTab) return prev;
+      const withoutCurrent = prev.filter((t) => t !== currentTab);
+      const next = [...withoutCurrent, currentTab];
+      return next.length > MAX_KEEP_ALIVE_TABS ? next.slice(next.length - MAX_KEEP_ALIVE_TABS) : next;
     });
-    return unsubscribe;
-  }, []);
+  }
 
   useEffect(() => {
     const onPopState = () => {
@@ -1282,7 +1427,7 @@ export default function Dashboard() {
         const urlParams = new URLSearchParams(window.location.search);
         const tabParam = (urlParams.get('tab') as TabId | null) || 'dashboard';
         if (useAppStore.getState().currentTab !== tabParam) {
-          useAppStore.setState({ currentTab: tabParam });
+          useAppStore.getState().setCurrentTab(tabParam);
         }
       } catch { /* ignore */ }
     };
@@ -1292,6 +1437,10 @@ export default function Dashboard() {
 
   const [workforceSubTab, setWorkforceSubTab] = useState<string>(() => {
     try {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('tab') === 'workforce' && urlParams.get('sub')) {
+        return urlParams.get('sub')!;
+      }
       return sessionStorage.getItem('kg_hub_subtab_workforce') || 'schedule';
     } catch {
       return 'schedule';
@@ -1330,6 +1479,39 @@ export default function Dashboard() {
     currentTab === 'schedule' ||
     (currentTab === 'workforce' && workforceSubTab === 'schedule');
 
+  const renderTabContent = (tabId: TabId) => {
+    switch (tabId) {
+      case 'dashboard':
+        return <DashboardOverview onTabChange={handleTabChange} />;
+      case 'attendance':
+        return <AttendanceHub />;
+      case 'workforce':
+        return <WorkforceHub />;
+      case 'work':
+        return <WorkHub />;
+      case 'income':
+        return <IncomeHub />;
+      case 'communications':
+        return <CommunicationsHub />;
+      case 'knowledge':
+        return <KnowledgeHub />;
+      case 'admin_people':
+        return <AdminPeopleHub />;
+      case 'admin_workforce':
+        return <AdminWorkforceHub />;
+      case 'admin_work':
+        return <AdminWorkHub />;
+      case 'admin_income':
+        return <AdminIncomeHub />;
+      case 'admin_system':
+        return <AdminSystemHub />;
+      case 'profile':
+        return <Profile />;
+      default:
+        return <DashboardOverview onTabChange={handleTabChange} />;
+    }
+  };
+
   return (
     <KgAppShell onPrefetch={prefetchModule}>
       {/* Uncloseable Mandatory Schedule Modal for Staff during T5, T6, T7 before 17:00 */}
@@ -1365,7 +1547,7 @@ export default function Dashboard() {
               </AppErrorBoundary>
             )}
 
-            {/* Keep-Alive for Data-driven Hubs & Modules */}
+            {/* Keep-Alive for Data-driven Hubs & Modules (LRU-capped to prevent DOM bloat) */}
             {Array.from(new Set([...visitedTabs, currentTab])).map((tabId) => {
               if (tabId === 'checkin') return null;
               const isSelected = tabId === currentTab;
@@ -1382,19 +1564,7 @@ export default function Dashboard() {
                     )}
                   >
                     <Suspense fallback={<TabFallback />}>
-                      {tabId === 'dashboard' && <DashboardOverview onTabChange={handleTabChange} />}
-                      {tabId === 'attendance' && <AttendanceHub />}
-                      {tabId === 'workforce' && <WorkforceHub />}
-                      {tabId === 'work' && <WorkHub />}
-                      {tabId === 'income' && <IncomeHub />}
-                      {tabId === 'communications' && <CommunicationsHub />}
-                      {tabId === 'knowledge' && <KnowledgeHub />}
-                      {tabId === 'admin_people' && <AdminPeopleHub />}
-                      {tabId === 'admin_workforce' && <AdminWorkforceHub />}
-                      {tabId === 'admin_work' && <AdminWorkHub />}
-                      {tabId === 'admin_income' && <AdminIncomeHub />}
-                      {tabId === 'admin_system' && <AdminSystemHub />}
-                      {tabId === 'profile' && <Profile />}
+                      {renderTabContent(tabId)}
                     </Suspense>
                   </AppErrorBoundary>
                 </div>

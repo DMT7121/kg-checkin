@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -34,7 +34,7 @@ import {
   Moon
 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
-import { hasTabPermission } from '../utils/permissions';
+import { hasTabPermission, isAdminUser } from '../utils/permissions';
 import type { TabId } from '../types/navigation';
 
 export interface CommandItem {
@@ -71,8 +71,9 @@ export default function KgCommandPalette({
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'tester';
+  const isAdmin = isAdminUser(currentUser);
 
   const allItems = useMemo<CommandItem[]>(() => {
     const items: CommandItem[] = [
@@ -307,6 +308,7 @@ export default function KgCommandPalette({
         icon: Users,
         hubId: 'admin_people',
         subTabId: 'employees',
+        permissionId: 'hr_list',
         adminOnly: true
       },
       {
@@ -318,6 +320,7 @@ export default function KgCommandPalette({
         icon: KeyRound,
         hubId: 'admin_people',
         subTabId: 'organization',
+        permissionId: 'admin_org',
         adminOnly: true
       },
       {
@@ -329,6 +332,7 @@ export default function KgCommandPalette({
         icon: CalendarRange,
         hubId: 'admin_workforce',
         subTabId: 'schedule',
+        permissionId: 'admin_workforce',
         adminOnly: true
       },
       {
@@ -340,6 +344,7 @@ export default function KgCommandPalette({
         icon: MapPinned,
         hubId: 'admin_workforce',
         subTabId: 'settings',
+        permissionId: 'admin_shift',
         adminOnly: true
       },
       {
@@ -351,6 +356,7 @@ export default function KgCommandPalette({
         icon: ClipboardCheck,
         hubId: 'admin_work',
         subTabId: 'checklist',
+        permissionId: 'admin_checklist',
         adminOnly: true
       },
       {
@@ -362,6 +368,7 @@ export default function KgCommandPalette({
         icon: Network,
         hubId: 'admin_work',
         subTabId: 'operations',
+        permissionId: 'admin_operations',
         adminOnly: true
       },
       {
@@ -373,6 +380,7 @@ export default function KgCommandPalette({
         icon: Settings2,
         hubId: 'admin_income',
         subTabId: 'config',
+        permissionId: 'admin_payroll',
         adminOnly: true
       },
       {
@@ -384,6 +392,31 @@ export default function KgCommandPalette({
         icon: Banknote,
         hubId: 'admin_income',
         subTabId: 'payroll',
+        permissionId: 'admin_income',
+        adminOnly: true
+      },
+      {
+        id: 'admin-advance',
+        label: 'Duyệt Ứng lương (Admin)',
+        description: 'Xem xét, phê duyệt hoặc từ chối yêu cầu ứng lương của nhân viên',
+        category: 'Quản trị (Admin)',
+        keywords: 'duyet ung luong tam ung admin advance',
+        icon: HandCoins,
+        hubId: 'admin_income',
+        subTabId: 'advance',
+        permissionId: 'admin_income',
+        adminOnly: true
+      },
+      {
+        id: 'admin-discipline',
+        label: 'Quản lý Kỷ luật & Biên bản (Admin)',
+        description: 'Ghi nhận vi phạm nội quy và theo dõi kỷ luật nhân sự',
+        category: 'Quản trị (Admin)',
+        keywords: 'ky luat vi pham bien ban admin discipline',
+        icon: ShieldAlert,
+        hubId: 'admin_income',
+        subTabId: 'discipline',
+        permissionId: 'admin_income',
         adminOnly: true
       },
       {
@@ -395,6 +428,7 @@ export default function KgCommandPalette({
         icon: BarChart3,
         hubId: 'admin_system',
         subTabId: 'analytics',
+        permissionId: 'admin_analytics',
         adminOnly: true
       },
       {
@@ -406,13 +440,14 @@ export default function KgCommandPalette({
         icon: Sparkles,
         hubId: 'admin_system',
         subTabId: 'ai',
+        permissionId: 'admin',
         adminOnly: true
       },
       // Thao tác nhanh
       {
         id: 'action-guide-modal',
         label: 'Mở Cẩm nang Nhân sự mới',
-        description: 'Xem nhanh quy trình 4 bước dành cho nhân viên mới',
+        description: 'Xem nhanh quy trình 5 bước dành cho nhân viên mới',
         category: 'Thao tác nhanh',
         keywords: 'huong dan nguoi moi newbie cam nang',
         icon: GraduationCap,
@@ -476,7 +511,7 @@ export default function KgCommandPalette({
     }
   }, [isOpen]);
 
-  const handleSelectItem = (item: CommandItem) => {
+  const handleSelectItem = useCallback((item: CommandItem) => {
     if (item.onAction) {
       item.onAction();
       return;
@@ -497,7 +532,15 @@ export default function KgCommandPalette({
       }
     }
     onClose();
-  };
+  }, [onClose, onNavigateTab]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const activeEl = optionRefs.current[selectedIndex];
+    if (activeEl && typeof activeEl.scrollIntoView === 'function') {
+      activeEl.scrollIntoView({ block: 'nearest' });
+    }
+  }, [isOpen, selectedIndex, filteredItems.length]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -520,7 +563,7 @@ export default function KgCommandPalette({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, filteredItems, selectedIndex, onClose]);
+  }, [isOpen, filteredItems, selectedIndex, onClose, handleSelectItem]);
 
   if (typeof document === 'undefined') return null;
 
@@ -554,6 +597,10 @@ export default function KgCommandPalette({
               <input
                 ref={inputRef}
                 type="text"
+                role="combobox"
+                aria-expanded={true}
+                aria-controls="kg-command-listbox"
+                aria-activedescendant={filteredItems[selectedIndex] ? `kg-cmd-option-${filteredItems[selectedIndex].id}` : undefined}
                 aria-label="Tìm nhanh phân hệ"
                 value={query}
                 onChange={e => {
@@ -571,7 +618,7 @@ export default function KgCommandPalette({
                     setSelectedIndex(0);
                     inputRef.current?.focus();
                   }}
-                  className="text-xs font-bold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] px-2 py-1 rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-border)] active:scale-95 transition-all flex-shrink-0"
+                  className="text-xs font-bold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] px-2.5 min-h-[44px] sm:min-h-[32px] py-1 rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-border)] active:scale-95 transition-all flex-shrink-0"
                 >
                   Xóa
                 </button>
@@ -580,14 +627,19 @@ export default function KgCommandPalette({
                 type="button"
                 onClick={onClose}
                 aria-label="Đóng tìm kiếm"
-                className="w-9 h-9 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] active:scale-95 transition-all flex-shrink-0"
+                className="w-11 h-11 sm:w-9 sm:h-9 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] active:scale-95 transition-all flex-shrink-0"
               >
                 <X size={16} />
               </button>
             </div>
 
             {/* Results list */}
-            <div className="flex-1 overflow-y-auto p-2 sm:p-2.5 space-y-1 min-h-0">
+            <div
+              id="kg-command-listbox"
+              role="listbox"
+              aria-label="Danh sách phân hệ"
+              className="flex-1 overflow-y-auto p-2 sm:p-2.5 space-y-1 min-h-0"
+            >
               {filteredItems.length === 0 ? (
                 <div className="py-10 px-4 text-center">
                   <p className="text-sm font-bold text-[var(--kg-text-muted)]">
@@ -604,7 +656,13 @@ export default function KgCommandPalette({
                   return (
                     <button
                       key={item.id}
+                      id={`kg-cmd-option-${item.id}`}
+                      ref={(el) => {
+                        optionRefs.current[idx] = el;
+                      }}
                       type="button"
+                      role="option"
+                      aria-selected={active}
                       onMouseEnter={() => setSelectedIndex(idx)}
                       onClick={() => handleSelectItem(item)}
                       className={`w-full flex items-center gap-3 px-3 py-2.5 sm:py-3 rounded-xl text-left transition-colors active:scale-[0.99] ${

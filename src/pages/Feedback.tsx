@@ -1,121 +1,183 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
-import Swal from 'sweetalert2';
-import { MessageSquareWarning, Send, EyeOff, CheckCircle2, User, Clock, AlertCircle, CornerDownRight, Mailbox } from 'lucide-react';
+import { Send, EyeOff, User, Clock, AlertCircle, CornerDownRight, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { KgModuleHero } from '../components/KgDesignSystem';
+import {
+  KgButton,
+  KgEmptyState,
+  KgErrorState,
+  KgModuleHero,
+  KgSkeleton,
+  KgStatusBadge,
+  KgToast,
+  type ToastMessage,
+} from '../components/KgDesignSystem';
 
+const FEEDBACK_CATEGORIES = [
+  'Góp ý cải tiến quy trình',
+  'Khiếu nại ca làm / lương thưởng',
+  'Cơ sở vật chất / công cụ làm việc',
+  'Khác',
+] as const;
 
 export default function Feedback() {
   const currentUser = useAppStore((s) => s.currentUser);
   const feedbacks = useAppStore((s) => s.feedbacks);
   const setFeedbacks = useAppStore((s) => s.setFeedbacks);
   const setUpdating = useAppStore((s) => s.setUpdating);
-  const setGlobalLoading = useAppStore((s) => s.setLoading);
-  const store = { setFeedbacks, setUpdating, setLoading: setGlobalLoading };
-  const [loading, setLoading] = useState(true);
-  
+
+  const [loading, setLoading] = useState(() => feedbacks.length === 0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState('');
+
   // Form states
-  const [category, setCategory] = useState('Góp ý cải tiến quy trình');
+  const [category, setCategory] = useState<string>(FEEDBACK_CATEGORIES[0]);
   const [content, setContent] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Filter states
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'REVIEWED'>('ALL');
+  const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
 
   // Admin reply states
   const [replyContent, setReplyContent] = useState('');
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyBusyId, setReplyBusyId] = useState<string | null>(null);
 
-  const fetchFeedbacks = async () => {
-    setLoading(true);
-    try {
-      const res = await callApi('GET_FEEDBACKS', { 
-        username: currentUser?.username,
-        role: currentUser?.role
-      }, { background: true });
-      
-      if (res?.ok && Array.isArray(res.data)) {
-        store.setFeedbacks(res.data);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  const pushToast = useCallback((title: string, type: ToastMessage['type']) => {
+    setToasts((prev) => [...prev.slice(-2), { id: `${Date.now()}_${Math.random()}`, title, type }]);
+  }, []);
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  const fetchFeedbacks = useCallback(
+    async (isInitial = false) => {
+      if (isInitial) setLoading(true);
+      else setIsRefreshing(true);
+      setLoadError('');
+      try {
+        const res = await callApi(
+          'GET_FEEDBACKS',
+          {
+            username: currentUser?.username,
+            role: currentUser?.role,
+          },
+          { background: true },
+        );
+
+        if (res?.ok && Array.isArray(res.data)) {
+          setFeedbacks(res.data);
+        } else if (!res?.ok) {
+          setLoadError(res?.message || 'Không thể tải danh sách góp ý.');
+        }
+      } catch {
+        setLoadError('Lỗi kết nối máy chủ khi tải lịch sử góp ý.');
+      } finally {
+        setLoading(false);
+        setIsRefreshing(false);
       }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+    [currentUser?.role, currentUser?.username, setFeedbacks],
+  );
 
   useEffect(() => {
-    fetchFeedbacks();
+    fetchFeedbacks(feedbacks.length === 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError('');
     if (!content.trim()) {
-      Swal.fire('Thiếu thông tin', 'Vui lòng nhập nội dung', 'warning');
+      setFormError('Vui lòng nhập nội dung góp ý hoặc kiến nghị.');
       return;
     }
 
-    store.setUpdating(true);
-    store.setLoading(true, 'Đang gửi góp ý...');
+    setUpdating(true);
+    setIsSubmitting(true);
     try {
       const res = await callApi('SUBMIT_FEEDBACK', {
         username: isAnonymous ? 'Anonymous' : currentUser?.username,
         fullname: isAnonymous ? 'Ẩn danh' : currentUser?.fullname,
         category,
         content,
-        isAnonymous
+        isAnonymous,
       });
-      
+
       if (res?.ok) {
-        Swal.fire('Thành công', 'Đã gửi góp ý thành công', 'success');
+        pushToast('Đã gửi góp ý thành công', 'success');
         setContent('');
-        fetchFeedbacks();
+        await fetchFeedbacks(false);
       } else {
-        Swal.fire('Không thể gửi góp ý', res?.message || 'Máy chủ đang bận hoặc mất kết nối. Nội dung của bạn vẫn được giữ nguyên, vui lòng thử lại.', 'error');
+        setFormError(
+          res?.message ||
+            'Máy chủ đang bận hoặc mất kết nối. Nội dung của bạn vẫn được giữ nguyên, vui lòng thử lại.',
+        );
       }
-    } catch (err) {
-      Swal.fire('Lỗi', 'Không thể gửi góp ý', 'error');
+    } catch {
+      setFormError('Không thể gửi góp ý. Nội dung của bạn vẫn được giữ nguyên.');
     } finally {
-      store.setUpdating(false);
-      store.setLoading(false);
+      setUpdating(false);
+      setIsSubmitting(false);
     }
   };
 
   const handleReply = async (feedbackId: string) => {
     if (!replyContent.trim()) return;
-    
-    store.setUpdating(true);
-    store.setLoading(true, 'Đang gửi phản hồi...');
+
+    setUpdating(true);
+    setReplyBusyId(feedbackId);
     try {
       const res = await callApi('REPLY_FEEDBACK', {
         feedbackId,
-        reply: replyContent
+        reply: replyContent,
       });
-      
+
       if (res?.ok) {
-        Swal.fire('Thành công', 'Đã phản hồi thành công', 'success');
+        pushToast('Đã gửi phản hồi thành công', 'success');
         setReplyContent('');
         setReplyingTo(null);
-        fetchFeedbacks();
+        await fetchFeedbacks(false);
       } else {
-        Swal.fire('Không thể gửi phản hồi', res?.message || 'Máy chủ đang bận hoặc mất kết nối. Vui lòng thử lại.', 'error');
+        pushToast(res?.message || 'Máy chủ đang bận hoặc mất kết nối. Vui lòng thử lại.', 'error');
       }
-    } catch (err) {
-      Swal.fire('Lỗi', 'Không thể gửi phản hồi', 'error');
+    } catch {
+      pushToast('Không thể gửi phản hồi. Vui lòng thử lại.', 'error');
     } finally {
-      store.setUpdating(false);
-      store.setLoading(false);
+      setUpdating(false);
+      setReplyBusyId(null);
     }
   };
 
   const isAdmin = currentUser?.role === 'admin';
 
-  // Filter feedback for normal user: only see their own or anonymous ones they created
-  // Since backend handles filtering, here we just show what is in store.feedbacks
-  const displayFeedbacks = feedbacks;
+  const counts = useMemo(
+    () => ({
+      all: feedbacks.length,
+      reviewed: feedbacks.filter((fb) => fb.status === 'Reviewed').length,
+      pending: feedbacks.filter((fb) => fb.status !== 'Reviewed').length,
+    }),
+    [feedbacks],
+  );
+
+  const filteredFeedbacks = useMemo(() => {
+    return feedbacks.filter((fb) => {
+      if (statusFilter === 'REVIEWED' && fb.status !== 'Reviewed') return false;
+      if (statusFilter === 'PENDING' && fb.status === 'Reviewed') return false;
+      if (categoryFilter !== 'ALL' && fb.category !== categoryFilter) return false;
+      return true;
+    });
+  }, [feedbacks, statusFilter, categoryFilter]);
 
   return (
-    <div className="h-full flex flex-col space-y-4 pb-16 animate-fade-in">
+    <div className="flex flex-col space-y-4 pb-24 md:pb-12 animate-fade-in">
       <KgModuleHero
         moduleId="feedback"
         title="Góp Ý & Khiếu Nại"
@@ -124,15 +186,14 @@ export default function Feedback() {
         features={['Tuỳ chọn ẩn danh 100%', 'Gửi thẳng Quản lý', 'Theo dõi phản hồi']}
         tipTitle="Chính sách Góp ý & Khiếu nại Nội bộ"
         tips={[
-          "Mọi ý kiến đóng góp nhằm cải thiện quy trình, vệ sinh, không khí làm việc đều được trân trọng.",
+          'Mọi ý kiến đóng góp nhằm cải thiện quy trình, vệ sinh, không khí làm việc đều được trân trọng.',
           "Chế độ 'Gửi ẩn danh' đảm bảo tuyệt đối không lưu lại danh tính hay tài khoản của người gửi.",
-          "Ban Quản lý cam kết phản hồi công khai hoặc xử lý thỏa đáng trong vòng 24 - 48 giờ làm việc."
+          'Ban Quản lý cam kết phản hồi công khai hoặc xử lý thỏa đáng trong vòng 24 - 48 giờ làm việc.',
         ]}
       />
 
       <div className="relative z-20 flex-1 flex flex-col space-y-4">
-        
-        {/* User Submit Form (Hide for Admin unless Admin wants to submit) */}
+        {/* User Submit Form */}
         {!isAdmin && (
           <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 sm:p-5 shadow-xs shrink-0 space-y-3">
             <h3 className="font-black text-[var(--kg-text)] text-xs sm:text-sm flex items-center">
@@ -140,82 +201,200 @@ export default function Feedback() {
             </h3>
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
-                <label htmlFor="feedback-category" className="block text-[11px] font-bold text-[var(--kg-text-muted)] uppercase tracking-wider mb-1">
+                <label
+                  htmlFor="feedback-category"
+                  className="block text-[11px] font-bold text-[var(--kg-text-muted)] uppercase tracking-wider mb-1"
+                >
                   Nhóm nội dung
                 </label>
-                <select 
+                <select
                   id="feedback-category"
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
-                  className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)] text-xs sm:text-sm font-medium"
+                  className="w-full min-h-[44px] bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)] text-xs sm:text-sm font-medium"
                 >
-                  <option>Góp ý cải tiến quy trình</option>
-                  <option>Khiếu nại ca làm / lương thưởng</option>
-                  <option>Cơ sở vật chất / công cụ làm việc</option>
-                  <option>Khác</option>
+                  {FEEDBACK_CATEGORIES.map((cat) => (
+                    <option key={cat}>{cat}</option>
+                  ))}
                 </select>
               </div>
 
               <div>
-                <label htmlFor="feedback-content" className="block text-[11px] font-bold text-[var(--kg-text-muted)] uppercase tracking-wider mb-1">
+                <label
+                  htmlFor="feedback-content"
+                  className="block text-[11px] font-bold text-[var(--kg-text-muted)] uppercase tracking-wider mb-1"
+                >
                   Chi tiết góp ý / kiến nghị
                 </label>
-                <textarea 
+                <textarea
                   id="feedback-content"
                   value={content}
-                  onChange={(e) => setContent(e.target.value)}
+                  onChange={(e) => {
+                    setContent(e.target.value);
+                    if (formError) setFormError('');
+                  }}
                   placeholder="Nhập nội dung chi tiết..."
                   rows={3}
                   className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)] text-xs sm:text-sm"
                 />
               </div>
 
-              <div className="flex items-center justify-between pt-1">
-                <label className="flex items-center space-x-2 cursor-pointer select-none">
-                  <div className={`w-9 h-5 flex items-center bg-gray-300 dark:bg-gray-700 rounded-full p-0.5 transition-colors duration-200 ${isAnonymous ? '!bg-[var(--kg-primary)]' : ''}`}>
-                    <div className={`bg-white w-4 h-4 rounded-full shadow-xs transform transition-transform duration-200 ${isAnonymous ? 'translate-x-4' : ''}`}></div>
+              {formError && (
+                <p className="text-xs font-semibold text-[var(--kg-danger)] bg-[var(--kg-danger-soft)] border border-[var(--kg-danger)]/20 rounded-xl px-3 py-2">
+                  {formError}
+                </p>
+              )}
+
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                <label className="flex items-center space-x-2 cursor-pointer select-none min-h-[44px]">
+                  <div
+                    className={`w-9 h-5 flex items-center bg-gray-300 dark:bg-gray-700 rounded-full p-0.5 transition-colors duration-200 ${
+                      isAnonymous ? '!bg-[var(--kg-primary)]' : ''
+                    }`}
+                  >
+                    <div
+                      className={`bg-white w-4 h-4 rounded-full shadow-xs transform transition-transform duration-200 ${
+                        isAnonymous ? 'translate-x-4' : ''
+                      }`}
+                    />
                   </div>
-                  <input type="checkbox" className="hidden" checked={isAnonymous} onChange={() => setIsAnonymous(!isAnonymous)} />
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={isAnonymous}
+                    onChange={() => setIsAnonymous(!isAnonymous)}
+                  />
                   <span className="text-xs font-bold text-[var(--kg-text)] flex items-center">
                     <EyeOff size={13} className="mr-1 text-[var(--kg-text-muted)]" /> Ẩn danh
                   </span>
                 </label>
 
-                <button 
-                  type="submit" 
-                  className="bg-[var(--kg-primary)] hover:brightness-110 text-white font-black py-2.5 px-5 rounded-xl shadow-xs transition-all active:scale-98 text-xs sm:text-sm"
+                <KgButton
+                  type="submit"
+                  variant="primary"
+                  size="md"
+                  loading={isSubmitting}
+                  icon={Send}
                 >
                   Gửi phản hồi
-                </button>
+                </KgButton>
               </div>
             </form>
           </div>
         )}
 
-        {/* Feedback List */}
-        <div className="flex-1 overflow-y-auto no-scrollbar space-y-3">
-          <h3 className="font-black text-[var(--kg-text-muted)] text-[11px] uppercase tracking-wider pl-1">Lịch sử phản hồi</h3>
-          
-          {loading ? (
-            <div className="flex justify-center py-6"><div className="animate-spin h-6 w-6 border-2 border-[var(--kg-primary)] border-t-transparent rounded-full"></div></div>
-          ) : displayFeedbacks.length === 0 ? (
-            <div className="text-center py-8 bg-[var(--kg-surface)] border border-dashed border-[var(--kg-border)] rounded-2xl">
-              <AlertCircle size={28} className="mx-auto text-[var(--kg-text-muted)] opacity-40 mb-2" />
-              <p className="text-xs font-bold text-[var(--kg-text-muted)]">Chưa có phản hồi nào</p>
+        {/* Feedback List + Filters */}
+        <div className="flex-1 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+            <h3 className="font-black text-[var(--kg-text-muted)] text-[11px] uppercase tracking-wider">
+              Lịch sử phản hồi (<span className="font-mono tabular-nums">{filteredFeedbacks.length}</span>)
+            </h3>
+            <button
+              type="button"
+              onClick={() => fetchFeedbacks(false)}
+              disabled={isRefreshing || loading}
+              aria-label="Làm mới danh sách phản hồi"
+              className="min-w-[44px] min-h-[44px] sm:min-w-[36px] sm:min-h-[36px] rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition-colors touch-manipulation"
+            >
+              <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+            </button>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-3">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {(
+                [
+                  { id: 'ALL', label: `Tất cả (${counts.all})` },
+                  { id: 'PENDING', label: `Chờ phản hồi (${counts.pending})` },
+                  { id: 'REVIEWED', label: `Đã xem xét (${counts.reviewed})` },
+                ] as const
+              ).map((pill) => (
+                <button
+                  key={pill.id}
+                  type="button"
+                  onClick={() => setStatusFilter(pill.id)}
+                  className={`min-h-[44px] sm:min-h-[34px] px-3 py-1.5 rounded-full text-xs font-bold border transition-colors touch-manipulation ${
+                    statusFilter === pill.id
+                      ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)]'
+                      : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)] hover:text-[var(--kg-text)]'
+                  }`}
+                >
+                  {pill.label}
+                </button>
+              ))}
             </div>
+
+            <label className="block sm:w-56">
+              <span className="sr-only">Lọc theo nhóm nội dung</span>
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="w-full min-h-[44px] sm:min-h-[36px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-1.5 text-xs font-semibold text-[var(--kg-text)] outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
+              >
+                <option value="ALL">Tất cả nhóm nội dung</option>
+                {FEEDBACK_CATEGORIES.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          {loadError ? (
+            <KgErrorState
+              title="Không thể tải lịch sử góp ý"
+              description={loadError}
+              onRetry={() => fetchFeedbacks(false)}
+            />
+          ) : loading ? (
+            <div className="space-y-3">
+              <KgSkeleton className="h-28 w-full" />
+              <KgSkeleton className="h-28 w-full" />
+            </div>
+          ) : filteredFeedbacks.length === 0 ? (
+            <KgEmptyState
+              icon={AlertCircle}
+              title={feedbacks.length === 0 ? 'Chưa có phản hồi nào' : 'Không có phản hồi khớp bộ lọc'}
+              description={
+                feedbacks.length === 0
+                  ? 'Các góp ý và phản hồi từ Quản lý sẽ hiển thị tại đây.'
+                  : 'Thử đổi trạng thái hoặc nhóm nội dung để xem thêm.'
+              }
+              action={
+                feedbacks.length > 0 ? (
+                  <KgButton
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      setStatusFilter('ALL');
+                      setCategoryFilter('ALL');
+                    }}
+                  >
+                    Xóa bộ lọc
+                  </KgButton>
+                ) : undefined
+              }
+            />
           ) : (
             <AnimatePresence>
-              {displayFeedbacks.map((fb, idx) => (
-                <motion.div 
+              {filteredFeedbacks.map((fb, idx) => (
+                <motion.div
                   key={fb.id}
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.04 }}
+                  transition={{ delay: idx * 0.03 }}
                   className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 shadow-xs space-y-2.5"
                 >
-                  <div className="flex justify-between items-start">
+                  <div className="flex justify-between items-start gap-2">
                     <div className="flex items-center space-x-2">
-                      <div className={`p-1.5 rounded-xl ${fb.isAnonymous ? 'bg-gray-100 text-gray-500 dark:bg-gray-800' : 'bg-[var(--kg-primary-soft)] text-[var(--kg-primary)]'}`}>
+                      <div
+                        className={`p-1.5 rounded-xl ${
+                          fb.isAnonymous
+                            ? 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)]'
+                            : 'bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)]'
+                        }`}
+                      >
                         {fb.isAnonymous ? <EyeOff size={14} /> : <User size={14} />}
                       </div>
                       <div>
@@ -227,21 +406,22 @@ export default function Feedback() {
                         </p>
                       </div>
                     </div>
-                    <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border ${fb.status === 'Reviewed' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/30' : 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 border-amber-200 dark:border-amber-900/30'}`}>
+                    <KgStatusBadge variant={fb.status === 'Reviewed' ? 'success' : 'warning'}>
                       {fb.status === 'Reviewed' ? 'Đã xem xét' : 'Chờ phản hồi'}
-                    </span>
+                    </KgStatusBadge>
                   </div>
-                  
+
                   <span className="inline-block bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] text-[10px] font-black px-2.5 py-0.5 rounded-lg">
                     {fb.category}
                   </span>
-                  
-                  <p className="text-xs sm:text-sm text-[var(--kg-text)] font-medium leading-relaxed whitespace-pre-wrap">{fb.content}</p>
 
-                  {/* Admin Reply Section */}
+                  <p className="text-xs sm:text-sm text-[var(--kg-text)] font-medium leading-relaxed whitespace-pre-wrap">
+                    {fb.content}
+                  </p>
+
                   {fb.adminReply ? (
                     <div className="mt-3 bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] p-3 rounded-xl">
-                      <p className="text-xs font-bold text-[var(--kg-primary)] flex items-center mb-1">
+                      <p className="text-xs font-bold text-[var(--kg-primary-ink)] flex items-center mb-1">
                         <CornerDownRight size={12} className="mr-1" /> Phản hồi từ Quản lý:
                       </p>
                       <p className="text-sm text-[var(--kg-text)] whitespace-pre-wrap">{fb.adminReply}</p>
@@ -250,23 +430,46 @@ export default function Feedback() {
                     <div className="mt-4 pt-3 border-t border-[var(--kg-border)]">
                       {replyingTo === fb.id ? (
                         <div className="space-y-2">
-                          <textarea 
+                          <textarea
                             aria-label="Nhập phản hồi của Quản lý"
                             value={replyContent}
                             onChange={(e) => setReplyContent(e.target.value)}
                             placeholder="Nhập phản hồi của bạn..."
                             className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)]"
                             rows={2}
-                          ></textarea>
-                          <div className="flex justify-end space-x-2">
-                            <button type="button" onClick={() => setReplyingTo(null)} className="px-3 py-1.5 text-xs text-[var(--kg-text-muted)] font-bold hover:bg-[var(--kg-surface-soft)] rounded-lg">Hủy</button>
-                            <button type="button" onClick={() => handleReply(fb.id)} className="px-3.5 py-1.5 bg-[var(--kg-primary)] text-white text-xs font-bold rounded-lg hover:opacity-90">Gửi phản hồi</button>
+                          />
+                          <div className="flex justify-end gap-2">
+                            <KgButton
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              disabled={replyBusyId === fb.id}
+                              onClick={() => setReplyingTo(null)}
+                            >
+                              Hủy
+                            </KgButton>
+                            <KgButton
+                              type="button"
+                              variant="primary"
+                              size="sm"
+                              loading={replyBusyId === fb.id}
+                              disabled={!replyContent.trim()}
+                              onClick={() => handleReply(fb.id)}
+                            >
+                              Gửi phản hồi
+                            </KgButton>
                           </div>
                         </div>
                       ) : (
-                        <button type="button" onClick={() => setReplyingTo(fb.id)} className="text-xs font-bold text-[var(--kg-primary)] flex items-center hover:underline">
-                          <CornerDownRight size={14} className="mr-1" /> Nhập phản hồi
-                        </button>
+                        <KgButton
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          icon={CornerDownRight}
+                          onClick={() => setReplyingTo(fb.id)}
+                        >
+                          Nhập phản hồi
+                        </KgButton>
                       )}
                     </div>
                   ) : null}
@@ -275,6 +478,14 @@ export default function Feedback() {
             </AnimatePresence>
           )}
         </div>
+      </div>
+
+      <div className="fixed bottom-20 md:bottom-6 right-4 z-[10100] flex flex-col gap-2 pointer-events-none">
+        <AnimatePresence>
+          {toasts.map((t) => (
+            <KgToast key={t.id} message={t} onClose={dismissToast} />
+          ))}
+        </AnimatePresence>
       </div>
     </div>
   );

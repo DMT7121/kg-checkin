@@ -12,6 +12,7 @@ import {
   Plus,
   RefreshCw,
   Save,
+  Search,
   ShieldAlert,
   ShieldCheck,
   Sparkles,
@@ -19,24 +20,25 @@ import {
   Trash2,
   UsersRound,
   Wrench,
+  X,
 } from 'lucide-react';
 import Swal from 'sweetalert2';
-import { KgBottomSheet, KgButton, KgInput, KgModuleHero, KgSelect, KgTextarea } from '../../components/KgDesignSystem';
+import { KgBottomSheet, KgButton, KgInput, KgModuleHero, KgTextarea } from '../../components/KgDesignSystem';
 import { callApi } from '../../services/api';
 import { useAppStore } from '../../store/useAppStore';
+import { isAdminUser } from '../../utils/permissions';
 import type {
   OperationAssignment,
   OperationEvaluation,
   OperationsConfig,
-  OperationTask,
   OperationTaskLog,
   OperationTeam,
-  OperationZone,
 } from '../../types/operations';
 import { isWorkEligible } from '../../utils/employment';
 import {
   emptyOperationsConfig,
   formatOperationDate,
+  normalizeOperationsConfig,
   operationScore,
   todayIso,
 } from '../../types/operations';
@@ -65,10 +67,26 @@ const teamColors = ['#0e7490', '#7c3aed', '#059669', '#ea580c', '#db2777', '#256
 const newId = (prefix: string) => `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 const clampScore = (value: number) => Math.min(5, Math.max(1, Number(value) || 3));
 
+function normalizeHandoverDateToIso(raw: string | undefined): string {
+  const s = String(raw || '').trim();
+  if (!s) return '';
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) {
+    return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  }
+  return s;
+}
+
 export default function AdminOperations() {
   const currentUser = useAppStore(state => state.currentUser);
+  if (!isAdminUser(currentUser)) return null;
+  return <AdminOperationsContent />;
+}
+
+function AdminOperationsContent() {
+  const currentUser = useAppStore(state => state.currentUser);
   const users = useAppStore(state => state.users);
-  const setCurrentTab = useAppStore(state => state.setCurrentTab);
   const [config, setConfig] = useState<OperationsConfig>(emptyOperationsConfig);
   const [taskLogs, setTaskLogs] = useState<OperationTaskLog[]>([]);
   const [section, setSection] = useState<Section>('overview');
@@ -82,6 +100,9 @@ export default function AdminOperations() {
   }
   const [evalSearchQuery, setEvalSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [cashAuditError, setCashAuditError] = useState('');
+  const [incidentError, setIncidentError] = useState('');
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [assignmentDraft, setAssignmentDraft] = useState({
@@ -91,25 +112,17 @@ export default function AdminOperations() {
     shift: 'Cả ngày',
     note: '',
   });
-  const [activeModal, setActiveModal] = useState<'team' | 'zone' | 'task' | null>(null);
+  const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
   const [modalError, setModalError] = useState('');
   const [teamDraft, setTeamDraft] = useState({ name: '', description: '' });
-  const [zoneDraft, setZoneDraft] = useState({ name: '', description: '' });
-  const [taskDraft, setTaskDraft] = useState<{
-    title: string;
-    description: string;
-    priority: OperationTask['priority'];
-    frequency: string;
-  }>({
-    title: '',
-    description: '',
-    priority: 'normal',
-    frequency: 'Mỗi ca',
-  });
 
   // Wave 2: 2-Way Cash Audit & 4-State Incident Management Center
   const [handovers, setHandovers] = useState<HandoverLedgerRecord[]>([]);
   const [cashFilter, setCashFilter] = useState<'ALL' | 'ATTENTION' | 'CONFIRMED'>('ALL');
+  const [cashSearchQuery, setCashSearchQuery] = useState('');
+  const [cashDateFilter, setCashDateFilter] = useState('');
+  const [cashSort, setCashSort] = useState<'default' | 'discrepancy_desc' | 'severity'>('default');
+  const [bulkConfirmingCash, setBulkConfirmingCash] = useState(false);
   const [managerNotes, setManagerNotes] = useState<Record<string, string>>({});
   const [reviewingHandoverId, setReviewingHandoverId] = useState<string | null>(null);
 
@@ -127,6 +140,8 @@ export default function AdminOperations() {
 
   const loadHandoversAndIncidents = useCallback(async () => {
     if (!currentUser) return;
+    setCashAuditError('');
+    setIncidentError('');
     const [hoRes, incRes] = await Promise.allSettled([
       callApi('GET_HANDOVERS', { role: currentUser.role, forceRefresh: true }, { background: true, cacheTtlMs: 0 }),
       callApi(
@@ -136,15 +151,36 @@ export default function AdminOperations() {
       ),
     ]);
 
-    if (hoRes.status === 'fulfilled' && hoRes.value?.ok && Array.isArray(hoRes.value.data?.handovers)) {
-      setHandovers(hoRes.value.data.handovers);
+    if (hoRes.status === 'fulfilled' && hoRes.value?.ok) {
+      const rawHandovers = Array.isArray(hoRes.value.data?.handovers)
+        ? hoRes.value.data.handovers
+        : Array.isArray(hoRes.value.data)
+          ? hoRes.value.data
+          : [];
+      setHandovers(rawHandovers);
+    } else {
+      setCashAuditError(
+        (hoRes.status === 'fulfilled' && hoRes.value?.message) ||
+          'Không thể tải dữ liệu đối soát két từ máy chủ.',
+      );
     }
-    if (incRes.status === 'fulfilled' && incRes.value?.ok && Array.isArray(incRes.value.data?.incidents)) {
+
+    if (incRes.status === 'fulfilled' && incRes.value?.ok) {
+      const rawIncidents = Array.isArray(incRes.value.data?.incidents)
+        ? incRes.value.data.incidents
+        : Array.isArray(incRes.value.data)
+          ? incRes.value.data
+          : [];
       setIncidents(
-        incRes.value.data.incidents.map((item: IncidentRecord) => ({
+        rawIncidents.map((item: IncidentRecord) => ({
           ...item,
           status: normalizeIncidentStatus(item.status),
         })),
+      );
+    } else {
+      setIncidentError(
+        (incRes.status === 'fulfilled' && incRes.value?.message) ||
+          'Không thể tải danh sách sự cố từ máy chủ.',
       );
     }
   }, [currentUser]);
@@ -152,32 +188,40 @@ export default function AdminOperations() {
   const loadData = useCallback(async () => {
     if (!currentUser) return;
     setLoading(true);
-    const [res] = await Promise.all([
-      callApi(
-        'GET_OPERATIONS_CONFIG',
-        {
-          role: currentUser.role,
-          username: currentUser.username,
-          forceRefresh: true,
-        },
-        { background: true, cacheTtlMs: 0, timeoutMs: 35000 },
-      ),
-      loadHandoversAndIncidents(),
-    ]);
-    if (res?.ok) {
-      const next = res.data.config || emptyOperationsConfig();
-      setConfig(next);
-      setTaskLogs(res.data.taskLogs || []);
-      setSelectedTeamId(current => current || next.teams?.[0]?.id || '');
-      setSelectedZoneId(current => current || next.zones?.[0]?.id || '');
-      setAssignmentDraft(current => ({
-        ...current,
-        teamId: current.teamId || next.teams?.[0]?.id || '',
-        zoneId: current.zoneId || next.zones?.[0]?.id || '',
-      }));
-      setDirty(false);
+    setLoadError('');
+    try {
+      const [res] = await Promise.all([
+        callApi(
+          'GET_OPERATIONS_CONFIG',
+          {
+            role: currentUser.role,
+            username: currentUser.username,
+            forceRefresh: true,
+          },
+          { background: true, cacheTtlMs: 0, timeoutMs: 35000 },
+        ),
+        loadHandoversAndIncidents(),
+      ]);
+      if (res?.ok) {
+        const next = normalizeOperationsConfig(res.data?.config);
+        setConfig(next);
+        setTaskLogs(Array.isArray(res.data?.taskLogs) ? res.data.taskLogs : []);
+        setSelectedTeamId(current => current || next.teams?.[0]?.id || '');
+        setSelectedZoneId(current => current || next.zones?.[0]?.id || '');
+        setAssignmentDraft(current => ({
+          ...current,
+          teamId: current.teamId || next.teams?.[0]?.id || '',
+          zoneId: current.zoneId || next.zones?.[0]?.id || '',
+        }));
+        setDirty(false);
+      } else {
+        setLoadError(res?.message || 'Không thể tải cấu hình vận hành từ máy chủ.');
+      }
+    } catch {
+      setLoadError('Mất kết nối khi tải dữ liệu điều phối vận hành.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [currentUser, loadHandoversAndIncidents]);
 
   useEffect(() => {
@@ -206,7 +250,8 @@ export default function AdminOperations() {
         decision,
         managerNote: note,
       });
-      if (res?.ok) {
+      if (!res) return;
+      if (res.ok) {
         const nextStatus = decision === 'DISPUTE' ? 'Disputed' : 'ManagerConfirmed';
         setHandovers(prev =>
           prev.map(h =>
@@ -264,7 +309,8 @@ export default function AdminOperations() {
         repairCost,
       });
 
-      if (res?.ok) {
+      if (!res) return;
+      if (res.ok) {
         setIncidents(prev =>
           prev.map(item =>
             item.id === inc.id
@@ -310,8 +356,9 @@ export default function AdminOperations() {
       config,
     });
     setSaving(false);
-    if (!res?.ok) {
-      Swal.fire('Không thể lưu', res?.message || 'Vui lòng thử lại.', 'error');
+    if (!res) return;
+    if (!res.ok) {
+      Swal.fire('Không thể lưu', res.message || 'Vui lòng thử lại.', 'error');
       return;
     }
     setConfig(res.data.config);
@@ -328,7 +375,7 @@ export default function AdminOperations() {
   const createTeam = () => {
     setTeamDraft({ name: '', description: '' });
     setModalError('');
-    setActiveModal('team');
+    setIsTeamModalOpen(true);
   };
 
   const submitCreateTeam = (e: React.FormEvent) => {
@@ -351,68 +398,7 @@ export default function AdminOperations() {
     setSelectedTeamId(team.id);
     setAssignmentDraft(current => ({ ...current, teamId: current.teamId || team.id }));
     setSection('teams');
-    setActiveModal(null);
-  };
-
-  const createZone = () => {
-    setZoneDraft({ name: '', description: '' });
-    setModalError('');
-    setActiveModal('zone');
-  };
-
-  const submitCreateZone = (e: React.FormEvent) => {
-    e.preventDefault();
-    const name = zoneDraft.name.trim();
-    const description = zoneDraft.description.trim();
-    if (!name) {
-      setModalError('Vui lòng nhập tên khu trực');
-      return;
-    }
-    const zone: OperationZone = {
-      id: newId('ZONE'),
-      name,
-      description,
-      color: teamColors[config.zones.length % teamColors.length],
-    };
-    patchConfig(current => ({ ...current, zones: [...current.zones, zone] }));
-    setSelectedZoneId(zone.id);
-    setAssignmentDraft(current => ({ ...current, zoneId: current.zoneId || zone.id }));
-    setSection('zones');
-    setActiveModal(null);
-  };
-
-  const createTask = () => {
-    if (!selectedZoneId) {
-      Swal.fire('Chưa có khu trực', 'Hãy tạo hoặc chọn khu trực trước.', 'info');
-      return;
-    }
-    setTaskDraft({
-      title: '',
-      description: '',
-      priority: 'normal',
-      frequency: 'Mỗi ca',
-    });
-    setModalError('');
-    setActiveModal('task');
-  };
-
-  const submitCreateTask = (e: React.FormEvent) => {
-    e.preventDefault();
-    const title = taskDraft.title.trim();
-    if (!title) {
-      setModalError('Vui lòng nhập tên công việc');
-      return;
-    }
-    const task: OperationTask = {
-      id: newId('TASK'),
-      zoneId: selectedZoneId,
-      title,
-      description: taskDraft.description.trim(),
-      priority: taskDraft.priority,
-      frequency: taskDraft.frequency.trim() || 'Mỗi ca',
-    };
-    patchConfig(current => ({ ...current, tasks: [...current.tasks, task] }));
-    setActiveModal(null);
+    setIsTeamModalOpen(false);
   };
 
   const toggleMember = (teamId: string, username: string) => {
@@ -467,26 +453,6 @@ export default function AdminOperations() {
       assignments: current.assignments.filter(item => item.teamId !== team.id),
     }));
     setSelectedTeamId(config.teams.find(item => item.id !== team.id)?.id || '');
-  };
-
-  const removeZone = async (zone: OperationZone) => {
-    const result = await Swal.fire({
-      icon: 'warning',
-      title: `Xóa ${zone.name}?`,
-      text: 'Công việc và phân công của khu này cũng sẽ bị xóa.',
-      showCancelButton: true,
-      confirmButtonText: 'Xóa khu',
-      cancelButtonText: 'Hủy',
-      confirmButtonColor: '#dc2626',
-    });
-    if (!result.isConfirmed) return;
-    patchConfig(current => ({
-      ...current,
-      zones: current.zones.filter(item => item.id !== zone.id),
-      tasks: current.tasks.filter(item => item.zoneId !== zone.id),
-      assignments: current.assignments.filter(item => item.zoneId !== zone.id),
-    }));
-    setSelectedZoneId(config.zones.find(item => item.id !== zone.id)?.id || '');
   };
 
   const addAssignment = () => {
@@ -596,9 +562,12 @@ export default function AdminOperations() {
   const selectedTeam = config.teams.find(team => team.id === selectedTeamId);
   const selectedZone = config.zones.find(zone => zone.id === selectedZoneId);
   const zoneTasks = config.tasks.filter(task => task.zoneId === selectedZoneId);
-  const upcomingAssignments = [...config.assignments]
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .filter(item => item.date >= todayIso());
+  const upcomingAssignments = useMemo(() => {
+    const today = todayIso();
+    return [...config.assignments]
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .filter(item => item.date >= today);
+  }, [config.assignments]);
 
   const assignedOnOtherTeams = useMemo(() => {
     const set = new Set<string>();
@@ -742,29 +711,25 @@ export default function AdminOperations() {
     Swal.fire('Thành công', `Đã tự động xếp khu trực cho ${newAssignments.length} nhóm theo quy tắc xoay vòng ca.`, 'success');
   };
 
-  const teamMetrics = config.teams.map(team => {
-    const scores = team.memberUsernames.map(username => (
-      operationScore(config.evaluations.find(item => item.username === username))
-    ));
-    return {
-      team,
-      size: team.memberUsernames.length,
-      average: scores.length ? scores.reduce((sum, score) => sum + score, 0) / scores.length : 0,
-    };
-  });
-  const activeAverages = teamMetrics.filter(item => item.size).map(item => item.average);
-  const scoreGap = activeAverages.length
-    ? Math.max(...activeAverages) - Math.min(...activeAverages)
-    : 0;
+  const teamMetrics = useMemo(() => {
+    return config.teams.map(team => {
+      const scores = team.memberUsernames.map(username => (
+        operationScore(config.evaluations.find(item => item.username === username))
+      ));
+      return {
+        team,
+        size: team.memberUsernames.length,
+        average: scores.length ? scores.reduce((sum, score) => sum + score, 0) / scores.length : 0,
+      };
+    });
+  }, [config.teams, config.evaluations]);
 
-  if (currentUser?.role !== 'admin') {
-    return (
-      <div className="p-6 text-center">
-        <ShieldCheck className="mx-auto text-slate-400" size={36} />
-        <p className="mt-3 font-bold text-slate-700 dark:text-slate-200">Chỉ admin được cấu hình phân công.</p>
-      </div>
-    );
-  }
+  const scoreGap = useMemo(() => {
+    const activeAverages = teamMetrics.filter(item => item.size).map(item => item.average);
+    return activeAverages.length
+      ? Math.max(...activeAverages) - Math.min(...activeAverages)
+      : 0;
+  }, [teamMetrics]);
 
   const cashAttentionCount = handovers.filter(
     h =>
@@ -776,6 +741,78 @@ export default function AdminOperations() {
     h => (h.discrepancy ?? 0) === 0 && h.ackStatus !== 'Disputed',
   ).length;
 
+  const matchedUnconfirmedHandovers = useMemo(
+    () =>
+      handovers.filter(
+        h =>
+          h.reconcileStatus !== 'ManagerConfirmed' &&
+          (h.discrepancy ?? 0) === 0 &&
+          h.ackStatus !== 'Disputed' &&
+          h.reconcileStatus !== 'Disputed',
+      ),
+    [handovers],
+  );
+
+  const handleBulkConfirmMatchedHandovers = async () => {
+    if (!currentUser || matchedUnconfirmedHandovers.length === 0) return;
+    const confirm = await Swal.fire({
+      title: 'Duyệt tất cả ca khớp két?',
+      text: `Xác nhận duyệt ${matchedUnconfirmedHandovers.length} ca bàn giao không có chênh lệch và chưa bị khiếu nại?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#059669',
+      confirmButtonText: `Duyệt ${matchedUnconfirmedHandovers.length} ca`,
+      cancelButtonText: 'Hủy',
+    });
+    if (!confirm.isConfirmed) return;
+
+    setBulkConfirmingCash(true);
+    try {
+      const confirmedIds = new Set<string>();
+      for (const item of matchedUnconfirmedHandovers) {
+        const note = (managerNotes[item.id] ?? item.managerNote ?? '').trim();
+        const res = await callApi(
+          'REVIEW_HANDOVER',
+          {
+            role: currentUser.role,
+            actorUsername: currentUser.username,
+            actorFullname: currentUser.fullname,
+            handoverId: item.id,
+            decision: 'CONFIRM',
+            managerNote: note,
+          },
+          { background: true },
+        );
+        if (res?.ok) {
+          confirmedIds.add(item.id);
+        }
+      }
+      if (confirmedIds.size > 0) {
+        setHandovers(prev =>
+          prev.map(h =>
+            confirmedIds.has(h.id)
+              ? {
+                  ...h,
+                  reconcileStatus: 'ManagerConfirmed',
+                  managerBy: currentUser.fullname || currentUser.username,
+                }
+              : h,
+          ),
+        );
+      }
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: confirmedIds.size === matchedUnconfirmedHandovers.length ? 'success' : 'warning',
+        title: `Đã duyệt ${confirmedIds.size}/${matchedUnconfirmedHandovers.length} ca khớp két`,
+        showConfirmButton: false,
+        timer: 2400,
+      });
+    } finally {
+      setBulkConfirmingCash(false);
+    }
+  };
+
   const openIncidentCount = incidents.filter(
     i => i.status === 'Open' || i.status === 'Investigating',
   ).length;
@@ -784,16 +821,46 @@ export default function AdminOperations() {
     0,
   );
 
-  const filteredHandovers = handovers.filter(h => {
-    if (cashFilter === 'ATTENTION') {
-      return (
-        h.reconcileStatus !== 'ManagerConfirmed' &&
-        ((h.discrepancy ?? 0) !== 0 || h.ackStatus === 'Disputed' || h.reconcileStatus === 'Disputed')
-      );
-    }
-    if (cashFilter === 'CONFIRMED') return h.reconcileStatus === 'ManagerConfirmed';
-    return true;
-  });
+  const filteredHandovers = useMemo(() => {
+    const q = cashSearchQuery.trim().toLowerCase();
+    const list = handovers.filter(h => {
+      if (cashFilter === 'ATTENTION') {
+        const needsAttention =
+          h.reconcileStatus !== 'ManagerConfirmed' &&
+          ((h.discrepancy ?? 0) !== 0 || h.ackStatus === 'Disputed' || h.reconcileStatus === 'Disputed');
+        if (!needsAttention) return false;
+      } else if (cashFilter === 'CONFIRMED' && h.reconcileStatus !== 'ManagerConfirmed') {
+        return false;
+      }
+
+      if (cashDateFilter && normalizeHandoverDateToIso(h.date) !== cashDateFilter) {
+        return false;
+      }
+
+      if (q) {
+        const hay = `${h.fullname || ''} ${h.username || ''} ${h.shift || ''} ${h.note || ''} ${h.ackBy || ''} ${h.date || ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+
+    if (cashSort === 'default') return list;
+
+    return [...list].sort((a, b) => {
+      if (cashSort === 'discrepancy_desc') {
+        return Math.abs(b.discrepancy ?? 0) - Math.abs(a.discrepancy ?? 0);
+      }
+      const rank = (item: HandoverLedgerRecord) => {
+        if (item.ackStatus === 'Disputed' || item.reconcileStatus === 'Disputed') return 0;
+        if (item.reconcileStatus !== 'ManagerConfirmed' && (item.discrepancy ?? 0) !== 0) return 1;
+        if (item.reconcileStatus !== 'ManagerConfirmed') return 2;
+        return 3;
+      };
+      const rankDiff = rank(a) - rank(b);
+      if (rankDiff !== 0) return rankDiff;
+      return Math.abs(b.discrepancy ?? 0) - Math.abs(a.discrepancy ?? 0);
+    });
+  }, [handovers, cashFilter, cashDateFilter, cashSearchQuery, cashSort]);
 
   const filteredIncidents = incidents.filter(i => {
     if (incidentFilter === 'ALL') return true;
@@ -811,17 +878,7 @@ export default function AdminOperations() {
   ];
 
   return (
-    <div className="p-4 space-y-4 animate-slide-up pb-24">
-      <div className="flex -mt-2">
-        <button
-          type="button"
-          onClick={() => setCurrentTab('admin_work')}
-          className="text-xs font-bold text-slate-500 hover:text-cyan-700"
-        >
-          ← Quay lại Quản lý & Cấu hình
-        </button>
-      </div>
-
+    <div className="p-4 space-y-4 animate-slide-up pb-36 md:pb-24">
       <KgModuleHero
         moduleId="admin-operations"
         title="Điều Phối Vận Hành, Két & Sự Cố"
@@ -835,27 +892,30 @@ export default function AdminOperations() {
         ]}
       />
 
-      <div className="soft3d-card rounded-2xl p-2 overflow-x-auto no-scrollbar">
-        <div className="grid min-w-[560px] grid-cols-7 gap-1 sm:min-w-0">
-          {navItems.map(item => {
+      <div className="soft3d-card rounded-2xl p-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5">
+          {navItems.map((item, idx) => {
             const Icon = item.icon;
             const active = section === item.id;
+            const isLastOdd = idx === navItems.length - 1;
             return (
               <button
                 type="button"
                 key={item.id}
                 onClick={() => setSection(item.id)}
-                className={`relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1.5 py-2.5 text-[10px] font-extrabold transition sm:flex-row sm:text-xs ${
+                className={`relative flex min-h-[38px] min-w-0 flex-row items-center justify-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-extrabold transition ${
+                  isLastOdd ? 'col-span-2 sm:col-span-2 lg:col-span-1' : ''
+                } ${
                   active
                     ? 'bg-cyan-700 text-white shadow-md'
-                    : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
-                <Icon size={15} />
+                <Icon size={15} className="flex-shrink-0" />
                 <span className="truncate">{item.label}</span>
                 {typeof item.badge === 'number' && item.badge > 0 && (
                   <span
-                    className={`px-1.5 py-0.5 rounded-full text-[9px] font-mono tabular-nums font-black ${
+                    className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono tabular-nums font-black flex-shrink-0 ${
                       active
                         ? 'bg-white text-cyan-800'
                         : 'bg-rose-500/15 text-rose-600 dark:text-rose-300'
@@ -869,6 +929,23 @@ export default function AdminOperations() {
           })}
         </div>
       </div>
+
+      {loadError && (
+        <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-rose-700 dark:text-rose-300">
+          <span className="flex items-center gap-2">
+            <AlertTriangle size={15} className="flex-shrink-0" />
+            {loadError}
+          </span>
+          <button
+            type="button"
+            onClick={loadData}
+            disabled={loading}
+            className="min-h-[36px] px-3.5 py-1.5 rounded-xl bg-[var(--kg-primary)] text-white text-xs font-bold inline-flex items-center gap-1.5"
+          >
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Thử lại
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="soft3d-card flex items-center justify-center gap-2 rounded-2xl py-16 text-sm font-bold text-slate-500">
@@ -1078,6 +1155,19 @@ export default function AdminOperations() {
                         {label}
                       </button>
                     ))}
+                    {matchedUnconfirmedHandovers.length > 0 && (
+                      <button
+                        type="button"
+                        disabled={bulkConfirmingCash}
+                        onClick={() => void handleBulkConfirmMatchedHandovers()}
+                        className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold inline-flex items-center gap-1.5 shadow-xs disabled:opacity-50"
+                      >
+                        <CheckCheck size={14} />
+                        {bulkConfirmingCash
+                          ? 'Đang duyệt...'
+                          : `Duyệt tất cả ca khớp (${matchedUnconfirmedHandovers.length})`}
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={loadHandoversAndIncidents}
@@ -1088,6 +1178,74 @@ export default function AdminOperations() {
                     </button>
                   </div>
                 </div>
+
+                {/* Cash Audit Search, Date Filter & Discrepancy/Severity Sort */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div className="relative">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={cashSearchQuery}
+                      onChange={e => setCashSearchQuery(e.target.value)}
+                      placeholder="Tìm thu ngân, ca, ghi chú..."
+                      aria-label="Tìm bản ghi đối soát két"
+                      className="w-full min-h-[38px] pl-8 pr-7 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs text-slate-800 dark:text-white"
+                    />
+                    {cashSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setCashSearchQuery('')}
+                        aria-label="Xóa từ khóa tìm kiếm két"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                      >
+                        <X size={13} />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="date"
+                      value={cashDateFilter}
+                      onChange={e => setCashDateFilter(e.target.value)}
+                      aria-label="Lọc theo ngày bàn giao két"
+                      className="flex-1 min-h-[38px] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-mono tabular-nums text-slate-800 dark:text-white"
+                    />
+                    {cashDateFilter && (
+                      <button
+                        type="button"
+                        onClick={() => setCashDateFilter('')}
+                        className="min-h-[38px] px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-500 hover:text-slate-800"
+                      >
+                        Xóa ngày
+                      </button>
+                    )}
+                  </div>
+
+                  <select
+                    value={cashSort}
+                    onChange={e => setCashSort(e.target.value as 'default' | 'discrepancy_desc' | 'severity')}
+                    aria-label="Sắp xếp đối soát két"
+                    className="min-h-[38px] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white"
+                  >
+                    <option value="default">Sắp xếp: Mới nhất</option>
+                    <option value="severity">Ưu tiên: Mức độ nghiêm trọng</option>
+                    <option value="discrepancy_desc">Ưu tiên: Chênh lệch lớn nhất</option>
+                  </select>
+                </div>
+
+                {cashAuditError && (
+                  <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-rose-700 dark:text-rose-300">
+                    <span>{cashAuditError}</span>
+                    <button
+                      type="button"
+                      onClick={loadHandoversAndIncidents}
+                      className="min-h-[34px] px-3 py-1 rounded-lg bg-[var(--kg-primary)] text-white text-xs font-bold inline-flex items-center gap-1"
+                    >
+                      <RefreshCw size={12} /> Thử lại
+                    </button>
+                  </div>
+                )}
 
                 {filteredHandovers.length === 0 ? (
                   <div className="py-12 text-center text-xs font-bold text-slate-400">
@@ -1314,6 +1472,19 @@ export default function AdminOperations() {
                     ))}
                   </div>
                 </div>
+
+                {incidentError && (
+                  <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-rose-700 dark:text-rose-300">
+                    <span>{incidentError}</span>
+                    <button
+                      type="button"
+                      onClick={loadHandoversAndIncidents}
+                      className="min-h-[34px] px-3 py-1 rounded-lg bg-[var(--kg-primary)] text-white text-xs font-bold inline-flex items-center gap-1"
+                    >
+                      <RefreshCw size={12} /> Thử lại
+                    </button>
+                  </div>
+                )}
 
                 {filteredIncidents.length === 0 ? (
                   <div className="py-12 text-center text-xs font-bold text-slate-400">
@@ -1563,7 +1734,6 @@ export default function AdminOperations() {
                           {filteredCurrentTeamEmployees.length > 0 ? (
                             <div className="grid gap-2 sm:grid-cols-2">
                               {filteredCurrentTeamEmployees.map(employee => {
-                                const checked = true;
                                 const evaluation = config.evaluations.find(item => item.username === employee.username);
                                 return (
                                   <button
@@ -1947,7 +2117,7 @@ export default function AdminOperations() {
         </>
       )}
 
-      <div className="fixed bottom-20 left-1/2 z-30 flex w-[min(92vw,720px)] -translate-x-1/2 items-center gap-2 rounded-2xl border border-white/70 bg-white/90 p-2 shadow-2xl backdrop-blur-xl dark:border-slate-700 dark:bg-slate-900/90 lg:bottom-5">
+      <div className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] md:bottom-5 left-1/2 z-30 flex w-[min(92vw,720px)] -translate-x-1/2 items-center gap-2 rounded-2xl border border-white/70 bg-white/95 p-2 shadow-2xl backdrop-blur-xl dark:border-slate-700 dark:bg-slate-900/95">
         <button
           type="button"
           onClick={loadData}
@@ -1978,8 +2148,8 @@ export default function AdminOperations() {
 
       {/* Modal: Tạo nhóm trực */}
       <KgBottomSheet
-        isOpen={activeModal === 'team'}
-        onClose={() => setActiveModal(null)}
+        isOpen={isTeamModalOpen}
+        onClose={() => setIsTeamModalOpen(false)}
         title="Tạo nhóm trực"
       >
         <form onSubmit={submitCreateTeam} className="space-y-4">
@@ -2001,98 +2171,11 @@ export default function AdminOperations() {
             onChange={e => setTeamDraft(prev => ({ ...prev, description: e.target.value }))}
           />
           <div className="flex gap-3 pt-2">
-            <KgButton variant="secondary" className="flex-1" onClick={() => setActiveModal(null)}>
+            <KgButton variant="secondary" className="flex-1" onClick={() => setIsTeamModalOpen(false)}>
               Hủy
             </KgButton>
             <KgButton type="submit" variant="primary" className="flex-1" icon={Plus}>
               Tạo nhóm
-            </KgButton>
-          </div>
-        </form>
-      </KgBottomSheet>
-
-      {/* Modal: Tạo khu trực */}
-      <KgBottomSheet
-        isOpen={activeModal === 'zone'}
-        onClose={() => setActiveModal(null)}
-        title="Tạo khu trực"
-      >
-        <form onSubmit={submitCreateZone} className="space-y-4">
-          <KgInput
-            label="Tên khu trực *"
-            placeholder="Ví dụ: Sảnh A, Quầy bar, Khu VIP..."
-            value={zoneDraft.name}
-            onChange={e => {
-              setZoneDraft(prev => ({ ...prev, name: e.target.value }));
-              if (modalError) setModalError('');
-            }}
-            error={modalError}
-            autoFocus
-          />
-          <KgTextarea
-            label="Mô tả phạm vi phụ trách"
-            placeholder="Mô tả phạm vi, bàn hoặc thiết bị phụ trách..."
-            value={zoneDraft.description}
-            onChange={e => setZoneDraft(prev => ({ ...prev, description: e.target.value }))}
-          />
-          <div className="flex gap-3 pt-2">
-            <KgButton variant="secondary" className="flex-1" onClick={() => setActiveModal(null)}>
-              Hủy
-            </KgButton>
-            <KgButton type="submit" variant="primary" className="flex-1" icon={Plus}>
-              Tạo khu
-            </KgButton>
-          </div>
-        </form>
-      </KgBottomSheet>
-
-      {/* Modal: Thêm công việc cho khu */}
-      <KgBottomSheet
-        isOpen={activeModal === 'task'}
-        onClose={() => setActiveModal(null)}
-        title="Thêm công việc cho khu"
-      >
-        <form onSubmit={submitCreateTask} className="space-y-4">
-          <KgInput
-            label="Tên công việc *"
-            placeholder="Nhập tên công việc cần thực hiện..."
-            value={taskDraft.title}
-            onChange={e => {
-              setTaskDraft(prev => ({ ...prev, title: e.target.value }));
-              if (modalError) setModalError('');
-            }}
-            error={modalError}
-            autoFocus
-          />
-          <KgTextarea
-            label="Tiêu chuẩn hoặc hướng dẫn thực hiện"
-            placeholder="Mô tả chi tiết tiêu chuẩn hoàn thành..."
-            value={taskDraft.description}
-            onChange={e => setTaskDraft(prev => ({ ...prev, description: e.target.value }))}
-          />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <KgSelect
-              label="Mức độ ưu tiên"
-              value={taskDraft.priority}
-              onChange={e => setTaskDraft(prev => ({ ...prev, priority: e.target.value as OperationTask['priority'] }))}
-            >
-              <option value="normal">Thông thường</option>
-              <option value="important">Quan trọng</option>
-              <option value="critical">Bắt buộc ưu tiên</option>
-            </KgSelect>
-            <KgInput
-              label="Tần suất thực hiện"
-              placeholder="Ví dụ: Đầu ca / Mỗi 60 phút"
-              value={taskDraft.frequency}
-              onChange={e => setTaskDraft(prev => ({ ...prev, frequency: e.target.value }))}
-            />
-          </div>
-          <div className="flex gap-3 pt-2">
-            <KgButton variant="secondary" className="flex-1" onClick={() => setActiveModal(null)}>
-              Hủy
-            </KgButton>
-            <KgButton type="submit" variant="primary" className="flex-1" icon={Plus}>
-              Thêm công việc
             </KgButton>
           </div>
         </form>

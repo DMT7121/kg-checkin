@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import { getPreviewShiftClass } from '../utils/helpers';
@@ -9,7 +9,6 @@ import {
   CheckSquare,
   FileText,
   CheckSquare2,
-  PenTool,
   RefreshCw,
   Users,
 } from 'lucide-react';
@@ -65,8 +64,49 @@ interface SavedAreaState {
   signatures: { receive?: string; handover?: string; manager?: string };
 }
 
+interface ChecklistDraftAreaPayload {
+  pending: Record<string, Partial<SavedItemState>>;
+  removedParticipantKeys: string[];
+  pendingSupply: Record<string, any> | null;
+  pendingSignatures: SavedAreaState['signatures'] | null;
+  updatedAt: string;
+}
+
+const getChecklistDraftStorageKey = (
+  username: string | undefined,
+  dateStr: string,
+  shiftName: string
+) => `kg_ops_checklist_draft_${username || 'anon'}_${dateStr}_${shiftName || 'default'}`;
+
+const readChecklistDrafts = (key: string): Record<string, ChecklistDraftAreaPayload> => {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+
+const clearAreaChecklistDraft = (key: string, area: AreaCode) => {
+  try {
+    const map = readChecklistDrafts(key);
+    if (!map[area]) return;
+    delete map[area];
+    if (Object.keys(map).length === 0) {
+      localStorage.removeItem(key);
+    } else {
+      localStorage.setItem(key, JSON.stringify(map));
+    }
+  } catch {
+    // ignore storage errors
+  }
+};
+
 export default function Checklist() {
   const currentUser = useAppStore((s) => s.currentUser);
+  const shiftName = useAppStore((s) => s.shiftName);
   const setGlobalLoading = useAppStore((s) => s.setLoading);
   const setTodayChecklistDone = useAppStore((s) => s.setTodayChecklistDone);
   const store = { setLoading: setGlobalLoading };
@@ -99,14 +139,85 @@ export default function Checklist() {
   const [activePhase, setActivePhase] = useState<string>('ALL');
   const [saveMode, setSaveMode] = useState<'single' | 'batch'>('batch');
 
-  // Local changes buffer (pending delta sync — never overwrites teammates' ticks)
+  // Local changes buffer (pending delta sync — persisted per username + date + shift)
   const [pending, setPending] = useState<Record<string, Partial<SavedItemState>>>({});
   const [removedParticipantKeys, setRemovedParticipantKeys] = useState<string[]>([]);
   const [pendingSupply, setPendingSupply] = useState<Record<string, any> | null>(null);
   const [pendingSignatures, setPendingSignatures] = useState<SavedAreaState['signatures'] | null>(null);
+  const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
 
   // Participant search input
   const [participantInput, setParticipantInput] = useState('');
+
+  const draftStorageKey = getChecklistDraftStorageKey(
+    currentUser?.username,
+    workDate,
+    shiftName
+  );
+  const hydratedDraftIdRef = useRef<string | null>(null);
+
+  // Hydrate persisted pending batch draft for (username + date + shift + area)
+  useEffect(() => {
+    if (!selectedArea) {
+      hydratedDraftIdRef.current = null;
+      return;
+    }
+    const targetDraftId = `${draftStorageKey}::${selectedArea}`;
+    const drafts = readChecklistDrafts(draftStorageKey);
+    const savedDraft = drafts[selectedArea];
+    if (savedDraft) {
+      setPending(savedDraft.pending || {});
+      setRemovedParticipantKeys(savedDraft.removedParticipantKeys || []);
+      setPendingSupply(savedDraft.pendingSupply ?? null);
+      setPendingSignatures(savedDraft.pendingSignatures ?? null);
+    } else {
+      setPending({});
+      setRemovedParticipantKeys([]);
+      setPendingSupply(null);
+      setPendingSignatures(null);
+    }
+    setNoteDrafts({});
+    hydratedDraftIdRef.current = targetDraftId;
+  }, [draftStorageKey, selectedArea]);
+
+  // Persist pending batch draft to localStorage whenever buffered changes update
+  useEffect(() => {
+    if (!selectedArea) return;
+    const targetDraftId = `${draftStorageKey}::${selectedArea}`;
+    if (hydratedDraftIdRef.current !== targetDraftId) return;
+
+    const hasDraft =
+      Object.keys(pending).length > 0 ||
+      removedParticipantKeys.length > 0 ||
+      pendingSupply !== null ||
+      pendingSignatures !== null;
+
+    if (!hasDraft) {
+      clearAreaChecklistDraft(draftStorageKey, selectedArea);
+      return;
+    }
+
+    try {
+      const map = readChecklistDrafts(draftStorageKey);
+      map[selectedArea] = {
+        pending,
+        removedParticipantKeys,
+        pendingSupply,
+        pendingSignatures,
+        updatedAt: new Date().toISOString(),
+      };
+      localStorage.setItem(draftStorageKey, JSON.stringify(map));
+    } catch {
+      // ignore storage quota errors
+    }
+  }, [
+    draftStorageKey,
+    selectedArea,
+    pending,
+    removedParticipantKeys,
+    pendingSupply,
+    pendingSignatures,
+  ]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -303,11 +414,15 @@ export default function Checklist() {
   };
 
   const performJoinArea = (area: AreaCode) => {
+    if (selectedArea) {
+      clearAreaChecklistDraft(draftStorageKey, selectedArea);
+    }
     setSelectedArea(area);
     setPending({});
     setRemovedParticipantKeys([]);
     setPendingSupply(null);
     setPendingSignatures(null);
+    setNoteDrafts({});
 
     localStorage.setItem('kg_ops_checklist_session_v7', JSON.stringify({ name: sessionName, area }));
 
@@ -545,42 +660,6 @@ export default function Checklist() {
     }
   };
 
-  // Handle Signatures Change
-  const handleSignatureChange = (key: 'receive' | 'handover' | 'manager', val: string) => {
-    const currentSigs = pendingSignatures || areaData.signatures || {};
-    setPendingSignatures({
-      ...currentSigs,
-      [key]: val,
-    });
-  };
-
-  const handleSaveSignatures = async () => {
-    if (!selectedArea || !pendingSignatures) return;
-
-    if (saveMode === 'single') {
-      await syncToServer(
-        selectedArea,
-        areaData.participants,
-        areaData.items,
-        areaData.supply,
-        pendingSignatures,
-        {},
-        [],
-        pendingSignatures
-      );
-      setPendingSignatures(null);
-    } else {
-      Swal.fire({
-        toast: true,
-        position: 'top-end',
-        icon: 'success',
-        title: 'Đã ghi nhận chữ ký tạm thời!',
-        showConfirmButton: false,
-        timer: 1500,
-      });
-    }
-  };
-
   // Sync state to Google Sheets with concurrent-safe delta merging
   const syncToServer = async (
     area: AreaCode,
@@ -653,6 +732,8 @@ export default function Checklist() {
         setRemovedParticipantKeys([]);
         setPendingSupply(null);
         setPendingSignatures(null);
+        setNoteDrafts({});
+        clearAreaChecklistDraft(draftStorageKey, area);
 
         Swal.fire({
           icon: 'success',
@@ -744,7 +825,11 @@ export default function Checklist() {
     { key: 'XUỐNG CA SAU CÙNG', label: 'Xuống ca cuối' }
   ];
 
-  const hasPendingChanges = Object.keys(pending).length > 0 || pendingSupply !== null || pendingSignatures !== null;
+  const hasPendingChanges =
+    Object.keys(pending).length > 0 ||
+    removedParticipantKeys.length > 0 ||
+    pendingSupply !== null ||
+    pendingSignatures !== null;
 
   if (currentUser && !isWorkEligible(currentUser)) {
     return <EmploymentStatusNotice user={currentUser} actionLabel="thực hiện checklist công việc" />;
@@ -775,11 +860,13 @@ export default function Checklist() {
             type="date"
             value={workDate}
             onChange={(e) => {
+              hydratedDraftIdRef.current = null;
               setWorkDate(e.target.value);
               setPending({});
               setRemovedParticipantKeys([]);
               setPendingSupply(null);
               setPendingSignatures(null);
+              setNoteDrafts({});
             }}
             className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)] font-bold min-h-[44px]"
           />
@@ -794,14 +881,14 @@ export default function Checklist() {
               <button
                 type="button"
                 onClick={() => setSaveMode('batch')}
-                className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all ${saveMode === 'batch' ? 'bg-[var(--kg-primary)] text-white shadow-xs' : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] hover:text-[var(--kg-text)]'}`}
+                className={`min-h-[44px] px-4 py-2.5 rounded-xl text-xs font-black transition-all touch-manipulation ${saveMode === 'batch' ? 'bg-[var(--kg-primary)] text-white shadow-xs' : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] hover:text-[var(--kg-text)]'}`}
               >
                 Lưu hàng loạt (Khuyên dùng)
               </button>
               <button
                 type="button"
                 onClick={() => setSaveMode('single')}
-                className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all ${saveMode === 'single' ? 'bg-[var(--kg-primary)] text-white shadow-xs' : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] hover:text-[var(--kg-text)]'}`}
+                className={`min-h-[44px] px-4 py-2.5 rounded-xl text-xs font-black transition-all touch-manipulation ${saveMode === 'single' ? 'bg-[var(--kg-primary)] text-white shadow-xs' : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] hover:text-[var(--kg-text)]'}`}
               >
                 Lưu trực tiếp tức thì
               </button>
@@ -908,7 +995,7 @@ export default function Checklist() {
                     type="button"
                     onClick={refreshTeammatesProgress}
                     disabled={refreshingTeammates}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-xs font-bold text-[var(--kg-text)] hover:border-[var(--kg-primary)] transition-colors"
+                    className="min-h-[44px] min-w-[44px] sm:min-h-[36px] inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-xs font-bold text-[var(--kg-text)] hover:border-[var(--kg-primary)] transition-colors touch-manipulation"
                     title="Cập nhật các mục đồng đội vừa tick mà không mất thay đổi của bạn"
                   >
                     <RefreshCw
@@ -944,7 +1031,7 @@ export default function Checklist() {
                     key={t.key}
                     type="button"
                     onClick={() => setActivePhase(t.key)}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors border min-h-[34px] ${
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors border min-h-[44px] sm:min-h-[34px] touch-manipulation ${
                       activePhase === t.key 
                         ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)] shadow-xs' 
                         : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)] hover:text-[var(--kg-text)]'
@@ -1010,7 +1097,7 @@ export default function Checklist() {
                               type="button"
                               aria-label={`Đánh dấu hạng mục ${item.title}`}
                               onClick={() => handleToggleItem(item, !itemState.checked)}
-                              className={`flex-shrink-0 w-10 h-10 rounded-xl border-2 flex items-center justify-center transition-colors ${
+                              className={`flex-shrink-0 w-11 h-11 sm:w-10 sm:h-10 rounded-xl border-2 flex items-center justify-center transition-colors touch-manipulation ${
                                 itemState.checked 
                                   ? 'bg-[var(--kg-success)] border-[var(--kg-success)] text-white' 
                                   : 'border-[var(--kg-border-strong)] bg-[var(--kg-surface-soft)] text-transparent hover:border-[var(--kg-primary)]'
@@ -1031,12 +1118,12 @@ export default function Checklist() {
                                 {item.subitems.map(sub => {
                                   const isSubChecked = !!itemState.subchecks?.[sub.id];
                                   return (
-                                    <label key={sub.id} className="flex items-center space-x-2 text-xs text-[var(--kg-text)] cursor-pointer select-none min-h-[32px]">
+                                    <label key={sub.id} className="flex items-center space-x-2 text-xs text-[var(--kg-text)] cursor-pointer select-none min-h-[44px] sm:min-h-[32px] touch-manipulation">
                                       <input 
                                         type="checkbox" 
                                         checked={isSubChecked}
                                         onChange={(e) => handleToggleSubtask(item, sub.id, e.target.checked)}
-                                        className="h-4.5 w-4.5 rounded border-[var(--kg-border-strong)] text-[var(--kg-primary)] focus:ring-[var(--kg-primary)]/20 bg-[var(--kg-surface)]"
+                                        className="h-5 w-5 sm:h-4.5 sm:w-4.5 rounded border-[var(--kg-border-strong)] text-[var(--kg-primary)] focus:ring-[var(--kg-primary)]/20 bg-[var(--kg-surface)]"
                                       />
                                       <span className={isSubChecked ? 'line-through text-[var(--kg-text-muted)]' : ''}>{sub.text}</span>
                                     </label>
@@ -1059,14 +1146,43 @@ export default function Checklist() {
                               {hasPending && <span className="bg-[var(--kg-warning-soft)] text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-full">Lưu tạm</span>}
                             </div>
                             
-                            {/* Inline Note text input */}
+                            {/* Inline Note text input (controlled, synced with teammate updates) */}
                             <div className="w-full flex items-center space-x-2 mt-1">
                               <textarea
-                                defaultValue={itemState.note || ''}
-                                onBlur={(e) => handleSaveNote(item.id, e.target.value)}
+                                value={
+                                  noteDrafts[item.id] !== undefined
+                                    ? noteDrafts[item.id]
+                                    : itemState.note || ''
+                                }
+                                onChange={(e) => {
+                                  const nextNote = e.target.value;
+                                  setNoteDrafts((prev) => ({ ...prev, [item.id]: nextNote }));
+                                  if (saveMode === 'batch' && selectedArea) {
+                                    setPending((prev) => ({
+                                      ...prev,
+                                      [item.id]: {
+                                        ...(prev[item.id] || {}),
+                                        checked: itemState.checked,
+                                        note: nextNote,
+                                        by: sessionName,
+                                        at: new Date().toISOString(),
+                                      },
+                                    }));
+                                  }
+                                }}
+                                onBlur={(e) => {
+                                  const nextNote = e.target.value;
+                                  setNoteDrafts((prev) => {
+                                    if (!(item.id in prev)) return prev;
+                                    const copy = { ...prev };
+                                    delete copy[item.id];
+                                    return copy;
+                                  });
+                                  handleSaveNote(item.id, nextNote);
+                                }}
                                 aria-label={`Ghi chú cho ${item.title}`}
                                 placeholder="Ghi chú kết quả công việc/hỏng hóc nếu có..."
-                                className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-3 py-1.5 text-xs text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] placeholder-[var(--kg-text-soft)] resize-none min-h-[38px]"
+                                className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-3 py-2 text-xs text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] placeholder-[var(--kg-text-soft)] resize-none min-h-[44px] sm:min-h-[38px]"
                                 rows={1}
                               />
                             </div>
@@ -1100,7 +1216,7 @@ export default function Checklist() {
                       <button 
                         type="button"
                         onClick={() => handleRemoveParticipant(p.key)}
-                        className="text-[var(--kg-danger)] hover:underline active:scale-95 transition-all text-[11px] font-semibold px-1.5"
+                        className="min-h-[44px] min-w-[44px] sm:min-h-[28px] sm:min-w-0 inline-flex items-center justify-center text-[var(--kg-danger)] hover:underline active:scale-95 transition-all text-[11px] font-semibold px-2 touch-manipulation"
                       >
                         Bỏ
                       </button>
@@ -1119,12 +1235,12 @@ export default function Checklist() {
                   onChange={(e) => setParticipantInput(e.target.value)}
                   aria-label="Thêm tên nhân viên trực"
                   placeholder="Thêm tên nhân viên trực..."
-                  className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3 py-2 text-xs text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] placeholder-[var(--kg-text-soft)] min-h-[40px]"
+                  className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3 py-2 text-xs text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] placeholder-[var(--kg-text-soft)] min-h-[44px] sm:min-h-[40px]"
                 />
                 <button 
                   type="button"
                   onClick={handleAddParticipant}
-                  className="bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-semibold px-4 py-2 rounded-xl text-xs flex items-center min-h-[40px]"
+                  className="bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-semibold px-4 py-2 rounded-xl text-xs flex items-center justify-center min-h-[44px] sm:min-h-[40px] flex-shrink-0 touch-manipulation"
                 >
                   Thêm
                 </button>
@@ -1172,12 +1288,12 @@ export default function Checklist() {
                     : !!areaData.supply?.[s.k];
 
                   return (
-                    <label key={s.k} className="flex items-center space-x-2 cursor-pointer min-h-[30px]">
+                    <label key={s.k} className="flex items-center space-x-2 cursor-pointer min-h-[44px] sm:min-h-[30px] touch-manipulation">
                       <input 
                         type="checkbox" 
                         checked={isChecked}
                         onChange={(e) => handleSupplyChange(s.k, e.target.checked)}
-                        className="h-4.5 w-4.5 rounded border-[var(--kg-border-strong)] text-[var(--kg-primary)] focus:ring-[var(--kg-primary)]/20 bg-[var(--kg-surface)]"
+                        className="h-5 w-5 sm:h-4.5 sm:w-4.5 rounded border-[var(--kg-border-strong)] text-[var(--kg-primary)] focus:ring-[var(--kg-primary)]/20 bg-[var(--kg-surface)]"
                       />
                       <span>{s.l}</span>
                     </label>
@@ -1205,56 +1321,12 @@ export default function Checklist() {
                     <button 
                       type="button"
                       onClick={handleSaveSupply}
-                      className="bg-[var(--kg-success-soft)] text-[var(--kg-success)] border border-[var(--kg-success)]/25 px-3 py-1 rounded-xl font-bold transition-colors text-[10px]"
+                      className="min-h-[44px] sm:min-h-[30px] bg-[var(--kg-success-soft)] text-[var(--kg-success)] border border-[var(--kg-success)]/25 px-3 py-1 rounded-xl font-bold transition-colors text-[10px] touch-manipulation"
                     >
                       Lưu đề xuất
                     </button>
                   )}
                 </div>
-              </div>
-            </div>
-
-            {/* Handover Signatures */}
-            <div className="soft3d-card p-5 space-y-4">
-              <h3 className="font-bold text-sm text-[var(--kg-text)] flex items-center">
-                <PenTool size={16} className="mr-2 text-[var(--kg-accent)]" />
-                <span>Bàn giao &amp; Xác nhận</span>
-              </h3>
-              
-              <div className="space-y-3 text-xs">
-                {[
-                  { k: 'receive', l: 'Phụ trách nhận ca' },
-                  { k: 'handover', l: 'Phụ trách giao ca' },
-                  { k: 'manager', l: 'Quản lý xác nhận' }
-                ].map(sig => {
-                  const val = pendingSignatures 
-                    ? (pendingSignatures[sig.k as keyof SavedAreaState['signatures']] || '') 
-                    : (areaData.signatures?.[sig.k as keyof SavedAreaState['signatures']] || '');
-
-                  return (
-                    <div key={sig.k}>
-                      <label htmlFor={`sig-${sig.k}`} className="block font-semibold text-[var(--kg-text-muted)] mb-1">{sig.l}</label>
-                      <input 
-                        id={`sig-${sig.k}`}
-                        type="text" 
-                        value={val}
-                        onChange={(e) => handleSignatureChange(sig.k as any, e.target.value)}
-                        placeholder="Ký tên / Ghi họ tên..."
-                        className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3 py-2 text-xs text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] placeholder-[var(--kg-text-soft)] min-h-[40px]"
-                      />
-                    </div>
-                  );
-                })}
-
-                {pendingSignatures && (
-                  <button 
-                    type="button"
-                    onClick={handleSaveSignatures}
-                    className="w-full bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-semibold py-2.5 rounded-xl text-xs transition-colors flex items-center justify-center min-h-[40px]"
-                  >
-                    Lưu xác nhận bàn giao
-                  </button>
-                )}
               </div>
             </div>
 
@@ -1276,7 +1348,7 @@ export default function Checklist() {
             type="button"
             onClick={handleSyncAllPending}
             disabled={isSaving}
-            className="bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-bold px-4 sm:px-5 py-2.5 rounded-xl text-xs transition-colors active:scale-95 shadow-xs flex items-center space-x-1.5 flex-shrink-0 min-h-[40px]"
+            className="bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-bold px-4 sm:px-5 py-2.5 rounded-xl text-xs transition-colors active:scale-95 shadow-xs flex items-center space-x-1.5 flex-shrink-0 min-h-[44px] sm:min-h-[40px] touch-manipulation"
           >
             <RefreshCw size={14} className={isSaving ? 'animate-spin' : ''} />
             <span>Đồng bộ ngay</span>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
@@ -118,17 +118,93 @@ function SopIcon({ name, size = 15, className = '' }: { name?: string; size?: nu
   return <IconComp size={size} className={className} />;
 }
 
-function formatSopDetailsHtml(html: string): string {
-  return html.replace(/<i[^>]*class="([^"]*)"[^>]*><\/i>/gi, (_match, cls: string) => {
-    const isDanger = /triangle-exclamation|circle-exclamation|fire|biohazard|ban|gavel/.test(cls);
-    const isCheck = /check|award|star|shield/.test(cls);
-    const svgPath = isDanger
-      ? '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>'
-      : isCheck
-      ? '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>'
-      : '<circle cx="12" cy="12" r="3.5"/>';
-    return `<span class="sop-inline-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${svgPath}</svg></span>`;
-  });
+function isSafeExternalUrl(rawHref: string | null): string | null {
+  if (!rawHref) return null;
+  try {
+    const parsed = new URL(rawHref, 'https://example.invalid');
+    if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+      return parsed.href;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+const ALLOWED_SOP_LI_CLASSES = new Set(['icon-tip', 'icon-note', 'icon-danger', 'icon-script']);
+
+function renderSafeSopNode(node: ChildNode, key: string): ReactNode {
+  if (node.nodeType === 3) {
+    return node.textContent;
+  }
+  if (node.nodeType !== 1) return null;
+
+  const el = node as Element;
+  const tag = el.tagName.toLowerCase();
+  const children = Array.from(el.childNodes).map((child, idx) => renderSafeSopNode(child, `${key}_${idx}`));
+
+  switch (tag) {
+    case 'ul':
+      return <ul key={key}>{children}</ul>;
+    case 'ol':
+      return <ol key={key}>{children}</ol>;
+    case 'li': {
+      const clsList = (el.getAttribute('class') || '')
+        .split(/\s+/)
+        .filter((c) => ALLOWED_SOP_LI_CLASSES.has(c))
+        .join(' ');
+      return (
+        <li key={key} className={clsList || undefined}>
+          {children}
+        </li>
+      );
+    }
+    case 'i': {
+      const cls = el.getAttribute('class') || '';
+      const isDanger = /triangle-exclamation|circle-exclamation|fire|biohazard|ban|gavel/.test(cls);
+      const isCheck = /check|award|star|shield/.test(cls);
+      const FallbackIcon = isDanger ? AlertTriangle : isCheck ? CheckCircle2 : SopIcon;
+      return (
+        <span key={key} className="sop-inline-icon" aria-hidden="true">
+          {isDanger || isCheck ? <FallbackIcon size={15} /> : <SopIcon name={cls} size={15} />}
+        </span>
+      );
+    }
+    case 'strong':
+    case 'b':
+      return <strong key={key}>{children}</strong>;
+    case 'em':
+      return <em key={key}>{children}</em>;
+    case 'br':
+      return <br key={key} />;
+    case 'a': {
+      const safeHref = isSafeExternalUrl(el.getAttribute('href'));
+      if (!safeHref) return <span key={key}>{children}</span>;
+      return (
+        <a key={key} href={safeHref} target="_blank" rel="noopener noreferrer">
+          {children}
+        </a>
+      );
+    }
+    case 'span':
+    case 'p':
+    case 'div':
+      return <span key={key}>{children}</span>;
+    default:
+      return <span key={key}>{children}</span>;
+  }
+}
+
+function SopDetailsRenderer({ html }: { html: string }) {
+  const nodes = useMemo(() => {
+    if (typeof DOMParser === 'undefined') {
+      return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    return Array.from(doc.body.childNodes).map((child, idx) => renderSafeSopNode(child, `sop_${idx}`));
+  }, [html]);
+
+  return <div className="max-w-[68ch]">{nodes}</div>;
 }
 
 const SOP_SCOPES: { id: SopScope; label: string }[] = [
@@ -187,6 +263,13 @@ export default function Training() {
   const [swipeStartX, setSwipeStartX] = useState<number | null>(null);
   const [swipeStartY, setSwipeStartY] = useState<number | null>(null);
   const [showDescription, setShowDescription] = useState(false);
+
+  const selectCukcukStep = (nextIndex: number | null) => {
+    setActiveCukcukIndex(nextIndex);
+    setZoomScale(1);
+    setZoomPos({ x: 0, y: 0 });
+    setShowDescription(false);
+  };
 
   const resetZoom = () => {
     setZoomScale(1);
@@ -307,12 +390,12 @@ export default function Training() {
         if (diffX < 0) {
           // Swiped left -> Next step
           if (activeCukcukIndex !== null && activeCukcukIndex < cukcukData.length - 1) {
-            setActiveCukcukIndex(activeCukcukIndex + 1);
+            selectCukcukStep(activeCukcukIndex + 1);
           }
         } else {
           // Swiped right -> Previous step
           if (activeCukcukIndex !== null && activeCukcukIndex > 0) {
-            setActiveCukcukIndex(activeCukcukIndex - 1);
+            selectCukcukStep(activeCukcukIndex - 1);
           }
         }
       }
@@ -336,14 +419,14 @@ export default function Training() {
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setActiveCukcukIndex(null);
+        selectCukcukStep(null);
       } else if (e.key === 'ArrowLeft') {
         if (activeCukcukIndex > 0) {
-          setActiveCukcukIndex(activeCukcukIndex - 1);
+          selectCukcukStep(activeCukcukIndex - 1);
         }
       } else if (e.key === 'ArrowRight') {
         if (activeCukcukIndex < cukcukData.length - 1) {
-          setActiveCukcukIndex(activeCukcukIndex + 1);
+          selectCukcukStep(activeCukcukIndex + 1);
         }
       }
     };
@@ -353,15 +436,6 @@ export default function Training() {
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [activeCukcukIndex]);
-
-  // Reset zoom and description whenever active step changes
-  const [prevCukcukIndex, setPrevCukcukIndex] = useState<number | null>(activeCukcukIndex);
-  if (activeCukcukIndex !== prevCukcukIndex) {
-    setPrevCukcukIndex(activeCukcukIndex);
-    setZoomScale(1);
-    setZoomPos({ x: 0, y: 0 });
-    setShowDescription(false);
-  }
 
   // Filter cukcuk steps
   const filteredCukcukSteps = useMemo(() => {
@@ -521,12 +595,9 @@ export default function Training() {
     [sopScope, currentUser?.position]
   );
 
-  if (visibleSopSections.length > 0 && !visibleSopSections.some(section => section.id === selectedSection)) {
-    setSelectedSection(visibleSopSections[0].id);
-  }
-
-  // Pre-load active section content
+  // Pre-load active section content (derive fallback cleanly without setState)
   const activeSopSection = visibleSopSections.find(s => s.id === selectedSection) || visibleSopSections[0];
+  const effectiveSelectedSection = activeSopSection?.id || selectedSection;
   const activeSopItems = activeSopSection?.content.filter(
     item => sopScope !== 'critical' || isCriticalSop(activeSopSection, item)
   ) || [];
@@ -588,19 +659,16 @@ export default function Training() {
         .sop-content-details a:hover {
           opacity: 0.8;
         }
-        .sop-content-details li.icon-tip .sop-inline-icon { color: #0891b2 !important; }
-        .sop-content-details li.icon-note .sop-inline-icon { color: #ca8a04 !important; }
-        .sop-content-details li.icon-danger .sop-inline-icon { color: #dc2626 !important; }
-        .sop-content-details li.icon-script .sop-inline-icon { color: #6b7280 !important; }
+        .sop-content-details li.icon-tip .sop-inline-icon { color: var(--kg-info) !important; }
+        .sop-content-details li.icon-note .sop-inline-icon { color: var(--kg-warning) !important; }
+        .sop-content-details li.icon-danger .sop-inline-icon { color: var(--kg-danger) !important; }
+        .sop-content-details li.icon-script .sop-inline-icon { color: var(--kg-text-muted) !important; }
         .sop-content-details li.icon-script span {
           font-family: monospace;
           font-style: italic;
-          background-color: rgba(0, 0, 0, 0.05);
+          background-color: var(--kg-surface-soft);
           padding: 2px 6px;
           border-radius: 4px;
-        }
-        .dark .sop-content-details li.icon-script span {
-          background-color: rgba(255, 255, 255, 0.1);
         }
         .sop-content-details ol {
           list-style-type: none;
@@ -612,11 +680,8 @@ export default function Training() {
           margin-bottom: 0.5rem;
         }
         .chat-bubble-content hr {
-          border-top: 1px solid #E8DED1;
+          border-top: 1px solid var(--kg-border);
           margin: 0.75rem 0;
-        }
-        .dark .chat-bubble-content hr {
-          border-top: 1px solid #1E3F57;
         }
       `}</style>
       {/* Header Banner */}
@@ -629,7 +694,7 @@ export default function Training() {
         tipTitle="Hướng dẫn Tự học & Kiểm tra SOP"
         tips={[
           "Tab SOP: Hướng dẫn chi tiết từng vị trí (Phục vụ, Pha chế, Bếp, Thu ngân, Vệ sinh).",
-          "Tab Bài kiểm tra: Trả lời 10 câu hỏi trắc nghiệm thực tế, đạt trên 80% sẽ nhận chứng chỉ và +50 King Coins.",
+          "Tab Bài kiểm tra: Trả lời câu hỏi trắc nghiệm thực tế, đạt tối thiểu 70% sẽ hoàn thành bài và nhận thưởng King Coins.",
           "Tab Trợ lý AI: Hỏi đáp trực tiếp các tình huống giao tiếp với khách hàng hoặc xử lý sự cố."
         ]}
       />
@@ -759,24 +824,26 @@ export default function Training() {
         <div className="space-y-4">
           {/* Controls: Search & AI Assistant button */}
           <div className="flex flex-col sm:flex-row gap-3 w-full items-stretch sm:items-center">
-            <div className="relative flex-1 min-w-0">
+            <div className="flex-1 min-w-0">
               <KgInput
                 placeholder="Tìm tình huống, quy trình hoặc nhiệm vụ..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 icon={Search}
                 className="w-full"
+                rightAdornment={
+                  searchTerm ? (
+                    <button
+                      type="button"
+                      onClick={() => setSearchTerm('')}
+                      className="w-9 h-9 rounded-lg inline-flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)] transition-colors"
+                      aria-label="Xóa nội dung tìm kiếm"
+                    >
+                      <X size={15} />
+                    </button>
+                  ) : null
+                }
               />
-              {searchTerm && (
-                <button
-                  type="button"
-                  onClick={() => setSearchTerm('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg inline-flex items-center justify-center text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)]"
-                  aria-label="Xóa nội dung tìm kiếm"
-                >
-                  <X size={15} />
-                </button>
-              )}
             </div>
             <KgButton
               variant="primary"
@@ -831,9 +898,9 @@ export default function Training() {
                     key={scope.id}
                     type="button"
                     onClick={() => setSopScope(scope.id)}
-                    className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[11px] font-bold border transition-colors ${
+                    className={`flex-shrink-0 min-h-[36px] inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-bold border transition-colors touch-manipulation ${
                       sopScope === scope.id
-                        ? 'bg-blue-600 text-white border-blue-600'
+                        ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)]'
                         : 'bg-[var(--kg-surface)] text-[var(--kg-text-muted)] border-[var(--kg-border)] hover:text-[var(--kg-text)]'
                     }`}
                   >
@@ -842,12 +909,12 @@ export default function Training() {
                 ))}
               </div>
 
-              <div className="inline-flex p-1 rounded-xl bg-[var(--kg-surface-soft)] self-start md:self-auto">
+              <div className="inline-flex p-1 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)]/60 self-start md:self-auto gap-1">
                 <button
                   type="button"
                   onClick={() => setSopViewMode('quick')}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold ${
-                    sopViewMode === 'quick' ? 'bg-[var(--kg-surface)] text-blue-600 shadow-sm' : 'text-[var(--kg-text-muted)]'
+                  className={`inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-bold touch-manipulation ${
+                    sopViewMode === 'quick' ? 'bg-[var(--kg-surface)] text-[var(--kg-primary)] shadow-sm' : 'text-[var(--kg-text-muted)]'
                   }`}
                 >
                   <Eye size={13} /> Xem nhanh
@@ -855,8 +922,8 @@ export default function Training() {
                 <button
                   type="button"
                   onClick={() => setSopViewMode('full')}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold ${
-                    sopViewMode === 'full' ? 'bg-[var(--kg-surface)] text-blue-600 shadow-sm' : 'text-[var(--kg-text-muted)]'
+                  className={`inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-bold touch-manipulation ${
+                    sopViewMode === 'full' ? 'bg-[var(--kg-surface)] text-[var(--kg-primary)] shadow-sm' : 'text-[var(--kg-text-muted)]'
                   }`}
                 >
                   <FileText size={13} /> Đầy đủ
@@ -869,14 +936,14 @@ export default function Training() {
           {searchTerm.trim() ? (
             /* Search Results View */
             <div className="space-y-3">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-[#6F7785] dark:text-[#A0ABC0] px-1">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--kg-text-muted)] px-1">
                 Kết quả tìm kiếm cho &ldquo;{searchTerm}&rdquo; ({searchResults.length} kết quả)
               </h3>
               {searchResults.length === 0 ? (
                 <KgCard className="p-8 text-center">
-                  <HelpCircle size={40} className="mx-auto mb-3 text-gray-300 dark:text-gray-600" />
-                  <p className="text-sm font-bold text-gray-800 dark:text-white">Không tìm thấy kết quả nào</p>
-                  <p className="text-xs text-gray-500 mt-1">Hãy thử tìm từ khóa khác hoặc bấm King's Grill AI Assistant để hỏi nhanh nhé.</p>
+                  <HelpCircle size={40} className="mx-auto mb-3 text-[var(--kg-text-soft)]" />
+                  <p className="text-sm font-bold text-[var(--kg-text)]">Không tìm thấy kết quả nào</p>
+                  <p className="text-xs text-[var(--kg-text-muted)] mt-1">Hãy thử tìm từ khóa khác hoặc bấm King&apos;s Grill AI Assistant để hỏi nhanh nhé.</p>
                 </KgCard>
               ) : (
                 <div className="grid grid-cols-1 gap-3">
@@ -884,23 +951,24 @@ export default function Training() {
                     const resultKey = `${sectionId}:${item.subtitle}`;
                     const isOpen = sopViewMode === 'full' || (openAccordions[resultKey] ?? false);
                     return (
-                      <KgCard key={resultKey} className="overflow-hidden p-0 border border-slate-100 dark:border-slate-800">
+                      <KgCard key={resultKey} className="overflow-hidden p-0 border border-[var(--kg-border)]">
                         <button
+                          type="button"
                           onClick={() => toggleAccordion(resultKey)}
-                          className="w-full flex items-start justify-between gap-3 p-4 bg-slate-50 dark:bg-slate-800/40 text-left"
+                          className="w-full min-h-[44px] flex items-start justify-between gap-3 p-4 bg-[var(--kg-surface-soft)] text-left"
                         >
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center flex-wrap gap-1.5 mb-1">
-                              <span className="text-[10px] uppercase font-bold text-[var(--kg-primary)] tracking-wider">
+                              <span className="text-[10px] uppercase font-bold text-[var(--kg-primary-ink)] tracking-wider">
                                 {sectionTitle}
                               </span>
                               {isCritical && (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-red-50 dark:bg-red-950/30 px-2 py-0.5 text-[9px] font-extrabold uppercase text-red-600 dark:text-red-300">
+                                <span className="inline-flex items-center gap-1 rounded-full bg-[var(--kg-danger-soft)] px-2 py-0.5 text-[9px] font-extrabold uppercase text-[var(--kg-danger)]">
                                   <ShieldAlert size={10} /> Quan trọng
                                 </span>
                               )}
                             </div>
-                            <h4 className="font-extrabold text-slate-800 dark:text-white text-sm leading-snug">{item.subtitle}</h4>
+                            <h4 className="font-extrabold text-[var(--kg-text)] text-sm leading-snug">{item.subtitle}</h4>
                             {!isOpen && (
                               <p className="mt-2 text-xs leading-relaxed text-[var(--kg-text-muted)] line-clamp-3">
                                 {excerpt}
@@ -909,18 +977,18 @@ export default function Training() {
                             {matchedTerms.length > 0 && !isOpen && (
                               <div className="flex flex-wrap gap-1 mt-2">
                                 {matchedTerms.slice(0, 4).map(term => (
-                                  <span key={term} className="rounded-md bg-blue-50 dark:bg-blue-950/30 px-1.5 py-0.5 text-[9px] font-bold text-blue-600 dark:text-blue-300">
+                                  <span key={term} className="rounded-md bg-[var(--kg-info-soft)] px-1.5 py-0.5 text-[9px] font-bold text-[var(--kg-info)]">
                                     {term}
                                   </span>
                                 ))}
                               </div>
                             )}
                           </div>
-                          {isOpen ? <ChevronUp size={16} className="text-slate-400 mt-1" /> : <ChevronDown size={16} className="text-slate-400 mt-1" />}
+                          {isOpen ? <ChevronUp size={16} className="text-[var(--kg-text-muted)] mt-1" /> : <ChevronDown size={16} className="text-[var(--kg-text-muted)] mt-1" />}
                         </button>
                         {isOpen && (
                           <div className="p-4 sm:p-5 bg-[var(--kg-surface)] border-t border-[var(--kg-border)] text-sm text-[var(--kg-text)] leading-relaxed font-medium sop-content-details">
-                            <div className="max-w-[68ch]" dangerouslySetInnerHTML={{ __html: formatSopDetailsHtml(item.details) }} />
+                            <SopDetailsRenderer html={item.details} />
                           </div>
                         )}
                       </KgCard>
@@ -956,7 +1024,7 @@ export default function Training() {
                 <KgCard className="p-4 space-y-4">
                   {/* General Category Group */}
                   <div>
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-[#9AA1AA] border-b border-slate-100 dark:border-slate-800 pb-2 mb-2">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--kg-text-muted)] border-b border-[var(--kg-border)] pb-2 mb-2">
                       Tiêu chuẩn chung
                     </h3>
                     <div className="space-y-1">
@@ -964,13 +1032,13 @@ export default function Training() {
                         <button
                           key={section.id}
                           onClick={() => setSelectedSection(section.id)}
-                          className={`w-full flex items-center p-2.5 rounded-xl text-left text-xs font-bold transition-all gap-2.5 active:scale-95 ${
-                            selectedSection === section.id
+                          className={`w-full min-h-[40px] flex items-center p-2.5 rounded-xl text-left text-xs font-bold transition-all gap-2.5 active:scale-95 ${
+                            effectiveSelectedSection === section.id
                               ? 'bg-[var(--kg-primary)] text-white shadow-xs'
-                              : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                              : 'text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)]'
                           }`}
                         >
-                          <SopIcon name={section.icon} size={15} className={`flex-shrink-0 ${selectedSection === section.id ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`} />
+                          <SopIcon name={section.icon} size={15} className={`flex-shrink-0 ${effectiveSelectedSection === section.id ? 'text-white' : 'text-[var(--kg-text-muted)]'}`} />
                           <span className="truncate">{section.title}</span>
                         </button>
                       ))}
@@ -979,7 +1047,7 @@ export default function Training() {
 
                   {/* Department Category Group */}
                   <div>
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-[#9AA1AA] border-b border-slate-100 dark:border-slate-800 pb-2 mb-2">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--kg-text-muted)] border-b border-[var(--kg-border)] pb-2 mb-2">
                       Quy trình bộ phận
                     </h3>
                     <div className="space-y-1">
@@ -987,13 +1055,13 @@ export default function Training() {
                         <button
                           key={section.id}
                           onClick={() => setSelectedSection(section.id)}
-                          className={`w-full flex items-center p-2.5 rounded-xl text-left text-xs font-bold transition-all gap-2.5 active:scale-95 ${
-                            selectedSection === section.id
+                          className={`w-full min-h-[40px] flex items-center p-2.5 rounded-xl text-left text-xs font-bold transition-all gap-2.5 active:scale-95 ${
+                            effectiveSelectedSection === section.id
                               ? 'bg-[var(--kg-primary)] text-white shadow-xs'
-                              : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                              : 'text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)]'
                           }`}
                         >
-                          <SopIcon name={section.icon} size={15} className={`flex-shrink-0 ${selectedSection === section.id ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`} />
+                          <SopIcon name={section.icon} size={15} className={`flex-shrink-0 ${effectiveSelectedSection === section.id ? 'text-white' : 'text-[var(--kg-text-muted)]'}`} />
                           <span className="truncate">{section.title}</span>
                         </button>
                       ))}
@@ -1019,7 +1087,7 @@ export default function Training() {
                     <button
                       type="button"
                       onClick={() => toggleMarkSopRead(activeSopSection.id)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-extrabold inline-flex items-center gap-1.5 transition-all active:scale-95 ${
+                      className={`min-h-[38px] px-3.5 py-2 rounded-xl text-xs font-extrabold inline-flex items-center gap-1.5 transition-all active:scale-95 touch-manipulation ${
                         readSopIds.includes(activeSopSection.id)
                           ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60'
                           : 'bg-[var(--kg-surface)] text-[var(--kg-primary)] border border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]'
@@ -1051,7 +1119,7 @@ export default function Training() {
                       </button>
                       {isOpen && (
                         <div className="p-4 sm:p-5 bg-[var(--kg-surface)] text-sm text-[var(--kg-text)] leading-relaxed font-medium sop-content-details">
-                          <div className="max-w-[68ch]" dangerouslySetInnerHTML={{ __html: formatSopDetailsHtml(item.details) }} />
+                          <SopDetailsRenderer html={item.details} />
                         </div>
                       )}
                       {!isOpen && sopViewMode === 'quick' && (
@@ -1104,13 +1172,13 @@ export default function Training() {
 
           {/* Lessons List */}
           {loading ? (
-            <div className="flex items-center justify-center py-12 text-[#6F7785]">
+            <div className="flex items-center justify-center py-12 text-[var(--kg-text-muted)]">
               <RefreshCw size={20} className="animate-spin mr-2" /> Đang tải bài học...
             </div>
           ) : lessons.length === 0 ? (
-            <KgCard className="p-8 text-center border-dashed border-slate-100 dark:border-slate-800">
-              <GraduationCap size={40} className="mx-auto mb-3 text-slate-300 dark:text-slate-600" />
-              <p className="text-sm text-slate-500 font-bold">Chưa có bài học nào được cấu hình trên hệ thống.</p>
+            <KgCard className="p-8 text-center border-dashed border-[var(--kg-border)]">
+              <GraduationCap size={40} className="mx-auto mb-3 text-[var(--kg-text-soft)]" />
+              <p className="text-sm text-[var(--kg-text-muted)] font-bold">Chưa có bài học nào được cấu hình trên hệ thống.</p>
             </KgCard>
           ) : (
             <div className="space-y-3">
@@ -1122,10 +1190,10 @@ export default function Training() {
                 return (
                   <motion.div
                     key={lesson.id}
-                    className="soft3d-card overflow-hidden"
+                    className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-xs overflow-hidden"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.06 }}
+                    transition={{ delay: idx * 0.04 }}
                   >
                     {/* Lesson Header */}
                     <button
@@ -1295,13 +1363,25 @@ export default function Training() {
                           >
                             Quay lại
                           </KgButton>
-                          <KgButton
-                            onClick={() => handleSubmitQuiz(lesson)}
-                            disabled={Object.keys(answers).length < lesson.quiz.length}
-                            className="flex-1 bg-amber-500 border-amber-500 text-white hover:bg-amber-600"
-                          >
-                            Nộp bài kiểm tra
-                          </KgButton>
+                          {(() => {
+                            const answeredCount = lesson.quiz.reduce(
+                              (count, _q, idx) => (answers[idx] !== undefined ? count + 1 : count),
+                              0
+                            );
+                            const unansweredCount = Math.max(0, lesson.quiz.length - answeredCount);
+                            return (
+                              <KgButton
+                                variant="warning"
+                                onClick={() => handleSubmitQuiz(lesson)}
+                                disabled={unansweredCount > 0}
+                                className="flex-1"
+                              >
+                                {unansweredCount > 0
+                                  ? `Còn ${unansweredCount}/${lesson.quiz.length} câu chưa chọn`
+                                  : 'Nộp bài kiểm tra'}
+                              </KgButton>
+                            );
+                          })()}
                         </div>
                       </motion.div>
                     )}
@@ -1317,23 +1397,26 @@ export default function Training() {
       {activeTab === 'cukcuk' && (
         <div className="space-y-4">
           {/* Controls: Search */}
-          <div className="relative w-full">
+          <div className="w-full">
             <KgInput
               placeholder="Tìm kiếm bước hướng dẫn (ví dụ: đăng nhập, hủy món, chuyển bàn...)"
               value={cukcukSearch}
               onChange={(e) => setCukcukSearch(e.target.value)}
               icon={Search}
               className="w-full"
+              rightAdornment={
+                cukcukSearch ? (
+                  <button
+                    type="button"
+                    onClick={() => setCukcukSearch('')}
+                    className="w-9 h-9 rounded-lg inline-flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)] transition-colors"
+                    aria-label="Xóa tìm kiếm CUKCUK"
+                  >
+                    <X size={16} />
+                  </button>
+                ) : null
+              }
             />
-            {cukcukSearch && (
-              <button
-                type="button"
-                onClick={() => setCukcukSearch('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 z-10"
-              >
-                <X size={16} />
-              </button>
-            )}
           </div>
 
           {filteredCukcukSteps.length === 0 ? (
@@ -1349,10 +1432,10 @@ export default function Training() {
                 return (
                   <motion.div
                     key={stepItem.step}
-                    className="soft3d-card flex flex-col justify-between overflow-hidden border border-slate-100 dark:border-slate-800/80 bg-[var(--kg-surface)] hover:shadow-md transition-all duration-300 group"
+                    className="flex flex-col justify-between overflow-hidden rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface)] shadow-xs hover:shadow-md transition-all duration-200 group"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.2 }}
+                    transition={{ duration: 0.18 }}
                   >
                     {/* Header */}
                     <div className="p-4 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/20">
@@ -1367,7 +1450,7 @@ export default function Training() {
                     {/* Image Area */}
                     <div
                       onClick={() => {
-                        setActiveCukcukIndex(originalIndex);
+                        selectCukcukStep(originalIndex);
                       }}
                       className="relative overflow-hidden cursor-zoom-in bg-slate-100 dark:bg-slate-950 flex items-center justify-center border-b border-slate-100 dark:border-slate-800/80 aspect-video"
                     >
@@ -1392,7 +1475,7 @@ export default function Training() {
                       <button
                         type="button"
                         onClick={() => {
-                          setActiveCukcukIndex(originalIndex);
+                          selectCukcukStep(originalIndex);
                         }}
                         className="w-full py-2.5 text-center text-xs font-black text-blue-600 dark:text-blue-400 bg-blue-50/50 hover:bg-blue-50 dark:bg-blue-950/20 dark:hover:bg-blue-950/35 rounded-xl transition-all duration-200"
                       >
@@ -1417,7 +1500,7 @@ export default function Training() {
         <div className="space-y-4 py-2">
           {/* General Category Group */}
           <div>
-            <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-[#9AA1AA] border-b border-slate-100 dark:border-slate-800 pb-2 mb-2">
+            <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-[var(--kg-text-muted)] border-b border-[var(--kg-border)] pb-2 mb-2">
               Tiêu chuẩn chung
             </h4>
             <div className="grid grid-cols-1 gap-1.5">
@@ -1428,13 +1511,13 @@ export default function Training() {
                     setSelectedSection(section.id);
                     setIsMobileCategoryOpen(false);
                   }}
-                  className={`w-full flex items-center p-3 rounded-xl text-left text-xs font-bold transition-all gap-3 active:scale-98 ${
-                    selectedSection === section.id
+                  className={`w-full min-h-[44px] flex items-center p-3 rounded-xl text-left text-xs font-bold transition-all gap-3 active:scale-98 ${
+                    effectiveSelectedSection === section.id
                       ? 'bg-[var(--kg-primary)] text-white shadow-xs'
                       : 'bg-[var(--kg-surface)] text-[var(--kg-text)] border border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]'
                   }`}
                 >
-                  <SopIcon name={section.icon} size={16} className={`flex-shrink-0 ${selectedSection === section.id ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`} />
+                  <SopIcon name={section.icon} size={16} className={`flex-shrink-0 ${effectiveSelectedSection === section.id ? 'text-white' : 'text-[var(--kg-text-muted)]'}`} />
                   <span className="truncate">{section.title}</span>
                 </button>
               ))}
@@ -1443,7 +1526,7 @@ export default function Training() {
 
           {/* Department Category Group */}
           <div className="pt-2">
-            <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-[#9AA1AA] border-b border-slate-100 dark:border-slate-800 pb-2 mb-2">
+            <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-[var(--kg-text-muted)] border-b border-[var(--kg-border)] pb-2 mb-2">
               Quy trình bộ phận
             </h4>
             <div className="grid grid-cols-1 gap-1.5">
@@ -1454,13 +1537,13 @@ export default function Training() {
                     setSelectedSection(section.id);
                     setIsMobileCategoryOpen(false);
                   }}
-                  className={`w-full flex items-center p-3 rounded-xl text-left text-xs font-bold transition-all gap-3 active:scale-98 ${
-                    selectedSection === section.id
+                  className={`w-full min-h-[44px] flex items-center p-3 rounded-xl text-left text-xs font-bold transition-all gap-3 active:scale-98 ${
+                    effectiveSelectedSection === section.id
                       ? 'bg-[var(--kg-primary)] text-white shadow-xs'
                       : 'bg-[var(--kg-surface)] text-[var(--kg-text)] border border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]'
                   }`}
                 >
-                  <SopIcon name={section.icon} size={16} className={`flex-shrink-0 ${selectedSection === section.id ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`} />
+                  <SopIcon name={section.icon} size={16} className={`flex-shrink-0 ${effectiveSelectedSection === section.id ? 'text-white' : 'text-[var(--kg-text-muted)]'}`} />
                   <span className="truncate">{section.title}</span>
                 </button>
               ))}
@@ -1471,7 +1554,7 @@ export default function Training() {
 
       {/* Lightbox Zoom Modal */}
       {activeCukcukIndex !== null && createPortal(
-        <div id="cukcuk-lightbox" className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/95 backdrop-blur-sm select-none">
+        <div id="cukcuk-lightbox" className="fixed inset-0 z-[10050] flex flex-col items-center justify-center bg-black/95 backdrop-blur-sm select-none">
           {/* Header Controls */}
           <div className="absolute top-0 inset-x-0 p-4 flex items-center justify-between bg-gradient-to-b from-black/80 to-black/0 text-white z-10">
             <div className="flex flex-col">
@@ -1491,7 +1574,7 @@ export default function Training() {
               <button
                 type="button"
                 onClick={() => {
-                  setActiveCukcukIndex(null);
+                  selectCukcukStep(null);
                 }}
                 className="p-2 bg-slate-800 hover:bg-slate-700 active:scale-95 rounded-xl transition-all"
                 title="Đóng (Esc)"
@@ -1528,27 +1611,27 @@ export default function Training() {
             </div>
           </div>
 
-          {/* Floating Action Bar */}
-          <div className="absolute bottom-6 flex flex-col items-center gap-3 w-full max-w-lg px-6 z-10">
+          {/* Floating Action Bar (360px-safe responsive zoom controls) */}
+          <div className="absolute bottom-4 sm:bottom-6 flex flex-col items-center gap-2.5 sm:gap-3 w-full max-w-lg px-3 sm:px-6 z-10">
             {/* Description Text */}
             {!showDescription ? (
               <button
                 type="button"
                 onClick={() => setShowDescription(true)}
-                className="bg-slate-900/90 hover:bg-slate-800 text-slate-200 text-xs font-bold px-4 py-2.5 rounded-xl shadow-md border border-slate-800 flex items-center gap-2 backdrop-blur-sm transition-all active:scale-95 animate-fade-in"
+                className="min-h-[44px] sm:min-h-[38px] bg-slate-900/90 hover:bg-slate-800 text-slate-200 text-xs font-bold px-4 py-2 rounded-xl shadow-md border border-slate-800 flex items-center gap-2 backdrop-blur-sm transition-all active:scale-95 animate-fade-in"
               >
                 <BookOpen size={14} className="text-blue-400" />
                 Đọc hướng dẫn, mô tả
               </button>
             ) : (
-              <div className="bg-slate-900/90 text-slate-100 text-xs font-semibold p-4 rounded-2xl shadow-xl border border-slate-800/80 backdrop-blur-md w-full leading-relaxed relative flex flex-col items-center animate-slide-up">
+              <div className="bg-slate-900/90 text-slate-100 text-xs font-semibold p-3.5 sm:p-4 rounded-2xl shadow-xl border border-slate-800/80 backdrop-blur-md w-full leading-relaxed relative flex flex-col items-center animate-slide-up">
                 <div className="max-h-[120px] overflow-y-auto w-full text-center mb-1">
                   {cukcukData[activeCukcukIndex].description}
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowDescription(false)}
-                  className="text-[10px] text-slate-400 hover:text-white font-bold flex items-center gap-1 mt-1 hover:underline"
+                  className="min-h-[36px] px-3 text-[11px] text-slate-400 hover:text-white font-bold flex items-center gap-1 mt-1 hover:underline"
                 >
                   <ChevronDown size={12} /> Thu gọn
                 </button>
@@ -1556,45 +1639,52 @@ export default function Training() {
             )}
 
             {/* Controls */}
-            <div className="flex items-center justify-between w-full bg-slate-900/85 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-slate-800/80 shadow-2xl">
+            <div className="flex items-center justify-between gap-1.5 sm:gap-2 w-full bg-slate-900/85 backdrop-blur-md px-2 sm:px-4 py-2 rounded-2xl border border-slate-800/80 shadow-2xl">
               <button
                 type="button"
                 disabled={activeCukcukIndex === 0}
                 onClick={() => {
                   if (activeCukcukIndex > 0) {
-                    setActiveCukcukIndex(activeCukcukIndex - 1);
+                    selectCukcukStep(activeCukcukIndex - 1);
                   }
                 }}
-                className="p-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none active:scale-95 rounded-xl transition-all text-white"
+                aria-label="Bước trước"
+                className="min-w-[44px] min-h-[44px] sm:min-w-[38px] sm:min-h-[38px] flex items-center justify-center bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none active:scale-95 rounded-xl transition-all text-white flex-shrink-0"
                 title="Bước trước"
               >
                 <ChevronRight size={18} className="rotate-180" />
               </button>
 
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center justify-center gap-1.5 sm:gap-2 min-w-0">
                 <button
                   type="button"
                   onClick={zoomOut}
-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs flex items-center gap-1 active:scale-95 transition-all"
+                  aria-label="Thu nhỏ"
+                  className="min-w-[44px] min-h-[44px] sm:min-h-[36px] px-2.5 sm:px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1 active:scale-95 transition-all whitespace-nowrap"
                   title="Thu nhỏ"
                 >
-                  <span className="text-sm font-black">-</span> Thu nhỏ
+                  <span className="text-sm font-black">−</span>
+                  <span className="hidden sm:inline">Thu nhỏ</span>
                 </button>
                 <button
                   type="button"
                   onClick={resetZoom}
-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs active:scale-95 transition-all"
+                  aria-label="Đặt lại zoom"
+                  className="min-w-[48px] min-h-[44px] sm:min-h-[36px] px-2.5 sm:px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-bold font-mono tabular-nums rounded-xl text-xs flex items-center justify-center active:scale-95 transition-all whitespace-nowrap"
                   title="Đặt lại zoom"
                 >
-                  Reset
+                  <span className="sm:hidden">{Math.round(zoomScale * 100)}%</span>
+                  <span className="hidden sm:inline">Reset</span>
                 </button>
                 <button
                   type="button"
                   onClick={zoomIn}
-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs flex items-center gap-1 active:scale-95 transition-all"
+                  aria-label="Phóng to"
+                  className="min-w-[44px] min-h-[44px] sm:min-h-[36px] px-2.5 sm:px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1 active:scale-95 transition-all whitespace-nowrap"
                   title="Phóng to"
                 >
-                  <span className="text-sm font-black">+</span> Phóng to
+                  <span className="text-sm font-black">+</span>
+                  <span className="hidden sm:inline">Phóng to</span>
                 </button>
               </div>
 
@@ -1603,10 +1693,11 @@ export default function Training() {
                 disabled={activeCukcukIndex === cukcukData.length - 1}
                 onClick={() => {
                   if (activeCukcukIndex < cukcukData.length - 1) {
-                    setActiveCukcukIndex(activeCukcukIndex + 1);
+                    selectCukcukStep(activeCukcukIndex + 1);
                   }
                 }}
-                className="p-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none active:scale-95 rounded-xl transition-all text-white"
+                aria-label="Bước sau"
+                className="min-w-[44px] min-h-[44px] sm:min-w-[38px] sm:min-h-[38px] flex items-center justify-center bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none active:scale-95 rounded-xl transition-all text-white flex-shrink-0"
                 title="Bước sau"
               >
                 <ChevronRight size={18} />

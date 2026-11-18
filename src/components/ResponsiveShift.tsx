@@ -1,5 +1,3 @@
-import React from 'react';
-
 /**
  * Format shift display for compact mobile screens:
  * E.g., "15:00" -> "15H", "16:00" -> "16H", "17:00" -> "17H", "18:00" -> "18H", "19:00" -> "19H"

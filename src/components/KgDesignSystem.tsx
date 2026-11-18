@@ -9,6 +9,7 @@ import {
   KeyRound, CalendarRange, BarChart3, Sparkles, Network
 } from 'lucide-react';
 import { KgFeatureTip } from './KgFeatureTip';
+import { useDialogA11y } from '../utils/modalQueue';
 
 export { KgFeatureTip, type KgFeatureTipProps } from './KgFeatureTip';
 export { KgFeatureTip as KgTooltip } from './KgFeatureTip';
@@ -117,16 +118,30 @@ export function KgCard({
   selected?: boolean;
   stacked?: boolean;
 }) {
+  const handleKeyDown = onClick
+    ? (e: React.KeyboardEvent<HTMLDivElement>) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick();
+        }
+      }
+    : undefined;
+
   return (
     <div
       onClick={onClick}
+      onKeyDown={handleKeyDown}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
       data-selected={selected ? 'true' : undefined}
       className={`kg-card bg-[var(--kg-surface)] border ${
         selected ? 'border-[var(--kg-primary)] ring-1 ring-[var(--kg-primary)]/25' : 'border-[var(--kg-border)]'
       } rounded-[var(--radius-lg)] p-4 md:p-5 transition-colors duration-150 min-w-0 ${
         stacked ? 'shadow-card' : ''
       } ${
-        onClick ? 'cursor-pointer select-none active:scale-[0.995] touch-manipulation' : ''
+        onClick
+          ? 'cursor-pointer select-none active:scale-[0.995] touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--kg-primary-ink)] focus-visible:ring-offset-1'
+          : ''
       } ${
         hoverable || onClick ? 'hover:border-[var(--kg-border-strong)]' : ''
       } ${className}`}
@@ -147,7 +162,8 @@ export function KgButton({
   onClick,
   className = '',
   type = 'button',
-  title
+  title,
+  ...rest
 }: {
   children: React.ReactNode;
   variant?: 'primary' | 'secondary' | 'danger' | 'warning' | 'ghost';
@@ -160,13 +176,13 @@ export function KgButton({
   className?: string;
   type?: 'button' | 'submit' | 'reset';
   title?: string;
-}) {
+} & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'type' | 'disabled' | 'onClick' | 'className' | 'title'>) {
   const baseStyles =
-    'inline-flex items-center justify-center font-semibold transition-colors duration-150 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--kg-primary)] focus-visible:ring-offset-1 disabled:bg-[var(--kg-surface-soft)] disabled:text-[var(--kg-text-soft)] disabled:border-[var(--kg-border)] disabled:shadow-none disabled:pointer-events-none touch-manipulation select-none flex-shrink-0';
+    'inline-flex items-center justify-center font-semibold transition-colors duration-150 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--kg-primary-ink)] focus-visible:ring-offset-1 disabled:bg-[var(--kg-surface-soft)] disabled:text-[var(--kg-text-soft)] disabled:border-[var(--kg-border)] disabled:shadow-none disabled:pointer-events-none touch-manipulation select-none flex-shrink-0';
 
   const sizeStyles = {
-    sm: 'px-3 py-1.5 text-xs rounded-lg gap-1.5 min-h-[34px]',
-    md: 'px-3.5 py-2 text-sm rounded-lg gap-2 min-h-[42px]',
+    sm: 'px-3 py-1.5 text-xs rounded-lg gap-1.5 min-h-[44px] sm:min-h-[36px]',
+    md: 'px-3.5 py-2 text-sm rounded-lg gap-2 min-h-[44px] sm:min-h-[42px]',
     lg: 'px-5 py-2.5 text-sm sm:text-base rounded-xl gap-2.5 min-h-[46px]'
   };
 
@@ -174,18 +190,19 @@ export function KgButton({
     primary:
       'bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white border border-[var(--kg-primary)] shadow-soft',
     secondary: selected
-      ? 'bg-[var(--kg-surface-soft)] text-[var(--kg-primary)] border border-[var(--kg-primary)]'
+      ? 'bg-[var(--kg-surface-soft)] text-[var(--kg-primary-ink)] border border-[var(--kg-primary)]'
       : 'bg-[var(--kg-surface)] text-[var(--kg-text)] border border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)] hover:border-[var(--kg-border-strong)]',
     danger:
-      'bg-[var(--kg-danger)] hover:brightness-95 text-white border border-[var(--kg-danger)] shadow-soft',
+      'bg-[var(--kg-danger)] hover:brightness-95 text-white dark:text-[#0D1015] border border-[var(--kg-danger)] shadow-soft',
     warning:
-      'bg-[var(--kg-warning)] hover:brightness-95 text-white border border-[var(--kg-warning)] shadow-soft',
+      'bg-[var(--kg-warning)] hover:brightness-95 text-white dark:text-[#1A1613] border border-[var(--kg-warning)] shadow-soft',
     ghost:
       'bg-transparent border border-transparent text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)]'
   };
 
   return (
     <button
+      {...rest}
       type={type}
       title={title}
       disabled={disabled || loading}
@@ -239,7 +256,7 @@ export function KgIconButton({
       onClick={onClick}
       title={title}
       aria-label={ariaLabel || title || 'Thao tác'}
-      className={`w-10 h-10 sm:w-10 sm:h-10 min-w-[40px] min-h-[40px] rounded-lg flex items-center justify-center active:translate-y-px transition-colors duration-150 disabled:opacity-50 disabled:pointer-events-none touch-manipulation flex-shrink-0 ${variantStyles[variant]} ${className}`}
+      className={`w-11 h-11 sm:w-10 sm:h-10 min-w-[44px] min-h-[44px] sm:min-w-[40px] sm:min-h-[40px] rounded-lg flex items-center justify-center active:translate-y-px transition-colors duration-150 disabled:opacity-50 disabled:pointer-events-none touch-manipulation flex-shrink-0 ${variantStyles[variant]} ${className}`}
     >
       <Icon size={18} strokeWidth={1.75} />
     </button>
@@ -251,6 +268,8 @@ export function KgInput({
   error,
   hint,
   icon: Icon,
+  rightAdornment,
+  inputClassName = '',
   className = '',
   id,
   required,
@@ -260,6 +279,8 @@ export function KgInput({
   error?: string;
   hint?: string;
   icon?: React.ComponentType<any>;
+  rightAdornment?: React.ReactNode;
+  inputClassName?: string;
   className?: string;
 } & React.InputHTMLAttributes<HTMLInputElement>) {
   const generatedId = React.useId();
@@ -283,13 +304,20 @@ export function KgInput({
           id={inputId}
           required={required}
           aria-invalid={Boolean(error) || undefined}
-          className={`w-full min-h-[42px] px-3.5 py-2 ${
+          className={`w-full min-h-[44px] sm:min-h-[42px] px-3.5 py-2 ${
             Icon ? 'pl-10' : ''
-          } text-sm bg-[var(--kg-surface)] border ${
+          } ${
+            rightAdornment ? 'pr-11' : ''
+          } text-base sm:text-sm bg-[var(--kg-surface)] border ${
             error ? 'border-[var(--kg-danger)]' : 'border-[var(--kg-border)] hover:border-[var(--kg-border-strong)]'
-          } rounded-lg focus:border-[var(--kg-primary)] focus:outline-none transition-colors placeholder-[var(--kg-text-soft)] text-[var(--kg-text)] disabled:bg-[var(--kg-surface-soft)] disabled:text-[var(--kg-text-muted)]`}
+          } rounded-lg focus:border-[var(--kg-primary)] focus:outline-none transition-colors placeholder-[var(--kg-text-soft)] text-[var(--kg-text)] disabled:bg-[var(--kg-surface-soft)] disabled:text-[var(--kg-text-muted)] ${inputClassName}`}
           {...props}
         />
+        {rightAdornment && (
+          <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center">
+            {rightAdornment}
+          </div>
+        )}
       </div>
       {error ? (
         <p className="text-xs text-[var(--kg-danger)] font-medium">{error}</p>
@@ -305,6 +333,7 @@ export function KgSelect({
   error,
   className = '',
   children,
+  options,
   id,
   required,
   ...props
@@ -312,7 +341,8 @@ export function KgSelect({
   label?: string;
   error?: string;
   className?: string;
-  children: React.ReactNode;
+  children?: React.ReactNode;
+  options?: Array<{ value: string; label: string }>;
 } & React.SelectHTMLAttributes<HTMLSelectElement>) {
   const generatedId = React.useId();
   const selectId = id || generatedId;
@@ -329,12 +359,18 @@ export function KgSelect({
         id={selectId}
         required={required}
         aria-invalid={Boolean(error) || undefined}
-        className={`w-full min-h-[42px] px-3.5 py-2 text-sm bg-[var(--kg-surface)] border ${
+        className={`w-full min-h-[42px] px-3.5 py-2 text-base sm:text-sm bg-[var(--kg-surface)] border ${
           error ? 'border-[var(--kg-danger)]' : 'border-[var(--kg-border)] hover:border-[var(--kg-border-strong)]'
         } rounded-lg focus:border-[var(--kg-primary)] focus:outline-none transition-colors text-[var(--kg-text)] disabled:bg-[var(--kg-surface-soft)] disabled:text-[var(--kg-text-muted)]`}
         {...props}
       >
-        {children}
+        {options
+          ? options.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))
+          : children}
       </select>
       {error && <p className="text-xs text-[var(--kg-danger)] font-medium">{error}</p>}
     </div>
@@ -368,7 +404,7 @@ export function KgTextarea({
         id={textareaId}
         required={required}
         aria-invalid={Boolean(error) || undefined}
-        className={`w-full px-3.5 py-2.5 text-sm bg-[var(--kg-surface)] border ${
+        className={`w-full px-3.5 py-2.5 text-base sm:text-sm bg-[var(--kg-surface)] border ${
           error ? 'border-[var(--kg-danger)]' : 'border-[var(--kg-border)] hover:border-[var(--kg-border-strong)]'
         } rounded-lg focus:border-[var(--kg-primary)] focus:outline-none transition-colors placeholder-[var(--kg-text-soft)] text-[var(--kg-text)] min-h-[96px] disabled:bg-[var(--kg-surface-soft)]`}
         {...props}
@@ -643,32 +679,37 @@ export function KgToast({
 
 export function KgBottomSheet({
   isOpen,
+  open,
   onClose,
   title,
+  subtitle,
+  footer,
   children
 }: {
-  isOpen: boolean;
+  isOpen?: boolean;
+  open?: boolean;
   onClose: () => void;
   title: string;
+  subtitle?: string;
+  footer?: React.ReactNode;
   children: React.ReactNode;
 }) {
-  React.useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  const resolvedOpen = Boolean(isOpen ?? open);
+  const dialogRef = React.useRef<HTMLDivElement | null>(null);
+  const titleId = React.useId();
+
+  useDialogA11y({
+    isOpen: resolvedOpen,
+    containerRef: dialogRef,
+    onClose,
+    closeOnEscape: true,
+  });
 
   if (typeof document === 'undefined') return null;
 
   return createPortal(
     <AnimatePresence>
-      {isOpen && (
+      {resolvedOpen && (
         <div className="fixed inset-0 z-[10050] flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6">
           <motion.div
             initial={{ opacity: 0 }}
@@ -679,25 +720,34 @@ export function KgBottomSheet({
             className="fixed inset-0 bg-black/55 backdrop-blur-sm pointer-events-auto"
           />
           <motion.div
+            ref={dialogRef}
+            tabIndex={-1}
             role="dialog"
             aria-modal="true"
-            aria-label={title}
+            aria-labelledby={titleId}
             initial={{ opacity: 0, y: 18, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 18, scale: 0.98 }}
             transition={{ duration: 0.18, ease: [0.2, 0, 0, 1] }}
             onClick={(e) => e.stopPropagation()}
-            className="relative z-10 w-full max-w-lg max-h-[90dvh] sm:max-h-[85vh] mx-auto bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-t-2xl sm:rounded-2xl border border-[var(--kg-border)] shadow-2xl flex flex-col pointer-events-auto overflow-hidden pb-safe"
+            className="relative z-10 w-full max-w-lg max-h-[90dvh] sm:max-h-[85vh] mx-auto bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-t-2xl sm:rounded-2xl border border-[var(--kg-border)] shadow-2xl flex flex-col pointer-events-auto overflow-hidden pb-safe focus:outline-none"
           >
             <div className="px-4 sm:px-5 py-3.5 border-b border-[var(--kg-border)] bg-[var(--kg-surface-soft)]/70 flex items-center justify-between gap-3 flex-shrink-0">
-              <h3 className="text-sm font-semibold text-[var(--kg-text)] truncate">
-                {title}
-              </h3>
+              <div className="min-w-0 flex-1">
+                <h3 id={titleId} className="text-sm font-semibold text-[var(--kg-text)] truncate">
+                  {title}
+                </h3>
+                {subtitle && (
+                  <p className="text-xs text-[var(--kg-text-muted)] mt-0.5 leading-snug line-clamp-2">
+                    {subtitle}
+                  </p>
+                )}
+              </div>
               <button
                 type="button"
                 onClick={onClose}
                 aria-label="Đóng hộp thoại"
-                className="w-9 h-9 rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] active:scale-95 transition-colors flex-shrink-0"
+                className="w-11 h-11 sm:w-9 sm:h-9 rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] active:scale-95 transition-colors flex-shrink-0 touch-manipulation"
               >
                 <X size={16} />
               </button>
@@ -706,6 +756,12 @@ export function KgBottomSheet({
             <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 min-h-0">
               {children}
             </div>
+
+            {footer && (
+              <div className="px-4 sm:px-5 py-3 border-t border-[var(--kg-border)] bg-[var(--kg-surface-soft)]/50 flex-shrink-0">
+                {footer}
+              </div>
+            )}
           </motion.div>
         </div>
       )}
@@ -732,9 +788,10 @@ export function KgConfirmSheet({
   message: React.ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
-  variant?: 'primary' | 'danger' | 'warning';
+  variant?: 'primary' | 'danger' | 'warning' | 'info';
   loading?: boolean;
 }) {
+  const buttonVariant = variant === 'info' ? 'primary' : variant;
   return (
     <KgBottomSheet isOpen={isOpen} onClose={onClose} title={title}>
       <div className="space-y-4 py-1">
@@ -745,7 +802,7 @@ export function KgConfirmSheet({
           <KgButton variant="secondary" size="md" className="flex-1" onClick={onClose} disabled={loading}>
             {cancelLabel}
           </KgButton>
-          <KgButton variant={variant} size="md" className="flex-1" onClick={onConfirm} loading={loading}>
+          <KgButton variant={buttonVariant} size="md" className="flex-1" onClick={onConfirm} loading={loading}>
             {confirmLabel}
           </KgButton>
         </div>

@@ -1,18 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator as MathIcon, Lock, Unlock, Settings2, HandCoins, Plus, KeyRound, Save, Loader2, ArrowLeft, Trash2 } from 'lucide-react';
+import { Calculator as MathIcon, Lock, Unlock, Settings2, HandCoins, Plus, KeyRound, Save, Loader2, Trash2 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { useAppStore } from '../../store/useAppStore';
+import { isAdminUser } from '../../utils/permissions';
 import { callApi } from '../../services/api';
 import { KgModuleHero, KgBottomSheet, KgInput, KgButton } from '../../components/KgDesignSystem';
 import MonthlySalaryManager from '../../components/MonthlySalaryManager';
 
 
 export default function AdminPayroll() {
+  const currentUser = useAppStore((s) => s.currentUser);
+  if (!isAdminUser(currentUser)) return null;
+  return <AdminPayrollContent />;
+}
+
+function AdminPayrollContent() {
   const serverPayrollConfig = useAppStore((s) => s.serverPayrollConfig);
   const currentUser = useAppStore((s) => s.currentUser);
   const users = useAppStore((s) => s.users);
   const setServerPayrollConfig = useAppStore((s) => s.setServerPayrollConfig);
-  const setCurrentTab = useAppStore(s => s.setCurrentTab);
+  const setCurrentTab = useAppStore((s) => s.setCurrentTab);
   const [formulaLocked, setFormulaLocked] = useState(true);
   const [advanceLimit, setAdvanceLimit] = useState('50');
   const [baseFormula, setBaseFormula] = useState('(HOURS * RATE) + BONUS - PENALTY + ALLOWANCE');
@@ -25,6 +32,7 @@ export default function AdminPayroll() {
     { id: 'late', name: 'Đi trễ', description: 'Trừ 10,000đ / 15 phút', amount: 10000 }
   ]);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingAdvance, setIsSavingAdvance] = useState(false);
   const [itemSheetMode, setItemSheetMode] = useState<'allowance' | 'deduction' | null>(null);
   const [newItemName, setNewItemName] = useState('');
   const [newItemDesc, setNewItemDesc] = useState('');
@@ -57,48 +65,92 @@ export default function AdminPayroll() {
     });
   };
 
+  const persistPayrollConfig = async (successTitle: string, successText: string) => {
+    if (!currentUser) return false;
+    const numericLimit = Number(advanceLimit);
+    if (!Number.isFinite(numericLimit) || numericLimit < 0 || numericLimit > 100) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Giá trị không hợp lệ',
+        text: 'Tỷ lệ ứng lương tối đa phải nằm trong khoảng 0% đến 100%.',
+        confirmButtonColor: '#0b253c'
+      });
+      return false;
+    }
+
+    const data = await callApi('UPDATE_PAYROLL_CONFIG', {
+      role: currentUser.role,
+      baseFormula,
+      maxAdvancePercent: numericLimit,
+      mealAllowance,
+      allowances,
+      deductions
+    });
+
+    if (!data) return false;
+
+    if (data.ok) {
+      setServerPayrollConfig({
+        baseFormula,
+        maxAdvancePercent: numericLimit,
+        mealAllowance: Number(mealAllowance),
+        allowances,
+        deductions
+      } as any);
+
+      Swal.fire({
+        icon: 'success',
+        title: successTitle,
+        text: successText,
+        confirmButtonColor: '#0b253c'
+      });
+      return true;
+    }
+
+    Swal.fire({
+      icon: 'error',
+      title: 'Lỗi lưu cấu hình',
+      text: data.message || 'Lỗi không xác định',
+      confirmButtonColor: '#dc2626'
+    });
+    return false;
+  };
+
+  const handleSaveAdvanceConfig = async () => {
+    if (!currentUser) return;
+    setIsSavingAdvance(true);
+    try {
+      await persistPayrollConfig(
+        'Đã lưu cấu hình Ứng lương',
+        `Hạn mức ứng tối đa đã được cập nhật thành ${Number(advanceLimit)}%.`
+      );
+    } finally {
+      setIsSavingAdvance(false);
+    }
+  };
+
   const handleSavePayrollConfig = async () => {
     if (!currentUser) return;
     setIsSaving(true);
-    
     try {
-      const data = await callApi('UPDATE_PAYROLL_CONFIG', {
-        role: currentUser.role,
-        baseFormula,
-        maxAdvancePercent: advanceLimit,
-        mealAllowance,
-        allowances,
-        deductions
-      });
-      
-      if (data && data.ok) {
-        setServerPayrollConfig({ 
-          baseFormula, 
-          maxAdvancePercent: Number(advanceLimit), 
-          mealAllowance: Number(mealAllowance),
-          allowances,
-          deductions
-        } as any);
-        
-        Swal.fire({
-          icon: 'success',
-          title: 'Đã lưu cấu hình Lương',
-          text: 'Cấu hình lương và phụ cấp đã được cập nhật thành công.',
-          confirmButtonColor: '#006994'
-        });
-      } else {
-        throw new Error(data.message || 'Lỗi không xác định');
-      }
-    } catch (error: any) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Lỗi lưu cấu hình',
-        text: error.message || 'Không thể kết nối đến máy chủ',
-        confirmButtonColor: '#dc2626'
-      });
+      await persistPayrollConfig(
+        'Đã lưu cấu hình Lương',
+        'Cấu hình lương và phụ cấp đã được cập nhật thành công.'
+      );
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleOpenSalaryMatrix = () => {
+    try {
+      sessionStorage.setItem('kg_hub_subtab_admin_income', 'payroll');
+    } catch { /* ignore */ }
+    setCurrentTab('admin_income');
+    window.dispatchEvent(new CustomEvent('kg:subtab-select', { detail: { hub: 'admin_income', subTab: 'payroll' } }));
+    window.setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('kg:subtab-select', { detail: { hub: 'admin_income', subTab: 'payroll' } }));
+    }, 30);
   };
 
   const handleAddAllowance = () => {
@@ -132,12 +184,7 @@ export default function AdminPayroll() {
   const handleRemoveDeduction = (id: string) => { setDeductions(deductions.filter(d => d.id !== id)); };
 
   return (
-    <div className="p-4 space-y-4 animate-slide-up pb-10">
-      <div className="flex mb-2 -mt-2">
-        <button type="button" onClick={() => setCurrentTab('admin_income')} className="flex items-center gap-1 text-xs font-bold text-[var(--kg-text-muted)] hover:text-[var(--kg-primary)] transition-colors">
-          <ArrowLeft size={14} /> Quay lại Cài đặt chung
-        </button>
-      </div>
+    <div className="p-4 space-y-4 animate-slide-up pb-24 md:pb-12">
       <KgModuleHero
         moduleId="admin-payroll"
         title="Lương & Phúc lợi"
@@ -162,8 +209,10 @@ export default function AdminPayroll() {
             <MathIcon size={18} className="mr-2 text-ocean-600 flex-shrink-0" /> <span className="truncate">Dynamic Formula Builder</span>
           </h3>
           <button 
+            type="button"
+            aria-label={formulaLocked ? 'Mở khóa công thức lương' : 'Khóa công thức lương'}
             onClick={formulaLocked ? handleUnlockFormula : () => setFormulaLocked(true)} 
-            className={`p-2 rounded-lg transition-colors flex-shrink-0 ${formulaLocked ? 'bg-gray-100 text-gray-500 hover:bg-gray-200' : 'bg-red-100 text-red-600 hover:bg-red-200'}`}
+            className={`w-9 h-9 min-w-[36px] min-h-[36px] inline-flex items-center justify-center rounded-xl transition-colors flex-shrink-0 ${formulaLocked ? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700' : 'bg-red-100 text-red-600 hover:bg-red-200'}`}
           >
             {formulaLocked ? <Lock size={16} /> : <Unlock size={16} />}
           </button>
@@ -180,17 +229,22 @@ export default function AdminPayroll() {
                  type="text" 
                  value={baseFormula}
                  onChange={(e) => setBaseFormula(e.target.value)}
-                 className="mt-3 w-full bg-white border border-gray-300 rounded px-2 py-1 text-sm font-mono dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+                 className="mt-3 w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono dark:bg-gray-800 dark:border-gray-600 dark:text-white"
                  placeholder="(HOURS * RATE) + BONUS - PENALTY + ALLOWANCE"
                />
             )}
           </div>
           
           <div>
-            <p className="text-xs text-gray-500 mb-2 font-bold">Biến số có sẵn (Kéo thả hoặc Click để thêm):</p>
+            <p className="text-xs text-gray-500 mb-2 font-bold">Biến số có sẵn (Click để thêm):</p>
             <div className="flex flex-wrap gap-2">
               {['LUONG_CO_BAN', 'TONG_GIO_LAM', 'PHU_CAP', 'KHAU_TRU', 'THUONG', 'GIO_OT'].map(v => (
-                <button key={v} className="px-2 py-1 paint-layer border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-mono text-xs rounded hover:bg-gray-200 transition-colors">
+                <button
+                  type="button"
+                  key={v}
+                  onClick={() => !formulaLocked && setBaseFormula(prev => `${prev.trim()} + ${v}`)}
+                  className="min-h-[36px] px-3 py-1.5 inline-flex items-center paint-layer border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-mono text-xs rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                >
                   {v}
                 </button>
               ))}
@@ -207,27 +261,41 @@ export default function AdminPayroll() {
 
       {/* Advance Salary Settings */}
       <div className="soft3d-card p-5 rounded-2xl">
-        <h3 className="font-bold mb-4 border-b border-[var(--kg-border)] pb-2 flex items-center text-[var(--kg-text)]">
-          <HandCoins size={18} className="mr-2 text-[var(--kg-primary)]" /> Cấu hình Ứng lương
-        </h3>
-        
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4 border-b border-[var(--kg-border)] pb-2">
+          <h3 className="font-bold flex items-center text-[var(--kg-text)]">
+            <HandCoins size={18} className="mr-2 text-[var(--kg-primary)]" /> Cấu hình Ứng lương
+          </h3>
+          <button
+            type="button"
+            onClick={handleSaveAdvanceConfig}
+            disabled={isSavingAdvance || isSaving}
+            className="min-h-[44px] sm:min-h-[36px] px-3.5 py-1.5 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-xs transition disabled:opacity-50"
+          >
+            {isSavingAdvance ? (
+              <><Loader2 size={14} className="animate-spin" /> Đang lưu...</>
+            ) : (
+              <><Save size={14} /> Lưu hạn mức ứng</>
+            )}
+          </button>
+        </div>
+
         <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="payroll-cutoff-day" className="block text-xs font-bold text-[var(--kg-text-muted)] mb-1">Ngày chốt sổ (Hàng tháng)</label>
-              <select id="payroll-cutoff-day" className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)] font-semibold">
-                <option>Ngày 15</option>
-                <option>Ngày 20</option>
-                <option>Ngày 25</option>
-              </select>
-            </div>
-            <div>
-              <label htmlFor="payroll-advance-limit" className="block text-xs font-bold text-[var(--kg-text-muted)] mb-1">Tỷ lệ tối đa (%)</label>
-              <input id="payroll-advance-limit" type="number" value={advanceLimit} onChange={e => setAdvanceLimit(e.target.value)} className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3 py-2.5 text-sm font-mono tabular-nums font-bold focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)]" />
-            </div>
+          <div>
+            <label htmlFor="payroll-advance-limit" className="block text-xs font-bold text-[var(--kg-text-muted)] mb-1">
+              Tỷ lệ ứng tối đa (%)
+            </label>
+            <input
+              id="payroll-advance-limit"
+              type="number"
+              min={0}
+              max={100}
+              value={advanceLimit}
+              onChange={e => setAdvanceLimit(e.target.value)}
+              className="w-full sm:max-w-xs bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3 py-2.5 text-sm font-mono tabular-nums font-bold focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)]"
+            />
           </div>
           <p className="text-[11px] text-[var(--kg-text-muted)] bg-[var(--kg-primary-soft)] p-2.5 rounded-xl border border-[var(--kg-primary)]/20">
-            Hệ thống sẽ tự động tính toán mức ứng tối đa dựa trên <strong className="font-mono tabular-nums">{advanceLimit}%</strong> số giờ đã làm thực tế của nhân sự cho đến ngày hiện tại.
+            Hệ thống sẽ tự động tính toán mức ứng tối đa dựa trên <strong className="font-mono tabular-nums">{advanceLimit}%</strong> số giờ đã làm thực tế của nhân sự cho đến ngày hiện tại. Bạn có thể lưu mục này ngay mà không cần mở khóa công thức lương.
           </p>
         </div>
       </div>
@@ -249,7 +317,7 @@ export default function AdminPayroll() {
                     <p className="text-[11px] text-[var(--kg-text-muted)] truncate"><span className="font-mono tabular-nums font-bold text-emerald-600 dark:text-emerald-400">{Number(a.amount).toLocaleString('vi-VN')} đ</span> • {a.description}</p>
                   </div>
                   {!formulaLocked ? (
-                     <button type="button" onClick={() => handleRemoveAllowance(a.id)} className="text-rose-500 hover:text-rose-700 text-xs font-bold px-2 py-1 flex-shrink-0 inline-flex items-center gap-1"><Trash2 size={13} /> Xóa</button>
+                     <button type="button" onClick={() => handleRemoveAllowance(a.id)} className="min-h-[36px] px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-bold flex-shrink-0 inline-flex items-center gap-1"><Trash2 size={13} /> Xóa</button>
                   ) : (
                      <span className="text-[var(--kg-text-soft)] flex-shrink-0"><Settings2 size={14} /></span>
                   )}
@@ -257,7 +325,7 @@ export default function AdminPayroll() {
               ))}
             </div>
             {!formulaLocked && (
-              <button type="button" onClick={handleAddAllowance} className="mt-2.5 text-xs text-[var(--kg-primary)] font-bold flex items-center hover:underline">
+              <button type="button" onClick={handleAddAllowance} className="mt-2.5 min-h-[36px] px-3 py-1.5 rounded-lg bg-[var(--kg-primary-soft)] text-xs text-[var(--kg-primary)] font-bold inline-flex items-center hover:opacity-90">
                 <Plus size={14} className="mr-1" /> Thêm phụ cấp mới
               </button>
             )}
@@ -273,7 +341,7 @@ export default function AdminPayroll() {
                     <p className="text-[11px] text-rose-600 dark:text-rose-300 truncate"><span className="font-mono tabular-nums font-bold">{Number(d.amount).toLocaleString('vi-VN')} đ</span> • {d.description}</p>
                   </div>
                   {!formulaLocked ? (
-                     <button type="button" onClick={() => handleRemoveDeduction(d.id)} className="text-rose-500 hover:text-rose-700 text-xs font-bold px-2 py-1 flex-shrink-0 inline-flex items-center gap-1"><Trash2 size={13} /> Xóa</button>
+                     <button type="button" onClick={() => handleRemoveDeduction(d.id)} className="min-h-[36px] px-3 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-700 dark:text-rose-300 text-xs font-bold flex-shrink-0 inline-flex items-center gap-1"><Trash2 size={13} /> Xóa</button>
                   ) : (
                      <span className="text-rose-500 flex-shrink-0"><Settings2 size={14} /></span>
                   )}
@@ -281,7 +349,7 @@ export default function AdminPayroll() {
               ))}
             </div>
             {!formulaLocked && (
-              <button type="button" onClick={handleAddDeduction} className="mt-2.5 text-xs text-rose-600 font-bold flex items-center hover:underline">
+              <button type="button" onClick={handleAddDeduction} className="mt-2.5 min-h-[36px] px-3 py-1.5 rounded-lg bg-rose-500/10 text-xs text-rose-600 dark:text-rose-400 font-bold inline-flex items-center hover:bg-rose-500/20">
                 <Plus size={14} className="mr-1" /> Thêm khấu trừ mới
               </button>
             )}
@@ -294,8 +362,12 @@ export default function AdminPayroll() {
         <h3 className="font-bold mb-4 border-b border-[var(--kg-border)] pb-2 flex items-center text-[var(--kg-text)]">
           <KeyRound size={18} className="mr-2 text-[var(--kg-primary)]" /> Ma trận Mức Lương
         </h3>
-        <p className="text-xs text-[var(--kg-text-muted)] mb-3">Quản lý mức lương cơ bản theo từng phòng ban/cá nhân.</p>
-        <button type="button" className="w-full bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-border)]/40 border border-[var(--kg-border)] text-[var(--kg-text)] font-bold py-2.5 rounded-xl text-sm transition shadow-2xs">
+        <p className="text-xs text-[var(--kg-text-muted)] mb-3">Quản lý mức lương cơ bản theo từng phòng ban/cá nhân và xem tổng hợp bảng lương tháng.</p>
+        <button
+          type="button"
+          onClick={handleOpenSalaryMatrix}
+          className="w-full min-h-[44px] bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-border)]/40 border border-[var(--kg-border)] text-[var(--kg-text)] font-bold py-2.5 rounded-xl text-sm transition shadow-2xs"
+        >
           Mở Bảng Ma Trận Lương
         </button>
       </div>
@@ -304,8 +376,8 @@ export default function AdminPayroll() {
       <button 
         type="button"
         onClick={handleSavePayrollConfig} 
-        disabled={isSaving || formulaLocked} 
-        className={`w-full font-black py-3.5 rounded-xl shadow-xs transition-all active:scale-99 flex items-center justify-center mt-6 text-xs sm:text-sm uppercase tracking-wider ${isSaving || formulaLocked ? 'bg-slate-400 text-white cursor-not-allowed opacity-60' : 'bg-[var(--kg-primary)] text-white hover:bg-[var(--kg-primary-hover)]'}`}
+        disabled={isSaving || isSavingAdvance || formulaLocked} 
+        className={`w-full min-h-[44px] font-black py-3.5 rounded-xl shadow-xs transition-all active:scale-99 flex items-center justify-center mt-6 text-xs sm:text-sm uppercase tracking-wider ${isSaving || isSavingAdvance || formulaLocked ? 'bg-slate-400 text-white cursor-not-allowed opacity-60' : 'bg-[var(--kg-primary)] text-white hover:bg-[var(--kg-primary-hover)]'}`}
       >
         {isSaving ? (
           <><Loader2 size={18} className="animate-spin mr-2" /> Đang lưu...</>

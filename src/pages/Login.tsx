@@ -1,6 +1,11 @@
-import { useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
+import {
+  getCachedFaceProfiles,
+  subscribeCachedFaceProfiles,
+  syncLatestFaceProfilesFromEdge,
+} from '../services/faceRecognitionV2';
 import {
   speak,
   computeWeekInfo,
@@ -10,11 +15,13 @@ import {
   markScheduleRegisteredLocally,
   getSavedRegisteredShiftsForWeek,
 } from '../utils/helpers';
-import Swal from 'sweetalert2';
 import { User, Lock, Eye, EyeOff, ChevronLeft, ArrowRight, Mail, Phone, Calendar, ShieldCheck, KeyRound, MapPin, ScanFace, Check, Sun, Moon, Sparkles } from 'lucide-react';
 import { hashPassword } from '../utils/security';
 import { KgVersionBadge } from '../components/VersionReleaseModal';
 import { APP_RELEASE_DATE, APP_VERSION_TAG, openReleaseNotesModal } from '../config/releaseNotes';
+import { KgAlertCard } from '../components/KgDesignSystem';
+
+const FastFaceScannerV2 = lazy(() => import('../components/FastFaceScannerV2'));
 
 export default function Login() {
   const store = useAppStore.getState();
@@ -30,9 +37,41 @@ export default function Login() {
   const [forgotStep, setForgotStep] = useState<1 | 2>(1);
   const [resetForm, setResetForm] = useState({ otp: '', newPassword: '' });
   const [showPass, setShowPass] = useState(false);
+  const [kioskScannerOpen, setKioskScannerOpen] = useState(false);
+  const [syncedProfileCount, setSyncedProfileCount] = useState<number>(
+    () => getCachedFaceProfiles().length
+  );
+  const [authNotice, setAuthNotice] = useState<{
+    variant: 'error' | 'warning' | 'success' | 'info';
+    title: string;
+    text: string;
+  } | null>(null);
+
+  useEffect(() => {
+    setSyncedProfileCount(getCachedFaceProfiles().length);
+    const unsub = subscribeCachedFaceProfiles((list) => {
+      setSyncedProfileCount(list.length);
+    });
+    // Always revalidate Face ID profiles from Cloudflare Edge D1 in background (SWR)
+    // even when localStorage already holds older profiles, so faces enrolled on Device A appear on Device B immediately
+    void syncLatestFaceProfilesFromEdge(callApi);
+    const onFocusOrVisible = () => {
+      if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+        void syncLatestFaceProfilesFromEdge(callApi);
+      }
+    };
+    window.addEventListener('focus', onFocusOrVisible);
+    document.addEventListener('visibilitychange', onFocusOrVisible);
+    return () => {
+      unsub();
+      window.removeEventListener('focus', onFocusOrVisible);
+      document.removeEventListener('visibilitychange', onFocusOrVisible);
+    };
+  }, []);
 
   const handleLogin = async (e?: React.FormEvent, bioCreds?: { username: string; password: string }) => {
     if (e) e.preventDefault();
+    setAuthNotice(null);
     store.setLoading(true, 'Đang đăng nhập...');
 
     const payload = bioCreds || loginForm;
@@ -48,6 +87,14 @@ export default function Login() {
     store.setLoading(false);
 
     if (res?.ok) {
+      // Clear any stale logs from Kiosk or previous account on shared phones before hydrating new session
+      store.setLogs([]);
+      store.setLastCheckInTime(0);
+      try {
+        localStorage.removeItem('kg_logs');
+      } catch {
+        // Ignore storage access errors in restricted webviews
+      }
       store.setCurrentUser(res.data);
       // Persist session
       localStorage.setItem('kg_user', JSON.stringify(res.data));
@@ -79,7 +126,6 @@ export default function Login() {
       }
 
       speak('Đăng nhập thành công. Xin chào ' + res.data.fullname);
-      Swal.fire({ icon: 'success', title: 'Xin chào ' + res.data.fullname, toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
 
       // Fetch data in background (non-blocking for faster login)
       const currentWeekInfo = computeWeekInfo(undefined, false);
@@ -174,12 +220,23 @@ export default function Login() {
       });
     } else if (res) {
       speak('Đăng nhập thất bại');
-      Swal.fire('Thất bại', res.message, 'error');
+      setAuthNotice({
+        variant: 'error',
+        title: 'Đăng nhập thất bại',
+        text: res.message || 'Tên đăng nhập hoặc mật khẩu chưa đúng.',
+      });
+    } else {
+      setAuthNotice({
+        variant: 'error',
+        title: 'Lỗi kết nối',
+        text: 'Không thể kết nối máy chủ. Vui lòng thử lại.',
+      });
     }
   };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setAuthNotice(null);
     store.setLoading(true, 'Đang gửi thông tin...');
     let passwordHash = '';
     try {
@@ -193,21 +250,40 @@ export default function Login() {
     store.setLoading(false);
 
     if (res?.ok) {
-      Swal.fire('Thành công', res.message, 'success');
+      setAuthNotice({
+        variant: 'success',
+        title: 'Đăng ký thành công',
+        text: res.message || 'Tài khoản đã được tạo. Bạn có thể đăng nhập ngay.',
+      });
       setMode('login');
       setRegisterForm({ username: '', password: '', fullname: '', dob: '', email: '', phone: '' });
       // Tự động điền username vào form đăng nhập
       setLoginForm({ ...loginForm, username: registerForm.username });
     } else if (res) {
-      Swal.fire('Lỗi', res.message, 'error');
+      setAuthNotice({
+        variant: 'error',
+        title: 'Đăng ký thất bại',
+        text: res.message || 'Không thể tạo tài khoản. Vui lòng kiểm tra lại thông tin.',
+      });
+    } else {
+      setAuthNotice({
+        variant: 'error',
+        title: 'Lỗi kết nối',
+        text: 'Không thể kết nối máy chủ. Vui lòng thử lại.',
+      });
     }
   };
 
   const handleForgot = async (e: React.FormEvent) => {
     e.preventDefault();
+    setAuthNotice(null);
     if (forgotStep === 1) {
       if (!forgotForm.email) {
-        Swal.fire('Lỗi', 'Vui lòng nhập Email', 'warning');
+        setAuthNotice({
+          variant: 'warning',
+          title: 'Thiếu thông tin',
+          text: 'Vui lòng nhập Email đã đăng ký.',
+        });
         return;
       }
       store.setLoading(true, 'Đang gửi mã OTP...');
@@ -216,13 +292,25 @@ export default function Login() {
 
       if (res?.ok) {
         setForgotStep(2);
-        Swal.fire('Thành công', 'Mã OTP đã được gửi đến Email của bạn', 'success');
+        setAuthNotice({
+          variant: 'success',
+          title: 'Đã gửi mã OTP',
+          text: 'Mã OTP đã được gửi đến Email của bạn.',
+        });
       } else {
-        Swal.fire('Không thể gửi OTP', res?.message || 'Không tìm thấy Email hoặc máy chủ đang bận. Vui lòng kiểm tra lại.', 'error');
+        setAuthNotice({
+          variant: 'error',
+          title: 'Không thể gửi OTP',
+          text: res?.message || 'Không tìm thấy Email hoặc máy chủ đang bận. Vui lòng kiểm tra lại.',
+        });
       }
     } else {
       if (!resetForm.otp || !resetForm.newPassword) {
-        Swal.fire('Lỗi', 'Vui lòng nhập OTP và Mật khẩu mới', 'warning');
+        setAuthNotice({
+          variant: 'warning',
+          title: 'Thiếu thông tin',
+          text: 'Vui lòng nhập OTP và Mật khẩu mới.',
+        });
         return;
       }
       store.setLoading(true, 'Đang đặt lại mật khẩu...');
@@ -240,13 +328,21 @@ export default function Login() {
       store.setLoading(false);
 
       if (res?.ok) {
-        Swal.fire('Thành công', 'Mật khẩu đã được đặt lại', 'success');
+        setAuthNotice({
+          variant: 'success',
+          title: 'Đặt lại mật khẩu thành công',
+          text: 'Mật khẩu đã được đặt lại. Hãy đăng nhập bằng mật khẩu mới.',
+        });
         setMode('login');
         setForgotStep(1);
         setForgotForm({ email: '' });
         setResetForm({ otp: '', newPassword: '' });
       } else {
-        Swal.fire('Lỗi', res?.message || 'Mã OTP không đúng hoặc đã hết hạn', 'error');
+        setAuthNotice({
+          variant: 'error',
+          title: 'Lỗi đặt lại mật khẩu',
+          text: res?.message || 'Mã OTP không đúng hoặc đã hết hạn.',
+        });
       }
     }
   };
@@ -283,10 +379,10 @@ export default function Login() {
 
       <div className="relative z-10 my-auto w-full max-w-6xl mx-auto grid lg:grid-cols-[1.06fr_0.94fr] gap-4 sm:gap-6 lg:gap-8 items-stretch">
         {/* LEFT SHOWCASE: Warm Hospitality Midnight × Grill Ember Atelier */}
-        <section className="rounded-2xl sm:rounded-3xl bg-[#0B253C] dark:bg-[#121824] border border-white/10 p-4 sm:p-7 lg:p-9 text-white shadow-[0_20px_48px_-16px_rgba(11,37,60,0.42)] relative overflow-hidden flex flex-col justify-between gap-4 lg:gap-8">
+        <section className="min-w-0 rounded-2xl sm:rounded-3xl bg-[#0B253C] dark:bg-[#121824] border border-white/10 p-4 sm:p-7 lg:p-9 text-white shadow-[0_20px_48px_-16px_rgba(11,37,60,0.42)] relative overflow-hidden flex flex-col justify-between gap-4 lg:gap-8">
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute -right-16 -top-16 w-64 h-64 rounded-full bg-[#C8432B]/25 blur-3xl"
+            className="pointer-events-none absolute right-0 top-0 w-64 h-64 rounded-full bg-[#C8432B]/25 blur-3xl"
           />
 
           {/* Compact Mobile Header + Full Desktop Editorial Showcase */}
@@ -365,7 +461,61 @@ export default function Login() {
         </section>
 
         {/* RIGHT FORM PANEL */}
-        <div className="w-full max-w-lg mx-auto lg:max-w-none flex flex-col justify-center">
+        <div className="w-full min-w-0 max-w-lg mx-auto lg:max-w-none flex flex-col justify-center gap-3.5">
+          {/* OPEN MULTI-EMPLOYEE FACE ID STATION CTA (v2 Parallel Kiosk) */}
+          {mode === 'login' && (
+            <button
+              type="button"
+              onClick={() => setKioskScannerOpen(true)}
+              data-testid="open-kiosk-face-v2"
+              className="w-full min-h-[64px] text-left rounded-2xl bg-[#0D1015] dark:bg-[#161A22] hover:bg-[#151A23] dark:hover:bg-[#1E2430] border border-[#2B3240] p-3.5 sm:p-4 text-[#F7F4EE] shadow-md transition-colors duration-150 flex items-center justify-between gap-3 group cursor-pointer"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-11 h-11 rounded-xl bg-[#C8432B] text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+                  <ScanFace size={22} />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs sm:text-sm font-extrabold text-[#F7F4EE] tracking-tight">
+                      Chấm Công Khuôn Mặt Nhanh
+                    </span>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono tabular-nums font-bold border ${
+                        syncedProfileCount > 0
+                          ? 'bg-[#0F291E] border-[#34D399]/60 text-[#34D399]'
+                          : 'bg-[#0B253C] border-[#60A5FA]/50 text-[#93C5FD]'
+                      }`}
+                    >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full ${
+                          syncedProfileCount > 0 ? 'bg-[#34D399]' : 'bg-[#60A5FA]'
+                        }`}
+                      />
+                      <span>
+                        {syncedProfileCount > 0
+                          ? `${syncedProfileCount} hồ sơ sẵn sàng`
+                          : 'V2 Tự động'}
+                      </span>
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#B5AFA6] mt-0.5 leading-snug">
+                    Mở trạm quét tự động • Bán kính ≤25m
+                  </p>
+                </div>
+              </div>
+              <span className="w-9 h-9 rounded-xl bg-[#1F2530] group-hover:bg-[#C8432B] border border-[#374151] group-hover:border-[#C8432B] text-white flex items-center justify-center flex-shrink-0 transition-colors">
+                <ArrowRight size={16} />
+              </span>
+            </button>
+          )}
+
+          {/* Inline Auth Feedback Banner (Replaces Swal.fire) */}
+          {authNotice && (
+            <KgAlertCard variant={authNotice.variant} title={authNotice.title}>
+              {authNotice.text}
+            </KgAlertCard>
+          )}
+
           {/* LOGIN FORM */}
           {mode === 'login' && (
             <div className="login-card relative overflow-hidden bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl sm:rounded-3xl p-5 sm:p-7 lg:p-8 shadow-card">
@@ -456,7 +606,7 @@ export default function Login() {
                   </label>
                   <button
                     type="button"
-                    onClick={() => setMode('forgot')}
+                    onClick={() => { setAuthNotice(null); setMode('forgot'); }}
                     className="text-xs font-bold text-[var(--kg-accent-ink)] hover:underline min-h-[44px] px-2 inline-flex items-center whitespace-nowrap"
                   >
                     Quên mật khẩu?
@@ -474,7 +624,7 @@ export default function Login() {
                 <span className="text-xs text-[var(--kg-text-muted)]">Chưa có tài khoản?</span>
                 <button
                   type="button"
-                  onClick={() => setMode('register')}
+                  onClick={() => { setAuthNotice(null); setMode('register'); }}
                   className="text-xs font-bold text-[var(--kg-primary-ink)] hover:underline min-h-[44px] px-2 inline-flex items-center"
                 >
                   Đăng ký nhân sự mới
@@ -607,7 +757,7 @@ export default function Login() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setMode('login')}
+                  onClick={() => { setAuthNotice(null); setMode('login'); }}
                   className="w-full text-center text-xs font-semibold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] flex items-center justify-center gap-1 transition-colors min-h-[44px]"
                 >
                   <ChevronLeft size={14} /> Quay lại đăng nhập
@@ -703,7 +853,7 @@ export default function Login() {
 
                 <button
                   type="button"
-                  onClick={() => { setMode('login'); setForgotStep(1); }}
+                  onClick={() => { setAuthNotice(null); setMode('login'); setForgotStep(1); }}
                   className="w-full text-center text-xs font-semibold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] flex items-center justify-center gap-1 transition-colors min-h-[44px]"
                 >
                   <ChevronLeft size={14} /> Quay lại đăng nhập
@@ -718,6 +868,16 @@ export default function Login() {
       <footer className="relative z-10 w-full max-w-6xl mx-auto pt-4 text-center text-[11px] font-medium text-[var(--kg-text-muted)]">
         King&apos;s Grill Staff OS <span className="font-mono tabular-nums font-bold">{APP_VERSION_TAG}</span> • Chuẩn hóa giao diện đa thiết bị
       </footer>
+
+      {kioskScannerOpen && (
+        <Suspense fallback={null}>
+          <FastFaceScannerV2
+            isOpen={kioskScannerOpen}
+            isKioskMode={true}
+            onClose={() => setKioskScannerOpen(false)}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

@@ -3,6 +3,7 @@
 // ============================================
 import { callApi } from '../services/api';
 import { useAppStore } from '../store/useAppStore';
+import { clearEmployeePunchCooldown, matchesAttendanceUser } from './attendanceSequence';
 
 export interface QueuedTask {
   id: string;
@@ -14,7 +15,7 @@ export interface QueuedTask {
   priority?: 'high' | 'normal' | 'low';
 }
 
-export type PunchSyncStatus = 'pending' | 'syncing' | 'synced' | 'failed';
+export type PunchSyncStatus = 'pending' | 'syncing' | 'edge_buffered' | 'synced' | 'failed';
 
 export interface PunchStatusUpdate {
   checkinId: string;
@@ -23,13 +24,64 @@ export interface PunchStatusUpdate {
   data?: any;
 }
 
+export interface VaultPunchEntry {
+  checkinId: string;
+  username?: string;
+  fullname?: string;
+  type?: string;
+  time?: string;
+  timeISO?: string;
+  location?: string;
+  syncStatus: PunchSyncStatus;
+  errorReason?: string;
+  vaultSavedAt?: number;
+  failedAt?: number;
+  syncedAt?: number;
+  imageUploaded?: boolean;
+  imageEdgeQueued?: boolean;
+  [key: string]: any;
+}
+
 const STORAGE_KEY = 'kg_offline_queue_v1';
 const PUNCH_VAULT_KEY = 'kg_punch_vault_v1';
+const ORPHAN_RECOVERY_MIN_AGE_MS = 45_000; // Must exceed primary 30s request timeout so in-flight punches never duplicate
+const inFlightCheckinIds = new Set<string>();
+const inFlightImageUploadIds = new Set<string>();
 let isProcessing = false;
 let retryTimeoutId: any = null;
 
-// Listeners for punch sync state
+// Listeners for punch sync state & queue processing state
 const punchStatusListeners = new Set<(update: PunchStatusUpdate) => void>();
+const queueSyncingListeners = new Set<(syncing: boolean) => void>();
+
+export function isQueueSyncing(): boolean {
+  return isProcessing;
+}
+
+export function subscribeQueueSyncing(listener: (syncing: boolean) => void): () => void {
+  queueSyncingListeners.add(listener);
+  return () => queueSyncingListeners.delete(listener);
+}
+
+function setQueueProcessing(next: boolean): void {
+  if (isProcessing === next) return;
+  isProcessing = next;
+  queueSyncingListeners.forEach((fn) => {
+    try {
+      fn(next);
+    } catch {
+      /* ignore listener errors */
+    }
+  });
+}
+
+function emitQueueUpdated(count = getQueue().length): void {
+  try {
+    window.dispatchEvent(new CustomEvent('kg:offline-queue-updated', { detail: { count } }));
+  } catch {
+    /* ignore */
+  }
+}
 
 export function subscribePunchStatus(listener: (update: PunchStatusUpdate) => void): () => void {
   punchStatusListeners.add(listener);
@@ -46,6 +98,22 @@ function notifyPunchStatus(update: PunchStatusUpdate) {
   });
 }
 
+export function markCheckinInFlight(checkinId: string): void {
+  if (checkinId) inFlightCheckinIds.add(checkinId);
+}
+
+export function clearCheckinInFlight(checkinId: string): void {
+  if (checkinId) inFlightCheckinIds.delete(checkinId);
+}
+
+export function markImageUploadInFlight(checkinId: string): void {
+  if (checkinId) inFlightImageUploadIds.add(checkinId);
+}
+
+export function clearImageUploadInFlight(checkinId: string): void {
+  if (checkinId) inFlightImageUploadIds.delete(checkinId);
+}
+
 /**
  * Get all queued tasks from localStorage
  */
@@ -58,6 +126,10 @@ export function getQueue(): QueuedTask[] {
     console.warn('[OfflineQueue] Error reading queue:', e);
     return [];
   }
+}
+
+export function getQueueLength(): number {
+  return getQueue().length;
 }
 
 /**
@@ -93,8 +165,12 @@ function compactVaultEntries(entries: any[]): any[] {
   return entries.slice(0, 50).map((item: any) => {
     const isBase64 = typeof item?.image === 'string' && item.image.startsWith('data:image/');
     if (!isBase64) return item;
-    if (item.syncStatus === 'synced' && item.imageUploaded) {
-      return { ...item, image: item.imageUrl || '[UPLOADED]' };
+    if (
+      ((item.syncStatus === 'synced' || item.syncStatus === 'edge_buffered') &&
+        (item.imageUploaded || item.imageEdgeQueued)) ||
+      item.syncStatus === 'failed'
+    ) {
+      return { ...item, image: item.imageUrl || '[COMPACTED]' };
     }
     base64KeptCount++;
     // Only retain raw base64 on at most the 3 newest unsynced punches so localStorage (5MB) never overflows
@@ -160,9 +236,273 @@ export function markPunchVaultSynced(checkinId: string, serverData?: any): void 
       return item;
     }));
     localStorage.setItem(PUNCH_VAULT_KEY, JSON.stringify(updated));
+    emitQueueUpdated();
   } catch (e) {
     console.warn('[OfflineQueue] Error updating punch vault:', e);
   }
+}
+
+/**
+ * Mark a permanently rejected punch in vault as failed so recoverOrphanedVaultPunches never resurrects it
+ */
+export function markPunchVaultFailed(checkinId: string, errorReason?: string): void {
+  if (!checkinId) return;
+  try {
+    const raw = localStorage.getItem(PUNCH_VAULT_KEY);
+    if (!raw) return;
+    const vault = JSON.parse(raw);
+    if (!Array.isArray(vault)) return;
+    const updated = compactVaultEntries(
+      vault.map((item: any) => {
+        if (item && item.checkinId === checkinId) {
+          return {
+            ...item,
+            syncStatus: 'failed',
+            failedAt: Date.now(),
+            errorReason: errorReason || '',
+          };
+        }
+        return item;
+      })
+    );
+    localStorage.setItem(PUNCH_VAULT_KEY, JSON.stringify(updated));
+    emitQueueUpdated();
+  } catch (e) {
+    console.warn('[OfflineQueue] Error marking punch vault failed:', e);
+  }
+}
+
+/**
+ * Read all punch records persisted in kg_punch_vault_v1
+ */
+export function getPunchVaultEntries(): VaultPunchEntry[] {
+  try {
+    const raw = localStorage.getItem(PUNCH_VAULT_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((item) => item && typeof item.checkinId === 'string') : [];
+  } catch (e) {
+    console.warn('[OfflineQueue] Error reading punch vault:', e);
+    return [];
+  }
+}
+
+export function getFailedVaultPunches(): VaultPunchEntry[] {
+  return getPunchVaultEntries().filter((entry) => entry.syncStatus === 'failed');
+}
+
+export function getPendingVaultPunches(): VaultPunchEntry[] {
+  return getPunchVaultEntries().filter(
+    (entry) => entry.syncStatus === 'pending' || entry.syncStatus === 'syncing'
+  );
+}
+
+/**
+ * Re-queue a failed vault punch for manual retry (never alters automatic permanent-rejection rules)
+ */
+export function retryFailedVaultPunch(checkinId: string): boolean {
+  if (!checkinId) return false;
+  try {
+    const vault = getPunchVaultEntries();
+    const target = vault.find((item) => item.checkinId === checkinId && item.syncStatus === 'failed');
+    if (!target) return false;
+
+    const restPayload: Record<string, any> = { ...target };
+    delete restPayload.failedAt;
+    delete restPayload.errorReason;
+    restPayload.syncStatus = 'pending';
+    restPayload.vaultSavedAt = Date.now();
+
+    const updatedVault = compactVaultEntries(
+      vault.map((item) => (item.checkinId === checkinId ? (restPayload as VaultPunchEntry) : item))
+    );
+    localStorage.setItem(PUNCH_VAULT_KEY, JSON.stringify(updatedVault));
+
+    const queue = getQueue().filter(
+      (t) => !(t.action === 'CHECK_IN_OUT' && (t.id === checkinId || t.payload?.checkinId === checkinId))
+    );
+    queue.push({
+      id: checkinId,
+      action: 'CHECK_IN_OUT',
+      payload: restPayload,
+      createdAt: Date.now(),
+      attempts: 0,
+      maxAttempts: 5,
+      priority: 'high',
+    });
+    saveQueue(queue);
+    notifyPunchStatus({ checkinId, status: 'pending', message: 'Đang thử đồng bộ lại từ Vault...' });
+    if (navigator.onLine) {
+      scheduleNextQueueProcessing(50);
+    }
+    return true;
+  } catch (e) {
+    console.warn('[OfflineQueue] Error retrying failed vault punch:', e);
+    return false;
+  }
+}
+
+/**
+ * Permanently discard a failed punch entry from kg_punch_vault_v1 & queue
+ */
+export function discardFailedVaultPunch(checkinId: string): boolean {
+  if (!checkinId) return false;
+  try {
+    const vault = getPunchVaultEntries();
+    const nextVault = vault.filter((item) => item.checkinId !== checkinId);
+    if (nextVault.length !== vault.length) {
+      localStorage.setItem(PUNCH_VAULT_KEY, JSON.stringify(compactVaultEntries(nextVault)));
+    }
+    const queue = getQueue();
+    const nextQueue = queue.filter(
+      (t) => t.id !== checkinId && t.payload?.checkinId !== checkinId
+    );
+    if (nextQueue.length !== queue.length) {
+      saveQueue(nextQueue);
+    } else {
+      emitQueueUpdated(nextQueue.length);
+    }
+    return nextVault.length !== vault.length || nextQueue.length !== queue.length;
+  } catch (e) {
+    console.warn('[OfflineQueue] Error discarding failed vault punch:', e);
+    return false;
+  }
+}
+
+/**
+ * Globally purges a server-rejected punch from Vault, OfflineQueue, Zustand store (`kg_logs`),
+ * `kg_last_punch_record`, and `kg_user_cooldown_v2` — even when `CheckIn.tsx` is unmounted!
+ */
+export function rollbackRejectedPunchGlobally(params: {
+  checkinId?: string;
+  username?: string;
+  fullname?: string;
+  time?: string;
+  reason?: string;
+}): void {
+  const targetId = String(params.checkinId || '').trim();
+  const targetTime = String(params.time || '').trim();
+  const userIdentity =
+    params.username || params.fullname
+      ? { username: params.username, fullname: params.fullname || params.username || '' }
+      : null;
+
+  if (targetId) {
+    clearCheckinInFlight(targetId);
+    markPunchVaultFailed(targetId, params.reason);
+    const currentQueue = getQueue();
+    const cleanedQueue = currentQueue.filter(
+      (t) => t.id !== targetId && t.payload?.checkinId !== targetId
+    );
+    if (cleanedQueue.length !== currentQueue.length) {
+      saveQueue(cleanedQueue);
+    }
+  }
+
+  try {
+    const state = useAppStore.getState();
+    if (Array.isArray(state.logs) && state.logs.length > 0) {
+      const nextLogs = state.logs.filter((l) => {
+        if (targetId && l.checkinId && String(l.checkinId).trim() === targetId) {
+          return false;
+        }
+        if (targetTime && String(l.time || '').trim() === targetTime) {
+          if (!userIdentity || matchesAttendanceUser(l, userIdentity)) {
+            return false;
+          }
+        }
+        return true;
+      });
+      if (nextLogs.length !== state.logs.length) {
+        state.setLogs(nextLogs);
+      }
+    }
+    if (typeof state.setLastCheckInTime === 'function') {
+      state.setLastCheckInTime(0);
+    }
+  } catch (e) {
+    console.warn('[OfflineQueue] Store rollback warning:', e);
+  }
+
+  if (userIdentity) {
+    try {
+      const rawLast = localStorage.getItem('kg_last_punch_record');
+      if (rawLast) {
+        const parsedLast = JSON.parse(rawLast);
+        if (parsedLast && matchesAttendanceUser(parsedLast, userIdentity)) {
+          const savedTime = String(parsedLast.time || '').trim();
+          if (
+            !targetTime ||
+            savedTime === targetTime ||
+            savedTime.includes(targetTime) ||
+            targetTime.includes(savedTime)
+          ) {
+            localStorage.removeItem('kg_last_punch_record');
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+    clearEmployeePunchCooldown(userIdentity, targetTime || undefined);
+  }
+}
+
+/**
+ * Mark a punch in vault as safely buffered on Cloudflare Edge D1 (`instantEdge: true`),
+ * preventing duplicate `CHECK_IN_OUT` retries while still guarding any unsent proof photo!
+ */
+export function markPunchVaultEdgeBuffered(checkinId: string, serverData?: any): void {
+  if (!checkinId) return;
+  try {
+    const raw = localStorage.getItem(PUNCH_VAULT_KEY);
+    if (!raw) return;
+    const vault = JSON.parse(raw);
+    if (!Array.isArray(vault)) return;
+    const updated = compactVaultEntries(
+      vault.map((item: any) => {
+        if (item && item.checkinId === checkinId) {
+          return {
+            ...item,
+            syncStatus: 'edge_buffered',
+            serverData,
+            syncedAt: Date.now(),
+          };
+        }
+        return item;
+      })
+    );
+    localStorage.setItem(PUNCH_VAULT_KEY, JSON.stringify(updated));
+  } catch (e) {
+    console.warn('[OfflineQueue] Error marking punch vault edge_buffered:', e);
+  }
+}
+
+/**
+ * Mark proof photo as safely queued inside Cloudflare Edge D1 `edge_sync_queue`,
+ * releasing heavy base64 memory on iPhone Safari/PWA immediately!
+ */
+export function markPunchVaultImageQueuedOnEdge(checkinId: string): void {
+  if (!checkinId) return;
+  try {
+    const raw = localStorage.getItem(PUNCH_VAULT_KEY);
+    if (!raw) return;
+    const vault = JSON.parse(raw);
+    if (!Array.isArray(vault)) return;
+    const updated = compactVaultEntries(
+      vault.map((item: any) => {
+        if (item && item.checkinId === checkinId) {
+          return {
+            ...item,
+            imageEdgeQueued: true,
+            image: item.imageUrl || '[EDGE_QUEUED]',
+          };
+        }
+        return item;
+      })
+    );
+    localStorage.setItem(PUNCH_VAULT_KEY, JSON.stringify(updated));
+  } catch { /* ignore */ }
 }
 
 /**
@@ -241,12 +581,13 @@ function scheduleNextQueueProcessing(delayMs: number = 2000) {
  * (e.g., iOS Safari screen lock / app switch / tab kill mid-flight) before
  * reaching the synced state or completing their Drive image upload.
  */
-export function recoverOrphanedVaultPunches(): void {
+export function recoverOrphanedVaultPunches(): number {
+  let recoveredCount = 0;
   try {
     const raw = localStorage.getItem(PUNCH_VAULT_KEY);
-    if (!raw) return;
+    if (!raw) return 0;
     const vault = JSON.parse(raw);
-    if (!Array.isArray(vault) || vault.length === 0) return;
+    if (!Array.isArray(vault) || vault.length === 0) return 0;
 
     const queue = getQueue();
     const now = Date.now();
@@ -254,10 +595,12 @@ export function recoverOrphanedVaultPunches(): void {
 
     for (const item of vault) {
       if (!item || !item.checkinId) continue;
+      const cid = String(item.checkinId);
+      if (inFlightCheckinIds.has(cid)) continue;
       const ageMs = now - (item.vaultSavedAt || 0);
 
-      // 1. Recover unsynced CHECK_IN_OUT punches older than 12s (not currently in-flight)
-      if (item.syncStatus === 'pending' && ageMs > 12000 && ageMs < 24 * 3600 * 1000) {
+      // 1. Recover unsynced CHECK_IN_OUT punches older than 45s (strictly after primary 30s request window)
+      if (item.syncStatus === 'pending' && ageMs > ORPHAN_RECOVERY_MIN_AGE_MS && ageMs < 24 * 3600 * 1000) {
         const alreadyQueued = queue.some(
           (t) =>
             t.action === 'CHECK_IN_OUT' &&
@@ -274,13 +617,29 @@ export function recoverOrphanedVaultPunches(): void {
             priority: 'high',
           });
           queueModified = true;
+          recoveredCount += 1;
         }
       }
 
-      // 2. Recover synced punches whose Drive image upload was interrupted on iOS
+      // 2. Recover synced / edge_buffered punches whose Drive image upload was interrupted on iOS (e.g. instant screen lock)
       const syncAgeMs = now - (item.syncedAt || item.vaultSavedAt || 0);
-      const hasRawBase64 = typeof item.image === 'string' && item.image.startsWith('data:image/') && item.image.length > 100;
-      if (item.syncStatus === 'synced' && !item.imageUploaded && hasRawBase64 && syncAgeMs > 15000 && syncAgeMs < 24 * 3600 * 1000) {
+      const rawImgCandidate = item.image || item.imageBase64 || item.uploadPayload?.image || '';
+      const hasRawBase64 =
+        typeof rawImgCandidate === 'string' &&
+        rawImgCandidate.startsWith('data:image/') &&
+        rawImgCandidate.length > 100;
+      const isImageReadyToRecover =
+        !inFlightImageUploadIds.has(cid) &&
+        (item.syncStatus === 'edge_buffered'
+          ? syncAgeMs >= 0 && syncAgeMs < 24 * 3600 * 1000
+          : item.syncStatus === 'synced' && syncAgeMs > 15000 && syncAgeMs < 24 * 3600 * 1000);
+
+      if (
+        isImageReadyToRecover &&
+        !item.imageUploaded &&
+        !item.imageEdgeQueued &&
+        hasRawBase64
+      ) {
         const uploadAlreadyQueued = queue.some(
           (t) =>
             t.action === 'UPLOAD_CHECKIN_IMAGE' &&
@@ -291,19 +650,23 @@ export function recoverOrphanedVaultPunches(): void {
             id: `img_${item.checkinId}`,
             action: 'UPLOAD_CHECKIN_IMAGE',
             payload: {
+              ...(item.uploadPayload || {}),
+              instantEdge: true,
               checkinId: item.checkinId,
               username: item.username,
               fullname: item.fullname,
               timeISO: item.serverData?.timeISO || item.timeISO,
               time: item.serverData?.thoiGian || item.time,
-              image: item.image,
+              image: rawImgCandidate,
+              sendEmailAfterUpload: item.sendEmailAfterUpload !== false,
             },
             createdAt: now,
             attempts: 0,
-            maxAttempts: 12,
+            maxAttempts: 15,
             priority: 'high',
           });
           queueModified = true;
+          recoveredCount += 1;
         }
       }
     }
@@ -314,6 +677,7 @@ export function recoverOrphanedVaultPunches(): void {
   } catch (e) {
     console.warn('[OfflineQueue] Error recovering orphaned vault punches:', e);
   }
+  return recoveredCount;
 }
 
 /**
@@ -328,7 +692,7 @@ export async function processQueue(): Promise<void> {
   const queue = getQueue();
   if (queue.length === 0) return;
 
-  isProcessing = true;
+  setQueueProcessing(true);
 
   try {
     const remaining: QueuedTask[] = [];
@@ -366,6 +730,7 @@ export async function processQueue(): Promise<void> {
             ...task.payload,
             image: task.payload?.image && task.payload.image.length > 100 ? 'PENDING' : task.payload?.image,
             fastSync: true,
+            sendEmailInline: false,
             isOfflineRetry: true,
             clientNowMs: nowMs,
             photoCapturedMs: nowMs - captureDeltaMs,
@@ -379,7 +744,6 @@ export async function processQueue(): Promise<void> {
         });
 
         if (res && res.ok !== false) {
-          // Success!
           console.log(`[OfflineQueue] Successfully processed task: ${task.action} (${task.id})`);
 
           if (task.action === 'CHECK_IN_OUT') {
@@ -387,39 +751,62 @@ export async function processQueue(): Promise<void> {
             notifyPunchStatus({
               checkinId,
               status: 'synced',
-              message: 'Đã ghi nhận thành công 100% vào Bảng chấm công (Google Sheets)',
-              data: res.data
+              message:
+                res.data?.edgeBuffered === true
+                  ? 'Đã lưu bảo lãnh trên đám mây Cloudflare D1 • Đang ghi Google Sheets'
+                  : 'Đã ghi nhận thành công 100% vào Bảng chấm công (Google Sheets)',
+              data: res.data,
             });
 
-            // If image upload is pending, enqueue upload task
+            // If image upload is pending, enqueue upload task (which also sends post-upload confirmation email!)
             const returnedImgUrl = res.data?.imageUrl;
+            const hasRawImg = Boolean(
+              task.payload?.image && task.payload.image !== 'PENDING' && task.payload.image.length > 100
+            );
             if (returnedImgUrl && returnedImgUrl.includes('drive.google.com')) {
               const effectiveTime = res.data?.timeISO || task.payload?.timeISO;
               if (effectiveTime) {
                 useAppStore.getState().updateLogImage(effectiveTime, returnedImgUrl);
               }
-            } else if (task.payload?.image && task.payload.image !== 'PENDING' && task.payload.image.length > 100) {
-              enqueueTask('UPLOAD_CHECKIN_IMAGE', {
-                checkinId,
-                username: task.payload.username,
-                fullname: task.payload.fullname,
-                timeISO: res.data?.timeISO || task.payload.timeISO,
-                time: res.data?.thoiGian || task.payload.time,
-                image: task.payload.image
-              }, { priority: 'high', maxAttempts: 10 });
-            }
-
-            // Trigger lightweight background email notification if needed (strip raw base64 image!)
-            if (task.payload?.email && !task.payload?.emailNotificationSent && !res.data?.emailSentDirectly) {
-              const { image: _rawImg, ...cleanEmailPayload } = task.payload;
-              callApi('SEND_EMAIL_NOTIFICATION', {
-                ...cleanEmailPayload,
-                imageUrl: returnedImgUrl || '',
-                distMeters: res.data?.distMeters ?? task.payload.distMeters,
-                isValid: res.data?.isValid ?? true,
-                viTri: res.data?.viTri || task.payload.location,
-                timeISO: res.data?.timeISO || task.payload.timeISO
-              }, { background: true, timeoutMs: 25000, maxAttempts: 2 }).catch((err) => {
+            } else if (hasRawImg) {
+              enqueueTask(
+                'UPLOAD_CHECKIN_IMAGE',
+                {
+                  checkinId,
+                  username: task.payload.username,
+                  fullname: task.payload.fullname,
+                  email: task.payload.email,
+                  type: res.data?.type || task.payload.type,
+                  location: res.data?.viTri || task.payload.location,
+                  distMeters: res.data?.distMeters ?? task.payload.distMeters,
+                  timeISO: res.data?.timeISO || task.payload.timeISO,
+                  time: res.data?.thoiGian || task.payload.time,
+                  image: task.payload.image,
+                  sendEmailAfterUpload: task.payload.sendEmailAfterUpload !== false,
+                },
+                { priority: 'high', maxAttempts: 10 }
+              );
+            } else if (
+              task.payload?.email &&
+              !task.payload?.emailNotificationSent &&
+              !res.data?.emailSentDirectly &&
+              task.payload?.checkinMode !== 'v2_face'
+            ) {
+              // Fallback email notification only when there is no raw image to upload
+              const cleanEmailPayload: Record<string, any> = { ...task.payload };
+              delete cleanEmailPayload.image;
+              callApi(
+                'SEND_EMAIL_NOTIFICATION',
+                {
+                  ...cleanEmailPayload,
+                  imageUrl: returnedImgUrl || '',
+                  distMeters: res.data?.distMeters ?? task.payload.distMeters,
+                  isValid: res.data?.isValid ?? true,
+                  viTri: res.data?.viTri || task.payload.location,
+                  timeISO: res.data?.timeISO || task.payload.timeISO,
+                },
+                { background: true, timeoutMs: 25000, maxAttempts: 2 }
+              ).catch((err) => {
                 console.warn('[OfflineQueue] Email notification background error:', err);
               });
             }
@@ -433,12 +820,21 @@ export async function processQueue(): Promise<void> {
               if (task.payload.timeISO) {
                 useAppStore.getState().updateLogImage(task.payload.timeISO, driveUrl);
               }
+            } else if (res.data?.edgeImageQueued === true || res.data?.queuedForDrive === true) {
+              markPunchVaultImageQueuedOnEdge(checkinId);
             }
           }
         } else {
-          // Check if server already has this check-in recorded (anti-spam cooldown triggered because row was already inserted!)
-          const isAlreadyRecorded = res?.code === 'ALREADY_CHECKED_IN' || res?.isSpamCooldown ||
-            (typeof res?.message === 'string' && (res.message.includes('chống spam') || res.message.includes('vừa chấm công') || res.message.includes('15 phút')));
+          // Check if server already has this check-in recorded
+          const isAlreadyRecorded =
+            !String(res?.code || '').startsWith('COOLDOWN_') &&
+            (res?.code === 'ALREADY_CHECKED_IN' ||
+              res?.isSpamCooldown ||
+              (typeof res?.message === 'string' &&
+                (res.message.includes('chống spam') ||
+                  res.message.includes('vừa chấm công') ||
+                  res.message.includes('15 phút') ||
+                  res.message.includes('30 phút'))));
 
           if (isAlreadyRecorded && task.action === 'CHECK_IN_OUT') {
             console.log(`[OfflineQueue] Row was already recorded on Google Sheets (${task.id}). Advancing to image upload.`);
@@ -447,44 +843,72 @@ export async function processQueue(): Promise<void> {
               checkinId,
               status: 'synced',
               message: 'Đã ghi nhận trên Bảng chấm công (Google Sheets)',
-              data: res?.data
+              data: res?.data,
             });
 
-            // Enqueue image upload to guarantee Column G is populated!
             if (task.payload?.image && task.payload.image !== 'PENDING' && task.payload.image.length > 100) {
-              enqueueTask('UPLOAD_CHECKIN_IMAGE', {
-                checkinId,
-                username: task.payload.username,
-                fullname: task.payload.fullname,
-                timeISO: task.payload.timeISO,
-                time: task.payload.time,
-                image: task.payload.image
-              }, { priority: 'high', maxAttempts: 15 });
+              enqueueTask(
+                'UPLOAD_CHECKIN_IMAGE',
+                {
+                  checkinId,
+                  username: task.payload.username,
+                  fullname: task.payload.fullname,
+                  timeISO: task.payload.timeISO,
+                  time: task.payload.time,
+                  image: task.payload.image,
+                  sendEmailAfterUpload: task.payload.sendEmailAfterUpload !== false,
+                },
+                { priority: 'high', maxAttempts: 15 }
+              );
             }
             continue;
           }
 
-          // Check for permanent validation rejection (do not retry infinitely)
+          // Allow SCHEDULE_REQUIRED up to 3 attempts in case D1 schedule registration is syncing
+          const errCode = String(res?.code || res?.data?.code || '').trim();
+          const isScheduleFinalRejection = errCode === 'SCHEDULE_REQUIRED' && task.attempts >= 3;
+
           const isPermanentRejection =
-            res?.code === 'OUT_OF_RADIUS' ||
-            res?.code === 'SPOOF_DETECTED' ||
-            res?.code === 'SECURITY_TOKEN_MISMATCH' || res?.code === 'SCHEDULE_REQUIRED' ||
-            res?.code === 'UNAUTHORIZED';
+            errCode === 'OUT_OF_RADIUS' ||
+            errCode === 'SPOOF_DETECTED' ||
+            errCode === 'SECURITY_TOKEN_MISMATCH' ||
+            errCode === 'FACE_VERIFICATION_FAILED' ||
+            errCode === 'FACE_PROFILE_NOT_FOUND' ||
+            errCode === 'MAX_4_PUNCHES' ||
+            errCode === 'COOLDOWN_15M' ||
+            errCode === 'COOLDOWN_30M' ||
+            errCode === 'PHOTO_EXPIRED' ||
+            errCode === 'CLOCK_DESYNC' ||
+            errCode === 'ACCOUNT_INACTIVE' ||
+            errCode === 'UNAUTHORIZED' ||
+            isScheduleFinalRejection;
 
           if (isPermanentRejection) {
-            console.warn(`[OfflineQueue] Task ${task.action} permanently rejected (${res?.code}): ${res?.message}`);
+            console.warn(`[OfflineQueue] Task ${task.action} permanently rejected (${errCode}): ${res?.message}`);
             if (task.action === 'CHECK_IN_OUT') {
+              rollbackRejectedPunchGlobally({
+                checkinId,
+                username: task.payload?.username,
+                fullname: task.payload?.fullname,
+                time: task.payload?.time,
+                reason: res?.message,
+              });
               notifyPunchStatus({
                 checkinId,
                 status: 'failed',
-                message: res?.message || 'Dữ liệu chấm công không hợp lệ theo quy định máy chủ.'
+                message: res?.message || 'Dữ liệu chấm công không hợp lệ theo quy định máy chủ.',
               });
             }
             continue;
           }
 
-          // Server returned false or rate limit / lock busy
-          const isConcurrencyOrLock = res?.code === 'LOCK_TIMEOUT' || res?.code === 'CONCURRENCY_QUEUED' || res?.message?.includes('Lock') || res?.message?.includes('bận');
+          // Server returned temporary error / rate limit / lock busy
+          const isConcurrencyOrLock =
+            errCode === 'LOCK_TIMEOUT' ||
+            errCode === 'CONCURRENCY_QUEUED' ||
+            errCode === 'SCHEDULE_REQUIRED' ||
+            res?.message?.includes('Lock') ||
+            res?.message?.includes('bận');
           if (isConcurrencyOrLock) {
             hasTemporaryErrors = true;
           }
@@ -495,16 +919,17 @@ export async function processQueue(): Promise<void> {
               notifyPunchStatus({
                 checkinId,
                 status: 'pending',
-                message: `Máy chủ bận, sẽ tự động thử lại (Lần ${task.attempts}/${task.maxAttempts})...`
+                message: `Máy chủ bận, sẽ tự động thử lại (Lần ${task.attempts}/${task.maxAttempts})...`,
               });
             }
           } else {
             console.warn(`[OfflineQueue] Dropping task after ${task.attempts} attempts: ${task.action}`);
             if (task.action === 'CHECK_IN_OUT') {
+              markPunchVaultFailed(checkinId, res?.message || 'Max attempts exceeded');
               notifyPunchStatus({
                 checkinId,
                 status: 'failed',
-                message: res?.message || 'Không thể đồng bộ sau nhiều lần thử.'
+                message: res?.message || 'Không thể đồng bộ sau nhiều lần thử.',
               });
             }
           }
@@ -518,7 +943,7 @@ export async function processQueue(): Promise<void> {
             notifyPunchStatus({
               checkinId,
               status: 'pending',
-              message: `Mất kết nối, sẽ tự động thử lại khi có mạng (Lần ${task.attempts}/${task.maxAttempts})...`
+              message: `Mất kết nối, sẽ tự động thử lại khi có mạng (Lần ${task.attempts}/${task.maxAttempts})...`,
             });
           }
         }
@@ -533,7 +958,7 @@ export async function processQueue(): Promise<void> {
       scheduleNextQueueProcessing(retryDelay);
     }
   } finally {
-    isProcessing = false;
+    setQueueProcessing(false);
   }
 }
 
@@ -548,12 +973,14 @@ export function initOfflineQueueSync(): () => void {
 
   const onVisibilityChange = () => {
     if (document.visibilityState === 'visible' && navigator.onLine) {
+      recoverOrphanedVaultPunches();
       processQueue();
     }
   };
 
   const onPageShow = () => {
     if (navigator.onLine) {
+      recoverOrphanedVaultPunches();
       processQueue();
     }
   };

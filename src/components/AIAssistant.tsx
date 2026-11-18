@@ -5,6 +5,7 @@ import { fetchWithRetry } from '../utils/helpers';
 import { escapeHtml } from '../utils/security';
 import { callApi } from '../services/api';
 import { sopData } from '../pages/sopData';
+import { plainSopText, searchSops } from '../utils/sopSearch';
 
 const ASSISTIVE_POS_KEY = 'kg_ai_assistive_pos_v4';
 
@@ -21,6 +22,7 @@ interface Message {
 
 export default function AIAssistant() {
   const currentUser = useAppStore((s) => s.currentUser);
+  const currentTab = useAppStore((s) => s.currentTab);
   const groqKeys = useAppStore((s) => s.groqKeys);
   const chatHistory = useAppStore((s) => s.chatHistory);
   const isAiOpen = useAppStore((s) => s.isAiOpen);
@@ -201,41 +203,29 @@ export default function AIAssistant() {
   }, [messages, isTyping]);
 
   const findRelevantSopContext = (query: string) => {
-    if (!query) return '';
-    const queryLower = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    let context = '';
-    let matchCount = 0;
-    const MAX_MATCHES = 3;
-
-    sopData.forEach(section => {
-      section.content.forEach(item => {
-        const detailsText = item.details.replace(/<[^>]+>/g, ' ').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        const subtitleText = item.subtitle.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-
-        if (subtitleText.toLowerCase().includes(queryLower) || detailsText.toLowerCase().includes(queryLower)) {
-          if (matchCount < MAX_MATCHES) {
-            context += `\n\n---Bối cảnh từ mục: ${section.title} - ${item.subtitle}---\n${item.details.replace(/<[^>]+>/g, ' ')}\n---Kết thúc bối cảnh---`;
-            matchCount++;
-          }
-        }
-      });
-    });
-
-    return context;
+    if (!query || !query.trim()) return '';
+    const matches = searchSops(sopData, query, 'all', currentUser?.position).slice(0, 3);
+    if (matches.length === 0) return '';
+    return matches
+      .map(
+        (m) =>
+          `\n\n---Bối cảnh từ mục: ${m.sectionTitle} - ${m.item.subtitle}---\n${plainSopText(m.item.details)}\n---Kết thúc bối cảnh---`,
+      )
+      .join('');
   };
 
   const generateSystemPrompt = (userQuery?: string) => {
     const {
       logs,
       shiftData,
-      checklistItems,
       adminSchedules,
       aiPrompts,
       payrollData,
-      checklistLogs,
       approvedShifts,
       currentWeekApprovedShifts,
       shiftName,
+      todayChecklistDone,
+      todayHandoverDone,
     } = useAppStore.getState();
 
     const today = new Date().toLocaleDateString('vi-VN');
@@ -253,7 +243,9 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
       const activeShiftsForToday = currentWeekApprovedShifts ?? approvedShifts;
       const todayShift = activeShiftsForToday ? activeShiftsForToday[dayIdx] : 'Chưa xếp ca';
       prompt += `- Lịch làm hôm nay của ${currentUser?.fullname}: ${todayShift}.\n`;
-      const activeShifts = Object.entries(shiftData).filter(([_, v]) => v && v !== 'OFF').map(([k, v]) => `${k}: ${v}`);
+      const activeShifts = Object.entries(shiftData)
+        .filter(([, v]) => v && v !== 'OFF')
+        .map(([k, v]) => `${k}: ${v}`);
       prompt += `- Lịch nguyên tuần: ${activeShifts.length > 0 ? activeShifts.join(', ') : 'Chưa có'}.\n`;
     }
 
@@ -279,34 +271,39 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
       prompt += `- Tình trạng chấm công: Chưa có dữ liệu.\n`;
     }
 
-    // Add Checklist context
-    if (checklistItems && checklistItems.length > 0) {
-      const role = currentUser?.position || 'Phục vụ';
-      const applicableTasks = checklistItems.filter(c => 
-        c.isActive && 
-        c.isRequired && 
-        (c.targetPosition === 'Tất cả' || c.targetPosition.includes(role)) &&
-        (c.targetShift === 'Tất cả' || shiftName.includes(c.targetShift))
-      );
-      
-      const todayStr = new Date().toISOString().split('T')[0];
-      const logForShift = checklistLogs?.find(l => l.date === todayStr && l.username === currentUser?.username && shiftName.includes(l.shift));
-      
-      if (applicableTasks.length > 0) {
-        const completedIds = logForShift ? logForShift.checkedTasks : [];
-        const pendingTasks = applicableTasks.filter(t => !completedIds.includes(t.id));
-        
-        if (pendingTasks.length > 0) {
-          prompt += `- Checklist tồn đọng (chưa hoàn thành trong ca này): ${pendingTasks.map(t => t.taskName).join('; ')}.\n`;
-        } else {
-          prompt += `- Checklist: Đã hoàn thành 100% công việc trong ca này. Rất tốt!\n`;
-        }
-      } else {
-        prompt += `- Checklist: Hiện tại không có hạng mục nào bắt buộc cho vị trí này trong ca này.\n`;
+    // Add 4-Area Operations Checklist & Handover context
+    const AREA_LABELS: Record<string, string> = {
+      A: 'Khu A (Sảnh trước & Bàn ăn)',
+      B: 'Khu B (Quầy Bar & Thu ngân)',
+      C: 'Khu C (Bếp & Kho thực phẩm)',
+      'D&E': 'Khu D&E (Sảnh sau & Khu WC)',
+    };
+    let activeArea = '';
+    let pendingDraftAreas: string[] = [];
+    try {
+      const sessionRaw = localStorage.getItem('kg_ops_checklist_session_v7');
+      if (sessionRaw) {
+        const parsedSession = JSON.parse(sessionRaw) as { area?: string };
+        if (parsedSession?.area) activeArea = AREA_LABELS[parsedSession.area] || parsedSession.area;
       }
-    } else {
-      prompt += `- Checklist: Chưa có dữ liệu bộ nhớ đệm (Hãy hướng dẫn người dùng tự mở tab Checklist để đồng bộ).\n`;
+      const d = new Date();
+      const localDate = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+      const draftKey = `kg_ops_checklist_draft_${currentUser?.username || 'anon'}_${localDate}_${shiftName || 'default'}`;
+      const draftRaw = localStorage.getItem(draftKey);
+      if (draftRaw) {
+        const draftMap = JSON.parse(draftRaw) as Record<string, unknown>;
+        pendingDraftAreas = Object.keys(draftMap || {});
+      }
+    } catch {
+      // ignore storage errors
     }
+
+    prompt += `- Checklist vận hành 4 phân khu (A, B, C, D&E): ${
+      todayChecklistDone ? 'Đã có ghi nhận hoàn thành/đồng bộ trong ngày hôm nay' : 'Chưa ghi nhận đồng bộ hoàn tất hôm nay'
+    }${activeArea ? ` · Phân khu đang mở gần nhất: ${activeArea}` : ''}${
+      pendingDraftAreas.length > 0 ? ` · Có bản nháp chưa đồng bộ tại khu: ${pendingDraftAreas.join(', ')}` : ''
+    }.\n`;
+    prompt += `- Bàn giao két ca trực hôm nay: ${todayHandoverDone ? 'Đã chốt bàn giao' : 'Chưa chốt bàn giao'}.\n`;
 
     // Add active Custom AI Prompts
     if (aiPrompts && aiPrompts.length > 0) {
@@ -480,6 +477,7 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
   };
 
   if (!currentUser) return null; // Chỉ hiện khi đã đăng nhập
+  if (currentTab === 'checkin' && !isAiOpen) return null; // Không che khuất camera & nút GPS trên màn Chấm công
 
   const minSafeTop = 72;
   const maxSafeTop = Math.max(minSafeTop, viewport.h - (viewport.w < 768 ? 156 : 96));
@@ -522,50 +520,56 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
                   }
                 : {
                     top: `${snappedTop}px`,
-                    ...(pos.side === 'left' ? { left: '0px' } : { right: '0px' }),
-                    transition: 'top 220ms cubic-bezier(0.22, 1, 0.36, 1)',
+                    ...(pos.side === 'left'
+                      ? { left: isTucked ? '0px' : '6px' }
+                      : { right: isTucked ? '0px' : '6px' }),
+                    transition: 'top 220ms cubic-bezier(0.22, 1, 0.36, 1), left 180ms ease, right 180ms ease',
                   }
             }
-            className="fixed w-11 h-11 pointer-events-auto touch-none select-none flex items-center justify-center focus-visible:outline-none cursor-grab active:cursor-grabbing group"
+            className={`fixed ${
+              isTucked && !isActivelyMoved ? 'w-9 sm:w-10 h-11' : 'w-11 h-11'
+            } pointer-events-auto touch-none select-none flex items-center justify-center focus-visible:outline-none cursor-grab active:cursor-grabbing group`}
             title="Trợ lý AI King's Grill (Giữ & kéo như nút Home ảo, thả tay tự ẩn vào mép)"
             aria-label="Mở Trợ lý AI King's Grill (có thể giữ kéo di chuyển)"
           >
             <span
-              className={`w-11 h-11 rounded-[15px] bg-[#0B253C]/95 dark:bg-[#1B2230]/95 backdrop-blur-md border border-white/25 shadow-lg flex items-center justify-center relative transition-all duration-200 ${
+              className={`bg-[#0B253C]/95 dark:bg-[#1B2230]/95 backdrop-blur-md shadow-lg flex items-center justify-center relative transition-all duration-200 ${
                 isActivelyMoved
-                  ? 'scale-110 ring-2 ring-[#C8432B]/70 opacity-100'
+                  ? 'w-11 h-11 rounded-[15px] border border-white/25 scale-110 ring-2 ring-[#C8432B]/70 opacity-100'
                   : isTucked
                     ? pos.side === 'right'
-                      ? 'translate-x-[18px] opacity-85 group-hover:translate-x-[-4px] group-hover:opacity-100'
-                      : '-translate-x-[18px] opacity-85 group-hover:translate-x-[4px] group-hover:opacity-100'
-                    : pos.side === 'right'
-                      ? '-translate-x-1.5 opacity-95'
-                      : 'translate-x-1.5 opacity-95'
+                      ? 'w-8 group-hover:w-10 h-11 ml-auto rounded-l-2xl border-y border-l border-white/25 opacity-85 group-hover:opacity-100'
+                      : 'w-8 group-hover:w-10 h-11 mr-auto rounded-r-2xl border-y border-r border-white/25 opacity-85 group-hover:opacity-100'
+                    : 'w-11 h-11 rounded-[15px] border border-white/25 opacity-95'
               }`}
             >
               {/* AssistiveTouch Inner Tactile Ring */}
-              <span className="w-7 h-7 rounded-[10px] bg-white/15 border border-white/25 flex items-center justify-center">
-                <Sparkles size={15} className="text-amber-300" />
+              <span
+                className={`${
+                  isTucked && !isActivelyMoved ? 'w-6 h-6 rounded-lg' : 'w-7 h-7 rounded-[10px]'
+                } bg-white/15 border border-white/25 flex items-center justify-center transition-all`}
+              >
+                <Sparkles size={isTucked && !isActivelyMoved ? 13 : 15} className="text-amber-300" />
               </span>
 
               {/* Subtle Edge Peek Indicator when Tucked */}
               {isTucked && !isActivelyMoved && (
                 <span
                   aria-hidden="true"
-                  className={`absolute top-1/2 -translate-y-1/2 text-white/80 ${
-                    pos.side === 'right' ? 'left-0.5' : 'right-0.5'
+                  className={`absolute top-1/2 -translate-y-1/2 text-white/75 ${
+                    pos.side === 'right' ? 'left-0' : 'right-0'
                   }`}
                 >
-                  {pos.side === 'right' ? <ChevronLeft size={11} /> : <ChevronRight size={11} />}
+                  {pos.side === 'right' ? <ChevronLeft size={10} /> : <ChevronRight size={10} />}
                 </span>
               )}
 
               {/* Ember Status Dot */}
               <span
                 aria-hidden="true"
-                className={`absolute -top-0.5 ${
-                  pos.side === 'right' ? 'left-0.5' : 'right-0.5'
-                } w-2.5 h-2.5 rounded-full bg-[#C8432B] border border-white`}
+                className={`absolute top-0.5 ${
+                  pos.side === 'right' ? 'left-1' : 'right-1'
+                } w-2 h-2 rounded-full bg-[#C8432B] border border-white`}
               />
             </span>
           </button>

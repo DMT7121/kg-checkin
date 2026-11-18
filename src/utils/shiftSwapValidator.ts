@@ -1,10 +1,11 @@
 import { isWorkEligible } from './employment';
+import type { User } from '../store/useAppStore';
 
 export interface SmartSwapEmployeeRef {
   username: string;
   fullname: string;
   position?: string;
-  employmentStatus?: string;
+  employmentStatus?: User['employmentStatus'] | string;
 }
 
 export interface SmartShiftSwapValidationInput {
@@ -107,7 +108,12 @@ export function validateSmartShiftSwap(
     };
   }
 
-  if (input.targetEmployee && !isWorkEligible(input.targetEmployee)) {
+  if (
+    input.targetEmployee &&
+    !isWorkEligible({
+      employmentStatus: input.targetEmployee.employmentStatus as User['employmentStatus'],
+    })
+  ) {
     return {
       valid: false,
       canProceedWithWarning: false,

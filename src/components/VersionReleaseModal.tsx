@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -26,6 +26,7 @@ import {
 } from '../config/releaseNotes';
 import { useAppStore } from '../store/useAppStore';
 import { KgButton } from './KgDesignSystem';
+import { useDialogA11y, useModalQueue } from '../utils/modalQueue';
 
 type MainViewTab = 'overview' | 'details' | 'history';
 type DetailCategoryFilter = 'all' | ReleaseChangeCategory;
@@ -136,10 +137,15 @@ const OVERVIEW_GROUP_ORDER: ReleaseChangeCategory[] = ['updated', 'added', 'rede
 
 export default function VersionReleaseModal() {
   const currentUser = useAppStore((s) => s.currentUser);
+  const currentTab = useAppStore((s) => s.currentTab);
   const [isOpen, setIsOpen] = useState(false);
+  const [isManualOpen, setIsManualOpen] = useState(false);
   const [activeView, setActiveView] = useState<MainViewTab>('overview');
   const [detailFilter, setDetailFilter] = useState<DetailCategoryFilter>('all');
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const wantOpen = isOpen && (currentTab !== 'checkin' || isManualOpen);
+  const effectiveOpen = useModalQueue('version_release', wantOpen);
 
   const toggleExpand = (id: string) => {
     setExpandedIds((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -152,6 +158,7 @@ export default function VersionReleaseModal() {
     } catch {
       /* ignore */
     }
+    setIsManualOpen(false);
     setIsOpen(false);
   }, []);
 
@@ -170,42 +177,40 @@ export default function VersionReleaseModal() {
         setActiveView('overview');
         setDetailFilter('all');
       }
+      setIsManualOpen(true);
       setIsOpen(true);
     };
     window.addEventListener('kg:open-release-notes', handleOpen);
     return () => window.removeEventListener('kg:open-release-notes', handleOpen);
   }, []);
 
-  // Auto-open ONCE when user enters the upgraded workspace for the first time
+  // Auto-open ONCE when user enters the upgraded workspace for the first time (never interrupt active camera check-in!)
   useEffect(() => {
-    if (!currentUser?.username) return;
+    if (!currentUser?.username || currentTab === 'checkin') return;
     try {
       const params = new URLSearchParams(window.location.search);
       if (params.get('quietRelease') === '1') return;
       const alreadySeen = localStorage.getItem(SEEN_VERSION_STORAGE_KEY) === '1';
       if (!alreadySeen) {
         const timer = window.setTimeout(() => {
-          setIsOpen(true);
+          if (useAppStore.getState().currentTab !== 'checkin') {
+            setIsManualOpen(false);
+            setIsOpen(true);
+          }
         }, 550);
         return () => window.clearTimeout(timer);
       }
     } catch {
       /* ignore */
     }
-  }, [currentUser?.username]);
+  }, [currentUser?.username, currentTab]);
 
-  // Close on Escape
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        handleClose();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [isOpen, handleClose]);
+  useDialogA11y({
+    isOpen: effectiveOpen,
+    containerRef: dialogRef,
+    onClose: handleClose,
+    closeOnEscape: true,
+  });
 
   if (typeof document === 'undefined') return null;
 
@@ -216,8 +221,8 @@ export default function VersionReleaseModal() {
 
   return createPortal(
     <AnimatePresence>
-      {isOpen && (
-        <div className="fixed inset-0 z-[10060] flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6">
+      {effectiveOpen && (
+        <div className="fixed inset-0 z-[10070] flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6">
           {/* Backdrop synchronized with KgBottomSheet */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -230,6 +235,8 @@ export default function VersionReleaseModal() {
 
           {/* Dialog Surface synchronized 100% with KgBottomSheet & Warm Hospitality tokens */}
           <motion.div
+            ref={dialogRef}
+            tabIndex={-1}
             role="dialog"
             aria-modal="true"
             aria-labelledby="kg-release-modal-title"
@@ -238,7 +245,7 @@ export default function VersionReleaseModal() {
             exit={{ opacity: 0, y: 18, scale: 0.98 }}
             transition={{ duration: 0.18, ease: [0.2, 0, 0, 1] }}
             onClick={(e) => e.stopPropagation()}
-            className="relative z-10 w-full sm:max-w-xl max-h-[88dvh] sm:max-h-[84vh] mx-auto bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-t-2xl sm:rounded-2xl border border-[var(--kg-border)] shadow-2xl flex flex-col pointer-events-auto overflow-hidden pb-safe"
+            className="relative z-10 w-full sm:max-w-xl max-h-[88dvh] sm:max-h-[84vh] mx-auto bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-t-2xl sm:rounded-2xl border border-[var(--kg-border)] shadow-2xl flex flex-col pointer-events-auto overflow-hidden pb-safe focus:outline-none"
           >
             {/* Subtle Brand Top Accent Line */}
             <div className="h-[3px] w-full bg-[var(--kg-accent)] flex-shrink-0" />
@@ -277,7 +284,7 @@ export default function VersionReleaseModal() {
                   type="button"
                   onClick={handleClose}
                   aria-label="Đóng thông tin phiên bản"
-                  className="w-9 h-9 rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] active:scale-95 transition-colors flex-shrink-0 touch-manipulation"
+                  className="w-11 h-11 sm:w-9 sm:h-9 rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] active:scale-95 transition-colors flex-shrink-0 touch-manipulation"
                 >
                   <X size={16} />
                 </button>
@@ -537,7 +544,7 @@ export default function VersionReleaseModal() {
                         </div>
                         <div className="flex items-center gap-1.5 flex-shrink-0">
                           {ver.isCurrent && (
-                            <span className="px-2 py-0.5 rounded-full bg-[var(--kg-accent)] text-white text-[10px] font-bold uppercase tracking-wider">
+                            <span className="px-2 py-0.5 rounded-full bg-[var(--kg-accent)] text-white dark:text-[#0D1015] text-[10px] font-bold uppercase tracking-wider">
                               Hiện hành
                             </span>
                           )}
@@ -579,7 +586,7 @@ export default function VersionReleaseModal() {
                 variant="primary"
                 size="sm"
                 onClick={handleClose}
-                className="px-4 min-h-[38px] font-bold flex-shrink-0"
+                className="px-4 font-bold flex-shrink-0"
               >
                 Đã hiểu
               </KgButton>

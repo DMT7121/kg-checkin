@@ -22,6 +22,32 @@ const APP_CACHE_KEY = 'kg_app_cache_v2';
 let refreshInFlight: Promise<void> | null = null;
 let cacheWriteHandle: number | ReturnType<typeof setTimeout> | null = null;
 let cacheWriteIsIdle = false;
+let resolvedCurrentWeekKey: string | null = null;
+let isRefreshingState = false;
+const refreshingListeners = new Set<(refreshing: boolean) => void>();
+
+export function isAppRefreshing(): boolean {
+  return isRefreshingState;
+}
+
+export function subscribeAppRefreshing(listener: (refreshing: boolean) => void): () => void {
+  refreshingListeners.add(listener);
+  return () => {
+    refreshingListeners.delete(listener);
+  };
+}
+
+function setRefreshingState(next: boolean): void {
+  if (isRefreshingState === next) return;
+  isRefreshingState = next;
+  refreshingListeners.forEach((fn) => {
+    try {
+      fn(next);
+    } catch {
+      /* ignore listener errors */
+    }
+  });
+}
 
 // === Phase B [2.1]: Expanded localStorage keys ===
 const CACHE_KEYS = {
@@ -463,39 +489,48 @@ async function performRefresh(force: boolean): Promise<void> {
 
   if (res?.ok) {
     hydrateStore(res.data);
-    // Backward compatibility if live GAS has not been redeployed with currentWeekApprovedShifts yet
-    if (res.data.currentWeekApprovedShifts === undefined) {
-      if (
-        currentWeekInfo.monthSheet === weekInfo.monthSheet &&
-        currentWeekInfo.weekLabel === weekInfo.weekLabel
-      ) {
-        useAppStore.getState().setCurrentWeekApprovedShifts(res.data.approvedShifts ?? null);
-      } else {
-        callApi(
-          'GET_DATA',
-          {
-            username: currentUser.username,
-            fullname: currentUser.fullname,
-            role: currentUser.role,
-            monthSheet: currentWeekInfo.monthSheet,
-            weekLabel: currentWeekInfo.weekLabel,
-          },
-          { background: true }
-        ).then((curRes) => {
-          if (curRes?.ok) {
-            const curApproved = curRes.data?.approvedShifts ?? null;
-            useAppStore.getState().setCurrentWeekApprovedShifts(curApproved);
-            persistToCache({ currentWeekApprovedShifts: curApproved });
-          }
-        });
-      }
+    const cleanUsername = (currentUser.username || '').trim().toLowerCase();
+    const currentWeekCacheKey = `${cleanUsername}|${currentWeekInfo.monthSheet}|${currentWeekInfo.weekLabel}`;
+    if (res.data.currentWeekApprovedShifts !== undefined) {
+      resolvedCurrentWeekKey = currentWeekCacheKey;
+    } else if (
+      currentWeekInfo.monthSheet === weekInfo.monthSheet &&
+      currentWeekInfo.weekLabel === weekInfo.weekLabel
+    ) {
+      useAppStore.getState().setCurrentWeekApprovedShifts(res.data.approvedShifts ?? null);
+      resolvedCurrentWeekKey = currentWeekCacheKey;
+    } else if (resolvedCurrentWeekKey !== currentWeekCacheKey) {
+      resolvedCurrentWeekKey = currentWeekCacheKey;
+      callApi(
+        'GET_DATA',
+        {
+          username: currentUser.username,
+          fullname: currentUser.fullname,
+          role: currentUser.role,
+          monthSheet: currentWeekInfo.monthSheet,
+          weekLabel: currentWeekInfo.weekLabel,
+        },
+        { background: true }
+      ).then((curRes) => {
+        if (curRes?.ok) {
+          const curApproved = curRes.data?.approvedShifts ?? null;
+          useAppStore.getState().setCurrentWeekApprovedShifts(curApproved);
+          persistToCache({ currentWeekApprovedShifts: curApproved });
+        }
+      });
     }
-    if (res.data.employmentProfile) {
+    if (res.data.employmentProfile && typeof res.data.employmentProfile === 'object') {
       const latestUser = useAppStore.getState().currentUser;
       if (latestUser) {
-        const refreshedUser = { ...latestUser, ...res.data.employmentProfile };
-        useAppStore.getState().setCurrentUser(refreshedUser);
-        localStorage.setItem('kg_user', JSON.stringify(refreshedUser));
+        const profilePatch = res.data.employmentProfile as Record<string, unknown>;
+        const hasProfileChanges = Object.keys(profilePatch).some(
+          (k) => (latestUser as unknown as Record<string, unknown>)[k] !== profilePatch[k]
+        );
+        if (hasProfileChanges) {
+          const refreshedUser = { ...latestUser, ...res.data.employmentProfile };
+          useAppStore.getState().setCurrentUser(refreshedUser);
+          localStorage.setItem('kg_user', JSON.stringify(refreshedUser));
+        }
       }
     }
     persistToCache(res.data);
@@ -504,8 +539,10 @@ async function performRefresh(force: boolean): Promise<void> {
 
 export function refreshAppData(force = false): Promise<void> {
   if (refreshInFlight) return refreshInFlight;
+  setRefreshingState(true);
   refreshInFlight = performRefresh(force).finally(() => {
     refreshInFlight = null;
+    setRefreshingState(false);
   });
   return refreshInFlight;
 }

@@ -963,8 +963,8 @@ function handleCheckInOut(payload) {
   var isAuthorizedTest = (cleanUser === 'admin' || cleanUser === 'testapp' || cleanUser === 'tester');
   
   var gpsConfig = getGpsConfig();
-  var targetLat = (gpsConfig && gpsConfig.lat) ? Number(gpsConfig.lat) : 10.976083;
-  var targetLng = (gpsConfig && gpsConfig.lng) ? Number(gpsConfig.lng) : 106.664654;
+  var targetLat = (gpsConfig && gpsConfig.lat) ? Number(gpsConfig.lat) : 10.9760327;
+  var targetLng = (gpsConfig && gpsConfig.lng) ? Number(gpsConfig.lng) : 106.6645922;
   var rawRadius = (gpsConfig && gpsConfig.radius > 0) ? Number(gpsConfig.radius) : 25;
   var allowedRadius = (rawRadius === 20) ? 25 : rawRadius;
 
@@ -995,9 +995,9 @@ function handleCheckInOut(payload) {
     }
   }
 
-  // Tính toán sai số GPS trong nhà (indoor multipath allowance tối đa 10m, đồng bộ 100% với client)
+  // Tính toán sai số GPS trong nhà (indoor multipath allowance tối đa 15m, đồng bộ 100% giữa v1 và v2)
   var gpsAcc = Number(payload.gpsAccuracy) || 0;
-  var indoorAllowance = Math.min(Math.max(0, gpsAcc) * 0.35, 10);
+  var indoorAllowance = Math.min(Math.max(0, gpsAcc) * 0.45, 15);
   var effectiveDist = Math.max(0, distMeters - indoorAllowance);
 
   // Chặn tuyệt đối nếu vượt quá bán kính quy định (ngoại trừ tài khoản test được cấp quyền)
@@ -1059,6 +1059,15 @@ function handleCheckInOut(payload) {
     time = new Date();
   }
 
+  // === 2B. XÁC THỰC VECTOR SINH TRẮC HỌC KHUÔN MẶT TRÊN MÁY CHỦ (CHO CHẾ ĐỘ V2_FACE) ===
+  var isFaceV2Mode = (payload.checkinMode === 'v2_face');
+  var scheduleWarning = false;
+  var scheduleWeekDisplay = '';
+  if (isFaceV2Mode && !isAuthorizedTest) {
+    var faceVerifyErr = verifyEmployeeFaceVectorGas_(ss, cleanUser, payload.liveVectorB64);
+    if (faceVerifyErr) return faceVerifyErr;
+  }
+
   // === 2C. BẮT BUỘC 100% ĐĂNG KÝ LỊCH LÀM TUẦN TỚI TRƯỚC 17:00 THỨ BẢY (T5 00:00 -> T7 16:59:59 VN) ===
   if (!isAuthorizedTest) {
     var checkEmpProfile = payload.username ? getEmploymentProfileByUsername(payload.username) : null;
@@ -1081,47 +1090,99 @@ function handleCheckInOut(payload) {
           isNextWeekReg = !!(schedCheck && schedCheck.isScheduleRegistered);
         }
         if (!isNextWeekReg) {
-          return jsonResponse(false, {
-            code: 'SCHEDULE_REQUIRED',
-            weekDisplay: winInfo.weekDisplay,
-            monthSheet: winInfo.monthSheet,
-            weekLabel: winInfo.weekLabel,
-            message: 'Bắt buộc đăng ký ca làm tuần tới (' + winInfo.weekDisplay + ') trước khi chấm công! Vui lòng hoàn tất đăng ký ca đủ 7 ngày (trước 17:00 Thứ Bảy) rồi chấm công lại.'
-          });
+          if (isFaceV2Mode) {
+            scheduleWarning = true;
+            scheduleWeekDisplay = winInfo.weekDisplay;
+          } else {
+            return jsonResponse(false, {
+              code: 'SCHEDULE_REQUIRED',
+              weekDisplay: winInfo.weekDisplay,
+              monthSheet: winInfo.monthSheet,
+              weekLabel: winInfo.weekLabel,
+              message: 'Bắt buộc đăng ký ca làm tuần tới (' + winInfo.weekDisplay + ') trước khi chấm công! Vui lòng hoàn tất đăng ký ca đủ 7 ngày (trước 17:00 Thứ Bảy) rồi chấm công lại.'
+            });
+          }
         }
       }
     }
   }
   
-  // === COL A: HỌ VÀ TÊN ===
-  var hoVaTen = payload.fullname;
+  // === COL A: HỌ VÀ TÊN (Chuẩn hóa 100% theo bảng DATA giống bản v1 để khớp bảng TỔNG HỢP) ===
+  var empProfileForPunch = payload.username ? getEmploymentProfileByUsername(payload.username) : null;
+  var hoVaTen = (empProfileForPunch && empProfileForPunch.fullname)
+    ? String(empProfileForPunch.fullname).trim()
+    : String(payload.fullname || payload.username || '').trim();
   
-  // === COL B: LOẠI CHẤM CÔNG ===
-  var loaiChamCong = payload.type; // "Vào ca" / "Ra ca"
+  // === COL B: LOẠI CHẤM CÔNG (Chuẩn hóa thống nhất "Vào ca" / "Ra ca" cho cả v1 & v2) ===
+  var rawIncomingType = String(payload.type || '').trim();
+  var isExplicitShift2In = /^\s*(vào(\s+ca)?\s*[2-9]|in\s*[2-9])\b/i.test(rawIncomingType);
+  var loaiChamCong = rawIncomingType;
+  if (isCheckInStatus_(rawIncomingType)) {
+    loaiChamCong = 'Vào ca';
+  } else if (isCheckOutStatus_(rawIncomingType)) {
+    loaiChamCong = 'Ra ca';
+  }
+  var incomingCheckinId = payload.checkinId ? String(payload.checkinId).trim() : '';
+  var hasPriorCheckInInWorkdayCycle = false;
 
-  // === ANTI-SPAM: 15 MINUTES COOLDOWN RULE (Enforced for all check-ins) ===
-  if (!payload.bypassCooldown) {
-    try {
-      var numRows = Math.min(Math.max(1, sheet.getLastRow() - 1), 150);
-      var lastCheckRows = sheet.getRange(2, 1, numRows, 8).getValues();
-      var cleanTargetName = hoVaTen ? hoVaTen.trim().toLowerCase() : '';
-      var cleanTargetUser = payload.username ? payload.username.trim().toLowerCase() : '';
-      var nowMs = time ? time.getTime() : new Date().getTime();
-      
-      for (var ci = 0; ci < lastCheckRows.length; ci++) {
-        var cRow = lastCheckRows[ci];
-        if (!cRow[0]) continue;
-        var cName = cRow[0].toString().trim().toLowerCase();
-        var cJson = null;
-        if (cRow[7]) {
-          try { cJson = typeof cRow[7] === 'string' ? JSON.parse(cRow[7]) : cRow[7]; } catch(e){}
+  // === ANTI-SPAM: 15 MINUTES COOLDOWN RULE + IDEMPOTENT CHECKIN_ID DEDUPLICATION + WORKDAY PRIOR-IN CHECK ===
+  try {
+    var numRows = Math.min(Math.max(1, sheet.getLastRow() - 1), 150);
+    var lastCheckRows = sheet.getLastRow() >= 2 ? sheet.getRange(2, 1, numRows, 8).getValues() : [];
+    var cleanTargetName = hoVaTen ? hoVaTen.trim().toLowerCase() : '';
+    var cleanTargetUser = payload.username ? payload.username.trim().toLowerCase() : '';
+    var nowMs = time ? time.getTime() : new Date().getTime();
+    var vnShiftMs = 7 * 3600 * 1000;
+    var vnRef = new Date(nowMs + vnShiftMs);
+    var cycleDayOffset = vnRef.getUTCHours() < 6 ? -1 : 0;
+    var workdayCycleStartMs = Date.UTC(
+      vnRef.getUTCFullYear(),
+      vnRef.getUTCMonth(),
+      vnRef.getUTCDate() + cycleDayOffset,
+      6, 0, 0, 0
+    ) - vnShiftMs;
+    var checkedLatestForUser = false;
+
+    for (var ci = 0; ci < lastCheckRows.length; ci++) {
+      var cRow = lastCheckRows[ci];
+      if (!cRow[0]) continue;
+      var cJson = null;
+      if (cRow[7]) {
+        try { cJson = typeof cRow[7] === 'string' ? JSON.parse(cRow[7]) : cRow[7]; } catch(e){}
+      }
+      // 1. Idempotent retry of the EXACT SAME checkinId -> return success without duplicating!
+      if (incomingCheckinId && cJson && cJson.checkinId && String(cJson.checkinId) === incomingCheckinId) {
+        var savedTimeFmt = cRow[2] ? cRow[2].toString().replace(/^'/, '') : '';
+        return jsonResponse(true, {
+          message: 'Đã ghi nhận thành công vào Bảng chấm công 100%!',
+          sheetSaved: true,
+          alreadySaved: true,
+          checkinId: incomingCheckinId,
+          type: String(cRow[1] || loaiChamCong),
+          fullname: hoVaTen,
+          thoiGian: savedTimeFmt,
+          timeISO: (cJson.timestamp || (time ? time.toISOString() : new Date().toISOString())),
+          viTri: cRow[3] || '',
+          isValid: String(cRow[4] || '') === 'Hợp lệ'
+        });
+      }
+
+      var isApprovedIn = isCheckInStatus_(cRow[1]);
+      var isApprovedOut = isCheckOutStatus_(cRow[1]);
+      if (!isApprovedIn && !isApprovedOut) continue;
+
+      var isMatch = matchesAttendancePersonGas_(cRow[0], cJson, cleanTargetUser, cleanTargetName);
+
+      if (isMatch) {
+        var lastLogTs = getLogTimestampSafe(cRow[2], cRow[7]);
+        if (isApprovedIn && lastLogTs >= workdayCycleStartMs && lastLogTs <= nowMs + 60000) {
+          hasPriorCheckInInWorkdayCycle = true;
         }
-        var isMatch = (cleanTargetName && cName === cleanTargetName) ||
-                      (cleanTargetUser && cName === cleanTargetUser) ||
-                      (cJson && cJson.username && cJson.username.toString().toLowerCase() === cleanTargetUser);
-                      
-        if (isMatch) {
-          var lastLogTs = getLogTimestampSafe(cRow[2], cRow[7]);
+        if (
+          !payload.bypassCooldown &&
+          !payload.isOfflineRetry &&
+          !isMissedSupplementRowGas_(cRow[3], cRow[4], cJson)
+        ) {
           if (lastLogTs > 0) {
             var diffMs = nowMs - lastLogTs;
             if (diffMs >= 0 && diffMs < 15 * 60 * 1000) {
@@ -1129,27 +1190,29 @@ function handleCheckInOut(payload) {
               var remainingSecs = Math.ceil((15 * 60 * 1000 - diffMs) / 1000);
               var remainingMins = Math.ceil(remainingSecs / 60);
               return jsonResponse(false, {
-                code: 'ALREADY_CHECKED_IN',
+                code: 'COOLDOWN_15M',
                 isSpamCooldown: true,
+                remainingSeconds: remainingSecs,
+                lastType: String(cRow[1] || ''),
                 lastTime: lastFormatted,
-                message: 'Hệ thống chống spam: Bạn vừa chấm công lúc ' + lastFormatted + '. Quy định tối thiểu sau 15 phút mới được chấm tiếp (vui lòng đợi thêm ' + remainingMins + ' phút).'
+                message: 'Hệ thống chống chấm lặp: Nhân sự vừa chấm công lúc ' + lastFormatted + '. Quy định tối thiểu sau 15 phút mới được chấm lượt tiếp theo (vui lòng đợi thêm ' + remainingMins + ' phút).'
               });
             }
           }
-          break; // Đã tìm thấy lượt chấm công mới nhất của nhân viên này
         }
       }
-    } catch(spamErr) {
-      Logger.log('Cooldown check error: ' + spamErr.message);
     }
+  } catch(spamErr) {
+    Logger.log('Cooldown check error: ' + spamErr.message);
   }
   
-  // === PHASE 2: Auto Shift Lookup & Late Calculation ===
+  // === PHASE 2: Auto Shift Lookup & Late Calculation (chỉ áp dụng cho lượt Vào ca đầu tiên trong chu kỳ 06:00 -> 05:59) ===
   var serverShift = '';
   var serverLateMins = 0;
   var checklistPending = false;
   
-  if (loaiChamCong.indexOf('Vào ca') === 0 || loaiChamCong === 'IN') {
+  var suspectedMissedCheckIn = false;
+  if (isPrimaryCheckInStatus_(loaiChamCong) && !isExplicitShift2In && !hasPriorCheckInInWorkdayCycle) {
     // 1. Find today's shift from schedule sheet
     try {
       var todayDate = time;
@@ -1192,9 +1255,14 @@ function handleCheckInOut(payload) {
           
           var isApproval = cellStr.indexOf('┗') >= 0;
           var cleanName = isApproval ? cellStr.replace('┗ ', '').replace('┗', '').trim() : cellStr.trim();
-          
-          if (cleanName.toLowerCase() === payload.fullname.toLowerCase()) {
+          var targetLookupName = hoVaTen || payload.fullname || '';
+          var isScheduleMatch = cleanName && targetLookupName && (
+            cleanName.toLowerCase() === targetLookupName.toLowerCase() ||
+            (typeof normalizeSchedulePersonName === 'function' && normalizeSchedulePersonName(cleanName) === normalizeSchedulePersonName(targetLookupName))
+          );
+          if (isScheduleMatch) {
             var shiftVal = schedData[si][dayIdx + 1] ? schedData[si][dayIdx + 1].toString().trim() : 'OFF';
+            if (typeof safeShiftValue === 'function') shiftVal = safeShiftValue(shiftVal);
             if (shiftVal === '' || shiftVal === '0:00' || shiftVal === '00:00') shiftVal = 'OFF';
             if (isApproval) { serverShift = shiftVal; }
             else if (!serverShift) { serverShift = shiftVal; }
@@ -1237,7 +1305,10 @@ function handleCheckInOut(payload) {
   }
   
   // Apply late info to check-in type
-  if (serverLateMins > 5) {
+  if (serverLateMins > 120) {
+    suspectedMissedCheckIn = true;
+    loaiChamCong += ' (Lệch ca >2h - Chờ đối soát)';
+  } else if (serverLateMins > 5) {
     loaiChamCong += ' (Trễ ' + serverLateMins + 'p)';
   } else if (payload.lateMins && payload.lateMins > 0) {
     loaiChamCong += ' (Trễ ' + payload.lateMins + 'p)';
@@ -1259,7 +1330,7 @@ function handleCheckInOut(payload) {
   }
   
   // === COL F: KHOẢNG CÁCH (meters) & COL E: XÁC MINH ===
-  var isValid = isAuthorizedTest || (distMeters <= allowedRadius);
+  var isValid = isAuthorizedTest || (effectiveDist <= allowedRadius);
   var xacMinh = isValid ? 'Hợp lệ' : 'Không hợp lệ';
   
   // === COL G: LINK HÌNH ẢNH & UNIQUE CHECKIN ID ===
@@ -1295,14 +1366,76 @@ function handleCheckInOut(payload) {
     toaDo: { lat: payload.lat, lng: payload.lng },
     caLam: serverShift || payload.shift || '',
     diTre: serverLateMins || payload.lateMins || 0,
+    checkinMode: payload.checkinMode || 'v1_manual',
+    suspectedMissedCheckIn: suspectedMissedCheckIn,
+    scheduleWarning: scheduleWarning,
+    emailSent: false,
     timestamp: time.toISOString()
   });
   
-  // === INSERT AT ROW 2 WITH ULTRA-FAST LOCK (<0.25s) ===
+  // === INSERT AT ROW 2 WITH ULTRA-FAST LOCK (<0.25s) & ATOMIC EARLIEST-SCAN-WINS GUARD ===
   var lock = LockService.getScriptLock();
   var rowInserted = false;
   try {
     lock.waitLock(25000); // 25s timeout for high concurrency
+
+    // Atomic re-check inside script lock so simultaneous continuous scans ONLY write the earliest scan!
+    var lockScanCount = Math.min(Math.max(0, sheet.getLastRow() - 1), 60);
+    if (lockScanCount > 0) {
+      var lockRows = sheet.getRange(2, 1, lockScanCount, 8).getValues();
+      var lockTargetName = hoVaTen ? hoVaTen.trim().toLowerCase() : '';
+      var lockTargetUser = payload.username ? payload.username.trim().toLowerCase() : '';
+      var lockNowMs = time ? time.getTime() : new Date().getTime();
+      var checkedUserInLock = false;
+
+      for (var li = 0; li < lockRows.length; li++) {
+        var lRow = lockRows[li];
+        if (!lRow[0]) continue;
+        var lJson = null;
+        if (lRow[7]) {
+          try { lJson = typeof lRow[7] === 'string' ? JSON.parse(lRow[7]) : lRow[7]; } catch(le) {}
+        }
+        if (lJson && lJson.checkinId && String(lJson.checkinId) === String(checkinId)) {
+          var existingFmt = lRow[2] ? lRow[2].toString().replace(/^'/, '') : thoiGian;
+          return jsonResponse(true, {
+            message: 'Đã ghi nhận thành công vào Bảng chấm công 100%!',
+            sheetSaved: true,
+            alreadySaved: true,
+            checkinId: checkinId,
+            type: String(lRow[1] || loaiChamCong),
+            fullname: String(lRow[0] || hoVaTen),
+            thoiGian: existingFmt,
+            timeISO: time.toISOString(),
+            viTri: lRow[3] || viTri,
+            isValid: isValid
+          });
+        }
+        if (
+          !payload.bypassCooldown &&
+          !payload.isOfflineRetry &&
+          (isCheckInStatus_(lRow[1]) || isCheckOutStatus_(lRow[1])) &&
+          !isMissedSupplementRowGas_(lRow[3], lRow[4], lJson)
+        ) {
+          var lMatch = matchesAttendancePersonGas_(lRow[0], lJson, lockTargetUser, lockTargetName);
+          if (lMatch) {
+            var lTs = getLogTimestampSafe(lRow[2], lRow[7]);
+            if (lTs > 0 && (lockNowMs - lTs) >= 0 && (lockNowMs - lTs) < 15 * 60 * 1000) {
+              var lFmt = lRow[2] ? lRow[2].toString().replace(/^'/, '') : '';
+              var lRemSecs = Math.ceil((15 * 60 * 1000 - (lockNowMs - lTs)) / 1000);
+              return jsonResponse(false, {
+                code: 'COOLDOWN_15M',
+                isSpamCooldown: true,
+                remainingSeconds: lRemSecs,
+                lastType: String(lRow[1] || ''),
+                lastTime: lFmt,
+                message: 'Hệ thống chống chấm lặp: Lượt chấm công sớm nhất lúc ' + lFmt + ' đã được ghi nhận. Quy định tối thiểu 15 phút giữa các lượt chấm.'
+              });
+            }
+          }
+        }
+      }
+    }
+
     sheet.insertRowBefore(2);
     var colGVal = '';
     if (imageUrl && imageUrl.indexOf('drive.google.com') >= 0) {
@@ -1334,7 +1467,7 @@ function handleCheckInOut(payload) {
   // === TÁC VỤ PHỤ NẰM HOÀN TOÀN NGOÀI LOCK (GIẢM 98% THỜI GIAN KHÓA HỆ THỐNG) ===
   if (rowInserted) {
     // 1. Phạt trễ / King coins
-    if (serverLateMins > 5 && isValid) {
+    if (serverLateMins > 5 && serverLateMins <= 120 && isValid) {
       try {
         var penaltyAmount = Math.floor(serverLateMins / 15) * 10000;
         if (penaltyAmount < 10000) penaltyAmount = 10000;
@@ -1346,17 +1479,19 @@ function handleCheckInOut(payload) {
         var penaltyId = 'AUTO_' + time.getTime();
         var dateStr = Utilities.formatDate(time, CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm');
         penaltySheet.appendRow([
-          penaltyId, dateStr, payload.username, payload.fullname,
+          penaltyId, dateStr, payload.username, hoVaTen,
           'PENALTY', penaltyAmount,
           'Tự động: Đi trễ ' + serverLateMins + ' phút (ca ' + serverShift + ')',
           'SYSTEM'
         ]);
-        Logger.log('Auto penalty: ' + payload.fullname + ' trễ ' + serverLateMins + 'p → -' + penaltyAmount + 'đ');
+        Logger.log('Auto penalty: ' + hoVaTen + ' trễ ' + serverLateMins + 'p → -' + penaltyAmount + 'đ');
       } catch(penErr) { Logger.log('Auto penalty error: ' + penErr.message); }
-      recordKingCoins(payload.username, payload.fullname, 'Đi trễ ' + serverLateMins + 'p (ca ' + serverShift + ')', -10, 'CheckIn');
-      createNotification('ALL', '⚠️ Nhân viên đi trễ', payload.fullname + ' đi trễ ' + serverLateMins + ' phút (ca ' + serverShift + ')', 'warning', 'checkin');
-    } else if (serverShift && serverShift !== 'OFF' && isValid && (loaiChamCong === 'Vào ca' || loaiChamCong.indexOf('Vào ca') >= 0)) {
-      recordKingCoins(payload.username, payload.fullname, 'Vào ca đúng giờ (' + serverShift + ')', 5, 'CheckIn');
+      recordKingCoins(payload.username, hoVaTen, 'Đi trễ ' + serverLateMins + 'p (ca ' + serverShift + ')', -10, 'CheckIn');
+      createNotification('ALL', '⚠️ Nhân viên đi trễ', hoVaTen + ' đi trễ ' + serverLateMins + ' phút (ca ' + serverShift + ')', 'warning', 'checkin');
+    } else if (suspectedMissedCheckIn && isValid) {
+      createNotification('ALL', '📋 Cần đối soát ca làm (>2h)', hoVaTen + ' chấm ' + loaiChamCong + ' (lệch ' + serverLateMins + 'p so với ca ' + serverShift + '). Đã tạm hoãn trừ phạt tự động để Quản lý kiểm tra.', 'warning', 'checkin');
+    } else if (serverShift && serverShift !== 'OFF' && isValid && isPrimaryCheckInStatus_(loaiChamCong)) {
+      recordKingCoins(payload.username, hoVaTen, 'Vào ca đúng giờ (' + serverShift + ')', 5, 'CheckIn');
     }
 
     // 2. Invalidate cache
@@ -1399,6 +1534,8 @@ function handleCheckInOut(payload) {
       message: 'Đã ghi nhận thành công vào Bảng chấm công 100%!',
       sheetSaved: true,
       checkinId: checkinId,
+      type: loaiChamCong,
+      fullname: hoVaTen,
       imageUrl: imageUrl,
       distMeters: distMeters,
       isValid: isValid,
@@ -1408,6 +1545,9 @@ function handleCheckInOut(payload) {
       shift: serverShift || '',
       lateMins: serverLateMins,
       checklistPending: checklistPending,
+      scheduleWarning: scheduleWarning,
+      scheduleWeekDisplay: scheduleWeekDisplay,
+      suspectedMissedCheckIn: suspectedMissedCheckIn,
       emailSentDirectly: emailSent
     });
   }
@@ -1549,7 +1689,16 @@ function formatCheckInHeader(sheet) {
 function formatCheckInRow(sheet, row, isValid, imgUrl) {
   try {
     var rowRange = sheet.getRange(row, 1, 1, 8);
-    var isVaoCa = sheet.getRange(row, 2).getValue() === 'Vào ca';
+    var rawColB = String(sheet.getRange(row, 2).getValue() || '');
+    var rawColE = String(sheet.getRange(row, 5).getValue() || '').toUpperCase();
+    var isPendingSupp = /^\s*chờ\s*duyệt\s*:/i.test(rawColB) || rawColE.indexOf('CHỜ') >= 0;
+    var isRejectedSupp = /^\s*từ\s*chối\s*:/i.test(rawColB) || rawColE.indexOf('TỪ CHỐI') >= 0;
+    var isVaoCa = isCheckInStatus_(rawColB);
+
+    var colBBg = isPendingSupp ? '#fef3c7' : (isRejectedSupp ? '#f1f5f9' : (isVaoCa ? '#f0fdf4' : '#fef2f2'));
+    var colBFg = isPendingSupp ? '#b45309' : (isRejectedSupp ? '#64748b' : (isVaoCa ? '#15803d' : '#dc2626'));
+    var colEBg = isPendingSupp ? '#fffbeb' : (isRejectedSupp ? '#fef2f2' : '#ffffff');
+    var colEFg = isPendingSupp ? '#b45309' : (isRejectedSupp ? '#dc2626' : '#334155');
     
     // Batch base styling
     rowRange
@@ -1561,9 +1710,9 @@ function formatCheckInRow(sheet, row, isValid, imgUrl) {
     sheet.setRowHeight(row, 36);
 
     // Prepare arrays for batch formatting
-    var bgColors = [['#ffffff', isVaoCa ? '#f0fdf4' : '#fef2f2', '#ffffff', '#ffffff', '#ffffff', '#ffffff', '#ffffff', '#ffffff']];
-    var fontColors = [['#0f172a', isVaoCa ? '#15803d' : '#dc2626', '#334155', '#475569', '#334155', '#334155', '#2563eb', '#94a3b8']];
-    var fontWeights = [['bold', 'bold', 'normal', 'normal', 'normal', 'normal', 'bold', 'normal']];
+    var bgColors = [['#ffffff', colBBg, '#ffffff', '#ffffff', colEBg, '#ffffff', '#ffffff', '#ffffff']];
+    var fontColors = [['#0f172a', colBFg, '#334155', '#475569', colEFg, '#334155', '#2563eb', '#94a3b8']];
+    var fontWeights = [['bold', 'bold', 'normal', 'normal', isPendingSupp ? 'bold' : 'normal', 'normal', 'bold', 'normal']];
     var aligns = [['left', 'center', 'center', 'left', 'center', 'center', 'center', 'left']];
     
     rowRange.setBackgrounds(bgColors);
@@ -1672,8 +1821,15 @@ function formatEntireCheckInSheet() {
     a[0] = 'left'; fw[0] = 'bold'; fc[0] = '#0f172a';
     
     // --- CỘT B (Loại)
-    if (rData[1] === 'Vào ca') { b[1] = '#f0fdf4'; fc[1] = '#15803d'; fw[1] = 'bold'; }
-    else if (rData[1] === 'Ra ca') { b[1] = '#fef2f2'; fc[1] = '#dc2626'; fw[1] = 'bold'; }
+    var rColBStr = rData[1] ? rData[1].toString() : '';
+    var rColEStr = rData[4] ? rData[4].toString() : '';
+    var rColEUpper = rColEStr.toUpperCase();
+    var rIsPending = /^\s*chờ\s*duyệt\s*:/i.test(rColBStr) || rColEUpper.indexOf('CHỜ') >= 0;
+    var rIsRejected = /^\s*từ\s*chối\s*:/i.test(rColBStr) || rColEUpper.indexOf('TỪ CHỐI') >= 0;
+    if (rIsPending) { b[1] = '#fef3c7'; fc[1] = '#b45309'; fw[1] = 'bold'; }
+    else if (rIsRejected) { b[1] = '#f1f5f9'; fc[1] = '#64748b'; fw[1] = 'bold'; }
+    else if (isCheckInStatus_(rData[1])) { b[1] = '#f0fdf4'; fc[1] = '#15803d'; fw[1] = 'bold'; }
+    else if (isCheckOutStatus_(rData[1])) { b[1] = '#fef2f2'; fc[1] = '#dc2626'; fw[1] = 'bold'; }
     
     // --- CỘT C (Thời gian format DD/MM/YYYY HH:MM:SS)
     // Cực kỳ quan trọng: Nếu hàm getValues() trả về đối tượng Date, ta phải format lại chuẩn DD/MM
@@ -1707,11 +1863,21 @@ function formatEntireCheckInSheet() {
     // --- CỘT D (Vị trí) - wrap text
     a[3] = 'left'; fs[3] = 9; w[3] = true; fc[3] = '#475569';
     
-    // --- CỘT E (Xác minh) - Format bình thường
-    var isHopLe = (rData[4] && rData[4].toString().toUpperCase().indexOf('HỢP LỆ') >= 0 && rData[4].toString().toUpperCase().indexOf('KHÔNG') === -1);
-    nv[4] = isHopLe ? 'Hợp lệ' : 'Không hợp lệ';
-    hasValuesUpdate = true;
-    fc[4] = '#334155'; fw[4] = 'normal';
+    // --- CỘT E (Xác minh) - Bảo toàn trạng thái Chờ Admin duyệt / Từ chối
+    if (rIsPending) {
+      nv[4] = 'Chờ Admin duyệt';
+      b[4] = '#fffbeb'; fc[4] = '#b45309'; fw[4] = 'bold';
+      hasValuesUpdate = true;
+    } else if (rIsRejected) {
+      nv[4] = 'Không hợp lệ (Từ chối)';
+      b[4] = '#fef2f2'; fc[4] = '#dc2626'; fw[4] = 'normal';
+      hasValuesUpdate = true;
+    } else {
+      var isHopLe = (rData[4] && rColEUpper.indexOf('HỢP LỆ') >= 0 && rColEUpper.indexOf('KHÔNG') === -1);
+      nv[4] = isHopLe ? 'Hợp lệ' : 'Không hợp lệ';
+      hasValuesUpdate = true;
+      fc[4] = '#334155'; fw[4] = 'normal';
+    }
     
     // --- CỘT F (Khoảng cách) - Căn giữa
     fs[5] = 9; a[5] = 'center';
@@ -1859,7 +2025,7 @@ function buildEmailHtml(payload, formattedTimeUI, loc, distMeters, isValid, isAd
   var roleStr = payload.role === 'admin' ? 'Quản lý' : (payload.position || 'Nhân sự');
   var shiftStr = payload.shift || 'Theo phân ca';
   var timeStr = payload.time || (formattedTimeUI ? formattedTimeUI.replace(/<br\s*\/?>/gi, ' ') : '');
-  var isCheckIn = typeStr.indexOf('Vào ca') >= 0;
+  var isCheckIn = isCheckInStatus_(typeStr);
   
   if (!loc || String(loc) === 'undefined' || !String(loc).trim()) {
     loc = "Nhà hàng King's Grill (Bán kính ≤ 25m)";
@@ -4316,19 +4482,33 @@ function handleUploadCheckinImage(payload) {
     
     var targetCheckinId = payload.checkinId ? payload.checkinId.toString().trim() : '';
     var targetTimeISO = payload.timeISO ? payload.timeISO.toString().trim() : '';
-    var cleanFullname = (payload.fullname || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
     var cleanUsername = (payload.username || '').toString().trim().toLowerCase();
+    var empProfileForImg = cleanUsername ? getEmploymentProfileByUsername(cleanUsername) : null;
+    var cleanFullname = (payload.fullname || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
+    var cleanCanonicalName = (empProfileForImg && empProfileForImg.fullname)
+      ? empProfileForImg.fullname.toString().trim().toLowerCase().replace(/\s+/g, ' ')
+      : '';
 
     function normalizeName(str) {
       if (!str) return '';
       return str.toString().trim().toLowerCase().replace(/\s+/g, ' ');
     }
 
-    function isSamePerson(rowName) {
+    function isSamePerson(rowName, rowJsonCell) {
+      if (rowJsonCell) {
+        try {
+          var rJson = typeof rowJsonCell === 'string' ? JSON.parse(rowJsonCell) : rowJsonCell;
+          var rUser = rJson && rJson.username ? rJson.username.toString().trim().toLowerCase() : '';
+          if (cleanUsername && rUser) {
+            return rUser === cleanUsername;
+          }
+        } catch (eJson) {}
+      }
       var nRow = normalizeName(rowName);
       if (!nRow) return false;
-      if (cleanFullname && (nRow === cleanFullname || nRow.indexOf(cleanFullname) >= 0 || cleanFullname.indexOf(nRow) >= 0)) return true;
-      if (cleanUsername && (nRow === cleanUsername || nRow.indexOf(cleanUsername) >= 0)) return true;
+      if (cleanCanonicalName && nRow === cleanCanonicalName) return true;
+      if (cleanFullname && nRow === cleanFullname) return true;
+      if (cleanUsername && nRow === cleanUsername) return true;
       return false;
     }
 
@@ -4349,7 +4529,7 @@ function handleUploadCheckinImage(payload) {
     if (targetRowIdx === -1 && targetTimeStr) {
       for (var i = 1; i < data.length; i++) {
         var rowTime = data[i][2] ? data[i][2].toString().replace(/^'/, '').trim() : '';
-        if (rowTime && (rowTime === targetTimeStr || rowTime.indexOf(targetTimeStr) !== -1 || targetTimeStr.indexOf(rowTime) !== -1) && isSamePerson(data[i][0])) {
+        if (rowTime && (rowTime === targetTimeStr || rowTime.indexOf(targetTimeStr) !== -1 || targetTimeStr.indexOf(rowTime) !== -1) && isSamePerson(data[i][0], data[i][7])) {
           targetRowIdx = i + 1;
           targetDataRow = data[i];
           break;
@@ -4361,7 +4541,7 @@ function handleUploadCheckinImage(payload) {
     if (targetRowIdx === -1 && targetTimeISO) {
       for (var i = 1; i < data.length; i++) {
         var rowJsonStr = data[i][7] ? data[i][7].toString() : '';
-        if (rowJsonStr && rowJsonStr.indexOf(targetTimeISO) !== -1 && isSamePerson(data[i][0])) {
+        if (rowJsonStr && rowJsonStr.indexOf(targetTimeISO) !== -1 && isSamePerson(data[i][0], data[i][7])) {
           targetRowIdx = i + 1;
           targetDataRow = data[i];
           break;
@@ -4369,11 +4549,11 @@ function handleUploadCheckinImage(payload) {
       }
     }
 
-    // TIER 4: Match theo tên nhân viên và Cột G đang chưa có link Drive hợp lệ (quét 60 dòng mới nhất)
+    // TIER 4: Match theo đúng nhân viên và Cột G đang chưa có link Drive hợp lệ (quét 250 dòng mới nhất)
     if (targetRowIdx === -1) {
-      var scanLimit = Math.min(data.length, 60);
+      var scanLimit = Math.min(data.length, 250);
       for (var i = 1; i < scanLimit; i++) {
-        if (isSamePerson(data[i][0])) {
+        if (isSamePerson(data[i][0], data[i][7])) {
           var colG = data[i][6] ? data[i][6].toString().trim() : '';
           var hasDriveLink = colG.indexOf('drive.google.com') !== -1;
           if (!hasDriveLink) {
@@ -4385,8 +4565,8 @@ function handleUploadCheckinImage(payload) {
       }
     }
 
-    // TIER 5: Fallback - Nếu dòng 2 là của người này và Cột G chưa có link Drive
-    if (targetRowIdx === -1 && data.length > 1 && isSamePerson(data[1][0])) {
+    // TIER 5: Fallback - Nếu dòng 2 là của đúng người này và Cột G chưa có link Drive
+    if (targetRowIdx === -1 && data.length > 1 && isSamePerson(data[1][0], data[1][7])) {
       var colG2 = data[1][6] ? data[1][6].toString().trim() : '';
       if (colG2.indexOf('drive.google.com') === -1) {
         targetRowIdx = 2;
@@ -4415,12 +4595,19 @@ function handleUploadCheckinImage(payload) {
         } catch (fErr2) {}
       }
       
-      // 2. Cập nhật lại Cột H JSON
+      // 2. Cập nhật lại Cột H JSON + đánh dấu emailSent idempotent cho chế độ v2_face
+      var shouldSendPostUploadEmail = false;
+      var parsedJsonForMail = null;
       try {
         var oldJsonStr = targetDataRow[7] ? targetDataRow[7].toString() : '{}';
         var oldJson = JSON.parse(oldJsonStr);
         oldJson.linkAnh = imageUrl;
         if (targetCheckinId && !oldJson.checkinId) oldJson.checkinId = targetCheckinId;
+        if (payload.sendEmailAfterUpload === true && !oldJson.emailSent) {
+          oldJson.emailSent = true;
+          shouldSendPostUploadEmail = true;
+        }
+        parsedJsonForMail = oldJson;
         sheet.getRange(targetRowIdx, 8).setValue(JSON.stringify(oldJson));
       } catch (ej) {}
       
@@ -4430,8 +4617,18 @@ function handleUploadCheckinImage(payload) {
       if (payload.username) {
         invalidateGetDataCache(payload.username);
       }
+
+      var asyncEmailSent = false;
+      if (shouldSendPostUploadEmail) {
+        try {
+          sendCheckInEmailAfterUpload_(getSS(), payload, targetDataRow, parsedJsonForMail, imageUrl, isValid);
+          asyncEmailSent = true;
+        } catch (mailAfterErr) {
+          Logger.log('Post-upload email warning: ' + mailAfterErr.message);
+        }
+      }
       
-      return jsonResponse(true, { url: imageUrl, rowMatched: targetRowIdx });
+      return jsonResponse(true, { url: imageUrl, rowMatched: targetRowIdx, emailSent: asyncEmailSent });
     }
 
     return jsonResponse(false, 'Không tìm thấy dòng tương ứng để cập nhật ảnh trên Sheet');
@@ -4734,14 +4931,160 @@ function getMissedCheckinsSheet() {
   return sheet;
 }
 
+function normalizeSupplementCanonicalType_(rawType) {
+  var s = String(rawType || '').replace(/^\s*(chờ\s*duyệt|từ\s*chối)\s*:\s*/i, '').trim();
+  if (isCheckOutStatus_(s) || /^\s*(ra(\s+ca)?(\s*[1-9])?|out)\b/i.test(s)) return 'Ra ca';
+  return 'Vào ca';
+}
+
+function safeMissedDateStr_(val, dispVal) {
+  var disp = dispVal !== undefined && dispVal !== null ? String(dispVal).replace(/^'/, '').trim() : '';
+  if (disp && !/1899|GMT/i.test(disp)) {
+    var dmDisp = disp.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if (dmDisp) {
+      return ('0' + parseInt(dmDisp[1], 10)).slice(-2) + '/' + ('0' + parseInt(dmDisp[2], 10)).slice(-2) + '/' + dmDisp[3];
+    }
+    var isoDisp = disp.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (isoDisp) {
+      return ('0' + parseInt(isoDisp[3], 10)).slice(-2) + '/' + ('0' + parseInt(isoDisp[2], 10)).slice(-2) + '/' + isoDisp[1];
+    }
+  }
+  if (val && typeof val.getTime === 'function' && !isNaN(val.getTime())) {
+    return Utilities.formatDate(val, CONFIG.TIMEZONE, 'dd/MM/yyyy');
+  }
+  var raw = val !== undefined && val !== null ? String(val).replace(/^'/, '').trim() : '';
+  if (!raw) return '';
+  var dm = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if (dm) {
+    return ('0' + parseInt(dm[1], 10)).slice(-2) + '/' + ('0' + parseInt(dm[2], 10)).slice(-2) + '/' + dm[3];
+  }
+  var iso = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (iso) {
+    return ('0' + parseInt(iso[3], 10)).slice(-2) + '/' + ('0' + parseInt(iso[2], 10)).slice(-2) + '/' + iso[1];
+  }
+  var parsedDt = new Date(raw);
+  if (!isNaN(parsedDt.getTime())) {
+    return Utilities.formatDate(parsedDt, CONFIG.TIMEZONE, 'dd/MM/yyyy');
+  }
+  return raw;
+}
+
+function safeMissedTimeStr_(val, dispVal) {
+  var disp = dispVal !== undefined && dispVal !== null ? String(dispVal).replace(/^'/, '').trim() : '';
+  if (disp && !/1899|GMT/i.test(disp)) {
+    var tmDisp = disp.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+    if (tmDisp) {
+      return ('0' + parseInt(tmDisp[1], 10)).slice(-2) + ':' + tmDisp[2];
+    }
+  }
+  if (val && typeof val.getTime === 'function' && !isNaN(val.getTime())) {
+    if (typeof val.getFullYear === 'function' && val.getFullYear() <= 1900) {
+      return ('0' + val.getHours()).slice(-2) + ':' + ('0' + val.getMinutes()).slice(-2);
+    }
+    return Utilities.formatDate(val, CONFIG.TIMEZONE, 'HH:mm');
+  }
+  var raw = val !== undefined && val !== null ? String(val).replace(/^'/, '').trim() : '';
+  if (!raw) return '';
+  var tm = raw.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (tm) {
+    return ('0' + parseInt(tm[1], 10)).slice(-2) + ':' + tm[2];
+  }
+  var gmtMatch = raw.match(/(\d{2}):(\d{2}):\d{2}\s+GMT/i);
+  if (gmtMatch) {
+    return gmtMatch[1] + ':' + gmtMatch[2];
+  }
+  var parsedDt = new Date(raw);
+  if (!isNaN(parsedDt.getTime())) {
+    return ('0' + parsedDt.getHours()).slice(-2) + ':' + ('0' + parsedDt.getMinutes()).slice(-2);
+  }
+  return raw;
+}
+
+function safeMissedShiftStr_(val, dispVal) {
+  var disp = dispVal !== undefined && dispVal !== null ? String(dispVal).replace(/^'/, '').trim() : '';
+  if (disp && !/1899|GMT/i.test(disp)) return disp;
+  if (val && typeof val.getTime === 'function' && !isNaN(val.getTime())) {
+    return safeMissedTimeStr_(val, '');
+  }
+  var raw = val !== undefined && val !== null ? String(val).replace(/^'/, '').trim() : '';
+  if (/1899|GMT/i.test(raw)) return safeMissedTimeStr_(raw, '');
+  return raw;
+}
+
+function safeMissedDateTimeStr_(val, dispVal) {
+  var disp = dispVal !== undefined && dispVal !== null ? String(dispVal).replace(/^'/, '').trim() : '';
+  if (disp && !/1899|GMT/i.test(disp)) return disp;
+  if (val && typeof val.getTime === 'function' && !isNaN(val.getTime())) {
+    return Utilities.formatDate(val, CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm:ss');
+  }
+  var raw = val !== undefined && val !== null ? String(val).replace(/^'/, '').trim() : '';
+  if (!raw) return '';
+  if (/GMT/i.test(raw)) {
+    var dt = new Date(raw);
+    if (!isNaN(dt.getTime())) return Utilities.formatDate(dt, CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm:ss');
+  }
+  return raw;
+}
+
+function computeEffectiveSupplementDate_(dateStr, timeStr, canonicalType) {
+  var cleanDate = String(dateStr || '').trim();
+  var cleanTime = String(timeStr || '').trim();
+  var dMatch = cleanDate.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  var tMatch = cleanTime.match(/^(\d{1,2}):(\d{2})/);
+  if (!dMatch) return cleanDate;
+  var dd = parseInt(dMatch[1], 10);
+  var mm = parseInt(dMatch[2], 10) - 1;
+  var yyyy = parseInt(dMatch[3], 10);
+  var rollPlusOneDay = false;
+  if (tMatch && isCheckOutStatus_(canonicalType)) {
+    var hh = parseInt(tMatch[1], 10);
+    if (hh >= 0 && hh < 6) {
+      rollPlusOneDay = true;
+    }
+  }
+  var utcDt = new Date(Date.UTC(yyyy, mm, dd + (rollPlusOneDay ? 1 : 0), 12, 0, 0));
+  var outDd = ('0' + utcDt.getUTCDate()).slice(-2);
+  var outMm = ('0' + (utcDt.getUTCMonth() + 1)).slice(-2);
+  var outYyyy = utcDt.getUTCFullYear();
+  return outDd + '/' + outMm + '/' + outYyyy;
+}
+
+function findCheckInRowByClaimId_(logSheet, claimId) {
+  if (!logSheet || !claimId || logSheet.getLastRow() < 2) return -1;
+  var targetId = String(claimId).trim();
+  var totalDataRows = logSheet.getLastRow() - 1;
+  var rows = logSheet.getRange(2, 1, totalDataRows, 8).getValues();
+  for (var i = 0; i < rows.length; i++) {
+    var colF = rows[i][5] ? String(rows[i][5]) : '';
+    var colH = rows[i][7] ? String(rows[i][7]) : '';
+    if (colF.indexOf(targetId) >= 0) return i + 2;
+    if (colH && colH.indexOf(targetId) >= 0) {
+      try {
+        var parsed = JSON.parse(colH);
+        if (parsed && String(parsed.claimId || parsed.supplementId || '') === targetId) return i + 2;
+      } catch (eJson) {
+        return i + 2;
+      }
+    }
+  }
+  return -1;
+}
+
 function handleSubmitMissedCheckin(payload) {
   try {
     if (!payload.username) return jsonResponse(false, 'Thiếu thông tin người dùng.');
     if (!payload.date || !payload.time || !payload.type) return jsonResponse(false, 'Vui lòng điền đầy đủ Ngày, Giờ và Loại chấm công.');
 
     var sheet = getMissedCheckinsSheet();
-    var id = 'MC_' + new Date().getTime();
+    var id = 'MC_' + new Date().getTime() + '_' + Math.floor(Math.random() * 1000);
     var now = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm:ss');
+    var fullname = String(payload.fullname || payload.username).trim();
+    var canonicalType = normalizeSupplementCanonicalType_(payload.type);
+    var cleanTimeInput = String(payload.time).trim();
+    var effectiveDate = payload.dateAlreadyEffective
+      ? String(payload.date).trim()
+      : computeEffectiveSupplementDate_(payload.date, cleanTimeInput, canonicalType);
+    var fullTimeStr = effectiveDate + ' ' + (cleanTimeInput.length === 5 ? cleanTimeInput + ':00' : cleanTimeInput);
     
     var imageUrl = payload.image || '';
     if (payload.imageBase64) {
@@ -4769,13 +5112,13 @@ function handleSubmitMissedCheckin(payload) {
 
     var newRow = [
       id,
-      now,
+      "'" + now,
       payload.username,
-      payload.fullname || payload.username,
-      payload.date,
-      payload.time,
-      payload.type,
-      payload.shift || '',
+      fullname,
+      "'" + effectiveDate,
+      "'" + cleanTimeInput,
+      canonicalType,
+      payload.shift ? "'" + String(payload.shift).trim() : '',
       payload.reason || '',
       imageUrl,
       'Pending',
@@ -4786,10 +5129,72 @@ function handleSubmitMissedCheckin(payload) {
 
     sheet.appendRow(newRow);
 
+    // Immediately insert a Pending row into ✔️CHẤM CÔNG so staff & Admin see it right away,
+    // while keeping Col B = "Chờ duyệt: ..." & Col E = "Chờ Admin duyệt" so payroll counts 0h until approved!
+    var sheetPendingRowSaved = false;
+    var ss = getSS();
+    var logSheet = ss.getSheetByName(CONFIG.SHEET_LOGS);
+    if (logSheet) {
+      var pendingTypeLabel = 'Chờ duyệt: ' + canonicalType;
+      var pendingNote = '[Chờ Admin duyệt - Đơn #' + id + '] ' + (payload.reason || 'Báo bổ sung chấm công');
+      var pendingJson = JSON.stringify({
+        hoVaTen: fullname,
+        loaiChamCong: pendingTypeLabel,
+        requestedType: canonicalType,
+        thoiGian: fullTimeStr,
+        viTri: "Nhà hàng King's Grill (Bổ sung - Chờ duyệt)",
+        xacMinh: 'Chờ Admin duyệt',
+        khoangCach: 'Đơn #' + id,
+        linkAnh: imageUrl || '',
+        caLam: payload.shift || '',
+        ghiChu: pendingNote,
+        claimId: id,
+        username: String(payload.username),
+        workdayDate: String(payload.date),
+        pendingApproval: true,
+        isMissedCheckInClaim: true
+      });
+      var pendingLogRow = [
+        fullname,
+        pendingTypeLabel,
+        "'" + fullTimeStr,
+        "Nhà hàng King's Grill (Bổ sung - Chờ duyệt)",
+        'Chờ Admin duyệt',
+        'Đơn #' + id,
+        imageUrl || '',
+        pendingJson
+      ];
+      var lock = LockService.getScriptLock();
+      try {
+        lock.waitLock(15000);
+        if (logSheet.getLastRow() >= 2) {
+          logSheet.insertRowBefore(2);
+          logSheet.getRange(2, 1, 1, 8).setValues([pendingLogRow]);
+          formatCheckInRow(logSheet, 2, false, imageUrl || '');
+        } else {
+          logSheet.appendRow(pendingLogRow);
+          formatCheckInRow(logSheet, logSheet.getLastRow(), false, imageUrl || '');
+        }
+        sheetPendingRowSaved = true;
+      } catch (pendErr) {
+        try {
+          logSheet.appendRow(pendingLogRow);
+          sheetPendingRowSaved = true;
+        } catch (pendErr2) {}
+      } finally {
+        try { lock.releaseLock(); } catch (relErr) {}
+      }
+      try { invalidateGetDataCache(payload.username || ''); } catch (cacheErr) {}
+    }
+
     return jsonResponse(true, {
       id: id,
       status: 'Pending',
-      message: 'Đã gửi đơn báo bổ sung công thành công. Vui lòng gửi thông tin vào nhóm Zalo để Quản lý duyệt sớm.'
+      canonicalType: canonicalType,
+      effectiveDate: effectiveDate,
+      effectiveTime: fullTimeStr,
+      sheetPendingRowSaved: sheetPendingRowSaved,
+      message: 'Đã thêm dòng Chờ duyệt vào sổ chấm công! Lượt công sẽ được tính giờ khi Quản lý duyệt.'
     });
   } catch (e) {
     return jsonResponse(false, 'Lỗi gửi đơn: ' + e.message);
@@ -4799,7 +5204,9 @@ function handleSubmitMissedCheckin(payload) {
 function handleGetMissedCheckins(payload) {
   try {
     var sheet = getMissedCheckinsSheet();
-    var data = sheet.getDataRange().getValues();
+    var range = sheet.getDataRange();
+    var data = range.getValues();
+    var dispData = (typeof range.getDisplayValues === 'function') ? range.getDisplayValues() : [];
     if (data.length <= 1) return jsonResponse(true, []);
 
     var claims = [];
@@ -4807,24 +5214,25 @@ function handleGetMissedCheckins(payload) {
 
     for (var i = 1; i < data.length; i++) {
       var row = data[i];
+      var dRow = dispData[i] || [];
       if (!row[0]) continue;
       var username = row[2];
       if (!isAdmin && username !== payload.username) continue;
 
       claims.push({
         id: row[0].toString(),
-        createdAt: row[1] ? row[1].toString() : '',
+        createdAt: safeMissedDateTimeStr_(row[1], dRow[1]),
         username: row[2] ? row[2].toString() : '',
         fullname: row[3] ? row[3].toString() : '',
-        date: row[4] ? row[4].toString() : '',
-        time: row[5] ? row[5].toString() : '',
-        type: row[6] ? row[6].toString() : 'Vào ca',
-        shift: row[7] ? row[7].toString() : '',
+        date: safeMissedDateStr_(row[4], dRow[4]),
+        time: safeMissedTimeStr_(row[5], dRow[5]),
+        type: normalizeSupplementCanonicalType_(row[6] ? row[6].toString() : 'Vào ca'),
+        shift: safeMissedShiftStr_(row[7], dRow[7]),
         reason: row[8] ? row[8].toString() : '',
         proofImage: row[9] ? row[9].toString() : '',
         status: row[10] ? row[10].toString() : 'Pending',
         approvedBy: row[11] ? row[11].toString() : '',
-        approvedAt: row[12] ? row[12].toString() : '',
+        approvedAt: safeMissedDateTimeStr_(row[12], dRow[12]),
         note: row[13] ? row[13].toString() : '',
         rowIndex: i + 1
       });
@@ -4844,23 +5252,26 @@ function handleApproveMissedCheckin(payload) {
     if (!payload.id) return jsonResponse(false, 'Thiếu mã đơn ID.');
     var adminUser = payload.adminUsername || payload.username || 'ADMIN';
     var sheet = getMissedCheckinsSheet();
-    var data = sheet.getDataRange().getValues();
+    var range = sheet.getDataRange();
+    var data = range.getValues();
+    var dispData = (typeof range.getDisplayValues === 'function') ? range.getDisplayValues() : [];
     var targetRowIndex = -1;
     var claim = null;
 
     for (var i = 1; i < data.length; i++) {
       if (data[i][0] && data[i][0].toString() === payload.id.toString()) {
+        var dRow = dispData[i] || [];
         targetRowIndex = i + 1;
         claim = {
           id: data[i][0].toString(),
-          username: data[i][2].toString(),
-          fullname: data[i][3].toString(),
-          date: data[i][4].toString(),
-          time: data[i][5].toString(),
-          type: data[i][6].toString(),
-          shift: data[i][7].toString(),
-          reason: data[i][8].toString(),
-          proofImage: data[i][9].toString(),
+          username: data[i][2] ? data[i][2].toString() : '',
+          fullname: data[i][3] ? data[i][3].toString() : '',
+          date: safeMissedDateStr_(data[i][4], dRow[4]),
+          time: safeMissedTimeStr_(data[i][5], dRow[5]),
+          type: data[i][6] ? data[i][6].toString() : 'Vào ca',
+          shift: safeMissedShiftStr_(data[i][7], dRow[7]),
+          reason: data[i][8] ? data[i][8].toString() : '',
+          proofImage: data[i][9] ? data[i][9].toString() : '',
           note: data[i][13] ? data[i][13].toString() : ''
         };
         break;
@@ -4870,17 +5281,20 @@ function handleApproveMissedCheckin(payload) {
     if (targetRowIndex === -1 || !claim) return jsonResponse(false, 'Không tìm thấy đơn báo bổ sung.');
 
     var now = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm:ss');
-    sheet.getRange(targetRowIndex, 11, 1, 3).setValues([['Approved', adminUser, now]]);
+    sheet.getRange(targetRowIndex, 11, 1, 3).setValues([['Approved', adminUser, "'" + now]]);
 
-    // INSERT INTO SHEET CHECKIN (CONFIG.SHEET_LOGS)
+    var canonicalType = normalizeSupplementCanonicalType_(claim.type);
+    var fullTimeStr = claim.date + ' ' + (claim.time.length === 5 ? claim.time + ':00' : claim.time);
+    var updatedInPlace = false;
+
+    // UPDATE IN-PLACE OR INSERT INTO SHEET CHECKIN (CONFIG.SHEET_LOGS)
     var ss = getSS();
     var logSheet = ss.getSheetByName(CONFIG.SHEET_LOGS);
     if (logSheet) {
-      var fullTimeStr = claim.date + ' ' + (claim.time.length === 5 ? claim.time + ':00' : claim.time);
       var noteText = 'Báo chấm công bổ sung - Đã duyệt (Admin: ' + adminUser + ' - Đơn #' + claim.id + ')';
       var dataJson = JSON.stringify({
         hoVaTen: claim.fullname,
-        loaiChamCong: claim.type,
+        loaiChamCong: canonicalType,
         thoiGian: fullTimeStr,
         viTri: "Nhà hàng King's Grill (Giải trình bổ sung)",
         xacMinh: "Hợp lệ",
@@ -4889,14 +5303,16 @@ function handleApproveMissedCheckin(payload) {
         caLam: claim.shift || '',
         ghiChu: noteText,
         claimId: claim.id,
+        username: claim.username,
         approvedBy: adminUser,
         approvedAt: now,
+        pendingApproval: false,
         isMissedCheckInClaim: true
       });
 
       var newLog = [
         claim.fullname,
-        claim.type,
+        canonicalType,
         "'" + fullTimeStr,
         "Nhà hàng King's Grill (Giải trình)",
         "Hợp lệ",
@@ -4908,11 +5324,27 @@ function handleApproveMissedCheckin(payload) {
       var lock = LockService.getScriptLock();
       try {
         lock.waitLock(15000);
-        logSheet.insertRowBefore(2);
-        logSheet.getRange(2, 1, 1, 8).setValues([newLog]);
-        formatCheckInRow(logSheet, 2, true, claim.proofImage || '');
+        var existingRowIdx = findCheckInRowByClaimId_(logSheet, claim.id);
+        if (existingRowIdx >= 2) {
+          logSheet.getRange(existingRowIdx, 1, 1, 8).setValues([newLog]);
+          formatCheckInRow(logSheet, existingRowIdx, true, claim.proofImage || '');
+          updatedInPlace = true;
+        } else if (logSheet.getLastRow() >= 2) {
+          logSheet.insertRowBefore(2);
+          logSheet.getRange(2, 1, 1, 8).setValues([newLog]);
+          formatCheckInRow(logSheet, 2, true, claim.proofImage || '');
+        } else {
+          logSheet.appendRow(newLog);
+          formatCheckInRow(logSheet, logSheet.getLastRow(), true, claim.proofImage || '');
+        }
       } catch (lockErr) {
-        logSheet.appendRow(newLog);
+        var fallbackRowIdx = findCheckInRowByClaimId_(logSheet, claim.id);
+        if (fallbackRowIdx >= 2) {
+          logSheet.getRange(fallbackRowIdx, 1, 1, 8).setValues([newLog]);
+          updatedInPlace = true;
+        } else {
+          logSheet.appendRow(newLog);
+        }
       } finally {
         try { lock.releaseLock(); } catch(e) {}
       }
@@ -4926,11 +5358,22 @@ function handleApproveMissedCheckin(payload) {
           'APPROVE_MISSED_CHECKIN',
           claim.username || claim.id,
           'Duyệt chấm công bổ sung #' + claim.id + ' (' + claim.fullname + ' - ' + claim.date + ' ' + claim.time + ')',
-          { claimId: claim.id, date: claim.date, time: claim.time, type: claim.type }
+          { claimId: claim.id, date: claim.date, time: claim.time, type: canonicalType }
         );
       } catch (eAudit) {}
     }
-    return jsonResponse(true, { message: 'Đã duyệt đơn và tự động chèn vào Bảng chấm công!' });
+    return jsonResponse(true, {
+      id: claim.id,
+      username: claim.username,
+      fullname: claim.fullname,
+      type: canonicalType,
+      approvedType: canonicalType,
+      time: fullTimeStr,
+      effectiveTime: fullTimeStr,
+      status: 'Hợp lệ',
+      updatedInPlace: updatedInPlace,
+      message: 'Đã duyệt đơn và xác nhận hợp lệ trên Bảng chấm công!'
+    });
   } catch (e) {
     return jsonResponse(false, 'Lỗi duyệt đơn: ' + e.message);
   }
@@ -4943,12 +5386,26 @@ function handleRejectMissedCheckin(payload) {
     if (!payload.id) return jsonResponse(false, 'Thiếu mã đơn ID.');
     var adminUser = payload.adminUsername || payload.username || 'ADMIN';
     var sheet = getMissedCheckinsSheet();
-    var data = sheet.getDataRange().getValues();
+    var range = sheet.getDataRange();
+    var data = range.getValues();
+    var dispData = (typeof range.getDisplayValues === 'function') ? range.getDisplayValues() : [];
     var targetRowIndex = -1;
+    var claim = null;
 
     for (var i = 1; i < data.length; i++) {
       if (data[i][0] && data[i][0].toString() === payload.id.toString()) {
+        var dRow = dispData[i] || [];
         targetRowIndex = i + 1;
+        claim = {
+          id: data[i][0].toString(),
+          username: data[i][2] ? data[i][2].toString() : '',
+          fullname: data[i][3] ? data[i][3].toString() : '',
+          date: safeMissedDateStr_(data[i][4], dRow[4]),
+          time: safeMissedTimeStr_(data[i][5], dRow[5]),
+          type: data[i][6] ? data[i][6].toString() : 'Vào ca',
+          shift: safeMissedShiftStr_(data[i][7], dRow[7]),
+          proofImage: data[i][9] ? data[i][9].toString() : ''
+        };
         break;
       }
     }
@@ -4957,7 +5414,59 @@ function handleRejectMissedCheckin(payload) {
 
     var now = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm:ss');
     var reason = payload.reason || 'Không đủ minh chứng';
-    sheet.getRange(targetRowIndex, 11, 1, 4).setValues([['Rejected', adminUser, now, reason]]);
+    sheet.getRange(targetRowIndex, 11, 1, 4).setValues([['Rejected', adminUser, "'" + now, reason]]);
+
+    var canonicalType = claim ? normalizeSupplementCanonicalType_(claim.type) : 'Vào ca';
+    var rejectedTypeLabel = 'Từ chối: ' + canonicalType;
+    var fullTimeStr = claim ? (claim.date + ' ' + (claim.time.length === 5 ? claim.time + ':00' : claim.time)) : '';
+
+    var ss = getSS();
+    var logSheet = ss.getSheetByName(CONFIG.SHEET_LOGS);
+    if (logSheet && claim) {
+      var lock = LockService.getScriptLock();
+      try {
+        lock.waitLock(15000);
+        var existingRowIdx = findCheckInRowByClaimId_(logSheet, claim.id);
+        if (existingRowIdx >= 2) {
+          var rejectedJson = JSON.stringify({
+            hoVaTen: claim.fullname,
+            loaiChamCong: rejectedTypeLabel,
+            requestedType: canonicalType,
+            thoiGian: fullTimeStr,
+            viTri: "Nhà hàng King's Grill (Từ chối bổ sung)",
+            xacMinh: 'Không hợp lệ (Từ chối)',
+            khoangCach: 'Từ chối',
+            linkAnh: claim.proofImage || '',
+            caLam: claim.shift || '',
+            ghiChu: '[Từ chối bổ sung #' + claim.id + '] ' + reason,
+            claimId: claim.id,
+            username: claim.username,
+            rejectedBy: adminUser,
+            rejectedAt: now,
+            rejectReason: reason,
+            pendingApproval: false,
+            isMissedCheckInClaim: true
+          });
+          var rejectedRow = [
+            claim.fullname,
+            rejectedTypeLabel,
+            "'" + fullTimeStr,
+            "Nhà hàng King's Grill (Từ chối bổ sung)",
+            'Không hợp lệ (Từ chối)',
+            'Từ chối',
+            claim.proofImage || '',
+            rejectedJson
+          ];
+          logSheet.getRange(existingRowIdx, 1, 1, 8).setValues([rejectedRow]);
+          formatCheckInRow(logSheet, existingRowIdx, false, claim.proofImage || '');
+        }
+      } catch (rejErr) {
+        Logger.log('Reject in-place update error: ' + rejErr.message);
+      } finally {
+        try { lock.releaseLock(); } catch (relErr) {}
+      }
+      try { invalidateGetDataCache(claim.username || ''); } catch (cacheErr) {}
+    }
 
     if (typeof appendAuditLog_ === 'function') {
       try {
@@ -4970,7 +5479,15 @@ function handleRejectMissedCheckin(payload) {
         );
       } catch (eAudit) {}
     }
-    return jsonResponse(true, { message: 'Đã từ chối đơn báo bổ sung công.' });
+    return jsonResponse(true, {
+      id: String(payload.id),
+      username: claim ? claim.username : '',
+      fullname: claim ? claim.fullname : '',
+      type: rejectedTypeLabel,
+      time: fullTimeStr,
+      status: 'Không hợp lệ (Từ chối)',
+      message: 'Đã từ chối đơn báo bổ sung công.'
+    });
   } catch (e) {
     return jsonResponse(false, 'Lỗi từ chối đơn: ' + e.message);
   }
@@ -5142,4 +5659,661 @@ function handleDiagnoseCells(payload) {
   } catch(e) {
     return jsonResponse(false, e.toString());
   }
+}
+
+
+// =====================================================================================
+// 16. FACE ID V2 BIOMETRIC PROFILES & MULTI-EMPLOYEE KIOSK HANDLERS
+// =====================================================================================
+
+var FACE_ID_SHEET_NAME = 'CONFIG_FACE_ID';
+var FACE_VECTOR_DIM = 512;
+var FACE_SERVER_VERIFY_MIN_SCORE = 0.30;
+var FACE_DUPLICATE_IDENTITY_THRESHOLD = 0.68;
+
+function ensureFaceIdSheet_(ss) {
+  var sheet = ss.getSheetByName(FACE_ID_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(FACE_ID_SHEET_NAME);
+    sheet.appendRow([
+      'Username',
+      'Fullname',
+      'VectorsInt8B64',
+      'AnglesCount',
+      'ModelVersion',
+      'SampleImageUrl',
+      'EnrolledAt',
+      'UpdatedBy',
+      'IsLocked'
+    ]);
+    try {
+      sheet.getRange(1, 1, 1, 9).setFontWeight('bold').setBackground('#0b1f33').setFontColor('#ffffff');
+      sheet.getRange(2, 3, Math.max(1, sheet.getMaxRows() - 1), 1).setNumberFormat('@');
+      sheet.getRange(2, 7, Math.max(1, sheet.getMaxRows() - 1), 1).setNumberFormat('@');
+    } catch (fmtErr) {}
+  }
+  try {
+    if (!sheet.isSheetHidden()) sheet.hideSheet();
+  } catch (hideErr) {}
+  return sheet;
+}
+
+function normalizeSafeFaceB64Gas_(b64Str) {
+  if (!b64Str || typeof b64Str !== 'string') return '';
+  var raw = b64Str.trim().replace(/^'+/, '').trim();
+  if (!raw || raw.charAt(0) === '#') return '';
+  var stripped = raw.replace(/^v2:/i, '').trim();
+  if (!stripped || !/^[A-Za-z0-9+/=_-]+$/.test(stripped)) return '';
+  var urlSafe = stripped.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  return 'v2:' + urlSafe;
+}
+
+function toStandardFaceB64Gas_(b64Str) {
+  if (!b64Str || typeof b64Str !== 'string') return '';
+  var raw = b64Str.trim().replace(/^'+/, '').trim();
+  if (!raw || raw.charAt(0) === '#') return '';
+  var stripped = raw.replace(/^v2:/i, '').trim();
+  if (!stripped || !/^[A-Za-z0-9+/=_-]+$/.test(stripped)) return '';
+  var stdB64 = stripped.replace(/-/g, '+').replace(/_/g, '/').replace(/=+$/g, '');
+  while (stdB64.length % 4 !== 0) {
+    stdB64 += '=';
+  }
+  return stdB64;
+}
+
+function decodeInt8VectorsGas_(b64Str, dim) {
+  if (!b64Str || typeof b64Str !== 'string') return [];
+  var raw = b64Str.trim().replace(/^'+/, '').trim();
+  if (!raw || raw.charAt(0) === '#') return [];
+  var stripped = raw.replace(/^v2:/i, '').trim();
+  if (!stripped || !/^[A-Za-z0-9+/=_-]+$/.test(stripped)) return [];
+  var stdB64 = stripped.replace(/-/g, '+').replace(/_/g, '/');
+  while (stdB64.length % 4 !== 0) {
+    stdB64 += '=';
+  }
+  var d = dim || FACE_VECTOR_DIM;
+  var rawBytes;
+  try {
+    rawBytes = Utilities.base64Decode(stdB64);
+  } catch (e) {
+    return [];
+  }
+  if (!rawBytes || rawBytes.length < d || rawBytes.length % d !== 0) return [];
+
+  var count = Math.floor(rawBytes.length / d);
+  var vectors = [];
+  for (var k = 0; k < count; k++) {
+    var vec = new Array(d);
+    var normSq = 0;
+    var offset = k * d;
+    for (var i = 0; i < d; i++) {
+      var b = rawBytes[offset + i];
+      if (b > 127) b -= 256; // Normalize unsigned [128..255] -> [-128..-1]
+      vec[i] = b;
+      normSq += b * b;
+    }
+    var norm = Math.sqrt(normSq) || 1;
+    for (var j = 0; j < d; j++) {
+      vec[j] = vec[j] / norm;
+    }
+    vectors.push(vec);
+  }
+  return vectors;
+}
+
+function cosineUnitVectorsGas_(a, b) {
+  if (!a || !b || a.length !== b.length) return -1;
+  var dot = 0;
+  for (var i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+  }
+  return dot;
+}
+
+function computeCentroidGas_(vectors) {
+  if (!vectors || vectors.length === 0) return null;
+  var d = vectors[0].length;
+  var sum = new Array(d);
+  for (var i = 0; i < d; i++) sum[i] = 0;
+  for (var k = 0; k < vectors.length; k++) {
+    var v = vectors[k];
+    for (var j = 0; j < d; j++) sum[j] += v[j];
+  }
+  var normSq = 0;
+  for (var n = 0; n < d; n++) normSq += sum[n] * sum[n];
+  var norm = Math.sqrt(normSq) || 1;
+  for (var m = 0; m < d; m++) sum[m] = sum[m] / norm;
+  return sum;
+}
+
+function computeFaceProfileScoreGas_(liveVec, storedVectors) {
+  if (!liveVec || !storedVectors || storedVectors.length === 0) return -1;
+  var maxAngleCos = -1;
+  var secondAngleCos = -1;
+  for (var k = 0; k < storedVectors.length; k++) {
+    var c = cosineUnitVectorsGas_(liveVec, storedVectors[k]);
+    if (c > maxAngleCos) {
+      secondAngleCos = maxAngleCos;
+      maxAngleCos = c;
+    } else if (c > secondAngleCos) {
+      secondAngleCos = c;
+    }
+  }
+  var centroid = computeCentroidGas_(storedVectors);
+  var centroidCos = centroid ? cosineUnitVectorsGas_(liveVec, centroid) : maxAngleCos;
+  var supportCos = (secondAngleCos > -1 && secondAngleCos > centroidCos) ? secondAngleCos : centroidCos;
+  return 0.85 * maxAngleCos + 0.15 * supportCos;
+}
+
+function verifyKioskGpsGateGas_(payload) {
+  var actorUser = payload && (payload.actorUsername || payload.adminUsername || payload.username);
+  var isKiosk = !!(payload && (payload.isKiosk === true || payload.isKiosk === 'true' || !actorUser));
+  if (!isKiosk) {
+    var cleanActor = String(actorUser || '').trim().toLowerCase();
+    if (cleanActor === 'admin' || cleanActor === 'tester' || cleanActor === 'testapp') return null;
+    if (payload.isKiosk !== true && payload.isKiosk !== 'true') return null;
+  }
+
+  var hasCoords = payload && payload.lat !== undefined && payload.lat !== null && payload.lat !== '' &&
+                  payload.lng !== undefined && payload.lng !== null && payload.lng !== '';
+  if (!hasCoords) {
+    return jsonResponse(false, {
+      code: 'GPS_REQUIRED',
+      message: 'Trạm Face ID yêu cầu định vị GPS tại nhà hàng (<= 25m).'
+    });
+  }
+
+  var gpsConfig = getGpsConfig();
+  var targetLat = (gpsConfig && gpsConfig.lat) ? Number(gpsConfig.lat) : 10.9760327;
+  var targetLng = (gpsConfig && gpsConfig.lng) ? Number(gpsConfig.lng) : 106.6645922;
+  var rawRadius = (gpsConfig && gpsConfig.radius > 0) ? Number(gpsConfig.radius) : 25;
+  var allowedRadius = (rawRadius === 20) ? 25 : rawRadius;
+
+  var latNum = Number(payload.lat);
+  var lngNum = Number(payload.lng);
+  var R = 6371000;
+  var dLat = (targetLat - latNum) * Math.PI / 180;
+  var dLon = (targetLng - lngNum) * Math.PI / 180;
+  var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(latNum * Math.PI / 180) * Math.cos(targetLat * Math.PI / 180) *
+          Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  var distMeters = Math.round(R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))));
+  var gpsAcc = Number(payload.gpsAccuracy) || 0;
+  var indoorAllowance = Math.min(Math.max(0, gpsAcc) * 0.45, 15);
+  var effectiveDist = Math.max(0, distMeters - indoorAllowance);
+
+  if (effectiveDist > allowedRadius) {
+    return jsonResponse(false, {
+      code: 'OUT_OF_RADIUS',
+      distMeters: distMeters,
+      allowedRadius: allowedRadius,
+      message: 'Thiết bị đang cách nhà hàng ' + distMeters + 'm (vượt quá bán kính Trạm Face ID <= ' + allowedRadius + 'm).'
+    });
+  }
+  return null;
+}
+
+function verifyEmployeeFaceVectorGas_(ss, username, liveVectorB64) {
+  var targetUser = String(username || '').trim().toLowerCase();
+  if (!targetUser || !liveVectorB64) {
+    return jsonResponse(false, {
+      code: 'FACE_VERIFICATION_FAILED',
+      message: 'Thiếu dữ liệu vector xác thực khuôn mặt trực tiếp.'
+    });
+  }
+  var liveVecs = decodeInt8VectorsGas_(String(liveVectorB64), FACE_VECTOR_DIM);
+  if (liveVecs.length === 0) {
+    return jsonResponse(false, {
+      code: 'FACE_VERIFICATION_FAILED',
+      message: 'Định dạng vector sinh trắc học không hợp lệ.'
+    });
+  }
+
+  var sheet = ss.getSheetByName(FACE_ID_SHEET_NAME);
+  if (!sheet || sheet.getLastRow() < 2) {
+    return jsonResponse(false, {
+      code: 'FACE_PROFILE_NOT_FOUND',
+      message: 'Tài khoản chưa đăng ký hồ sơ khuôn mặt Face ID.'
+    });
+  }
+
+  var rows = sheet.getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++) {
+    var rowUser = rows[i][0] ? String(rows[i][0]).trim().toLowerCase() : '';
+    if (rowUser === targetUser && rows[i][2]) {
+      var storedVecs = decodeInt8VectorsGas_(String(rows[i][2]), FACE_VECTOR_DIM);
+      var score = computeFaceProfileScoreGas_(liveVecs[0], storedVecs);
+      if (score >= FACE_SERVER_VERIFY_MIN_SCORE) {
+        return null; // Valid biometric match!
+      }
+      return jsonResponse(false, {
+        code: 'FACE_VERIFICATION_FAILED',
+        score: Math.round(score * 1000) / 1000,
+        message: 'Xác thực khuôn mặt không khớp với hồ sơ gốc trên hệ thống.'
+      });
+    }
+  }
+
+  return jsonResponse(false, {
+    code: 'FACE_PROFILE_NOT_FOUND',
+    message: 'Tài khoản chưa đăng ký khuôn mặt Face ID.'
+  });
+}
+
+function handleGetFaceProfiles(payload) {
+  try {
+    var isPreloadOnly = !!(payload && (payload.preloadOnly === true || payload.preloadOnly === 'true'));
+    if (!isPreloadOnly) {
+      var gpsErr = verifyKioskGpsGateGas_(payload);
+      if (gpsErr) return gpsErr;
+    }
+
+    var ss = getSS();
+    var faceSheet = ensureFaceIdSheet_(ss);
+    var faceRows = faceSheet.getDataRange().getValues();
+    var userSheet = ss.getSheetByName(CONFIG.SHEET_USERS || 'DATA');
+    var userRows = userSheet ? userSheet.getDataRange().getValues() : [];
+
+    var activeUsersMap = {};
+    for (var u = 2; u < userRows.length; u++) {
+      var uName = userRows[u][0] ? String(userRows[u][0]).trim().toLowerCase() : '';
+      if (!uName) continue;
+      var empStatus = normalizeEmploymentStatus(userRows[u][8]);
+      if (empStatus === EMPLOYMENT_STATUS.RESIGNED || empStatus === EMPLOYMENT_STATUS.SUSPENDED) {
+        continue;
+      }
+      activeUsersMap[uName] = {
+        username: String(userRows[u][0]).trim(),
+        fullname: userRows[u][2] ? String(userRows[u][2]).trim() : String(userRows[u][0]).trim(),
+        role: userRows[u][5] ? String(userRows[u][5]).trim().toLowerCase() : 'user',
+        position: userRows[u][6] ? String(userRows[u][6]).trim() : 'Nhân sự',
+        avatarUrl: userRows[u][7] ? String(userRows[u][7]).trim() : '',
+        employmentStatus: empStatus
+      };
+    }
+
+    if (!activeUsersMap['admin']) {
+      activeUsersMap['admin'] = {
+        username: 'ADMIN',
+        fullname: 'SUPER ADMIN',
+        role: 'admin',
+        position: 'Quản lý',
+        avatarUrl: '',
+        employmentStatus: EMPLOYMENT_STATUS.ACTIVE
+      };
+    }
+
+    var profiles = [];
+    var enrolledLookup = {};
+    for (var i = 1; i < faceRows.length; i++) {
+      var fUser = faceRows[i][0] ? String(faceRows[i][0]).trim().toLowerCase() : '';
+      var vecB64 = faceRows[i][2] ? String(faceRows[i][2]).trim() : '';
+      if (!fUser || !vecB64) continue;
+      if (decodeInt8VectorsGas_(vecB64, FACE_VECTOR_DIM).length === 0) continue; // Ignore corrupted #ERROR! rows
+      var meta = activeUsersMap[fUser];
+      if (!meta) continue; // Automatically exclude resigned/suspended/deleted accounts
+
+      var wireOutB64 = toStandardFaceB64Gas_(vecB64) || vecB64;
+      var rawLocked = faceRows[i][8];
+      var isLocked = (rawLocked === true || String(rawLocked).toUpperCase() === 'TRUE');
+      enrolledLookup[fUser] = true;
+
+      profiles.push({
+        username: meta.username,
+        fullname: meta.fullname || (faceRows[i][1] ? String(faceRows[i][1]).trim() : meta.username),
+        position: meta.position,
+        avatarUrl: meta.avatarUrl,
+        employmentStatus: meta.employmentStatus,
+        vectorsB64: wireOutB64,
+        anglesCount: Number(faceRows[i][3]) || 5,
+        modelVersion: faceRows[i][4] ? String(faceRows[i][4]) : 'w600k_mbf_int8_v2',
+        enrolledAt: faceRows[i][6] ? String(faceRows[i][6]) : '',
+        isLocked: isLocked
+      });
+    }
+
+    var isCallerAdmin = (requireAdminActor({
+      role: payload && (payload.actorRole || payload.role),
+      adminUsername: payload && payload.adminUsername,
+      actorUsername: payload && payload.actorUsername,
+      username: payload && (payload.actorUsername || payload.adminUsername || payload.username)
+    }) === null);
+
+    var responseData = {
+      profiles: profiles,
+      totalActiveUsers: Object.keys(activeUsersMap).length,
+      gpsConfig: getGpsConfig()
+    };
+
+    if (isCallerAdmin && !isPreloadOnly) {
+      var activeEmployees = [];
+      var userKeys = Object.keys(activeUsersMap);
+      for (var k = 0; k < userKeys.length; k++) {
+        var empItem = activeUsersMap[userKeys[k]];
+        activeEmployees.push({
+          username: empItem.username,
+          fullname: empItem.fullname,
+          role: empItem.role || 'user',
+          position: empItem.position || 'Nhân sự',
+          avatarUrl: empItem.avatarUrl || '',
+          employmentStatus: empItem.employmentStatus || 'active',
+          hasFaceProfile: !!enrolledLookup[userKeys[k]]
+        });
+      }
+      responseData.activeEmployees = activeEmployees;
+    }
+
+    return jsonResponse(true, responseData);
+  } catch (e) {
+    return jsonResponse(false, 'Lỗi tải danh sách Face ID: ' + e.message);
+  }
+}
+
+function handleEnrollFaceProfile(payload) {
+  if (!payload || !payload.username || !payload.vectorsB64) {
+    return jsonResponse(false, 'Thiếu thông tin tài khoản hoặc dữ liệu 5 góc khuôn mặt.');
+  }
+
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(15000);
+    var ss = getSS();
+    var targetUser = String(payload.username).trim();
+    var targetUserLower = targetUser.toLowerCase();
+
+    var empProfile = getEmploymentProfileByUsername(targetUser);
+    if (!empProfile && targetUserLower === 'admin' && isAdminUser(targetUser)) {
+      empProfile = {
+        username: 'ADMIN',
+        fullname: payload.fullname ? String(payload.fullname).trim() : 'SUPER ADMIN',
+        employmentStatus: EMPLOYMENT_STATUS.ACTIVE
+      };
+    }
+    if (!empProfile) {
+      return jsonResponse(false, 'Không tìm thấy tài khoản nhân sự trong bảng DATA.');
+    }
+    if (empProfile.employmentStatus === EMPLOYMENT_STATUS.RESIGNED || empProfile.employmentStatus === EMPLOYMENT_STATUS.SUSPENDED) {
+      return jsonResponse(false, 'Tài khoản không trong trạng thái làm việc hoạt động.');
+    }
+
+    var incomingVectors = decodeInt8VectorsGas_(String(payload.vectorsB64), FACE_VECTOR_DIM);
+    if (incomingVectors.length === 0) {
+      return jsonResponse(false, 'Dữ liệu sinh trắc học khuôn mặt không hợp lệ.');
+    }
+    var incomingCentroid = computeCentroidGas_(incomingVectors);
+
+    var sheet = ensureFaceIdSheet_(ss);
+    var rows = sheet.getDataRange().getValues();
+    var existingRowIndex = -1;
+    var isAdminOverride = (requireAdminActor({
+      role: payload.actorRole || payload.role,
+      adminUsername: payload.adminUsername,
+      actorUsername: payload.actorUsername,
+      username: payload.actorUsername || payload.adminUsername || payload.username
+    }) === null);
+
+    // 1. Check lock status & Anti-Duplicate Identity across all other employees
+    for (var i = 1; i < rows.length; i++) {
+      var rowUserLower = rows[i][0] ? String(rows[i][0]).trim().toLowerCase() : '';
+      var rowVecB64 = rows[i][2] ? String(rows[i][2]).trim() : '';
+      if (!rowUserLower) continue;
+
+      if (rowUserLower === targetUserLower) {
+        existingRowIndex = i + 1;
+        var rowLocked = (rows[i][8] === true || String(rows[i][8]).toUpperCase() === 'TRUE');
+        var existingVectors = rowVecB64 ? decodeInt8VectorsGas_(rowVecB64, FACE_VECTOR_DIM) : [];
+        if (rowLocked && existingVectors.length > 0 && !isAdminOverride) {
+          return jsonResponse(false, {
+            code: 'FACE_PROFILE_LOCKED',
+            message: 'Khuôn mặt đã được khóa bảo vệ sau lần đăng ký đầu tiên. Vui lòng liên hệ Quản lý để mở khóa nếu cần đăng ký lại.'
+          });
+        }
+      } else if (rowVecB64) {
+        var otherVectors = decodeInt8VectorsGas_(rowVecB64, FACE_VECTOR_DIM);
+        var dupScore = computeFaceProfileScoreGas_(incomingCentroid, otherVectors);
+        if (dupScore >= FACE_DUPLICATE_IDENTITY_THRESHOLD) {
+          var otherName = rows[i][1] ? String(rows[i][1]).trim() : rowUserLower;
+          return jsonResponse(false, {
+            code: 'DUPLICATE_FACE_IDENTITY',
+            matchedUsername: rowUserLower,
+            similarity: Math.round(dupScore * 1000) / 1000,
+            message: 'Từ chối đăng ký: Khuôn mặt này trùng khớp với hồ sơ của nhân sự "' + otherName + '". Mỗi nhân viên chỉ được gắn 1 khuôn mặt duy nhất!'
+          });
+        }
+      }
+    }
+
+    var sampleImageUrl = '';
+    if (payload.sampleImage && String(payload.sampleImage).length > 100) {
+      try {
+        sampleImageUrl = uploadImageBlobToDrive(payload.sampleImage, 'FaceID_' + (empProfile.fullname || targetUser));
+      } catch (upErr) {}
+    }
+
+    var nowStr = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm:ss');
+    var actor = payload.actorUsername || payload.adminUsername || targetUser;
+    var fullname = empProfile.fullname || payload.fullname || targetUser;
+    var anglesCount = Number(payload.anglesCount) || incomingVectors.length;
+    var modelVer = payload.modelVersion ? String(payload.modelVersion) : 'w600k_mbf_int8_v2';
+
+    var safeVectorsB64 = normalizeSafeFaceB64Gas_(String(payload.vectorsB64));
+    var rowValues = [
+      empProfile.username || targetUser,
+      fullname,
+      safeVectorsB64,
+      anglesCount,
+      modelVer,
+      sampleImageUrl,
+      nowStr,
+      actor,
+      true
+    ];
+
+    var writeRowIdx = existingRowIndex > 1 ? existingRowIndex : Math.max(2, sheet.getLastRow() + 1);
+    try {
+      sheet.getRange(writeRowIdx, 3, 1, 1).setNumberFormat('@');
+      sheet.getRange(writeRowIdx, 7, 1, 1).setNumberFormat('@');
+    } catch (nfErr) {}
+    sheet.getRange(writeRowIdx, 1, 1, 9).setValues([rowValues]);
+
+    if (typeof appendAuditLog_ === 'function') {
+      try {
+        appendAuditLog_(actor, 'ENROLL_FACE_PROFILE', targetUser, 'Đăng ký Face ID (' + anglesCount + ' góc) cho @' + targetUser, { anglesCount: anglesCount });
+      } catch (audErr) {}
+    }
+
+    return jsonResponse(true, {
+      message: 'Đã đăng ký và khóa bảo vệ Face ID thành công!',
+      username: empProfile.username || targetUser,
+      fullname: fullname,
+      anglesCount: anglesCount,
+      enrolledAt: nowStr,
+      isLocked: true
+    });
+  } catch (e) {
+    return jsonResponse(false, 'Lỗi lưu hồ sơ Face ID: ' + e.message);
+  } finally {
+    try { lock.releaseLock(); } catch (re) {}
+  }
+}
+
+function handleResetFaceProfile(payload) {
+  var adminErr = requireAdminActor(payload);
+  if (adminErr) return jsonResponse(false, adminErr);
+
+  var targetUser = payload && (payload.targetUsername || payload.usernameToReset);
+  if (!targetUser) {
+    return jsonResponse(false, 'Thiếu mã nhân viên cần mở khóa/đặt lại Face ID.');
+  }
+  var cleanTarget = String(targetUser).trim().toLowerCase();
+
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(15000);
+    var ss = getSS();
+    var sheet = ensureFaceIdSheet_(ss);
+    var rows = sheet.getDataRange().getValues();
+    var removed = false;
+
+    for (var i = rows.length - 1; i >= 1; i--) {
+      var rUser = rows[i][0] ? String(rows[i][0]).trim().toLowerCase() : '';
+      if (rUser === cleanTarget) {
+        sheet.deleteRow(i + 1);
+        removed = true;
+      }
+    }
+
+    var actor = payload.adminUsername || payload.actorUsername || payload.username || 'admin';
+    if (typeof appendAuditLog_ === 'function') {
+      try {
+        appendAuditLog_(actor, 'RESET_FACE_PROFILE', cleanTarget, 'Quản lý mở khóa / đặt lại Face ID cho @' + cleanTarget, { removed: removed });
+      } catch (audErr) {}
+    }
+
+    return jsonResponse(true, {
+      message: removed
+        ? 'Đã xóa & mở khóa Face ID cho @' + targetUser + '. Nhân viên có thể đăng ký lại 5 góc khuôn mặt mới.'
+        : 'Tài khoản @' + targetUser + ' hiện chưa có hồ sơ khóa Face ID.',
+      targetUsername: String(targetUser).trim(),
+      unlocked: true,
+      removed: removed
+    });
+  } catch (e) {
+    return jsonResponse(false, 'Lỗi đặt lại Face ID: ' + e.message);
+  } finally {
+    try { lock.releaseLock(); } catch (re) {}
+  }
+}
+
+function normalizeAttendanceTextGas_(val) {
+  if (!val) return '';
+  var s = String(val);
+  if (typeof s.normalize === 'function') s = s.normalize('NFC');
+  return s.replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+function matchesAttendancePersonGas_(rowCol0, rowJson, targetUsername, targetFullname) {
+  var tUser = normalizeAttendanceTextGas_(targetUsername);
+  var rUser = (rowJson && rowJson.username) ? normalizeAttendanceTextGas_(rowJson.username) : '';
+  if (tUser && rUser) {
+    return tUser === rUser;
+  }
+  var tFull = normalizeAttendanceTextGas_(targetFullname);
+  var rFull = normalizeAttendanceTextGas_(rowCol0);
+  if (tFull && rFull && tFull === rFull) return true;
+  if (tUser && rFull && tUser === rFull) return true;
+  if (rUser && tFull && rUser === tFull) return true;
+  return false;
+}
+
+function isMissedSupplementRowGas_(rowCol3, rowCol4, rowJson) {
+  if (rowJson && (rowJson.isMissedCheckInClaim === true || (rowJson.id && String(rowJson.id).indexOf('MC_') === 0))) {
+    return true;
+  }
+  var locStr = String(rowCol3 || '');
+  var stStr = String(rowCol4 || '');
+  if (/bổ\s*sung|giải\s*trình/i.test(locStr) || /bổ\s*sung|giải\s*trình/i.test(stStr)) {
+    return true;
+  }
+  return false;
+}
+
+function handleGetKioskAttendanceState(payload) {
+  try {
+    var gpsErr = verifyKioskGpsGateGas_(payload);
+    if (gpsErr) return gpsErr;
+
+    var ss = getSS();
+    var sheet = ss.getSheetByName(CONFIG.SHEET_LOGS);
+    if (!sheet || sheet.getLastRow() < 2) {
+      return jsonResponse(true, { logs: [] });
+    }
+
+    var maxScan = Math.min(sheet.getLastRow() - 1, 250);
+    var rows = sheet.getRange(2, 1, maxScan, 8).getValues();
+    var cutoffMs = new Date().getTime() - 30 * 3600 * 1000; // Last 30h covers yesterday's 06:00 -> overnight <06:00
+    var minimalLogs = [];
+
+    var isPersonalScoped = (payload && payload.isKiosk === false && requireAdminActor(payload) !== null);
+    var callerUserLower = (payload && payload.username) ? String(payload.username).trim().toLowerCase() : '';
+    var callerFullname = (payload && payload.fullname) ? String(payload.fullname).trim() : '';
+
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      if (!r[0] || !r[1] || !r[2]) continue;
+      var typeStr = String(r[1]).trim();
+      var isPendingSuppRow = /^\s*chờ\s*duyệt\s*:/i.test(typeStr);
+      if (!isCheckInStatus_(typeStr) && !isCheckOutStatus_(typeStr) && !isPendingSuppRow) continue;
+
+      var ts = getLogTimestampSafe(r[2], r[7]);
+      if (!ts || ts < cutoffMs) continue;
+
+      var uname = '';
+      var rowJson = null;
+      if (r[7]) {
+        try {
+          rowJson = typeof r[7] === 'string' ? JSON.parse(r[7]) : r[7];
+          if (rowJson && rowJson.username) uname = String(rowJson.username).trim();
+        } catch (je) {}
+      }
+
+      if (isPersonalScoped) {
+        if (!matchesAttendancePersonGas_(r[0], rowJson, callerUserLower, callerFullname)) continue;
+      }
+
+      minimalLogs.push({
+        username: uname,
+        fullname: String(r[0]).trim(),
+        type: typeStr,
+        time: String(r[2]).replace(/^'/, '').trim(),
+        timestamp: ts
+      });
+    }
+
+    return jsonResponse(true, { logs: minimalLogs });
+  } catch (e) {
+    return jsonResponse(false, 'Lỗi tải trạng thái chấm công Trạm: ' + e.message);
+  }
+}
+
+function sendCheckInEmailAfterUpload_(ss, payload, targetDataRow, rowJson, imageUrl, isValid) {
+  var username = (payload && payload.username) || (rowJson && rowJson.username) || '';
+  var fullname = (targetDataRow && targetDataRow[0]) ? String(targetDataRow[0]).trim() : (payload.fullname || username);
+  var typeStr = (targetDataRow && targetDataRow[1]) ? String(targetDataRow[1]).trim() : (payload.type || 'Vào ca');
+  var timeStr = (targetDataRow && targetDataRow[2]) ? String(targetDataRow[2]).replace(/^'/, '').trim() : (payload.time || '');
+  var locStr = (targetDataRow && targetDataRow[3]) ? String(targetDataRow[3]).trim() : "Nhà hàng King's Grill";
+  var distStr = (targetDataRow && targetDataRow[5]) ? String(targetDataRow[5]).trim() : '5m';
+
+  var email = payload && payload.email ? String(payload.email).trim() : '';
+  if (!email || email.indexOf('@') === -1 || email.indexOf('@kingsgrill.com') !== -1) {
+    if (String(username).toLowerCase() === 'admin') {
+      email = 'dmt.7121@gmail.com';
+    } else if (username) {
+      var uSheet = ss.getSheetByName(CONFIG.SHEET_USERS || 'DATA');
+      if (uSheet) {
+        var uRows = uSheet.getDataRange().getValues();
+        for (var r = 1; r < uRows.length; r++) {
+          if (uRows[r][0] && String(uRows[r][0]).trim().toLowerCase() === String(username).trim().toLowerCase()) {
+            if (uRows[r][4] && String(uRows[r][4]).indexOf('@') > 0) {
+              email = String(uRows[r][4]).trim();
+            } else if (uRows[r][3] && String(uRows[r][3]).indexOf('@') > 0) {
+              email = String(uRows[r][3]).trim();
+            }
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  var mailPayload = {
+    username: username,
+    fullname: fullname,
+    email: email,
+    type: typeStr,
+    time: timeStr,
+    shift: (rowJson && rowJson.caLam) ? rowJson.caLam : ''
+  };
+  var parsedTime = parseDateTimeString(timeStr) || new Date();
+  sendCheckInEmail(mailPayload, parsedTime, locStr, imageUrl, distStr, isValid);
 }

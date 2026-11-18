@@ -851,4 +851,454 @@ describe('Check-In History Completeness & Multi-Sheet / Unicode / Edge Overlay G
       globalThis.fetch = origFetch;
     }
   });
+
+  test('6. SUBMIT_MISSED_CHECKIN immediately writes pending row into ✔️CHẤM CÔNG (0 payroll hours until approved) and APPROVE / REJECT update that exact row in-place with zero duplicates', () => {
+    const gas = createGasSandbox({
+      DATA: [
+        ['Bảng người dùng'],
+        ['Username', 'Password', 'Fullname', 'DOB', 'Email', 'Role', 'Position', 'Avatar', 'EmploymentStatus'],
+        ['admin', 'hash_admin', 'Quản Lý Nhà Hàng', '', '', 'admin', 'Quản lý', '', 'active'],
+        ['nhanvien_a', 'hash_a', 'Đặng Thị Hồng Ánh', '', '', 'user', 'Phục vụ', '', 'active'],
+      ],
+      SalaryConfig: [
+        ['Username', 'BaseHourly'],
+        ['nhanvien_a', 25000],
+      ],
+      '✔️CHẤM CÔNG': [
+        ['Họ tên', 'Loại', 'Thời gian', 'Vị trí', 'Trạng thái', 'Khoảng cách', 'Ảnh', 'JSON'],
+        ['Đặng Thị Hồng Ánh', 'Ra 1', "'10/11/2026 22:30:00", "Nhà hàng King's Grill", 'Hợp lệ', '5m', '', '{}'],
+      ],
+    });
+
+    // 6a. Staff submits forgotten Vào ca for 10/11/2026 15:00
+    const submitRes = gas.callDoPost({
+      action: 'SUBMIT_MISSED_CHECKIN',
+      username: 'nhanvien_a',
+      fullname: 'Đặng Thị Hồng Ánh',
+      date: '10/11/2026',
+      time: '15:00',
+      type: 'Vào 1',
+      shift: 'Ca gãy chiều (15:00 - 22:30)',
+      reason: 'Quên bấm vào ca đầu giờ đông khách',
+    });
+    assert.equal(submitRes.ok, true, `SUBMIT_MISSED_CHECKIN failed: ${JSON.stringify(submitRes)}`);
+    const claimId = submitRes.data.id;
+    assert.ok(claimId, 'SUBMIT_MISSED_CHECKIN must return claimId');
+    assert.equal(submitRes.data.canonicalType, 'Vào ca');
+
+    // Immediately verify ✔️CHẤM CÔNG already has the pending row with unified 'Chờ duyệt: Vào ca'!
+    const logSheetAfterSubmit = gas.sheetsData['✔️CHẤM CÔNG'];
+    assert.equal(
+      logSheetAfterSubmit.length,
+      3,
+      `Expected header + existing Ra 1 + newly inserted Pending row = 3 rows, got ${logSheetAfterSubmit.length}`
+    );
+    const pendingRow = logSheetAfterSubmit.find((r) => String(r[1]).includes('Chờ duyệt'));
+    assert.ok(pendingRow, '✔️CHẤM CÔNG must immediately contain a "Chờ duyệt: ..." row upon SUBMIT_MISSED_CHECKIN');
+    assert.equal(pendingRow![0], 'Đặng Thị Hồng Ánh');
+    assert.equal(pendingRow![1], 'Chờ duyệt: Vào ca');
+    assert.equal(String(pendingRow![2]).replace(/^'/, ''), '10/11/2026 15:00:00');
+    assert.equal(pendingRow![4], 'Chờ Admin duyệt');
+
+    // 6b. Verify GET_PAYROLL (Engine.gs) counts ZERO hours while row is pending Admin approval!
+    const payrollBefore = gas.callDoPost({
+      action: 'GET_PAYROLL',
+      username: 'nhanvien_a',
+      role: 'user',
+      month: '2026-11',
+    });
+    assert.equal(payrollBefore.ok, true);
+    const slipBefore = payrollBefore.data.payroll[0];
+    assert.equal(
+      slipBefore.totalHours,
+      0,
+      `Pending supplement MUST NOT count in payroll before Admin approves, got ${slipBefore.totalHours}h`
+    );
+
+    // 6c. Admin approves -> updates exact row in-place to unified 'Vào ca' (row count stays 3, zero duplicate rows!)
+    const approveRes = gas.callDoPost({
+      action: 'APPROVE_MISSED_CHECKIN',
+      username: 'admin',
+      adminUsername: 'admin',
+      role: 'admin',
+      id: claimId,
+    });
+    assert.equal(approveRes.ok, true, `APPROVE_MISSED_CHECKIN failed: ${JSON.stringify(approveRes)}`);
+    assert.equal(
+      gas.sheetsData['✔️CHẤM CÔNG'].length,
+      3,
+      'APPROVE_MISSED_CHECKIN must update pending row in-place without inserting a duplicate row'
+    );
+    const approvedRow = gas.sheetsData['✔️CHẤM CÔNG'].find(
+      (r) => String(r[2]).replace(/^'/, '') === '10/11/2026 15:00:00'
+    );
+    assert.ok(approvedRow);
+    assert.equal(approvedRow![1], 'Vào ca');
+    assert.equal(approvedRow![4], 'Hợp lệ');
+
+    // Now GET_PAYROLL must count 15:00 -> 22:30 = 7.5 hours!
+    const payrollAfter = gas.callDoPost({
+      action: 'GET_PAYROLL',
+      username: 'nhanvien_a',
+      role: 'user',
+      month: '2026-11',
+    });
+    assert.equal(payrollAfter.ok, true);
+    assert.equal(payrollAfter.data.payroll[0].totalHours, 7.5);
+
+    // 6d. Submit a second supplement (overnight <06:00 Ra ca on 11/11/2026 -> rolls to 12/11/2026 01:15:00) and REJECT it
+    gas.sheetsData['✔️CHẤM CÔNG'].push([
+      'Đặng Thị Hồng Ánh',
+      'Vào ca',
+      "'11/11/2026 17:00:00",
+      "Nhà hàng King's Grill",
+      'Hợp lệ',
+      '5m',
+      '',
+      '{}',
+    ]);
+    const submitRes2 = gas.callDoPost({
+      action: 'SUBMIT_MISSED_CHECKIN',
+      username: 'nhanvien_a',
+      fullname: 'Đặng Thị Hồng Ánh',
+      date: '11/11/2026',
+      time: '01:15',
+      type: 'Ra ca',
+      shift: 'Ca tối',
+      reason: 'Quên bấm ra ca khuya',
+    });
+    assert.equal(submitRes2.ok, true);
+    const claimId2 = submitRes2.data.id;
+    const countBeforeReject = gas.sheetsData['✔️CHẤM CÔNG'].length;
+
+    // Overnight Ra ca at 01:15 for workday 11/11/2026 must roll timestamp to 12/11/2026 01:15:00!
+    const pendingOvernightRow = gas.sheetsData['✔️CHẤM CÔNG'].find((r) => String(r[5]).includes(claimId2));
+    assert.ok(pendingOvernightRow, 'Pending overnight supplement row must exist in ✔️CHẤM CÔNG');
+    assert.equal(String(pendingOvernightRow![2]).replace(/^'/, ''), '12/11/2026 01:15:00');
+
+    const rejectRes = gas.callDoPost({
+      action: 'REJECT_MISSED_CHECKIN',
+      username: 'admin',
+      adminUsername: 'admin',
+      role: 'admin',
+      id: claimId2,
+      reason: 'Sai giờ thực tế trên camera',
+    });
+    assert.equal(rejectRes.ok, true);
+    assert.equal(
+      gas.sheetsData['✔️CHẤM CÔNG'].length,
+      countBeforeReject,
+      'REJECT_MISSED_CHECKIN must update pending row in-place'
+    );
+    const rejectedRow = gas.sheetsData['✔️CHẤM CÔNG'].find(
+      (r) => String(r[2]).replace(/^'/, '') === '12/11/2026 01:15:00'
+    );
+    assert.ok(rejectedRow);
+    assert.equal(rejectedRow![1], 'Từ chối: Ra ca');
+    assert.equal(rejectedRow![4], 'Không hợp lệ (Từ chối)');
+
+    // 6e. Simulate Google Sheets auto-coercing Date & Time cells into raw Date objects (1899-12-30 / Tue Nov 03 2026):
+    // Verify GET_MISSED_CHECKINS and APPROVE_MISSED_CHECKIN format clean dd/MM/yyyy and HH:mm without GMT/1899 leakage!
+    gas.sheetsData['📝 BỔ SUNG CÔNG'].push([
+      'MC_DATE_COERCED_01',
+      new Date('2026-11-03T14:52:12+07:00'),
+      'nhanvien_a',
+      'Đặng Thị Hồng Ánh',
+      new Date('2026-11-03T00:00:00+07:00'),
+      new Date(1899, 11, 30, 15, 0, 0),
+      'Vào 1',
+      new Date(1899, 11, 30, 15, 0, 0),
+      'Lỗi mạng / Wifi tại quán',
+      '',
+      'Pending',
+      '',
+      '',
+      '',
+    ]);
+    gas.sheetsData['✔️CHẤM CÔNG'].push([
+      'Đặng Thị Hồng Ánh',
+      'Chờ duyệt: Vào 1',
+      "'03/11/2026 15:00:00",
+      'Bổ sung công (Chờ Admin duyệt)',
+      'Chờ Admin duyệt',
+      'Bổ sung #MC_DATE_COERCED_01',
+      '',
+      JSON.stringify({ supplementId: 'MC_DATE_COERCED_01' }),
+    ]);
+
+    const listCoerced = gas.callDoPost({
+      action: 'GET_MISSED_CHECKINS',
+      username: 'admin',
+      role: 'admin',
+    });
+    assert.equal(listCoerced.ok, true);
+    const coercedClaim = listCoerced.data.find((c: any) => c.id === 'MC_DATE_COERCED_01');
+    assert.ok(coercedClaim, 'Must find MC_DATE_COERCED_01 in GET_MISSED_CHECKINS');
+    assert.equal(coercedClaim.date, '03/11/2026', 'Coerced Date cell must format as dd/MM/yyyy');
+    assert.equal(coercedClaim.time, '15:00', 'Coerced 1899 Time cell must format as HH:mm');
+    assert.equal(coercedClaim.type, 'Vào ca', 'Legacy Vào 1 claim must normalize to Vào ca');
+    assert.equal(/1899|GMT/i.test(JSON.stringify(coercedClaim)), false, 'Zero 1899/GMT strings may leak in GET_MISSED_CHECKINS');
+
+    const approveCoerced = gas.callDoPost({
+      action: 'APPROVE_MISSED_CHECKIN',
+      username: 'admin',
+      adminUsername: 'admin',
+      role: 'admin',
+      id: 'MC_DATE_COERCED_01',
+    });
+    assert.equal(approveCoerced.ok, true);
+    assert.equal(approveCoerced.data.approvedType, 'Vào ca');
+    assert.equal(approveCoerced.data.effectiveTime, '03/11/2026 15:00:00');
+    const approvedCoercedRow = gas.sheetsData['✔️CHẤM CÔNG'].find((r) =>
+      String(r[7] || '').includes('MC_DATE_COERCED_01')
+    );
+    assert.ok(approvedCoercedRow, 'Must update pending row in-place via JSON supplementId');
+    assert.equal(approvedCoercedRow![1], 'Vào ca');
+    assert.equal(String(approvedCoercedRow![2]).replace(/^'/, ''), '03/11/2026 15:00:00');
+  });
+
+  test('7. Cloudflare Edge GET_KIOSK_ATTENDANCE_STATE enforces strict per-user privacy when isKiosk=false and mirrors SUBMIT/APPROVE_MISSED_CHECKIN in D1', async () => {
+    const edgeMod: any = await vite.ssrLoadModule('/functions/api.js');
+
+    const now = Date.now();
+    const fmtVn = (ms: number) => {
+      const d = new Date(ms + 7 * 3600 * 1000);
+      const dd = String(d.getUTCDate()).padStart(2, '0');
+      const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const yyyy = d.getUTCFullYear();
+      const hh = String(d.getUTCHours()).padStart(2, '0');
+      const mi = String(d.getUTCMinutes()).padStart(2, '0');
+      return {
+        date: `${dd}/${mm}/${yyyy}`,
+        hhmm: `${hh}:${mi}`,
+        full: `${dd}/${mm}/${yyyy} ${hh}:${mi}:00`,
+      };
+    };
+    const tOther = fmtVn(now - 3 * 3600 * 1000);
+    const tMine = fmtVn(now - 2 * 3600 * 1000);
+    const tSupp = fmtVn(now - 1 * 3600 * 1000);
+
+    const checkinRows: any[] = [
+      {
+        id: 'CHK_OTHER',
+        username: 'nhanvien_b',
+        fullname: 'Nguyễn Văn B',
+        check_type: 'Vào 1',
+        shift_name: 'Ca sáng',
+        time_str: tOther.full,
+        status: 'Hợp lệ',
+        distance: 5,
+        lat: 10.976,
+        lng: 106.664,
+        note: '',
+        image_url: '',
+        created_at: now - 30 * 60 * 1000,
+      },
+      {
+        id: 'CHK_MINE',
+        username: 'nhanvien_a',
+        fullname: 'Đặng Thị Hồng Ánh',
+        check_type: 'Vào 1',
+        shift_name: 'Ca chiều',
+        time_str: tMine.full,
+        status: 'Hợp lệ',
+        distance: 5,
+        lat: 10.976,
+        lng: 106.664,
+        note: '',
+        image_url: '',
+        created_at: now - 20 * 60 * 1000,
+      },
+    ];
+
+    const mockDb = {
+      batch: async () => [],
+      prepare: (sql: string) => {
+        let boundArgs: any[] = [];
+        const stmt = {
+          bind: (...args: any[]) => {
+            boundArgs = args;
+            return stmt;
+          },
+          run: async () => {
+            if (sql.includes('INSERT OR REPLACE INTO edge_checkin_logs')) {
+              const [id, username, fullname, check_type, shift_name, time_str, status, distance, lat, lng, note, image_url, created_at] =
+                boundArgs;
+              const existingIdx = checkinRows.findIndex((r) => r.id === id);
+              const nextObj = {
+                id,
+                username,
+                fullname,
+                check_type,
+                shift_name,
+                time_str,
+                status,
+                distance,
+                lat,
+                lng,
+                note,
+                image_url,
+                created_at,
+              };
+              if (existingIdx >= 0) checkinRows[existingIdx] = nextObj;
+              else checkinRows.unshift(nextObj);
+            } else if (sql.includes('UPDATE edge_checkin_logs') && sql.includes('SET check_type')) {
+              const [check_type, status, targetId] = boundArgs;
+              const existing = checkinRows.find((r) => r.id === targetId);
+              if (existing) {
+                existing.check_type = check_type;
+                existing.status = status;
+              }
+            }
+            return { success: true };
+          },
+          first: async () => null,
+          all: async () => {
+            if (sql.includes('FROM edge_checkin_logs')) {
+              const cutoff = typeof boundArgs[0] === 'number' ? boundArgs[0] : 0;
+              return { results: checkinRows.filter((r) => r.created_at >= cutoff) };
+            }
+            return { results: [] };
+          },
+        };
+        return stmt;
+      },
+    };
+
+    const origFetch = globalThis.fetch;
+    globalThis.fetch = (async (_url: any, init?: any) => {
+      const body = JSON.parse(String(init?.body || '{}'));
+      if (body.action === 'SUBMIT_MISSED_CHECKIN') {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            data: {
+              id: 'MC_EDGE_01',
+              status: 'Pending',
+              canonicalType: 'Ra ca',
+              effectiveTime: tSupp.full,
+              sheetPendingRowSaved: true,
+            },
+          }),
+          { status: 200 }
+        );
+      }
+      if (body.action === 'APPROVE_MISSED_CHECKIN') {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            data: {
+              id: 'MC_EDGE_01',
+              username: 'nhanvien_a',
+              fullname: 'Đặng Thị Hồng Ánh',
+              type: 'Ra ca',
+              time: tSupp.full,
+              status: 'Hợp lệ',
+            },
+          }),
+          { status: 200 }
+        );
+      }
+      return new Response(JSON.stringify({ ok: true, data: { logs: [] } }), { status: 200 });
+    }) as any;
+
+    try {
+      // 7a. Personal phone calls GET_KIOSK_ATTENDANCE_STATE with isKiosk: false -> ONLY receives nhanvien_a's punches!
+      const reqState = new Request('https://kg-checkin.pages.dev/api', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'GET_KIOSK_ATTENDANCE_STATE',
+          isKiosk: false,
+          fastEdge: true,
+          username: 'nhanvien_a',
+          fullname: 'Đặng Thị Hồng Ánh',
+        }),
+      });
+      const resState = await edgeMod.onRequest({
+        request: reqState,
+        env: { DB: mockDb },
+        waitUntil: () => {},
+      });
+      const jsonState = await resState.json();
+      assert.equal(jsonState.ok, true);
+      assert.equal(
+        jsonState.data.logs.length,
+        1,
+        `Non-admin personal phone must ONLY see its own punches, got ${JSON.stringify(jsonState.data.logs)}`
+      );
+      assert.equal(jsonState.data.logs[0].username, 'nhanvien_a');
+
+      // 7b. SUBMIT_MISSED_CHECKIN mirrors "Chờ duyệt: Ra ca" into D1 edge_checkin_logs immediately
+      const reqSubmit = new Request('https://kg-checkin.pages.dev/api', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'SUBMIT_MISSED_CHECKIN',
+          username: 'nhanvien_a',
+          fullname: 'Đặng Thị Hồng Ánh',
+          date: tSupp.date,
+          time: tSupp.hhmm,
+          type: 'Ra ca',
+          shift: 'Ca tối',
+          reason: 'Quên ra ca',
+        }),
+      });
+      const resSubmit = await edgeMod.onRequest({
+        request: reqSubmit,
+        env: { DB: mockDb },
+        waitUntil: () => {},
+      });
+      const jsonSubmit = await resSubmit.json();
+      assert.equal(jsonSubmit.ok, true);
+
+      const mirroredPending = checkinRows.find((r) => r.id === 'MC_EDGE_01');
+      assert.ok(mirroredPending, 'SUBMIT_MISSED_CHECKIN must mirror pending row into D1 edge_checkin_logs');
+      assert.equal(mirroredPending.check_type, 'Chờ duyệt: Ra ca');
+      assert.equal(mirroredPending.status, 'Chờ Admin duyệt');
+
+      // Verify GET_KIOSK_ATTENDANCE_STATE immediately exposes "Chờ duyệt: Ra ca" as log.type
+      const resAfterSubmit = await edgeMod.onRequest({
+        request: new Request('https://kg-checkin.pages.dev/api', {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'GET_KIOSK_ATTENDANCE_STATE',
+            isKiosk: false,
+            fastEdge: true,
+            username: 'nhanvien_a',
+            fullname: 'Đặng Thị Hồng Ánh',
+          }),
+        }),
+        env: { DB: mockDb },
+        waitUntil: () => {},
+      });
+      const jsonAfterSubmit = await resAfterSubmit.json();
+      assert.ok(
+        jsonAfterSubmit.data.logs.some((l: any) => l.type === 'Chờ duyệt: Ra ca'),
+        'GET_KIOSK_ATTENDANCE_STATE must return pending supplement row immediately'
+      );
+
+      // 7c. APPROVE_MISSED_CHECKIN updates MC_EDGE_01 in-place in D1 to "Ra ca" + "Hợp lệ"
+      const reqApprove = new Request('https://kg-checkin.pages.dev/api', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'APPROVE_MISSED_CHECKIN',
+          username: 'admin',
+          role: 'admin',
+          id: 'MC_EDGE_01',
+        }),
+      });
+      const resApprove = await edgeMod.onRequest({
+        request: reqApprove,
+        env: { DB: mockDb },
+        waitUntil: () => {},
+      });
+      const jsonApprove = await resApprove.json();
+      assert.equal(jsonApprove.ok, true);
+
+      const mirroredApproved = checkinRows.find((r) => r.id === 'MC_EDGE_01');
+      assert.equal(mirroredApproved.check_type, 'Ra ca');
+      assert.equal(mirroredApproved.status, 'Hợp lệ');
+    } finally {
+      globalThis.fetch = origFetch;
+    }
+  });
 });

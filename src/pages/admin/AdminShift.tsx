@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { MapPin, CalendarRange, Save, Crosshair, AlertCircle, ShieldCheck, Info, Loader2, ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { MapPin, CalendarRange, Save, Crosshair, AlertCircle, ShieldCheck, Info, Loader2, Plus, Trash2, Search, ArrowUpDown } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { useAppStore } from '../../store/useAppStore';
+import { isAdminUser } from '../../utils/permissions';
 import { callApi } from '../../services/api';
 import { KgModuleHero, KgBottomSheet, KgInput, KgSelect, KgButton } from '../../components/KgDesignSystem';
 import MissedCheckInModal from '../../components/MissedCheckInModal';
@@ -9,6 +10,12 @@ import { normalizeGpsRadius } from '../../utils/helpers';
 
 
 export default function AdminShift() {
+  const currentUser = useAppStore((s) => s.currentUser);
+  if (!isAdminUser(currentUser)) return null;
+  return <AdminShiftContent />;
+}
+
+function AdminShiftContent() {
   const serverGpsConfig = useAppStore((s) => s.serverGpsConfig);
   const currentUser = useAppStore((s) => s.currentUser);
   const setServerGpsConfig = useAppStore((s) => s.setServerGpsConfig);
@@ -27,6 +34,38 @@ export default function AdminShift() {
   ]);
   const [registrationCloseTime, setRegistrationCloseTime] = useState('17:00 Thứ Bảy');
   const [isSaving, setIsSaving] = useState(false);
+  const [shiftFilter, setShiftFilter] = useState<'all' | 'standard' | 'admin' | 'penalty'>('all');
+  const [shiftQuery, setShiftQuery] = useState('');
+  const [shiftSortBy, setShiftSortBy] = useState<'default' | 'code' | 'type'>('default');
+  const [shiftSortDir, setShiftSortDir] = useState<'asc' | 'desc'>('asc');
+
+  const filteredShiftCodes = useMemo(() => {
+    const q = shiftQuery.trim().toLowerCase();
+    const list = shiftCodes.filter((s) => {
+      if (shiftFilter !== 'all' && s.type !== shiftFilter) return false;
+      if (!q) return true;
+      return (
+        String(s.code || '').toLowerCase().includes(q) ||
+        String(s.description || '').toLowerCase().includes(q)
+      );
+    });
+    if (shiftSortBy === 'default') return list;
+    return [...list].sort((a, b) => {
+      const valA = String(a[shiftSortBy] || '');
+      const valB = String(b[shiftSortBy] || '');
+      const cmp = valA.localeCompare(valB, 'vi');
+      return shiftSortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [shiftCodes, shiftFilter, shiftQuery, shiftSortBy, shiftSortDir]);
+
+  const toggleShiftSort = (field: 'code' | 'type') => {
+    if (shiftSortBy === field) {
+      setShiftSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setShiftSortBy(field);
+      setShiftSortDir('asc');
+    }
+  };
 
   useEffect(() => {
     if (serverGpsConfig) {
@@ -88,8 +127,10 @@ export default function AdminShift() {
         shiftCodes,
         registrationCloseTime
       });
-      
-      if (data && data.ok) {
+
+      if (!data) return;
+
+      if (data.ok) {
         setServerGpsConfig({
           lat: Number(kgLat),
           lng: Number(kgLng),
@@ -105,15 +146,13 @@ export default function AdminShift() {
           confirmButtonColor: '#2563eb'
         });
       } else {
-        throw new Error(data.message || 'Lỗi không xác định');
+        Swal.fire({
+          icon: 'error',
+          title: 'Lỗi lưu cấu hình',
+          text: data.message || 'Lỗi không xác định',
+          confirmButtonColor: '#dc2626'
+        });
       }
-    } catch (error: any) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Lỗi lưu cấu hình',
-        text: error.message || 'Không thể kết nối đến máy chủ',
-        confirmButtonColor: '#dc2626'
-      });
     } finally {
       setIsSaving(false);
     }
@@ -139,12 +178,7 @@ export default function AdminShift() {
   };
 
   return (
-    <div className="p-4 space-y-4 animate-slide-up pb-10">
-      <div className="flex mb-2">
-        <button type="button" onClick={() => useAppStore.getState().setCurrentTab('admin_workforce')} className="flex items-center gap-1 text-xs font-bold text-[var(--kg-text-muted)] hover:text-[var(--kg-primary)] transition-colors">
-          <ArrowLeft size={14} /> Quay lại Cài đặt chung
-        </button>
-      </div>
+    <div className="p-4 space-y-4 animate-slide-up pb-24 md:pb-12">
       <KgModuleHero
         moduleId="admin-shift"
         title="Ca làm & Chấm công"
@@ -160,17 +194,17 @@ export default function AdminShift() {
 
       {/* GPS Configuration */}
       <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-5 rounded-2xl shadow-sm">
-        <div className="flex items-center justify-between border-b border-[var(--kg-border)] pb-3 mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--kg-border)] pb-3 mb-4">
           <h3 className="font-black flex items-center text-sm sm:text-base text-[var(--kg-text)]">
-            <MapPin size={18} className="mr-2 text-blue-600" /> Tọa độ GPS Nhà hàng
+            <MapPin size={18} className="mr-2 text-blue-600 flex-shrink-0" /> Tọa độ GPS Nhà hàng
           </h3>
           <button
             type="button"
             onClick={handleGetLiveLocation}
             disabled={isLocating}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 rounded-xl text-xs font-black transition-all active:scale-95"
+            className="inline-flex items-center gap-1.5 min-h-[38px] px-3.5 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 rounded-xl text-xs font-black transition-all active:scale-95"
           >
-            <Crosshair size={14} className={isLocating ? 'animate-spin' : ''} />
+            <Crosshair size={14} className={`flex-shrink-0 ${isLocating ? 'animate-spin' : ''}`} />
             {isLocating ? 'Đang lấy vị trí...' : 'Lấy GPS tại đây'}
           </button>
         </div>
@@ -218,31 +252,152 @@ export default function AdminShift() {
 
       {/* Shift Codes */}
       <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-5 rounded-2xl shadow-xs">
-        <h3 className="font-bold mb-4 border-b border-[var(--kg-border)] pb-2 flex items-center text-[var(--kg-text)]">
-          <CalendarRange size={18} className="mr-2 text-[var(--kg-primary)]" /> Mã Ca Làm
-        </h3>
-        
-        <div className="space-y-3">
-          {shiftCodes.map((s) => (
-            <div key={s.id} className={`flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl border ${s.type === 'standard' ? 'bg-[var(--kg-surface-soft)] border-[var(--kg-border)]' : s.type === 'admin' ? 'bg-amber-500/10 border-amber-500/20' : 'bg-rose-500/10 border-rose-500/20'}`}>
-              <div className="min-w-0 pr-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className={`text-sm font-bold truncate ${s.type === 'standard' ? 'text-[var(--kg-text)]' : s.type === 'admin' ? 'text-amber-700 dark:text-amber-400' : 'text-rose-700 dark:text-rose-400'}`}>{s.code}</p>
-                  {s.type !== 'standard' && (
-                    <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold flex-shrink-0 ${s.type === 'admin' ? 'bg-amber-500/20 text-amber-700' : 'bg-rose-500/20 text-rose-700'}`}>{s.type === 'admin' ? 'ADMIN ONLY' : 'PENALTY'}</span>
-                  )}
-                </div>
-                <p className={`text-[10px] truncate ${s.type === 'standard' ? 'text-[var(--kg-text-muted)]' : s.type === 'admin' ? 'text-amber-600' : 'text-rose-600'}`}>{s.description}</p>
-              </div>
-              <button type="button" onClick={() => handleRemoveShiftCode(s.id)} className="text-rose-500 text-xs font-bold px-2 py-1 hover:underline flex-shrink-0 inline-flex items-center gap-1">
-                <Trash2 size={13} /> Xóa
-              </button>
-            </div>
-          ))}
-
-          <button type="button" onClick={handleAddShiftCode} className="w-full border border-dashed border-[var(--kg-border-strong)] text-[var(--kg-text-muted)] hover:text-[var(--kg-primary)] font-bold py-2.5 rounded-xl text-sm transition hover:bg-[var(--kg-surface-soft)] flex items-center justify-center gap-1.5 mt-2">
-            <Plus size={16} /> Thêm mã ca mới
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4 border-b border-[var(--kg-border)] pb-3">
+          <h3 className="font-bold flex items-center text-[var(--kg-text)]">
+            <CalendarRange size={18} className="mr-2 text-[var(--kg-primary)]" /> Mã Ca Làm
+            <span className="ml-2 px-2 py-0.5 rounded-md bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[11px] font-mono tabular-nums text-[var(--kg-text-muted)]">
+              {filteredShiftCodes.length}/{shiftCodes.length}
+            </span>
+          </h3>
+          <button
+            type="button"
+            onClick={handleAddShiftCode}
+            className="min-h-[44px] sm:min-h-[36px] px-3.5 py-1.5 rounded-xl bg-[var(--kg-primary)] text-white hover:bg-[var(--kg-primary-hover)] text-xs font-bold inline-flex items-center gap-1.5 shadow-xs transition-colors"
+          >
+            <Plus size={15} /> Thêm mã ca
           </button>
+        </div>
+
+        {/* Filter & Search Bar */}
+        <div className="flex flex-col sm:flex-row gap-2 mb-3">
+          <div className="relative flex-1">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--kg-text-muted)] pointer-events-none" />
+            <input
+              type="text"
+              value={shiftQuery}
+              onChange={(e) => setShiftQuery(e.target.value)}
+              placeholder="Tìm mã ca, khung giờ, mô tả..."
+              aria-label="Tìm mã ca làm"
+              className="w-full min-h-[44px] sm:min-h-[38px] pl-9 pr-3 py-2 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-xs font-semibold text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
+            />
+          </div>
+          <select
+            value={shiftFilter}
+            onChange={(e) => setShiftFilter(e.target.value as 'all' | 'standard' | 'admin' | 'penalty')}
+            aria-label="Lọc loại mã ca"
+            className="min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-xs font-bold text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
+          >
+            <option value="all">Tất cả phân loại</option>
+            <option value="standard">Tiêu chuẩn</option>
+            <option value="admin">Admin cấp (OFF#)</option>
+            <option value="penalty">Phạt vi phạm (OFF!)</option>
+          </select>
+        </div>
+
+        {/* Mobile Card Fallback */}
+        <div className="space-y-2.5 md:hidden">
+          {filteredShiftCodes.length === 0 ? (
+            <div className="py-8 text-center text-xs font-semibold text-[var(--kg-text-muted)] border border-dashed border-[var(--kg-border)] rounded-xl">
+              Không có mã ca phù hợp bộ lọc.
+            </div>
+          ) : (
+            filteredShiftCodes.map((s) => (
+              <div key={s.id} className={`flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl border ${s.type === 'standard' ? 'bg-[var(--kg-surface-soft)] border-[var(--kg-border)]' : s.type === 'admin' ? 'bg-amber-500/10 border-amber-500/20' : 'bg-rose-500/10 border-rose-500/20'}`}>
+                <div className="min-w-0 pr-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className={`text-sm font-bold font-mono tabular-nums truncate ${s.type === 'standard' ? 'text-[var(--kg-text)]' : s.type === 'admin' ? 'text-amber-700 dark:text-amber-400' : 'text-rose-700 dark:text-rose-400'}`}>{s.code}</p>
+                    {s.type !== 'standard' && (
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold flex-shrink-0 ${s.type === 'admin' ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300' : 'bg-rose-500/20 text-rose-700 dark:text-rose-300'}`}>{s.type === 'admin' ? 'ADMIN ONLY' : 'PENALTY'}</span>
+                    )}
+                  </div>
+                  <p className={`text-[11px] font-mono tabular-nums truncate mt-0.5 ${s.type === 'standard' ? 'text-[var(--kg-text-muted)]' : s.type === 'admin' ? 'text-amber-600 dark:text-amber-300' : 'text-rose-600 dark:text-rose-300'}`}>{s.description}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveShiftCode(s.id)}
+                  className="min-h-[44px] px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-bold transition-colors flex-shrink-0 inline-flex items-center gap-1"
+                >
+                  <Trash2 size={13} className="flex-shrink-0" /> Xóa
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Desktop Sticky-Header Table */}
+        <div className="hidden md:block overflow-x-auto max-h-[380px] overflow-y-auto rounded-2xl border border-[var(--kg-border)]">
+          <table className="w-full text-left border-collapse">
+            <thead className="sticky top-0 z-10 bg-[var(--kg-surface-soft)] border-b border-[var(--kg-border)] text-[11px] font-black uppercase tracking-wider text-[var(--kg-text-muted)]">
+              <tr>
+                <th className="py-2.5 px-4 w-48">
+                  <button
+                    type="button"
+                    onClick={() => toggleShiftSort('code')}
+                    className="inline-flex items-center gap-1 hover:text-[var(--kg-text)]"
+                  >
+                    <span>Mã ca</span>
+                    <ArrowUpDown size={12} />
+                  </button>
+                </th>
+                <th className="py-2.5 px-4 w-40">
+                  <button
+                    type="button"
+                    onClick={() => toggleShiftSort('type')}
+                    className="inline-flex items-center gap-1 hover:text-[var(--kg-text)]"
+                  >
+                    <span>Phân loại</span>
+                    <ArrowUpDown size={12} />
+                  </button>
+                </th>
+                <th className="py-2.5 px-4">Mô tả / Khung giờ</th>
+                <th className="py-2.5 px-4 w-24 text-right">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[var(--kg-border)] text-xs">
+              {filteredShiftCodes.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="py-10 text-center text-[var(--kg-text-muted)] font-semibold">
+                    Không có mã ca phù hợp bộ lọc.
+                  </td>
+                </tr>
+              ) : (
+                filteredShiftCodes.map((s) => (
+                  <tr key={s.id} className="hover:bg-[var(--kg-surface-soft)]/50 transition-colors">
+                    <td className="py-3 px-4 font-bold font-mono tabular-nums text-[var(--kg-text)]">
+                      {s.code}
+                    </td>
+                    <td className="py-3 px-4">
+                      {s.type === 'standard' ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)]">
+                          Tiêu chuẩn
+                        </span>
+                      ) : s.type === 'admin' ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-[var(--kg-warning-soft)] text-amber-800 dark:text-amber-300">
+                          ADMIN ONLY
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-[var(--kg-danger-soft)] text-rose-700 dark:text-rose-300">
+                          PENALTY
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4 font-mono tabular-nums text-[var(--kg-text-muted)]">
+                      {s.description || '—'}
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveShiftCode(s.id)}
+                        className="min-h-[34px] px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-bold inline-flex items-center gap-1 transition-colors"
+                      >
+                        <Trash2 size={13} /> Xóa
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
       
@@ -256,9 +411,9 @@ export default function AdminShift() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0 pr-2 flex-1">
               <label htmlFor="reg-close-time" className="block text-sm font-bold text-[var(--kg-text)] mb-1">Giờ đóng cổng tự động</label>
-              <input id="reg-close-time" type="text" value={registrationCloseTime} onChange={(e) => setRegistrationCloseTime(e.target.value)} className="w-full max-w-xs text-xs font-semibold text-[var(--kg-text)] bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)]" />
+              <input id="reg-close-time" type="text" value={registrationCloseTime} onChange={(e) => setRegistrationCloseTime(e.target.value)} className="w-full max-w-xs text-xs font-semibold text-[var(--kg-text)] bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)]" />
             </div>
-            <button type="button" onClick={handleSaveGPS} disabled={isSaving} className="px-3.5 py-2 bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-border)]/40 border border-[var(--kg-border)] text-[var(--kg-text)] font-bold text-xs rounded-xl transition flex-shrink-0">
+            <button type="button" onClick={handleSaveGPS} disabled={isSaving} className="min-h-[38px] px-4 py-2 bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-border)]/40 border border-[var(--kg-border)] text-[var(--kg-text)] font-bold text-xs rounded-xl transition flex-shrink-0">
               {isSaving ? 'Lưu...' : 'Lưu Tất cả'}
             </button>
           </div>

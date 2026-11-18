@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Sparkles,
@@ -12,17 +12,15 @@ import {
   ArrowRight,
   CheckCircle2,
   AlertCircle,
-  HelpCircle,
   X,
-  MapPin,
   Clock,
-  ShieldCheck,
   Check,
   ChevronRight,
-  UserCheck
 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import type { TabId } from '../types/navigation';
+import { KgButton } from './KgDesignSystem';
+import { useDialogA11y, useModalQueue } from '../utils/modalQueue';
 
 interface NewbieGuideModalProps {
   isOpen: boolean;
@@ -38,8 +36,9 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
   const store = { setCurrentTab };
   const [activeTab, setActiveTab] = useState<GuideTabKey>('start');
   const [dontShowAgain, setDontShowAgain] = useState(false);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
 
-  if (!isOpen || typeof document === 'undefined') return null;
+  const activeInQueue = useModalQueue('newbie_guide', isOpen);
 
   const handleFinish = () => {
     if (currentUser?.username) {
@@ -50,6 +49,15 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
     }
     onClose();
   };
+
+  useDialogA11y({
+    isOpen: activeInQueue,
+    containerRef: dialogRef,
+    onClose: handleFinish,
+    closeOnEscape: true,
+  });
+
+  if (!activeInQueue || typeof document === 'undefined') return null;
 
   const handleNavigate = (tab: TabId) => {
     handleFinish();
@@ -73,31 +81,41 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
   return createPortal(
     <div className="fixed inset-0 z-[10060] flex items-center justify-center p-2.5 sm:p-4 md:p-6 animate-fade-in">
       {/* Dark Backdrop */}
-      <div 
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
-        onClick={handleFinish} 
+      <div
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+        onClick={handleFinish}
       />
 
       {/* Main Modal Card */}
-      <div className="relative w-full max-w-4xl max-h-[88dvh] sm:max-h-[90vh] mx-auto bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-2xl sm:rounded-3xl shadow-2xl border border-[var(--kg-border)] flex flex-col overflow-hidden z-10 animate-scale-in">
-        
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="kg-newbie-guide-title"
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-4xl max-h-[88dvh] sm:max-h-[90vh] mx-auto bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-2xl sm:rounded-3xl shadow-2xl border border-[var(--kg-border)] flex flex-col overflow-hidden z-10 focus:outline-none"
+      >
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-[var(--kg-primary)] text-white flex items-center justify-center shadow-xs flex-shrink-0">
+        <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 sm:py-4 border-b border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex-shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-2xl bg-[var(--kg-primary)] text-white flex items-center justify-center shadow-soft flex-shrink-0">
               <BookOpen size={20} />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base sm:text-lg font-black tracking-tight text-[var(--kg-text)]">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2
+                  id="kg-newbie-guide-title"
+                  className="text-base sm:text-lg font-black tracking-tight text-[var(--kg-text)]"
+                >
                   Cẩm Nang Nhập Môn Nhân Sự Mới
                 </h2>
-                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-[var(--kg-accent)] text-white shadow-xs">
+                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-[var(--kg-accent)] text-white dark:text-[#0D1015] shadow-soft">
                   King's Grill OS
                 </span>
               </div>
               <p className="text-xs text-[var(--kg-text-muted)] font-semibold mt-0.5">
-                Hướng dẫn chuẩn hóa quy trình vận hành & các mốc tiêu chuẩn thành công
+                Hướng dẫn chuẩn hóa quy trình vận hành &amp; các mốc tiêu chuẩn thành công
               </p>
             </div>
           </div>
@@ -105,7 +123,7 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
           <button
             type="button"
             onClick={handleFinish}
-            className="w-8 h-8 rounded-xl bg-[var(--kg-surface)] hover:bg-[var(--kg-border)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition-colors active:scale-95"
+            className="w-11 h-11 sm:w-9 sm:h-9 rounded-xl bg-[var(--kg-surface)] hover:bg-[var(--kg-border)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition-colors duration-150 active:scale-95 flex-shrink-0 touch-manipulation"
             aria-label="Đóng"
           >
             <X size={16} />
@@ -126,9 +144,9 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
                     setActiveTab(tab.key);
                     e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
                   }}
-                  className={`relative flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-black transition-all duration-200 whitespace-nowrap active:scale-95 flex-shrink-0 select-none ${
+                  className={`relative flex items-center gap-2 min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl text-xs font-black transition-colors duration-150 whitespace-nowrap active:scale-95 flex-shrink-0 select-none touch-manipulation ${
                     isActive
-                      ? 'bg-[var(--kg-primary)] text-white shadow-xs ring-1 ring-[var(--kg-primary)] scale-[1.01]'
+                      ? 'bg-[var(--kg-primary)] text-white shadow-soft ring-1 ring-[var(--kg-primary)]'
                       : 'bg-[var(--kg-surface)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] hover:text-[var(--kg-text)] hover:border-[var(--kg-border-strong)]'
                   }`}
                 >
@@ -153,12 +171,12 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
 
         {/* Tab Content Body (Scrollable) */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
-          
+
           {/* TAB 1: 5 BƯỚC KHỞI ĐẦU NHANH */}
           {activeTab === 'start' && (
             <div className="space-y-6 animate-fade-in">
               <div className="p-4 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex items-start gap-3.5">
-                <div className="w-9 h-9 rounded-xl bg-[var(--kg-primary)] text-white flex items-center justify-center flex-shrink-0 font-black shadow-xs">
+                <div className="w-9 h-9 rounded-xl bg-[var(--kg-primary)] text-white flex items-center justify-center flex-shrink-0 font-black shadow-soft">
                   <Sparkles size={17} strokeWidth={1.75} />
                 </div>
                 <div>
@@ -179,8 +197,7 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
                     desc: 'Đứng trong bán kính nhà hàng (≤25m), mở tab Chấm công, quét Live Camera & GPS.',
                     target: 'checkin' as TabId,
                     btnText: 'Xem Chấm công',
-                    icon: Camera,
-                    color: 'text-blue-600 bg-blue-50 dark:bg-blue-950/30'
+                    color: 'text-[var(--kg-primary-ink)] bg-[var(--kg-primary-soft)] border border-[var(--kg-primary)]/20'
                   },
                   {
                     step: '2',
@@ -188,8 +205,7 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
                     desc: 'Mở trang Hôm nay và Vận hành để nhận các nhiệm vụ phân khu (phục vụ/bar/bếp/thu ngân).',
                     target: 'work' as TabId,
                     btnText: 'Xem Checklist',
-                    icon: ClipboardCheck,
-                    color: 'text-amber-600 bg-amber-50 dark:bg-amber-950/30'
+                    color: 'text-[var(--kg-warning)] bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/20'
                   },
                   {
                     step: '3',
@@ -197,8 +213,7 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
                     desc: 'Thu ngân/Tổ trưởng kiểm đếm tiền két mặt và ghi chú tình hình cho ca tiếp quản.',
                     target: 'work' as TabId,
                     btnText: 'Xem Bàn giao',
-                    icon: Repeat,
-                    color: 'text-sky-700 bg-sky-50 dark:text-sky-300 dark:bg-sky-950/30'
+                    color: 'text-[var(--kg-info)] bg-[var(--kg-info-soft)] border border-[var(--kg-info)]/20'
                   },
                   {
                     step: '4',
@@ -206,8 +221,7 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
                     desc: 'Bấm "Ra Ca" để hệ thống chốt số giờ làm việc thực tế và quy đổi công lương.',
                     target: 'checkin' as TabId,
                     btnText: 'Chấm công',
-                    icon: Clock,
-                    color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30'
+                    color: 'text-[var(--kg-success)] bg-[var(--kg-success-soft)] border border-[var(--kg-success)]/20'
                   },
                   {
                     step: '5',
@@ -215,8 +229,7 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
                     desc: 'Chủ động chọn ca Sáng/Tối/OFF cho tuần tới trước 17:00 Thứ Bảy hàng tuần.',
                     target: 'workforce' as TabId,
                     btnText: 'Đăng ký Lịch',
-                    icon: Calendar,
-                    color: 'text-rose-600 bg-rose-50 dark:bg-rose-950/30'
+                    color: 'text-[var(--kg-accent-ink)] bg-[var(--kg-accent-soft)] border border-[var(--kg-accent)]/20'
                   },
                   {
                     step: '★',
@@ -224,13 +237,12 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
                     desc: 'Học quy trình món, tiêu chuẩn phục vụ và nhận thưởng King Coins khi hoàn thành tốt.',
                     target: 'knowledge' as TabId,
                     btnText: 'Học SOP',
-                    icon: Award,
-                    color: 'text-[var(--kg-primary)] bg-[var(--kg-info-soft)]'
+                    color: 'text-[var(--kg-primary-ink)] bg-[var(--kg-info-soft)] border border-[var(--kg-info)]/20'
                   },
                 ].map((item, idx) => (
                   <div
                     key={idx}
-                    className="p-4 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex flex-col justify-between space-y-3 hover:border-[var(--kg-border-strong)] transition-colors"
+                    className="p-4 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex flex-col justify-between space-y-3 hover:border-[var(--kg-border-strong)] transition-colors duration-150"
                   >
                     <div className="flex items-start gap-3">
                       <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 font-bold text-xs ${item.color}`}>
@@ -245,7 +257,7 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
                       <button
                         type="button"
                         onClick={() => handleNavigate(item.target)}
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--kg-primary)] hover:underline active:scale-95"
+                        className="min-h-[44px] sm:min-h-[32px] px-2 inline-flex items-center gap-1 text-xs font-semibold text-[var(--kg-primary-ink)] hover:underline active:scale-95 touch-manipulation"
                       >
                         {item.btnText} <ChevronRight size={13} />
                       </button>
@@ -260,15 +272,14 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
           {activeTab === 'checkin' && (
             <div className="space-y-5 animate-fade-in">
               <div className="border-b border-[var(--kg-border)] pb-3">
-                <h3 className="text-sm font-black uppercase tracking-wider text-[var(--kg-primary)] flex items-center gap-2">
-                  <Camera size={16} /> Quy trình Chấm công Face ID & Định vị GPS
+                <h3 className="text-sm font-black uppercase tracking-wider text-[var(--kg-primary-ink)] flex items-center gap-2">
+                  <Camera size={16} /> Quy trình Chấm công Face ID &amp; Định vị GPS
                 </h3>
                 <p className="text-xs text-[var(--kg-text-muted)] mt-1 font-medium">
                   Chấm công thông minh sử dụng camera đối chiếu khuôn mặt và toạ độ định vị GPS để xác thực bạn có mặt trực tiếp tại nhà hàng.
                 </p>
               </div>
 
-              {/* Steps container */}
               <div className="space-y-3">
                 {[
                   {
@@ -293,7 +304,7 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
                   }
                 ].map((s, idx) => (
                   <div key={idx} className="flex items-start gap-3 p-3.5 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)]">
-                    <div className="w-7 h-7 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-xs flex-shrink-0 shadow-xs">
+                    <div className="w-7 h-7 rounded-xl bg-[var(--kg-primary)] text-white flex items-center justify-center font-black text-xs flex-shrink-0 shadow-soft font-mono tabular-nums">
                       {s.num}
                     </div>
                     <div>
@@ -304,9 +315,8 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
                 ))}
               </div>
 
-              {/* Goal / Success Box */}
-              <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-300/40 dark:border-emerald-900/30 space-y-2">
-                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+              <div className="p-4 rounded-2xl bg-[var(--kg-success-soft)] border border-[var(--kg-success)]/25 space-y-2">
+                <div className="flex items-center gap-2 text-[var(--kg-success)]">
                   <CheckCircle2 size={16} className="flex-shrink-0" />
                   <h4 className="text-xs font-black uppercase tracking-wider">Mục tiêu: Thế nào là Chấm công THÀNH CÔNG?</h4>
                 </div>
@@ -317,22 +327,22 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
                 </ul>
               </div>
 
-              {/* Troubleshooting Alert */}
-              <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-300/40 dark:border-amber-900/30 flex items-start gap-2.5">
-                <AlertCircle size={16} className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+              <div className="p-3.5 rounded-2xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/25 flex items-start gap-2.5">
+                <AlertCircle size={16} className="text-[var(--kg-warning)] flex-shrink-0 mt-0.5" />
                 <div className="text-xs font-medium text-[var(--kg-text)] leading-relaxed">
                   <b>Mẹo xử lý khi bị báo Ngoài toạ độ / Sai vị trí GPS:</b> Hãy mở ứng dụng <i>Google Maps</i> trên điện thoại, bấm vào biểu tượng định vị để máy cập nhật GPS chính xác, sau đó quay lại webapp tải lại trang (Reload).
                 </div>
               </div>
 
               <div className="flex justify-end">
-                <button
-                  type="button"
+                <KgButton
+                  variant="primary"
+                  size="sm"
+                  icon={Camera}
                   onClick={() => handleNavigate('checkin')}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white font-bold text-xs shadow-md hover:bg-blue-700 active:scale-95 transition-all"
                 >
-                  <Camera size={14} /> Thử Chấm Công Ngay
-                </button>
+                  Thử Chấm Công Ngay
+                </KgButton>
               </div>
             </div>
           )}
@@ -341,8 +351,8 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
           {activeTab === 'schedule' && (
             <div className="space-y-5 animate-fade-in">
               <div className="border-b border-[var(--kg-border)] pb-3">
-                <h3 className="text-sm font-black uppercase tracking-wider text-[var(--kg-primary)] flex items-center gap-2">
-                  <Calendar size={16} /> Đăng Ký Lịch Làm Việc & Quy Trình Đổi Ca
+                <h3 className="text-sm font-black uppercase tracking-wider text-[var(--kg-primary-ink)] flex items-center gap-2">
+                  <Calendar size={16} /> Đăng Ký Lịch Làm Việc &amp; Quy Trình Đổi Ca
                 </h3>
                 <p className="text-xs text-[var(--kg-text-muted)] mt-1 font-medium">
                   Chủ động lựa chọn ca làm việc mong muốn cho tuần tiếp theo và xử lý đổi ca linh hoạt khi có việc đột xuất.
@@ -350,10 +360,9 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Schedule Reg */}
                 <div className="p-4 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] space-y-3">
                   <h4 className="text-xs font-black text-[var(--kg-text)] flex items-center gap-1.5">
-                    <Calendar size={15} className="text-blue-500" /> 1. Đăng ký ca tuần mới
+                    <Calendar size={15} className="text-[var(--kg-primary-ink)]" /> 1. Đăng ký ca tuần mới
                   </h4>
                   <ol className="text-xs text-[var(--kg-text-muted)] space-y-2 pl-4 list-decimal font-medium leading-relaxed">
                     <li>Vào tab <b>Lịch Làm Việc</b> &rarr; Chọn xem biểu mẫu tuần tới.</li>
@@ -361,15 +370,14 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
                     <li>Nếu chọn OFF, bắt buộc nhập <b>Lý do nghỉ</b> vào ô ghi chú.</li>
                     <li>Bấm <b>"Đăng ký lịch làm"</b> để gửi lên Quản lý duyệt.</li>
                   </ol>
-                  <p className="text-[11px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                  <p className="text-[11px] font-bold text-[var(--kg-warning)] flex items-center gap-1">
                     <Clock size={12} /> Hạn chót: Trước 17:00 Thứ Bảy hàng tuần.
                   </p>
                 </div>
 
-                {/* Swap Shift */}
                 <div className="p-4 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] space-y-3">
                   <h4 className="text-xs font-black text-[var(--kg-text)] flex items-center gap-1.5">
-                    <Repeat size={15} className="text-[var(--kg-primary)]" /> 2. Đổi ca hoặc Xin nghỉ đột xuất
+                    <Repeat size={15} className="text-[var(--kg-primary-ink)]" /> 2. Đổi ca hoặc Xin nghỉ đột xuất
                   </h4>
                   <ol className="text-xs text-[var(--kg-text-muted)] space-y-2 pl-4 list-decimal font-medium leading-relaxed">
                     <li>Vào mục <b>Đổi ca</b> &rarr; Bấm <b>"Tạo yêu cầu mới"</b>.</li>
@@ -377,17 +385,16 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
                     <li>Chọn hình thức: <i>"Đổi ca với đồng nghiệp"</i> hoặc <i>"Xin nghỉ phép (gửi Quản lý)"</i>.</li>
                     <li>Nhập lý do rõ ràng và bấm <b>"Gửi yêu cầu"</b>.</li>
                   </ol>
-                  <p className="text-[11px] font-bold text-[var(--kg-primary)] flex items-center gap-1">
+                  <p className="text-[11px] font-bold text-[var(--kg-primary-ink)] flex items-center gap-1">
                     <Repeat size={12} /> Quy trình: Đồng nghiệp đồng ý &rarr; Quản lý duyệt &rarr; Lịch tự cập nhật.
                   </p>
                 </div>
               </div>
 
-              {/* Goal / Success Box */}
-              <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-300/40 dark:border-emerald-900/30 space-y-2">
-                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+              <div className="p-4 rounded-2xl bg-[var(--kg-success-soft)] border border-[var(--kg-success)]/25 space-y-2">
+                <div className="flex items-center gap-2 text-[var(--kg-success)]">
                   <CheckCircle2 size={16} className="flex-shrink-0" />
-                  <h4 className="text-xs font-black uppercase tracking-wider">Mục tiêu: Thế nào là ĐÃ GỬI & ĐẠT LỊCH?</h4>
+                  <h4 className="text-xs font-black uppercase tracking-wider">Mục tiêu: Thế nào là ĐÃ GỬI &amp; ĐẠT LỊCH?</h4>
                 </div>
                 <ul className="text-xs text-[var(--kg-text)] font-medium space-y-1.5 pl-6 list-disc">
                   <li>Sau khi bấm nộp, hệ thống hiện thông báo <b>"Đã đăng ký lịch làm việc thành công"</b>.</li>
@@ -397,13 +404,14 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
               </div>
 
               <div className="flex justify-end">
-                <button
-                  type="button"
+                <KgButton
+                  variant="primary"
+                  size="sm"
+                  icon={Calendar}
                   onClick={() => handleNavigate('workforce')}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white font-bold text-xs shadow-md hover:bg-blue-700 active:scale-95 transition-all"
                 >
-                  <Calendar size={14} /> Mở Phân Hệ Lịch Làm
-                </button>
+                  Mở Phân Hệ Lịch Làm
+                </KgButton>
               </div>
             </div>
           )}
@@ -412,8 +420,8 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
           {activeTab === 'checklist' && (
             <div className="space-y-5 animate-fade-in">
               <div className="border-b border-[var(--kg-border)] pb-3">
-                <h3 className="text-sm font-black uppercase tracking-wider text-[var(--kg-primary)] flex items-center gap-2">
-                  <ClipboardCheck size={16} /> Checklist Vận Hành & Sổ Bàn Giao Ca
+                <h3 className="text-sm font-black uppercase tracking-wider text-[var(--kg-primary-ink)] flex items-center gap-2">
+                  <ClipboardCheck size={16} /> Checklist Vận Hành &amp; Sổ Bàn Giao Ca
                 </h3>
                 <p className="text-xs text-[var(--kg-text-muted)] mt-1 font-medium">
                   Đảm bảo chất lượng phục vụ 5 sao và bảo toàn doanh thu, tài sản nhà hàng qua từng ca làm việc.
@@ -423,7 +431,7 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
               <div className="space-y-4">
                 <div className="p-4 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] space-y-3">
                   <h4 className="text-xs font-black text-[var(--kg-text)] flex items-center gap-1.5">
-                    <ClipboardCheck size={15} className="text-emerald-500" /> 1. Checklist công việc theo vị trí
+                    <ClipboardCheck size={15} className="text-[var(--kg-success)]" /> 1. Checklist công việc theo vị trí
                   </h4>
                   <div className="text-xs text-[var(--kg-text-muted)] space-y-2 font-medium leading-relaxed">
                     <p>Mỗi vị trí (Phục vụ, Thu ngân, Bếp, Bar) có danh sách các đầu mục chuẩn bị <b>Đầu ca</b>, kiểm soát <b>Giữa ca</b> và dọn dẹp vệ sinh <b>Cuối ca</b>:</p>
@@ -438,7 +446,7 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
 
                 <div className="p-4 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] space-y-3">
                   <h4 className="text-xs font-black text-[var(--kg-text)] flex items-center gap-1.5">
-                    <Repeat size={15} className="text-amber-500" /> 2. Sổ bàn giao ca & Két tiền mặt (Thu ngân / Tổ trưởng)
+                    <Repeat size={15} className="text-[var(--kg-warning)]" /> 2. Sổ bàn giao ca &amp; Két tiền mặt (Thu ngân / Tổ trưởng)
                   </h4>
                   <div className="text-xs text-[var(--kg-text-muted)] space-y-2 font-medium leading-relaxed">
                     <ul className="list-disc pl-5 space-y-1">
@@ -451,11 +459,10 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
                 </div>
               </div>
 
-              {/* Goal / Success Box */}
-              <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-300/40 dark:border-emerald-900/30 space-y-2">
-                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+              <div className="p-4 rounded-2xl bg-[var(--kg-success-soft)] border border-[var(--kg-success)]/25 space-y-2">
+                <div className="flex items-center gap-2 text-[var(--kg-success)]">
                   <CheckCircle2 size={16} className="flex-shrink-0" />
-                  <h4 className="text-xs font-black uppercase tracking-wider">Mục tiêu: Thế nào là Checklist & Bàn giao ĐẠT?</h4>
+                  <h4 className="text-xs font-black uppercase tracking-wider">Mục tiêu: Thế nào là Checklist &amp; Bàn giao ĐẠT?</h4>
                 </div>
                 <ul className="text-xs text-[var(--kg-text)] font-medium space-y-1.5 pl-6 list-disc">
                   <li>Thanh tiến độ checklist đạt <b>100%</b> các hạng mục bắt buộc.</li>
@@ -466,13 +473,14 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
               </div>
 
               <div className="flex justify-end">
-                <button
-                  type="button"
+                <KgButton
+                  variant="primary"
+                  size="sm"
+                  icon={ClipboardCheck}
                   onClick={() => handleNavigate('work')}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white font-bold text-xs shadow-md hover:bg-blue-700 active:scale-95 transition-all"
                 >
-                  <ClipboardCheck size={14} /> Mở Phân Hệ Vận Hành
-                </button>
+                  Mở Phân Hệ Vận Hành
+                </KgButton>
               </div>
             </div>
           )}
@@ -481,18 +489,18 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
           {activeTab === 'payroll' && (
             <div className="space-y-5 animate-fade-in">
               <div className="border-b border-[var(--kg-border)] pb-3">
-                <h3 className="text-sm font-black uppercase tracking-wider text-[var(--kg-primary)] flex items-center gap-2">
-                  <Banknote size={16} /> Phiếu Lương, Tạm Ứng & Điểm Thưởng King Coins
+                <h3 className="text-sm font-black uppercase tracking-wider text-[var(--kg-primary-ink)] flex items-center gap-2">
+                  <Banknote size={16} /> Phiếu Lương, Tạm Ứng &amp; Điểm Thưởng King Coins
                 </h3>
                 <p className="text-xs text-[var(--kg-text-muted)] mt-1 font-medium">
-                  Minh bạch 100% thu nhập, theo dõi giờ công thực tế và tích lũy điểm thi đua để đổi quà.
+                  Minh bạch 100% thu nhập, theo dõi giờ công thực tế và tích lũy điểm thi đua.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="p-4 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] space-y-3">
                   <h4 className="text-xs font-black text-[var(--kg-text)] flex items-center gap-1.5">
-                    <Banknote size={15} className="text-emerald-500" /> Tra cứu Lương & Ứng Lương
+                    <Banknote size={15} className="text-[var(--kg-success)]" /> Tra cứu Lương &amp; Ứng Lương
                   </h4>
                   <ul className="text-xs text-[var(--kg-text-muted)] space-y-2 font-medium leading-relaxed list-disc pl-4">
                     <li><b>Phiếu lương:</b> Xem tổng số giờ làm việc thực tế quy đổi từ các ca chấm công hợp lệ, lương cơ bản theo giờ, phụ cấp ăn ca và các khoản cộng/trừ.</li>
@@ -502,19 +510,18 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
 
                 <div className="p-4 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] space-y-3">
                   <h4 className="text-xs font-black text-[var(--kg-text)] flex items-center gap-1.5">
-                    <Award size={15} className="text-yellow-500" /> Điểm thưởng King Coins
+                    <Award size={15} className="text-[var(--kg-warning)]" /> Điểm thưởng King Coins
                   </h4>
                   <ul className="text-xs text-[var(--kg-text-muted)] space-y-2 font-medium leading-relaxed list-disc pl-4">
                     <li><b>King Coins:</b> Đơn vị khen thưởng nội bộ vinh danh sự nỗ lực và trách nhiệm của bạn.</li>
-                    <li><b>Cơ chế cộng điểm:</b> Chấm công đúng giờ, hoàn thành xuất sắc checklist, tăng ca đột xuất, nhận khen ngợi từ khách hàng.</li>
-                    <li>Điểm King Coins được dùng để đổi các phần thưởng giá trị cuối tháng.</li>
+                    <li><b>Cơ chế cộng điểm:</b> Chấm công đúng giờ (+5), hoàn thành checklist (+10), bàn giao ca (+15), hoàn thành SOP/thưởng nóng.</li>
+                    <li>Theo dõi số dư và Bảng Vàng thi đua tại mục King Coins.</li>
                   </ul>
                 </div>
               </div>
 
-              {/* Goal / Success Box */}
-              <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-300/40 dark:border-emerald-900/30 space-y-2">
-                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+              <div className="p-4 rounded-2xl bg-[var(--kg-success-soft)] border border-[var(--kg-success)]/25 space-y-2">
+                <div className="flex items-center gap-2 text-[var(--kg-success)]">
                   <CheckCircle2 size={16} className="flex-shrink-0" />
                   <h4 className="text-xs font-black uppercase tracking-wider">Mục tiêu: Đảm bảo quyền lợi thu nhập</h4>
                 </div>
@@ -525,13 +532,14 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
               </div>
 
               <div className="flex justify-end">
-                <button
-                  type="button"
+                <KgButton
+                  variant="primary"
+                  size="sm"
+                  icon={Banknote}
                   onClick={() => handleNavigate('attendance')}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white font-bold text-xs shadow-md hover:bg-blue-700 active:scale-95 transition-all"
                 >
-                  <Banknote size={14} /> Mở Phân Hệ Công & Lương
-                </button>
+                  Mở Phân Hệ Công &amp; Lương
+                </KgButton>
               </div>
             </div>
           )}
@@ -540,7 +548,7 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
           {activeTab === 'criteria' && (
             <div className="space-y-5 animate-fade-in">
               <div className="border-b border-[var(--kg-border)] pb-3">
-                <h3 className="text-sm font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
+                <h3 className="text-sm font-black uppercase tracking-wider text-[var(--kg-success)] flex items-center gap-2">
                   <CheckCircle2 size={16} /> Bảng Tra Cứu Tiêu Chuẩn "Thành Công / Đạt" Toàn Diện
                 </h3>
                 <p className="text-xs text-[var(--kg-text-muted)] mt-1 font-medium">
@@ -583,18 +591,20 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
                 ].map((item, idx) => (
                   <div key={idx} className="p-4 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] space-y-2.5">
                     <h4 className="text-xs font-black text-[var(--kg-text)] flex items-center gap-1.5">
-                      <span className="w-5 h-5 rounded-lg bg-blue-500/15 text-[var(--kg-primary)] flex items-center justify-center text-[10px] font-black">{idx + 1}</span>
+                      <span className="w-5 h-5 rounded-lg bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] flex items-center justify-center text-[10px] font-black font-mono tabular-nums">
+                        {idx + 1}
+                      </span>
                       {item.action}
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs">
-                      <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-300/30 dark:border-emerald-900/30">
-                        <span className="font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mb-1">
+                      <div className="p-2.5 rounded-xl bg-[var(--kg-success-soft)] border border-[var(--kg-success)]/25">
+                        <span className="font-black text-[var(--kg-success)] flex items-center gap-1 mb-1">
                           <Check size={13} /> Như thế nào là THÀNH CÔNG / ĐẠT:
                         </span>
                         <p className="text-[11px] text-[var(--kg-text)] font-medium leading-relaxed">{item.success}</p>
                       </div>
-                      <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-300/30 dark:border-rose-900/30">
-                        <span className="font-black text-rose-600 dark:text-rose-400 flex items-center gap-1 mb-1">
+                      <div className="p-2.5 rounded-xl bg-[var(--kg-danger-soft)] border border-[var(--kg-danger)]/25">
+                        <span className="font-black text-[var(--kg-danger)] flex items-center gap-1 mb-1">
                           <X size={13} /> Dấu hiệu CHƯA ĐẠT / LỖI:
                         </span>
                         <p className="text-[11px] text-[var(--kg-text)] font-medium leading-relaxed">{item.failed}</p>
@@ -610,39 +620,44 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
 
         {/* Modal Footer */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 sm:px-5 py-3.5 border-t border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex-shrink-0">
-          <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-[var(--kg-text-muted)] select-none">
+          <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-[var(--kg-text-muted)] select-none min-h-[44px] sm:min-h-[32px]">
             <input
               type="checkbox"
               checked={dontShowAgain}
               onChange={(e) => setDontShowAgain(e.target.checked)}
-              className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-[var(--kg-border)]"
+              className="w-4 h-4 rounded border-[var(--kg-border-strong)] text-[var(--kg-primary)] focus:ring-[var(--kg-primary-ink)]"
             />
             <span>Đã hiểu, không tự động hiển thị lại lần sau</span>
           </label>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
             {activeTab !== 'criteria' ? (
-              <button
-                type="button"
+              <KgButton
+                variant="secondary"
+                size="sm"
                 onClick={() => {
                   const currentIndex = tabs.findIndex(t => t.key === activeTab);
                   if (currentIndex < tabs.length - 1) {
                     setActiveTab(tabs[currentIndex + 1].key);
                   }
                 }}
-                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-[var(--kg-surface)] hover:bg-[var(--kg-border)] border border-[var(--kg-border)] text-xs font-bold text-[var(--kg-text)] active:scale-95 transition-all shadow-xs"
+                className="flex-1 sm:flex-initial"
               >
-                Bước tiếp theo <ArrowRight size={14} />
-              </button>
+                <span className="inline-flex items-center gap-1.5">
+                  Bước tiếp theo <ArrowRight size={14} />
+                </span>
+              </KgButton>
             ) : null}
 
-            <button
-              type="button"
+            <KgButton
+              variant="primary"
+              size="sm"
+              icon={CheckCircle2}
               onClick={handleFinish}
-              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl bg-[var(--kg-primary)] text-white text-xs font-black shadow-xs hover:opacity-90 active:scale-95 transition-all"
+              className="flex-1 sm:flex-initial font-bold"
             >
-              <CheckCircle2 size={15} /> Tôi Đã Hiểu & Bắt Đầu Làm Việc
-            </button>
+              Tôi Đã Hiểu &amp; Bắt Đầu Làm Việc
+            </KgButton>
           </div>
         </div>
 

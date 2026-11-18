@@ -1,53 +1,63 @@
-# CORE WEBAPP ARCHITECTURE - KING'S GRILL STAFF OS
+# CORE WEBAPP ARCHITECTURE - KING'S GRILL STAFF OS (v4.0.1)
 
-Tài liệu này phân tích chi tiết kiến trúc lõi, cấu trúc dữ liệu, luồng nghiệp vụ, API, và các điểm kết nối kỹ thuật của dự án **King's Grill Staff OS** (dự án `kg-checkin`). Đây là tài liệu kỹ thuật nền tảng phục vụ cho việc tái thiết kế và nâng cấp giao diện mới ở các bước tiếp tioheo mà không phá vỡ logic xử lý hiện tại.
+Tài liệu này phân tích chi tiết kiến trúc lõi, cấu trúc dữ liệu, luồng nghiệp vụ, API và mô hình biên (Cloudflare Edge D1 + Google Apps Script) của **King's Grill Staff OS `v4.0.1`** (`kg-checkin`). Đây là tài liệu kỹ thuật nền tảng phục vụ bảo trì, mở rộng và kiểm thử mà không phá vỡ bất biến nghiệp vụ.
 
 ---
 
-## A. Tổng Quan Hệ Thống
+## A. Tổng Quan Hệ Thống (v4.0.1)
 
-**King's Grill Staff OS** là một hệ điều hành nhân sự và vận hành nội bộ dành cho nhân viên và quản lý nhà hàng. Hệ thống tích hợp chấm công, quản lý ca trực, phân phối công việc, giao nhận ca, gamification và quản lý công lương dựa trên hạ tầng đám mây không máy chủ (Serverless).
+**King's Grill Staff OS** là hệ điều hành nhân sự, chấm công sinh trắc học và vận hành nhà hàng theo mô hình **11-Hub Super-App IA** (`Warm Hospitality Edition`), kết hợp **Cloudflare Pages Functions + D1 Edge Gateway (`/api`)** làm tuyến chính và **Google Apps Script (GAS) + Google Sheets/Drive** làm lớp đồng bộ lưu trữ & báo cáo.
 
 ### 1. Các nhóm chức năng chính:
-- **Xác thực & Bảo mật:** Đăng ký, đăng nhập, khôi phục mật khẩu qua email OTP, phân quyền theo vai trò (Role) và bộ phận (Position).
-- **Chấm công thông minh:** Chấm công GPS (định vị bán kính hợp lệ), kiểm tra Face ID (Face API client-side), tính giờ đi trễ tự động, tự động phạt tiền đi trễ, đồng bộ hóa ảnh minh chứng lên Google Drive và gửi email xác nhận.
-- **Quản lý lịch trực & Đổi ca:** Đăng ký lịch làm việc tuần, phê duyệt lịch tập trung của Admin, chợ đổi ca trực tuyến (Swap Shifts) có sự phê duyệt của Admin hoặc đồng thuận của đồng nghiệp.
-- **Vận hành nhà hàng:** Checklist công việc đầu ca/cuối ca, bàn giao ca & báo cáo sự cố (Handover & Incidents), báo cáo món hết (Sold Out) thời gian thực.
-- **Quản lý công lương & Tài chính:** Bảng công chi tiết (Timesheet), phiếu lương hàng tháng (Payroll), yêu cầu ứng lương (Advance) duyệt tự động/thủ công, ghi nhận thưởng phạt chuyên cần.
-- **Đào tạo & Góp ý:** Tài liệu đào tạo SOP, thi trắc nghiệm (Training Quiz), khảo sát trạng thái tâm lý đầu ca (Pulse Survey), đóng góp ý kiến ẩn danh/công khai.
-- **Gamification (King Coins):** Tích điểm King Coins từ hành vi chấm công đúng giờ, hoàn thành checklist, và trừ điểm khi đi trễ. Bảng xếp hạng thi đua (Leaderboard).
-- **Trợ lý AI:** Chatbot hỗ trợ giải đáp quy định nhà hàng tích hợp mô hình ngôn ngữ lớn (LLM Groq API) với Prompts cấu hình động.
+- **Xác thực & RBAC chặt chẽ:** Đăng ký, đăng nhập (Mật khẩu & Face ID V2 Kiosk), khôi phục mật khẩu OTP, phân quyền tập trung qua `isAdminUser(user)` (`src/utils/permissions.ts` — chỉ `role === 'admin'` có quyền quản trị; `tester` được giữ nghiêm ngặt ở quyền nhân viên thường).
+- **Chấm công thông minh & Zero-Loss Offline Vault:** Chấm công GPS (Kalman filter + kiểm soát bán kính), Face Recognition V2 (`@mediapipe/tasks-vision` + `onnxruntime-web/wasm` 512-D ArcFace + MiniFASNet anti-spoofing, cùng fallback `face-api.js` lazy-loaded), chu kỳ ca `06:00–05:59` hỗ trợ ca đêm, lưu trữ chống mất dữ liệu tại `kg_punch_vault_v1` + `SyncVaultDrawer.tsx`.
+- **11-Hub Information Architecture:** Tổ chức toàn bộ phân hệ vào 11 Hub (6 Hub nhân sự + 5 Hub quản trị) cùng `dashboard`, `checkin`, `profile`, `TAB_ALIAS_MAP`, deep-link `?tab=&sub=`, và sự kiện `kg:subtab-select`.
+- **Vận hành nhà hàng:** Checklist 4 khu vực có lưu nháp cục bộ (`localStorage`), Sổ bàn giao ca & đối soát két tiền 2 chiều (`ACKNOWLEDGE_HANDOVER` / `REVIEW_HANDOVER`), quản lý sự cố 4 trạng thái (`Open` → `Investigating` → `Resolved` → `CostRecorded`), báo cáo Món hết (Sold Out) với live strip trong `WorkHub`.
+- **Công lương & Tài chính:** Bảng công (`Timesheet`), Quy trình xác nhận phiếu lương 4 bước (`Draft` → `Staff_Confirming` → `Disputed` → `Locked`), cấu hình lương tháng (`MonthlySalaryManager`), ứng lương (`Advance`), thưởng/phạt (`Discipline`), và King Coins (`Reward`).
+- **Truyền thông, Đào tạo & Trợ lý AI:** Bảng tin (`NewsFeed`), Hòm thư góp ý (`Feedback`), Tài liệu SOP & CUKCUK (`Training`), Khảo sát đầu ca, và AI Chatbot (`AIAssistant.tsx`).
 
 ### 2. Công nghệ sử dụng:
-- **Frontend:** React (Vite) + TypeScript + Zustand (State Management) + TailwindCSS (Styling) + Lucide Icons.
-- **Backend (API Router):** Google Apps Script (GAS) Web App xử lý yêu cầu HTTP POST qua endpoint duy nhất (`doPost`).
-- **Database/Storage:** Google Sheets (Spreadsheet) lưu trữ bảng biểu, Google Drive lưu trữ tệp tin hình ảnh chấm công/avatar.
-- **Integrations:** Google Maps Geocoding (chuyển đổi tọa độ thành địa chỉ tiếng Việt), Nominatim OSM (dự phòng geocode), MailApp/GmailApp (gửi báo cáo email), Groq API (AI Chatbot).
+- **Frontend:** React 19 (Vite 5) + TypeScript + Zustand 5 (`useShallow` atomic selectors) + TailwindCSS (`--kg-*` semantic tokens trong `DESIGN.md`) + Framer Motion + Lucide Icons.
+- **Biometrics (Lazy/Isolated):** `@mediapipe/tasks-vision` + `onnxruntime-web/wasm` (chunk `face-v2-biometrics`) tách biệt khỏi `src/utils/faceProfileCache.ts` (zero-WASM DTO/cache). Fallback `face-api.js` + `@tensorflow/tfjs-core` nạp động khi cần.
+- **Edge Gateway (Primary `/api`):** Cloudflare Pages Functions (`functions/api.js`) + Cloudflare D1 (`edge_face_profiles`, `edge_sync_queue`, attendance overlay 30h) với failover tự động sang `PRIMARY_EDGE_API_URL` (`https://kg-checkin.pages.dev/api`).
+- **Backend Đồng bộ & Báo cáo:** Google Apps Script (`gas/Code.gs`, `gas/Engine.gs`, `gas/Handlers.gs`) + Google Sheets + Google Drive + Mail Relay (`gas-relay/`).
 
 ---
 
-## B. Cấu Trúc Thư Mục và File
+## B. Cấu Trúc Thư Mục, 11-Hub IA & Các File Lõi
 
+### 1. Bảng 11-Hub IA (`src/config/moduleRegistry.ts` & `src/pages/ModuleHubs.tsx`)
+| Hub ID | Nhãn hiển thị | Nhóm | Sub-tabs (`?tab=&sub=`) | Phân quyền |
+| :--- | :--- | :--- | :--- | :--- |
+| `attendance` | Công & Lương | Cá nhân | `payroll`, `timesheet`, `history`, `advance` | Tất cả |
+| `workforce` | Lịch Làm Việc | Cá nhân | `schedule`, `roster`, `swap` | Tất cả |
+| `work` | Vận Hành Nhà Hàng | Vận hành | `checklist`, `operations`, `handover`, `soldout` | Theo vị trí (`permissions.ts`) |
+| `income` | Thi đua & Kỷ luật | Cá nhân | `reward`, `discipline` | Tất cả |
+| `communications` | Bảng tin & Góp ý | Vận hành | `news`, `feedback` | Tất cả |
+| `knowledge` | Kiến thức & Đào tạo | Vận hành | `training`, `guide` | `training` theo vị trí |
+| `admin_people` | Nhân sự & Tổ chức | Quản lý & Cấu hình | `employees` (`HrList`), `organization` (`AdminOrg`) | Chỉ `admin` (`isAdminUser`) |
+| `admin_workforce` | Ca làm & Chấm công | Quản lý & Cấu hình | `schedule`, `settings` (`AdminShift`) | Chỉ `admin` |
+| `admin_work` | Điều phối & Công việc | Quản lý & Cấu hình | `checklist` (`AdminChecklistConfig`), `operations` (`AdminOperations`) | Chỉ `admin` |
+| `admin_income` | Lương & Ghi nhận | Quản lý & Cấu hình | `config` (`AdminPayroll`), `payroll`, `advance`, `discipline` | Chỉ `admin` |
+| `admin_system` | Hệ thống & Báo cáo | Quản lý & Cấu hình | `analytics` (`AdminAnalytics`), `ai` (`Admin`) | Chỉ `admin` |
+
+*(Ngoài 11 Hub trên là 3 màn hình cấp 1: `dashboard` (Hôm nay / Command Center), `checkin` (Chấm công chuyên biệt), và `profile` (Hồ sơ cá nhân). Các legacy tab ID cũ được ánh xạ tự động qua `TAB_ALIAS_MAP` trong `useAppStore.ts`.)*
+
+### 2. Các File Lõi Frontend & Edge
 | File/Thư mục | Vai trò | Phần lõi liên quan | Ghi chú |
 | :--- | :--- | :--- | :--- |
-| **`gas/`** | Thư mục mã nguồn Backend chạy trên Google Apps Script. | Toàn bộ logic Backend | Đóng vai trò là Database Server & API Router. |
-| `gas/Code.gs` | Khởi tạo cấu hình hệ thống, định tuyến API (`doPost`), quản lý trigger tự động hóa và gửi mail báo cáo hàng ngày. | API Routing, CONFIG, Trigger | File cấu hình gốc, tuyệt đối không đổi tên. |
-| `gas/Engine.gs` | Chứa logic cốt lõi về xử lý bảng công, chuẩn hóa thời gian và tính toán dữ liệu chấm công hàng loạt từ log thô sang sheet tổng hợp. | Xử lý bảng công, Công thức lương | Sử dụng Google Sheets API V4 để ghi dữ liệu hàng loạt. |
-| `gas/Handlers.gs` | Chứa tất cả các hàm xử lý API riêng biệt cho từng nghiệp vụ (Check-in, đổi ca, checklist, lương...). | Business Logic, Đọc/Ghi Sheets | File backend lớn nhất (>2600 dòng), điều phối toàn bộ nghiệp vụ. |
-| `gas/appsscript.json`| Tệp cấu hình phân quyền của Apps Script. | API Scopes, Permissions | Khai báo quyền truy cập Drive, Mail, Spreadsheet và External Fetch. |
-| **`gas-relay/`** | Project GAS phụ dùng làm Email Relay để vượt giới hạn quota gửi mail hàng ngày của Google (100 mails/day). | Gửi email thông báo | Nhận payload mã hóa từ dự án chính và chuyển tiếp email. |
-| **`src/services/`** | Dịch vụ gọi API. | Lớp kết nối HTTP | |
-| `src/services/api.ts` | Triển khai hàm `callApi` gọi đến GAS Web App URL, hỗ trợ tự động retry khi lỗi mạng và chống gọi trùng lặp (inFlight calls). | Kết nối API | URL endpoint được lưu trong `localStorage` (`kg_gas_url`) hoặc `.env`. |
-| **`src/store/`** | Quản lý trạng thái ứng dụng. | State Management | |
-| `src/store/useAppStore.ts`| Định nghĩa Zustand Store duy nhất chứa toàn bộ State của Webapp (User, Logs, GPS, Shifts, Payroll, Checklist...). | Global State, Actions | Điểm tập trung dữ liệu của toàn bộ Frontend. |
-| **`src/utils/`** | Thư mục chứa các hàm tiện ích. | Helper & Security | |
-| `src/utils/refreshData.ts`| Triển khai mô hình SWR (Stale-While-Revalidate) và Mega-Fetch (Mega-Fetch) để tải đồng bộ dữ liệu trạng thái nhanh chóng. | Caching, Hydration | Đọc/Ghi dữ liệu tạm thời vào `localStorage`. |
-| `src/utils/permissions.ts`| Triển khai RBAC (Role and Position Based Access Control) để ẩn/hiện các tab chức năng dựa trên chức vụ và phân quyền. | Phân quyền Client | Phân biệt quyền Admin/Tester và chức vụ phục vụ/bếp/bảo vệ. |
-| `src/utils/helpers.ts` | Chứa các hàm tính toán khoảng cách GPS, định dạng ngày giờ, tính toán nhãn tuần làm việc và Text-to-Speech (`speak`). | Utilities | |
-| `src/utils/kalman.ts` | Bộ lọc Kalman lọc nhiễu tọa độ định vị GPS tránh nhảy vị trí ảo khi nhân viên chấm công. | Lọc nhiễu GPS | Lọc nhiễu trực tiếp trên tọa độ nhận về. |
-| `src/utils/security.ts` | Hàm mã hóa payload và kiểm soát bảo mật Client. | Security | |
-| **`src/pages/`** | Chứa các view/trang chức năng của Webapp. | Lớp Giao Diện | |
-| `src/pages/CheckIn.tsx` | Thực hiện Face Detection (Face-API client-side), kiểm tra GPS và gửi dữ liệu chấm công. | Chấm công | Gọi `CHECK_IN_OUT`, `UPLOAD_CHECKIN_IMAGE`, `SEND_EMAIL_NOTIFICATION`. |
+| **`functions/api.js`** | Cloudflare Pages Function `/api` | Edge D1 Primary Gateway | Xử lý nhanh Face ID profiles, D1 attendance overlay 30h, buffer & đồng bộ GAS. |
+| **`gas/`** | Backend Google Apps Script | `Code.gs`, `Engine.gs`, `Handlers.gs`, `JsonCacheService.gs` | Lưu trữ Google Sheets, Drive ảnh minh chứng, tính công lương & gửi mail. |
+| **`src/services/api.ts`** | Lớp gọi API chuẩn hóa | `callApi`, `PRIMARY_EDGE_API_URL`, targeted cache invalidation | Failover `/api` → `PRIMARY_EDGE_API_URL`, gắn `_authToken`, `subAction`/`decision`, hủy cache theo action prefix. |
+| **`src/utils/faceProfileCache.ts`** | Zero-WASM Face DTO & Cache | `getCachedFaceProfiles`, `setCachedFaceProfiles`, `syncLatestFaceProfilesFromEdge` | Tách hoàn toàn khỏi ONNX/MediaPipe để giữ boot bundle nhẹ. |
+| **`src/services/faceRecognitionV2.ts`** | Động cơ sinh trắc học V2 | `initFaceBiometricEngine`, `analyzeVideoFrameBiometrics`, `TemporalMatchVoter` | Re-export helpers từ `faceProfileCache.ts`; nạp động qua `import()` khi dùng camera/prewarm. |
+| **`src/utils/offlineQueue.ts`** | Hàng đợi & Vault ngoại tuyến | `kg_punch_vault_v1`, `ORPHAN_RECOVERY_MIN_AGE_MS = 45_000`, `rollbackRejectedPunchGlobally` | Bảo toàn chấm công khi mất mạng/khóa màn hình iOS; cung cấp API retry/discard thủ công. |
+| **`src/components/SyncVaultDrawer.tsx`** | Ngăn kéo kiểm tra Vault | `KgBottomSheet`, Retry / Discard failed punches | Mở từ `KgSyncStatus` trên `KgAppShell.tsx`. |
+| **`src/store/useAppStore.ts`** | Zustand Global Store | `TAB_ALIAS_MAP`, `currentUser`, `logs`, `approvedShifts` | Tránh subscribe toàn store; dùng `useShallow` hoặc atomic selector. |
+| **`src/utils/refreshData.ts`** | Lớp đồng bộ SWR | `restoreFromCache`, `refreshAppData`, `prefetchHubData` | Tránh waterfall `GET_DATA` dư thừa và giữ tham chiếu `currentUser` ổn định. |
+| **`src/utils/permissions.ts`** | RBAC tập trung | `isAdminUser`, `hasTabPermission`, `getTabLabel` | `admin` có toàn quyền; `tester` và `user` không có quyền quản trị. |
+| **`src/utils/modalQueue.ts`** | Hàng đợi Modal khởi động | `useModalQueue`, `useDialogA11y` | Điều phối thứ tự `zalo > mandatory_schedule > version_release > newbie_guide`. |
+| **`DESIGN.md`** | Single Source of Truth UI | Token `--kg-*`, thang Z-Index, WCAG AA, 44px touch target | Quy chuẩn giao diện Light/Dark và accessibility. |
 
 ---
 
@@ -259,8 +269,9 @@ Hệ thống sử dụng một endpoint duy nhất thông qua hàm `doPost(e)` n
 ## J. Phân Quyền và Bảo Mật (RBAC & Security)
 
 ### 1. Phân quyền vai trò (Roles):
-- **`admin` / `tester`:** Toàn quyền truy cập mọi tính năng trên UI và gọi được tất cả API backend (phê duyệt lương, cấu hình GPS, sửa lịch trực, đồng bộ API Keys).
-- **`user`:** Chỉ được phép sử dụng các chức năng chấm công, xem lịch cá nhân, nộp checklist, gửi phản hồi, xem bảng lương của chính mình. Bị chặn hoàn toàn các Tab cấu hình hành chính và bảng điều khiển tổng hợp.
+- **`admin`:** Toàn quyền truy cập mọi phân hệ quản trị (`admin_*`) và thao tác phê duyệt/cấu hình thông qua `isAdminUser(user)` (`src/utils/permissions.ts`), kèm bảo vệ tầng component trên toàn bộ trang Admin (`if (!isAdminUser(currentUser)) return null;`).
+- **`tester`:** Được giữ nghiêm ngặt ở vai trò kiểm thử không mang quyền Admin (`isAdminUser` trả về `false`), không truy cập được các phân hệ `admin_*`.
+- **`user`:** Chỉ sử dụng các chức năng cá nhân và vận hành được phân quyền theo vị trí công việc. Bị chặn hoàn toàn các phân hệ quản trị và cấu hình hệ thống.
 
 ### 2. Phân quyền vị trí công việc (Position-based):
 - **Phục vụ, Tổ trưởng, Thu ngân, Bếp, Pha chế:** Được quyền truy cập báo cáo món hết (`soldout`), tài liệu đào tạo (`training`).

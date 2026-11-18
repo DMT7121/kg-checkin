@@ -140,7 +140,8 @@ export default function ImagePreview() {
               <button
                 type="button"
                 onClick={toggleZoom}
-                className="w-10 h-10 bg-white/15 hover:bg-white/25 active:scale-95 rounded-full flex items-center justify-center text-white transition text-sm shadow-md"
+                aria-label={zoom > 1 ? 'Thu nhỏ' : 'Phóng to'}
+                className="w-11 h-11 min-w-[44px] min-h-[44px] bg-white/15 hover:bg-white/25 active:scale-95 rounded-full flex items-center justify-center text-white transition text-sm shadow-md touch-manipulation"
                 title={zoom > 1 ? 'Thu nhỏ' : 'Phóng to'}
               >
                 {zoom > 1 ? <ZoomOut size={18} /> : <ZoomIn size={18} />}
@@ -149,7 +150,8 @@ export default function ImagePreview() {
               <button
                 type="button"
                 onClick={handleDownload}
-                className="w-10 h-10 bg-white/15 hover:bg-white/25 active:scale-95 rounded-full flex items-center justify-center text-white transition text-sm shadow-md"
+                aria-label="Tải ảnh về máy"
+                className="w-11 h-11 min-w-[44px] min-h-[44px] bg-white/15 hover:bg-white/25 active:scale-95 rounded-full flex items-center justify-center text-white transition text-sm shadow-md touch-manipulation"
                 title="Tải ảnh về máy"
               >
                 <Download size={18} />
@@ -161,7 +163,8 @@ export default function ImagePreview() {
             <button
               type="button"
               onClick={handleOpenExternal}
-              className="w-10 h-10 bg-white/15 hover:bg-white/25 active:scale-95 rounded-full flex items-center justify-center text-white transition text-sm shadow-md"
+              aria-label="Mở trên Google Drive"
+              className="w-11 h-11 min-w-[44px] min-h-[44px] bg-white/15 hover:bg-white/25 active:scale-95 rounded-full flex items-center justify-center text-white transition text-sm shadow-md touch-manipulation"
               title="Mở trên Google Drive"
             >
               <ExternalLink size={18} />
@@ -171,7 +174,8 @@ export default function ImagePreview() {
           <button
             type="button"
             onClick={close}
-            className="w-10 h-10 bg-white/20 hover:bg-rose-600 active:scale-95 rounded-full flex items-center justify-center text-white transition text-lg shadow-md ml-1"
+            aria-label="Đóng xem ảnh"
+            className="w-11 h-11 min-w-[44px] min-h-[44px] bg-white/20 hover:bg-rose-600 active:scale-95 rounded-full flex items-center justify-center text-white transition text-lg shadow-md ml-1 touch-manipulation"
             title="Đóng (ESC)"
           >
             <X size={20} />

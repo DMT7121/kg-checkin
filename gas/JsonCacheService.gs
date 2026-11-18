@@ -524,14 +524,18 @@ var JsonCacheService = (function() {
 
   function matchesLogPerson(rowCol0, rowJson, cleanUsername, cleanFullname, foldedFullname) {
     var rowName = normalizePersonName(rowCol0);
-    var jsonUser = (rowJson && rowJson.username) ? rowJson.username.toString().trim().toLowerCase() : '';
+    var jsonUser = (rowJson && rowJson.username) ? normalizePersonName(rowJson.username) : '';
+    if (cleanUsername && jsonUser) {
+      return jsonUser === cleanUsername;
+    }
     if (cleanFullname && rowName && rowName === cleanFullname) return true;
     if (cleanUsername && rowName && rowName === cleanUsername) return true;
-    if (cleanUsername && jsonUser && jsonUser === cleanUsername) return true;
     if (cleanFullname && jsonUser && jsonUser === cleanFullname) return true;
-    if (foldedFullname && rowCol0) {
+    if (foldedFullname && rowName) {
       var rowFolded = foldPersonName(rowCol0);
-      if (rowFolded && rowFolded === foldedFullname) return true;
+      var targetIsAscii = (cleanFullname === foldedFullname);
+      var rowIsAscii = (rowName === rowFolded);
+      if ((targetIsAscii || rowIsAscii) && rowFolded && rowFolded === foldedFullname) return true;
     }
     return false;
   }
@@ -604,7 +608,7 @@ var JsonCacheService = (function() {
       entry: entry,
       rowJson: rowJson,
       isHopLe: isHopLe,
-      isCheckIn: typeStr.toLowerCase().indexOf('vào ca') >= 0 || typeStr.toUpperCase() === 'IN'
+      isCheckIn: /^\s*(vào(\s+ca)?(\s*[1-9])?|in)\b/i.test(String(typeStr || '').normalize('NFC').trim().toLowerCase())
     };
   }
 

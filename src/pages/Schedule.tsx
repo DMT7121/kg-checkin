@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import {
@@ -22,9 +22,8 @@ import {
   getCurrentTimeString,
 } from '../utils/helpers';
 import type { MonthDateInfo } from '../utils/helpers';
-import Swal from 'sweetalert2';
-import { CalendarCheck, Eye, AlertTriangle, Send, Lock, ExternalLink, Clock, RefreshCw, Pencil, CheckCheck, Inbox, LayoutGrid, CalendarRange, ChevronLeft, ChevronRight, Sparkles, X, Bot, Info, FileSpreadsheet, Search, ShieldCheck, CheckCircle2, Copy } from 'lucide-react';
-import { KgModuleHero } from '../components/KgDesignSystem';
+import { CalendarCheck, Eye, AlertTriangle, Send, Lock, ExternalLink, Clock, RefreshCw, Pencil, CheckCheck, Inbox, LayoutGrid, CalendarRange, ChevronLeft, ChevronRight, ChevronDown, Sparkles, X, Bot, Info, FileSpreadsheet, Search, ShieldCheck, CheckCircle2, Copy, ArrowLeftRight } from 'lucide-react';
+import { KgModuleHero, KgAlertCard, KgButton, KgBottomSheet, KgConfirmSheet, KgToast, type ToastMessage } from '../components/KgDesignSystem';
 import { getCalendarDayMeta } from '../utils/calendarHighlights';
 import { isWorkEligible } from '../utils/employment';
 import { buildEmployeeShiftMapFromPrevious, mapPreviousWeekToTargetSchedules } from '../utils/shiftSwapValidator';
@@ -84,9 +83,60 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
   const [monthData, setMonthData] = useState<any[]>(() => {
     return Array.isArray(storeMonthSchedules) ? storeMonthSchedules : [];
   });
-  const [isMonthRefreshing, setIsMonthRefreshing] = useState(false);
+  const [, setIsMonthRefreshing] = useState(false);
   const [empSearchQuery, setEmpSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [previewExpanded, setPreviewExpanded] = useState(false);
+  const [inlineNotice, setInlineNotice] = useState<{
+    variant: 'error' | 'warning' | 'success' | 'info';
+    title: string;
+    text: string;
+    details?: string[];
+  } | null>(null);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
+  const [confirmApproveOpen, setConfirmApproveOpen] = useState(false);
+  const [confirmSyncRosterOpen, setConfirmSyncRosterOpen] = useState(false);
+  const [copyPrevWeekModal, setCopyPrevWeekModal] = useState<{ prevWeekDisplay: string; prevWeekInfo: ReturnType<typeof computeWeekInfo> } | null>(null);
+  const [submitReceiptModal, setSubmitReceiptModal] = useState<{
+    weekDisplay: string;
+    monthSheet: string;
+    sheetSaved: boolean;
+    syncTimestamp: string;
+    isUpdate: boolean;
+  } | null>(null);
+  const [returnTab] = useState<string | null>(() => {
+    try {
+      const fromUrl = new URLSearchParams(window.location.search).get('returnTab');
+      if (fromUrl) return fromUrl;
+      return sessionStorage.getItem('kg_schedule_return_tab');
+    } catch {
+      return null;
+    }
+  });
+
+  const pushToast = useCallback((title: string, type: ToastMessage['type'] = 'info') => {
+    setToasts((prev) => [...prev.slice(-2), { id: `${Date.now()}_${Math.random()}`, title, type }]);
+  }, []);
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  const handleReturnToCheckIn = useCallback(() => {
+    try {
+      sessionStorage.removeItem('kg_schedule_return_tab');
+    } catch { /* ignore */ }
+    setSubmitReceiptModal(null);
+    store.setCurrentTab('checkin');
+  }, [store]);
+
+  const handleGoToSwap = useCallback(() => {
+    try {
+      sessionStorage.setItem('kg_hub_subtab_workforce', 'swap');
+    } catch { /* ignore */ }
+    store.setCurrentTab('swap');
+  }, [store]);
 
   const changeWeek = (offset: number) => {
     const d = new Date(currentDate);
@@ -124,11 +174,23 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
       if (res?.ok && res.data?.weeks) {
         setMonthData(res.data.weeks);
         store.setMonthSchedules(res.data.weeks);
+        setInlineNotice(null);
       } else if (!hasData) {
-        Swal.fire('Lỗi', 'Không thể tải lịch làm việc', 'error');
+        setInlineNotice({
+          variant: 'error',
+          title: 'Lỗi tải lịch tháng',
+          text: 'Không thể tải lịch làm việc tháng này. Vui lòng thử lại.',
+        });
       }
     } catch {
       setIsMonthRefreshing(false);
+      if (!hasData) {
+        setInlineNotice({
+          variant: 'error',
+          title: 'Lỗi kết nối',
+          text: 'Mất kết nối khi tải lịch tháng. Vui lòng thử lại.',
+        });
+      }
     }
   };
 
@@ -173,7 +235,11 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
     }, { background: true });
     
     if (!res?.ok) {
-       Swal.fire('Lỗi', 'Cập nhật thất bại. Vui lòng tải lại trang.', 'error');
+       setInlineNotice({
+         variant: 'error',
+         title: 'Cập nhật thất bại',
+         text: 'Không thể lưu ca vừa chọn. Vui lòng tải lại dữ liệu.',
+       });
     }
   };
 
@@ -308,7 +374,7 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
       }
     }
     if (savedShifts && savedShifts.length === 7 && !scopedStoreShifts) {
-      store.setRegisteredShifts(savedShifts, expectedWeekKey);
+      store.setRegisteredShifts(savedShifts);
     }
     if (meta?.offReason && !offReason) {
       store.setOffReason(meta.offReason);
@@ -365,10 +431,14 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
           scheduleSheetSynced: true,
         });
         if (!silent) {
-          Swal.fire('Đã đồng bộ 100%', `Lịch tuần ${weekInfo.weekDisplay} đã được nạp thành công vào Google Sheets lúc ${ts}.`, 'success');
+          pushToast(`Đã đồng bộ 100% lịch tuần ${weekInfo.weekDisplay} vào Google Sheets!`, 'success');
         }
       } else if (!silent) {
-        Swal.fire('Đang xếp hàng đồng bộ', 'Máy chủ Google Sheets đang xử lý nhiều yêu cầu cùng lúc. Hệ thống sẽ tiếp tục tự động nạp lại.', 'info');
+        setInlineNotice({
+          variant: 'info',
+          title: 'Đang xếp hàng đồng bộ',
+          text: 'Máy chủ Google Sheets đang xử lý nhiều yêu cầu cùng lúc. Hệ thống sẽ tiếp tục tự động nạp lại.',
+        });
       }
     } finally {
       setIsSyncingPendingSheet(false);
@@ -414,7 +484,12 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
               scheduleSheetSynced: true,
             });
           }
-          Swal.fire({ title: 'Lịch đã được duyệt!', text: 'Admin đã duyệt lịch làm việc của bạn.', icon: 'success', confirmButtonColor: '#10b981' });
+          pushToast('Lịch làm việc của bạn đã được Admin duyệt!', 'success');
+          setInlineNotice({
+            variant: 'success',
+            title: 'Lịch đã được duyệt!',
+            text: 'Admin đã duyệt lịch làm việc của bạn.',
+          });
           speak('Lịch làm việc đã được Admin duyệt');
         }
       });
@@ -522,51 +597,39 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
     }
 
     if (!sourceShifts || sourceShifts.every((s) => !s || s === 'OFF')) {
-      Swal.fire(
-        'Chưa có lịch tuần này',
-        'Không tìm thấy lịch đã duyệt của tuần hiện tại để sao chép nhanh.',
-        'info'
-      );
+      setInlineNotice({
+        variant: 'info',
+        title: 'Chưa có lịch tuần này',
+        text: 'Không tìm thấy lịch đã duyệt của tuần hiện tại để sao chép nhanh.',
+      });
       return;
     }
 
     const mapped = buildEmployeeShiftMapFromPrevious(sourceShifts, weekInfo.weekDatesKeys);
     store.setShiftData(mapped);
     recomputeOffFlagsFromMap(mapped);
-    Swal.fire({
-      toast: true,
-      position: 'top-end',
-      icon: 'success',
-      title: 'Đã sao chép lịch tuần này sang 7 ngày tuần tới!',
-      showConfirmButton: false,
-      timer: 2500,
-    });
+    pushToast('Đã sao chép lịch tuần này sang 7 ngày tuần tới!', 'success');
   };
 
-  const handleAdminCopyPreviousWeek = async () => {
+  const handleAdminCopyPreviousWeek = () => {
     if (!adminSchedules || adminSchedules.length === 0) {
-      Swal.fire('Chưa tải danh sách', 'Vui lòng bấm "Tải lịch" trước khi sao chép tuần trước.', 'info');
+      setInlineNotice({
+        variant: 'info',
+        title: 'Chưa tải danh sách',
+        text: 'Vui lòng bấm "Tải lịch" trước khi sao chép tuần trước.',
+      });
       return;
     }
     const prevDate = new Date(currentDate);
     prevDate.setDate(prevDate.getDate() - 7);
     const prevWeekInfo = computeWeekInfo(prevDate, false);
+    setCopyPrevWeekModal({ prevWeekDisplay: prevWeekInfo.weekDisplay, prevWeekInfo });
+  };
 
-    const choice = await Swal.fire({
-      title: `Sao chép lịch từ tuần ${prevWeekInfo.weekDisplay}?`,
-      html: `<p class="text-xs sm:text-sm text-gray-600 dark:text-gray-300 leading-relaxed">Hệ thống sẽ lấy lịch tuần trước (<b>${prevWeekInfo.weekDisplay}</b>) để điền nhanh cho tuần <b>${weekInfo.weekDisplay}</b>.</p>`,
-      icon: 'question',
-      showCancelButton: true,
-      showDenyButton: true,
-      confirmButtonText: 'Điền NV chưa đăng ký (An toàn)',
-      denyButtonText: 'Ghi đè toàn bộ',
-      cancelButtonText: 'Hủy',
-      confirmButtonColor: '#10b981',
-      denyButtonColor: '#f59e0b',
-    });
-
-    if (!choice.isConfirmed && !choice.isDenied) return;
-    const overwriteExisting = Boolean(choice.isDenied);
+  const executeAdminCopyPreviousWeek = async (overwriteExisting: boolean) => {
+    if (!copyPrevWeekModal) return;
+    const { prevWeekInfo } = copyPrevWeekModal;
+    setCopyPrevWeekModal(null);
 
     store.setLoading(true, `Đang lấy lịch tuần ${prevWeekInfo.weekDisplay}...`);
     const res = await callApi('GET_ALL_SCHEDULES', {
@@ -576,7 +639,11 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
     store.setLoading(false);
 
     if (!res?.ok) {
-      Swal.fire('Lỗi', res?.message || 'Không thể tải lịch tuần trước.', 'error');
+      setInlineNotice({
+        variant: 'error',
+        title: 'Lỗi tải tuần trước',
+        text: res?.message || 'Không thể tải lịch tuần trước.',
+      });
       return;
     }
 
@@ -586,7 +653,11 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
         ? res.data.schedules
         : [];
     if (prevList.length === 0) {
-      Swal.fire('Chưa có dữ liệu', `Tuần ${prevWeekInfo.weekDisplay} chưa có lịch để sao chép.`, 'info');
+      setInlineNotice({
+        variant: 'info',
+        title: 'Chưa có dữ liệu',
+        text: `Tuần ${prevWeekInfo.weekDisplay} chưa có lịch để sao chép.`,
+      });
       return;
     }
 
@@ -597,26 +668,27 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
     });
 
     if (result.copiedEmployeeCount === 0) {
-      Swal.fire(
-        'Không có thay đổi',
-        overwriteExisting
+      setInlineNotice({
+        variant: 'info',
+        title: 'Không có thay đổi',
+        text: overwriteExisting
           ? 'Lịch hiện tại đã trùng khớp với tuần trước.'
           : 'Tất cả nhân sự đều đã có lịch đăng ký. Chọn "Ghi đè toàn bộ" nếu muốn chép đè.',
-        'info'
-      );
+      });
       return;
     }
 
     store.setAdminSchedules(result.updatedSchedules as any);
-    Swal.fire({
-      icon: 'success',
+    setInlineNotice({
+      variant: 'success',
       title: `Đã sao chép cho ${result.copiedEmployeeCount} nhân sự`,
-      text: `Đã điền ${result.copiedCellCount} ô ca từ tuần ${prevWeekInfo.weekDisplay}. Kiểm tra lại và bấm "Xác nhận lịch tuần" để lưu chính thức.`,
+      text: `Đã điền ${result.copiedCellCount} ô ca từ tuần ${prevWeekInfo.weekDisplay}. Kiểm tra lại và bấm "Duyệt & Đồng bộ lịch làm" để lưu chính thức.`,
     });
   };
 
-  const submitRegistration = async () => {
+  const submitRegistration = () => {
     if (!isOpen) return;
+    setInlineNotice(null);
 
     // Validate all 7 days must have a valid shift selected
     const allDaysFilled = weekInfo.weekDatesKeys.every((k) => {
@@ -625,42 +697,34 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
     });
 
     if (!allDaysFilled || Object.keys(shiftData).length < 7) {
-      Swal.fire('Chú ý', 'Vui lòng chọn đầy đủ ca cho tất cả 7 ngày trong tuần tiếp theo.', 'warning');
-      return;
-    }
-
-    if ((hasWeekendOff || hasConsecutiveOffs || hasHolidayOff) && offReason.trim() === '') {
-      Swal.fire({
-        title: 'Thiếu lý do xin nghỉ',
-        html: `
-          <p class="text-sm text-gray-700 dark:text-gray-300">Theo quy định nhà hàng, bạn cần nhập lý do chi tiết khi:</p>
-          <ul class="text-xs text-left text-red-600 dark:text-red-400 list-disc list-inside mt-2 space-y-1">
-            ${hasWeekendOff ? '<li>Xin nghỉ (OFF) vào Thứ 6, Thứ 7 hoặc Chủ Nhật.</li>' : ''}
-            ${hasHolidayOff ? '<li>Xin nghỉ (OFF) vào ngày Lễ/Tết cao điểm.</li>' : ''}
-            ${hasConsecutiveOffs ? '<li>Xin nghỉ (OFF) từ 2 ngày liên tiếp trở lên.</li>' : ''}
-          </ul>
-        `,
-        icon: 'warning',
-        confirmButtonColor: '#f59e0b'
+      setInlineNotice({
+        variant: 'warning',
+        title: 'Chưa chọn đủ 7 ngày',
+        text: 'Vui lòng chọn đầy đủ ca cho tất cả 7 ngày trong tuần tiếp theo.',
       });
       return;
     }
 
-    const isUpdate = isRegisteredForTargetWeek;
-    const { isConfirmed } = await Swal.fire({
-      title: isUpdate ? 'Xác nhận Cập Nhật' : 'Xác nhận Nộp Lịch',
-      html: isUpdate
-        ? 'Bạn muốn cập nhật lại lịch đăng ký ca tuần tới?'
-        : 'Bạn đã kiểm tra kỹ toàn bộ ca làm trong tuần tới chưa?',
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonColor: '#10b981',
-      cancelButtonColor: '#6b7280',
-      confirmButtonText: isUpdate ? 'Cập nhật lịch' : 'Gửi lịch',
-      cancelButtonText: 'Xem lại',
-    });
-    if (!isConfirmed) return;
+    if ((hasWeekendOff || hasConsecutiveOffs || hasHolidayOff) && offReason.trim() === '') {
+      const details: string[] = [];
+      if (hasWeekendOff) details.push('Xin nghỉ (OFF) vào Thứ 6, Thứ 7 hoặc Chủ Nhật.');
+      if (hasHolidayOff) details.push('Xin nghỉ (OFF) vào ngày Lễ/Tết cao điểm.');
+      if (hasConsecutiveOffs) details.push('Xin nghỉ (OFF) từ 2 ngày liên tiếp trở lên.');
+      setInlineNotice({
+        variant: 'warning',
+        title: 'Thiếu lý do xin nghỉ',
+        text: 'Theo quy định nhà hàng, bạn cần nhập lý do chi tiết khi:',
+        details,
+      });
+      return;
+    }
 
+    setConfirmSubmitOpen(true);
+  };
+
+  const executeRegistrationSubmit = async () => {
+    setConfirmSubmitOpen(false);
+    const isUpdate = isRegisteredForTargetWeek;
     setIsSubmitting(true);
     const shifts = weekInfo.weekDatesKeys.map((key: string) => shiftData[key] || 'OFF');
     const payload = {
@@ -698,7 +762,7 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
           sheetSynced: sheetSaved,
           offReason,
         });
-        store.setRegisteredShifts(shifts, expectedWeekKey);
+        store.setRegisteredShifts(shifts);
         store.setScheduleRegistered(true, expectedWeekKey);
         store.setScheduleMeta({
           registeredWeekKey: expectedWeekKey,
@@ -725,69 +789,56 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
           }, 4000);
         }
 
-        const bqlNotice = 'Lịch đăng ký ca của bạn đã được ghi nhận vào Bảng Chấm Công (Google Sheets). BQL sẽ sắp xếp lại phù hợp theo nhu cầu của nhà hàng. Trường hợp lịch không được duyệt nhưng lịch làm trùng lịch học, thi cử quan trọng hãy gửi lịch học/thi và báo BQL duyệt nhé!';
-
-        Swal.fire({
-          title: `✓ Đã đăng ký lịch làm tuần ${weekInfo.weekDisplay}`,
-          html: `
-            <div class="space-y-3 text-left">
-              <div class="p-3 ${sheetSaved ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800' : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800'} border rounded-2xl flex items-center justify-between gap-2 shadow-xs">
-                <div class="flex items-center gap-2 ${sheetSaved ? 'text-emerald-800 dark:text-emerald-300' : 'text-amber-800 dark:text-amber-300'} font-black text-xs sm:text-sm">
-                  <span class="w-2.5 h-2.5 rounded-full ${sheetSaved ? 'bg-emerald-500' : 'bg-amber-500'} animate-pulse"></span>
-                  <span>${sheetSaved ? 'Google Sheets: <b>Đã nạp 100%</b>' : 'Edge D1: <b>Đã ghi nhận &amp; đang nạp vào Sheet...</b>'}</span>
-                </div>
-                <span class="text-[11px] font-mono tabular-nums font-bold ${sheetSaved ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/60' : 'text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/60'} px-2 py-0.5 rounded-lg whitespace-nowrap">
-                  ${syncTimestamp}
-                </span>
-              </div>
-
-              <p class="text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-200 leading-snug">
-                ${isUpdate ? `Đã cập nhật lịch làm tuần <b>${weekInfo.weekDisplay}</b> (${weekInfo.monthSheet}) thành công.` : `Đã ghi nhận lịch làm 7 ngày tuần <b>${weekInfo.weekDisplay}</b> (${weekInfo.monthSheet}) thành công!`} Hệ thống đã ghi nhớ và sẽ không nhắc lại trong tuần này.
-              </p>
-
-              <div class="p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/80 rounded-2xl text-xs text-blue-900 dark:text-blue-200 leading-relaxed shadow-inner">
-                <p class="font-black flex items-center gap-1.5 text-blue-700 dark:text-blue-300 mb-1">
-                  Thông báo từ BQL:
-                </p>
-                <p class="font-medium text-[11px] leading-relaxed">${bqlNotice}</p>
-              </div>
-            </div>
-          `,
-          icon: 'success',
-          confirmButtonColor: '#10b981',
-          confirmButtonText: 'Hoàn tất'
+        setSubmitReceiptModal({
+          weekDisplay: weekInfo.weekDisplay,
+          monthSheet: weekInfo.monthSheet,
+          sheetSaved,
+          syncTimestamp,
+          isUpdate,
         });
         speak('Đăng ký lịch làm việc thành công, đã nạp vào Google Sheets');
       } else if (res) {
-        Swal.fire('Lỗi', res.message || 'Không thể ghi vào sheet lúc này.', 'error');
+        setInlineNotice({
+          variant: 'error',
+          title: 'Lỗi gửi lịch',
+          text: res.message || 'Không thể ghi vào sheet lúc này.',
+        });
       } else {
-        Swal.fire('Lỗi mạng', 'Không thể kết nối đến máy chủ Google Sheets. Vui lòng thử lại.', 'error');
+        setInlineNotice({
+          variant: 'error',
+          title: 'Lỗi mạng',
+          text: 'Không thể kết nối đến máy chủ Google Sheets. Vui lòng thử lại.',
+        });
       }
     } catch (err: any) {
-      Swal.fire('Lỗi', err?.message || 'Có lỗi xảy ra khi nạp lịch làm việc.', 'error');
+      setInlineNotice({
+        variant: 'error',
+        title: 'Lỗi',
+        text: err?.message || 'Có lỗi xảy ra khi nạp lịch làm việc.',
+      });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Shared preview grid renderer
+  // Shared preview grid renderer (360px-safe min-w-0)
   const renderShiftGrid = (getShift: (i: number) => string) => (
-    <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
+    <div className="grid grid-cols-7 gap-1 sm:gap-1.5 min-w-0">
       {SHORT_DAY_NAMES.map((shortDayName, i) => {
         const shiftVal = getShift(i);
         return (
           <div
             key={i}
-            className={`calendar-preview-day flex flex-col items-center rounded-xl px-0.5 py-1.5 transition-all ${weekDayMeta[i].className}`}
+            className={`calendar-preview-day min-w-0 flex flex-col items-center rounded-xl px-0.5 py-1.5 transition-all ${weekDayMeta[i].className}`}
             title={weekDayMeta[i].label || undefined}
           >
-            <span className="text-[11px] font-extrabold text-gray-800 dark:text-gray-200">
-              {weekInfo.weekDates[i]}
+            <span className="text-[10px] sm:text-[11px] font-mono tabular-nums font-extrabold text-[var(--kg-text)] truncate max-w-full">
+              {weekInfo.weekDates[i]?.split('/')[0]}/{weekInfo.weekDates[i]?.split('/')[1]}
             </span>
-            <span className="text-[9px] text-gray-500 font-bold mb-1.5 uppercase">
+            <span className="text-[9px] text-[var(--kg-text-muted)] font-bold mb-1 uppercase">
               {shortDayName}
             </span>
-            <div className={`w-full text-center py-2 px-0.5 rounded-xl text-xs font-black tracking-tight transition-all shadow-xs ${getPreviewShiftClass(shiftVal)}`}>
+            <div className={`w-full min-w-0 text-center py-1.5 sm:py-2 px-0.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-black tracking-tight transition-all shadow-xs overflow-hidden ${getPreviewShiftClass(shiftVal)}`}>
               <ResponsiveShift shift={shiftVal} />
             </div>
           </div>
@@ -860,7 +911,11 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
       store.setAdminSchedules(cleanSchedules);
       store.setOriginalAdminSchedules(JSON.parse(JSON.stringify(cleanSchedules)));
     } else if (res) {
-      Swal.fire('Thông báo', res.message, 'info');
+      setInlineNotice({
+        variant: 'info',
+        title: 'Thông báo',
+        text: res.message || 'Không thể tải danh sách lịch làm.',
+      });
     }
   };
 
@@ -888,20 +943,13 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
 
   const [isSyncingRoster, setIsSyncingRoster] = useState(false);
 
-  const approveAllSchedules = async () => {
+  const approveAllSchedules = () => {
     if (adminSchedules.length === 0) return;
-    const { isConfirmed } = await Swal.fire({
-      title: 'Duyệt và nạp lịch?',
-      html: 'Lịch sẽ được duyệt trên hệ thống và <b>tự động nạp sang Sheet Lịch Làm</b> (1Vrm...).',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#16a34a',
-      cancelButtonColor: '#6b7280',
-      confirmButtonText: 'Đồng ý duyệt & Nạp',
-      cancelButtonText: 'Hủy'
-    });
-    if (!isConfirmed) return;
+    setConfirmApproveOpen(true);
+  };
 
+  const executeApproveAllSchedules = async () => {
+    setConfirmApproveOpen(false);
     store.setLoading(true, 'Đang duyệt và nạp lịch sang Sheet Lịch Làm...');
     const finalSchedules = adminSchedules.map((emp, empIdx) => {
       const origEmp = originalAdminSchedules[empIdx];
@@ -927,30 +975,28 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
     });
     store.setLoading(false);
     if (res?.ok) {
-      Swal.fire({
-        title: 'Thành công',
+      pushToast(res?.message || 'Lịch đã được duyệt và nạp sang Google Sheets thành công!', 'success');
+      setInlineNotice({
+        variant: 'success',
+        title: 'Duyệt & nạp lịch thành công',
         text: res?.message || 'Lịch đã được duyệt và nạp sang Google Sheets thành công!',
-        icon: 'success'
       });
-      loadAdminSchedules();
+      void loadAdminSchedules();
     } else {
-      Swal.fire('Lỗi', res?.message || 'Không thể lưu lịch làm.', 'error');
+      setInlineNotice({
+        variant: 'error',
+        title: 'Lỗi duyệt lịch',
+        text: res?.message || 'Không thể lưu lịch làm.',
+      });
     }
   };
 
-  const handleManualSyncRoster = async () => {
-    const { isConfirmed } = await Swal.fire({
-      title: 'Đồng bộ sang Sheet Lịch Làm?',
-      html: `Đồng bộ lịch tuần <b>${weekInfo.weekDisplay}</b> sang Google Spreadsheet Lịch Làm.<br/><span class="text-xs text-gray-500 mt-2 block">Tổ trưởng nạp ở nhóm "KHÁC", nhân viên nạp tại Nhóm trực tương ứng.</span>`,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonColor: '#2563eb',
-      cancelButtonColor: '#6b7280',
-      confirmButtonText: 'Đồng bộ ngay',
-      cancelButtonText: 'Hủy'
-    });
-    if (!isConfirmed) return;
+  const handleManualSyncRoster = () => {
+    setConfirmSyncRosterOpen(true);
+  };
 
+  const executeManualSyncRoster = async () => {
+    setConfirmSyncRosterOpen(false);
     setIsSyncingRoster(true);
     store.setLoading(true, 'Đang đồng bộ sang Sheet Lịch Làm (1Vrm...)...');
 
@@ -967,14 +1013,24 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
       setIsSyncingRoster(false);
 
       if (res?.ok) {
-        Swal.fire('Thành công', res?.message || res?.data?.message || 'Đồng bộ thành công sang Sheet Lịch Làm!', 'success');
+        const msg = res?.message || res?.data?.message || 'Đồng bộ thành công sang Sheet Lịch Làm!';
+        pushToast(msg, 'success');
+        setInlineNotice({ variant: 'success', title: 'Đồng bộ thành công', text: msg });
       } else {
-        Swal.fire('Lỗi', res?.message || 'Không thể đồng bộ sang Sheet Lịch Làm.', 'error');
+        setInlineNotice({
+          variant: 'error',
+          title: 'Lỗi đồng bộ',
+          text: res?.message || 'Không thể đồng bộ sang Sheet Lịch Làm.',
+        });
       }
     } catch (err: any) {
       store.setLoading(false);
       setIsSyncingRoster(false);
-      Swal.fire('Lỗi kết nối', err?.message || 'Có lỗi xảy ra khi đồng bộ.', 'error');
+      setInlineNotice({
+        variant: 'error',
+        title: 'Lỗi kết nối',
+        text: err?.message || 'Có lỗi xảy ra khi đồng bộ.',
+      });
     }
   };
 
@@ -1079,7 +1135,12 @@ ${aiInputText}
         });
         
         store.setAdminSchedules(updated);
-        Swal.fire('Thành công', `Đã điền lịch cho ${matchedCount} nhân viên. Vui lòng kiểm tra lại và nhấn Xác Nhận Sắp Xếp Ca!`, 'success');
+        pushToast(`Đã điền lịch AI cho ${matchedCount} nhân viên!`, 'success');
+        setInlineNotice({
+          variant: 'success',
+          title: `Đã điền lịch cho ${matchedCount} nhân viên`,
+          text: 'Vui lòng kiểm tra lại và bấm "Duyệt & Đồng bộ lịch làm" để lưu chính thức.',
+        });
         setAiModalOpen(false);
         setAiInputText('');
       } else {
@@ -1087,7 +1148,11 @@ ${aiInputText}
       }
     } catch (err: any) {
       console.error(err);
-      Swal.fire('Lỗi AI', 'Không thể phân tích dữ liệu, vui lòng kiểm tra lại văn bản đầu vào. Lỗi: ' + err.message, 'error');
+      setInlineNotice({
+        variant: 'error',
+        title: 'Lỗi phân tích AI',
+        text: 'Không thể phân tích dữ liệu, vui lòng kiểm tra lại văn bản đầu vào. Lỗi: ' + err.message,
+      });
     } finally {
       setIsAiProcessing(false);
     }
@@ -1119,7 +1184,33 @@ ${aiInputText}
                 "Sau khi Quản lý đã chốt lịch, việc thay đổi phải thực hiện qua mục 'Bảng tin đổi ca'."
               ]
         }
+        actions={
+          !isManagerView && returnTab === 'checkin' && isRegisteredForTargetWeek ? (
+            <KgButton size="sm" variant="primary" icon={ChevronLeft} onClick={handleReturnToCheckIn}>
+              Quay lại Chấm công
+            </KgButton>
+          ) : !isManagerView && (!isOpen || scheduleStatus === 'approved') ? (
+            <KgButton size="sm" variant="secondary" icon={ArrowLeftRight} onClick={handleGoToSwap}>
+              Đổi ca
+            </KgButton>
+          ) : undefined
+        }
       />
+
+      {inlineNotice && (
+        <div className="mb-4">
+          <KgAlertCard variant={inlineNotice.variant} title={inlineNotice.title}>
+            <p>{inlineNotice.text}</p>
+            {inlineNotice.details && inlineNotice.details.length > 0 && (
+              <ul className="list-disc list-inside mt-1.5 space-y-0.5 text-xs">
+                {inlineNotice.details.map((d, i) => (
+                  <li key={i}>{d}</li>
+                ))}
+              </ul>
+            )}
+          </KgAlertCard>
+        </div>
+      )}
 
       {/* Toggle Mode & Time Navigation for Admin */}
         {isManagerView && (
@@ -1540,28 +1631,38 @@ ${aiInputText}
 
       {/* Approved Shifts Display */}
       {approvedShifts && approvedShifts.length > 0 && (
-        <div className="soft3d-card p-4 rounded-2xl  border-2 border-green-200 dark:border-green-700 mb-6">
-          <h3 className="text-sm font-bold text-green-600 dark:text-green-400 uppercase tracking-wider mb-3 flex items-center">
-            <CalendarCheck size={16} className="mr-2" /> Lịch đã duyệt
-          </h3>
-          <div className="grid grid-cols-7 gap-1">
+        <div className="bg-[var(--kg-surface)] p-3.5 sm:p-4 rounded-2xl border-2 border-[var(--kg-success)]/40 mb-6">
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <h3 className="text-xs sm:text-sm font-bold text-[var(--kg-success)] uppercase tracking-wider flex items-center">
+              <CalendarCheck size={16} className="mr-2" /> Lịch đã duyệt
+            </h3>
+            <button
+              type="button"
+              onClick={handleGoToSwap}
+              className="min-h-[44px] sm:min-h-[34px] px-3 py-1.5 rounded-xl bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] border border-[var(--kg-primary)]/20 text-xs font-extrabold inline-flex items-center gap-1.5 hover:bg-[var(--kg-primary)] hover:text-white transition-colors touch-manipulation"
+            >
+              <ArrowLeftRight size={13} />
+              <span>Đổi ca</span>
+            </button>
+          </div>
+          <div className="grid grid-cols-7 gap-1 min-w-0">
             {SHORT_DAY_NAMES.map((shortDayName, i) => {
               const approved = approvedShifts[i] || 'OFF';
               const registered = registeredShifts?.[i];
               const isChanged = registered && approved !== registered;
               return (
-                <div key={i} className="flex flex-col items-center">
-                  <span className="text-[11px] font-extrabold text-gray-800 dark:text-gray-200">
-                    {weekInfo.weekDates[i]}
+                <div key={i} className="min-w-0 flex flex-col items-center">
+                  <span className="text-[10px] sm:text-[11px] font-mono tabular-nums font-extrabold text-[var(--kg-text)] truncate max-w-full">
+                    {weekInfo.weekDates[i]?.split('/')[0]}/{weekInfo.weekDates[i]?.split('/')[1]}
                   </span>
-                  <span className="text-[9px] text-gray-500 font-bold mb-1.5 uppercase">
+                  <span className="text-[9px] text-[var(--kg-text-muted)] font-bold mb-1 uppercase">
                     {shortDayName}
                   </span>
-                  <div className={`w-full text-center py-2 px-0.5 rounded-xl text-xs font-black tracking-tight transition-all shadow-xs ${getPreviewShiftClass(approved)} ${isChanged ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}>
+                  <div className={`w-full min-w-0 text-center py-1.5 sm:py-2 px-0.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-black tracking-tight transition-all shadow-xs overflow-hidden ${getPreviewShiftClass(approved)} ${isChanged ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}>
                     <ResponsiveShift shift={approved} />
                   </div>
                   {isChanged && (
-                    <span className="text-[8px] text-amber-500 font-bold mt-0.5">Đã đổi</span>
+                    <span className="text-[8px] text-[var(--kg-warning)] font-bold mt-0.5">Đã đổi</span>
                   )}
                 </div>
               );
@@ -1572,89 +1673,159 @@ ${aiInputText}
 
       {/* === REGISTERED PREVIEW (not editing) === */}
       {isRegisteredForTargetWeek && !isEditing && (
-        <div className="soft3d-card p-4 sm:p-5 rounded-2xl mb-6 shadow-sm border border-slate-200/80 dark:border-slate-800">
-          <div className="flex items-center justify-between mb-3.5">
+        <div className="bg-[var(--kg-surface)] p-4 sm:p-5 rounded-2xl mb-6 shadow-sm border border-[var(--kg-border)]">
+          <div className="flex items-center justify-between gap-2 mb-3.5 flex-wrap">
             <h3 className="text-sm font-black text-[var(--kg-text)] uppercase tracking-wider flex items-center">
               <Eye size={16} className="mr-2 text-[var(--kg-primary)]" /> Lịch đã đăng ký
             </h3>
-            {approvedShifts && approvedShifts.length > 0 ? (
-              <span className="px-3 py-1 rounded-full text-xs font-black bg-[var(--kg-success-soft)] text-[var(--kg-success)] border border-[var(--kg-success)]/30 shadow-2xs">
-                Đã duyệt
-              </span>
-            ) : (
-              <span className="px-3 py-1 rounded-full text-xs font-black bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] border border-[var(--kg-warning)]/30 shadow-2xs">
-                Chờ duyệt
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              {(!isOpen || scheduleStatus === 'approved') && (
+                <button
+                  type="button"
+                  onClick={handleGoToSwap}
+                  className="min-h-[44px] sm:min-h-[34px] px-3 py-1 rounded-full text-xs font-black bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] border border-[var(--kg-primary)]/25 inline-flex items-center gap-1 hover:bg-[var(--kg-primary)] hover:text-white transition-colors touch-manipulation"
+                >
+                  <ArrowLeftRight size={12} />
+                  <span>Đổi ca</span>
+                </button>
+              )}
+              {approvedShifts && approvedShifts.length > 0 ? (
+                <span className="px-3 py-1 rounded-full text-xs font-black bg-[var(--kg-success-soft)] text-[var(--kg-success)] border border-[var(--kg-success)]/30 shadow-2xs">
+                  Đã duyệt
+                </span>
+              ) : (
+                <span className="px-3 py-1 rounded-full text-xs font-black bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] border border-[var(--kg-warning)]/30 shadow-2xs">
+                  Chờ duyệt
+                </span>
+              )}
+            </div>
           </div>
           {renderShiftGrid((i) => effectiveRegisteredShifts?.[i] || shiftData[weekInfo.weekDatesKeys[i]] || 'OFF')}
 
           {/* BQL Official Acknowledgment Notice */}
-          <div className="mt-4 p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 text-xs text-blue-900 dark:text-blue-200 leading-relaxed shadow-xs">
+          <div className="mt-4 p-3.5 rounded-2xl bg-[var(--kg-info-soft)] border border-[var(--kg-info)]/25 text-xs text-[var(--kg-text)] leading-relaxed shadow-xs">
             <div className="flex items-start gap-2.5">
-              <Info size={18} className="text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+              <Info size={18} className="text-[var(--kg-info)] mt-0.5 flex-shrink-0" />
               <div className="space-y-1">
-                <p className="font-extrabold text-blue-700 dark:text-blue-300">
+                <p className="font-extrabold text-[var(--kg-info)]">
                   Lịch đăng ký ca của bạn đã được ghi nhận.
                 </p>
-                <p className="text-[11px] text-blue-800/90 dark:text-blue-200/90">
+                <p className="text-[11px] text-[var(--kg-text-muted)]">
                   BQL sẽ sắp xếp lại phù hợp theo nhu cầu của nhà hàng. Trường hợp lịch không được duyệt nhưng lịch làm trùng lịch học, thi cử quan trọng hãy gửi lịch học/thi và báo BQL duyệt nhé!
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Edit button - only when registration window is open */}
-          {isOpen && (
-            <button 
-              type="button"
-              onClick={startEditing}
-              className="mt-4 w-full bg-[var(--kg-primary)] hover:brightness-110 text-white font-black py-3.5 rounded-2xl shadow-md transition-all transform active:scale-98 flex items-center justify-center touch-manipulation text-xs sm:text-sm tracking-wider uppercase"
-            >
-              <Pencil size={16} className="mr-2 text-[var(--kg-accent)]" /> Chỉnh sửa đăng ký ca
-            </button>
-          )}
+          <div className="mt-4 flex flex-col sm:flex-row gap-2.5">
+            {returnTab === 'checkin' && (
+              <button
+                type="button"
+                onClick={handleReturnToCheckIn}
+                className="flex-1 min-h-[46px] bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3 px-4 rounded-2xl shadow-md transition-all active:scale-98 flex items-center justify-center touch-manipulation text-xs sm:text-sm tracking-wider uppercase"
+              >
+                <ChevronLeft size={16} className="mr-1.5" /> Quay lại Chấm công
+              </button>
+            )}
+            {/* Edit button - only when registration window is open */}
+            {isOpen && (
+              <button 
+                type="button"
+                onClick={startEditing}
+                className="flex-1 min-h-[46px] bg-[var(--kg-primary)] hover:brightness-110 text-white font-black py-3.5 px-4 rounded-2xl shadow-md transition-all transform active:scale-98 flex items-center justify-center touch-manipulation text-xs sm:text-sm tracking-wider uppercase"
+              >
+                <Pencil size={16} className="mr-2 text-[var(--kg-accent)]" /> Chỉnh sửa đăng ký ca
+              </button>
+            )}
+          </div>
         </div>
       )}
 
       {/* === CLOSED WINDOW (not registered) === */}
       {!isOpen && !isRegisteredForTargetWeek && (
         <>
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-4 flex items-center space-x-3 mb-6">
-            <div className="w-10 h-10 bg-red-100 dark:bg-red-800 text-red-500 rounded-full flex items-center justify-center flex-shrink-0">
-              <Lock size={20} />
+          <div className="bg-[var(--kg-danger-soft)] border border-[var(--kg-danger)]/30 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-[var(--kg-danger)]/15 text-[var(--kg-danger)] rounded-full flex items-center justify-center flex-shrink-0">
+                <Lock size={20} />
+              </div>
+              <div>
+                <h4 className="font-bold text-[var(--kg-danger)] text-sm">Đã đóng đăng ký</h4>
+                <p className="text-xs text-[var(--kg-text-muted)]">{regWindow.message}</p>
+              </div>
             </div>
-            <div>
-              <h4 className="font-bold text-red-700 dark:text-red-400 text-sm">Đã đóng đăng ký</h4>
-              <p className="text-xs text-red-600 dark:text-red-500">{regWindow.message}</p>
-            </div>
+            <button
+              type="button"
+              onClick={handleGoToSwap}
+              className="min-h-[44px] px-4 py-2 rounded-xl bg-[var(--kg-primary)] text-white text-xs font-black inline-flex items-center justify-center gap-1.5 shrink-0 touch-manipulation"
+            >
+              <ArrowLeftRight size={14} />
+              <span>Đổi ca</span>
+            </button>
           </div>
-          <div className="paint-layer p-6 text-center mb-6">
-            <AlertTriangle size={32} className="mx-auto text-gray-400 mb-3" />
-            <p className="text-sm text-gray-500 dark:text-gray-400">Bạn chưa đăng ký ca cho tuần tới.</p>
-            <p className="text-xs text-gray-400 mt-1">Vui lòng đăng ký khi mở đăng ký vào Thứ Hai.</p>
+          <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-6 text-center mb-6">
+            <AlertTriangle size={32} className="mx-auto text-[var(--kg-text-soft)] mb-3" />
+            <p className="text-sm text-[var(--kg-text-muted)]">Bạn chưa đăng ký ca cho tuần tới.</p>
+            <p className="text-xs text-[var(--kg-text-soft)] mt-1">Vui lòng đăng ký khi mở đăng ký vào Thứ Hai.</p>
           </div>
         </>
       )}
 
       {/* === CLOSED WINDOW (registered - already shown pending status above, no error needed) === */}
 
-      {/* === NOT REGISTERED + OPEN WINDOW === */}
-      {isOpen && !isRegisteredForTargetWeek && (
-        <>
-          {/* Preview grid */}
-          <div className="soft3d-card p-4 rounded-2xl   mb-6">
-            <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center">
-              <Eye size={16} className="mr-2" /> Bản xem trước
-            </h3>
-            {renderShiftGrid((i) => shiftData[weekInfo.weekDatesKeys[i]] || 'OFF')}
-          </div>
-        </>
-      )}
-
       {/* === REGISTRATION FORM (new registration or editing) === */}
       {showRegistrationForm && (
         <>
+          {/* Sticky Collapsible 7-Day Preview Summary */}
+          <div className="sticky top-2 z-20 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-3 mb-4 shadow-md">
+            <div className="flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => setPreviewExpanded((v) => !v)}
+                aria-expanded={previewExpanded}
+                className="min-h-[44px] sm:min-h-[34px] flex-1 min-w-0 flex items-center gap-2 text-left touch-manipulation"
+              >
+                <Eye size={15} className="text-[var(--kg-primary-ink)] shrink-0" />
+                <span className="text-xs font-black text-[var(--kg-text)] uppercase tracking-wider shrink-0">
+                  Xem trước 7 ngày
+                </span>
+                {!previewExpanded && (
+                  <div className="flex items-center gap-1 overflow-x-auto no-scrollbar min-w-0">
+                    {SHORT_DAY_NAMES.map((day, idx) => {
+                      const s = shiftData[weekInfo.weekDatesKeys[idx]] || 'OFF';
+                      return (
+                        <span
+                          key={day}
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-mono tabular-nums font-bold shrink-0 ${
+                            s === 'OFF'
+                              ? 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-soft)]'
+                              : 'bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)]'
+                          }`}
+                        >
+                          {day}:{s === 'OFF' ? 'OFF' : formatMobileShift(s)}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setPreviewExpanded((v) => !v)}
+                aria-expanded={previewExpanded}
+                aria-label={previewExpanded ? 'Thu gọn bản xem trước' : 'Mở rộng bản xem trước'}
+                className="min-h-[44px] min-w-[44px] sm:min-h-[34px] sm:min-w-[34px] px-2 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-text-muted)] flex items-center justify-center shrink-0 touch-manipulation"
+              >
+                <ChevronDown size={16} className={`transition-transform duration-150 ${previewExpanded ? 'rotate-180' : ''}`} />
+              </button>
+            </div>
+            {previewExpanded && (
+              <div className="mt-3 pt-3 border-t border-[var(--kg-border)]">
+                {renderShiftGrid((i) => shiftData[weekInfo.weekDatesKeys[i]] || 'OFF')}
+              </div>
+            )}
+          </div>
+
           <div className="flex flex-wrap items-center justify-between gap-2 mb-4 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl px-4 py-3 shadow-2xs">
             <div className="text-xs text-[var(--kg-text-muted)] font-medium">
               Muốn giữ nguyên khung giờ làm như tuần này? Điền tự động đủ 7 ngày chỉ với 1 chạm:
@@ -1662,7 +1833,7 @@ ${aiInputText}
             <button
               type="button"
               onClick={handleCopyEmployeeCurrentWeek}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black bg-[var(--kg-accent-soft)] text-[var(--kg-primary)] border border-[var(--kg-primary)]/25 hover:bg-[var(--kg-primary)] hover:text-white transition-all active:scale-95"
+              className="inline-flex items-center gap-1.5 min-h-[44px] sm:min-h-[36px] px-3 py-2 rounded-xl text-xs font-black bg-[var(--kg-accent-soft)] text-[var(--kg-primary)] border border-[var(--kg-primary)]/25 hover:bg-[var(--kg-primary)] hover:text-white transition-all active:scale-95 touch-manipulation"
             >
               <Copy size={14} /> Sao chép lịch tuần này
             </button>
@@ -1670,25 +1841,15 @@ ${aiInputText}
 
           {/* Editing banner */}
           {isEditing && (
-            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-3 mb-4 flex items-center justify-between">
+            <div className="bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/30 rounded-2xl p-3 mb-4 flex items-center justify-between">
               <div className="flex items-center">
-                <Pencil size={14} className="text-amber-600 mr-2" />
-                <span className="text-sm font-semibold text-amber-700 dark:text-amber-400">Đang chỉnh sửa đăng ký</span>
+                <Pencil size={14} className="text-[var(--kg-warning)] mr-2" />
+                <span className="text-sm font-semibold text-[var(--kg-warning)]">Đang chỉnh sửa đăng ký</span>
               </div>
-              <button onClick={cancelEditing}
-                className="text-xs font-bold text-gray-500 dark:text-gray-400 bg-gray-200 dark:bg-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition">
+              <button type="button" onClick={cancelEditing}
+                className="min-h-[44px] sm:min-h-[34px] text-xs font-bold text-[var(--kg-text)] bg-[var(--kg-surface)] border border-[var(--kg-border)] px-3 py-1.5 rounded-lg hover:bg-[var(--kg-surface-soft)] transition touch-manipulation">
                 Hủy
               </button>
-            </div>
-          )}
-
-          {/* Preview grid (editing mode) */}
-          {isEditing && (
-            <div className="soft3d-card p-4 rounded-2xl   mb-6">
-              <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center">
-                <Eye size={16} className="mr-2" /> Bản xem trước
-              </h3>
-              {renderShiftGrid((i) => shiftData[weekInfo.weekDatesKeys[i]] || 'OFF')}
             </div>
           )}
 
@@ -1723,7 +1884,7 @@ ${aiInputText}
                         key={shift} 
                         type="button"
                         onClick={() => handleShiftChange(key, shift)}
-                        className={`px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition-all transform active:scale-95 touch-manipulation min-h-[40px] flex items-center justify-center ${currentShift === shift ? getActiveShiftClass(shift) : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] hover:bg-[var(--kg-border)]/50'}`}
+                        className={`min-w-0 px-2 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition-all transform active:scale-95 touch-manipulation min-h-[44px] flex items-center justify-center ${currentShift === shift ? getActiveShiftClass(shift) : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] hover:bg-[var(--kg-border)]/50'}`}
                       >
                         <ResponsiveShift shift={shift} />
                       </button>
@@ -1795,14 +1956,14 @@ ${aiInputText}
       )}
       {/* AI Schedule Modal */}
       {aiModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4 animate-fade-in">
+        <div className="fixed inset-0 z-[10050] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4 animate-fade-in">
           <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div className="p-4 md:p-5 flex-shrink-0 border-b border-[var(--kg-border)] flex justify-between items-center bg-[var(--kg-surface-soft)]">
               <div className="flex items-center text-[var(--kg-primary)]">
                 <Bot size={22} className="mr-2.5" />
                 <h3 className="text-base sm:text-lg font-extrabold text-[var(--kg-text)]">Xếp ca nhanh bằng AI</h3>
               </div>
-              <button type="button" onClick={() => !isAiProcessing && setAiModalOpen(false)} aria-label="Đóng" className="p-2 hover:bg-[var(--kg-border)]/40 rounded-lg transition-colors text-[var(--kg-text-muted)]">
+              <button type="button" onClick={() => !isAiProcessing && setAiModalOpen(false)} aria-label="Đóng" className="w-9 h-9 flex items-center justify-center hover:bg-[var(--kg-border)]/40 rounded-lg transition-colors text-[var(--kg-text-muted)]">
                 <X size={18} />
               </button>
             </div>
@@ -1849,6 +2010,156 @@ ${aiInputText}
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Confirmation Sheets & Receipt Modal (Replaces Swal.fire) */}
+      <KgConfirmSheet
+        isOpen={confirmSubmitOpen}
+        onClose={() => setConfirmSubmitOpen(false)}
+        onConfirm={() => void executeRegistrationSubmit()}
+        title={isRegisteredForTargetWeek ? 'Xác nhận Cập Nhật' : 'Xác nhận Nộp Lịch'}
+        message={
+          isRegisteredForTargetWeek
+            ? 'Bạn muốn cập nhật lại lịch đăng ký ca tuần tới?'
+            : 'Bạn đã kiểm tra kỹ toàn bộ ca làm trong tuần tới chưa?'
+        }
+        confirmLabel={isRegisteredForTargetWeek ? 'Cập nhật lịch' : 'Gửi lịch'}
+        cancelLabel="Xem lại"
+        variant="primary"
+      />
+
+      <KgConfirmSheet
+        isOpen={confirmApproveOpen}
+        onClose={() => setConfirmApproveOpen(false)}
+        onConfirm={() => void executeApproveAllSchedules()}
+        title="Duyệt và nạp lịch?"
+        message="Lịch sẽ được duyệt trên hệ thống và tự động nạp sang Sheet Lịch Làm (1Vrm...)."
+        confirmLabel="Đồng ý duyệt & Nạp"
+        cancelLabel="Hủy"
+        variant="warning"
+      />
+
+      <KgConfirmSheet
+        isOpen={confirmSyncRosterOpen}
+        onClose={() => setConfirmSyncRosterOpen(false)}
+        onConfirm={() => void executeManualSyncRoster()}
+        title="Đồng bộ sang Sheet Lịch Làm?"
+        message={`Đồng bộ lịch tuần ${weekInfo.weekDisplay} sang Google Spreadsheet Lịch Làm. Tổ trưởng nạp ở nhóm "KHÁC", nhân viên nạp tại Nhóm trực tương ứng.`}
+        confirmLabel="Đồng bộ ngay"
+        cancelLabel="Hủy"
+        variant="primary"
+      />
+
+      <KgBottomSheet
+        isOpen={Boolean(copyPrevWeekModal)}
+        onClose={() => setCopyPrevWeekModal(null)}
+        title={copyPrevWeekModal ? `Sao chép lịch từ tuần ${copyPrevWeekModal.prevWeekDisplay}?` : 'Sao chép lịch tuần trước'}
+      >
+        {copyPrevWeekModal && (
+          <div className="space-y-4 py-1">
+            <p className="text-xs sm:text-sm text-[var(--kg-text-muted)] leading-relaxed">
+              Hệ thống sẽ lấy lịch tuần trước (<b>{copyPrevWeekModal.prevWeekDisplay}</b>) để điền nhanh cho tuần <b>{weekInfo.weekDisplay}</b>.
+            </p>
+            <div className="space-y-2">
+              <KgButton
+                variant="primary"
+                size="md"
+                className="w-full"
+                onClick={() => void executeAdminCopyPreviousWeek(false)}
+              >
+                Điền NV chưa đăng ký (An toàn)
+              </KgButton>
+              <KgButton
+                variant="warning"
+                size="md"
+                className="w-full"
+                onClick={() => void executeAdminCopyPreviousWeek(true)}
+              >
+                Ghi đè toàn bộ
+              </KgButton>
+              <KgButton
+                variant="secondary"
+                size="md"
+                className="w-full"
+                onClick={() => setCopyPrevWeekModal(null)}
+              >
+                Hủy
+              </KgButton>
+            </div>
+          </div>
+        )}
+      </KgBottomSheet>
+
+      <KgBottomSheet
+        isOpen={Boolean(submitReceiptModal)}
+        onClose={() => setSubmitReceiptModal(null)}
+        title={submitReceiptModal ? `✓ Đã đăng ký lịch làm tuần ${submitReceiptModal.weekDisplay}` : 'Đã đăng ký lịch'}
+      >
+        {submitReceiptModal && (
+          <div className="space-y-3 text-left py-1">
+            <div
+              className={`p-3 border rounded-2xl flex items-center justify-between gap-2 ${
+                submitReceiptModal.sheetSaved
+                  ? 'bg-[var(--kg-success-soft)] border-[var(--kg-success)]/30 text-[var(--kg-success)]'
+                  : 'bg-[var(--kg-warning-soft)] border-[var(--kg-warning)]/30 text-[var(--kg-warning)]'
+              }`}
+            >
+              <div className="flex items-center gap-2 font-black text-xs sm:text-sm">
+                <span
+                  className={`w-2.5 h-2.5 rounded-full animate-pulse ${
+                    submitReceiptModal.sheetSaved ? 'bg-[var(--kg-success)]' : 'bg-[var(--kg-warning)]'
+                  }`}
+                />
+                <span>
+                  {submitReceiptModal.sheetSaved
+                    ? 'Google Sheets: Đã nạp 100%'
+                    : 'Edge D1: Đã ghi nhận & đang nạp vào Sheet...'}
+                </span>
+              </div>
+              <span className="text-[11px] font-mono tabular-nums font-bold px-2 py-0.5 rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-border)] whitespace-nowrap">
+                {submitReceiptModal.syncTimestamp}
+              </span>
+            </div>
+
+            <p className="text-xs sm:text-sm font-semibold text-[var(--kg-text)] leading-snug">
+              {submitReceiptModal.isUpdate
+                ? `Đã cập nhật lịch làm tuần ${submitReceiptModal.weekDisplay} (${submitReceiptModal.monthSheet}) thành công.`
+                : `Đã ghi nhận lịch làm 7 ngày tuần ${submitReceiptModal.weekDisplay} (${submitReceiptModal.monthSheet}) thành công!`}{' '}
+              Hệ thống đã ghi nhớ và sẽ không nhắc lại trong tuần này.
+            </p>
+
+            <div className="p-3 bg-[var(--kg-info-soft)] border border-[var(--kg-info)]/25 rounded-2xl text-xs text-[var(--kg-text)] leading-relaxed">
+              <p className="font-black text-[var(--kg-info)] mb-1">Thông báo từ BQL:</p>
+              <p className="font-medium text-[11px] text-[var(--kg-text-muted)] leading-relaxed">
+                Lịch đăng ký ca của bạn đã được ghi nhận vào Bảng Chấm Công (Google Sheets). BQL sẽ sắp xếp lại phù hợp theo nhu cầu của nhà hàng. Trường hợp lịch không được duyệt nhưng lịch làm trùng lịch học, thi cử quan trọng hãy gửi lịch học/thi và báo BQL duyệt nhé!
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2 pt-1">
+              {returnTab === 'checkin' && (
+                <KgButton variant="primary" size="md" className="flex-1" icon={ChevronLeft} onClick={handleReturnToCheckIn}>
+                  Quay lại Chấm công ngay
+                </KgButton>
+              )}
+              <KgButton
+                variant={returnTab === 'checkin' ? 'secondary' : 'primary'}
+                size="md"
+                className="flex-1"
+                onClick={() => setSubmitReceiptModal(null)}
+              >
+                Hoàn tất
+              </KgButton>
+            </div>
+          </div>
+        )}
+      </KgBottomSheet>
+
+      {toasts.length > 0 && (
+        <div className="fixed bottom-20 md:bottom-6 right-4 z-[10090] flex flex-col gap-2 pointer-events-none">
+          {toasts.map((toast) => (
+            <KgToast key={toast.id} message={toast} onClose={dismissToast} />
+          ))}
         </div>
       )}
 

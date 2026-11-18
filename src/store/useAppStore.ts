@@ -165,6 +165,7 @@ export interface Feedback {
 
 export interface LogEntry {
   rowIndex?: number;
+  checkinId?: string;
   username?: string;
   sourceSheet?: string;
   fullname: string;
@@ -180,6 +181,9 @@ export interface LogEntry {
   originalType?: string;
   claimId?: string;
   timestamp?: number;
+  sheetSynced?: boolean;
+  edgeBuffered?: boolean;
+  localQueued?: boolean;
 }
 
 export interface AdminScheduleEntry {
@@ -548,7 +552,38 @@ export const useAppStore = create<AppState>((set) => ({
   lastFetchTime: 0,
 
   // Actions
-  setCurrentUser: (user) => set({ currentUser: user }),
+  setCurrentUser: (user) =>
+    set((s) => {
+      const prevUser = s.currentUser?.username?.trim().toLowerCase() || '';
+      const nextUser = user?.username?.trim().toLowerCase() || '';
+      const savedOwner = (() => {
+        try {
+          return (localStorage.getItem('kg_last_checkin_user') || '').trim().toLowerCase();
+        } catch {
+          return '';
+        }
+      })();
+      const switchedAccount =
+        !nextUser ||
+        (prevUser && prevUser !== nextUser) ||
+        (savedOwner && savedOwner !== nextUser);
+
+      if (switchedAccount) {
+        try {
+          localStorage.removeItem('kg_last_checkin');
+          localStorage.removeItem('kg_last_checkin_user');
+          if (prevUser && prevUser !== nextUser) {
+            localStorage.removeItem('kg_logs');
+          }
+        } catch {}
+        return {
+          currentUser: user,
+          lastCheckInTime: 0,
+          ...(prevUser && prevUser !== nextUser ? { logs: [] } : {}),
+        };
+      }
+      return { currentUser: user };
+    }),
   setRememberMe: (v) => set({ rememberMe: v }),
   setDark: (isDark) => {
     if (isDark) document.documentElement.classList.add('dark');
@@ -626,14 +661,17 @@ export const useAppStore = create<AppState>((set) => ({
 
     if (typeof window !== 'undefined') {
       try {
-        if (targetSub) {
-          sessionStorage.setItem(`kg_hub_subtab_${targetHub}`, targetSub);
-          window.dispatchEvent(new CustomEvent('kg:subtab-select', { detail: { hub: targetHub, subTab: targetSub } }));
-        }
         const url = new URL(window.location.href);
         const currentUrlTab = url.searchParams.get('tab');
         const currentUrlSub = url.searchParams.get('sub');
-        const effectiveSub = targetSub || sessionStorage.getItem(`kg_hub_subtab_${targetHub}`) || '';
+        const preservedUrlSub =
+          !targetSub && currentUrlTab === targetHub && currentUrlSub ? currentUrlSub : '';
+        const resolvedSub = targetSub || preservedUrlSub;
+        if (resolvedSub) {
+          sessionStorage.setItem(`kg_hub_subtab_${targetHub}`, resolvedSub);
+          window.dispatchEvent(new CustomEvent('kg:subtab-select', { detail: { hub: targetHub, subTab: resolvedSub } }));
+        }
+        const effectiveSub = resolvedSub || sessionStorage.getItem(`kg_hub_subtab_${targetHub}`) || '';
         if (targetHub === 'dashboard') {
           url.searchParams.delete('tab');
           url.searchParams.delete('sub');
@@ -784,8 +822,13 @@ export const useAppStore = create<AppState>((set) => ({
     try {
       if (lastCheckInTime > 0) {
         localStorage.setItem('kg_last_checkin', String(lastCheckInTime));
+        const curU = useAppStore.getState().currentUser?.username?.trim().toLowerCase() || '';
+        if (curU) {
+          localStorage.setItem('kg_last_checkin_user', curU);
+        }
       } else {
         localStorage.removeItem('kg_last_checkin');
+        localStorage.removeItem('kg_last_checkin_user');
       }
     } catch (e) {
       console.warn('[Store] persist lastCheckInTime error:', e);
@@ -818,6 +861,8 @@ export const useAppStore = create<AppState>((set) => ({
       'kg_logs',
       'kg_stats',
       'kg_last_checkin',
+      'kg_last_checkin_user',
+      'kg_last_punch_record',
       'kg_app_cache_v2',
       'kg_punch_vault_v1',
       'kg_offline_queue_v1',

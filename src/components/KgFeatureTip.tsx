@@ -40,16 +40,16 @@ export function KgFeatureTip({
 
   const getTriggerClass = () => {
     if (variant === 'hero' || variant === 'badge') {
-      return 'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-border)]/40 text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] border border-[var(--kg-border)] text-xs font-medium transition-colors cursor-pointer select-none min-h-[34px]';
+      return 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-border)]/40 text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] border border-[var(--kg-border)] text-xs font-medium transition-colors cursor-pointer select-none min-h-[36px] touch-manipulation';
     }
     if (variant === 'subtle') {
-      return 'inline-flex items-center justify-center w-7 h-7 rounded-md text-[var(--kg-text-muted)] hover:text-[var(--kg-primary)] hover:bg-[var(--kg-surface-soft)] transition-colors cursor-pointer select-none';
+      return 'inline-flex items-center justify-center w-9 h-9 min-w-[36px] min-h-[36px] rounded-lg text-[var(--kg-text-muted)] hover:text-[var(--kg-primary)] hover:bg-[var(--kg-surface-soft)] transition-colors cursor-pointer select-none touch-manipulation';
     }
     if (cleanTriggerText) {
-      return 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] border border-[var(--kg-warning)]/25 text-xs font-semibold transition-colors cursor-pointer select-none';
+      return 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] border border-[var(--kg-warning)]/25 text-xs font-semibold transition-colors cursor-pointer select-none min-h-[36px] touch-manipulation';
     }
-    const sizeClasses = size === 'sm' ? 'w-6 h-6' : 'w-7 h-7';
-    return `inline-flex items-center justify-center ${sizeClasses} rounded-full bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] border border-[var(--kg-warning)]/25 transition-colors cursor-pointer select-none`;
+    const sizeClasses = size === 'sm' ? 'w-9 h-9 min-w-[36px] min-h-[36px]' : 'w-9 h-9 min-w-[36px] min-h-[36px]';
+    return `inline-flex items-center justify-center ${sizeClasses} rounded-xl bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] border border-[var(--kg-warning)]/25 transition-colors cursor-pointer select-none touch-manipulation`;
   };
 
   return (

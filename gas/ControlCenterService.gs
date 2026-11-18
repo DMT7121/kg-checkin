@@ -138,7 +138,8 @@ function isProtectedSystemSheet(title) {
     'TRAINING_CONTENT',
     'NOTIFICATIONS',
     'KING_COINS',
-    'ATTENDANCE_QUEUE'
+    'ATTENDANCE_QUEUE',
+    'CONFIG_FACE_ID'
   ];
 
   for (var i = 0; i < exactProtected.length; i++) {

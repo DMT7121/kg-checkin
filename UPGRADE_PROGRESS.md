@@ -163,3 +163,25 @@
 | **P2.2** | Chuẩn hóa Accessibility (`Escape`, `aria-modal`) & Trạng thái đồng bộ Offline trực tiếp | **P2** | ✅ **DONE** | [`KgDesignSystem.tsx`](file:///g:/kg-checkin-main/src/components/KgDesignSystem.tsx), [`KgAppShell.tsx`](file:///g:/kg-checkin-main/src/components/KgAppShell.tsx), [`offlineQueue.ts`](file:///g:/kg-checkin-main/src/utils/offlineQueue.ts) | Hỗ trợ đóng mọi modal bằng phím `Escape`; hiển thị trực tiếp số tác vụ chờ đồng bộ offline trên thanh trạng thái |
 | **P3.1** | Tích hợp Thanh điều hướng nhanh **Command Palette (`Ctrl+K` / `Cmd+K`)** | **P3** | ✅ **DONE** | [`KgCommandPalette.tsx`](file:///g:/kg-checkin-main/src/components/KgCommandPalette.tsx), [`KgAppShell.tsx`](file:///g:/kg-checkin-main/src/components/KgAppShell.tsx) | Tìm kiếm không dấu và nhảy thẳng tới bất kỳ phân hệ hoặc tab con chỉ với 1 tổ hợp phím `Ctrl+K` |
 | **P3.2** | Quy hoạch thư mục gốc (Workspace Hygiene) | **P3** | ✅ **DONE** | `scripts/legacy/` | Di chuyển toàn bộ các script vá tạm thời (`apply_*.cjs`, `patch*.cjs`, `test*.js`) vào `scripts/legacy/` và dọn dẹp file log rác |
+
+---
+
+## 🚀 ĐỢT NÂNG CẤP TOÀN DIỆN THỨ 3 (`v4.0.1` — WARM HOSPITALITY, EDGE D1, FACE V2 & OPTIMIZATION WAVES)
+
+> **Cập nhật phiên bản:** `v4.0.1` (`Warm Hospitality Super-App Edition`)  
+> **Trạng thái:** ✅ **HOÀN THÀNH ĐẦY ĐỦ 4 PHASE TỐI ƯU & CHUẨN HÓA KIẾN TRÚC**
+
+### Phase 0 + Phase 1: Baseline Correctness, RBAC, Design System & Modal Queue
+| Hạng mục | Tệp tin chính | Kết quả đạt được |
+| :--- | :--- | :--- |
+| **TypeScript & Test Baseline** | `src/components/FastFaceScannerV2.tsx`, `src/pages/CheckIn.tsx`, `tests/checkin-history-completeness.test.ts`, `package.json` | Khắc phục toàn bộ lỗi `tsc`; gom đầy đủ `wave2`/`wave3`/`wave4` vào `npm test` (116+ test pass). |
+| **RBAC & 11-Hub Routing** | `src/utils/permissions.ts`, `src/components/KgAppShell.tsx`, `src/components/KgCommandPalette.tsx`, `src/pages/ModuleHubs.tsx`, `src/pages/admin/*.tsx`, `src/components/NotificationBell.tsx` | Chuẩn hóa `isAdminUser(user)` (giữ `tester` không có quyền Admin); guard toàn bộ Admin pages/hubs; sửa deep-link `?tab=&sub=` + `kg:subtab-select`; sửa routing nút Ứng lương & fallback `renderTabContent`; đồng bộ chu kỳ `06:00–05:59` trên DashboardOverview. |
+| **Ops P0 Fixes & WCAG AA** | `DESIGN.md`, `src/index.css`, `tailwind.config.js`, `src/components/KgDesignSystem.tsx`, `src/utils/modalQueue.ts`, `src/pages/Training.tsx`, `src/pages/Checklist.tsx`, `src/pages/Reward.tsx` | Chuẩn hóa token Light/Dark WCAG AA, touch target `>=44px` mobile, focus trap & priority queue cho 4 startup modals (`zalo > mandatory_schedule > version_release > newbie_guide`), lưu nháp Checklist 4 khu vực, căn chỉnh logic King Coins/Training 70%. |
+
+### Phase 2 + Phase 3 + Phase 4: Workflows, Operations/Finance, Admin UX & Perf/State/Vault
+| Nhóm tối ưu | Tệp tin chính | Kết quả đạt được |
+| :--- | :--- | :--- |
+| **Boot Bundle & WASM Isolation (P0/P2)** | `src/utils/faceProfileCache.ts` *(mới)*, `src/services/faceRecognitionV2.ts`, `src/App.tsx`, `vite.config.ts` | Tách DTO/vector cache (`getCachedFaceProfiles`, `setCachedFaceProfiles`, `syncLatestFaceProfilesFromEdge`) sang module zero-WASM; dynamic `import('./services/faceRecognitionV2')` chỉ chạy prewarm sau đăng nhập cho phiên cần camera (bỏ qua Login & Admin Desktop); lazy-load `ZaloWarning`, `ImagePreview`, `VersionReleaseModal`; bật `emptyOutDir: true` & chuẩn hóa `manualChunks` (`@tensorflow/tfjs-core`). |
+| **State Sync, Cache & Offline Vault UI (P1/P2)** | `src/utils/refreshData.ts`, `src/services/api.ts`, `src/utils/offlineQueue.ts`, `src/components/SyncVaultDrawer.tsx` *(mới)*, `src/components/KgAppShell.tsx` | Chống double-fetch `DashboardOverview` bằng deps nguyên thủy (`username`, `role`), loại bỏ waterfall `GET_DATA` thừa, giữ ổn định tham chiếu `currentUser`; thay `responseCache.clear()` toàn cục bằng targeted action-prefix invalidation; vá rò rỉ `pageshow` listener (`window.removeEventListener`); xuất helpers đọc/retry/discard cho `kg_punch_vault_v1` và nối `SyncVaultDrawer` vào `KgSyncStatus` với trạng thái `isSyncing` thực tế. |
+| **Admin Command Center, WorkHub Strip & Keep-Alive (P1/P2)** | `src/pages/Dashboard.tsx`, `src/pages/ModuleHubs.tsx` | Hợp nhất Hàng chờ phê duyệt Admin (Bổ sung công, Lệch quỹ bàn giao, Sự cố mở, Khiếu nại/ĐC lương, Đổi ca, Xin nghỉ, Ứng lương, Góp ý) với routing chính xác; cô lập clock 1 phút vào `<LiveClockDisplay />`; giới hạn LRU keep-alive tabs (`MAX_KEEP_ALIVE_TABS = 3`, `MAX_KEEP_ALIVE_SUBTABS = 2`) chống phình DOM; thêm live strip `Món hết` / `Sự cố mở` trong `WorkHub`. |
+| **Core Workflows, Ops/Finance & Admin UX** | `CheckIn.tsx`, `Schedule.tsx`, `Roster.tsx`, `SwapShift.tsx`, `Timesheet.tsx`, `ActivityHistory.tsx`, `Profile.tsx`, `Handover.tsx`, `Payroll.tsx`, `AdminOperations.tsx`, `AdminPayroll.tsx`, `HrList.tsx`, `AdminAnalytics.tsx`, `AdminOrg.tsx`, `AdminShift.tsx`, `AdminChecklistConfig.tsx` | Tối ưu thao tác chấm công 1 chạm, lịch/bảng công, bàn giao & đối soát 2 chiều, bộ lọc Admin/CSV/sticky table, kiểm tra lỗi null-safe `callApi` và dọn dead controls. |
