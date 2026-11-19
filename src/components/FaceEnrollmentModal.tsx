@@ -832,7 +832,7 @@ export default function FaceEnrollmentModal({
           </div>
 
           {/* Circular Biometric Camera Viewfinder */}
-          <div className="relative mx-auto w-[224px] h-[224px] sm:w-[276px] sm:h-[276px] flex items-center justify-center my-auto">
+          <div className="relative mx-auto w-[min(216px,56vw)] h-[min(216px,56vw)] sm:w-[264px] sm:h-[264px] flex items-center justify-center my-auto">
             {/* 5-Segment SVG Ring */}
             <svg
               viewBox="0 0 120 120"
@@ -870,7 +870,7 @@ export default function FaceEnrollmentModal({
               })}
             </svg>
 
-            <div className="w-[198px] h-[198px] sm:w-[244px] sm:h-[244px] rounded-full overflow-hidden bg-[#161A22] border-2 border-[#2B3240] relative z-10">
+            <div className="w-[calc(100%-26px)] h-[calc(100%-26px)] rounded-full overflow-hidden bg-[#161A22] border-2 border-[#2B3240] relative z-10">
               <video
                 ref={videoRef}
                 autoPlay

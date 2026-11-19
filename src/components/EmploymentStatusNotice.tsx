@@ -20,7 +20,7 @@ export default function EmploymentStatusNotice({
 
   return (
     <div className="p-4 animate-slide-up">
-      <KgCard className={`rounded-2xl border p-6 text-center ${status.badgeClass}`}>
+      <KgCard className={`max-w-lg mx-auto rounded-2xl border p-6 text-center ${status.badgeClass}`}>
         <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--kg-surface)] border border-[var(--kg-border)] text-[var(--kg-text)] shadow-soft">
           <Icon size={28} />
         </span>

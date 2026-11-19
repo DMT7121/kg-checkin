@@ -363,8 +363,8 @@ export default function MonthlySalaryManager({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <div className="relative w-28">
+          <div className="flex items-center gap-2 w-full sm:w-auto flex-shrink-0">
+            <div className="relative w-28 shrink-0">
               <input
                 id="payroll-advance-limit"
                 type="number"
@@ -387,6 +387,7 @@ export default function MonthlySalaryManager({
               disabled={savingAdvanceLimit}
               icon={Save}
               onClick={handleSaveAdvanceLimit}
+              className="flex-1 sm:flex-initial"
             >
               Lưu hạn mức
             </KgButton>
@@ -413,7 +414,7 @@ export default function MonthlySalaryManager({
             {dirty && <KgStatusBadge variant="warning">Có thay đổi chưa lưu</KgStatusBadge>}
           </div>
 
-          <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(180px,0.8fr)_minmax(220px,1.2fr)_auto]">
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(180px,0.8fr)_minmax(220px,1.2fr)_auto]">
             <label className="block">
               <span className="mb-1.5 block text-[11px] font-bold uppercase text-[var(--kg-text-muted)]">
                 Tháng áp dụng
@@ -451,7 +452,7 @@ export default function MonthlySalaryManager({
               icon={Copy}
               onClick={() => setCopyConfirmOpen(true)}
               disabled={!copySource || saving}
-              className="lg:self-end"
+              className="sm:col-span-2 lg:col-span-1 lg:self-end"
             >
               Sao chép
             </KgButton>
@@ -680,18 +681,20 @@ export default function MonthlySalaryManager({
             </>
           )}
 
-          <KgButton
-            type="button"
-            variant="primary"
-            size="lg"
-            loading={saving}
-            disabled={saving || loading || !items.length}
-            icon={Save}
-            onClick={save}
-            className="w-full"
-          >
-            {saving ? 'Đang cập nhật bảng lương...' : `Lưu bảng lương ${salaryMonthLabel(month)}`}
-          </KgButton>
+          <div className="flex justify-end pt-1">
+            <KgButton
+              type="button"
+              variant="primary"
+              size="lg"
+              loading={saving}
+              disabled={saving || loading || !items.length}
+              icon={Save}
+              onClick={save}
+              className="w-full sm:w-auto sm:min-w-[260px]"
+            >
+              {saving ? 'Đang cập nhật bảng lương...' : `Lưu bảng lương ${salaryMonthLabel(month)}`}
+            </KgButton>
+          </div>
         </div>
       </div>
 
@@ -733,7 +736,7 @@ export default function MonthlySalaryManager({
               }
             />
           </div>
-          <div className="flex items-center gap-1.5 flex-shrink-0">
+          <div className="grid grid-cols-2 sm:flex items-center gap-1.5 flex-shrink-0">
             {(
               [
                 { id: 'Pending', label: `Chờ duyệt (${pendingRequests.length})` },
@@ -746,7 +749,7 @@ export default function MonthlySalaryManager({
                   key={pill.id}
                   type="button"
                   onClick={() => setRequestFilter(pill.id)}
-                  className={`min-h-[44px] sm:min-h-[38px] px-3.5 py-1.5 rounded-full text-xs font-bold border transition-colors touch-manipulation ${
+                  className={`min-h-[44px] sm:min-h-[38px] px-3.5 py-1.5 rounded-full text-xs font-bold border transition-colors whitespace-nowrap touch-manipulation ${
                     active
                       ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)]'
                       : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)] hover:text-[var(--kg-text)]'
@@ -811,7 +814,7 @@ export default function MonthlySalaryManager({
                 </p>
               )}
               {request.status === 'Pending' && (
-                <div className="mt-3 flex flex-wrap justify-end gap-2">
+                <div className="mt-3 grid grid-cols-2 sm:flex sm:flex-wrap sm:justify-end gap-2">
                   <KgButton
                     type="button"
                     variant="danger"
@@ -821,6 +824,7 @@ export default function MonthlySalaryManager({
                       setReviewReply('');
                       setReviewTarget({ request, status: 'Rejected' });
                     }}
+                    className="w-full sm:w-auto"
                   >
                     Từ chối
                   </KgButton>
@@ -833,6 +837,7 @@ export default function MonthlySalaryManager({
                       setReviewReply('');
                       setReviewTarget({ request, status: 'Approved' });
                     }}
+                    className="w-full sm:w-auto"
                   >
                     Duyệt &amp; cập nhật
                   </KgButton>
@@ -887,13 +892,14 @@ export default function MonthlySalaryManager({
               Bảng đơn giá {salaryMonthLabel(month)} có thay đổi mới
             </span>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="grid grid-cols-2 sm:flex items-center gap-2 w-full sm:w-auto flex-shrink-0">
             <KgButton
               type="button"
               variant="secondary"
               size="sm"
               disabled={saving || loading}
               onClick={loadData}
+              className="w-full sm:w-auto"
             >
               Hoàn tác
             </KgButton>
@@ -905,6 +911,7 @@ export default function MonthlySalaryManager({
               disabled={saving || loading || !items.length}
               icon={Save}
               onClick={save}
+              className="w-full sm:w-auto"
             >
               {saving ? 'Đang lưu...' : 'Lưu bảng lương'}
             </KgButton>

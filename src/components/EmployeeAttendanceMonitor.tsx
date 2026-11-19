@@ -245,7 +245,7 @@ export default function EmployeeAttendanceMonitor({
 
         {/* Search + Single "Tất cả" Reset Pill + Real Backend Refresh */}
         <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
-          <div className="relative flex-1 min-w-[200px]">
+          <div className="relative flex-1 min-w-[160px]">
             <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--kg-text-muted)]" />
             <input
               type="text"
@@ -253,7 +253,7 @@ export default function EmployeeAttendanceMonitor({
               placeholder="Tìm theo tên nhân viên, vị trí..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full min-h-[44px] sm:min-h-[40px] pl-9 pr-11 py-2.5 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-xs text-[var(--kg-text)] placeholder-[var(--kg-text-muted)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15"
+              className="w-full min-h-[44px] sm:min-h-[40px] pl-9 pr-11 py-2.5 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-base sm:text-xs text-[var(--kg-text)] placeholder-[var(--kg-text-muted)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15"
             />
             {searchQuery && (
               <button
@@ -319,8 +319,8 @@ export default function EmployeeAttendanceMonitor({
                           : 'bg-[var(--kg-surface)] border-[var(--kg-border)] opacity-85'
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-2.5 min-w-0">
+                  <div className="flex items-start justify-between gap-2.5">
+                    <div className="flex items-start gap-2.5 min-w-0 flex-1">
                       <div
                         className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-xs flex-shrink-0 border ${
                           isUserInShift
@@ -397,7 +397,7 @@ export default function EmployeeAttendanceMonitor({
 
                     <div className="flex-shrink-0">
                       <span
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-black border ${
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-black border whitespace-nowrap ${
                           isUserInShift
                             ? 'bg-[var(--kg-success-soft)] text-[var(--kg-success)] border-[var(--kg-success)]/30'
                             : isUserNotInYet

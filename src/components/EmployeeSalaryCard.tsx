@@ -159,14 +159,14 @@ export default function EmployeeSalaryCard({
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap w-full">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-2 w-full">
           <button
             type="button"
             onClick={handleToggleHistory}
-            className="flex-1 min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-xs font-bold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] inline-flex items-center justify-center gap-1.5 transition-colors touch-manipulation"
+            className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-1.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-xs font-bold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap touch-manipulation"
           >
-            <span>Lịch sử đề nghị{requestsLoaded ? ` (${monthRequests.length})` : ''}</span>
-            <ChevronDown size={14} className={`transition-transform ${showHistory ? 'rotate-180' : ''}`} />
+            <span className="truncate">Lịch sử đề nghị{requestsLoaded ? ` (${monthRequests.length})` : ''}</span>
+            <ChevronDown size={14} className={`shrink-0 transition-transform ${showHistory ? 'rotate-180' : ''}`} />
           </button>
           <KgButton
             type="button"
@@ -174,7 +174,7 @@ export default function EmployeeSalaryCard({
             size="sm"
             icon={MessageSquarePlus}
             onClick={handleToggleForm}
-            className="flex-1"
+            className="w-full"
           >
             {showForm ? 'Đóng biểu mẫu' : 'Đề nghị điều chỉnh'}
           </KgButton>
@@ -251,8 +251,8 @@ export default function EmployeeSalaryCard({
               Đang tải lịch sử trao đổi lương...
             </div>
           ) : loadError ? (
-            <div className="flex items-center justify-between gap-2 rounded-xl border border-[var(--kg-danger)]/25 bg-[var(--kg-danger-soft)] p-3 text-xs text-[var(--kg-danger)] font-semibold">
-              <span>{loadError}</span>
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--kg-danger)]/25 bg-[var(--kg-danger-soft)] p-3 text-xs text-[var(--kg-danger)] font-semibold">
+              <span className="min-w-0 flex-1">{loadError}</span>
               <KgButton size="sm" variant="secondary" icon={RefreshCw} onClick={loadAdjustments}>
                 Thử lại
               </KgButton>

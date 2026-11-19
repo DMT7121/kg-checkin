@@ -231,7 +231,7 @@ function AdminAnalyticsContent() {
           : '30 ngày gần nhất';
 
   return (
-    <div className="p-4 space-y-4 animate-fade-in pb-24 md:pb-12 max-w-6xl mx-auto">
+    <div className="p-4 md:px-0 md:pt-1 space-y-4 animate-fade-in pb-24 md:pb-12 max-w-6xl mx-auto">
       <KgModuleHero
         moduleId="analytics"
         title="Thống kê & Báo cáo"
@@ -240,9 +240,9 @@ function AdminAnalyticsContent() {
       />
 
       {/* Action Toolbar */}
-      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-3 flex flex-wrap items-center justify-between gap-2.5 shadow-xs">
+      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-xs">
         <div
-          className="flex flex-wrap items-center gap-1.5"
+          className="grid grid-cols-4 sm:inline-flex items-center gap-1.5 w-full sm:w-auto"
           role="group"
           aria-label="Lọc khoảng thời gian biểu đồ"
         >
@@ -261,7 +261,7 @@ function AdminAnalyticsContent() {
                 setRangePreset(opt.id);
                 setInspectedDate(null);
               }}
-              className={`min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
+              className={`min-h-[44px] sm:min-h-[36px] px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-colors whitespace-nowrap inline-flex items-center justify-center ${
                 rangePreset === opt.id
                   ? 'bg-[var(--kg-primary)] text-white shadow-xs'
                   : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
@@ -272,22 +272,22 @@ function AdminAnalyticsContent() {
           ))}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="grid grid-cols-2 sm:flex items-center gap-2 w-full sm:w-auto">
           <button
             type="button"
             onClick={() => void fetchAnalytics(true)}
             disabled={refreshing}
-            className="min-h-[44px] sm:min-h-[36px] px-3.5 py-1.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface)] hover:bg-[var(--kg-surface-soft)] text-xs font-bold text-[var(--kg-text)] inline-flex items-center gap-1.5 disabled:opacity-50"
+            className="min-h-[44px] sm:min-h-[36px] px-3.5 py-1.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface)] hover:bg-[var(--kg-surface-soft)] text-xs font-bold text-[var(--kg-text)] inline-flex items-center justify-center gap-1.5 disabled:opacity-50 whitespace-nowrap"
           >
-            <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+            <RefreshCw size={14} className={refreshing ? 'animate-spin shrink-0' : 'shrink-0'} />
             <span>{refreshing ? 'Đang tải...' : 'Làm mới'}</span>
           </button>
           <button
             type="button"
             onClick={handleExportCsv}
-            className="min-h-[44px] sm:min-h-[36px] px-3.5 py-1.5 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-xs"
+            className="min-h-[44px] sm:min-h-[36px] px-3.5 py-1.5 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs font-bold inline-flex items-center justify-center gap-1.5 shadow-xs whitespace-nowrap"
           >
-            <Download size={14} />
+            <Download size={14} className="shrink-0" />
             <span>Xuất CSV</span>
           </button>
         </div>
@@ -425,8 +425,9 @@ function AdminAnalyticsContent() {
                   onClick={() => setInspectedDate(day.date)}
                   onMouseEnter={() => setInspectedDate(day.date)}
                   onFocus={() => setInspectedDate(day.date)}
+                  aria-pressed={isSelected}
                   aria-label={`Ngày ${day.date}: ${day.checkins} lượt chấm công, ${day.late} lượt đi trễ`}
-                  className={`flex flex-col items-center justify-end flex-1 min-w-[36px] h-full rounded-xl px-1 py-1 transition-colors ${
+                  className={`flex flex-col items-center justify-end flex-1 shrink-0 min-w-[38px] h-full rounded-xl px-1 py-1 transition-colors ${
                     isSelected
                       ? 'bg-[var(--kg-primary-soft)] ring-1 ring-[var(--kg-primary)]/40'
                       : 'hover:bg-[var(--kg-surface-soft)]'
@@ -476,10 +477,10 @@ function AdminAnalyticsContent() {
             <button
               type="button"
               onClick={() => navigateToHubSubTab('attendance', 'ledger')}
-              className="min-h-[36px] px-2.5 py-1 rounded-lg bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-border)]/40 text-[11px] font-bold text-[var(--kg-primary-ink)] inline-flex items-center gap-1"
+              className="min-h-[40px] sm:min-h-[36px] px-2.5 py-1 rounded-lg bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-border)]/40 text-[11px] font-bold text-[var(--kg-primary-ink)] inline-flex items-center gap-1 whitespace-nowrap shrink-0"
             >
               <span>Xem Bảng công</span>
-              <ArrowUpRight size={13} />
+              <ArrowUpRight size={13} className="shrink-0" />
             </button>
           </div>
           {data.topLateEmployees.length === 0 ? (
@@ -525,10 +526,10 @@ function AdminAnalyticsContent() {
             <button
               type="button"
               onClick={() => navigateToHubSubTab('communications', 'reward')}
-              className="min-h-[36px] px-2.5 py-1 rounded-lg bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-border)]/40 text-[11px] font-bold text-[var(--kg-primary-ink)] inline-flex items-center gap-1"
+              className="min-h-[40px] sm:min-h-[36px] px-2.5 py-1 rounded-lg bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-border)]/40 text-[11px] font-bold text-[var(--kg-primary-ink)] inline-flex items-center gap-1 whitespace-nowrap shrink-0"
             >
               <span>Bảng xếp hạng</span>
-              <ArrowUpRight size={13} />
+              <ArrowUpRight size={13} className="shrink-0" />
             </button>
           </div>
           {data.kingCoinsTop5.length === 0 ? (
@@ -559,20 +560,20 @@ function AdminAnalyticsContent() {
       </div>
 
       {/* Bottom Row: Training + Feedback + Mood */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Training with Drill-Down Link */}
         <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between gap-2 mb-3">
-            <h3 className="font-extrabold text-sm text-[var(--kg-text)] flex items-center gap-2">
-              <GraduationCap size={16} className="text-orange-500" /> Đào tạo SOP
+            <h3 className="font-extrabold text-sm text-[var(--kg-text)] flex items-center gap-2 min-w-0">
+              <GraduationCap size={16} className="text-orange-500 shrink-0" /> <span className="truncate">Đào tạo SOP</span>
             </h3>
             <button
               type="button"
               onClick={() => navigateToHubSubTab('knowledge')}
-              className="min-h-[36px] px-2.5 py-1 rounded-lg bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-border)]/40 text-[11px] font-bold text-[var(--kg-primary-ink)] inline-flex items-center gap-1"
+              className="min-h-[40px] sm:min-h-[36px] px-2.5 py-1 rounded-lg bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-border)]/40 text-[11px] font-bold text-[var(--kg-primary-ink)] inline-flex items-center gap-1 whitespace-nowrap shrink-0"
             >
               <span>Mở SOP</span>
-              <ArrowUpRight size={13} />
+              <ArrowUpRight size={13} className="shrink-0" />
             </button>
           </div>
           <div className="text-center py-2">
@@ -588,16 +589,16 @@ function AdminAnalyticsContent() {
         {/* Feedback */}
         <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 shadow-xs">
           <div className="flex items-center justify-between gap-2 mb-3">
-            <h3 className="font-extrabold text-sm text-[var(--kg-text)] flex items-center gap-2">
-              <MessageSquare size={16} className="text-[var(--kg-primary-ink)]" /> Góp ý
+            <h3 className="font-extrabold text-sm text-[var(--kg-text)] flex items-center gap-2 min-w-0">
+              <MessageSquare size={16} className="text-[var(--kg-primary-ink)] shrink-0" /> <span className="truncate">Góp ý</span>
             </h3>
             <button
               type="button"
               onClick={() => navigateToHubSubTab('communications', 'feedback')}
-              className="min-h-[36px] px-2.5 py-1 rounded-lg bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-border)]/40 text-[11px] font-bold text-[var(--kg-primary-ink)] inline-flex items-center gap-1"
+              className="min-h-[40px] sm:min-h-[36px] px-2.5 py-1 rounded-lg bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-border)]/40 text-[11px] font-bold text-[var(--kg-primary-ink)] inline-flex items-center gap-1 whitespace-nowrap shrink-0"
             >
               <span>Xử lý góp ý</span>
-              <ArrowUpRight size={13} />
+              <ArrowUpRight size={13} className="shrink-0" />
             </button>
           </div>
           <div className="flex items-center justify-around py-2">
@@ -622,10 +623,10 @@ function AdminAnalyticsContent() {
         </div>
 
         {/* Mood with Interactive Inspection */}
-        <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 shadow-xs">
+        <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 shadow-xs sm:col-span-2 lg:col-span-1">
           <div className="flex items-center justify-between gap-2 mb-2">
             <h3 className="font-extrabold text-sm text-[var(--kg-text)] flex items-center gap-2">
-              <Smile size={16} className="text-teal-500" /> Tâm trạng NV
+              <Smile size={16} className="text-teal-500 shrink-0" /> Tâm trạng NV
             </h3>
             {inspectedMoodKey && moodMeta[inspectedMoodKey] && (
               <span className="text-[11px] font-bold text-[var(--kg-primary-ink)] font-mono tabular-nums">
@@ -640,7 +641,7 @@ function AdminAnalyticsContent() {
           {totalMoods === 0 ? (
             <p className="text-sm text-[var(--kg-text-muted)] text-center py-4">Chưa có khảo sát</p>
           ) : (
-            <div className="flex items-end justify-around h-24 pt-2">
+            <div className="flex items-end justify-around h-24 pt-2 gap-1">
               {Object.entries(data.moodDistribution).map(([key, count]) => {
                 const pct = totalMoods > 0 ? Math.max(10, (count / totalMoods) * 100) : 0;
                 const meta = moodMeta[key];
@@ -650,9 +651,10 @@ function AdminAnalyticsContent() {
                   <button
                     key={key}
                     type="button"
+                    aria-pressed={active}
                     onClick={() => setInspectedMoodKey(key)}
                     onMouseEnter={() => setInspectedMoodKey(key)}
-                    className={`flex flex-col items-center px-1.5 py-1 rounded-xl transition-colors ${
+                    className={`min-w-[44px] min-h-[44px] flex flex-col items-center justify-end px-1.5 py-1 rounded-xl transition-colors ${
                       active ? 'bg-[var(--kg-primary-soft)]' : 'hover:bg-[var(--kg-surface-soft)]'
                     }`}
                   >
@@ -677,7 +679,7 @@ function AdminAnalyticsContent() {
       </div>
 
       {/* Handover Summary Card with Drill-Down Link */}
-      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-9 h-9 rounded-xl bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] flex items-center justify-center flex-shrink-0">
             <Clock size={16} />
@@ -694,10 +696,10 @@ function AdminAnalyticsContent() {
         <button
           type="button"
           onClick={() => navigateToHubSubTab('admin_ops', 'inbox')}
-          className="min-h-[44px] sm:min-h-[36px] px-3.5 py-1.5 rounded-xl bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-border)]/40 border border-[var(--kg-border)] text-xs font-bold text-[var(--kg-primary-ink)] inline-flex items-center gap-1.5"
+          className="w-full sm:w-auto min-h-[44px] sm:min-h-[36px] px-3.5 py-1.5 rounded-xl bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-border)]/40 border border-[var(--kg-border)] text-xs font-bold text-[var(--kg-primary-ink)] inline-flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0"
         >
           <span>Đối soát két tại Hộp duyệt</span>
-          <ArrowUpRight size={14} />
+          <ArrowUpRight size={14} className="shrink-0" />
         </button>
       </div>
     </div>

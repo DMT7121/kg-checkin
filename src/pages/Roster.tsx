@@ -271,7 +271,7 @@ export default function Roster() {
           <table className="w-full text-xs sm:text-sm text-left whitespace-nowrap border-collapse">
             <thead className="sticky top-0 z-20 text-[10px] text-[var(--kg-text-muted)] uppercase bg-[var(--kg-surface-soft)] border-b border-[var(--kg-border)]">
               <tr>
-                <th className="px-3 py-3 sticky left-0 top-0 bg-[var(--kg-surface-soft)] z-30 font-black border-r border-[var(--kg-border)] shadow-[2px_0_5px_rgba(0,0,0,0.05)] w-[144px] min-w-[144px] max-w-[144px]">
+                <th className="px-2.5 sm:px-3 py-3 sticky left-0 top-0 bg-[var(--kg-surface-soft)] z-30 font-black border-r border-[var(--kg-border)] shadow-[2px_0_5px_rgba(0,0,0,0.05)] w-[116px] min-w-[116px] max-w-[116px] sm:w-[152px] sm:min-w-[152px] sm:max-w-[152px]">
                   Nhân Viên
                 </th>
                 {SHORT_DAY_NAMES.map((d, idx) => {
@@ -318,13 +318,13 @@ export default function Roster() {
                     }`}
                   >
                     <td
-                      className={`px-3 py-2 sticky left-0 z-10 shadow-[2px_0_5px_rgba(0,0,0,0.05)] border-r border-[var(--kg-border)] w-[144px] min-w-[144px] max-w-[144px] ${
+                      className={`px-2.5 sm:px-3 py-2 sticky left-0 z-10 shadow-[2px_0_5px_rgba(0,0,0,0.05)] border-r border-[var(--kg-border)] w-[116px] min-w-[116px] max-w-[116px] sm:w-[152px] sm:min-w-[152px] sm:max-w-[152px] ${
                         isSelf ? 'bg-[var(--kg-primary-soft)]' : 'bg-[var(--kg-surface)]'
                       }`}
                     >
                       <SmartPersonName
                         fullname={emp.fullname}
-                        className="max-w-[120px] text-xs font-black text-[var(--kg-text)] truncate block"
+                        className="max-w-[96px] sm:max-w-[128px] text-xs font-black text-[var(--kg-text)] truncate block"
                       />
                       {isSelf && (
                         <div className="text-[9px] font-black text-[var(--kg-primary-ink)] uppercase tracking-wider mt-0.5">
@@ -344,7 +344,7 @@ export default function Roster() {
                             type="button"
                             onClick={() => handleWeekDayClick(dayIdx, emp)}
                             aria-label={`Xem chi tiết ca ${weekInfo.weekDates[dayIdx]} - ${emp.fullname}`}
-                            className={`inline-flex items-center justify-center text-[10px] font-black w-full max-w-[68px] min-h-[36px] py-1.5 px-1 rounded-lg shadow-2xs transition-all active:scale-95 hover:ring-1 hover:ring-[var(--kg-primary)]/40 touch-manipulation ${getAdminShiftClass(shift)}`}
+                            className={`inline-flex items-center justify-center text-[10px] font-black w-full max-w-[68px] min-h-[40px] sm:min-h-[36px] py-1.5 px-1 rounded-lg shadow-2xs transition-all active:scale-95 hover:ring-1 hover:ring-[var(--kg-primary)]/40 touch-manipulation ${getAdminShiftClass(shift)}`}
                           >
                             {isOff ? 'OFF' : <ResponsiveShift shift={shift} />}
                           </button>
@@ -430,7 +430,7 @@ export default function Roster() {
               >
                 <ChevronLeft size={18} />
               </button>
-              <div className="text-xs sm:text-sm font-black px-2 min-w-[132px] text-center text-[var(--kg-text)] font-mono tabular-nums">
+              <div className="flex-1 sm:flex-initial text-xs sm:text-sm font-black px-2 min-w-[124px] sm:min-w-[136px] text-center text-[var(--kg-text)] font-mono tabular-nums truncate">
                 {viewMode === 'week' ? weekInfo.weekDisplay : `Tháng ${selectedMonth}/${selectedYear}`}
               </div>
               <button

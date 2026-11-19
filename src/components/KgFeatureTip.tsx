@@ -141,7 +141,7 @@ export function KgFeatureTip({
                 )}
               </div>
 
-              <div className="px-4 sm:px-5 py-3 border-t border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex justify-end">
+              <div className="px-4 sm:px-5 py-3 pb-safe sm:pb-3 border-t border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex justify-end flex-shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}

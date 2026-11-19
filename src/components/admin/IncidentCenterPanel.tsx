@@ -151,8 +151,8 @@ export default function IncidentCenterPanel({
       )}
 
       <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 sm:p-5 space-y-4 shadow-xs">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--kg-border)] pb-3">
-          <div>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-[var(--kg-border)] pb-3">
+          <div className="min-w-0">
             <h3 className="font-extrabold text-[var(--kg-text)] text-sm sm:text-base">
               Trung tâm Quản lý Sự cố Nhà hàng (4 bước)
             </h3>
@@ -160,11 +160,11 @@ export default function IncidentCenterPanel({
               Mới báo ➔ Đang kiểm tra / xử lý ➔ Đã khắc phục ➔ Đã chốt chi phí bảo trì
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar pb-0.5 sm:flex-wrap sm:overflow-visible">
             <button
               type="button"
               onClick={() => setIncidentFilter('ALL')}
-              className={`min-h-[44px] sm:min-h-[34px] px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
+              className={`min-h-[42px] sm:min-h-[36px] px-3 py-1.5 rounded-xl text-xs font-bold transition-colors whitespace-nowrap shrink-0 ${
                 incidentFilter === 'ALL'
                   ? 'bg-[var(--kg-primary)] text-white shadow-xs'
                   : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
@@ -177,7 +177,7 @@ export default function IncidentCenterPanel({
                 key={step.id}
                 type="button"
                 onClick={() => setIncidentFilter(step.id)}
-                className={`min-h-[44px] sm:min-h-[34px] px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
+                className={`min-h-[42px] sm:min-h-[36px] px-3 py-1.5 rounded-xl text-xs font-bold transition-colors whitespace-nowrap shrink-0 ${
                   incidentFilter === step.id
                     ? 'bg-[var(--kg-primary)] text-white shadow-xs'
                     : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
@@ -193,7 +193,7 @@ export default function IncidentCenterPanel({
                 disabled={loading}
                 aria-label="Làm mới danh sách sự cố"
                 title="Làm mới danh sách sự cố"
-                className="min-h-[44px] min-w-[44px] sm:min-h-[34px] sm:min-w-[34px] inline-flex items-center justify-center rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]"
+                className="min-h-[42px] min-w-[42px] sm:min-h-[36px] sm:min-w-[36px] inline-flex items-center justify-center rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] shrink-0"
               >
                 <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
               </button>
@@ -214,14 +214,14 @@ export default function IncidentCenterPanel({
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Tìm khu vực, hạng mục, người báo, kỹ thuật viên..."
               aria-label="Tìm sự cố"
-              className="w-full min-h-[44px] sm:min-h-[38px] pl-9 pr-8 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-base sm:text-xs text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
+              className="w-full min-h-[44px] sm:min-h-[38px] pl-9 pr-10 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-base sm:text-xs text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
                 aria-label="Xóa từ khóa tìm kiếm sự cố"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]"
+                className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 inline-flex items-center justify-center rounded-lg text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface)]"
               >
                 <X size={13} />
               </button>
@@ -332,7 +332,7 @@ export default function IncidentCenterPanel({
                           type="button"
                           disabled={isBusy}
                           onClick={() => void handleUpdateIncidentState(inc, step.id)}
-                          className={`min-h-[44px] sm:min-h-[36px] py-2 px-2.5 rounded-xl border text-xs font-extrabold transition-colors ${
+                          className={`min-h-[44px] sm:min-h-[38px] py-2 px-2.5 rounded-xl border text-xs font-extrabold leading-tight text-center transition-colors ${
                             active
                               ? step.badgeClass
                               : 'border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)]'
@@ -344,7 +344,7 @@ export default function IncidentCenterPanel({
                     })}
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(240px,1fr)] gap-2.5 pt-1">
                     <div>
                       <label className="block text-[10px] font-bold uppercase text-[var(--kg-text-muted)] mb-1">
                         Người xử lý / Kỹ thuật viên
@@ -382,8 +382,8 @@ export default function IncidentCenterPanel({
                       />
                     </div>
 
-                    <div className="flex items-end gap-2">
-                      <div className="flex-1">
+                    <div className="flex items-end gap-2 md:col-span-2 xl:col-span-1">
+                      <div className="flex-1 min-w-0">
                         <label className="block text-[10px] font-bold uppercase text-[var(--kg-text-muted)] mb-1">
                           Chi phí sửa chữa (VNĐ)
                         </label>
@@ -408,7 +408,7 @@ export default function IncidentCenterPanel({
                         type="button"
                         disabled={isBusy}
                         onClick={() => void handleUpdateIncidentState(inc)}
-                        className="min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs font-extrabold shrink-0 disabled:opacity-50"
+                        className="min-h-[44px] sm:min-h-[38px] min-w-[84px] px-4 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs font-extrabold shrink-0 whitespace-nowrap disabled:opacity-50"
                       >
                         {isBusy ? 'Lưu...' : 'Lưu'}
                       </button>

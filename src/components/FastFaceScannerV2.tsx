@@ -2243,7 +2243,7 @@ export default function FastFaceScannerV2({
               ) : (
                 <>
                   <div
-                    className={`relative w-[228px] h-[284px] sm:w-[268px] sm:h-[328px] rounded-[48px] border-[3px] transition-colors duration-150 motion-reduce:transition-none ${reticleBorderColor}`}
+                    className={`relative w-[min(220px,56vw)] h-[min(268px,36dvh)] sm:w-[256px] sm:h-[312px] rounded-[44px] sm:rounded-[48px] border-[3px] transition-colors duration-150 motion-reduce:transition-none ${reticleBorderColor}`}
                   >
                     <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-[#0D1015] border border-[#2B3240] rounded-full px-3 py-0.5 flex items-center gap-1.5 whitespace-nowrap">
                       {[1, 2, 3].map((step) => (
@@ -2352,17 +2352,17 @@ export default function FastFaceScannerV2({
               )}
 
               {/* One-Handed Thumb Action Row (>=44px touch targets) */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 <button
                   type="button"
                   data-testid="toggle-camera-facing-btn"
                   onClick={handleToggleCameraFacing}
                   title="Chuyển đổi Camera Trước / Camera Sau"
                   aria-label="Đổi camera trước hoặc sau"
-                  className="flex-1 min-h-[46px] px-3 py-2 rounded-xl bg-[#161A22] hover:bg-[#1F2530] border border-[#2B3240] text-xs font-extrabold text-[#F7F4EE] inline-flex items-center justify-center gap-1.5 transition-colors motion-reduce:transition-none"
+                  className="flex-1 min-w-0 min-h-[46px] px-2 sm:px-3 py-2 rounded-xl bg-[#161A22] hover:bg-[#1F2530] border border-[#2B3240] text-[11px] sm:text-xs font-extrabold text-[#F7F4EE] inline-flex items-center justify-center gap-1 sm:gap-1.5 transition-colors motion-reduce:transition-none touch-manipulation"
                 >
                   <SwitchCamera size={15} className="text-[#34D399] shrink-0" />
-                  <span>{cameraFacing === 'user' ? 'Cam sau' : 'Cam trước'}</span>
+                  <span className="truncate">{cameraFacing === 'user' ? 'Cam sau' : 'Cam trước'}</span>
                 </button>
 
                 {isAdminAccount && (
@@ -2374,10 +2374,11 @@ export default function FastFaceScannerV2({
                       setAdminPickerOpen(true);
                     }}
                     title="Chọn nhân viên để đăng ký khuôn mặt 5 góc"
-                    className="flex-1 min-h-[46px] px-3 py-2 rounded-xl bg-[#0B253C] hover:bg-[#163654] border border-[#34D399]/60 text-xs font-extrabold text-[#34D399] inline-flex items-center justify-center gap-1.5 transition-colors motion-reduce:transition-none"
+                    className="flex-1 min-w-0 min-h-[46px] px-2 sm:px-3 py-2 rounded-xl bg-[#0B253C] hover:bg-[#163654] border border-[#34D399]/60 text-[11px] sm:text-xs font-extrabold text-[#34D399] inline-flex items-center justify-center gap-1 sm:gap-1.5 transition-colors motion-reduce:transition-none touch-manipulation"
                   >
                     <Users size={15} className="shrink-0" />
-                    <span className="truncate">ĐK khuôn mặt NV</span>
+                    <span className="sm:hidden truncate">ĐK NV</span>
+                    <span className="hidden sm:inline truncate">ĐK khuôn mặt NV</span>
                   </button>
                 )}
 
@@ -2389,7 +2390,7 @@ export default function FastFaceScannerV2({
                       setAdminSelectedStaff(null);
                       setEnrollModalOpen(true);
                     }}
-                    className="flex-1 min-h-[46px] px-3 py-2 rounded-xl bg-[#C8432B] hover:bg-[#B83821] text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition-colors motion-reduce:transition-none"
+                    className="flex-1 min-w-0 min-h-[46px] px-2 sm:px-3 py-2 rounded-xl bg-[#C8432B] hover:bg-[#B83821] text-white text-[11px] sm:text-xs font-extrabold inline-flex items-center justify-center gap-1 sm:gap-1.5 transition-colors motion-reduce:transition-none touch-manipulation"
                   >
                     <UserPlus size={15} className="shrink-0" />
                     <span className="truncate">Đăng ký 5 góc</span>
@@ -2403,10 +2404,11 @@ export default function FastFaceScannerV2({
                       stopCameraAndGps();
                       onSwitchToV1();
                     }}
-                    className="flex-1 min-h-[46px] px-3 py-2 rounded-xl bg-[#161A22] hover:bg-[#1F2530] border border-[#2B3240] text-xs font-extrabold text-[#FBBF24] inline-flex items-center justify-center gap-1.5 transition-colors motion-reduce:transition-none"
+                    className="flex-1 min-w-0 min-h-[46px] px-2 sm:px-3 py-2 rounded-xl bg-[#161A22] hover:bg-[#1F2530] border border-[#2B3240] text-[11px] sm:text-xs font-extrabold text-[#FBBF24] inline-flex items-center justify-center gap-1 sm:gap-1.5 transition-colors motion-reduce:transition-none touch-manipulation"
                   >
                     <Camera size={14} className="shrink-0" />
-                    <span className="truncate">Chụp ảnh (v1)</span>
+                    <span className="sm:hidden truncate">Bản v1</span>
+                    <span className="hidden sm:inline truncate">Chụp ảnh (v1)</span>
                   </button>
                 )}
               </div>

@@ -76,9 +76,9 @@ function FeedbackToastCard({
         type="button"
         onClick={() => onClose(toast.id)}
         aria-label="Đóng thông báo"
-        className="w-7 h-7 rounded-lg text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)] transition-colors flex items-center justify-center flex-shrink-0"
+        className="w-10 h-10 sm:w-8 sm:h-8 -mr-1.5 -mt-1 rounded-lg text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)] transition-colors flex items-center justify-center flex-shrink-0 touch-manipulation"
       >
-        <X size={14} />
+        <X size={15} />
       </button>
     </div>
   );
@@ -168,7 +168,7 @@ export default function KgFeedbackHost() {
             aria-modal="true"
             aria-labelledby="kg-feedback-dialog-title"
             onClick={(e) => e.stopPropagation()}
-            className="kg-sheet-up sm:kg-scale-in relative z-10 w-full max-w-md max-h-[90dvh] sm:max-h-[85vh] mx-auto bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-t-2xl sm:rounded-2xl border border-[var(--kg-border)] shadow-2xl flex flex-col pointer-events-auto overflow-hidden pb-safe focus:outline-none"
+            className="kg-sheet-up sm:kg-scale-in relative z-10 w-full max-w-md max-h-[90dvh] sm:max-h-[85dvh] mx-auto bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-t-2xl sm:rounded-2xl border border-[var(--kg-border)] shadow-2xl flex flex-col pointer-events-auto overflow-hidden focus:outline-none"
           >
             <div className="px-4 sm:px-5 py-3.5 border-b border-[var(--kg-border)] bg-[var(--kg-surface-soft)]/70 flex items-center justify-between gap-3 flex-shrink-0">
               <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -188,39 +188,39 @@ export default function KgFeedbackHost() {
                 type="button"
                 onClick={() => resolveActiveDialog(false)}
                 aria-label="Đóng hộp thoại"
-                className="w-10 h-10 sm:w-9 sm:h-9 rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] active:scale-95 transition-colors flex-shrink-0 touch-manipulation"
+                className="w-11 h-11 sm:w-9 sm:h-9 rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] active:scale-95 transition-colors flex-shrink-0 touch-manipulation"
               >
                 <X size={16} />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 space-y-4">
+            <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 min-h-0">
               {activeDialog.message && (
                 <p className="text-sm text-[var(--kg-text-muted)] leading-relaxed whitespace-pre-line break-words">
                   {activeDialog.message}
                 </p>
               )}
+            </div>
 
-              <div className="flex gap-2.5 pt-1">
-                {activeDialog.kind === 'confirm' && (
-                  <KgButton
-                    variant="secondary"
-                    size="md"
-                    className="flex-1"
-                    onClick={() => resolveActiveDialog(false)}
-                  >
-                    {activeDialog.cancelLabel || 'Hủy'}
-                  </KgButton>
-                )}
+            <div className="px-4 sm:px-5 py-3 pb-safe sm:pb-3 border-t border-[var(--kg-border)] bg-[var(--kg-surface-soft)]/50 flex gap-2.5 flex-shrink-0">
+              {activeDialog.kind === 'confirm' && (
                 <KgButton
-                  variant={confirmVariant}
+                  variant="secondary"
                   size="md"
                   className="flex-1"
-                  onClick={() => resolveActiveDialog(true)}
+                  onClick={() => resolveActiveDialog(false)}
                 >
-                  {activeDialog.confirmLabel}
+                  {activeDialog.cancelLabel || 'Hủy'}
                 </KgButton>
-              </div>
+              )}
+              <KgButton
+                variant={confirmVariant}
+                size="md"
+                className="flex-1"
+                onClick={() => resolveActiveDialog(true)}
+              >
+                {activeDialog.confirmLabel}
+              </KgButton>
             </div>
           </div>
         </div>

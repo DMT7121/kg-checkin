@@ -43,7 +43,7 @@ export function KgVersionBadge({
       type="button"
       onClick={() => openReleaseNotesModal('all')}
       title={`Thông tin phiên bản ${APP_VERSION_TAG} — Nhấn để xem chi tiết nâng cấp`}
-      className={`group inline-flex items-center justify-center min-h-[40px] min-w-[44px] md:min-h-[36px] transition-transform active:scale-95 touch-manipulation select-none flex-shrink-0 ${className}`}
+      className={`group inline-flex items-center justify-center min-h-[44px] min-w-[44px] sm:min-h-[36px] transition-transform active:scale-95 touch-manipulation select-none flex-shrink-0 ${className}`}
     >
       <span
         className={`inline-flex items-center gap-1.5 text-[11px] font-bold tracking-tight whitespace-nowrap ${pillStyles}`}
@@ -51,7 +51,7 @@ export function KgVersionBadge({
         <Sparkles size={12} className="flex-shrink-0" />
         <span className="font-mono tabular-nums">{APP_VERSION_TAG}</span>
         {showCodename && (
-          <span className="hidden sm:inline font-semibold opacity-90">• Có gì mới</span>
+          <span className="hidden 2xl:inline font-semibold opacity-90">• Có gì mới</span>
         )}
         {hasUnseen && (
           <span className="relative flex h-2 w-2 flex-shrink-0" aria-hidden="true">

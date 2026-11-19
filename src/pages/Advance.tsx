@@ -270,7 +270,7 @@ export default function Advance({ mode = 'user' }: { mode?: 'user' | 'admin' }) 
           />
         )}
 
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
           {(
             [
               { id: 'ALL', label: `Tất cả (${counts.all})` },
@@ -285,7 +285,7 @@ export default function Advance({ mode = 'user' }: { mode?: 'user' | 'admin' }) 
                 key={pill.id}
                 type="button"
                 onClick={() => setStatusFilter(pill.id)}
-                className={`min-h-[44px] sm:min-h-[34px] px-3 py-1.5 rounded-full text-xs font-bold border transition-colors touch-manipulation ${
+                className={`shrink-0 whitespace-nowrap min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-full text-xs font-bold border transition-colors touch-manipulation ${
                   active
                     ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)]'
                     : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)] hover:text-[var(--kg-text)]'
@@ -336,8 +336,8 @@ export default function Advance({ mode = 'user' }: { mode?: 'user' | 'admin' }) 
         />
       ) : (
         <>
-          {/* Desktop Sticky-Header Table */}
-          <div className="hidden md:block overflow-auto max-h-[520px] rounded-xl border border-[var(--kg-border)]">
+          {/* Desktop Sticky-Header Table (>= lg so 768px iPad portrait uses clean 2-col cards) */}
+          <div className="hidden lg:block overflow-auto max-h-[520px] rounded-xl border border-[var(--kg-border)]">
             <table className="w-full text-left border-collapse text-xs">
               <thead className="sticky top-0 z-10 bg-[var(--kg-surface-soft)] border-b border-[var(--kg-border)] text-[11px] uppercase tracking-wider text-[var(--kg-text-muted)]">
                 <tr>
@@ -423,8 +423,8 @@ export default function Advance({ mode = 'user' }: { mode?: 'user' | 'admin' }) 
             </table>
           </div>
 
-          {/* Mobile Card List (Semantic Design Tokens) */}
-          <div className="md:hidden space-y-2.5">
+          {/* Mobile & Tablet Card List (< lg) */}
+          <div className="lg:hidden grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
             {filteredAdvances.map((adv) => {
               const isPending = adv.status === 'Pending';
               const isApproved = adv.status === 'Approved';
@@ -432,7 +432,7 @@ export default function Advance({ mode = 'user' }: { mode?: 'user' | 'admin' }) 
               return (
                 <div
                   key={adv.id}
-                  className={`p-3.5 rounded-2xl border ${
+                  className={`p-3.5 rounded-2xl border flex flex-col justify-between ${
                     isPending
                       ? 'bg-[var(--kg-warning-soft)] border-[var(--kg-warning)]/30'
                       : isApproved
@@ -440,27 +440,34 @@ export default function Advance({ mode = 'user' }: { mode?: 'user' | 'admin' }) 
                         : 'bg-[var(--kg-danger-soft)] border-[var(--kg-danger)]/25'
                   }`}
                 >
-                  <div className="flex justify-between items-start gap-2 mb-2">
-                    <div>
-                      {isManagerView && <p className="font-black text-[var(--kg-text)] text-sm">{adv.fullname}</p>}
-                      <p className="font-mono font-black text-base text-[var(--kg-text)] tabular-nums">
-                        {formatVnd(adv.amount)}
-                      </p>
-                      <p className="text-[11px] font-mono tabular-nums text-[var(--kg-text-muted)] mt-0.5">
-                        {new Date(adv.createdAt).toLocaleString('vi-VN')}
-                      </p>
+                  <div>
+                    <div className="flex justify-between items-start gap-2 mb-2">
+                      <div className="min-w-0 flex-1">
+                        {isManagerView && (
+                          <p className="font-black text-[var(--kg-text)] text-sm truncate">{adv.fullname}</p>
+                        )}
+                        <p className="font-mono font-black text-base text-[var(--kg-text)] tabular-nums whitespace-nowrap">
+                          {formatVnd(adv.amount)}
+                        </p>
+                        <p className="text-[11px] font-mono tabular-nums text-[var(--kg-text-muted)] mt-0.5">
+                          {new Date(adv.createdAt).toLocaleString('vi-VN')}
+                        </p>
+                      </div>
+                      <KgStatusBadge
+                        variant={isPending ? 'warning' : isApproved ? 'success' : 'error'}
+                        className="shrink-0"
+                      >
+                        {isPending ? <Clock size={12} /> : isApproved ? <CheckCheck size={12} /> : <XCircle size={12} />}
+                        {isPending ? 'Chờ duyệt' : isApproved ? 'Đã duyệt' : 'Từ chối'}
+                      </KgStatusBadge>
                     </div>
-                    <KgStatusBadge variant={isPending ? 'warning' : isApproved ? 'success' : 'error'}>
-                      {isPending ? <Clock size={12} /> : isApproved ? <CheckCheck size={12} /> : <XCircle size={12} />}
-                      {isPending ? 'Chờ duyệt' : isApproved ? 'Đã duyệt' : 'Từ chối'}
-                    </KgStatusBadge>
+                    <p className="text-xs text-[var(--kg-text)] bg-[var(--kg-surface)] border border-[var(--kg-border)] p-2.5 rounded-xl font-medium break-words">
+                      <span className="font-bold text-[var(--kg-text-muted)] mr-1">Lý do:</span> {adv.reason}
+                    </p>
                   </div>
-                  <p className="text-xs text-[var(--kg-text)] bg-[var(--kg-surface)] border border-[var(--kg-border)] p-2.5 rounded-xl font-medium">
-                    <span className="font-bold text-[var(--kg-text-muted)] mr-1">Lý do:</span> {adv.reason}
-                  </p>
 
                   {isManagerView && isPending && (
-                    <div className="flex gap-2 mt-3 pt-3 border-t border-[var(--kg-border)]">
+                    <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-[var(--kg-border)]">
                       <KgButton
                         type="button"
                         variant="primary"
@@ -475,7 +482,7 @@ export default function Advance({ mode = 'user' }: { mode?: 'user' | 'admin' }) 
                             action: 'APPROVE',
                           })
                         }
-                        className="flex-1"
+                        className="w-full"
                       >
                         Chấp thuận
                       </KgButton>
@@ -492,7 +499,7 @@ export default function Advance({ mode = 'user' }: { mode?: 'user' | 'admin' }) 
                             action: 'REJECT',
                           })
                         }
-                        className="flex-1"
+                        className="w-full"
                       >
                         Từ chối
                       </KgButton>
@@ -508,7 +515,7 @@ export default function Advance({ mode = 'user' }: { mode?: 'user' | 'admin' }) 
   );
 
   return (
-    <div className="p-4 space-y-5 animate-fade-in pb-16">
+    <div className="p-4 space-y-5 animate-fade-in pb-16 max-w-[1440px] mx-auto w-full">
       <KgModuleHero
         moduleId="advance"
         title="Tạm Ứng Lương"
@@ -525,7 +532,7 @@ export default function Advance({ mode = 'user' }: { mode?: 'user' | 'admin' }) 
             className="lg:col-span-4 lg:sticky lg:top-[128px] bg-[var(--kg-surface)] border border-[var(--kg-border)] p-4 sm:p-5 rounded-2xl shadow-xs space-y-4"
           >
             <h3 className="font-black flex items-center text-[var(--kg-text)] pb-3 border-b border-[var(--kg-border)] text-sm sm:text-base">
-              <Send size={16} className="mr-2 text-emerald-600 dark:text-emerald-400" /> Tạo đề xuất ứng lương mới
+              <Send size={16} className="mr-2 text-emerald-600 dark:text-emerald-400 shrink-0" /> Tạo đề xuất ứng lương mới
             </h3>
 
             {/* Live Remaining Monthly Quota Pill */}
@@ -536,13 +543,13 @@ export default function Advance({ mode = 'user' }: { mode?: 'user' | 'admin' }) 
                   : 'bg-[var(--kg-primary-soft)] border-[var(--kg-primary)]/20'
               }`}
             >
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-1.5">
                 <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--kg-text-muted)]">
                   <Wallet size={13} className="text-[var(--kg-primary-ink)] flex-shrink-0" />
                   Hạn mức ứng còn lại tháng này
                 </span>
                 <span
-                  className={`font-mono tabular-nums text-xs sm:text-sm font-black ${
+                  className={`font-mono tabular-nums text-xs sm:text-sm font-black text-right ml-auto whitespace-nowrap ${
                     advanceQuota.hasComputedLimit && advanceQuota.remaining === 0
                       ? 'text-[var(--kg-warning)]'
                       : 'text-[var(--kg-primary-ink)]'
@@ -555,7 +562,7 @@ export default function Advance({ mode = 'user' }: { mode?: 'user' | 'admin' }) 
                       : 'Theo duyệt Quản lý'}
                 </span>
               </div>
-              <p className="text-[11px] text-[var(--kg-text-muted)] font-mono tabular-nums">
+              <p className="text-[11px] text-[var(--kg-text-muted)] font-mono tabular-nums leading-snug">
                 {advanceQuota.hasComputedLimit
                   ? `Tối đa ${advanceQuota.maxAdvancePct}% (${formatVnd(advanceQuota.maxAllowed)}) · Đã ứng ${formatVnd(advanceQuota.usedThisMonth)}`
                   : `Đã đăng ký trong tháng: ${formatVnd(advanceQuota.usedThisMonth)}`}
@@ -608,16 +615,18 @@ export default function Advance({ mode = 'user' }: { mode?: 'user' | 'admin' }) 
                 </p>
               )}
 
-              <KgButton
-                type="submit"
-                variant="primary"
-                size="lg"
-                loading={isSubmitting}
-                icon={Send}
-                className="w-full uppercase tracking-wider text-xs sm:text-sm"
-              >
-                Gửi yêu cầu ứng lương
-              </KgButton>
+              <div className="flex justify-end lg:block">
+                <KgButton
+                  type="submit"
+                  variant="primary"
+                  size="lg"
+                  loading={isSubmitting}
+                  icon={Send}
+                  className="w-full sm:w-auto sm:min-w-[240px] lg:w-full uppercase tracking-wider text-xs sm:text-sm"
+                >
+                  Gửi yêu cầu ứng lương
+                </KgButton>
+              </div>
             </div>
           </form>
 

@@ -345,43 +345,43 @@ export default function Discipline({ mode = 'user' }: { mode?: 'user' | 'admin' 
           icon={Search}
           rightAdornment={
             searchTerm ? (
-              <button
-                type="button"
-                onClick={() => setSearchTerm('')}
-                aria-label="Xóa từ khóa tìm kiếm"
-                className="w-9 h-9 rounded-lg flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]"
-              >
-                <X size={15} />
-              </button>
-            ) : null
-          }
-        />
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm('')}
+                  aria-label="Xóa từ khóa tìm kiếm"
+                  className="w-10 h-10 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] touch-manipulation"
+                >
+                  <X size={15} />
+                </button>
+              ) : null
+            }
+          />
 
-        <div className="flex flex-wrap items-center gap-1.5">
-          {(
-            [
-              { id: 'ALL', label: `Tất cả (${counts.all})` },
-              { id: 'BONUS', label: `Khen thưởng (${counts.bonus})` },
-              { id: 'PENALTY', label: `Kỷ luật / Phạt (${counts.penalty})` },
-            ] as { id: DisciplineFilterType; label: string }[]
-          ).map((pill) => {
-            const active = typeFilter === pill.id;
-            return (
-              <button
-                key={pill.id}
-                type="button"
-                onClick={() => setTypeFilter(pill.id)}
-                className={`min-h-[44px] sm:min-h-[34px] px-3 py-1.5 rounded-full text-xs font-bold border transition-colors touch-manipulation ${
-                  active
-                    ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)]'
-                    : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)] hover:text-[var(--kg-text)]'
-                }`}
-              >
-                {pill.label}
-              </button>
-            );
-          })}
-        </div>
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
+            {(
+              [
+                { id: 'ALL', label: `Tất cả (${counts.all})` },
+                { id: 'BONUS', label: `Khen thưởng (${counts.bonus})` },
+                { id: 'PENALTY', label: `Kỷ luật / Phạt (${counts.penalty})` },
+              ] as { id: DisciplineFilterType; label: string }[]
+            ).map((pill) => {
+              const active = typeFilter === pill.id;
+              return (
+                <button
+                  key={pill.id}
+                  type="button"
+                  onClick={() => setTypeFilter(pill.id)}
+                  className={`shrink-0 whitespace-nowrap min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-full text-xs font-bold border transition-colors touch-manipulation ${
+                    active
+                      ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)]'
+                      : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)] hover:text-[var(--kg-text)]'
+                  }`}
+                >
+                  {pill.label}
+                </button>
+              );
+            })}
+          </div>
       </div>
 
       {loadError ? (
@@ -422,8 +422,8 @@ export default function Discipline({ mode = 'user' }: { mode?: 'user' | 'admin' 
         />
       ) : (
         <>
-          {/* Desktop Sticky-Header Table */}
-          <div className="hidden md:block overflow-auto max-h-[520px] rounded-xl border border-[var(--kg-border)]">
+          {/* Desktop Sticky-Header Table (>= lg so 768px iPad portrait uses clean 2-col cards) */}
+          <div className="hidden lg:block overflow-auto max-h-[520px] rounded-xl border border-[var(--kg-border)]">
             <table className="w-full text-left border-collapse text-xs">
               <thead className="sticky top-0 z-10 bg-[var(--kg-surface-soft)] border-b border-[var(--kg-border)] text-[11px] uppercase tracking-wider text-[var(--kg-text-muted)]">
                 <tr>
@@ -485,8 +485,8 @@ export default function Discipline({ mode = 'user' }: { mode?: 'user' | 'admin' 
             </table>
           </div>
 
-          {/* Mobile Card List */}
-          <div className="md:hidden space-y-2.5">
+          {/* Mobile & Tablet Card List (< lg) */}
+          <div className="lg:hidden grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
             {filteredRecords.map((record) => {
               const isBonus = record.type === 'BONUS';
               return (
@@ -499,12 +499,12 @@ export default function Discipline({ mode = 'user' }: { mode?: 'user' | 'admin' 
                   }`}
                 >
                   <div className="flex justify-between items-start gap-2 mb-1.5">
-                    <div>
+                    <div className="min-w-0 flex-1">
                       {isManagerView && (
-                        <p className="font-black text-[var(--kg-text)] text-sm">{record.targetFullname}</p>
+                        <p className="font-black text-[var(--kg-text)] text-sm truncate">{record.targetFullname}</p>
                       )}
                       <p
-                        className={`font-mono tabular-nums font-black text-base ${
+                        className={`font-mono tabular-nums font-black text-base whitespace-nowrap ${
                           isBonus ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
                         }`}
                       >
@@ -521,13 +521,13 @@ export default function Discipline({ mode = 'user' }: { mode?: 'user' | 'admin' 
                         aria-label="Xóa bản ghi"
                         onClick={() => setPendingDeleteId(record.id)}
                         disabled={deletingId === record.id}
-                        className="min-w-[44px] min-h-[44px] -mr-1 -mt-1 flex items-center justify-center text-[var(--kg-text-muted)] hover:text-rose-600 hover:bg-rose-500/10 rounded-xl transition-all touch-manipulation"
+                        className="min-w-[44px] min-h-[44px] -mr-1 -mt-1 flex items-center justify-center text-[var(--kg-text-muted)] hover:text-rose-600 hover:bg-rose-500/10 rounded-xl transition-all shrink-0 touch-manipulation"
                       >
                         <Trash2 size={16} />
                       </button>
                     )}
                   </div>
-                  <p className="text-xs text-[var(--kg-text)] bg-[var(--kg-surface)] border border-[var(--kg-border)] p-2.5 rounded-xl mt-2 font-medium">
+                  <p className="text-xs text-[var(--kg-text)] bg-[var(--kg-surface)] border border-[var(--kg-border)] p-2.5 rounded-xl mt-2 font-medium break-words">
                     <span className="font-bold text-[var(--kg-text-muted)] mr-1">Lý do:</span> {record.reason}
                   </p>
                 </div>
@@ -540,7 +540,7 @@ export default function Discipline({ mode = 'user' }: { mode?: 'user' | 'admin' 
   );
 
   return (
-    <div className="p-4 space-y-5 animate-fade-in pb-16">
+    <div className="p-4 space-y-5 animate-fade-in pb-16 max-w-[1440px] mx-auto w-full">
       <KgModuleHero
         moduleId="discipline"
         title="Vi Phạm & Kỷ Luật"
@@ -567,32 +567,32 @@ export default function Discipline({ mode = 'user' }: { mode?: 'user' | 'admin' 
         }
       />
 
-      {/* Period Bonus vs Penalty Summary Strip */}
-      <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
-        <div className="rounded-2xl border border-[var(--kg-success)]/25 bg-[var(--kg-success-soft)] px-3 py-2.5 sm:px-4 sm:py-3">
-          <div className="flex items-center gap-1 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-[var(--kg-success)]">
-            <ArrowUpRight size={13} className="flex-shrink-0" />
-            <span className="truncate">Tổng thưởng</span>
+      {/* Period Bonus vs Penalty Summary Strip (stacks cleanly on 375px so full VNĐ figures never clip) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
+        <div className="rounded-2xl border border-[var(--kg-success)]/25 bg-[var(--kg-success-soft)] px-3.5 py-2.5 sm:px-4 sm:py-3 flex items-center justify-between sm:block gap-2">
+          <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[var(--kg-success)]">
+            <ArrowUpRight size={14} className="flex-shrink-0" />
+            <span>Tổng thưởng</span>
           </div>
-          <p className="mt-1 font-mono tabular-nums font-black text-xs sm:text-base text-[var(--kg-success)] truncate">
+          <p className="sm:mt-1 font-mono tabular-nums font-black text-sm sm:text-base text-[var(--kg-success)] text-right sm:text-left whitespace-nowrap">
             +{formatVnd(periodSummary.totalBonus)}
           </p>
         </div>
-        <div className="rounded-2xl border border-[var(--kg-danger)]/25 bg-[var(--kg-danger-soft)] px-3 py-2.5 sm:px-4 sm:py-3">
-          <div className="flex items-center gap-1 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-[var(--kg-danger)]">
-            <ArrowDownRight size={13} className="flex-shrink-0" />
-            <span className="truncate">Tổng phạt</span>
+        <div className="rounded-2xl border border-[var(--kg-danger)]/25 bg-[var(--kg-danger-soft)] px-3.5 py-2.5 sm:px-4 sm:py-3 flex items-center justify-between sm:block gap-2">
+          <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[var(--kg-danger)]">
+            <ArrowDownRight size={14} className="flex-shrink-0" />
+            <span>Tổng phạt</span>
           </div>
-          <p className="mt-1 font-mono tabular-nums font-black text-xs sm:text-base text-[var(--kg-danger)] truncate">
+          <p className="sm:mt-1 font-mono tabular-nums font-black text-sm sm:text-base text-[var(--kg-danger)] text-right sm:text-left whitespace-nowrap">
             -{formatVnd(periodSummary.totalPenalty)}
           </p>
         </div>
-        <div className="rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface)] px-3 py-2.5 sm:px-4 sm:py-3">
-          <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-[var(--kg-text-muted)] truncate">
+        <div className="rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface)] px-3.5 py-2.5 sm:px-4 sm:py-3 flex items-center justify-between sm:block gap-2">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--kg-text-muted)]">
             Chênh lệch kỳ
           </div>
           <p
-            className={`mt-1 font-mono tabular-nums font-black text-xs sm:text-base truncate ${
+            className={`sm:mt-1 font-mono tabular-nums font-black text-sm sm:text-base text-right sm:text-left whitespace-nowrap ${
               periodSummary.netImpact >= 0
                 ? 'text-emerald-600 dark:text-emerald-400'
                 : 'text-rose-600 dark:text-rose-400'

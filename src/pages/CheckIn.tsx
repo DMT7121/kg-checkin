@@ -2325,20 +2325,20 @@ export default function CheckIn() {
           </div>
         )}
 
-        {/* Mobile Compact 1-Line Expandable Pre-Capture Status Strip (hidden on lg: where full right rail is always visible) */}
+        {/* Mobile Compact Expandable Pre-Capture Status Strip (hidden on lg: where full right rail is always visible) */}
         <div
           data-testid="checkin-status-strip"
-          className="lg:hidden bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl px-2.5 py-1.5 shadow-xs"
+          className="lg:hidden bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl px-2.5 py-1.5 shadow-xs space-y-1.5"
         >
           <div className="flex items-center justify-between gap-1.5">
             <button
               type="button"
               onClick={() => setStatusStripExpanded((v) => !v)}
               aria-expanded={statusStripExpanded}
-              className="min-h-[44px] sm:min-h-[36px] flex-1 min-w-0 flex items-center gap-1.5 text-left rounded-xl px-1.5 py-1 hover:bg-[var(--kg-surface-soft)] transition-colors touch-manipulation"
+              className="min-h-[44px] sm:min-h-[36px] flex-1 min-w-0 flex flex-wrap items-center gap-1.5 text-left rounded-xl px-1 py-1 hover:bg-[var(--kg-surface-soft)] transition-colors touch-manipulation"
             >
               <span
-                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-bold border truncate ${
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-bold border whitespace-nowrap max-w-full ${
                   recommendation.isOpenShift
                     ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/25'
                     : recommendation.isOvernightShift
@@ -2351,7 +2351,7 @@ export default function CheckIn() {
                 {recommendation.isOpenShift && (
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
                 )}
-                <span className="truncate">
+                <span>
                   {recommendation.isOvernightShift
                     ? `Ca đêm ${recommendation.openShiftTime}`
                     : recommendation.isOpenShift
@@ -2363,7 +2363,7 @@ export default function CheckIn() {
               </span>
 
               <span
-                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-bold font-mono tabular-nums border shrink-0 ${
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-bold font-mono tabular-nums border whitespace-nowrap shrink-0 ${
                   gps.isValid
                     ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/25'
                     : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/25'
@@ -2388,19 +2388,6 @@ export default function CheckIn() {
             </button>
 
             <div className="flex items-center gap-1 shrink-0">
-              {!selfFaceProfile && (
-                <button
-                  type="button"
-                  data-testid="open-face-enroll-btn"
-                  onClick={openFaceEnrollmentModal}
-                  className="min-h-[44px] sm:min-h-[34px] px-2.5 py-1 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-extrabold whitespace-nowrap inline-flex items-center gap-1 transition-colors touch-manipulation"
-                  title="Đăng ký Face ID 5 góc"
-                >
-                  <UserPlus size={13} />
-                  <span>ĐK Face</span>
-                </button>
-              )}
-
               <button
                 type="button"
                 onClick={restartGps}
@@ -2431,6 +2418,24 @@ export default function CheckIn() {
             </div>
           </div>
 
+          {!selfFaceProfile && (
+            <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-[var(--kg-border)]/70">
+              <span className="text-[11px] font-semibold text-[var(--kg-text-muted)] truncate pl-1">
+                Chưa có hồ sơ Face ID 5 góc
+              </span>
+              <button
+                type="button"
+                data-testid="open-face-enroll-btn"
+                onClick={openFaceEnrollmentModal}
+                className="min-h-[40px] sm:min-h-[34px] px-3 py-1 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-extrabold whitespace-nowrap inline-flex items-center gap-1 transition-colors shrink-0 touch-manipulation"
+                title="Đăng ký Face ID 5 góc"
+              >
+                <UserPlus size={13} />
+                <span>ĐK Face 5 góc</span>
+              </button>
+            </div>
+          )}
+
           {isPrecisionScanning && (
             <div className="mt-1.5 px-1.5 pb-1 space-y-1">
               <div className="flex items-center justify-between text-[10px] font-bold text-blue-700 dark:text-blue-300">
@@ -2456,8 +2461,8 @@ export default function CheckIn() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 items-start">
           {/* LEFT 7 COLS (Desktop): Camera Viewport (max-w-lg) + Primary Capture CTA */}
           <div className="order-2 lg:order-1 lg:col-span-7 space-y-3">
-            {/* Camera Viewport: Solid high-contrast overlays, ergonomic mobile & crisp desktop height */}
-            <div className={`relative bg-slate-950 rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm aspect-[3/4] sm:aspect-[9/16] lg:aspect-[4/5] min-h-[340px] max-h-[410px] sm:min-h-[460px] sm:max-h-[540px] lg:min-h-[500px] lg:max-h-[600px] group border-[4px] sm:border-[5px] max-w-sm lg:max-w-lg mx-auto transition-all ${isWithinRadius ? 'border-blue-600' : 'border-red-500'}`}>
+            {/* Camera Viewport: dvh-aware ergonomic height so Camera + Primary CTA stay above the fold across Mobile, Tablet, Laptop & Desktop */}
+            <div className={`relative bg-slate-950 rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm w-full max-w-[360px] sm:max-w-[400px] lg:max-w-[440px] xl:max-w-[480px] h-[clamp(270px,43dvh,370px)] sm:h-[clamp(370px,46dvh,450px)] lg:h-[clamp(380px,50dvh,470px)] xl:h-[clamp(440px,54dvh,540px)] group border-[4px] sm:border-[5px] mx-auto transition-all ${isWithinRadius ? 'border-blue-600' : 'border-red-500'}`}>
               <video ref={videoRef} autoPlay muted playsInline {...{ 'webkit-playsinline': 'true' }} className={`w-full h-full object-cover mirror-cam ${(cameraError || capturedImage) ? 'hidden' : ''}`} />
               <canvas ref={canvasRef} className="hidden" />
               <input
@@ -2532,30 +2537,37 @@ export default function CheckIn() {
                     <RotateCcw size={18} />
                   </button>
 
-                  <button
-                    type="button"
-                    data-testid="viewport-shutter-btn"
-                    onClick={handleCaptureTrigger}
-                    aria-label="Chụp ảnh chấm công"
-                    title={
-                      !isWithinRadius
-                        ? 'Kiểm tra vị trí GPS & chụp ảnh chấm công'
-                        : recommendation.baseAction === 'Ra ca'
-                        ? 'Chụp ảnh Ra ca'
-                        : 'Chụp ảnh Vào ca'
-                    }
-                    className="group relative touch-manipulation transition-all duration-150 scale-100 active:scale-95"
-                  >
+                  <div className="relative flex items-center justify-center">
                     {!isWithinRadius ? (
-                      <>
-                        <div className="absolute inset-0 bg-rose-600 rounded-full opacity-30 scale-110 animate-ping" />
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-0 bg-rose-600 rounded-full opacity-30 scale-110 animate-ping"
+                      />
+                    ) : (
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-0 bg-white rounded-full opacity-35 scale-110"
+                      />
+                    )}
+                    <button
+                      type="button"
+                      data-testid="viewport-shutter-btn"
+                      onClick={handleCaptureTrigger}
+                      aria-label="Chụp ảnh chấm công"
+                      title={
+                        !isWithinRadius
+                          ? 'Kiểm tra vị trí GPS & chụp ảnh chấm công'
+                          : recommendation.baseAction === 'Ra ca'
+                          ? 'Chụp ảnh Ra ca'
+                          : 'Chụp ảnh Vào ca'
+                      }
+                      className="group relative w-16 h-16 rounded-full overflow-hidden flex items-center justify-center touch-manipulation transition-transform duration-150 active:scale-95"
+                    >
+                      {!isWithinRadius ? (
                         <div className="w-16 h-16 bg-rose-950/90 border-4 border-rose-500 rounded-full flex items-center justify-center shadow-lg">
                           <Lock size={22} className="text-rose-400" />
                         </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="absolute inset-0 bg-white rounded-full opacity-35 scale-110" />
+                      ) : (
                         <div className="w-16 h-16 bg-transparent border-4 border-white rounded-full flex items-center justify-center shadow-lg">
                           <div
                             className={`w-11 h-11 rounded-full transition-all flex items-center justify-center ${
@@ -2565,9 +2577,9 @@ export default function CheckIn() {
                             {!cameraActive && <Camera size={18} className="text-slate-900" />}
                           </div>
                         </div>
-                      </>
-                    )}
-                  </button>
+                      )}
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -2581,7 +2593,7 @@ export default function CheckIn() {
                   />
 
                   <div className="absolute top-2 inset-x-2 z-40 pointer-events-auto">
-                    <div className="bg-slate-950/95 border border-white/20 rounded-xl px-2 py-1 flex items-center justify-between shadow-2xl shadow-black/70">
+                    <div className="bg-slate-950/95 border border-white/20 rounded-xl px-2 py-1 flex flex-wrap items-center justify-between gap-1.5 shadow-2xl shadow-black/70">
                       <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-950 border border-emerald-400/50 text-emerald-300 text-[10.5px] font-bold shadow-sm whitespace-nowrap shrink-0">
                         <CheckCircle2 size={11} className="text-emerald-400 shrink-0" />
                         <span>Đã đóng dấu</span>
@@ -2607,7 +2619,7 @@ export default function CheckIn() {
                             store.setPreviewImageUrl(capturedImage);
                             store.setPreviewOpen(true);
                           }}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 min-h-[44px] sm:min-h-[32px] bg-slate-800 hover:bg-slate-700 active:scale-95 text-white rounded-lg border border-white/20 transition-all text-[11px] font-semibold whitespace-nowrap shrink-0 touch-manipulation"
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 min-h-[40px] sm:min-h-[32px] bg-slate-800 hover:bg-slate-700 active:scale-95 text-white rounded-lg border border-white/20 transition-all text-[11px] font-semibold whitespace-nowrap shrink-0 touch-manipulation"
                           title="Xem toàn màn hình"
                         >
                           <Maximize2 size={12} className="shrink-0" />
@@ -2623,7 +2635,7 @@ export default function CheckIn() {
                             setPhotoTimeLeftSeconds(PHOTO_EXPIRATION_SECONDS);
                             setUserResolvedDisambiguation(null);
                           }}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 min-h-[44px] sm:min-h-[32px] bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-lg border border-rose-400/40 shadow-md transition-all text-[11px] font-bold whitespace-nowrap shrink-0 touch-manipulation"
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 min-h-[40px] sm:min-h-[32px] bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-lg border border-rose-400/40 shadow-md transition-all text-[11px] font-bold whitespace-nowrap shrink-0 touch-manipulation"
                           title="Chụp lại ảnh"
                         >
                           <RotateCcw size={12} className="shrink-0" />
@@ -2651,7 +2663,7 @@ export default function CheckIn() {
             </div>
 
             {/* Primary Action Button: Always interactive when !capturedImage so staff NEVER hit a dead button */}
-            <div className="max-w-sm lg:max-w-lg mx-auto space-y-2">
+            <div className="w-full max-w-[360px] sm:max-w-[400px] lg:max-w-[440px] xl:max-w-[480px] mx-auto space-y-2">
               <KgButton
                 data-testid="primary-capture-action-btn"
                 variant={(userResolvedDisambiguation || smartIntent.smartSuggestedAction) === 'Ra ca' && capturedImage ? 'danger' : 'primary'}
@@ -2971,7 +2983,7 @@ export default function CheckIn() {
                 </div>
 
                 {currentUser?.role === 'admin' && (
-                  <div className="grid grid-cols-2 gap-2 pt-0.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
                     {selfFaceProfile ? (
                       <button
                         type="button"
@@ -3423,7 +3435,7 @@ export default function CheckIn() {
 
               {/* Forgotten Earlier Vào Ca Escape Hatch -> Direct to "Bổ sung chấm công" */}
               {(userResolvedDisambiguation || smartIntent.smartSuggestedAction) === 'Vào ca' ? (
-                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center justify-between gap-2.5">
+                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-black text-amber-800 dark:text-amber-300 leading-tight">
                       Quên bấm Vào ca lúc đầu giờ?
@@ -3440,7 +3452,7 @@ export default function CheckIn() {
                       setSelectedMissingAlert(null);
                       setMissedModalOpen(true);
                     }}
-                    className="px-3 py-2 min-h-[44px] bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition active:scale-95 flex-shrink-0 whitespace-nowrap"
+                    className="w-full sm:w-auto justify-center px-3 py-2 min-h-[44px] sm:min-h-[38px] bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition active:scale-95 flex-shrink-0 whitespace-nowrap touch-manipulation"
                   >
                     <Clock size={14} />
                     <span>Bổ sung chấm công →</span>
@@ -3711,7 +3723,7 @@ export default function CheckIn() {
             Hôm nay bạn cảm thấy thế nào trước khi bắt đầu ca?
           </p>
 
-          <div className="grid grid-cols-5 gap-2">
+          <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
             {[
               { val: 5, icon: Sun, tone: 'text-emerald-600 dark:text-emerald-400', label: 'Tuyệt vời' },
               { val: 4, icon: Smile, tone: 'text-sky-600 dark:text-sky-400', label: 'Vui vẻ' },
@@ -3726,7 +3738,7 @@ export default function CheckIn() {
                   key={item.val}
                   type="button"
                   onClick={() => setSurveyEmotion(item.val)}
-                  className={`flex flex-col items-center justify-center p-2.5 rounded-xl border active:scale-95 transition-colors gap-1.5 min-h-[68px] ${
+                  className={`min-w-0 flex flex-col items-center justify-center px-1 py-2 sm:p-2.5 rounded-xl border active:scale-95 transition-colors gap-1.5 min-h-[68px] touch-manipulation ${
                     isSelected
                       ? 'border-[var(--kg-primary)] bg-[var(--kg-primary-soft)] text-[var(--kg-primary)] ring-2 ring-[var(--kg-primary)]/20'
                       : 'border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface)]'

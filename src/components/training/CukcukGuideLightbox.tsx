@@ -182,15 +182,15 @@ export default function CukcukGuideLightbox({
       role="dialog"
       aria-modal="true"
       aria-label={`Hướng dẫn CUKCUK: ${currentStep.title}`}
-      className="fixed inset-0 z-[10050] flex flex-col items-center justify-center bg-black/95 backdrop-blur-sm select-none"
+      className="fixed inset-0 h-dvh w-screen z-[10055] flex flex-col justify-between bg-black/95 backdrop-blur-sm select-none overflow-hidden"
     >
       {/* Header Controls */}
-      <div className="absolute top-0 inset-x-0 p-4 flex items-center justify-between gap-3 bg-gradient-to-b from-black/80 to-black/0 text-white z-10">
-        <div className="flex flex-col min-w-0">
-          <span className="text-[10px] uppercase tracking-wider text-white/70 font-bold font-mono tabular-nums">
+      <div className="shrink-0 w-full px-3.5 py-3 sm:px-5 sm:py-4 flex items-center justify-between gap-3 bg-gradient-to-b from-black/90 to-black/40 border-b border-white/10 text-white z-10">
+        <div className="flex flex-col min-w-0 flex-1">
+          <span className="text-[10px] uppercase tracking-wider text-white/70 font-bold font-mono tabular-nums truncate">
             Hướng dẫn sử dụng CUKCUK • Bước {activeIndex + 1}/{steps.length}
           </span>
-          <h3 className="text-sm font-black text-white truncate">{currentStep.title}</h3>
+          <h3 className="text-xs sm:text-sm font-black text-white truncate">{currentStep.title}</h3>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
@@ -201,7 +201,7 @@ export default function CukcukGuideLightbox({
             type="button"
             onClick={() => selectStep(null)}
             aria-label="Đóng hướng dẫn CUKCUK"
-            className="min-w-[44px] min-h-[44px] sm:min-w-[38px] sm:min-h-[38px] flex items-center justify-center bg-white/15 hover:bg-white/25 active:scale-95 rounded-xl transition-all text-white touch-manipulation"
+            className="min-w-[44px] min-h-[44px] sm:min-w-[38px] sm:min-h-[38px] flex items-center justify-center bg-white/15 hover:bg-white/25 active:scale-95 rounded-xl transition-all text-white touch-manipulation focus-visible:ring-2 focus-visible:ring-white"
             title="Đóng (Esc)"
           >
             <X size={20} />
@@ -209,9 +209,9 @@ export default function CukcukGuideLightbox({
         </div>
       </div>
 
-      {/* Image Container with Pan/Zoom/Swipe */}
+      {/* Image Container with Pan/Zoom/Swipe — flex-1 ensures zero overlap with top/bottom controls */}
       <div
-        className="w-full h-full flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing p-4 select-none touch-none"
+        className="flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing px-3 py-2 sm:p-4 select-none touch-none"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -222,7 +222,7 @@ export default function CukcukGuideLightbox({
         onWheel={handleWheel}
       >
         <div
-          className="transition-transform duration-75 ease-out select-none"
+          className="transition-transform duration-75 ease-out select-none flex items-center justify-center max-h-full max-w-full"
           style={{
             transform: `translate(${zoomPos.x}px, ${zoomPos.y}px) scale(${zoomScale})`,
           }}
@@ -231,18 +231,19 @@ export default function CukcukGuideLightbox({
           <img
             src={currentStep.image}
             alt={currentStep.title}
-            className="max-h-[80vh] max-w-[95vw] md:max-h-[85vh] md:max-w-[85vw] object-contain pointer-events-none rounded shadow-2xl border border-white/10"
+            className="max-h-[calc(100dvh-13.5rem)] max-w-[94vw] md:max-w-[86vw] object-contain pointer-events-none rounded shadow-2xl border border-white/10"
           />
         </div>
       </div>
 
-      {/* Floating Action Bar */}
-      <div className="absolute bottom-4 sm:bottom-6 flex flex-col items-center gap-2.5 sm:gap-3 w-full max-w-lg px-3 sm:px-6 z-10">
+      {/* Bottom Action Bar — always visible with safe-area padding */}
+      <div className="shrink-0 w-full flex flex-col items-center gap-2 sm:gap-2.5 px-3 sm:px-6 pt-2 pb-[max(0.875rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-black/90 via-black/60 to-transparent z-10">
+        <div className="w-full max-w-lg flex flex-col items-center gap-2 sm:gap-2.5">
         {!showDescription ? (
           <button
             type="button"
             onClick={() => setShowDescription(true)}
-            className="min-h-[44px] sm:min-h-[38px] bg-black/80 hover:bg-black/90 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md border border-white/15 flex items-center gap-2 backdrop-blur-sm transition-all active:scale-95 animate-fade-in touch-manipulation"
+            className="min-h-[44px] sm:min-h-[38px] bg-black/80 hover:bg-black/90 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md border border-white/15 flex items-center gap-2 backdrop-blur-sm transition-all active:scale-95 animate-fade-in touch-manipulation focus-visible:ring-2 focus-visible:ring-white"
           >
             <BookOpen size={14} className="text-[var(--kg-info)]" />
             Đọc hướng dẫn, mô tả
@@ -268,7 +269,7 @@ export default function CukcukGuideLightbox({
             disabled={activeIndex === 0}
             onClick={() => activeIndex > 0 && selectStep(activeIndex - 1)}
             aria-label="Bước trước"
-            className="min-w-[44px] min-h-[44px] sm:min-w-[38px] sm:min-h-[38px] flex items-center justify-center bg-white/15 hover:bg-white/25 disabled:opacity-40 disabled:pointer-events-none active:scale-95 rounded-xl transition-all text-white flex-shrink-0 touch-manipulation"
+            className="min-w-[44px] min-h-[44px] sm:min-w-[38px] sm:min-h-[38px] flex items-center justify-center bg-white/15 hover:bg-white/25 disabled:opacity-40 disabled:pointer-events-none active:scale-95 rounded-xl transition-all text-white flex-shrink-0 touch-manipulation focus-visible:ring-2 focus-visible:ring-white"
             title="Bước trước"
           >
             <ChevronRight size={18} className="rotate-180" />
@@ -279,7 +280,7 @@ export default function CukcukGuideLightbox({
               type="button"
               onClick={zoomOut}
               aria-label="Thu nhỏ"
-              className="min-w-[44px] min-h-[44px] sm:min-h-[36px] px-2.5 sm:px-3 py-1.5 bg-white/15 hover:bg-white/25 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1 active:scale-95 transition-all whitespace-nowrap touch-manipulation"
+              className="min-w-[44px] min-h-[44px] sm:min-h-[36px] px-2.5 sm:px-3 py-1.5 bg-white/15 hover:bg-white/25 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1 active:scale-95 transition-all whitespace-nowrap touch-manipulation focus-visible:ring-2 focus-visible:ring-white"
               title="Thu nhỏ"
             >
               <span className="text-sm font-black">−</span>
@@ -289,7 +290,7 @@ export default function CukcukGuideLightbox({
               type="button"
               onClick={resetZoom}
               aria-label="Đặt lại zoom"
-              className="min-w-[48px] min-h-[44px] sm:min-h-[36px] px-2.5 sm:px-3 py-1.5 bg-white/15 hover:bg-white/25 text-white font-bold font-mono tabular-nums rounded-xl text-xs flex items-center justify-center active:scale-95 transition-all whitespace-nowrap touch-manipulation"
+              className="min-w-[48px] min-h-[44px] sm:min-h-[36px] px-2.5 sm:px-3 py-1.5 bg-white/15 hover:bg-white/25 text-white font-bold font-mono tabular-nums rounded-xl text-xs flex items-center justify-center active:scale-95 transition-all whitespace-nowrap touch-manipulation focus-visible:ring-2 focus-visible:ring-white"
               title="Đặt lại zoom"
             >
               <span className="sm:hidden">{Math.round(zoomScale * 100)}%</span>
@@ -299,7 +300,7 @@ export default function CukcukGuideLightbox({
               type="button"
               onClick={zoomIn}
               aria-label="Phóng to"
-              className="min-w-[44px] min-h-[44px] sm:min-h-[36px] px-2.5 sm:px-3 py-1.5 bg-white/15 hover:bg-white/25 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1 active:scale-95 transition-all whitespace-nowrap touch-manipulation"
+              className="min-w-[44px] min-h-[44px] sm:min-h-[36px] px-2.5 sm:px-3 py-1.5 bg-white/15 hover:bg-white/25 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1 active:scale-95 transition-all whitespace-nowrap touch-manipulation focus-visible:ring-2 focus-visible:ring-white"
               title="Phóng to"
             >
               <span className="text-sm font-black">+</span>
@@ -312,11 +313,12 @@ export default function CukcukGuideLightbox({
             disabled={activeIndex === steps.length - 1}
             onClick={() => activeIndex < steps.length - 1 && selectStep(activeIndex + 1)}
             aria-label="Bước sau"
-            className="min-w-[44px] min-h-[44px] sm:min-w-[38px] sm:min-h-[38px] flex items-center justify-center bg-white/15 hover:bg-white/25 disabled:opacity-40 disabled:pointer-events-none active:scale-95 rounded-xl transition-all text-white flex-shrink-0 touch-manipulation"
+            className="min-w-[44px] min-h-[44px] sm:min-w-[38px] sm:min-h-[38px] flex items-center justify-center bg-white/15 hover:bg-white/25 disabled:opacity-40 disabled:pointer-events-none active:scale-95 rounded-xl transition-all text-white flex-shrink-0 touch-manipulation focus-visible:ring-2 focus-visible:ring-white"
             title="Bước sau"
           >
             <ChevronRight size={18} />
           </button>
+        </div>
         </div>
       </div>
     </div>,

@@ -1074,7 +1074,7 @@ export default function AttendanceLedger({
       : displayNames;
 
     return (
-      <div className="hidden md:block space-y-2.5">
+      <div className="hidden lg:block space-y-2.5">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2">
             <h3 className="text-xs sm:text-sm font-black text-[var(--kg-text)] uppercase tracking-wider">
@@ -1397,13 +1397,13 @@ export default function AttendanceLedger({
 
       {/* Single Compact Filter Toolbar + Segmented View Switcher */}
       <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-3 sm:p-4 space-y-3 shadow-xs">
-        {/* Segmented View Switcher (min-h-[44px] mobile) */}
-        <div className="grid grid-cols-3 bg-[var(--kg-surface-soft)] p-1 rounded-xl border border-[var(--kg-border)] gap-1">
+        {/* Segmented View Switcher: Full-width 3-col on Mobile, crisp proportional segmented control on Tablet/Desktop */}
+        <div className="grid grid-cols-3 sm:inline-grid sm:w-auto sm:min-w-[390px] bg-[var(--kg-surface-soft)] p-1 rounded-xl border border-[var(--kg-border)] gap-1">
           {(
             [
-              { id: 'ledger', label: 'Theo ngày', icon: List },
-              { id: 'calendar', label: 'Lịch tháng', icon: Calendar },
-              { id: 'log', label: 'Nhật ký đầy đủ', icon: ListOrdered },
+              { id: 'ledger', label: 'Theo ngày', mobileLabel: 'Theo ngày', icon: List },
+              { id: 'calendar', label: 'Lịch tháng', mobileLabel: 'Lịch tháng', icon: Calendar },
+              { id: 'log', label: 'Nhật ký đầy đủ', mobileLabel: 'Nhật ký', icon: ListOrdered },
             ] as const
           ).map((tab) => {
             const Icon = tab.icon;
@@ -1413,14 +1413,15 @@ export default function AttendanceLedger({
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveView(tab.id)}
-                className={`min-h-[44px] sm:min-h-[38px] px-2 sm:px-3 py-2 rounded-lg text-[11.5px] sm:text-xs font-black inline-flex items-center justify-center gap-1.5 transition-all touch-manipulation ${
+                className={`min-w-0 min-h-[44px] sm:min-h-[38px] px-1.5 sm:px-3.5 py-2 rounded-lg text-[11.5px] sm:text-xs font-black inline-flex items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap transition-all touch-manipulation ${
                   active
                     ? 'bg-[var(--kg-primary)] text-white shadow-xs'
                     : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
                 }`}
               >
                 <Icon size={14} className="flex-shrink-0" />
-                <span className="truncate">{tab.label}</span>
+                <span className="sm:hidden truncate">{tab.mobileLabel}</span>
+                <span className="hidden sm:inline truncate">{tab.label}</span>
               </button>
             );
           })}
@@ -1584,8 +1585,8 @@ export default function AttendanceLedger({
               {/* Desktop: Fixed Sticky Name + Tổng giờ Matrix */}
               {renderAdminDesktopMatrix()}
 
-              {/* Mobile: Staff Summary Cards */}
-              <div className="block md:hidden space-y-2.5">
+              {/* Mobile & Tablet (< lg): Staff Summary Cards (1-col Mobile, 2-col Tablet) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:hidden gap-2.5">
                 {displayNames.filter(
                   (n) => !onlyShowWorkdays || (employeeSummaries[n]?.workedDaysCount || 0) > 0,
                 ).length === 0 ? (
@@ -1642,7 +1643,7 @@ export default function AttendanceLedger({
                               variant="secondary"
                               icon={Eye}
                               onClick={() => setSelectedUser(name)}
-                              className="min-h-[44px]"
+                              className="min-h-[44px] sm:min-h-[36px]"
                             >
                               Chi tiết
                             </KgButton>
@@ -1774,7 +1775,7 @@ export default function AttendanceLedger({
                               type="button"
                               onClick={() => toggleDayExpand(item.dateStr)}
                               aria-label={isExpanded ? 'Thu gọn lượt chấm công' : 'Xem lượt chấm công'}
-                              className="w-9 h-9 rounded-lg flex items-center justify-center text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)] touch-manipulation"
+                              className="w-11 h-11 sm:w-9 sm:h-9 min-w-[44px] min-h-[44px] sm:min-w-[36px] sm:min-h-[36px] rounded-lg flex items-center justify-center text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)] touch-manipulation"
                             >
                               {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                             </button>
@@ -1879,7 +1880,7 @@ export default function AttendanceLedger({
           {/* Type Filter Pills */}
           <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-3 sm:p-4 space-y-3 shadow-xs">
             <div className="flex items-center justify-between gap-2 flex-wrap">
-              <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar">
+              <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar min-w-0 max-w-full pb-0.5">
                 {(
                   [
                     { id: 'ALL', label: 'Tất cả', count: countsByType.total },
@@ -2120,7 +2121,7 @@ export default function AttendanceLedger({
 
           {/* Admin All-Staff Matrix on Desktop in Log view as well */}
           {isAdmin && selectedUser === 'ALL' && activeTimesheet?.timesheet && (
-            <div className="hidden md:block bg-[var(--kg-surface)] border border-[var(--kg-border)] p-4 sm:p-5 rounded-2xl shadow-xs">
+            <div className="hidden lg:block bg-[var(--kg-surface)] border border-[var(--kg-border)] p-4 sm:p-5 rounded-2xl shadow-xs">
               {renderAdminDesktopMatrix()}
             </div>
           )}

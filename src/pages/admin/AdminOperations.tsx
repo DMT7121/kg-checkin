@@ -521,7 +521,7 @@ function AdminOperationsContent() {
   ];
 
   return (
-    <div className="p-4 space-y-4 animate-fade-in pb-36 md:pb-24 max-w-6xl mx-auto">
+    <div className="p-4 md:px-0 md:pt-1 space-y-4 animate-fade-in pb-28 md:pb-12 max-w-6xl mx-auto">
       <KgModuleHero
         moduleId="admin-operations"
         title="Điều Phối Đội Hình & Khu Trực"
@@ -531,24 +531,24 @@ function AdminOperationsContent() {
           <button
             type="button"
             onClick={() => void autoBalanceTeams()}
-            className="min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs font-extrabold inline-flex items-center gap-1.5 shadow-xs"
+            className="w-full sm:w-auto min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 shadow-xs whitespace-nowrap"
           >
-            <Sparkles size={14} /> Tự cân bằng đội
+            <Sparkles size={14} className="shrink-0" /> Tự cân bằng đội
           </button>
         }
       />
 
       {/* Compact 1-Tap Banner to AdminApprovalInbox for Cash Audit & Incidents */}
       <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-xs">
-        <div className="flex items-center gap-2.5 min-w-0">
+        <div className="flex items-start sm:items-center gap-2.5 min-w-0 flex-1">
           <div className="w-9 h-9 rounded-xl bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] flex items-center justify-center shrink-0">
             <Inbox size={17} />
           </div>
           <div className="min-w-0">
-            <p className="text-xs sm:text-sm font-extrabold text-[var(--kg-text)] truncate">
+            <p className="text-xs sm:text-sm font-extrabold text-[var(--kg-text)] leading-snug sm:truncate">
               Đối soát Két 2 chiều &amp; Trung tâm Sự cố đã chuyển sang Hộp duyệt
             </p>
-            <p className="text-[11px] text-[var(--kg-text-muted)] truncate">
+            <p className="text-[11px] text-[var(--kg-text-muted)] leading-snug line-clamp-2 sm:line-clamp-1">
               Duyệt chốt két, duyệt ca khớp 1 chạm và cập nhật sự cố 4 bước ngay tại Hộp duyệt.
             </p>
           </div>
@@ -556,10 +556,10 @@ function AdminOperationsContent() {
         <button
           type="button"
           onClick={() => navigateToHubSubTab('admin_ops', 'inbox')}
-          className="min-h-[44px] sm:min-h-[36px] px-3.5 py-2 rounded-xl bg-[var(--kg-primary-soft)] hover:opacity-90 text-[var(--kg-primary-ink)] text-xs font-extrabold inline-flex items-center justify-center gap-1.5 shrink-0"
+          className="w-full sm:w-auto min-h-[44px] sm:min-h-[36px] px-3.5 py-2 rounded-xl bg-[var(--kg-primary-soft)] hover:opacity-90 text-[var(--kg-primary-ink)] text-xs font-extrabold inline-flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap"
         >
           <span>Mở Hộp duyệt</span>
-          <ArrowRight size={14} />
+          <ArrowRight size={14} className="shrink-0" />
         </button>
       </div>
 
@@ -576,7 +576,7 @@ function AdminOperationsContent() {
                 role="tab"
                 aria-selected={active}
                 onClick={() => setSection(item.id)}
-                className={`min-h-[44px] sm:min-h-[38px] flex items-center justify-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-extrabold transition-colors ${
+                className={`min-w-0 min-h-[44px] sm:min-h-[38px] flex items-center justify-center gap-1.5 rounded-xl px-2 sm:px-3 py-2 text-xs font-extrabold transition-colors ${
                   active
                     ? 'bg-[var(--kg-primary)] text-white shadow-xs'
                     : 'text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)] hover:text-[var(--kg-text)]'
@@ -650,13 +650,14 @@ function AdminOperationsContent() {
 
               <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
                 <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 shadow-xs">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <h3 className="font-extrabold text-[var(--kg-text)] text-sm">Nhóm trực</h3>
                     <button
                       type="button"
                       onClick={createTeam}
                       aria-label="Tạo nhóm trực mới"
-                      className="min-h-[40px] min-w-[40px] rounded-xl bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] inline-flex items-center justify-center"
+                      title="Tạo nhóm trực mới"
+                      className="min-h-[44px] min-w-[44px] sm:min-h-[38px] sm:min-w-[38px] rounded-xl bg-[var(--kg-primary-soft)] hover:opacity-90 border border-[var(--kg-primary)]/20 text-[var(--kg-primary-ink)] inline-flex items-center justify-center shrink-0"
                     >
                       <Plus size={17} />
                     </button>
@@ -702,9 +703,9 @@ function AdminOperationsContent() {
                 <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-5 shadow-xs">
                   {selectedTeam ? (
                     <>
-                      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--kg-border)] pb-4">
-                        <div>
-                          <h3 className="text-lg font-black text-[var(--kg-text)]">
+                      <div className="flex items-start justify-between gap-3 border-b border-[var(--kg-border)] pb-4">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-lg font-black text-[var(--kg-text)] truncate">
                             {selectedTeam.name}
                           </h3>
                           <p className="mt-0.5 text-xs text-[var(--kg-text-muted)]">
@@ -715,7 +716,8 @@ function AdminOperationsContent() {
                           type="button"
                           onClick={() => void removeTeam(selectedTeam)}
                           aria-label={`Xóa nhóm ${selectedTeam.name}`}
-                          className="min-h-[40px] min-w-[40px] rounded-xl text-rose-500 hover:bg-rose-500/10 inline-flex items-center justify-center"
+                          title={`Xóa nhóm ${selectedTeam.name}`}
+                          className="min-h-[44px] min-w-[44px] sm:min-h-[38px] sm:min-w-[38px] rounded-xl text-rose-500 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 inline-flex items-center justify-center shrink-0"
                         >
                           <Trash2 size={17} />
                         </button>
@@ -893,8 +895,8 @@ function AdminOperationsContent() {
           {section === 'assignments' && (
             <div className="space-y-4">
               <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-5 shadow-xs">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--kg-border)] pb-3 mb-4">
-                  <div>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--kg-border)] pb-3 mb-4">
+                  <div className="min-w-0">
                     <h3 className="font-extrabold text-[var(--kg-text)] text-sm sm:text-base">
                       Tạo phân công theo ngày
                     </h3>
@@ -906,26 +908,26 @@ function AdminOperationsContent() {
                   <button
                     type="button"
                     onClick={autoRotateAllAssignments}
-                    className="min-h-[44px] sm:min-h-[38px] inline-flex items-center gap-1.5 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] px-4 py-2 text-xs font-bold text-white shadow-xs"
+                    className="w-full sm:w-auto min-h-[44px] sm:min-h-[38px] inline-flex items-center justify-center gap-1.5 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] px-4 py-2 text-xs font-bold text-white shadow-xs whitespace-nowrap shrink-0"
                   >
-                    <Sparkles size={14} /> Tự động xoay ca tất cả nhóm
+                    <Sparkles size={14} className="shrink-0" /> Tự động xoay ca tất cả nhóm
                   </button>
                 </div>
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                <div className="grid gap-2.5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
                   <input
                     type="date"
                     value={assignmentDraft.date}
                     onChange={(event) =>
                       setAssignmentDraft((current) => ({ ...current, date: event.target.value }))
                     }
-                    className="min-h-[44px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-2 text-base sm:text-sm font-bold font-mono text-[var(--kg-text)]"
+                    className="w-full min-h-[44px] sm:min-h-[40px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-2 text-base sm:text-sm font-bold font-mono text-[var(--kg-text)]"
                   />
                   <select
                     value={assignmentDraft.teamId}
                     onChange={(event) =>
                       setAssignmentDraft((current) => ({ ...current, teamId: event.target.value }))
                     }
-                    className="min-h-[44px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-2 text-base sm:text-sm font-bold text-[var(--kg-text)]"
+                    className="w-full min-h-[44px] sm:min-h-[40px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-2 text-base sm:text-sm font-bold text-[var(--kg-text)]"
                   >
                     <option value="">Chọn nhóm trực</option>
                     {config.teams.map((team) => (
@@ -939,7 +941,7 @@ function AdminOperationsContent() {
                     onChange={(event) =>
                       setAssignmentDraft((current) => ({ ...current, zoneId: event.target.value }))
                     }
-                    className="min-h-[44px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-2 text-base sm:text-sm font-bold text-[var(--kg-text)]"
+                    className="w-full min-h-[44px] sm:min-h-[40px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-2 text-base sm:text-sm font-bold text-[var(--kg-text)]"
                   >
                     <option value="">Chọn khu trực</option>
                     {config.zones.map((zone) => (
@@ -953,7 +955,7 @@ function AdminOperationsContent() {
                     onChange={(event) =>
                       setAssignmentDraft((current) => ({ ...current, shift: event.target.value }))
                     }
-                    className="min-h-[44px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-2 text-base sm:text-sm font-bold text-[var(--kg-text)]"
+                    className="w-full min-h-[44px] sm:min-h-[40px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-2 text-base sm:text-sm font-bold text-[var(--kg-text)]"
                   >
                     <option>Cả ngày</option>
                     <option>Ca sáng</option>
@@ -963,9 +965,9 @@ function AdminOperationsContent() {
                   <button
                     type="button"
                     onClick={addAssignment}
-                    className="min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] px-4 py-2 text-sm font-extrabold text-white shadow-xs"
+                    className="sm:col-span-2 lg:col-span-1 min-h-[44px] sm:min-h-[40px] inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] px-4 py-2 text-sm font-extrabold text-white shadow-xs whitespace-nowrap"
                   >
-                    <CalendarPlus size={16} /> Phân công
+                    <CalendarPlus size={16} className="shrink-0" /> Phân công
                   </button>
                 </div>
                 <input
@@ -1069,20 +1071,20 @@ function AdminOperationsContent() {
                     Thang điểm 1–5 được dùng khi tự động cân bằng nhóm.
                   </p>
                 </div>
-                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
                   <input
                     type="text"
                     placeholder="Tìm nhân viên..."
                     value={evalSearchQuery}
                     onChange={(e) => setEvalSearchQuery(e.target.value)}
-                    className="flex-1 sm:flex-none min-h-[44px] sm:min-h-[38px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-2 text-base sm:text-xs text-[var(--kg-text)]"
+                    className="w-full sm:w-52 min-h-[44px] sm:min-h-[38px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-2 text-base sm:text-xs text-[var(--kg-text)]"
                   />
                   <button
                     type="button"
                     onClick={() => void autoBalanceTeams()}
-                    className="min-h-[44px] sm:min-h-[38px] inline-flex items-center gap-1.5 rounded-xl bg-[var(--kg-primary-soft)] px-3.5 py-2 text-xs font-bold text-[var(--kg-primary-ink)]"
+                    className="w-full sm:w-auto min-h-[44px] sm:min-h-[38px] inline-flex items-center justify-center gap-1.5 rounded-xl bg-[var(--kg-primary-soft)] px-3.5 py-2 text-xs font-bold text-[var(--kg-primary-ink)] whitespace-nowrap"
                   >
-                    <Sparkles size={14} /> Xếp đội theo điểm
+                    <Sparkles size={14} className="shrink-0" /> Xếp đội theo điểm
                   </button>
                 </div>
               </div>
@@ -1138,10 +1140,10 @@ function AdminOperationsContent() {
                               ['reliability', 'Ổn định'],
                               ['leadership', 'Dẫn dắt'],
                             ] as const
-                          ).map(([field, label]) => (
+                          ).map(([field, label], idx) => (
                             <label
                               key={field}
-                              className="rounded-xl bg-[var(--kg-surface-soft)] p-2.5 border border-[var(--kg-border)]"
+                              className={`rounded-xl bg-[var(--kg-surface-soft)] p-2.5 border border-[var(--kg-border)] ${idx === 4 ? 'col-span-2 sm:col-span-1' : ''}`}
                             >
                               <span className="block text-[10px] font-bold uppercase text-[var(--kg-text-muted)]">
                                 {label}
@@ -1155,7 +1157,7 @@ function AdminOperationsContent() {
                                     Number(event.target.value),
                                   )
                                 }
-                                className="mt-1 w-full bg-transparent text-base sm:text-sm font-black font-mono text-[var(--kg-text)] outline-none"
+                                className="mt-1 w-full !min-h-[34px] !border-0 !bg-transparent !px-0 text-base sm:text-sm font-black font-mono text-[var(--kg-text)] outline-none"
                               >
                                 {[1, 2, 3, 4, 5].map((score) => (
                                   <option key={score} value={score}>
@@ -1183,19 +1185,19 @@ function AdminOperationsContent() {
         </>
       )}
 
-      {/* Sticky Save Bar */}
-      <div className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] md:bottom-5 left-1/2 z-30 flex w-[min(92vw,720px)] -translate-x-1/2 items-center gap-2 rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface)] p-2 shadow-xl">
+      {/* Sticky Save Bar — stays centered within the workspace container across all devices */}
+      <div className="sticky bottom-[calc(5.25rem+env(safe-area-inset-bottom,0px))] md:bottom-4 z-30 mx-auto flex w-full max-w-[720px] items-center gap-2 rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface)]/95 backdrop-blur-sm p-2 shadow-xl">
         <button
           type="button"
           onClick={() => void loadData()}
           disabled={loading}
-          className="inline-flex h-11 w-11 items-center justify-center rounded-xl text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)]"
+          className="inline-flex h-11 w-11 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)]"
           title="Tải lại"
           aria-label="Tải lại cấu hình điều phối"
         >
           <RefreshCw size={17} className={loading ? 'animate-spin' : ''} />
         </button>
-        <div className="min-w-0 flex-1 px-2">
+        <div className="min-w-0 flex-1 px-1.5 sm:px-2">
           <p className="truncate text-xs font-extrabold text-[var(--kg-text)]">
             {dirty ? 'Có thay đổi chưa lưu' : 'Cấu hình điều phối đã đồng bộ'}
           </p>
@@ -1207,10 +1209,10 @@ function AdminOperationsContent() {
           type="button"
           onClick={() => void saveConfig()}
           disabled={saving || loading || !dirty}
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] px-4 text-xs font-extrabold text-white shadow-xs disabled:cursor-not-allowed disabled:opacity-45"
+          className="inline-flex h-11 sm:h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] px-4 text-xs font-extrabold text-white shadow-xs disabled:cursor-not-allowed disabled:opacity-45 whitespace-nowrap"
         >
-          {saving ? <LoaderCircle size={16} className="animate-spin" /> : <Save size={16} />}
-          {saving ? 'Đang lưu' : 'Lưu cấu hình'}
+          {saving ? <LoaderCircle size={16} className="animate-spin shrink-0" /> : <Save size={16} className="shrink-0" />}
+          <span>{saving ? 'Đang lưu' : 'Lưu cấu hình'}</span>
         </button>
       </div>
 

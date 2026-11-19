@@ -4,16 +4,18 @@ import { abbreviatePersonName } from '../utils/personName';
 export default function SmartPersonName({
   fullname,
   className = '',
+  asSpan = false,
 }: {
   fullname: string;
   className?: string;
+  asSpan?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const shortName = abbreviatePersonName(fullname);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || asSpan) return;
     const handlePointerDown = (e: PointerEvent) => {
       if (buttonRef.current && !buttonRef.current.contains(e.target as Node)) {
         setOpen(false);
@@ -30,7 +32,15 @@ export default function SmartPersonName({
       document.removeEventListener('pointerdown', handlePointerDown);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [open]);
+  }, [open, asSpan]);
+
+  if (asSpan) {
+    return (
+      <span title={fullname} className={`inline-block max-w-full truncate ${className}`}>
+        {shortName}
+      </span>
+    );
+  }
 
   return (
     <button

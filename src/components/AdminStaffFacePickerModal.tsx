@@ -374,7 +374,7 @@ export default function AdminStaffFacePickerModal({
                   key={emp.username}
                   className="bg-[#161A22] hover:bg-[#1F2530] border border-[#2B3240] rounded-2xl p-3 flex items-center justify-between gap-3 transition-colors motion-reduce:transition-none"
                 >
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
                     {emp.avatarUrl ? (
                       <img
                         src={emp.avatarUrl}
@@ -418,7 +418,7 @@ export default function AdminStaffFacePickerModal({
                     type="button"
                     data-testid={`pick-enroll-staff-${emp.username}`}
                     onClick={() => onSelectEmployee(emp, profiles)}
-                    className={`min-h-[44px] px-3.5 py-2 rounded-xl text-xs font-extrabold inline-flex items-center gap-1.5 shrink-0 transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#34D399] ${
+                    className={`min-h-[44px] sm:min-h-[38px] px-2.5 sm:px-3.5 py-2 rounded-xl text-xs font-extrabold inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap transition-colors motion-reduce:transition-none touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#34D399] ${
                       emp.hasFaceProfile
                         ? 'bg-[#0D1015] hover:bg-[#0B253C] border border-[#2B3240] text-[#F7F4EE]'
                         : 'bg-[#C8432B] hover:bg-[#B83821] text-white'

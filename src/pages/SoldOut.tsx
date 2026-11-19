@@ -243,7 +243,7 @@ export default function SoldOut() {
   );
 
   return (
-    <div className="flex flex-col h-full space-y-4 pb-16 animate-fade-in">
+    <div className="flex flex-col h-full space-y-4 pb-16 animate-fade-in max-w-[1440px] mx-auto w-full">
       <KgModuleHero
         moduleId="soldout"
         title="Món Hết & Nguyên Liệu (86)"
@@ -260,7 +260,7 @@ export default function SoldOut() {
 
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
-        <div className="relative flex-1">
+        <div className="relative flex-1 sm:max-w-lg">
           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--kg-text-muted)]" />
           <input
             type="text"
@@ -284,7 +284,7 @@ export default function SoldOut() {
         <button
           type="button"
           onClick={() => setIsAdding(!isAdding)}
-          className="inline-flex items-center justify-center gap-1.5 bg-[var(--kg-accent)] hover:brightness-95 text-white dark:text-[#0D1015] px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-xs active:scale-95 transition-colors min-h-[44px] touch-manipulation"
+          className="inline-flex items-center justify-center gap-1.5 bg-[var(--kg-accent)] hover:brightness-95 text-white dark:text-[#0D1015] px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-xs active:scale-95 transition-colors min-h-[44px] sm:min-h-[42px] whitespace-nowrap shrink-0 touch-manipulation"
         >
           <Plus size={16} />
           <span>Báo món hết</span>
@@ -308,18 +308,18 @@ export default function SoldOut() {
                 onChange={(e) => setNewItemName(e.target.value)}
                 className="flex-1 bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 text-[var(--kg-text)] min-h-[44px]"
               />
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="submit"
                   disabled={!newItemName.trim() || isUpdating}
-                  className="flex-1 sm:flex-initial bg-[var(--kg-danger)] hover:brightness-95 disabled:opacity-50 text-white dark:text-[#0D1015] px-4 py-2.5 rounded-xl text-xs font-bold transition-colors active:scale-95 shadow-xs min-h-[44px] touch-manipulation"
+                  className="flex-1 sm:flex-initial bg-[var(--kg-danger)] hover:brightness-95 disabled:opacity-50 text-white dark:text-[#0D1015] px-4 py-2.5 rounded-xl text-xs font-bold transition-colors active:scale-95 shadow-xs min-h-[44px] sm:min-h-[42px] whitespace-nowrap touch-manipulation"
                 >
                   Xác nhận báo hết
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsAdding(false)}
-                  className="px-3.5 py-2.5 rounded-xl border border-[var(--kg-border)] text-xs font-semibold text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)] min-h-[44px] touch-manipulation"
+                  className="px-3.5 py-2.5 rounded-xl border border-[var(--kg-border)] text-xs font-semibold text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)] min-h-[44px] sm:min-h-[42px] whitespace-nowrap touch-manipulation"
                 >
                   Huỷ
                 </button>
@@ -400,13 +400,13 @@ export default function SoldOut() {
             }
           />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
             {filteredItems.map((item) => (
               <div
                 key={item.id}
                 className="kg-fade-in bg-[var(--kg-surface)] border border-[var(--kg-border)] hover:border-[var(--kg-danger)]/40 rounded-2xl p-3.5 flex flex-col justify-between shadow-card transition-colors group"
               >
-                <div className="flex justify-between items-start gap-3">
+                <div className="flex justify-between items-start gap-2.5">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-[var(--kg-danger)] flex-shrink-0 animate-pulse" />
@@ -419,7 +419,7 @@ export default function SoldOut() {
                         <Clock size={11} /> {item.reportedAt}
                       </span>
                       <span>•</span>
-                      <span className="bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] px-2 py-0.5 rounded-lg text-[10px] font-semibold text-[var(--kg-text)]">
+                      <span className="bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] px-2 py-0.5 rounded-lg text-[10px] font-semibold text-[var(--kg-text)] truncate max-w-[140px]">
                         {item.reportedBy}
                       </span>
                     </div>
@@ -429,11 +429,11 @@ export default function SoldOut() {
                     type="button"
                     onClick={() => handleOneTapRestore(item)}
                     aria-label={`Khôi phục món ${item.itemName}`}
-                    className="min-w-[44px] min-h-[44px] px-2.5 rounded-xl bg-[var(--kg-success-soft)] hover:brightness-95 text-[var(--kg-success)] inline-flex items-center justify-center gap-1 transition-all active:scale-95 flex-shrink-0 border border-[var(--kg-success)]/20 text-xs font-bold touch-manipulation"
+                    className="min-w-[44px] min-h-[44px] sm:min-h-[38px] px-3 rounded-xl bg-[var(--kg-success-soft)] hover:brightness-95 text-[var(--kg-success)] inline-flex items-center justify-center gap-1.5 transition-all active:scale-95 flex-shrink-0 border border-[var(--kg-success)]/20 text-xs font-bold whitespace-nowrap touch-manipulation"
                     title="Mở bán lại (1 chạm)"
                   >
-                    <CheckCircle2 size={16} />
-                    <span className="hidden sm:inline">Mở lại</span>
+                    <CheckCircle2 size={15} className="shrink-0" />
+                    <span>Mở lại</span>
                   </button>
                 </div>
               </div>

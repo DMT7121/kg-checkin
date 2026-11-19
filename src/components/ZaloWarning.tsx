@@ -67,7 +67,7 @@ export default function ZaloWarning() {
         role="dialog"
         aria-modal="true"
         aria-labelledby="zalo-warning-title"
-        className="w-full max-w-[380px] rounded-2xl bg-[var(--kg-surface)] border border-[var(--kg-border)] p-6 shadow-2xl flex flex-col items-center text-center focus:outline-none"
+        className="w-full max-w-[380px] max-h-[92dvh] overflow-y-auto rounded-2xl bg-[var(--kg-surface)] border border-[var(--kg-border)] p-6 shadow-2xl flex flex-col items-center text-center focus:outline-none"
       >
         <div className="w-14 h-14 rounded-2xl bg-[var(--kg-accent-soft)] border border-[var(--kg-accent)]/35 flex items-center justify-center mb-4">
           <ExternalLink className="text-[var(--kg-accent-ink)]" size={26} strokeWidth={2} />

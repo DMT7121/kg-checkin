@@ -115,14 +115,14 @@ export default function CheckInReceiptSheet({
           <div className="bg-[var(--kg-surface-soft)] rounded-2xl p-3.5 border border-[var(--kg-border)] space-y-2 text-xs">
             {/* Honest Google Sheet / Cloud Ledger Confirmation Badge */}
             <div
-              className={`flex items-center justify-between pb-2 border-b -mx-3.5 -mt-3.5 p-3 rounded-t-2xl ${
+              className={`flex flex-wrap items-center justify-between gap-1.5 pb-2 border-b -mx-3.5 -mt-3.5 p-3 rounded-t-2xl ${
                 lastSubmittedPunch.sheetSaved
                   ? 'border-[var(--kg-success)]/20 bg-[var(--kg-success-soft)]'
                   : 'border-sky-500/25 bg-sky-500/10'
               }`}
             >
               <span
-                className={`font-bold uppercase tracking-wider text-[11px] flex items-center gap-1.5 ${
+                className={`font-bold uppercase tracking-wider text-[11px] flex items-center gap-1.5 shrink-0 ${
                   lastSubmittedPunch.sheetSaved
                     ? 'text-[var(--kg-success)]'
                     : 'text-sky-700 dark:text-sky-300'
@@ -189,12 +189,12 @@ export default function CheckInReceiptSheet({
                 <CheckCircle2 size={13} /> {lastSubmittedPunch.distMeters} • Hợp lệ
               </span>
             </div>
-            <div className="flex items-center justify-between pt-0.5">
-              <span className="text-[var(--kg-text-muted)] font-semibold uppercase tracking-wider text-[10px]">
+            <div className="flex items-center justify-between gap-2 pt-0.5">
+              <span className="text-[var(--kg-text-muted)] font-semibold uppercase tracking-wider text-[10px] shrink-0">
                 Email thông báo
               </span>
               <span
-                className="font-medium text-[var(--kg-text-muted)] truncate max-w-[200px]"
+                className="font-medium text-[var(--kg-text-muted)] truncate min-w-0 max-w-[175px] sm:max-w-[240px]"
                 title={lastSubmittedPunch.email}
               >
                 {lastSubmittedPunch.email}

@@ -636,7 +636,7 @@ function HrListContent() {
   const bulkBusy = Boolean(bulkProgress);
 
   return (
-    <div className="p-4 space-y-4 animate-fade-in pb-24 md:pb-12 max-w-7xl mx-auto">
+    <div className="p-4 md:px-0 md:pt-1 space-y-4 animate-fade-in pb-24 md:pb-12 max-w-7xl mx-auto">
       <input
         ref={fileInputRef}
         type="file"
@@ -703,36 +703,36 @@ function HrListContent() {
 
       {/* Search & Filter */}
       <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-3.5 rounded-2xl shadow-xs">
-        <div className="flex flex-col lg:flex-row gap-2.5">
-          <div className="relative flex-1">
+        <div className="flex flex-col xl:flex-row gap-2.5">
+          <div className="relative flex-1 min-w-0">
             <Search
               size={16}
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--kg-text-muted)]"
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--kg-text-muted)] pointer-events-none"
             />
             <input
               type="text"
               placeholder="Tìm tên, username, email..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-8 py-2.5 bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl text-base sm:text-sm font-bold text-[var(--kg-text)] focus:ring-2 focus:ring-[var(--kg-primary)] outline-none min-h-[44px]"
+              className="w-full pl-10 pr-10 py-2.5 bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl text-base sm:text-sm font-bold text-[var(--kg-text)] focus:ring-2 focus:ring-[var(--kg-primary)] outline-none min-h-[44px] sm:min-h-[40px]"
             />
             {searchQuery && (
               <button
                 type="button"
                 aria-label="Xóa tìm kiếm nhân sự"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]"
+                className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 inline-flex items-center justify-center rounded-lg text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface)]"
               >
                 <X size={14} />
               </button>
             )}
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:flex gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 xl:flex gap-2">
             <select
               value={filterPosition}
               onChange={(e) => setFilterPosition(e.target.value)}
               aria-label="Lọc bộ phận"
-              className="bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-text)] rounded-xl px-3 py-2.5 text-base sm:text-xs font-bold outline-none cursor-pointer w-full lg:w-auto min-h-[44px]"
+              className="bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-text)] rounded-xl px-3 py-2 text-base sm:text-xs font-bold outline-none cursor-pointer w-full xl:w-auto min-h-[44px] sm:min-h-[40px]"
             >
               <option value="all">Tất cả bộ phận</option>
               {HR_POSITIONS.map((p) => (
@@ -745,7 +745,7 @@ function HrListContent() {
               value={filterRole}
               onChange={(e) => setFilterRole(e.target.value)}
               aria-label="Lọc phân quyền"
-              className="bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-text)] rounded-xl px-3 py-2.5 text-base sm:text-xs font-bold outline-none cursor-pointer w-full lg:w-auto min-h-[44px]"
+              className="bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-text)] rounded-xl px-3 py-2 text-base sm:text-xs font-bold outline-none cursor-pointer w-full xl:w-auto min-h-[44px] sm:min-h-[40px]"
             >
               <option value="all">Tất cả quyền</option>
               {HR_ROLES.map((r) => (
@@ -758,7 +758,7 @@ function HrListContent() {
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
               aria-label="Lọc trạng thái"
-              className="bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-text)] rounded-xl px-3 py-2.5 text-base sm:text-xs font-bold outline-none cursor-pointer w-full lg:w-auto min-h-[44px]"
+              className="bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-text)] rounded-xl px-3 py-2 text-base sm:text-xs font-bold outline-none cursor-pointer w-full xl:w-auto min-h-[44px] sm:min-h-[40px]"
             >
               <option value="all">Tất cả trạng thái</option>
               {employmentStatuses.map((status) => (
@@ -773,7 +773,7 @@ function HrListContent() {
                 setFilterFaceId(e.target.value as 'all' | 'enrolled' | 'unenrolled')
               }
               aria-label="Lọc trạng thái Face ID"
-              className="bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-text)] rounded-xl px-3 py-2.5 text-base sm:text-xs font-bold outline-none cursor-pointer w-full lg:w-auto min-h-[44px]"
+              className="bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-text)] rounded-xl px-3 py-2 text-base sm:text-xs font-bold outline-none cursor-pointer w-full xl:w-auto min-h-[44px] sm:min-h-[40px]"
             >
               <option value="all">Tất cả Face ID</option>
               <option value="enrolled">Đã đăng ký</option>
@@ -781,26 +781,28 @@ function HrListContent() {
             </select>
           </div>
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-2 mt-2.5 ml-1">
-          <p className="text-[11px] text-[var(--kg-text-muted)] font-bold font-mono tabular-nums">
-            Hiển thị {filteredUsers.length} / {users.length} nhân viên
+        <div className="flex flex-wrap items-center justify-between gap-2 mt-2.5 ml-0.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-[11px] text-[var(--kg-text-muted)] font-bold font-mono tabular-nums">
+              Hiển thị {filteredUsers.length} / {users.length} nhân viên
+            </p>
             {hasActiveFilter && (
               <button
                 type="button"
                 onClick={resetFilters}
-                className="ml-2 font-sans text-[var(--kg-accent-ink)] hover:underline font-black"
+                className="min-h-[36px] sm:min-h-[30px] px-2.5 py-1 rounded-lg bg-[var(--kg-accent-soft)] text-xs font-sans text-[var(--kg-accent-ink)] hover:brightness-95 font-bold whitespace-nowrap"
               >
                 Xóa lọc
               </button>
             )}
-          </p>
+          </div>
           {!isDesktop && filteredUsers.length > 0 && (
             <button
               type="button"
               onClick={toggleSelectAllFiltered}
-              className="text-[11px] font-bold text-[var(--kg-primary-ink)] hover:underline inline-flex items-center gap-1"
+              className="min-h-[36px] px-2.5 py-1 rounded-lg bg-[var(--kg-primary-soft)] text-xs font-bold text-[var(--kg-primary-ink)] hover:opacity-90 inline-flex items-center gap-1.5 whitespace-nowrap"
             >
-              <CheckSquare size={12} />
+              <CheckSquare size={13} />
               <span>{allFilteredSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả đang lọc'}</span>
             </button>
           )}
@@ -809,9 +811,9 @@ function HrListContent() {
 
       {/* Bulk Selection Toolbar — offset below sticky ModuleHub bar on md+ */}
       {selectedUsernames.size > 0 && (
-        <div className="sticky top-2 md:top-[124px] z-20 bg-[var(--kg-surface)] border border-[var(--kg-primary)]/40 rounded-2xl p-3 shadow-md flex flex-wrap items-center justify-between gap-2.5">
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-1 rounded-lg bg-[var(--kg-primary)] text-white text-xs font-black font-mono tabular-nums">
+        <div className="sticky top-2 md:top-[124px] z-20 bg-[var(--kg-surface)] border border-[var(--kg-primary)]/40 rounded-2xl p-3 shadow-md flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-2.5">
+          <div className="flex items-center justify-between sm:justify-start gap-2">
+            <span className="px-2.5 py-1 rounded-lg bg-[var(--kg-primary)] text-white text-xs font-black font-mono tabular-nums whitespace-nowrap">
               Đã chọn {selectedUsernames.size}
             </span>
             {bulkProgress ? (
@@ -825,7 +827,7 @@ function HrListContent() {
               <button
                 type="button"
                 onClick={() => setSelectedUsernames(new Set())}
-                className="min-h-[36px] px-2.5 py-1 rounded-lg text-xs font-bold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)]"
+                className="min-h-[40px] sm:min-h-[36px] px-3 py-1 rounded-lg text-xs font-bold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)] whitespace-nowrap"
               >
                 Bỏ chọn
               </button>
@@ -833,13 +835,13 @@ function HrListContent() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 w-full sm:w-auto">
               <select
                 value={bulkPosition}
                 onChange={(e) => setBulkPosition(e.target.value)}
                 disabled={bulkBusy}
                 aria-label="Chọn bộ phận áp dụng hàng loạt"
-                className="min-h-[40px] sm:min-h-[36px] px-2.5 py-1 rounded-lg bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-xs font-bold text-[var(--kg-text)]"
+                className="flex-1 sm:flex-none min-w-0 !min-h-[40px] sm:!min-h-[36px] px-2.5 py-1 rounded-lg bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-base sm:text-xs font-bold text-[var(--kg-text)]"
               >
                 {HR_POSITIONS.map((p) => (
                   <option key={p} value={p}>
@@ -851,7 +853,7 @@ function HrListContent() {
                 type="button"
                 disabled={bulkBusy}
                 onClick={() => void handleBulkPosition()}
-                className="min-h-[40px] sm:min-h-[36px] px-3 py-1 rounded-lg bg-[var(--kg-primary)] text-white text-xs font-bold disabled:opacity-50"
+                className="min-h-[40px] sm:min-h-[36px] px-3 py-1 rounded-lg bg-[var(--kg-primary)] text-white text-xs font-bold disabled:opacity-50 whitespace-nowrap shrink-0"
               >
                 Đổi bộ phận
               </button>
@@ -860,17 +862,17 @@ function HrListContent() {
               type="button"
               disabled={bulkBusy}
               onClick={() => void handleBulkResetFace()}
-              className="min-h-[40px] sm:min-h-[36px] px-3 py-1 rounded-lg bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 text-xs font-bold inline-flex items-center gap-1 disabled:opacity-50"
+              className="flex-1 sm:flex-none min-h-[40px] sm:min-h-[36px] px-3 py-1 rounded-lg bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-50 whitespace-nowrap"
             >
-              <Unlock size={13} /> Mở khóa Face ID
+              <Unlock size={13} className="shrink-0" /> Mở khóa Face ID
             </button>
             <button
               type="button"
               disabled={bulkBusy}
               onClick={() => void handleBulkResetPassword()}
-              className="min-h-[40px] sm:min-h-[36px] px-3 py-1 rounded-lg bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30 text-xs font-bold inline-flex items-center gap-1 disabled:opacity-50"
+              className="flex-1 sm:flex-none min-h-[40px] sm:min-h-[36px] px-3 py-1 rounded-lg bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30 text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-50 whitespace-nowrap"
             >
-              <KeyRound size={13} /> Đặt lại MK
+              <KeyRound size={13} className="shrink-0" /> Đặt lại MK
             </button>
           </div>
         </div>

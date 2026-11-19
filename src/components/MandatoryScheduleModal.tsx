@@ -102,22 +102,22 @@ export default function MandatoryScheduleModal({
                 </ul>
               </div>
             </div>
+          </div>
 
-            {/* Single Mandatory CTA — No Snooze Loophole */}
-            <div className="pt-1 space-y-2.5">
-              <button
-                type="button"
-                onClick={onGoToSchedule}
-                className="w-full py-3.5 px-5 rounded-2xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-black text-sm tracking-wide shadow-md transition-colors duration-150 active:scale-[0.98] touch-manipulation flex items-center justify-center gap-2 min-h-[48px]"
-              >
-                <span>ĐĂNG KÝ LỊCH LÀM TUẦN {targetWeekDisplay || 'TỚI'} NGAY</span>
-                <ChevronRight size={18} />
-              </button>
+          {/* Single Mandatory CTA — Sticky Footer, No Snooze Loophole */}
+          <div className="px-4 sm:px-6 py-3.5 pb-safe sm:pb-4 border-t border-[var(--kg-border)] bg-[var(--kg-surface-soft)]/70 space-y-2 flex-shrink-0">
+            <button
+              type="button"
+              onClick={onGoToSchedule}
+              className="w-full py-3.5 px-5 rounded-2xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-black text-xs sm:text-sm tracking-wide shadow-md transition-colors duration-150 active:scale-[0.98] touch-manipulation flex items-center justify-center gap-2 min-h-[48px]"
+            >
+              <span className="truncate">ĐĂNG KÝ LỊCH LÀM TUẦN {targetWeekDisplay || 'TỚI'} NGAY</span>
+              <ChevronRight size={18} className="flex-shrink-0" />
+            </button>
 
-              <div className="flex items-center justify-center gap-1.5 text-[10.5px] text-[var(--kg-text-muted)] font-medium text-center">
-                <ShieldCheck size={13} className="text-[var(--kg-success)] flex-shrink-0" />
-                <span>Lịch đăng ký được đồng bộ trực tiếp vào Google Sheets &amp; mở khóa chấm công tức thì.</span>
-              </div>
+            <div className="flex items-center justify-center gap-1.5 text-[10.5px] text-[var(--kg-text-muted)] font-medium text-center">
+              <ShieldCheck size={13} className="text-[var(--kg-success)] flex-shrink-0" />
+              <span>Lịch đăng ký được đồng bộ trực tiếp vào Google Sheets &amp; mở khóa chấm công tức thì.</span>
             </div>
           </div>
       </div>

@@ -268,7 +268,7 @@ export default function IncidentTracker() {
   }
 
   return (
-    <div className="flex flex-col space-y-4 pb-24 md:pb-12 animate-fade-in">
+    <div className="flex flex-col space-y-4 pb-24 md:pb-12 animate-fade-in max-w-[1440px] mx-auto w-full">
       <KgModuleHero
         moduleId="incidents"
         title="Báo Cáo & Theo Dõi Sự Cố Ca"
@@ -286,7 +286,7 @@ export default function IncidentTracker() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
         {/* Report Incident Form */}
-        <section className="lg:col-span-5 bg-[var(--kg-surface)] border border-[var(--kg-danger)]/25 rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
+        <section className="lg:col-span-5 lg:sticky lg:top-[128px] bg-[var(--kg-surface)] border border-[var(--kg-danger)]/25 rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
           <div className="flex items-center gap-3 pb-3 border-b border-[var(--kg-border)]">
             <div className="w-10 h-10 rounded-xl bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] flex items-center justify-center shrink-0">
               <AlertTriangle size={20} />
@@ -453,17 +453,19 @@ export default function IncidentTracker() {
               </p>
             )}
 
-            <KgButton
-              type="submit"
-              variant="danger"
-              size="lg"
-              loading={isSubmittingIncident}
-              disabled={uploadingPhoto}
-              icon={ShieldAlert}
-              className="w-full uppercase tracking-wider text-xs sm:text-sm"
-            >
-              Gửi báo cáo sự cố ngay
-            </KgButton>
+            <div className="flex justify-end lg:block">
+              <KgButton
+                type="submit"
+                variant="danger"
+                size="lg"
+                loading={isSubmittingIncident}
+                disabled={uploadingPhoto}
+                icon={ShieldAlert}
+                className="w-full sm:w-auto sm:min-w-[240px] lg:w-full uppercase tracking-wider text-xs sm:text-sm"
+              >
+                Gửi báo cáo sự cố ngay
+              </KgButton>
+            </div>
           </form>
         </section>
 
@@ -510,7 +512,7 @@ export default function IncidentTracker() {
                 ) : null
               }
             />
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
               {(
                 [
                   { id: 'ALL', label: `Tất cả (${incidents.length})` },
@@ -523,7 +525,7 @@ export default function IncidentTracker() {
                   key={tab.id}
                   type="button"
                   onClick={() => setIncidentFilter(tab.id)}
-                  className={`min-h-[44px] sm:min-h-[34px] px-3 py-1.5 rounded-full text-xs font-bold border transition-colors touch-manipulation ${
+                  className={`shrink-0 whitespace-nowrap min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-full text-xs font-bold border transition-colors touch-manipulation ${
                     incidentFilter === tab.id
                       ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)]'
                       : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)] hover:text-[var(--kg-text)]'
@@ -578,7 +580,7 @@ export default function IncidentTracker() {
                         </span>
                         <span className="text-xs font-black text-[var(--kg-text)]">{inc.category}</span>
                         {inc.severity === 'urgent' && (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-[var(--kg-danger)] text-white">
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-[var(--kg-danger)] text-white dark:text-[#0D1015]">
                             KHẨN CẤP
                           </span>
                         )}
@@ -612,6 +614,7 @@ export default function IncidentTracker() {
                               className={`h-1.5 rounded-full ${active ? 'bg-[var(--kg-success)]' : 'bg-[var(--kg-border)]'}`}
                             />
                             <span
+                              title={step.shortLabel}
                               className={`block text-[10px] truncate ${
                                 active ? 'font-bold text-[var(--kg-text)]' : 'text-[var(--kg-text-muted)]'
                               }`}

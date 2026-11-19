@@ -271,8 +271,8 @@ export default function CashAuditPanel({
       )}
 
       <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 sm:p-5 space-y-4 shadow-xs">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--kg-border)] pb-3">
-          <div>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-[var(--kg-border)] pb-3">
+          <div className="min-w-0">
             <h3 className="font-extrabold text-[var(--kg-text)] text-sm sm:text-base">
               Đối soát Két Thu ngân 2 chiều
             </h3>
@@ -292,7 +292,7 @@ export default function CashAuditPanel({
                 key={id}
                 type="button"
                 onClick={() => setCashFilter(id)}
-                className={`min-h-[44px] sm:min-h-[34px] px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
+                className={`min-h-[42px] sm:min-h-[36px] px-3 py-1.5 rounded-xl text-xs font-bold transition-colors whitespace-nowrap ${
                   cashFilter === id
                     ? 'bg-[var(--kg-primary)] text-white shadow-xs'
                     : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
@@ -306,9 +306,9 @@ export default function CashAuditPanel({
                 type="button"
                 disabled={Boolean(bulkProgress)}
                 onClick={() => void handleBulkConfirmMatchedHandovers()}
-                className="min-h-[44px] sm:min-h-[34px] px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold inline-flex items-center gap-1.5 shadow-xs disabled:opacity-50"
+                className="min-h-[42px] sm:min-h-[36px] px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold inline-flex items-center gap-1.5 shadow-xs disabled:opacity-50 whitespace-nowrap"
               >
-                <CheckCheck size={14} />
+                <CheckCheck size={14} className="shrink-0" />
                 {bulkProgress
                   ? `Đang duyệt ${bulkProgress.done}/${bulkProgress.total}...`
                   : `Duyệt tất cả ca khớp (${matchedUnconfirmedHandovers.length})`}
@@ -321,7 +321,7 @@ export default function CashAuditPanel({
                 disabled={loading}
                 aria-label="Làm mới sổ két"
                 title="Làm mới sổ két"
-                className="min-h-[44px] min-w-[44px] sm:min-h-[34px] sm:min-w-[34px] inline-flex items-center justify-center rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]"
+                className="min-h-[42px] min-w-[42px] sm:min-h-[36px] sm:min-w-[36px] inline-flex items-center justify-center rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] shrink-0"
               >
                 <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
               </button>
@@ -329,8 +329,8 @@ export default function CashAuditPanel({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          <div className="relative">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+          <div className="relative sm:col-span-2 lg:col-span-1">
             <Search
               size={14}
               className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--kg-text-muted)] pointer-events-none"
@@ -341,33 +341,33 @@ export default function CashAuditPanel({
               onChange={(e) => setCashSearchQuery(e.target.value)}
               placeholder="Tìm thu ngân, ca, ghi chú..."
               aria-label="Tìm bản ghi đối soát két"
-              className="w-full min-h-[44px] sm:min-h-[38px] pl-9 pr-8 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-base sm:text-xs font-medium text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
+              className="w-full min-h-[44px] sm:min-h-[38px] pl-9 pr-10 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-base sm:text-xs font-medium text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
             />
             {cashSearchQuery && (
               <button
                 type="button"
                 onClick={() => setCashSearchQuery('')}
                 aria-label="Xóa từ khóa tìm kiếm két"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]"
+                className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 inline-flex items-center justify-center rounded-lg text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface)]"
               >
                 <X size={13} />
               </button>
             )}
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 min-w-0">
             <input
               type="date"
               value={cashDateFilter}
               onChange={(e) => setCashDateFilter(e.target.value)}
               aria-label="Lọc theo ngày bàn giao két"
-              className="flex-1 min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-base sm:text-xs font-mono tabular-nums text-[var(--kg-text)]"
+              className="flex-1 min-w-0 min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-base sm:text-xs font-mono tabular-nums text-[var(--kg-text)]"
             />
             {cashDateFilter && (
               <button
                 type="button"
                 onClick={() => setCashDateFilter('')}
-                className="min-h-[44px] sm:min-h-[38px] px-2.5 py-2 rounded-xl border border-[var(--kg-border)] text-xs font-bold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]"
+                className="min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl border border-[var(--kg-border)] text-xs font-bold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] whitespace-nowrap shrink-0"
               >
                 Xóa ngày
               </button>
@@ -541,7 +541,7 @@ export default function CashAuditPanel({
                     </div>
                   )}
 
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-2 border-t border-[var(--kg-border)]">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-2.5 border-t border-[var(--kg-border)]">
                     <input
                       type="text"
                       value={noteValue}
@@ -549,14 +549,14 @@ export default function CashAuditPanel({
                         setManagerNotes((prev) => ({ ...prev, [item.id]: e.target.value }))
                       }
                       placeholder="Kết luận đối soát của Quản lý (VD: Đã khớp phiếu chi mua đá)..."
-                      className="flex-1 min-h-[44px] sm:min-h-[38px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface)] px-3 py-2 text-base sm:text-xs text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
+                      className="flex-1 min-w-0 min-h-[44px] sm:min-h-[38px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface)] px-3 py-2 text-base sm:text-xs text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
                     />
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 shrink-0">
                       <button
                         type="button"
                         disabled={isBusy}
                         onClick={() => void handleManagerReviewHandover(item, 'DISPUTE')}
-                        className="flex-1 sm:flex-none min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300 text-xs font-bold hover:bg-amber-500/20 disabled:opacity-50"
+                        className="flex-1 sm:flex-none min-w-[136px] min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300 text-xs font-bold hover:bg-amber-500/20 disabled:opacity-50 whitespace-nowrap"
                       >
                         Yêu cầu giải trình
                       </button>
@@ -564,7 +564,7 @@ export default function CashAuditPanel({
                         type="button"
                         disabled={isBusy}
                         onClick={() => void handleManagerReviewHandover(item, 'CONFIRM')}
-                        className="flex-1 sm:flex-none min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold disabled:opacity-50"
+                        className="flex-1 sm:flex-none min-w-[124px] min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold disabled:opacity-50 whitespace-nowrap"
                       >
                         {isBusy ? 'Đang lưu...' : 'Duyệt chốt két'}
                       </button>

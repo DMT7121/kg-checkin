@@ -88,14 +88,16 @@ export default function HrMobileCardList({
             } ${isProcessing ? 'opacity-50 pointer-events-none' : ''}`}
           >
             {/* Main Info Row */}
-            <div className="p-4 flex items-start gap-3">
-              <input
-                type="checkbox"
-                checked={isSelected}
-                onChange={() => actions.onToggleSelect(user.username)}
-                aria-label={`Chọn ${user.fullname}`}
-                className="mt-3 w-4 h-4 rounded accent-[var(--kg-primary)] cursor-pointer flex-shrink-0"
-              />
+            <div className="p-3.5 sm:p-4 flex items-start gap-2.5 sm:gap-3">
+              <label className="w-10 h-10 -ml-2 mt-0.5 flex items-center justify-center flex-shrink-0 cursor-pointer rounded-xl hover:bg-[var(--kg-surface-soft)]">
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={() => actions.onToggleSelect(user.username)}
+                  aria-label={`Chọn ${user.fullname}`}
+                  className="w-4 h-4 rounded accent-[var(--kg-primary)] cursor-pointer"
+                />
+              </label>
               {/* Avatar with upload overlay */}
               <div
                 className="relative group flex-shrink-0"
@@ -168,7 +170,7 @@ export default function HrMobileCardList({
                         if (statusMeta.value === 'active') actions.onEnrollFaceId(user);
                       }}
                       title="Nhấn để quét lại 5 góc khuôn mặt cho nhân sự này"
-                      className="inline-flex items-center gap-1.5 min-h-[36px] bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/25 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
+                      className="inline-flex items-center gap-1.5 min-h-[40px] sm:min-h-[36px] bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/25 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap"
                     >
                       <ShieldCheck size={13} className="flex-shrink-0" /> Face ID: Đã khóa (
                       {faceProfile.anglesCount || 5} góc)
@@ -180,7 +182,7 @@ export default function HrMobileCardList({
                         e.stopPropagation();
                         actions.onEnrollFaceId(user);
                       }}
-                      className="inline-flex items-center gap-1.5 min-h-[36px] bg-[var(--kg-primary)]/10 hover:bg-[var(--kg-primary)]/20 text-[var(--kg-primary-ink)] border border-[var(--kg-primary)]/30 px-3 py-1.5 rounded-lg text-xs font-extrabold transition-colors"
+                      className="inline-flex items-center gap-1.5 min-h-[40px] sm:min-h-[36px] bg-[var(--kg-primary)]/10 hover:bg-[var(--kg-primary)]/20 text-[var(--kg-primary-ink)] border border-[var(--kg-primary)]/30 px-3 py-1.5 rounded-lg text-xs font-extrabold transition-colors whitespace-nowrap"
                     >
                       <UserPlus size={13} className="flex-shrink-0" /> + Đăng ký Face ID
                     </button>
@@ -250,15 +252,15 @@ export default function HrMobileCardList({
                         <button
                           type="button"
                           onClick={() => actions.onUpdateEmploymentStatus(user)}
-                          className="min-h-[44px] sm:min-h-[36px] rounded-xl bg-[var(--kg-primary)] text-white px-3.5 py-2 text-xs font-extrabold shadow-xs hover:opacity-90 active:scale-95 transition-all"
+                          className="w-full sm:w-auto min-h-[44px] sm:min-h-[38px] rounded-xl bg-[var(--kg-primary)] text-white px-3.5 py-2 text-xs font-extrabold shadow-xs hover:opacity-90 active:scale-95 transition-all whitespace-nowrap shrink-0"
                         >
                           Đổi trạng thái
                         </button>
                       )}
                     </div>
                   </div>
-                  <div className="flex flex-col sm:flex-row gap-3 mt-3">
-                    <div className="flex-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                    <div>
                       <label className="text-[10px] uppercase font-bold text-[var(--kg-text-muted)] mb-1 ml-0.5 flex items-center gap-1">
                         <Briefcase size={9} /> Chức vụ
                       </label>
@@ -276,7 +278,7 @@ export default function HrMobileCardList({
                         ))}
                       </select>
                     </div>
-                    <div className="flex-1">
+                    <div>
                       <label className="text-[10px] uppercase font-bold text-[var(--kg-text-muted)] mb-1 ml-0.5 flex items-center gap-1">
                         <UserCog size={9} /> Phân quyền
                       </label>
@@ -294,38 +296,38 @@ export default function HrMobileCardList({
                         ))}
                       </select>
                     </div>
-                    <div className="sm:self-end flex flex-col sm:flex-row flex-wrap gap-2">
-                      {statusMeta.value === 'active' && (
-                        <button
-                          type="button"
-                          onClick={() => actions.onEnrollFaceId(user)}
-                          data-testid={`enroll-face-id-${user.username}`}
-                          className="w-full sm:w-auto min-h-[44px] flex items-center justify-center gap-1.5 px-3.5 py-2.5 text-xs sm:text-sm font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-xl transition-colors"
-                        >
-                          <UserPlus size={14} />
-                          <span>
-                            {faceProfile ? 'Quét lại 5 góc Face ID' : 'Đăng ký khuôn mặt 5 góc'}
-                          </span>
-                        </button>
-                      )}
+                  </div>
+                  <div className="flex flex-col sm:flex-row sm:flex-wrap sm:justify-end gap-2 mt-3 pt-3 border-t border-[var(--kg-border)]">
+                    {statusMeta.value === 'active' && (
                       <button
                         type="button"
-                        onClick={() => actions.onResetFaceProfile(user.username, user.fullname)}
-                        data-testid={`reset-face-id-${user.username}`}
-                        className="w-full sm:w-auto min-h-[44px] flex items-center justify-center gap-1.5 px-3.5 py-2.5 text-xs sm:text-sm font-bold text-amber-700 dark:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-xl transition-colors"
+                        onClick={() => actions.onEnrollFaceId(user)}
+                        data-testid={`enroll-face-id-${user.username}`}
+                        className="w-full sm:w-auto min-h-[44px] sm:min-h-[38px] flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-xl transition-colors whitespace-nowrap"
                       >
-                        <Unlock size={14} />
-                        <span>Mở khóa / Đặt lại Face ID</span>
+                        <UserPlus size={14} className="shrink-0" />
+                        <span>
+                          {faceProfile ? 'Quét lại 5 góc Face ID' : 'Đăng ký khuôn mặt 5 góc'}
+                        </span>
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => actions.onForceResetPassword(user.username, user.fullname)}
-                        className="w-full sm:w-auto min-h-[44px] flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-rose-600 dark:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-xl transition-colors"
-                      >
-                        <KeyRound size={14} />
-                        <span>Đặt lại MK</span>
-                      </button>
-                    </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => actions.onResetFaceProfile(user.username, user.fullname)}
+                      data-testid={`reset-face-id-${user.username}`}
+                      className="w-full sm:w-auto min-h-[44px] sm:min-h-[38px] flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-xl transition-colors whitespace-nowrap"
+                    >
+                      <Unlock size={14} className="shrink-0" />
+                      <span>Mở khóa / Đặt lại Face ID</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => actions.onForceResetPassword(user.username, user.fullname)}
+                      className="w-full sm:w-auto min-h-[44px] sm:min-h-[38px] flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-xl transition-colors whitespace-nowrap"
+                    >
+                      <KeyRound size={14} className="shrink-0" />
+                      <span>Đặt lại MK</span>
+                    </button>
                   </div>
                 </div>
               </div>

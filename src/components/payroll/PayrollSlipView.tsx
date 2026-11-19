@@ -103,7 +103,7 @@ export default function PayrollSlipView({
   const hasRightRail = !isManagerView || Boolean(payroll);
 
   return (
-    <div className="p-4 space-y-5 animate-fade-in pb-16 max-w-4xl mx-auto">
+    <div className="p-4 space-y-5 animate-fade-in pb-16 max-w-5xl mx-auto w-full">
       <KgModuleHero
         moduleId="payroll"
         title="Phiếu Lương Cá Nhân"
@@ -123,14 +123,14 @@ export default function PayrollSlipView({
           'Các khoản phụ cấp, trách nhiệm, thưởng doanh số hoặc tiền tip được cộng dồn theo ca.',
         ]}
         actions={
-          <label className="inline-flex items-center gap-2 rounded-xl bg-[var(--kg-surface-soft)] px-3 py-1.5 border border-[var(--kg-border)] min-h-[44px] sm:min-h-[36px]">
-            <Calendar size={14} className="text-[var(--kg-primary)]" />
+          <label className="inline-flex items-center gap-2 rounded-xl bg-[var(--kg-surface-soft)] px-3 py-1.5 border border-[var(--kg-border)] min-h-[44px] sm:min-h-[38px] w-full sm:w-auto min-w-0">
+            <Calendar size={14} className="text-[var(--kg-primary)] shrink-0" />
             <span className="sr-only">Chọn tháng xem phiếu lương</span>
             <input
               type="month"
               value={selectedMonth}
               onChange={(e) => onMonthChange(e.target.value)}
-              className="bg-transparent text-xs sm:text-sm font-bold font-mono tabular-nums text-[var(--kg-text)] outline-none"
+              className="!border-0 !bg-transparent !min-h-0 !shadow-none !p-0 flex-1 sm:flex-initial min-w-0 text-xs sm:text-sm font-bold font-mono tabular-nums text-[var(--kg-text)] outline-none"
             />
           </label>
         }
@@ -167,23 +167,23 @@ export default function PayrollSlipView({
         <div className={hasRightRail ? 'lg:col-span-7 min-w-0' : 'lg:col-span-12 min-w-0'}>
           {payroll ? (
             <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-4 sm:p-6 rounded-2xl shadow-xs space-y-5">
-              <div className="flex flex-wrap justify-between items-center pb-3 border-b border-[var(--kg-border)] gap-2">
-                <h3 className="font-black text-[var(--kg-text)] flex items-center text-sm sm:text-base">
-                  <Calculator size={18} className="mr-2 text-emerald-600 dark:text-emerald-400" />
-                  Chi tiết các khoản thu nhập
+              <div className="flex flex-col sm:flex-row sm:flex-wrap justify-between sm:items-center pb-3 border-b border-[var(--kg-border)] gap-2.5">
+                <h3 className="font-black text-[var(--kg-text)] flex items-center text-sm sm:text-base min-w-0">
+                  <Calculator size={18} className="mr-2 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span className="truncate">Chi tiết các khoản thu nhập</span>
                 </h3>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                   <button
                     type="button"
                     onClick={() => onPrintA5Payslip(payroll)}
-                    className="inline-flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl text-xs font-black bg-[var(--kg-surface-soft)] text-[var(--kg-text)] border border-[var(--kg-border)] hover:border-emerald-500/40 active:scale-95 transition-all touch-manipulation"
+                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl text-xs font-black bg-[var(--kg-surface-soft)] text-[var(--kg-text)] border border-[var(--kg-border)] hover:border-emerald-500/40 active:scale-95 transition-all whitespace-nowrap touch-manipulation"
                   >
                     <Printer size={14} className="flex-shrink-0" /> In phiếu A5 / PDF
                   </button>
                   <button
                     type="button"
                     onClick={onBack}
-                    className="inline-flex items-center justify-center min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl text-xs text-[var(--kg-text-muted)] bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] hover:text-[var(--kg-text)] font-bold active:scale-95 transition-all touch-manipulation"
+                    className="inline-flex items-center justify-center min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl text-xs text-[var(--kg-text-muted)] bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] hover:text-[var(--kg-text)] font-bold active:scale-95 transition-all whitespace-nowrap touch-manipulation"
                   >
                     <ChevronRight size={14} className="rotate-180 mr-1 flex-shrink-0" />
                     Quay lại
@@ -191,26 +191,26 @@ export default function PayrollSlipView({
                 </div>
               </div>
 
-              <div className="space-y-3.5 text-xs sm:text-sm tabular-nums">
+              <div className="space-y-3 text-xs sm:text-sm tabular-nums">
                 {/* Salary rate row */}
                 <div className="flex justify-between items-center gap-3">
-                  <span className="text-[var(--kg-text-muted)] font-medium">
+                  <span className="text-[var(--kg-text-muted)] font-medium min-w-0 flex-1">
                     {payroll.payType === 'daily'
                       ? 'Lương tháng chuẩn 30 ngày'
                       : 'Mức lương cơ bản / giờ'}
                   </span>
                   {isConfigured ? (
-                    <span className="font-mono font-bold text-[var(--kg-text)]">
+                    <span className="font-mono tabular-nums font-bold text-[var(--kg-text)] text-right shrink-0 whitespace-nowrap">
                       {formatVnd(payroll.salaryAmount ?? payroll.baseSalaryPerHour)}
                     </span>
                   ) : (
-                    <KgStatusBadge variant="warning">Chờ cấu hình lương</KgStatusBadge>
+                    <KgStatusBadge variant="warning" className="shrink-0">Chờ cấu hình lương</KgStatusBadge>
                   )}
                 </div>
 
                 {/* Total hours / days row with drill-down to Attendance Ledger */}
                 <div className="flex justify-between items-center gap-3">
-                  <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                  <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
                     <span className="text-[var(--kg-text-muted)] font-medium">
                       {payroll.payType === 'daily'
                         ? 'Tổng số ngày làm thực tế'
@@ -220,13 +220,13 @@ export default function PayrollSlipView({
                       <button
                         type="button"
                         onClick={() => navigateToHubSubTab('attendance', 'ledger')}
-                        className="inline-flex items-center gap-1 text-[11px] font-bold text-[var(--kg-primary-ink)] hover:underline"
+                        className="inline-flex items-center gap-1 min-h-[40px] md:min-h-[36px] px-2.5 py-1.5 rounded-lg bg-[var(--kg-primary-soft)] text-[11px] font-bold text-[var(--kg-primary-ink)] hover:brightness-95 transition-colors whitespace-nowrap touch-manipulation"
                       >
                         Xem bảng công <ExternalLink size={11} />
                       </button>
                     )}
                   </div>
-                  <span className="font-mono font-black text-[var(--kg-text)] whitespace-nowrap">
+                  <span className="font-mono tabular-nums font-black text-[var(--kg-text)] text-right shrink-0 whitespace-nowrap">
                     {payroll.payType === 'daily' ? `${workedDays} ngày` : formatHours(totalHours)}
                   </span>
                 </div>
@@ -234,22 +234,22 @@ export default function PayrollSlipView({
                 {/* Breakdown of regular hours and overtime */}
                 {payroll.payType !== 'daily' && (regularHours > 0 || overtimeHours > 0) && (
                   <div className="bg-[var(--kg-surface-soft)] p-3 rounded-xl border border-[var(--kg-border)] space-y-2">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-[var(--kg-text-muted)] font-medium flex items-center gap-1.5">
-                        <Clock size={13} className="text-emerald-500" />
-                        Giờ làm theo ca chính
+                    <div className="flex justify-between items-center gap-3 text-xs">
+                      <span className="text-[var(--kg-text-muted)] font-medium flex items-center gap-1.5 min-w-0">
+                        <Clock size={13} className="text-emerald-500 shrink-0" />
+                        <span className="truncate">Giờ làm theo ca chính</span>
                       </span>
-                      <span className="font-mono font-bold text-[var(--kg-text)]">
+                      <span className="font-mono tabular-nums font-bold text-[var(--kg-text)] text-right shrink-0 whitespace-nowrap">
                         {formatHours(regularHours)}
                       </span>
                     </div>
                     {overtimeHours > 0 && (
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1.5">
-                          <Zap size={13} className="text-amber-500" />
-                          Giờ tăng ca (qua đêm &gt; 00:15)
+                      <div className="flex justify-between items-center gap-3 text-xs">
+                        <span className="text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1.5 min-w-0">
+                          <Zap size={13} className="text-amber-500 shrink-0" />
+                          <span className="truncate">Giờ tăng ca (qua đêm &gt; 00:15)</span>
                         </span>
-                        <span className="font-mono font-black text-amber-600 dark:text-amber-400">
+                        <span className="font-mono tabular-nums font-black text-amber-600 dark:text-amber-400 text-right shrink-0 whitespace-nowrap">
                           +{formatHours(overtimeHours)}
                         </span>
                       </div>
@@ -261,81 +261,83 @@ export default function PayrollSlipView({
 
                 {/* Base salary from shifts */}
                 <div className="flex justify-between items-center gap-3">
-                  <span className="text-[var(--kg-text)] font-black">Tổng lương theo công</span>
+                  <span className="text-[var(--kg-text)] font-black min-w-0 flex-1">Tổng lương theo công</span>
                   {isConfigured ? (
-                    <span className="font-mono font-black text-[var(--kg-primary-ink)]">
+                    <span className="font-mono tabular-nums font-black text-[var(--kg-primary-ink)] text-right shrink-0 whitespace-nowrap">
                       {formatVnd(payroll.totalBaseSalary)}
                     </span>
                   ) : (
-                    <span className="text-xs font-bold text-amber-600 dark:text-amber-400 italic">
+                    <span className="text-xs font-bold text-amber-600 dark:text-amber-400 italic text-right shrink-0">
                       Chờ thiết lập mức lương
                     </span>
                   )}
                 </div>
 
                 {/* Drill-down Breakdown Rows — Unified inside attendance hub for staff */}
-                <button
-                  type="button"
-                  onClick={() =>
-                    navigateToHubSubTab(isManagerView ? 'admin_people_pay' : 'attendance', 'discipline')
-                  }
-                  className="w-full flex justify-between items-center gap-3 text-emerald-600 dark:text-emerald-400 font-bold hover:bg-[var(--kg-surface-soft)] px-2 py-1.5 -mx-2 rounded-lg transition-colors text-left"
-                >
-                  <span className="inline-flex items-center gap-1.5">
-                    + Thưởng hiệu suất / chuyên cần
-                    <ExternalLink size={12} className="opacity-70" />
-                  </span>
-                  <span className="font-mono tabular-nums whitespace-nowrap">
-                    + {formatVnd(payroll.bonus || 0)}
-                  </span>
-                </button>
+                <div className="space-y-1">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigateToHubSubTab(isManagerView ? 'admin_people_pay' : 'attendance', 'discipline')
+                    }
+                    className="w-full min-h-[44px] sm:min-h-[38px] flex justify-between items-center gap-3 text-emerald-600 dark:text-emerald-400 font-bold hover:bg-[var(--kg-surface-soft)] px-2.5 py-2 rounded-xl transition-colors text-left touch-manipulation"
+                  >
+                    <span className="inline-flex items-center gap-1.5 min-w-0 flex-1">
+                      <span className="truncate">+ Thưởng hiệu suất / chuyên cần</span>
+                      <ExternalLink size={12} className="opacity-70 shrink-0" />
+                    </span>
+                    <span className="font-mono tabular-nums text-right shrink-0 whitespace-nowrap">
+                      + {formatVnd(payroll.bonus || 0)}
+                    </span>
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    navigateToHubSubTab(isManagerView ? 'admin_people_pay' : 'attendance', 'discipline')
-                  }
-                  className="w-full flex justify-between items-center gap-3 text-rose-500 dark:text-rose-400 font-bold hover:bg-[var(--kg-surface-soft)] px-2 py-1.5 -mx-2 rounded-lg transition-colors text-left"
-                >
-                  <span className="inline-flex items-center gap-1.5">
-                    - Khấu trừ phạt vi phạm
-                    <ExternalLink size={12} className="opacity-70" />
-                  </span>
-                  <span className="font-mono tabular-nums whitespace-nowrap">
-                    - {formatVnd(payroll.penalty || 0)}
-                  </span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigateToHubSubTab(isManagerView ? 'admin_people_pay' : 'attendance', 'discipline')
+                    }
+                    className="w-full min-h-[44px] sm:min-h-[38px] flex justify-between items-center gap-3 text-rose-500 dark:text-rose-400 font-bold hover:bg-[var(--kg-surface-soft)] px-2.5 py-2 rounded-xl transition-colors text-left touch-manipulation"
+                  >
+                    <span className="inline-flex items-center gap-1.5 min-w-0 flex-1">
+                      <span className="truncate">- Khấu trừ phạt vi phạm</span>
+                      <ExternalLink size={12} className="opacity-70 shrink-0" />
+                    </span>
+                    <span className="font-mono tabular-nums text-right shrink-0 whitespace-nowrap">
+                      - {formatVnd(payroll.penalty || 0)}
+                    </span>
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    navigateToHubSubTab(
-                      isManagerView ? 'admin_ops' : 'attendance',
-                      isManagerView ? 'inbox' : 'advance',
-                    )
-                  }
-                  className="w-full flex justify-between items-center gap-3 text-amber-600 dark:text-amber-400 font-bold hover:bg-[var(--kg-surface-soft)] px-2 py-1.5 -mx-2 rounded-lg transition-colors text-left"
-                >
-                  <span className="inline-flex items-center gap-1.5">
-                    - Đã tạm ứng trong tháng
-                    <ExternalLink size={12} className="opacity-70" />
-                  </span>
-                  <span className="font-mono tabular-nums whitespace-nowrap">
-                    - {formatVnd(payroll.advances || 0)}
-                  </span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigateToHubSubTab(
+                        isManagerView ? 'admin_ops' : 'attendance',
+                        isManagerView ? 'inbox' : 'advance',
+                      )
+                    }
+                    className="w-full min-h-[44px] sm:min-h-[38px] flex justify-between items-center gap-3 text-amber-600 dark:text-amber-400 font-bold hover:bg-[var(--kg-surface-soft)] px-2.5 py-2 rounded-xl transition-colors text-left touch-manipulation"
+                  >
+                    <span className="inline-flex items-center gap-1.5 min-w-0 flex-1">
+                      <span className="truncate">- Đã tạm ứng trong tháng</span>
+                      <ExternalLink size={12} className="opacity-70 shrink-0" />
+                    </span>
+                    <span className="font-mono tabular-nums text-right shrink-0 whitespace-nowrap">
+                      - {formatVnd(payroll.advances || 0)}
+                    </span>
+                  </button>
+                </div>
 
                 <div className="w-full h-px bg-[var(--kg-border)] border-dashed border-t" />
 
                 {/* Net pay row */}
                 <div
-                  className={`flex justify-between items-center gap-3 p-4 rounded-2xl border ${
+                  className={`flex flex-wrap justify-between items-center gap-2 p-4 rounded-2xl border ${
                     isConfigured
                       ? 'bg-[var(--kg-success-soft)] border-[var(--kg-success)]/25'
                       : 'bg-[var(--kg-warning-soft)] border-[var(--kg-warning)]/25'
                   }`}
                 >
-                  <div>
+                  <div className="min-w-0">
                     <span
                       className={`font-black text-sm sm:text-base uppercase tracking-wider block ${
                         isConfigured ? 'text-[var(--kg-success)]' : 'text-[var(--kg-warning)]'
@@ -350,7 +352,7 @@ export default function PayrollSlipView({
                     )}
                   </div>
                   <span
-                    className={`font-mono tabular-nums font-black text-xl sm:text-2xl ${
+                    className={`font-mono tabular-nums font-black text-lg sm:text-2xl text-right ml-auto whitespace-nowrap ${
                       isConfigured ? 'text-[var(--kg-success)]' : 'text-[var(--kg-warning)]'
                     }`}
                   >
@@ -397,8 +399,9 @@ export default function PayrollSlipView({
                     </h4>
                   </div>
                   {slipConfirmation?.status === 'CONFIRMED' && (
-                    <KgStatusBadge variant="success">
-                      <CheckCircle2 size={13} /> Đã xác nhận ({slipConfirmation.updatedAt})
+                    <KgStatusBadge variant="success" className="max-w-full truncate">
+                      <CheckCircle2 size={13} className="shrink-0" />
+                      <span className="truncate">Đã xác nhận ({slipConfirmation.updatedAt})</span>
                     </KgStatusBadge>
                   )}
                   {slipConfirmation?.status === 'DISPUTED' && (
@@ -427,7 +430,7 @@ export default function PayrollSlipView({
                 )}
 
                 {!isManagerView && workflow.status !== 'Locked' && (
-                  <div className="flex flex-col sm:flex-row lg:flex-col gap-2 pt-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2 pt-1">
                     <KgButton
                       type="button"
                       variant="primary"

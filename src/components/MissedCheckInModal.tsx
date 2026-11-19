@@ -32,6 +32,7 @@ import {
 } from '../utils/attendanceSequence';
 import { refreshAppData } from '../utils/refreshData';
 import { enqueueTask } from '../utils/offlineQueue';
+import { useDialogA11y } from '../utils/modalQueue';
 
 export interface MissedClaimItem {
   id: string;
@@ -226,6 +227,14 @@ export default function MissedCheckInModal({
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+
+  useDialogA11y({
+    isOpen,
+    containerRef: dialogRef,
+    onClose,
+    closeOnEscape: true,
+  });
 
   // Detect recent missing punch alerts (last 14 days) so staff can pick the exact date in 1 tap
   const missingDateAlerts = useMemo(
@@ -652,7 +661,15 @@ export default function MissedCheckInModal({
       />
 
       {/* Compact, Clean Modal Card */}
-      <div className="relative w-full sm:max-w-lg max-h-[92dvh] sm:max-h-[88vh] mx-auto bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-t-3xl sm:rounded-3xl shadow-2xl border border-[var(--kg-border)] flex flex-col overflow-hidden z-10">
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="missed-checkin-modal-title"
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full sm:max-w-lg max-h-[92dvh] sm:max-h-[88dvh] mx-auto bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-t-3xl sm:rounded-3xl shadow-2xl border border-[var(--kg-border)] flex flex-col overflow-hidden z-10 focus:outline-none"
+      >
         {/* Compact Header */}
         <div className="px-4 py-3.5 border-b border-[var(--kg-border)] flex items-center justify-between gap-3 bg-[var(--kg-surface)] flex-shrink-0">
           <div className="flex items-center gap-2.5 min-w-0">
@@ -660,7 +677,10 @@ export default function MissedCheckInModal({
               <Clock size={18} />
             </div>
             <div className="min-w-0">
-              <h3 className="text-sm sm:text-base font-black tracking-tight text-[var(--kg-text)] truncate">
+              <h3
+                id="missed-checkin-modal-title"
+                className="text-sm sm:text-base font-black tracking-tight text-[var(--kg-text)] truncate"
+              >
                 Bổ sung chấm công
               </h3>
               <p className="text-[11px] text-[var(--kg-text-muted)] font-medium truncate">
@@ -678,8 +698,8 @@ export default function MissedCheckInModal({
           </button>
         </div>
 
-        {/* Clean 3-Tab Segmented Bar */}
-        <div className="grid grid-cols-2 sm:flex border-b border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-1.5 gap-1.5 flex-shrink-0">
+        {/* Clean Single-Row Segmented Bar */}
+        <div className={`grid ${isAdmin ? 'grid-cols-3' : 'grid-cols-2'} border-b border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-1.5 gap-1.5 flex-shrink-0`}>
           <button
             type="button"
             onClick={() => {
@@ -687,14 +707,15 @@ export default function MissedCheckInModal({
               setSubmittedClaim(null);
               setInlineNotice(null);
             }}
-            className={`px-3 py-2 min-h-[44px] sm:min-h-[40px] rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 border touch-manipulation ${
+            className={`px-2 sm:px-3 py-2 min-h-[44px] sm:min-h-[40px] rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 border touch-manipulation whitespace-nowrap min-w-0 ${
               activeTab === 'create'
                 ? 'bg-[var(--kg-surface)] text-[var(--kg-text)] border-[var(--kg-border)] shadow-2xs'
                 : 'text-[var(--kg-text-muted)] border-transparent hover:text-[var(--kg-text)]'
             }`}
           >
-            <Send size={13} className={activeTab === 'create' ? 'text-[var(--kg-primary)]' : ''} />
-            <span>Bổ sung công</span>
+            <Send size={13} className={`flex-shrink-0 ${activeTab === 'create' ? 'text-[var(--kg-primary)]' : ''}`} />
+            <span className="truncate sm:hidden">Bổ sung</span>
+            <span className="truncate hidden sm:inline">Bổ sung công</span>
           </button>
 
           <button
@@ -703,14 +724,15 @@ export default function MissedCheckInModal({
               setActiveTab('history');
               setInlineNotice(null);
             }}
-            className={`px-3 py-2 min-h-[44px] sm:min-h-[40px] rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 border touch-manipulation ${
+            className={`px-2 sm:px-3 py-2 min-h-[44px] sm:min-h-[40px] rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 border touch-manipulation whitespace-nowrap min-w-0 ${
               activeTab === 'history'
                 ? 'bg-[var(--kg-surface)] text-[var(--kg-text)] border-[var(--kg-border)] shadow-2xs'
                 : 'text-[var(--kg-text-muted)] border-transparent hover:text-[var(--kg-text)]'
             }`}
           >
-            <History size={13} className={activeTab === 'history' ? 'text-[var(--kg-primary)]' : ''} />
-            <span>Đơn đã gửi ({userHistoryClaims.length})</span>
+            <History size={13} className={`flex-shrink-0 ${activeTab === 'history' ? 'text-[var(--kg-primary)]' : ''}`} />
+            <span className="truncate sm:hidden">Đã gửi ({userHistoryClaims.length})</span>
+            <span className="truncate hidden sm:inline">Đơn đã gửi ({userHistoryClaims.length})</span>
           </button>
 
           {isAdmin && (
@@ -721,16 +743,16 @@ export default function MissedCheckInModal({
                 setActiveTab('admin');
                 setInlineNotice(null);
               }}
-              className={`col-span-2 sm:col-span-1 px-3 py-2 min-h-[44px] sm:min-h-[40px] rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 border touch-manipulation ${
+              className={`px-2 sm:px-3 py-2 min-h-[44px] sm:min-h-[40px] rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1 border touch-manipulation whitespace-nowrap min-w-0 ${
                 activeTab === 'admin'
                   ? 'bg-[var(--kg-surface)] text-[var(--kg-text)] border-[var(--kg-border)] shadow-2xs'
                   : 'text-[var(--kg-text-muted)] border-transparent hover:text-[var(--kg-text)]'
               }`}
             >
-              <ShieldCheck size={13} className={activeTab === 'admin' ? 'text-[var(--kg-primary)]' : ''} />
-              <span>Duyệt đơn</span>
+              <ShieldCheck size={13} className={`flex-shrink-0 ${activeTab === 'admin' ? 'text-[var(--kg-primary)]' : ''}`} />
+              <span className="truncate">Duyệt</span>
               {pendingAdminCount > 0 && (
-                <span className="px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-black font-mono tabular-nums">
+                <span className="px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-black font-mono tabular-nums flex-shrink-0">
                   {pendingAdminCount}
                 </span>
               )}
@@ -759,7 +781,7 @@ export default function MissedCheckInModal({
         )}
 
         {/* Modal Scrollable Body */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
+        <div className="flex-1 overflow-y-auto p-4 pb-safe sm:pb-4 space-y-3.5 min-h-0">
           {/* TAB 1: CREATE SUPPLEMENT */}
           {activeTab === 'create' && (
             <>
@@ -870,7 +892,7 @@ export default function MissedCheckInModal({
                             setClaimDate(todayWorkdayDmy);
                             setManualEmptyDayAction(null);
                           }}
-                          className={`px-2.5 py-1.5 min-h-[44px] sm:min-h-[30px] sm:py-0.5 rounded-lg text-[11px] font-bold border transition touch-manipulation ${
+                          className={`px-2.5 py-1.5 min-h-[44px] sm:min-h-[36px] sm:py-1 rounded-lg text-[11px] font-bold border transition touch-manipulation whitespace-nowrap ${
                             claimDate === todayWorkdayDmy
                               ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)]'
                               : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)]'
@@ -884,7 +906,7 @@ export default function MissedCheckInModal({
                             setClaimDate(yesterdayWorkdayDmy);
                             setManualEmptyDayAction(null);
                           }}
-                          className={`px-2.5 py-1.5 min-h-[44px] sm:min-h-[30px] sm:py-0.5 rounded-lg text-[11px] font-bold border transition touch-manipulation ${
+                          className={`px-2.5 py-1.5 min-h-[44px] sm:min-h-[36px] sm:py-1 rounded-lg text-[11px] font-bold border transition touch-manipulation whitespace-nowrap ${
                             claimDate === yesterdayWorkdayDmy
                               ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)]'
                               : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)]'
@@ -997,10 +1019,10 @@ export default function MissedCheckInModal({
 
                   {/* Step 3: Compact Actual Time + Shift */}
                   <div className="grid grid-cols-2 gap-2.5">
-                    <div>
+                    <div className="min-w-0">
                       <label
                         htmlFor="missed-claim-time-input"
-                        className="block text-[11px] font-black text-[var(--kg-text-muted)] mb-1 uppercase tracking-wider"
+                        className="block text-[11px] font-black text-[var(--kg-text-muted)] mb-1 uppercase tracking-wider truncate"
                       >
                         Giờ {effectiveBaseAction.toLowerCase()} thực tế
                       </label>
@@ -1015,10 +1037,10 @@ export default function MissedCheckInModal({
                       />
                     </div>
 
-                    <div>
+                    <div className="min-w-0">
                       <label
                         htmlFor="missed-claim-shift-select"
-                        className="block text-[11px] font-black text-[var(--kg-text-muted)] mb-1 uppercase tracking-wider"
+                        className="block text-[11px] font-black text-[var(--kg-text-muted)] mb-1 uppercase tracking-wider truncate"
                       >
                         Ca đăng ký
                       </label>
@@ -1048,7 +1070,7 @@ export default function MissedCheckInModal({
                         key={t}
                         type="button"
                         onClick={() => setClaimTime(t)}
-                        className={`px-2.5 py-1.5 sm:py-1 min-h-[44px] sm:min-h-[34px] rounded-lg text-xs sm:text-[11px] font-mono tabular-nums font-bold border transition touch-manipulation shrink-0 ${
+                        className={`px-2.5 py-1.5 sm:py-1 min-h-[44px] sm:min-h-[36px] rounded-lg text-xs sm:text-[11px] font-mono tabular-nums font-bold border transition touch-manipulation shrink-0 ${
                           claimTime === t
                             ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)]'
                             : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)] hover:text-[var(--kg-text)]'
@@ -1097,7 +1119,7 @@ export default function MissedCheckInModal({
                         value={claimReasonDetail}
                         onChange={(e) => setClaimReasonDetail(e.target.value)}
                         placeholder="Ghi chú thêm nếu cần (tùy chọn)..."
-                        className="flex-1 px-3 py-2 min-h-[44px] sm:min-h-[40px] rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-base sm:text-xs text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)]"
+                        className="flex-1 min-w-0 px-3 py-2 min-h-[44px] sm:min-h-[40px] rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-base sm:text-xs text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)]"
                       />
                       <input
                         type="file"
@@ -1122,29 +1144,31 @@ export default function MissedCheckInModal({
                     </div>
                   </div>
 
-                  {/* Primary Submit CTA */}
-                  <button
-                    type="submit"
-                    data-testid="missed-submit-btn"
-                    disabled={isSubmitting || !suppResolution.canSupplement}
-                    className={`w-full py-3.5 px-4 min-h-[48px] rounded-2xl font-black text-sm text-white shadow-sm transition active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2 ${
-                      isSmartOut
-                        ? 'bg-rose-600 hover:bg-rose-700'
-                        : 'bg-emerald-600 hover:bg-emerald-700'
-                    }`}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <RefreshCw size={16} className="animate-spin" />
-                        <span>Đang ghi vào Sheet chấm công...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Send size={16} />
-                        <span>Gửi bổ sung {effectiveBaseAction} (Chờ Admin duyệt)</span>
-                      </>
-                    )}
-                  </button>
+                  {/* Sticky Primary Submit CTA */}
+                  <div className="sticky -bottom-4 -mx-4 px-4 py-3 bg-[var(--kg-surface)] border-t border-[var(--kg-border)]">
+                    <button
+                      type="submit"
+                      data-testid="missed-submit-btn"
+                      disabled={isSubmitting || !suppResolution.canSupplement}
+                      className={`w-full py-3.5 px-4 min-h-[48px] rounded-2xl font-black text-sm text-white shadow-sm transition active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2 ${
+                        isSmartOut
+                          ? 'bg-rose-600 hover:bg-rose-700'
+                          : 'bg-emerald-600 hover:bg-emerald-700'
+                      }`}
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <RefreshCw size={16} className="animate-spin flex-shrink-0" />
+                          <span className="truncate">Đang ghi vào Sheet chấm công...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send size={16} className="flex-shrink-0" />
+                          <span className="truncate">Gửi bổ sung {effectiveBaseAction} (Chờ Admin duyệt)</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </form>
               )}
             </>
@@ -1228,7 +1252,7 @@ export default function MissedCheckInModal({
                       <button
                         type="button"
                         onClick={() => handleCopyZalo(claim)}
-                        className="text-[11px] font-bold text-[var(--kg-primary)] hover:underline inline-flex items-center gap-1 pt-0.5 min-h-[44px] sm:min-h-[32px] touch-manipulation"
+                        className="text-[11px] font-bold text-[var(--kg-primary)] hover:underline inline-flex items-center gap-1 pt-0.5 min-h-[44px] sm:min-h-[36px] touch-manipulation"
                       >
                         <Copy size={12} />
                         <span>Sao chép nhắc Quản lý trên Zalo</span>

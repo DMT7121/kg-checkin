@@ -78,10 +78,10 @@ export default function HrDesktopTable({
         </div>
       ) : (
         <div className="overflow-x-auto max-h-[68vh] overflow-y-auto">
-          <table className="w-full text-left border-collapse min-w-[960px]">
+          <table className="w-full text-left border-collapse min-w-[900px]">
             <thead className="sticky top-0 z-10 bg-[var(--kg-surface-soft)] border-b border-[var(--kg-border)] text-[11px] font-black uppercase tracking-wider text-[var(--kg-text-muted)]">
               <tr>
-                <th className="py-3 px-3 w-10 text-center">
+                <th className="py-3 px-2 w-10 text-center">
                   <input
                     type="checkbox"
                     checked={allFilteredSelected}
@@ -90,57 +90,57 @@ export default function HrDesktopTable({
                     className="w-4 h-4 rounded accent-[var(--kg-primary)] cursor-pointer"
                   />
                 </th>
-                <th className="py-3 px-3">
+                <th className="py-3 px-2 min-w-[165px]">
                   <button
                     type="button"
                     onClick={() => onToggleSort('fullname')}
-                    className="inline-flex items-center gap-1 hover:text-[var(--kg-text)]"
+                    className="inline-flex items-center gap-1 whitespace-nowrap min-h-[32px] hover:text-[var(--kg-text)]"
                   >
                     <span>Nhân sự</span>
-                    <ArrowUpDown size={12} />
+                    <ArrowUpDown size={12} className="shrink-0" />
                   </button>
                 </th>
-                <th className="py-3 px-3 w-36">
+                <th className="py-3 px-2 min-w-[144px] w-[144px]">
                   <button
                     type="button"
                     onClick={() => onToggleSort('position')}
-                    className="inline-flex items-center gap-1 hover:text-[var(--kg-text)]"
+                    className="inline-flex items-center gap-1 whitespace-nowrap min-h-[32px] hover:text-[var(--kg-text)]"
                   >
                     <span>Bộ phận</span>
-                    <ArrowUpDown size={12} />
+                    <ArrowUpDown size={12} className="shrink-0" />
                   </button>
                 </th>
-                <th className="py-3 px-3 w-32">
+                <th className="py-3 px-2 min-w-[136px] w-[136px]">
                   <button
                     type="button"
                     onClick={() => onToggleSort('role')}
-                    className="inline-flex items-center gap-1 hover:text-[var(--kg-text)]"
+                    className="inline-flex items-center gap-1 whitespace-nowrap min-h-[32px] hover:text-[var(--kg-text)]"
                   >
                     <span>Phân quyền</span>
-                    <ArrowUpDown size={12} />
+                    <ArrowUpDown size={12} className="shrink-0" />
                   </button>
                 </th>
-                <th className="py-3 px-3 w-40">
+                <th className="py-3 px-2 w-[132px]">
                   <button
                     type="button"
                     onClick={() => onToggleSort('employmentStatus')}
-                    className="inline-flex items-center gap-1 hover:text-[var(--kg-text)]"
+                    className="inline-flex items-center gap-1 whitespace-nowrap min-h-[32px] hover:text-[var(--kg-text)]"
                   >
                     <span>Trạng thái</span>
-                    <ArrowUpDown size={12} />
+                    <ArrowUpDown size={12} className="shrink-0" />
                   </button>
                 </th>
-                <th className="py-3 px-3 w-64">
+                <th className="py-3 px-2 w-[198px]">
                   <button
                     type="button"
                     onClick={() => onToggleSort('faceId')}
-                    className="inline-flex items-center gap-1 hover:text-[var(--kg-text)]"
+                    className="inline-flex items-center gap-1 whitespace-nowrap min-h-[32px] hover:text-[var(--kg-text)]"
                   >
                     <span>Face ID</span>
-                    <ArrowUpDown size={12} />
+                    <ArrowUpDown size={12} className="shrink-0" />
                   </button>
                 </th>
-                <th className="py-3 px-3 w-28 text-right">Thao tác</th>
+                <th className="py-3 px-2 w-[98px] text-right whitespace-nowrap">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--kg-border)] text-xs">
@@ -162,7 +162,7 @@ export default function HrDesktopTable({
                         : 'hover:bg-[var(--kg-surface-soft)]/40'
                     } ${isProcessing ? 'opacity-50 pointer-events-none' : ''}`}
                   >
-                    <td className="py-3 px-3 text-center">
+                    <td className="py-2.5 px-2 text-center">
                       <input
                         type="checkbox"
                         checked={isSelected}
@@ -171,13 +171,14 @@ export default function HrDesktopTable({
                         className="w-4 h-4 rounded accent-[var(--kg-primary)] cursor-pointer"
                       />
                     </td>
-                    <td className="py-3 px-3">
+                    <td className="py-2.5 px-2">
                       <div className="flex items-center gap-2.5 min-w-0">
                         <button
                           type="button"
                           onClick={() => actions.onAvatarClick(user.username)}
                           title="Đổi ảnh đại diện"
-                          className="relative group flex-shrink-0 rounded-xl overflow-hidden"
+                          aria-label={`Đổi ảnh đại diện ${user.fullname}`}
+                          className="relative group flex-shrink-0 w-10 h-10 rounded-xl overflow-hidden"
                         >
                           {user.avatarUrl ? (
                             <img
@@ -205,7 +206,7 @@ export default function HrDesktopTable({
                             )}
                           </div>
                         </button>
-                        <div className="min-w-0">
+                        <div className="min-w-0 max-w-[190px] xl:max-w-[260px]">
                           <p className="font-extrabold text-[var(--kg-text)] text-sm truncate">
                             {user.fullname}
                           </p>
@@ -216,14 +217,14 @@ export default function HrDesktopTable({
                         </div>
                       </div>
                     </td>
-                    <td className="py-3 px-3">
+                    <td className="py-2.5 px-2">
                       <select
                         value={user.position || 'Phục vụ'}
                         aria-label={`Chức vụ của ${user.fullname}`}
                         onChange={(e) =>
                           actions.onUpdatePosition(user.username, user.fullname, e.target.value)
                         }
-                        className="w-full min-h-[34px] bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-text)] rounded-lg px-2 py-1 text-xs font-semibold cursor-pointer"
+                        className="w-full min-w-[126px] !min-h-[36px] h-9 bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-text)] rounded-lg px-2 py-1 text-xs font-semibold cursor-pointer"
                       >
                         {actions.positions.map((p) => (
                           <option key={p} value={p}>
@@ -232,14 +233,14 @@ export default function HrDesktopTable({
                         ))}
                       </select>
                     </td>
-                    <td className="py-3 px-3">
+                    <td className="py-2.5 px-2">
                       <select
                         value={user.role || 'user'}
                         aria-label={`Phân quyền của ${user.fullname}`}
                         onChange={(e) =>
                           actions.onUpdateRole(user.username, user.fullname, e.target.value)
                         }
-                        className={`w-full min-h-[34px] bg-[var(--kg-surface-soft)] text-[var(--kg-text)] rounded-lg px-2 py-1 text-xs font-bold cursor-pointer border ${badge.cls}`}
+                        className={`w-full min-w-[118px] !min-h-[36px] h-9 bg-[var(--kg-surface-soft)] text-[var(--kg-text)] rounded-lg px-2 py-1 text-xs font-bold cursor-pointer border ${badge.cls}`}
                       >
                         {actions.roles.map((r) => (
                           <option key={r.value} value={r.value}>
@@ -248,36 +249,36 @@ export default function HrDesktopTable({
                         ))}
                       </select>
                     </td>
-                    <td className="py-3 px-3">
-                      <div className="flex items-center gap-1.5">
+                    <td className="py-2.5 px-2">
+                      <div className="flex items-center gap-1.5 whitespace-nowrap">
                         <span
-                          className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md border ${statusMeta.badgeClass}`}
+                          className={`text-[10px] font-black uppercase px-2 py-1 rounded-md border whitespace-nowrap ${statusMeta.badgeClass}`}
                         >
                           {statusMeta.shortLabel}
                         </span>
                         <button
                           type="button"
                           onClick={() => actions.onUpdateEmploymentStatus(user)}
-                          className="min-h-[30px] px-2 py-0.5 rounded-lg border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-border)]/40 text-[11px] font-bold text-[var(--kg-text)]"
+                          className="min-h-[36px] px-2.5 py-1 rounded-lg border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-border)]/40 text-[11px] font-bold text-[var(--kg-text)] whitespace-nowrap shrink-0 transition-colors"
                         >
                           Đổi
                         </button>
                       </div>
                     </td>
-                    <td className="py-3 px-3">
-                      <div className="flex flex-wrap items-center gap-1.5">
+                    <td className="py-2.5 px-2">
+                      <div className="flex items-center gap-1.5 flex-nowrap">
                         {statusMeta.value === 'active' ? (
                           <button
                             type="button"
                             onClick={() => actions.onEnrollFaceId(user)}
                             data-testid={`enroll-face-id-${user.username}`}
-                            className={`min-h-[34px] px-2.5 py-1 rounded-lg border text-[11px] font-bold inline-flex items-center gap-1 transition-colors ${
+                            className={`min-h-[36px] px-2 py-1 rounded-lg border text-[11px] font-bold inline-flex items-center gap-1 whitespace-nowrap shrink-0 transition-colors ${
                               faceProfile
                                 ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
                                 : 'bg-[var(--kg-primary-soft)] hover:opacity-90 text-[var(--kg-primary-ink)] border-[var(--kg-primary)]/30'
                             }`}
                           >
-                            {faceProfile ? <ShieldCheck size={13} /> : <UserPlus size={13} />}
+                            {faceProfile ? <ShieldCheck size={13} className="shrink-0" /> : <UserPlus size={13} className="shrink-0" />}
                             <span>
                               {faceProfile
                                 ? `Đã khóa (${faceProfile.anglesCount || 5})`
@@ -285,8 +286,8 @@ export default function HrDesktopTable({
                             </span>
                           </button>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-[11px] text-[var(--kg-text-muted)]">
-                            <ScanFace size={12} /> {faceProfile ? 'Đã có' : 'Chưa ĐK'}
+                          <span className="inline-flex items-center gap-1 text-[11px] text-[var(--kg-text-muted)] whitespace-nowrap">
+                            <ScanFace size={12} className="shrink-0" /> {faceProfile ? 'Đã có' : 'Chưa ĐK'}
                           </span>
                         )}
                         <button
@@ -294,19 +295,19 @@ export default function HrDesktopTable({
                           onClick={() => actions.onResetFaceProfile(user.username, user.fullname)}
                           data-testid={`reset-face-id-${user.username}`}
                           title="Mở khóa / Đặt lại Face ID"
-                          className="min-h-[34px] px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-[11px] font-bold inline-flex items-center gap-1 transition-colors"
+                          className="min-h-[36px] px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-[11px] font-bold inline-flex items-center gap-1 whitespace-nowrap shrink-0 transition-colors"
                         >
-                          <Unlock size={12} /> Mở khóa
+                          <Unlock size={12} className="shrink-0" /> Mở khóa
                         </button>
                       </div>
                     </td>
-                    <td className="py-3 px-3 text-right">
+                    <td className="py-2.5 px-2 text-right">
                       <button
                         type="button"
                         onClick={() => actions.onForceResetPassword(user.username, user.fullname)}
-                        className="min-h-[34px] px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 text-[11px] font-bold inline-flex items-center gap-1 transition-colors"
+                        className="min-h-[36px] px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 text-[11px] font-bold inline-flex items-center gap-1 whitespace-nowrap transition-colors"
                       >
-                        <KeyRound size={12} /> Reset MK
+                        <KeyRound size={12} className="shrink-0" /> Reset MK
                       </button>
                     </td>
                   </tr>

@@ -1201,29 +1201,31 @@ export default function Checklist() {
               type="button"
               key={area}
               onClick={() => handleJoinArea(area)}
-              className={`p-3.5 sm:p-4 rounded-2xl border-2 text-left transition-all cursor-pointer select-none flex flex-col justify-between shadow-xs touch-manipulation ${
+              className={`p-3 sm:p-4 rounded-2xl border-2 text-left transition-all cursor-pointer select-none flex flex-col justify-between shadow-xs min-w-0 touch-manipulation ${
                 isSelected
                   ? 'border-[var(--kg-accent)] bg-[var(--kg-surface)] shadow-md ring-2 ring-[var(--kg-accent)]/20'
                   : 'border-[var(--kg-border)] bg-[var(--kg-surface)] hover:border-[var(--kg-accent)]/40'
               }`}
             >
-              <div className="mb-2 w-full">
-                <div className="flex items-center justify-between gap-1">
-                  <span className="font-bold text-sm sm:text-base text-[var(--kg-text)] inline-flex items-center gap-1.5">
-                    <span>Khu {area}</span>
-                    {isAssigned && (
-                      <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full bg-[var(--kg-info-soft)] text-[var(--kg-info)]">
-                        Của bạn
-                      </span>
-                    )}
+              <div className="mb-2 w-full min-w-0">
+                <div className="flex items-center justify-between gap-1.5">
+                  <span className="font-bold text-[13px] sm:text-base text-[var(--kg-text)] truncate">
+                    Khu {area}
                   </span>
-                  <span className="text-xs font-mono tabular-nums font-bold px-2 py-0.5 rounded-full bg-[var(--kg-surface-soft)] text-[var(--kg-primary)] border border-[var(--kg-border)]">
+                  <span className="text-[11px] sm:text-xs font-mono tabular-nums font-bold px-2 py-0.5 rounded-full bg-[var(--kg-surface-soft)] text-[var(--kg-primary)] border border-[var(--kg-border)] shrink-0">
                     {pct}%
                   </span>
                 </div>
-                <span className="block text-[11px] font-medium text-[var(--kg-text-muted)] mt-0.5 truncate">
-                  {AREA_STATION_LABELS[area]}
-                </span>
+                <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+                  {isAssigned && (
+                    <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full bg-[var(--kg-info-soft)] text-[var(--kg-info)] shrink-0">
+                      Của bạn
+                    </span>
+                  )}
+                  <span className="block text-[11px] font-medium text-[var(--kg-text-muted)] truncate">
+                    {AREA_STATION_LABELS[area]}
+                  </span>
+                </div>
               </div>
               <div className="h-2 w-full bg-[var(--kg-surface-soft)] rounded-full overflow-hidden mb-2.5 border border-[var(--kg-border)]/50">
                 <div
@@ -1385,36 +1387,38 @@ export default function Checklist() {
                     Ngày {workDate.split('-').reverse().join('/')}
                   </p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
                   <button
                     type="button"
                     onClick={refreshTeammatesProgress}
                     disabled={refreshingTeammates}
-                    className="min-h-[44px] min-w-[44px] sm:min-h-[36px] inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-xs font-bold text-[var(--kg-text)] hover:border-[var(--kg-primary)] transition-colors touch-manipulation"
+                    className="min-h-[44px] min-w-[44px] sm:min-h-[36px] inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-xs font-bold text-[var(--kg-text)] hover:border-[var(--kg-primary)] transition-colors whitespace-nowrap touch-manipulation"
                     title="Cập nhật các mục đồng đội vừa tick mà không mất thay đổi của bạn"
                   >
                     <RefreshCw
                       size={13}
                       className={refreshingTeammates ? 'animate-spin text-[var(--kg-primary)]' : ''}
                     />
-                    <span className="hidden sm:inline">Đồng đội</span>
+                    <span>Đồng đội</span>
                   </button>
-                  <div className="text-right">
-                    <span className="block text-[11px] font-semibold text-[var(--kg-text-muted)]">
-                      Hoàn thành
-                    </span>
-                    <span className="text-sm font-bold font-mono tabular-nums text-[var(--kg-success)]">
-                      {activeMetrics.pct}% ({activeMetrics.done}/{activeMetrics.total})
-                    </span>
-                  </div>
-                  <div className="h-9 w-px bg-[var(--kg-border)]" />
-                  <div className="text-right">
-                    <span className="block text-[11px] font-semibold text-[var(--kg-text-muted)]">
-                      Việc con
-                    </span>
-                    <span className="text-sm font-bold font-mono tabular-nums text-[var(--kg-primary)]">
-                      {activeMetrics.subDone}/{activeMetrics.subTotal}
-                    </span>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <span className="block text-[11px] font-semibold text-[var(--kg-text-muted)]">
+                        Hoàn thành
+                      </span>
+                      <span className="text-sm font-bold font-mono tabular-nums text-[var(--kg-success)] whitespace-nowrap">
+                        {activeMetrics.pct}% ({activeMetrics.done}/{activeMetrics.total})
+                      </span>
+                    </div>
+                    <div className="h-9 w-px bg-[var(--kg-border)]" />
+                    <div className="text-right">
+                      <span className="block text-[11px] font-semibold text-[var(--kg-text-muted)]">
+                        Việc con
+                      </span>
+                      <span className="text-sm font-bold font-mono tabular-nums text-[var(--kg-primary)] whitespace-nowrap">
+                        {activeMetrics.subDone}/{activeMetrics.subTotal}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1426,7 +1430,7 @@ export default function Checklist() {
                     key={t.key}
                     type="button"
                     onClick={() => setActivePhase(t.key)}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors border min-h-[44px] sm:min-h-[34px] touch-manipulation ${
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors border min-h-[44px] sm:min-h-[36px] touch-manipulation ${
                       activePhase === t.key
                         ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)] shadow-xs'
                         : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)] hover:text-[var(--kg-text)]'
@@ -1487,9 +1491,9 @@ export default function Checklist() {
                               <span className="flex-shrink-0 w-6 h-6 rounded-lg bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-xs font-mono tabular-nums font-bold text-[var(--kg-text-muted)] flex items-center justify-center mt-0.5">
                                 {item.no}
                               </span>
-                              <div className="min-w-0">
+                              <div className="min-w-0 flex-1">
                                 <h4
-                                  className={`text-sm font-bold ${
+                                  className={`text-sm font-bold break-words ${
                                     itemState.checked
                                       ? 'text-[var(--kg-success)] line-through opacity-85'
                                       : 'text-[var(--kg-text)]'
@@ -1497,7 +1501,7 @@ export default function Checklist() {
                                 >
                                   {item.title}
                                 </h4>
-                                <p className="text-xs text-[var(--kg-text-muted)] mt-1 whitespace-pre-wrap leading-relaxed">
+                                <p className="text-xs text-[var(--kg-text-muted)] mt-1 whitespace-pre-wrap break-words leading-relaxed">
                                   {item.text}
                                 </p>
                               </div>
@@ -1531,7 +1535,7 @@ export default function Checklist() {
                                   return (
                                     <label
                                       key={sub.id}
-                                      className="flex items-center space-x-2 text-xs text-[var(--kg-text)] cursor-pointer select-none min-h-[44px] sm:min-h-[32px] touch-manipulation"
+                                      className="flex items-center space-x-2.5 text-xs text-[var(--kg-text)] cursor-pointer select-none min-h-[44px] sm:min-h-[34px] px-2 py-1 rounded-lg hover:bg-[var(--kg-surface)] transition-colors touch-manipulation"
                                     >
                                       <input
                                         type="checkbox"
@@ -1625,7 +1629,7 @@ export default function Checklist() {
                       <button
                         type="button"
                         onClick={() => void handleRemoveParticipant(p.key)}
-                        className="min-h-[44px] min-w-[44px] sm:min-h-[28px] sm:min-w-0 inline-flex items-center justify-center text-[var(--kg-danger)] hover:underline active:scale-95 transition-all text-[11px] font-semibold px-2 touch-manipulation"
+                        className="min-h-[44px] min-w-[44px] sm:min-h-[36px] sm:min-w-0 inline-flex items-center justify-center text-[var(--kg-danger)] hover:bg-[var(--kg-danger-soft)] rounded-lg active:scale-95 transition-all text-xs font-semibold px-2.5 shrink-0 touch-manipulation"
                       >
                         Bỏ
                       </button>
@@ -1720,7 +1724,7 @@ export default function Checklist() {
                     <button
                       type="button"
                       onClick={() => void handleSaveSupply()}
-                      className="min-h-[44px] sm:min-h-[30px] bg-[var(--kg-success-soft)] text-[var(--kg-success)] border border-[var(--kg-success)]/25 px-3 py-1 rounded-xl font-bold transition-colors text-[10px] touch-manipulation"
+                      className="min-h-[44px] sm:min-h-[36px] bg-[var(--kg-success-soft)] text-[var(--kg-success)] border border-[var(--kg-success)]/25 px-3.5 py-1.5 rounded-xl font-bold transition-colors text-xs whitespace-nowrap shrink-0 touch-manipulation"
                     >
                       Lưu đề xuất
                     </button>
@@ -1734,8 +1738,8 @@ export default function Checklist() {
 
       {/* Sticky Sync bar whenever unsaved offline/fallback local changes exist */}
       {selectedArea && hasPendingChanges && (
-        <div className="sticky bottom-20 md:bottom-4 z-30 bg-[var(--kg-surface)] border border-[var(--kg-border-strong)] p-3.5 sm:p-4 rounded-2xl flex items-center justify-between shadow-elevated animate-slide-up">
-          <div className="flex items-center space-x-2.5 min-w-0 pr-2">
+        <div className="sticky bottom-20 md:bottom-4 z-30 bg-[var(--kg-surface)] border border-[var(--kg-border-strong)] p-3.5 sm:p-4 rounded-2xl flex flex-wrap items-center justify-between gap-2.5 shadow-elevated animate-slide-up">
+          <div className="flex items-center space-x-2.5 min-w-0 flex-1">
             <span className="flex w-2.5 h-2.5 bg-[var(--kg-accent)] rounded-full animate-ping flex-shrink-0" />
             <span className="text-xs font-bold text-[var(--kg-text)] truncate">
               Có thay đổi lưu nháp chưa đồng bộ lên máy chủ
@@ -1745,7 +1749,7 @@ export default function Checklist() {
             type="button"
             onClick={() => void handleSyncAllPending()}
             disabled={isSaving}
-            className="bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-bold px-4 sm:px-5 py-2.5 rounded-xl text-xs transition-colors active:scale-95 shadow-xs flex items-center space-x-1.5 flex-shrink-0 min-h-[44px] sm:min-h-[40px] touch-manipulation"
+            className="w-full sm:w-auto bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-bold px-4 sm:px-5 py-2.5 rounded-xl text-xs transition-colors active:scale-95 shadow-xs flex items-center justify-center space-x-1.5 flex-shrink-0 min-h-[44px] sm:min-h-[40px] whitespace-nowrap touch-manipulation"
           >
             <RefreshCw size={14} className={isSaving ? 'animate-spin' : ''} />
             <span>Đồng bộ ngay</span>

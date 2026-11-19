@@ -181,7 +181,7 @@ export default function NotificationBell() {
               <button
                 type="button"
                 onClick={handleMarkAllRead}
-                className="text-xs text-[var(--kg-primary-ink)] font-bold hover:underline flex items-center gap-1.5 px-3 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] active:scale-95 transition-colors"
+                className="text-xs text-[var(--kg-primary-ink)] font-bold hover:underline flex items-center gap-1.5 px-3 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] active:scale-95 transition-colors whitespace-nowrap"
               >
                 <CheckCheck size={14} /> Đọc hết ({unreadCount})
               </button>
@@ -193,7 +193,7 @@ export default function NotificationBell() {
             <button
               type="button"
               onClick={() => setIsOpen(false)}
-              className="px-4 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] text-xs font-bold text-[var(--kg-text)] active:scale-95 transition-all"
+              className="px-4 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] text-xs font-bold text-[var(--kg-text)] active:scale-95 transition-all whitespace-nowrap"
             >
               Đóng
             </button>

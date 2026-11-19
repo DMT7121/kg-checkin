@@ -40,7 +40,7 @@ export default function MonthDayVisibility({
           </span>
           <div className="min-w-0">
             <p className="truncate text-xs font-extrabold text-[var(--kg-text)]">Cột ngày hiển thị</p>
-            <p className="text-[10px] font-semibold text-[var(--kg-text-muted)]">
+            <p className="text-[10px] font-semibold font-mono tabular-nums text-[var(--kg-text-muted)]">
               Đang hiện {visibleKeys.length}/{monthDates.length} ngày
             </p>
           </div>
@@ -78,13 +78,13 @@ export default function MonthDayVisibility({
                   key={date.dateKey}
                   onClick={() => toggleDate(date.dateKey)}
                   title={`${formatDateShort(date.date)} · ${SHORT_DAY_NAMES[date.dayIndex]}`}
-                  className={`relative flex min-h-12 flex-col items-center justify-center rounded-xl border px-1 py-1.5 transition ${
+                  className={`min-w-0 relative flex min-h-12 flex-col items-center justify-center rounded-xl border px-1 py-1.5 transition touch-manipulation ${
                     selected
                       ? 'border-[var(--kg-primary)] bg-[var(--kg-primary)] text-white shadow-sm'
                       : 'border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)]'
                   }`}
                 >
-                  <span className="text-[11px] font-black">{date.date.getDate()}</span>
+                  <span className="text-[11px] font-mono tabular-nums font-black">{date.date.getDate()}</span>
                   <span className="text-[9px] font-bold opacity-75">{SHORT_DAY_NAMES[date.dayIndex]}</span>
                   {selected && <Check size={10} className="absolute right-1 top-1" />}
                 </button>

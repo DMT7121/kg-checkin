@@ -393,7 +393,7 @@ export default function Handover() {
     : '';
 
   return (
-    <div className="flex flex-col space-y-4 pb-24 md:pb-12 animate-fade-in">
+    <div className="flex flex-col space-y-4 pb-24 md:pb-12 animate-fade-in max-w-[1440px] mx-auto w-full">
       <KgModuleHero
         moduleId="handover"
         title="Đối Soát & Bàn Giao Két Thu Ngân"
@@ -422,46 +422,46 @@ export default function Handover() {
 
       <div className="relative z-20 flex-1 flex flex-col space-y-4">
         {/* Focused 2-Tab Navigation + 1-Tap Incident Shortcut */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-          <div className="flex-1 bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] p-1 rounded-xl flex gap-1">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="grid grid-cols-2 sm:inline-flex bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] p-1 rounded-xl gap-1">
             <button
               type="button"
               onClick={() => setActiveTab('handover')}
-              className={`flex-1 min-h-[44px] sm:min-h-[38px] flex items-center justify-center py-2 rounded-lg text-xs sm:text-sm transition-colors select-none touch-manipulation ${
+              className={`min-h-[44px] sm:min-h-[38px] sm:px-4 flex items-center justify-center py-2 px-2.5 rounded-lg text-xs sm:text-sm transition-colors whitespace-nowrap select-none touch-manipulation ${
                 activeTab === 'handover'
                   ? 'bg-[var(--kg-surface)] text-[var(--kg-text)] font-bold shadow-soft border border-[var(--kg-border)]'
                   : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-medium'
               }`}
             >
-              <Banknote size={15} className="mr-1.5 text-[var(--kg-primary)]" /> Bàn giao quỹ
+              <Banknote size={15} className="mr-1.5 text-[var(--kg-primary)] shrink-0" /> Bàn giao quỹ
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('history')}
-              className={`flex-1 min-h-[44px] sm:min-h-[38px] flex items-center justify-center py-2 rounded-lg text-xs sm:text-sm transition-colors select-none touch-manipulation ${
+              className={`min-h-[44px] sm:min-h-[38px] sm:px-4 flex items-center justify-center py-2 px-2.5 rounded-lg text-xs sm:text-sm transition-colors whitespace-nowrap select-none touch-manipulation ${
                 activeTab === 'history'
                   ? 'bg-[var(--kg-surface)] text-[var(--kg-text)] font-bold shadow-soft border border-[var(--kg-border)]'
                   : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-medium'
               }`}
             >
-              <History size={15} className="mr-1.5 text-[var(--kg-info)]" /> Sổ cái két ({handovers.length})
+              <History size={15} className="mr-1.5 text-[var(--kg-info)] shrink-0" /> Sổ cái két ({handovers.length})
             </button>
           </div>
 
           <button
             type="button"
             onClick={() => navigateToHubSubTab('work', 'incidents')}
-            className="min-h-[44px] sm:min-h-[40px] px-3.5 py-2 rounded-xl border border-[var(--kg-danger)]/25 bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] text-xs font-bold inline-flex items-center justify-center gap-1.5 hover:brightness-95 transition-all touch-manipulation shrink-0"
+            className="min-h-[44px] sm:min-h-[40px] px-3.5 py-2 rounded-xl border border-[var(--kg-danger)]/25 bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] text-xs font-bold inline-flex items-center justify-center gap-1.5 hover:brightness-95 transition-all whitespace-nowrap touch-manipulation shrink-0"
           >
-            <ShieldAlert size={14} />
+            <ShieldAlert size={14} className="shrink-0" />
             <span>Có thiết bị hỏng / sự cố?</span>
-            <ArrowRight size={13} />
+            <ArrowRight size={13} className="shrink-0" />
           </button>
         </div>
 
         <div className="flex-1 space-y-4">
-          {/* TAB 1: 2-WAY CASH HANDOVER & RECONCILIATION */}
+          {/* TAB 1: 2-WAY CASH HANDOVER & RECONCILIATION — Desktop 2-col split (7/5), Mobile stacks Incoming first */}
           {activeTab === 'handover' && (
             <div key="handover" className="kg-fade-in space-y-4">
               {handoversError && (
@@ -472,7 +472,9 @@ export default function Handover() {
                 />
               )}
 
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
               {/* Incoming Shift 2-Way Verification Card */}
+              <div className="order-first lg:order-2 lg:col-span-5 lg:sticky lg:top-[128px] min-w-0">
               {latestHandover ? (
                 <div
                   className={`bg-[var(--kg-surface)] border-2 rounded-2xl p-4 shadow-sm space-y-3 ${
@@ -560,7 +562,7 @@ export default function Handover() {
                           )}
                       </div>
                     ) : (
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full sm:w-auto">
                         <KgButton
                           type="button"
                           variant="primary"
@@ -569,6 +571,7 @@ export default function Handover() {
                           disabled={Boolean(isAckingId)}
                           icon={CheckCircle2}
                           onClick={() => handleAcknowledgeCash(latestHandover, 'Accepted')}
+                          className="w-full sm:w-auto"
                         >
                           Nhận đủ két
                         </KgButton>
@@ -584,6 +587,7 @@ export default function Handover() {
                             setDisputeReason('');
                             setDisputeError('');
                           }}
+                          className="w-full sm:w-auto"
                         >
                           Báo lệch két
                         </KgButton>
@@ -593,22 +597,22 @@ export default function Handover() {
 
                   {/* Extended Breakdown Strip */}
                   {typeof latestHandover.posCashRevenue === 'number' && (
-                    <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[var(--kg-border)] text-[11px]">
-                      <div className="bg-[var(--kg-surface-soft)] rounded-lg px-2.5 py-1.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3 gap-2 pt-2 border-t border-[var(--kg-border)] text-[11px]">
+                      <div className="bg-[var(--kg-surface-soft)] rounded-lg px-2.5 py-1.5 flex sm:block lg:flex xl:block items-center justify-between gap-2">
                         <span className="text-[var(--kg-text-muted)] block">Đầu ca trước</span>
-                        <span className="font-mono tabular-nums font-bold text-[var(--kg-text)]">
+                        <span className="font-mono tabular-nums font-bold text-[var(--kg-text)] text-right whitespace-nowrap">
                           {formatVnd(latestHandover.openingCash)}
                         </span>
                       </div>
-                      <div className="bg-[var(--kg-surface-soft)] rounded-lg px-2.5 py-1.5">
+                      <div className="bg-[var(--kg-surface-soft)] rounded-lg px-2.5 py-1.5 flex sm:block lg:flex xl:block items-center justify-between gap-2">
                         <span className="text-[var(--kg-text-muted)] block">+ Thu POS</span>
-                        <span className="font-mono tabular-nums font-bold text-[var(--kg-success)]">
+                        <span className="font-mono tabular-nums font-bold text-[var(--kg-success)] text-right whitespace-nowrap">
                           {formatVnd(latestHandover.posCashRevenue)}
                         </span>
                       </div>
-                      <div className="bg-[var(--kg-surface-soft)] rounded-lg px-2.5 py-1.5">
+                      <div className="bg-[var(--kg-surface-soft)] rounded-lg px-2.5 py-1.5 flex sm:block lg:flex xl:block items-center justify-between gap-2">
                         <span className="text-[var(--kg-text-muted)] block">- Chi tại quầy</span>
-                        <span className="font-mono tabular-nums font-bold text-[var(--kg-danger)]">
+                        <span className="font-mono tabular-nums font-bold text-[var(--kg-danger)] text-right whitespace-nowrap">
                           {formatVnd(latestHandover.cashExpense)}
                         </span>
                       </div>
@@ -695,9 +699,10 @@ export default function Handover() {
                   </KgButton>
                 </div>
               )}
+              </div>
 
               {/* Outgoing Shift Cash Reconciliation Form */}
-              <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
+              <div className="order-2 lg:order-1 lg:col-span-7 min-w-0 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
                 <div className="flex items-center justify-between pb-3 border-b border-[var(--kg-border)]">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-[var(--kg-info-soft)] text-[var(--kg-info)] flex items-center justify-center shrink-0">
@@ -728,7 +733,7 @@ export default function Handover() {
                           <button
                             type="button"
                             onClick={() => setOpeningCashOverride(null)}
-                            className="inline-flex items-center gap-1 text-[10px] font-bold text-[var(--kg-primary-ink)] hover:underline min-h-[28px]"
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-[var(--kg-primary-ink)] bg-[var(--kg-primary-soft)] px-2.5 py-1 rounded-lg hover:brightness-95 min-h-[40px] sm:min-h-[36px] touch-manipulation"
                             title="Khôi phục số dư cuối ca trước"
                           >
                             <RotateCcw size={11} /> Ca trước
@@ -920,7 +925,7 @@ export default function Handover() {
                   {/* Live Reconciliation Status Banner */}
                   {cashAmount.trim() !== '' && (
                     <div
-                      className={`p-3 rounded-xl border flex items-center justify-between gap-2 text-xs font-bold ${
+                      className={`p-3 rounded-xl border flex flex-wrap items-center justify-between gap-2 text-xs font-bold ${
                         recon.discrepancy === 0
                           ? 'bg-[var(--kg-success-soft)] border-[var(--kg-success)]/30 text-[var(--kg-success)]'
                           : recon.discrepancy < 0
@@ -928,14 +933,14 @@ export default function Handover() {
                             : 'bg-[var(--kg-warning-soft)] border-[var(--kg-warning)]/30 text-[var(--kg-warning)]'
                       }`}
                     >
-                      <span>
+                      <span className="min-w-0 flex-1">
                         {recon.discrepancy === 0
                           ? 'Khớp 100% với số dư két lý thuyết'
                           : recon.discrepancy < 0
                             ? 'Cảnh báo lệch thiếu két — Bắt buộc giải trình bên dưới'
                             : 'Két đang dư tiền mặt — Vui lòng ghi chú nguồn tiền lẻ / tip'}
                       </span>
-                      <span className="font-mono tabular-nums font-black text-sm shrink-0">
+                      <span className="font-mono tabular-nums font-black text-sm shrink-0 ml-auto whitespace-nowrap">
                         {formatSignedVnd(recon.discrepancy)}
                       </span>
                     </div>
@@ -978,17 +983,20 @@ export default function Handover() {
                     </p>
                   )}
 
-                  <KgButton
-                    type="submit"
-                    variant="primary"
-                    size="lg"
-                    loading={isSubmittingHandover}
-                    icon={CheckCircle2}
-                    className="w-full uppercase tracking-wider text-xs sm:text-sm"
-                  >
-                    Chốt đối soát &amp; Bàn giao két
-                  </KgButton>
+                  <div className="flex justify-end pt-1">
+                    <KgButton
+                      type="submit"
+                      variant="primary"
+                      size="lg"
+                      loading={isSubmittingHandover}
+                      icon={CheckCircle2}
+                      className="w-full sm:w-auto sm:min-w-[260px] uppercase tracking-wider text-xs sm:text-sm"
+                    >
+                      Chốt đối soát &amp; Bàn giao két
+                    </KgButton>
+                  </div>
                 </form>
+              </div>
               </div>
             </div>
           )}
@@ -1136,7 +1144,7 @@ export default function Handover() {
                   </div>
 
                   {/* Mobile & Tablet Portrait Card List (< lg) */}
-                  <div className="lg:hidden space-y-2.5">
+                  <div className="lg:hidden grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
                     {handovers.map((item, idx) => {
                       const itemAckBy = item.ackBy || localMeta[item.id]?.ackBy;
                       const itemAckAt = item.ackAt || localMeta[item.id]?.ackAt;

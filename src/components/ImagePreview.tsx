@@ -121,20 +121,24 @@ export default function ImagePreview() {
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/92 backdrop-blur-md animate-fade-in touch-manipulation"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Xem ảnh chấm công"
+      className="fixed inset-0 z-[10090] flex items-center justify-center bg-black/92 backdrop-blur-md animate-fade-in touch-manipulation"
       onClick={close}
     >
       {/* Top action bar */}
       <div
-        className="absolute top-4 sm:top-6 left-4 right-4 sm:left-6 sm:right-6 flex items-center justify-between z-50 pointer-events-auto"
+        className="absolute top-0 left-0 right-0 pt-safe-top px-3 sm:px-6 pb-3 flex items-center justify-between gap-2 z-50 pointer-events-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-2 bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 text-white text-xs font-semibold">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span>Ảnh Chấm Công HD</span>
+        <div className="flex items-center gap-2 bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 text-white text-xs font-semibold min-w-0">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />
+          <span className="truncate hidden sm:inline">Ảnh Chấm Công HD</span>
+          <span className="truncate sm:hidden">Ảnh HD</span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
           {!useFallback && (
             <>
               <button

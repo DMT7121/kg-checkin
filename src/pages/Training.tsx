@@ -603,7 +603,8 @@ export default function Training() {
             icon={Compass}
             onClick={() => window.dispatchEvent(new CustomEvent('kg:open-newbie-guide'))}
           >
-            Hướng dẫn dùng OS
+            <span className="sm:hidden lg:inline">Hướng dẫn dùng OS</span>
+            <span className="hidden sm:inline lg:hidden">Dùng OS</span>
           </KgButton>
         }
       />
@@ -677,7 +678,7 @@ export default function Training() {
                   setActiveLesson(roleReadiness.nextAction.targetId);
                 }
               }}
-              className="min-h-[44px] sm:min-h-[36px] px-3.5 py-2 rounded-xl bg-[var(--kg-primary)] text-white text-xs font-black inline-flex items-center justify-center gap-1.5 hover:opacity-95 active:scale-95 transition-all shrink-0 touch-manipulation"
+              className="w-full sm:w-auto min-h-[44px] sm:min-h-[36px] px-3.5 py-2 rounded-xl bg-[var(--kg-primary)] text-white text-xs font-black inline-flex items-center justify-center gap-1.5 hover:opacity-95 active:scale-95 transition-all shrink-0 whitespace-nowrap touch-manipulation"
             >
               <span>Tiếp tục lộ trình</span>
               <ChevronRight size={14} />
@@ -687,28 +688,28 @@ export default function Training() {
       </KgCard>
 
       {/* Flat 3-Tab KnowledgeCenter Switcher: Tra cứu SOP | Kiểm tra | CUKCUK */}
-      <div className="flex gap-1.5 overflow-x-auto hide-scrollbar p-1.5 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-xs">
+      <div className="flex gap-1.5 overflow-x-auto hide-scrollbar no-scrollbar p-1.5 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-xs">
         <button
           type="button"
           onClick={() => setActiveTab('sop')}
-          className={`flex-1 sm:flex-initial min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap transition-all active:scale-95 flex-shrink-0 select-none touch-manipulation ${
+          className={`flex-1 sm:flex-initial min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap transition-all active:scale-95 flex-shrink-0 select-none touch-manipulation ${
             activeTab === 'sop'
               ? 'bg-[var(--kg-primary)] text-white shadow-xs'
               : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
           }`}
         >
-          <BookMarked size={15} /> Tra cứu SOP
+          <BookMarked size={15} className="shrink-0" /> Tra cứu SOP
         </button>
         <button
           type="button"
           onClick={() => setActiveTab('quiz')}
-          className={`flex-1 sm:flex-initial min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap transition-all active:scale-95 relative flex-shrink-0 select-none touch-manipulation ${
+          className={`flex-1 sm:flex-initial min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap transition-all active:scale-95 relative flex-shrink-0 select-none touch-manipulation ${
             activeTab === 'quiz'
               ? 'bg-[var(--kg-primary)] text-white shadow-xs'
               : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
           }`}
         >
-          <UserCheck size={15} /> Kiểm tra
+          <UserCheck size={15} className="shrink-0" /> Kiểm tra
           {totalLessons > 0 && completedCount < totalLessons && activeTab !== 'quiz' && (
             <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono tabular-nums bg-[var(--kg-danger-soft)] text-[var(--kg-danger)]">
               {totalLessons - completedCount}
@@ -718,13 +719,13 @@ export default function Training() {
         <button
           type="button"
           onClick={() => setActiveTab('cukcuk')}
-          className={`flex-1 sm:flex-initial min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap transition-all active:scale-95 flex-shrink-0 select-none touch-manipulation ${
+          className={`flex-1 sm:flex-initial min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap transition-all active:scale-95 flex-shrink-0 select-none touch-manipulation ${
             activeTab === 'cukcuk'
               ? 'bg-[var(--kg-primary)] text-white shadow-xs'
               : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
           }`}
         >
-          <Tablet size={15} /> CUKCUK
+          <Tablet size={15} className="shrink-0" /> CUKCUK
         </button>
       </div>
 
@@ -757,7 +758,7 @@ export default function Training() {
               variant="primary"
               onClick={() => setAiOpen(true)}
               icon={Sparkles}
-              className="h-[44px] shadow-xs"
+              className="w-full sm:w-auto min-h-[44px] sm:min-h-[42px] shadow-xs"
             >
               King&apos;s Grill AI Assistant
             </KgButton>
@@ -771,7 +772,7 @@ export default function Training() {
                   Tra cứu nhanh theo tình huống
                 </h3>
               </div>
-              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
                 {QUICK_SOP_QUERIES.map((item) => {
                   const QuickIcon = item.icon;
                   return (
@@ -782,13 +783,13 @@ export default function Training() {
                         setSearchTerm(item.query);
                         setSopScope('all');
                       }}
-                      className={`min-h-[44px] sm:min-h-[36px] flex-shrink-0 inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-bold transition-all active:scale-95 touch-manipulation ${
+                      className={`min-h-[44px] sm:min-h-[36px] flex-shrink-0 whitespace-nowrap inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-bold transition-all active:scale-95 touch-manipulation ${
                         searchTerm === item.query
                           ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)] shadow-sm'
                           : 'bg-[var(--kg-surface)] text-[var(--kg-text)] border-[var(--kg-border)] hover:border-[var(--kg-primary)]'
                       }`}
                     >
-                      <QuickIcon size={14} />
+                      <QuickIcon size={14} className="shrink-0" />
                       {item.label}
                     </button>
                   );
@@ -796,8 +797,8 @@ export default function Training() {
               </div>
             </div>
 
-            <div className="flex flex-col md:flex-row md:items-center gap-3 md:justify-between pt-3 border-t border-[var(--kg-border)]">
-              <div className="flex gap-2 overflow-x-auto pb-1">
+            <div className="flex flex-col lg:flex-row lg:items-center gap-3 lg:justify-between pt-3 border-t border-[var(--kg-border)]">
+              <div className="min-w-0 flex-1 flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 lg:flex-wrap lg:overflow-visible lg:pb-0">
                 <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--kg-text-muted)] flex-shrink-0 pr-1">
                   <ListFilter size={13} /> Lọc:
                 </span>
@@ -806,7 +807,7 @@ export default function Training() {
                     key={scope.id}
                     type="button"
                     onClick={() => setSopScope(scope.id)}
-                    className={`flex-shrink-0 min-h-[44px] sm:min-h-[36px] inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-bold border transition-colors touch-manipulation ${
+                    className={`flex-shrink-0 whitespace-nowrap min-h-[44px] sm:min-h-[36px] inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-bold border transition-colors touch-manipulation ${
                       sopScope === scope.id
                         ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)]'
                         : 'bg-[var(--kg-surface)] text-[var(--kg-text-muted)] border-[var(--kg-border)] hover:text-[var(--kg-text)]'
@@ -817,28 +818,28 @@ export default function Training() {
                 ))}
               </div>
 
-              <div className="inline-flex p-1 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)]/60 self-start md:self-auto gap-1">
+              <div className="grid grid-cols-2 sm:inline-flex p-1 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)]/60 w-full sm:w-auto self-start lg:self-auto gap-1 shrink-0">
                 <button
                   type="button"
                   onClick={() => setSopViewMode('quick')}
-                  className={`inline-flex items-center gap-1.5 min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-bold touch-manipulation ${
+                  className={`inline-flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap shrink-0 touch-manipulation ${
                     sopViewMode === 'quick'
                       ? 'bg-[var(--kg-surface)] text-[var(--kg-primary-ink)] shadow-sm'
                       : 'text-[var(--kg-text-muted)]'
                   }`}
                 >
-                  <Eye size={13} /> Xem nhanh
+                  <Eye size={13} className="shrink-0" /> Xem nhanh
                 </button>
                 <button
                   type="button"
                   onClick={() => setSopViewMode('full')}
-                  className={`inline-flex items-center gap-1.5 min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-bold touch-manipulation ${
+                  className={`inline-flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap shrink-0 touch-manipulation ${
                     sopViewMode === 'full'
                       ? 'bg-[var(--kg-surface)] text-[var(--kg-primary-ink)] shadow-sm'
                       : 'text-[var(--kg-text-muted)]'
                   }`}
                 >
-                  <FileText size={13} /> Đầy đủ
+                  <FileText size={13} className="shrink-0" /> Đầy đủ
                 </button>
               </div>
             </div>
@@ -1053,13 +1054,13 @@ export default function Training() {
                       <button
                         type="button"
                         onClick={() => toggleMarkSopRead(activeSopSection.id)}
-                        className={`min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl text-xs font-extrabold inline-flex items-center gap-1.5 transition-all active:scale-95 touch-manipulation border ${
+                        className={`w-full sm:w-auto min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition-all active:scale-95 whitespace-nowrap touch-manipulation border ${
                           readSopIds.includes(activeSopSection.id)
                             ? 'bg-[var(--kg-success-soft)] text-[var(--kg-success)] border-[var(--kg-success)]/30'
                             : 'bg-[var(--kg-surface)] text-[var(--kg-primary-ink)] border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]'
                         }`}
                       >
-                        <CheckCircle2 size={14} />
+                        <CheckCircle2 size={14} className="shrink-0" />
                         <span>
                           {readSopIds.includes(activeSopSection.id)
                             ? 'Đã xác nhận nắm vững SOP'
@@ -1221,7 +1222,7 @@ export default function Training() {
                         {!isCompleted && lesson.quiz.length > 0 && (
                           <KgButton
                             onClick={() => startShuffledQuiz(lesson)}
-                            className="w-full"
+                            className="w-full sm:w-auto"
                             icon={Award}
                           >
                             Làm bài kiểm tra (+{lesson.points} King Coins)
@@ -1251,7 +1252,7 @@ export default function Training() {
 
                         {wrongReviews.length > 0 && (
                           <div className="mb-4 p-3.5 rounded-xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/30 space-y-2">
-                            <div className="flex items-center justify-between gap-2">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
                               <p className="text-xs font-extrabold text-[var(--kg-warning)] flex items-center gap-1.5">
                                 <AlertTriangle size={14} className="shrink-0" />
                                 Cần ôn lại {wrongReviews.length} câu trước khi làm lượt mới:
@@ -1259,7 +1260,7 @@ export default function Training() {
                               <button
                                 type="button"
                                 onClick={() => startShuffledQuiz(lesson)}
-                                className="min-h-[36px] text-xs font-black text-[var(--kg-warning)] underline hover:opacity-80 shrink-0 touch-manipulation"
+                                className="min-h-[44px] sm:min-h-[36px] px-3 py-1 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-warning)]/35 text-xs font-black text-[var(--kg-warning)] hover:brightness-95 shrink-0 touch-manipulation"
                               >
                                 Đảo đề &amp; Thử lại
                               </button>
@@ -1326,7 +1327,7 @@ export default function Training() {
                           ))}
                         </div>
 
-                        <div className="flex gap-3 mt-5">
+                        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 mt-5">
                           <KgButton
                             variant="secondary"
                             onClick={() => {
@@ -1335,7 +1336,7 @@ export default function Training() {
                               setWrongReviews([]);
                               setAnswers({});
                             }}
-                            className="flex-1"
+                            className="w-full sm:w-auto sm:min-w-[140px]"
                           >
                             Quay lại
                           </KgButton>
@@ -1350,7 +1351,7 @@ export default function Training() {
                                 variant="warning"
                                 onClick={() => void handleSubmitQuiz(lesson)}
                                 disabled={unansweredCount > 0}
-                                className="flex-1"
+                                className="w-full sm:w-auto sm:min-w-[200px]"
                               >
                                 {unansweredCount > 0
                                   ? `Còn ${unansweredCount}/${lesson.quiz.length} câu chưa chọn`
@@ -1372,7 +1373,7 @@ export default function Training() {
       {/* Tab 3: CUKCUK */}
       {activeTab === 'cukcuk' && (
         <div className="space-y-4">
-          <div className="w-full">
+          <div className="w-full sm:max-w-xl">
             <KgInput
               placeholder="Tìm kiếm bước hướng dẫn (ví dụ: đăng nhập, hủy món, chuyển bàn...)"
               value={cukcukSearch}

@@ -216,7 +216,7 @@ export default function AdminDashboardView({
               <button
                 type="button"
                 onClick={() => onTabChange('checklist')}
-                className="text-xs font-bold text-[var(--kg-primary-ink)] hover:underline mt-2 text-left min-h-[44px] sm:min-h-[40px] inline-flex items-center"
+                className="w-fit px-2.5 -ml-2.5 rounded-lg text-xs font-bold text-[var(--kg-primary-ink)] hover:bg-[var(--kg-primary-soft)] hover:underline mt-2 text-left min-h-[44px] sm:min-h-[36px] inline-flex items-center transition-colors touch-manipulation"
               >
                 Quản lý checklist →
               </button>
@@ -250,7 +250,7 @@ export default function AdminDashboardView({
               <button
                 type="button"
                 onClick={() => onTabChange('handover')}
-                className="text-xs font-bold text-[var(--kg-primary-ink)] hover:underline mt-2 text-left min-h-[44px] sm:min-h-[40px] inline-flex items-center"
+                className="w-fit px-2.5 -ml-2.5 rounded-lg text-xs font-bold text-[var(--kg-primary-ink)] hover:bg-[var(--kg-primary-soft)] hover:underline mt-2 text-left min-h-[44px] sm:min-h-[36px] inline-flex items-center transition-colors touch-manipulation"
               >
                 Xem sổ bàn giao →
               </button>
@@ -279,9 +279,9 @@ export default function AdminDashboardView({
                 {soldOutItems.map((item) => (
                   <div
                     key={item.id}
-                    className="bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/25 rounded-xl px-3 py-1.5 flex items-center space-x-2 text-xs"
+                    className="max-w-full bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/25 rounded-xl px-3 py-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs"
                   >
-                    <span className="font-bold text-amber-800 dark:text-amber-300">
+                    <span className="font-bold text-amber-800 dark:text-amber-300 break-words">
                       {item.itemName}
                     </span>
                     <span className="text-[11px] text-[var(--kg-text-muted)] font-medium">
@@ -319,103 +319,103 @@ export default function AdminDashboardView({
                   <button
                     type="button"
                     onClick={onOpenAdminMissedModal}
-                    className="flex items-center justify-between p-3 rounded-xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/25 text-amber-800 dark:text-amber-300 hover:brightness-95 transition-all text-xs font-bold min-h-[44px]"
+                    className="flex items-center justify-between gap-2 text-left p-3 rounded-xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/25 text-amber-800 dark:text-amber-300 hover:brightness-95 transition-all text-xs font-bold min-h-[44px] sm:min-h-[40px] touch-manipulation"
                   >
-                    <span>
+                    <span className="min-w-0 truncate">
                       Bổ sung công (
                       <span className="font-mono tabular-nums">{pendingMissedClaimsCount}</span>)
                     </span>
-                    <span>Duyệt →</span>
+                    <span className="whitespace-nowrap flex-shrink-0">Duyệt →</span>
                   </button>
                 )}
                 {cashAuditDisputesCount > 0 && (
                   <button
                     type="button"
                     onClick={() => onNavigateHubSubTab('admin_ops', 'dispatch')}
-                    className="flex items-center justify-between p-3 rounded-xl bg-[var(--kg-danger-soft)] border border-[var(--kg-danger)]/20 text-[var(--kg-danger)] hover:brightness-95 transition-all text-xs font-bold min-h-[44px]"
+                    className="flex items-center justify-between gap-2 text-left p-3 rounded-xl bg-[var(--kg-danger-soft)] border border-[var(--kg-danger)]/20 text-[var(--kg-danger)] hover:brightness-95 transition-all text-xs font-bold min-h-[44px] sm:min-h-[40px] touch-manipulation"
                   >
-                    <span>
+                    <span className="min-w-0 truncate">
                       Đối soát lệch quỹ (
                       <span className="font-mono tabular-nums">{cashAuditDisputesCount}</span>)
                     </span>
-                    <span>Kiểm tra →</span>
+                    <span className="whitespace-nowrap flex-shrink-0">Kiểm tra →</span>
                   </button>
                 )}
                 {openIncidentsCount > 0 && (
                   <button
                     type="button"
                     onClick={() => onNavigateHubSubTab('admin_ops', 'dispatch')}
-                    className="flex items-center justify-between p-3 rounded-xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/25 text-amber-800 dark:text-amber-300 hover:brightness-95 transition-all text-xs font-bold min-h-[44px]"
+                    className="flex items-center justify-between gap-2 text-left p-3 rounded-xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/25 text-amber-800 dark:text-amber-300 hover:brightness-95 transition-all text-xs font-bold min-h-[44px] sm:min-h-[40px] touch-manipulation"
                   >
-                    <span>
+                    <span className="min-w-0 truncate">
                       Sự cố đang mở (
                       <span className="font-mono tabular-nums">{openIncidentsCount}</span>)
                     </span>
-                    <span>Xử lý →</span>
+                    <span className="whitespace-nowrap flex-shrink-0">Xử lý →</span>
                   </button>
                 )}
                 {payrollDisputesCount > 0 && (
                   <button
                     type="button"
                     onClick={() => onNavigateHubSubTab('admin_people_pay', 'payroll')}
-                    className="flex items-center justify-between p-3 rounded-xl bg-[var(--kg-danger-soft)] border border-[var(--kg-danger)]/20 text-[var(--kg-danger)] hover:brightness-95 transition-all text-xs font-bold min-h-[44px]"
+                    className="flex items-center justify-between gap-2 text-left p-3 rounded-xl bg-[var(--kg-danger-soft)] border border-[var(--kg-danger)]/20 text-[var(--kg-danger)] hover:brightness-95 transition-all text-xs font-bold min-h-[44px] sm:min-h-[40px] touch-manipulation"
                   >
-                    <span>
+                    <span className="min-w-0 truncate">
                       Khiếu nại / ĐC lương (
                       <span className="font-mono tabular-nums">{payrollDisputesCount}</span>)
                     </span>
-                    <span>Xem →</span>
+                    <span className="whitespace-nowrap flex-shrink-0">Xem →</span>
                   </button>
                 )}
                 {pendingSwapsCount > 0 && (
                   <button
                     type="button"
                     onClick={() => onNavigateHubSubTab('admin_ops', 'inbox')}
-                    className="flex items-center justify-between p-3 rounded-xl bg-[var(--kg-success-soft)] border border-[var(--kg-success)]/20 text-[var(--kg-success)] hover:brightness-95 transition-all text-xs font-bold min-h-[44px]"
+                    className="flex items-center justify-between gap-2 text-left p-3 rounded-xl bg-[var(--kg-success-soft)] border border-[var(--kg-success)]/20 text-[var(--kg-success)] hover:brightness-95 transition-all text-xs font-bold min-h-[44px] sm:min-h-[40px] touch-manipulation"
                   >
-                    <span>
+                    <span className="min-w-0 truncate">
                       Đổi ca (<span className="font-mono tabular-nums">{pendingSwapsCount}</span>)
                     </span>
-                    <span>Chi tiết →</span>
+                    <span className="whitespace-nowrap flex-shrink-0">Chi tiết →</span>
                   </button>
                 )}
                 {pendingLeavesCount > 0 && (
                   <button
                     type="button"
                     onClick={() => onNavigateHubSubTab('admin_ops', 'inbox')}
-                    className="flex items-center justify-between p-3 rounded-xl bg-[var(--kg-danger-soft)] border border-[var(--kg-danger)]/20 text-[var(--kg-danger)] hover:brightness-95 transition-all text-xs font-bold min-h-[44px]"
+                    className="flex items-center justify-between gap-2 text-left p-3 rounded-xl bg-[var(--kg-danger-soft)] border border-[var(--kg-danger)]/20 text-[var(--kg-danger)] hover:brightness-95 transition-all text-xs font-bold min-h-[44px] sm:min-h-[40px] touch-manipulation"
                   >
-                    <span>
+                    <span className="min-w-0 truncate">
                       Yêu cầu xin nghỉ (
                       <span className="font-mono tabular-nums">{pendingLeavesCount}</span>)
                     </span>
-                    <span>Chi tiết →</span>
+                    <span className="whitespace-nowrap flex-shrink-0">Chi tiết →</span>
                   </button>
                 )}
                 {pendingAdvancesCount > 0 && (
                   <button
                     type="button"
                     onClick={() => onNavigateHubSubTab('admin_people_pay', 'payroll')}
-                    className="flex items-center justify-between p-3 rounded-xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/25 text-amber-800 dark:text-amber-300 hover:brightness-95 transition-all text-xs font-bold min-h-[44px]"
+                    className="flex items-center justify-between gap-2 text-left p-3 rounded-xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/25 text-amber-800 dark:text-amber-300 hover:brightness-95 transition-all text-xs font-bold min-h-[44px] sm:min-h-[40px] touch-manipulation"
                   >
-                    <span>
+                    <span className="min-w-0 truncate">
                       Ứng lương (
                       <span className="font-mono tabular-nums">{pendingAdvancesCount}</span>)
                     </span>
-                    <span>Chi tiết →</span>
+                    <span className="whitespace-nowrap flex-shrink-0">Chi tiết →</span>
                   </button>
                 )}
                 {pendingFeedbackCount > 0 && (
                   <button
                     type="button"
                     onClick={() => onTabChange('feedback')}
-                    className="flex items-center justify-between p-3 rounded-xl bg-[var(--kg-info-soft)] border border-[var(--kg-info)]/20 text-[var(--kg-info)] hover:brightness-95 transition-all text-xs font-bold min-h-[44px]"
+                    className="flex items-center justify-between gap-2 text-left p-3 rounded-xl bg-[var(--kg-info-soft)] border border-[var(--kg-info)]/20 text-[var(--kg-info)] hover:brightness-95 transition-all text-xs font-bold min-h-[44px] sm:min-h-[40px] touch-manipulation"
                   >
-                    <span>
+                    <span className="min-w-0 truncate">
                       Góp ý chưa trả lời (
                       <span className="font-mono tabular-nums">{pendingFeedbackCount}</span>)
                     </span>
-                    <span>Trả lời →</span>
+                    <span className="whitespace-nowrap flex-shrink-0">Trả lời →</span>
                   </button>
                 )}
               </div>
@@ -477,7 +477,7 @@ export default function AdminDashboardView({
                       onTabChange(item.tab);
                     }
                   }}
-                  className="flex items-center gap-2 p-2.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)]/50 hover:bg-[var(--kg-surface-soft)] active:scale-[0.98] transition-colors text-xs font-bold text-[var(--kg-text)] min-h-[46px]"
+                  className="min-w-0 flex items-center gap-2 p-2.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)]/50 hover:bg-[var(--kg-surface-soft)] active:scale-[0.98] transition-colors text-xs font-bold text-[var(--kg-text)] min-h-[46px] sm:min-h-[42px] touch-manipulation"
                 >
                   <div
                     className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${item.color}`}

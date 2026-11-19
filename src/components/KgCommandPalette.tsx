@@ -582,7 +582,7 @@ export default function KgCommandPalette({
                 setSelectedIndex(0);
                 inputRef.current?.focus();
               }}
-              className="text-xs font-bold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] px-2.5 min-h-[44px] sm:min-h-[32px] py-1 rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-border)] active:scale-95 transition-all flex-shrink-0"
+              className="text-xs font-bold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] px-2.5 min-h-[44px] sm:min-h-[36px] py-1 rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-border)] active:scale-95 transition-all flex-shrink-0 whitespace-nowrap"
             >
               Xóa
             </button>
@@ -649,7 +649,7 @@ export default function KgCommandPalette({
                       <span className="text-xs sm:text-sm font-extrabold truncate">
                         {item.label}
                       </span>
-                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] flex-shrink-0">
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] flex-shrink-0 max-w-[110px] sm:max-w-none truncate">
                         {item.category}
                       </span>
                     </div>

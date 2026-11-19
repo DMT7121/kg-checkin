@@ -177,7 +177,7 @@ export default function VersionReleaseModal() {
         aria-modal="true"
         aria-labelledby="kg-release-modal-title"
         onClick={(e) => e.stopPropagation()}
-        className="relative z-10 w-full sm:max-w-xl max-h-[88dvh] sm:max-h-[84vh] mx-auto bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-t-2xl sm:rounded-2xl border border-[var(--kg-border)] shadow-2xl flex flex-col pointer-events-auto overflow-hidden pb-safe focus:outline-none transition-all duration-150 ease-out"
+        className="relative z-10 w-full sm:max-w-xl max-h-[88dvh] sm:max-h-[84dvh] mx-auto bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-t-2xl sm:rounded-2xl border border-[var(--kg-border)] shadow-2xl flex flex-col pointer-events-auto overflow-hidden focus:outline-none transition-all duration-150 ease-out"
       >
             {/* Subtle Brand Top Accent Line */}
             <div className="h-[3px] w-full bg-[var(--kg-accent)] flex-shrink-0" />
@@ -248,7 +248,7 @@ export default function VersionReleaseModal() {
                       role="tab"
                       aria-selected={active}
                       onClick={() => setActiveView(tab.id)}
-                      className={`min-h-[34px] px-2 py-1 rounded-lg text-xs font-bold inline-flex items-center justify-center gap-1.5 transition-all touch-manipulation ${
+                      className={`min-h-[44px] sm:min-h-[36px] px-2 py-1.5 rounded-lg text-xs font-bold inline-flex items-center justify-center gap-1.5 transition-all touch-manipulation whitespace-nowrap ${
                         active
                           ? 'bg-[var(--kg-primary)] text-white shadow-2xs'
                           : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
@@ -325,7 +325,7 @@ export default function VersionReleaseModal() {
                                 <button
                                   type="button"
                                   onClick={() => toggleExpand(item.id)}
-                                  className="w-full text-left px-3.5 py-2.5 hover:bg-[var(--kg-surface-soft)]/50 transition-colors flex items-start justify-between gap-2.5 touch-manipulation"
+                                  className="w-full min-h-[44px] text-left px-3.5 py-2.5 hover:bg-[var(--kg-surface-soft)]/50 transition-colors flex items-start justify-between gap-2.5 touch-manipulation"
                                 >
                                   <div className="min-w-0 flex-1">
                                     <div className="flex items-start gap-2">
@@ -378,7 +378,7 @@ export default function VersionReleaseModal() {
               {activeView === 'details' && (
                 <>
                   {/* Short, Zero-Clip Category Sub-Pills */}
-                  <div className="grid grid-cols-4 gap-1.5">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                     {(
                       [
                         { id: 'all', label: 'Tất cả' },
@@ -393,7 +393,7 @@ export default function VersionReleaseModal() {
                           key={sub.id}
                           type="button"
                           onClick={() => setDetailFilter(sub.id)}
-                          className={`min-h-[34px] px-2 py-1 rounded-xl text-[11.5px] font-bold transition-all truncate touch-manipulation ${
+                          className={`min-h-[42px] sm:min-h-[36px] px-2.5 py-1.5 rounded-xl text-xs sm:text-[11.5px] font-bold transition-all truncate whitespace-nowrap touch-manipulation ${
                             active
                               ? 'bg-[var(--kg-accent-soft)] text-[var(--kg-accent-ink)] border border-[var(--kg-accent)]/35'
                               : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] hover:text-[var(--kg-text)]'
@@ -506,7 +506,7 @@ export default function VersionReleaseModal() {
             </div>
 
             {/* Clean Native Footer (Zero Text Truncation on 360px) */}
-            <div className="px-4 sm:px-5 py-3 border-t border-[var(--kg-border)] bg-[var(--kg-surface-soft)]/75 flex items-center justify-between gap-3 flex-shrink-0">
+            <div className="px-4 sm:px-5 py-3 pb-safe sm:pb-3 border-t border-[var(--kg-border)] bg-[var(--kg-surface-soft)]/75 flex items-center justify-between gap-3 flex-shrink-0">
               <div className="inline-flex items-center gap-1.5 text-xs text-[var(--kg-text-muted)] min-w-0">
                 <CheckCircle2 size={14} className="text-[var(--kg-success)] flex-shrink-0" />
                 <span className="truncate">

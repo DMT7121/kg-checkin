@@ -558,12 +558,12 @@ export default function SwapShift() {
         </div>
       )}
 
-      {/* Tabs Menu */}
-      <div className="grid grid-cols-3 sm:flex bg-[var(--kg-surface)] border border-[var(--kg-border)] p-1 sm:p-1.5 rounded-2xl mb-6 shadow-xs gap-1 sm:gap-1.5">
+      {/* Tabs Menu: Full-width 3-col on Mobile, crisp proportional segmented bar on Tablet/Desktop */}
+      <div className="grid grid-cols-3 sm:inline-flex sm:w-auto bg-[var(--kg-surface)] border border-[var(--kg-border)] p-1 sm:p-1.5 rounded-2xl mb-5 shadow-xs gap-1 sm:gap-1.5">
         <button
           type="button"
           onClick={() => setViewTab('board')}
-          className={`flex-1 min-w-0 min-h-[44px] sm:min-h-[40px] px-1.5 sm:px-3.5 py-2 sm:py-2.5 flex items-center justify-center gap-1 sm:gap-1.5 rounded-xl text-[11.5px] sm:text-sm font-black transition-all active:scale-95 select-none whitespace-nowrap touch-manipulation ${
+          className={`flex-1 sm:flex-initial min-w-0 min-h-[44px] sm:min-h-[38px] px-1.5 sm:px-4 py-2 flex items-center justify-center gap-1 sm:gap-1.5 rounded-xl text-[11.5px] sm:text-sm font-black transition-all active:scale-95 select-none whitespace-nowrap touch-manipulation ${
             viewTab === 'board'
               ? 'bg-[var(--kg-primary)] text-white shadow-xs'
               : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
@@ -581,7 +581,7 @@ export default function SwapShift() {
         <button
           type="button"
           onClick={() => setViewTab('post')}
-          className={`flex-1 min-w-0 min-h-[44px] sm:min-h-[40px] px-1.5 sm:px-3.5 py-2 sm:py-2.5 flex items-center justify-center gap-1 sm:gap-1.5 rounded-xl text-[11.5px] sm:text-sm font-black transition-all active:scale-95 select-none whitespace-nowrap touch-manipulation ${
+          className={`flex-1 sm:flex-initial min-w-0 min-h-[44px] sm:min-h-[38px] px-1.5 sm:px-4 py-2 flex items-center justify-center gap-1 sm:gap-1.5 rounded-xl text-[11.5px] sm:text-sm font-black transition-all active:scale-95 select-none whitespace-nowrap touch-manipulation ${
             viewTab === 'post'
               ? 'bg-[var(--kg-primary)] text-white shadow-xs'
               : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
@@ -596,7 +596,7 @@ export default function SwapShift() {
         <button
           type="button"
           onClick={() => setViewTab('leave')}
-          className={`flex-1 min-w-0 min-h-[44px] sm:min-h-[40px] px-1.5 sm:px-3.5 py-2 sm:py-2.5 flex items-center justify-center gap-1 sm:gap-1.5 rounded-xl text-[11.5px] sm:text-sm font-black transition-all active:scale-95 select-none whitespace-nowrap touch-manipulation ${
+          className={`flex-1 sm:flex-initial min-w-0 min-h-[44px] sm:min-h-[38px] px-1.5 sm:px-4 py-2 flex items-center justify-center gap-1 sm:gap-1.5 rounded-xl text-[11.5px] sm:text-sm font-black transition-all active:scale-95 select-none whitespace-nowrap touch-manipulation ${
             viewTab === 'leave'
               ? 'bg-[var(--kg-primary)] text-white shadow-xs'
               : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
@@ -845,7 +845,7 @@ export default function SwapShift() {
             )}
 
           {/* Glanceable 7-Day Grid Picker (Zero horizontal scroll) */}
-          <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 sm:p-5 mb-5">
+          <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-3 sm:p-5 mb-5">
             <h3 className="font-bold text-[var(--kg-text)] mb-3.5 text-sm sm:text-base">
               1. Chọn ca của bạn muốn {viewTab === 'leave' ? 'xin nghỉ' : 'đổi'}
             </h3>
@@ -1041,25 +1041,27 @@ export default function SwapShift() {
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={handleSwapRequest}
-            className="w-full min-h-[48px] bg-[var(--kg-primary)] text-white font-black py-3.5 rounded-2xl shadow-md hover:brightness-110 transition-all transform active:scale-98 flex items-center justify-center touch-manipulation border-none text-xs sm:text-sm tracking-wider uppercase"
-          >
-            {viewTab === 'leave' ? (
-              <>
-                <LogOut size={18} className="mr-2 text-[var(--kg-accent)]" /> GỬI YÊU CẦU NGHỈ PHÉP
-              </>
-            ) : targetUsername === 'ALL' ? (
-              <>
-                <Megaphone size={18} className="mr-2 text-[var(--kg-accent)]" /> ĐĂNG LÊN BẢNG TIN
-              </>
-            ) : (
-              <>
-                <Send size={18} className="mr-2 text-[var(--kg-accent)]" /> GỬI YÊU CẦU ĐỔI CA
-              </>
-            )}
-          </button>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={handleSwapRequest}
+              className="w-full sm:w-auto sm:min-w-[240px] sm:px-7 min-h-[48px] sm:min-h-[44px] bg-[var(--kg-primary)] text-white font-black py-3 rounded-2xl sm:rounded-xl shadow-md sm:shadow-sm hover:brightness-110 transition-all transform active:scale-98 flex items-center justify-center touch-manipulation border-none text-xs sm:text-sm tracking-wider uppercase whitespace-nowrap"
+            >
+              {viewTab === 'leave' ? (
+                <>
+                  <LogOut size={17} className="mr-2 text-[var(--kg-accent)] flex-shrink-0" /> GỬI YÊU CẦU NGHỈ PHÉP
+                </>
+              ) : targetUsername === 'ALL' ? (
+                <>
+                  <Megaphone size={17} className="mr-2 text-[var(--kg-accent)] flex-shrink-0" /> ĐĂNG LÊN BẢNG TIN
+                </>
+              ) : (
+                <>
+                  <Send size={17} className="mr-2 text-[var(--kg-accent)] flex-shrink-0" /> GỬI YÊU CẦU ĐỔI CA
+                </>
+              )}
+            </button>
+          </div>
         </div>
       )}
 

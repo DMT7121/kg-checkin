@@ -9,7 +9,7 @@ export default function AdminPayroll() {
   if (!isAdminUser(currentUser) || !currentUser) return null;
 
   return (
-    <div className="p-4 space-y-4 animate-fade-in pb-24 md:pb-12 max-w-6xl mx-auto">
+    <div className="p-4 md:px-0 md:pt-1 space-y-4 animate-fade-in pb-24 md:pb-12 max-w-6xl mx-auto">
       <KgModuleHero
         moduleId="admin-payroll"
         title="Đơn Giá Lương & Hạn Mức Ứng"

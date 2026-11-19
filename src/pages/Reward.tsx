@@ -109,7 +109,7 @@ export default function Reward() {
   };
 
   return (
-    <div className="p-4 space-y-4 animate-fade-in pb-20 max-w-4xl mx-auto w-full">
+    <div className="p-4 space-y-4 animate-fade-in pb-20 max-w-5xl mx-auto w-full">
       <KgModuleHero
         moduleId="reward"
         title="King Coins & Bảng Vàng"
@@ -136,7 +136,7 @@ export default function Reward() {
       />
 
       {/* Points Summary Card + Compact Coin Rules Info Pill */}
-      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4 shadow-xs">
+      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 shadow-xs">
         <div className="flex items-center gap-3.5">
           <div className="w-12 h-12 rounded-2xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/30 text-[var(--kg-warning)] flex items-center justify-center flex-shrink-0">
             <Coins size={24} />
@@ -156,7 +156,7 @@ export default function Reward() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 ml-auto flex-wrap">
+        <div className="flex items-center justify-between sm:justify-end gap-2.5 w-full sm:w-auto flex-wrap pt-2.5 border-t border-[var(--kg-border)] sm:pt-0 sm:border-t-0">
           <div className="bg-[var(--kg-surface-soft)] rounded-xl px-3.5 py-2 text-center border border-[var(--kg-border)]">
             <p className="text-[10px] text-[var(--kg-text-muted)] font-black uppercase tracking-wider">Hạng</p>
             <p className="text-lg font-mono tabular-nums font-black leading-tight text-[var(--kg-primary-ink)]">
@@ -178,8 +178,8 @@ export default function Reward() {
         </div>
       </div>
 
-      {/* 2 Crisp Navigation Tabs */}
-      <div className="flex bg-[var(--kg-surface)] border border-[var(--kg-border)] p-1.5 rounded-2xl shadow-xs gap-1.5">
+      {/* 2 Crisp Navigation Tabs — compact segmented control on desktop, equal 2-col on mobile */}
+      <div className="grid grid-cols-2 sm:inline-flex bg-[var(--kg-surface)] border border-[var(--kg-border)] p-1.5 rounded-2xl shadow-xs gap-1.5">
         {(
           [
             { id: 'wallet', label: 'Ví điểm & Lịch sử', icon: History },
@@ -192,13 +192,13 @@ export default function Reward() {
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`min-h-[44px] sm:min-h-[40px] flex-1 flex items-center justify-center space-x-1.5 py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all active:scale-95 select-none touch-manipulation ${
+              className={`min-h-[44px] sm:min-h-[40px] sm:min-w-[180px] px-3 sm:px-4 flex items-center justify-center space-x-1.5 py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all active:scale-95 whitespace-nowrap select-none touch-manipulation ${
                 isSelected
                   ? 'bg-[var(--kg-primary)] text-white shadow-xs'
                   : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
               }`}
             >
-              <tab.icon size={15} className={isSelected ? 'text-white' : 'opacity-80'} />
+              <tab.icon size={15} className={`shrink-0 ${isSelected ? 'text-white' : 'opacity-80'}`} />
               <span>{tab.label}</span>
             </button>
           );
@@ -235,7 +235,7 @@ export default function Reward() {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-2.5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
                   {coinHistory.map((item) => (
                     <div
                       key={item.id}
@@ -323,7 +323,7 @@ export default function Reward() {
                               : user.rank === 2
                                 ? 'bg-[var(--kg-surface-soft)] text-[var(--kg-text)] border border-[var(--kg-border-strong)]'
                                 : user.rank === 3
-                                  ? 'bg-[var(--kg-warning)] text-white'
+                                  ? 'bg-[var(--kg-warning)] text-white dark:text-[#1A1613]'
                                   : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)]'
                           }`}
                         >

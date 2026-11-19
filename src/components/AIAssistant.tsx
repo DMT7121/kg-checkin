@@ -136,7 +136,7 @@ export default function AIAssistant() {
     session.moved = true;
     setIsTucked(false);
     const minTop = 72;
-    const maxTop = Math.max(minTop, viewport.h - (viewport.w < 768 ? 156 : 96));
+    const maxTop = Math.max(minTop, viewport.h - (viewport.w < 768 ? 168 : 96));
     const clampedX = Math.min(Math.max(6, e.clientX - 22), Math.max(6, viewport.w - 50));
     const clampedY = Math.min(Math.max(minTop, e.clientY - 22), maxTop);
     setDragCoords({ x: clampedX, y: clampedY });
@@ -160,7 +160,7 @@ export default function AIAssistant() {
     }
 
     const minTop = 72;
-    const maxTop = Math.max(minTop, viewport.h - (viewport.w < 768 ? 156 : 96));
+    const maxTop = Math.max(minTop, viewport.h - (viewport.w < 768 ? 168 : 96));
     const finalTop = Math.min(Math.max(minTop, e.clientY - 22), maxTop);
     const nextSide: 'left' | 'right' = e.clientX < viewport.w / 2 ? 'left' : 'right';
     const nextRatio = Math.min(0.75, Math.max(0.15, finalTop / Math.max(viewport.h, 400)));
@@ -500,7 +500,7 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
   if (currentTab === 'checkin' && !isAiOpen) return null; // Không che khuất camera & nút GPS trên màn Chấm công
 
   const minSafeTop = 72;
-  const maxSafeTop = Math.max(minSafeTop, viewport.h - (viewport.w < 768 ? 156 : 96));
+  const maxSafeTop = Math.max(minSafeTop, viewport.h - (viewport.w < 768 ? 168 : 96));
   const snappedTop = Math.min(Math.max(minSafeTop, Math.round(viewport.h * pos.yRatio)), maxSafeTop);
   const isActivelyMoved = dragCoords !== null;
 
@@ -596,22 +596,30 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
 
       {/* Chat Window (Mobile Bottom-Sheet + Desktop Floating Atelier Panel) */}
       {isAiOpen && (
-        <div
-          ref={chatDialogRef}
-          tabIndex={-1}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Trợ lý AI King's Grill"
-          className={`fixed inset-x-0 md:inset-x-auto bottom-0 md:bottom-6 ${
-            pos.side === 'left' ? 'md:left-24' : 'md:right-6'
-          } bg-[var(--kg-surface)] text-[var(--kg-text)] shadow-2xl ${
-            isLightboxOpen ? 'z-40' : 'z-[10055]'
-          } flex flex-col transition-all duration-200 ease-out border border-[var(--kg-border)] focus:outline-none ${
-            isExpanded
-              ? 'w-full md:w-[600px] h-[92dvh] md:h-[80dvh] rounded-t-3xl md:rounded-2xl'
-              : 'w-full md:w-[390px] h-[78dvh] md:h-[560px] rounded-t-3xl md:rounded-2xl'
-          }`}
-        >
+        <>
+          <div
+            onClick={handleCloseChat}
+            aria-hidden="true"
+            className={`fixed inset-0 bg-black/45 backdrop-blur-[2px] md:hidden ${
+              isLightboxOpen ? 'z-30' : 'z-[10054]'
+            }`}
+          />
+          <div
+            ref={chatDialogRef}
+            tabIndex={-1}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Trợ lý AI King's Grill"
+            className={`fixed inset-x-0 md:inset-x-auto bottom-0 md:bottom-6 ${
+              pos.side === 'left' ? 'md:left-24 xl:left-[248px]' : 'md:right-6'
+            } bg-[var(--kg-surface)] text-[var(--kg-text)] shadow-2xl ${
+              isLightboxOpen ? 'z-40' : 'z-[10055]'
+            } flex flex-col transition-all duration-200 ease-out border border-[var(--kg-border)] focus:outline-none ${
+              isExpanded
+                ? 'w-full md:w-[600px] h-[90dvh] md:h-[80dvh] rounded-t-3xl md:rounded-2xl'
+                : 'w-full md:w-[390px] h-[78dvh] md:h-[560px] rounded-t-3xl md:rounded-2xl'
+            }`}
+          >
           {/* Header */}
           <div className="bg-[var(--kg-rail-bg)] px-4 py-3.5 flex items-center justify-between text-[var(--kg-rail-text)] rounded-t-3xl md:rounded-t-2xl border-b border-[var(--kg-rail-border)] shadow-xs z-10 flex-shrink-0">
             <div className="flex items-center gap-3 min-w-0">
@@ -723,7 +731,8 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
               </span>
             </div>
           </div>
-        </div>
+          </div>
+        </>
       )}
     </>
   );

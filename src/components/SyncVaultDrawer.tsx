@@ -143,7 +143,7 @@ export default function SyncVaultDrawer({
       subtitle="Theo dõi hàng đợi ngoại tuyến (kg_punch_vault_v1)"
       footer={
         <div className="flex items-center justify-between gap-2">
-          <KgButton variant="secondary" size="sm" onClick={onClose}>
+          <KgButton variant="secondary" size="sm" onClick={onClose} className="flex-1 sm:flex-initial">
             Đóng
           </KgButton>
           <KgButton
@@ -152,6 +152,7 @@ export default function SyncVaultDrawer({
             icon={RefreshCw}
             loading={isSyncing}
             disabled={!isOnline}
+            className="flex-1 sm:flex-initial"
             onClick={() => {
               onManualSync();
               reloadVaultSnapshot();
@@ -164,7 +165,7 @@ export default function SyncVaultDrawer({
     >
       <div className="space-y-4">
         {/* Connection & Sync Summary */}
-        <div className="p-3.5 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex items-center justify-between gap-3">
+        <div className="p-3.5 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <div className="flex items-center gap-3 min-w-0">
             <div
               className={`w-10 h-10 rounded-xl border flex items-center justify-center flex-shrink-0 ${

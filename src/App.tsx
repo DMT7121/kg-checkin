@@ -216,7 +216,7 @@ export default function App() {
   }, [currentUsername, currentUserRole]);
 
   return (
-    <div className="bg-[var(--kg-bg)] text-[var(--kg-text)] transition-colors duration-200 min-h-screen">
+    <div className="bg-[var(--kg-bg)] text-[var(--kg-text)] transition-colors duration-200 min-h-dvh">
       {/* Zalo/Facebook in-app browser warning */}
       {isInAppBrowser() && (
         <Suspense fallback={null}>

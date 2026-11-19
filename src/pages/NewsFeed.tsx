@@ -216,7 +216,7 @@ export default function NewsFeed() {
   };
 
   return (
-    <div ref={containerRef} className="p-4 animate-slide-up pb-24 md:pb-10 space-y-5">
+    <div ref={containerRef} className="p-4 animate-slide-up pb-24 md:pb-10 space-y-5 max-w-5xl mx-auto w-full">
       <KgModuleHero
         moduleId="news"
         title="Bảng tin Nội bộ"
@@ -242,7 +242,7 @@ export default function NewsFeed() {
       />
 
       {/* Desktop-constrained feed column */}
-      <div className="max-w-2xl mx-auto w-full space-y-4">
+      <div className="max-w-3xl mx-auto w-full space-y-4">
         {/* Admin Post Box */}
         {currentUser?.role === 'admin' && (
           <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl overflow-hidden p-4 sm:p-5 shadow-xs space-y-3">
@@ -267,7 +267,7 @@ export default function NewsFeed() {
                 <button
                   type="button"
                   onClick={() => setNewPostImagePreview(null)}
-                  className="absolute top-1 right-1 min-w-[36px] min-h-[36px] bg-black/65 text-white rounded-full flex items-center justify-center hover:bg-black/80 transition"
+                  className="absolute top-1 right-1 min-w-[40px] min-h-[40px] sm:min-w-[32px] sm:min-h-[32px] bg-black/65 text-white rounded-full flex items-center justify-center hover:bg-black/80 transition touch-manipulation"
                   aria-label="Xóa ảnh đính kèm"
                 >
                   <X size={14} />
@@ -280,10 +280,10 @@ export default function NewsFeed() {
               </div>
             )}
 
-            <div className="flex justify-between items-center pt-1">
+            <div className="flex justify-between items-center gap-2 pt-1">
               <label
                 aria-label="Đính kèm hình ảnh"
-                className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center cursor-pointer text-[var(--kg-primary-ink)] hover:opacity-80 hover:bg-[var(--kg-surface-soft)] rounded-xl transition touch-manipulation"
+                className="min-w-[44px] min-h-[44px] sm:min-h-[38px] px-2.5 sm:px-3 inline-flex items-center justify-center gap-1.5 cursor-pointer text-[var(--kg-primary-ink)] hover:bg-[var(--kg-surface-soft)] border border-transparent hover:border-[var(--kg-border)] rounded-xl transition text-xs font-bold touch-manipulation"
               >
                 <input
                   type="file"
@@ -292,7 +292,8 @@ export default function NewsFeed() {
                   onChange={handleImageSelect}
                   disabled={uploadingImage}
                 />
-                <ImageIcon size={20} />
+                <ImageIcon size={18} />
+                <span className="hidden sm:inline">Thêm ảnh</span>
               </label>
               <KgButton
                 type="button"
@@ -373,8 +374,8 @@ export default function NewsFeed() {
 
                   {/* Image */}
                   {post.image && (
-                    <div className="w-full max-h-72 bg-[var(--kg-surface-soft)] overflow-hidden">
-                      <img src={post.image} alt="Post cover" className="w-full h-full object-cover" />
+                    <div className="w-full max-h-[420px] bg-[var(--kg-surface-soft)] overflow-hidden flex items-center justify-center">
+                      <img src={post.image} alt="Post cover" className="w-full max-h-[420px] object-cover" />
                     </div>
                   )}
 
@@ -398,7 +399,7 @@ export default function NewsFeed() {
                         type="button"
                         onClick={() => setActiveCommentPostId(isCommentsOpen ? null : post.id)}
                         aria-expanded={isCommentsOpen}
-                        className="flex items-center ml-auto min-h-[44px] sm:min-h-[32px] px-2 -mr-2 rounded-lg hover:text-[var(--kg-info)] font-bold touch-manipulation"
+                        className="flex items-center ml-auto min-h-[44px] sm:min-h-[36px] px-2.5 -mr-2 rounded-lg hover:text-[var(--kg-info)] font-bold touch-manipulation"
                       >
                         <MessageSquare size={13} className="mr-1 text-[var(--kg-info)]" />
                         <span className="font-mono tabular-nums mr-1">{post.comments.length}</span> bình luận
@@ -508,7 +509,7 @@ export default function NewsFeed() {
                             aria-label="Gửi bình luận"
                             onClick={() => void handleAddComment(post.id)}
                             disabled={!commentValue.trim()}
-                            className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center bg-[var(--kg-primary)] text-white rounded-full hover:opacity-90 transition-opacity disabled:opacity-50"
+                            className="absolute right-1 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center bg-[var(--kg-primary)] text-white rounded-full hover:opacity-90 transition-opacity disabled:opacity-50 touch-manipulation"
                           >
                             <Send size={14} className="ml-0.5" />
                           </button>

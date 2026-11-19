@@ -1224,32 +1224,32 @@ ${aiInputText}
             <h3 className="font-bold flex items-center text-[var(--kg-text)]">
               <CalendarCheck size={18} className="mr-2 text-[var(--kg-primary)]" /> Quản Lý Lịch Làm Việc Tuần Tới
             </h3>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
               {viewMode === 'week' && (
                 <button
                   type="button"
                   onClick={handleAdminCopyPreviousWeek}
-                  className="min-h-[44px] lg:min-h-[36px] text-xs sm:text-sm bg-[var(--kg-accent-soft)] text-[var(--kg-primary)] border border-[var(--kg-primary)]/25 px-3 py-1.5 rounded-xl hover:opacity-90 transition flex items-center font-bold touch-manipulation"
+                  className="flex-1 sm:flex-initial justify-center whitespace-nowrap min-h-[44px] sm:min-h-[38px] text-xs sm:text-sm bg-[var(--kg-accent-soft)] text-[var(--kg-primary)] border border-[var(--kg-primary)]/25 px-3 py-1.5 rounded-xl hover:opacity-90 transition flex items-center font-bold touch-manipulation"
                   title="Sao chép nhanh lịch làm từ tuần liền trước"
                 >
-                  <Copy size={14} className="mr-1.5" /> Sao chép tuần trước
+                  <Copy size={14} className="mr-1.5 flex-shrink-0" /> Sao chép tuần trước
                 </button>
               )}
               <button
                 type="button"
                 onClick={handleManualSyncRoster}
                 disabled={isSyncingRoster}
-                className="min-h-[44px] lg:min-h-[36px] text-xs sm:text-sm bg-[var(--kg-success-soft)] text-[var(--kg-success)] border border-[var(--kg-success)]/25 px-3 py-1.5 rounded-xl hover:opacity-90 transition flex items-center font-bold disabled:opacity-50 touch-manipulation"
+                className="flex-1 sm:flex-initial justify-center whitespace-nowrap min-h-[44px] sm:min-h-[38px] text-xs sm:text-sm bg-[var(--kg-success-soft)] text-[var(--kg-success)] border border-[var(--kg-success)]/25 px-3 py-1.5 rounded-xl hover:opacity-90 transition flex items-center font-bold disabled:opacity-50 touch-manipulation"
                 title="Đồng bộ lịch tuần này sang Google Sheet Lịch Làm (1Vrm...)"
               >
-                <FileSpreadsheet size={14} className={`mr-1.5 ${isSyncingRoster ? 'animate-spin' : ''}`} /> Đồng bộ Sheet Lịch
+                <FileSpreadsheet size={14} className={`mr-1.5 flex-shrink-0 ${isSyncingRoster ? 'animate-spin' : ''}`} /> Đồng bộ Sheet Lịch
               </button>
               <button
                 type="button"
                 onClick={() => (viewMode === 'week' ? loadAdminSchedules() : loadMonthSchedules())}
-                className="min-h-[44px] lg:min-h-[36px] text-xs sm:text-sm bg-[var(--kg-primary-soft)] text-[var(--kg-primary)] border border-[var(--kg-primary)]/20 px-3 py-1.5 rounded-xl hover:opacity-90 transition flex items-center font-bold touch-manipulation"
+                className="flex-1 sm:flex-initial justify-center whitespace-nowrap min-h-[44px] sm:min-h-[38px] text-xs sm:text-sm bg-[var(--kg-primary-soft)] text-[var(--kg-primary)] border border-[var(--kg-primary)]/20 px-3 py-1.5 rounded-xl hover:opacity-90 transition flex items-center font-bold touch-manipulation"
               >
-                <RefreshCw size={14} className="mr-1.5" /> Tải lịch
+                <RefreshCw size={14} className="mr-1.5 flex-shrink-0" /> Tải lịch
               </button>
             </div>
           </div>
@@ -1268,11 +1268,11 @@ ${aiInputText}
                 <table className="schedule-week-table w-full text-xs sm:text-sm text-left md:whitespace-nowrap">
                   <thead className="text-[10px] sm:text-xs text-[var(--kg-text-muted)] uppercase bg-[var(--kg-surface-soft)] border-b border-[var(--kg-border)]">
                     <tr>
-                      <th className="schedule-employee-header px-3.5 py-3 md:sticky md:left-0 bg-[var(--kg-surface-soft)] z-20 font-black border-r border-[var(--kg-border)]">Nhân Viên</th>
+                      <th className="schedule-employee-header px-3.5 py-3 md:sticky md:left-0 md:w-[156px] md:min-w-[156px] bg-[var(--kg-surface-soft)] z-20 font-black border-r border-[var(--kg-border)]">Nhân Viên</th>
                       {SHORT_DAY_NAMES.map((d, idx) => (
                         <th
                           key={d}
-                          className={`schedule-day-header px-2 py-3 text-center border-r border-[var(--kg-border)] ${weekDayMeta[idx].className}`}
+                          className={`schedule-day-header px-2 py-3 text-center border-r border-[var(--kg-border)] md:min-w-[96px] ${weekDayMeta[idx].className}`}
                           title={weekDayMeta[idx].label || undefined}
                         >
                           <div className="hidden md:block font-black text-[13px]">{weekInfo.weekDates[idx]}</div>
@@ -1280,7 +1280,7 @@ ${aiInputText}
                           <div className="text-[9px] font-bold opacity-75 mt-0.5">{d}</div>
                         </th>
                       ))}
-                      <th className="hidden md:table-cell px-4 py-3">Ghi chú</th>
+                      <th className="hidden md:table-cell md:min-w-[150px] px-4 py-3">Ghi chú</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1290,7 +1290,7 @@ ${aiInputText}
                       
                       return (
                       <tr key={empIdx} className="border-b border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]/50 transition-colors">
-                        <td className="schedule-employee-cell px-3 py-2 md:sticky md:left-0 bg-[var(--kg-surface)] z-10 font-bold text-[var(--kg-text)] shadow-[1px_0_0_0_rgba(0,0,0,0.05)] border-r border-[var(--kg-border)]">
+                        <td className="schedule-employee-cell px-3 py-2 md:sticky md:left-0 md:w-[156px] md:min-w-[156px] bg-[var(--kg-surface)] z-10 font-bold text-[var(--kg-text)] shadow-[1px_0_0_0_rgba(0,0,0,0.05)] border-r border-[var(--kg-border)]">
                           <button
                             type="button"
                             onClick={() =>
@@ -1306,7 +1306,7 @@ ${aiInputText}
                             aria-label={`Xem đăng ký gốc của ${emp.fullname}`}
                           >
                             <div className="flex items-center min-w-0 gap-1.5">
-                              <SmartPersonName fullname={emp.fullname} className="schedule-employee-name max-w-[130px]" />
+                              <SmartPersonName fullname={emp.fullname} asSpan className="schedule-employee-name max-w-[130px]" />
                               {hasRegistered && (
                                 <span
                                   className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0"
@@ -1329,7 +1329,7 @@ ${aiInputText}
                           return (
                             <td
                               key={dayIdx}
-                              className={`schedule-shift-cell px-1 py-2 relative border-r dark:border-gray-700 ${weekDayMeta[dayIdx].className}`}
+                              className={`schedule-shift-cell px-1 md:px-1.5 py-2 relative border-r dark:border-gray-700 md:min-w-[96px] ${weekDayMeta[dayIdx].className}`}
                               title={weekDayMeta[dayIdx].label || tooltipText || undefined}
                             >
                               {isChanged && <div className="absolute top-0 right-0 w-2 h-2 bg-orange-500 rounded-full animate-pulse" title="Đã thay đổi"></div>}
@@ -1349,7 +1349,7 @@ ${aiInputText}
                                 </select>
                                 <select value={shift || ''} onChange={(e) => updateAdminShift(empIdx, dayIdx, e.target.value)}
                                   aria-label={`${emp.fullname} - ${SHORT_DAY_NAMES[dayIdx]}`}
-                                  className={`text-xs font-bold rounded-lg border focus:outline-none p-1.5 w-full cursor-pointer appearance-none text-center transition-all ${
+                                  className={`text-xs font-bold rounded-lg border focus:outline-none px-2 py-1.5 w-full min-w-[84px] cursor-pointer appearance-none text-center transition-all ${
                                     isChanged 
                                       ? 'border-orange-500 ring-2 ring-orange-200 dark:ring-orange-900/50 shadow-sm ' + getAdminShiftClass(shift)
                                       : 'border-[var(--kg-border)] focus:ring-2 focus:ring-[var(--kg-primary)] ' + getAdminShiftClass(shift)
@@ -1371,29 +1371,29 @@ ${aiInputText}
                   </tbody>
                 </table>
               </div>
-              <div className="flex flex-col sm:flex-row gap-3 mb-2">
+              <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-end gap-2.5 mb-2">
                 <button 
                   type="button"
                   onClick={() => setAiModalOpen(true)} 
-                  className="flex-1 bg-[var(--kg-primary)] hover:brightness-110 text-white font-black py-3.5 rounded-xl shadow-md transition transform active:scale-98 flex items-center justify-center touch-manipulation text-xs sm:text-sm tracking-wider uppercase"
+                  className="w-full sm:w-auto px-4 lg:px-5 min-h-[46px] sm:min-h-[42px] bg-[var(--kg-primary)] hover:brightness-110 text-white font-black py-2.5 rounded-xl shadow-sm transition transform active:scale-98 flex items-center justify-center touch-manipulation text-xs sm:text-sm tracking-wider uppercase whitespace-nowrap"
                 >
-                  <Bot size={18} className="mr-2 text-[var(--kg-accent)]" /> XẾP CA BẰNG AI
-                </button>
-                <button 
-                  type="button"
-                  onClick={approveAllSchedules} 
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3.5 rounded-xl shadow-md transition transform active:scale-98 flex items-center justify-center touch-manipulation text-xs sm:text-sm tracking-wider uppercase"
-                >
-                  <CheckCheck size={18} className="mr-2" /> DUYỆT &amp; ĐỒNG BỘ LỊCH LÀM
+                  <Bot size={17} className="mr-2 text-[var(--kg-accent)] flex-shrink-0" /> XẾP CA BẰNG AI
                 </button>
                 <button 
                   type="button"
                   onClick={handleManualSyncRoster}
                   disabled={isSyncingRoster}
-                  className="sm:w-auto px-5 bg-blue-600 hover:bg-blue-700 text-white font-black py-3.5 rounded-xl shadow-md transition transform active:scale-98 flex items-center justify-center touch-manipulation text-xs sm:text-sm tracking-wider uppercase disabled:opacity-50"
+                  className="w-full sm:w-auto px-4 lg:px-5 min-h-[46px] sm:min-h-[42px] bg-blue-600 hover:bg-blue-700 text-white font-black py-2.5 rounded-xl shadow-sm transition transform active:scale-98 flex items-center justify-center touch-manipulation text-xs sm:text-sm tracking-wider uppercase whitespace-nowrap disabled:opacity-50"
                   title="Đồng bộ lại sang Sheet Lịch Làm (1Vrm...)"
                 >
-                  <FileSpreadsheet size={18} className={`mr-2 ${isSyncingRoster ? 'animate-spin' : ''}`} /> ĐỒNG BỘ ROSTER
+                  <FileSpreadsheet size={17} className={`mr-2 flex-shrink-0 ${isSyncingRoster ? 'animate-spin' : ''}`} /> ĐỒNG BỘ ROSTER
+                </button>
+                <button 
+                  type="button"
+                  onClick={approveAllSchedules} 
+                  className="w-full sm:w-auto px-5 lg:px-6 min-h-[46px] sm:min-h-[42px] bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 rounded-xl shadow-sm transition transform active:scale-98 flex items-center justify-center touch-manipulation text-xs sm:text-sm tracking-wider uppercase whitespace-nowrap"
+                >
+                  <CheckCheck size={17} className="mr-2 flex-shrink-0" /> DUYỆT &amp; ĐỒNG BỘ LỊCH LÀM
                 </button>
               </div>
             </>
@@ -1478,14 +1478,14 @@ ${aiInputText}
                 </div>
 
                 {/* Status & Sync Pills */}
-                <div className="flex flex-wrap sm:flex-col items-start sm:items-end gap-1.5 flex-shrink-0 pl-[52px] sm:pl-0">
+                <div className="flex flex-wrap sm:flex-col items-start sm:items-end gap-1.5 flex-shrink-0">
                   {effectiveSheetSynced ? (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold bg-[var(--kg-success-soft)] text-[var(--kg-success)] border border-[var(--kg-success)]/25">
                       <span className="w-1.5 h-1.5 rounded-full bg-[var(--kg-success)]" />
                       Đã nạp 100% vào Sheet
                     </span>
                   ) : (
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] border border-[var(--kg-warning)]/30">
                         <RefreshCw size={11} className="animate-spin" />
                         Đang đồng bộ...
@@ -1494,7 +1494,7 @@ ${aiInputText}
                         type="button"
                         disabled={isSyncingPendingSheet}
                         onClick={() => syncPendingScheduleToSheet(false)}
-                        className="min-h-[36px] px-2.5 py-1 rounded-xl text-[11px] font-black bg-[var(--kg-warning)] text-white transition active:scale-95 disabled:opacity-60 touch-manipulation"
+                        className="min-h-[44px] sm:min-h-[36px] px-3 py-1 rounded-xl text-[11px] font-black bg-[var(--kg-warning)] text-white dark:text-[#1A1613] transition active:scale-95 disabled:opacity-60 touch-manipulation"
                       >
                         Đồng bộ ngay
                       </button>
@@ -1593,30 +1593,30 @@ ${aiInputText}
                   </div>
 
                   {/* Unified Action Row */}
-                  <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2">
                     {returnTab === 'checkin' && (
                       <button
                         type="button"
                         onClick={handleReturnToCheckIn}
-                        className="flex-1 min-h-[44px] bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 px-4 rounded-xl shadow-xs transition-all active:scale-98 flex items-center justify-center touch-manipulation text-xs sm:text-sm tracking-wide uppercase"
+                        className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 px-5 rounded-xl shadow-xs transition-all active:scale-98 flex items-center justify-center touch-manipulation text-xs sm:text-sm tracking-wide uppercase whitespace-nowrap"
                       >
-                        <ChevronLeft size={16} className="mr-1.5" /> Quay lại Chấm công
+                        <ChevronLeft size={16} className="mr-1.5 flex-shrink-0" /> Quay lại Chấm công
                       </button>
                     )}
                     {isOpen && (
                       <button
                         type="button"
                         onClick={startEditing}
-                        className="flex-1 min-h-[44px] bg-[var(--kg-primary)] hover:brightness-110 text-white font-black py-2.5 px-4 rounded-xl shadow-xs transition-all active:scale-98 flex items-center justify-center touch-manipulation text-xs sm:text-sm tracking-wide uppercase"
+                        className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] bg-[var(--kg-primary)] hover:brightness-110 text-white font-black py-2.5 px-5 rounded-xl shadow-xs transition-all active:scale-98 flex items-center justify-center touch-manipulation text-xs sm:text-sm tracking-wide uppercase whitespace-nowrap"
                       >
-                        <Pencil size={15} className="mr-2 text-[var(--kg-accent)]" /> Chỉnh sửa đăng ký ca
+                        <Pencil size={15} className="mr-2 text-[var(--kg-accent)] flex-shrink-0" /> Chỉnh sửa đăng ký ca
                       </button>
                     )}
                     {(!isOpen || scheduleStatus === 'approved') && (
                       <button
                         type="button"
                         onClick={handleGoToSwap}
-                        className="flex-1 sm:flex-initial min-h-[44px] px-4 py-2.5 rounded-xl bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] border border-[var(--kg-primary)]/25 text-xs sm:text-sm font-black inline-flex items-center justify-center gap-1.5 hover:bg-[var(--kg-primary)] hover:text-white transition-colors touch-manipulation"
+                        className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] px-5 py-2.5 rounded-xl bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] border border-[var(--kg-primary)]/25 text-xs sm:text-sm font-black inline-flex items-center justify-center gap-1.5 hover:bg-[var(--kg-primary)] hover:text-white transition-colors touch-manipulation whitespace-nowrap"
                       >
                         <ArrowLeftRight size={14} />
                         <span>Đổi ca</span>
@@ -1740,20 +1740,21 @@ ${aiInputText}
             </div>
           )}
 
-          {/* Day-by-day shift selection */}
-          <div className="space-y-4 mb-6">
+          {/* Day-by-day shift selection: 1-col Mobile/Tablet, balanced 2-col grid on Laptop/Desktop */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 sm:gap-4 mb-6">
             {SHORT_DAY_NAMES.map((shortDayName, index) => {
               const key = weekInfo.weekDatesKeys[index];
               const currentShift = shiftData[key] || 'OFF';
               return (
                 <div
                   key={index}
-                  className={`calendar-registration-day bg-[var(--kg-surface)] border border-[var(--kg-border)] shadow-xs p-4 rounded-2xl transition hover:border-[var(--kg-border-strong)] ${weekDayMeta[index].className}`}
+                  className={`calendar-registration-day bg-[var(--kg-surface)] border border-[var(--kg-border)] shadow-xs p-3.5 sm:p-4 rounded-2xl transition hover:border-[var(--kg-border-strong)] ${weekDayMeta[index].className}`}
                   title={weekDayMeta[index].label || undefined}
                 >
                   <div className="flex justify-between items-center mb-3">
                     <span className={`font-bold ${index >= 4 && currentShift === 'OFF' ? 'text-red-500' : 'text-gray-800 dark:text-white'}`}>
-                      {weekInfo.weekDates[index]} <span className="text-sm text-gray-500 dark:text-gray-400 font-medium ml-1">({shortDayName})</span>
+                      <span className="font-mono tabular-nums">{weekInfo.weekDates[index]}</span>{' '}
+                      <span className="text-sm text-gray-500 dark:text-gray-400 font-medium ml-0.5">({shortDayName})</span>
                       {weekDayMeta[index].kind !== 'normal' && (
                         <span className="calendar-day-label ml-2 text-xs px-1.5 py-0.5 rounded">
                           {weekDayMeta[index].kind === 'holiday'
@@ -1771,7 +1772,7 @@ ${aiInputText}
                         key={shift} 
                         type="button"
                         onClick={() => handleShiftChange(key, shift)}
-                        className={`min-w-0 px-2 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition-all transform active:scale-95 touch-manipulation min-h-[44px] flex items-center justify-center ${currentShift === shift ? getActiveShiftClass(shift) : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] hover:bg-[var(--kg-border)]/50'}`}
+                        className={`min-w-0 px-2 sm:px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition-all transform active:scale-95 touch-manipulation min-h-[44px] sm:min-h-[38px] flex items-center justify-center ${currentShift === shift ? getActiveShiftClass(shift) : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] hover:bg-[var(--kg-border)]/50'}`}
                       >
                         <ResponsiveShift shift={shift} />
                       </button>
@@ -1816,27 +1817,28 @@ ${aiInputText}
             </div>
           )}
 
-          {/* Submit */}
-          <button 
-            type="button"
-            disabled={isSubmitting}
-            onClick={submitRegistration} 
-            className="w-full bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-black py-3.5 rounded-xl shadow-sm transition-all active:scale-99 flex items-center justify-center touch-manipulation text-sm tracking-wide uppercase disabled:opacity-75 disabled:pointer-events-none"
-          >
-            {isSubmitting ? (
-              <><RefreshCw size={18} className="animate-spin mr-2" /> ĐANG ĐẨY VÀO GOOGLE SHEETS...</>
-            ) : isRegisteredForTargetWeek ? (
-              <><RefreshCw size={18} className="mr-2" /> CẬP NHẬT LỊCH ĐĂNG KÝ</>
-            ) : (
-              <><Send size={18} className="mr-2" /> GỬI LỊCH ĐĂNG KÝ</>
-            )}
-          </button>
-          
-          <p className="text-center text-[11px] font-semibold text-[var(--kg-text-muted)] mt-3">
-            {isRegisteredForTargetWeek
-              ? 'Bạn có thể cập nhật lịch không giới hạn trong thời gian mở đăng ký.'
-              : 'Hạn đăng ký: Trước 17:00 Thứ Bảy hàng tuần.'}
-          </p>
+          {/* Submit Action Bar: Full-width on Mobile, balanced right-aligned CTA on Tablet/Desktop */}
+          <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-xs">
+            <p className="text-center sm:text-left text-xs font-semibold text-[var(--kg-text-muted)]">
+              {isRegisteredForTargetWeek
+                ? 'Bạn có thể cập nhật lịch không giới hạn trong thời gian mở đăng ký.'
+                : 'Hạn đăng ký: Trước 17:00 Thứ Bảy hàng tuần.'}
+            </p>
+            <button 
+              type="button"
+              disabled={isSubmitting}
+              onClick={submitRegistration} 
+              className="w-full sm:w-auto sm:min-w-[230px] px-6 min-h-[48px] sm:min-h-[44px] bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-black py-3 sm:py-2.5 rounded-xl shadow-sm transition-all active:scale-99 flex items-center justify-center touch-manipulation text-sm tracking-wide uppercase whitespace-nowrap flex-shrink-0 disabled:opacity-75 disabled:pointer-events-none"
+            >
+              {isSubmitting ? (
+                <><RefreshCw size={17} className="animate-spin mr-2 flex-shrink-0" /> ĐANG ĐẨY VÀO SHEETS...</>
+              ) : isRegisteredForTargetWeek ? (
+                <><RefreshCw size={17} className="mr-2 flex-shrink-0" /> CẬP NHẬT LỊCH ĐĂNG KÝ</>
+              ) : (
+                <><Send size={17} className="mr-2 flex-shrink-0" /> GỬI LỊCH ĐĂNG KÝ</>
+              )}
+            </button>
+          </div>
         </>
       )}
       </>

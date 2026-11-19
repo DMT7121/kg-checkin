@@ -180,7 +180,7 @@ export default function Feedback() {
   }, [feedbacks, statusFilter, categoryFilter]);
 
   return (
-    <div className="flex flex-col space-y-4 pb-24 md:pb-12 animate-fade-in">
+    <div className="flex flex-col space-y-4 pb-24 md:pb-12 animate-fade-in max-w-[1440px] mx-auto w-full">
       <KgModuleHero
         moduleId="feedback"
         title="Góp Ý & Khiếu Nại"
@@ -225,15 +225,15 @@ export default function Feedback() {
               </div>
 
               {/* Subtle inline hint directing urgent broken-equipment reports to Work -> Incidents */}
-              <div className="p-2.5 rounded-xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/25 flex items-center justify-between gap-2 text-[11px]">
-                <span className="inline-flex items-center gap-1.5 text-[var(--kg-text)] font-medium leading-snug">
+              <div className="p-2.5 rounded-xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/25 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                <span className="inline-flex items-center gap-1.5 text-[var(--kg-text)] font-medium leading-snug min-w-0 flex-1">
                   <Wrench size={13} className="text-[var(--kg-warning)] shrink-0" />
                   <span>Thiết bị hỏng cần sửa gấp trong ca?</span>
                 </span>
                 <button
                   type="button"
                   onClick={() => navigateToHubSubTab('work', 'incidents')}
-                  className="min-h-[36px] px-2.5 py-1 rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-warning)]/30 text-[var(--kg-warning)] font-extrabold inline-flex items-center gap-1 hover:brightness-95 shrink-0 touch-manipulation"
+                  className="min-h-[44px] sm:min-h-[36px] px-3 py-1 rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-warning)]/30 text-[var(--kg-warning)] font-extrabold inline-flex items-center gap-1 hover:brightness-95 shrink-0 whitespace-nowrap touch-manipulation"
                 >
                   <span>Báo sự cố</span>
                   <ArrowRight size={12} />
@@ -322,7 +322,7 @@ export default function Feedback() {
           </div>
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-3">
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5 sm:flex-wrap sm:overflow-visible sm:pb-0">
               {(
                 [
                   { id: 'ALL', label: `Tất cả (${counts.all})` },
@@ -334,7 +334,7 @@ export default function Feedback() {
                   key={pill.id}
                   type="button"
                   onClick={() => setStatusFilter(pill.id)}
-                  className={`min-h-[44px] sm:min-h-[34px] px-3 py-1.5 rounded-full text-xs font-bold border transition-colors touch-manipulation ${
+                  className={`shrink-0 whitespace-nowrap min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-full text-xs font-bold border transition-colors touch-manipulation ${
                     statusFilter === pill.id
                       ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)]'
                       : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)] hover:text-[var(--kg-text)]'
@@ -345,7 +345,7 @@ export default function Feedback() {
               ))}
             </div>
 
-            <label className="block sm:w-56">
+            <label className="block w-full sm:w-60 shrink-0">
               <span className="sr-only">Lọc theo nhóm nội dung</span>
               <select
                 value={categoryFilter}
@@ -398,7 +398,7 @@ export default function Feedback() {
               }
             />
           ) : (
-            <div className="space-y-3">
+            <div className={`grid grid-cols-1 ${isAdmin ? 'xl:grid-cols-2' : ''} gap-3 items-start`}>
               {filteredFeedbacks.map((fb) => (
                 <div
                   key={fb.id}
@@ -456,13 +456,14 @@ export default function Feedback() {
                             className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)]"
                             rows={2}
                           />
-                          <div className="flex justify-end gap-2">
+                          <div className="grid grid-cols-2 sm:flex sm:justify-end gap-2">
                             <KgButton
                               type="button"
                               variant="secondary"
                               size="sm"
                               disabled={replyBusyId === fb.id}
                               onClick={() => setReplyingTo(null)}
+                              className="w-full sm:w-auto"
                             >
                               Hủy
                             </KgButton>
@@ -473,6 +474,7 @@ export default function Feedback() {
                               loading={replyBusyId === fb.id}
                               disabled={!replyContent.trim()}
                               onClick={() => void handleReply(fb.id)}
+                              className="w-full sm:w-auto"
                             >
                               Gửi phản hồi
                             </KgButton>

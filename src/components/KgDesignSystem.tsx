@@ -94,7 +94,11 @@ export function KgPageHeader({
           )}
         </div>
       </div>
-      {actions && <div className="flex items-center gap-2 flex-wrap min-w-0">{actions}</div>}
+      {actions && (
+        <div className="flex items-center gap-2 flex-wrap sm:justify-end sm:flex-shrink-0 min-w-0">
+          {actions}
+        </div>
+      )}
     </div>
   );
 }
@@ -178,12 +182,12 @@ export function KgButton({
   title?: string;
 } & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'type' | 'disabled' | 'onClick' | 'className' | 'title'>) {
   const baseStyles =
-    'inline-flex items-center justify-center font-semibold transition-colors duration-150 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--kg-primary-ink)] focus-visible:ring-offset-1 disabled:bg-[var(--kg-surface-soft)] disabled:text-[var(--kg-text-soft)] disabled:border-[var(--kg-border)] disabled:shadow-none disabled:pointer-events-none touch-manipulation select-none flex-shrink-0';
+    'inline-flex items-center justify-center font-semibold transition-colors duration-150 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--kg-primary-ink)] focus-visible:ring-offset-1 disabled:bg-[var(--kg-surface-soft)] disabled:text-[var(--kg-text-soft)] disabled:border-[var(--kg-border)] disabled:shadow-none disabled:pointer-events-none touch-manipulation select-none whitespace-nowrap max-w-full';
 
   const sizeStyles = {
     sm: 'px-3 py-1.5 text-xs rounded-lg gap-1.5 min-h-[44px] sm:min-h-[36px]',
-    md: 'px-3.5 py-2 text-sm rounded-lg gap-2 min-h-[44px] sm:min-h-[42px]',
-    lg: 'px-5 py-2.5 text-sm sm:text-base rounded-xl gap-2.5 min-h-[46px]'
+    md: 'px-4 py-2 text-sm rounded-xl gap-2 min-h-[44px] sm:min-h-[40px]',
+    lg: 'px-5 py-2.5 text-sm sm:text-base rounded-xl gap-2.5 min-h-[48px] sm:min-h-[44px]'
   };
 
   const variantStyles = {
@@ -218,7 +222,7 @@ export function KgButton({
       ) : Icon ? (
         <Icon size={size === 'sm' ? 14 : size === 'lg' ? 18 : 16} strokeWidth={1.75} className="flex-shrink-0" />
       ) : null}
-      <span className="truncate">{children}</span>
+      <span className="truncate min-w-0">{children}</span>
     </button>
   );
 }
@@ -646,9 +650,9 @@ export function KgToast({
         type="button"
         onClick={() => onClose(message.id)}
         aria-label="Đóng thông báo"
-        className="text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition-colors p-1 rounded"
+        className="w-10 h-10 sm:w-8 sm:h-8 -mr-1.5 rounded-lg flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)] transition-colors flex-shrink-0 touch-manipulation"
       >
-        <X size={14} />
+        <X size={15} />
       </button>
     </div>
   );
@@ -697,7 +701,7 @@ export function KgBottomSheet({
         aria-modal="true"
         aria-labelledby={titleId}
         onClick={(e) => e.stopPropagation()}
-        className="kg-sheet-up sm:kg-scale-in relative z-10 w-full max-w-lg max-h-[90dvh] sm:max-h-[85vh] mx-auto bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-t-2xl sm:rounded-2xl border border-[var(--kg-border)] shadow-2xl flex flex-col pointer-events-auto overflow-hidden pb-safe focus:outline-none"
+        className="kg-sheet-up sm:kg-scale-in relative z-10 w-full max-w-lg max-h-[90dvh] sm:max-h-[86dvh] mx-auto bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-t-2xl sm:rounded-2xl border border-[var(--kg-border)] shadow-2xl flex flex-col pointer-events-auto overflow-hidden focus:outline-none"
       >
         <div className="px-4 sm:px-5 py-3.5 border-b border-[var(--kg-border)] bg-[var(--kg-surface-soft)]/70 flex items-center justify-between gap-3 flex-shrink-0">
           <div className="min-w-0 flex-1">
@@ -720,12 +724,12 @@ export function KgBottomSheet({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 min-h-0">
+        <div className={`flex-1 overflow-y-auto px-4 sm:px-5 py-4 min-h-0 ${!footer ? 'pb-safe sm:pb-4' : ''}`}>
           {children}
         </div>
 
         {footer && (
-          <div className="px-4 sm:px-5 py-3 border-t border-[var(--kg-border)] bg-[var(--kg-surface-soft)]/50 flex-shrink-0">
+          <div className="px-4 sm:px-5 py-3 pb-safe sm:pb-3 border-t border-[var(--kg-border)] bg-[var(--kg-surface-soft)]/50 flex-shrink-0">
             {footer}
           </div>
         )}
@@ -758,18 +762,24 @@ export function KgConfirmSheet({
 }) {
   const buttonVariant = variant === 'info' ? 'primary' : variant;
   return (
-    <KgBottomSheet isOpen={isOpen} onClose={onClose} title={title}>
-      <div className="space-y-4 py-1">
-        <div className="text-sm text-[var(--kg-text-muted)] leading-relaxed">
-          {message}
-        </div>
-        <div className="flex gap-2.5 pt-1">
+    <KgBottomSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      title={title}
+      footer={
+        <div className="flex gap-2.5">
           <KgButton variant="secondary" size="md" className="flex-1" onClick={onClose} disabled={loading}>
             {cancelLabel}
           </KgButton>
           <KgButton variant={buttonVariant} size="md" className="flex-1" onClick={onConfirm} loading={loading}>
             {confirmLabel}
           </KgButton>
+        </div>
+      }
+    >
+      <div className="py-1">
+        <div className="text-sm text-[var(--kg-text-muted)] leading-relaxed break-words">
+          {message}
         </div>
       </div>
     </KgBottomSheet>
@@ -801,21 +811,24 @@ export function KgSyncStatus({
   }, []);
 
   return (
-    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-xs font-medium text-[var(--kg-text-muted)] select-none">
+    <div className="inline-flex items-center gap-1.5 min-h-[40px] lg:min-h-[38px] pl-2.5 pr-0.5 py-0.5 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-xs font-medium text-[var(--kg-text-muted)] select-none whitespace-nowrap">
       {isOnline ? (
-        <Wifi size={13} className="text-[var(--kg-success)]" />
+        <Wifi size={13} className="text-[var(--kg-success)] flex-shrink-0" />
       ) : (
-        <WifiOff size={13} className="text-[var(--kg-danger)] animate-pulse" />
+        <WifiOff size={13} className="text-[var(--kg-danger)] animate-pulse flex-shrink-0" />
       )}
-      <span className="truncate">
+      <span className="truncate min-w-0 font-mono tabular-nums">
         {pendingCount > 0 ? (
-          <span className="text-[var(--kg-warning)] font-semibold">Chờ đồng bộ ({pendingCount})</span>
+          <span className="text-[var(--kg-warning)] font-semibold font-sans">Chờ ({pendingCount})</span>
         ) : isSyncing ? (
-          'Đang đồng bộ...'
+          <span className="font-sans">Đang đồng bộ...</span>
         ) : lastSyncTime ? (
-          `Cập nhật ${new Date(lastSyncTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+          <>
+            <span className="hidden 2xl:inline font-sans">Cập nhật </span>
+            {new Date(lastSyncTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false })}
+          </>
         ) : (
-          'Trực tuyến'
+          <span className="font-sans">Trực tuyến</span>
         )}
       </span>
       {onRefresh && (
@@ -824,9 +837,9 @@ export function KgSyncStatus({
           onClick={onRefresh}
           disabled={isSyncing}
           aria-label="Làm mới dữ liệu"
-          className="ml-0.5 text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition-colors"
+          className="w-9 h-9 min-w-[36px] min-h-[36px] rounded-lg flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface)] transition-colors flex-shrink-0 touch-manipulation"
         >
-          <RefreshCw size={12} className={isSyncing ? 'animate-spin' : ''} />
+          <RefreshCw size={13} className={isSyncing ? 'animate-spin' : ''} />
         </button>
       )}
     </div>
@@ -934,7 +947,7 @@ export function KgActionSheet({
                   >
                     <act.icon size={18} strokeWidth={1.75} />
                   </div>
-                  <span className="text-[11px] font-semibold text-center leading-tight break-words w-full">
+                  <span className="text-[11px] font-semibold text-center leading-tight line-clamp-2 break-words w-full">
                     {act.label}
                   </span>
                 </button>
@@ -1080,7 +1093,7 @@ export function KgModuleHero({
         </div>
 
         {(hasTip || actions) && (
-          <div className={`flex items-center gap-2 flex-wrap sm:flex-nowrap flex-shrink-0 ${!actions ? 'hidden sm:flex' : ''}`}>
+          <div className={`flex items-center gap-2 flex-wrap sm:flex-nowrap sm:justify-end flex-shrink-0 min-w-0 ${!actions ? 'hidden sm:flex' : 'w-full sm:w-auto'}`}>
             {hasTip && (
               <div className="hidden sm:inline-flex">
                 <KgFeatureTip

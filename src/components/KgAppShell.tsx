@@ -375,7 +375,7 @@ export default function KgAppShell({
               <button
                 type="button"
                 onClick={() => handleTabChange('dashboard')}
-                className="flex items-center gap-2 min-w-0 text-left"
+                className="flex items-center gap-2 min-w-0 text-left min-h-[40px] rounded-xl px-1 -ml-1 hover:bg-white/5 transition-colors"
               >
                 <div className="w-8 h-8 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center flex-shrink-0">
                   <img src="/android-chrome-192x192.png?v=3" alt="King's Grill" className="w-5 h-5 object-contain" />
@@ -392,7 +392,7 @@ export default function KgAppShell({
               <button
                 type="button"
                 onClick={toggleRailExpanded}
-                className="w-11 h-11 lg:w-8 lg:h-8 rounded-lg bg-white/10 hover:bg-white/15 text-[var(--kg-rail-muted)] hover:text-white flex items-center justify-center transition-colors flex-shrink-0"
+                className="w-11 h-11 lg:w-9 lg:h-9 rounded-lg bg-white/10 hover:bg-white/15 text-[var(--kg-rail-muted)] hover:text-white flex items-center justify-center transition-colors flex-shrink-0"
                 title="Thu gọn thành thanh Icon"
                 aria-label="Thu gọn thanh điều hướng"
               >
@@ -473,7 +473,7 @@ export default function KgAppShell({
             <button
               type="button"
               onClick={() => setIsGuideOpen(true)}
-              className="w-11 h-11 lg:w-9 lg:h-8 rounded-lg bg-[var(--kg-rail-surface)] hover:bg-white/15 text-amber-300 flex items-center justify-center transition-colors"
+              className="w-11 h-11 lg:w-9 lg:h-9 rounded-lg bg-[var(--kg-rail-surface)] hover:bg-white/15 text-amber-300 flex items-center justify-center transition-colors"
               title="Cẩm nang hướng dẫn người mới"
               aria-label="Cẩm nang hướng dẫn người mới"
             >
@@ -483,7 +483,7 @@ export default function KgAppShell({
             <button
               type="button"
               onClick={() => toggleDarkMode()}
-              className="w-11 h-11 lg:w-9 lg:h-8 rounded-lg bg-[var(--kg-rail-surface)] hover:bg-white/15 text-[var(--kg-rail-text)] flex items-center justify-center transition-colors"
+              className="w-11 h-11 lg:w-9 lg:h-9 rounded-lg bg-[var(--kg-rail-surface)] hover:bg-white/15 text-[var(--kg-rail-text)] flex items-center justify-center transition-colors"
               title={isDark ? 'Chuyển sang Giao diện Sáng' : 'Chuyển sang Giao diện Tối'}
               aria-label={isDark ? 'Chuyển sang Giao diện Sáng' : 'Chuyển sang Giao diện Tối'}
             >
@@ -494,7 +494,7 @@ export default function KgAppShell({
           <button
             type="button"
             onClick={handleLogout}
-            className="w-11 h-11 lg:w-9 lg:h-8 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-400/25 flex items-center justify-center transition-colors"
+            className="w-11 h-11 lg:w-9 lg:h-9 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-400/25 flex items-center justify-center transition-colors"
             title="Đăng xuất tài khoản"
             aria-label="Đăng xuất tài khoản"
           >
@@ -504,14 +504,14 @@ export default function KgAppShell({
       </aside>
 
       {/* 3. MAIN WORKSPACE */}
-      <main className="kg-app-main flex-1 flex flex-col min-w-0 min-h-dvh md:h-dvh md:overflow-y-auto overflow-x-clip">
+      <main className="kg-app-main flex-1 flex flex-col min-w-0 min-h-0 md:h-dvh md:overflow-y-auto overflow-x-clip">
         {/* Desktop Editorial Masthead (60px) */}
-        <div className="hidden md:flex h-[60px] justify-between items-center gap-3 px-5 lg:px-7 border-b border-[var(--kg-border)] bg-[var(--kg-surface)] sticky top-0 z-30 flex-shrink-0">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <span className="hidden xl:inline-flex px-2 py-0.5 rounded-md bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[10.5px] font-bold uppercase tracking-wider text-[var(--kg-text-muted)] whitespace-nowrap">
+        <div className="hidden md:flex h-[60px] justify-between items-center gap-2.5 lg:gap-3 px-4 lg:px-5 xl:px-6 border-b border-[var(--kg-border)] bg-[var(--kg-surface)] sticky top-0 z-30 flex-shrink-0">
+          <div className="flex items-center gap-2 lg:gap-2.5 min-w-0 flex-1 overflow-hidden">
+            <span className="hidden 2xl:inline-flex px-2 py-0.5 rounded-md bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[10.5px] font-bold uppercase tracking-wider text-[var(--kg-text-muted)] whitespace-nowrap flex-shrink-0">
               {activeGroup}
             </span>
-            <h2 className="text-base lg:text-[17px] font-extrabold tracking-tight text-[var(--kg-text)] truncate">
+            <h2 className="text-[15px] lg:text-[16px] xl:text-[17px] font-extrabold tracking-tight text-[var(--kg-text)] truncate min-w-0">
               {activeTitle}
             </h2>
             <div className="hidden lg:inline-flex flex-shrink-0">
@@ -519,29 +519,30 @@ export default function KgAppShell({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-1.5 lg:gap-2 flex-shrink-0">
             <button
               type="button"
               onClick={() => setIsCommandOpen(true)}
-              className="min-h-[44px] h-11 lg:min-h-[36px] lg:h-9 px-3 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] hover:border-[var(--kg-border-strong)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] text-xs font-semibold flex items-center gap-2 transition-colors whitespace-nowrap"
+              className="w-11 h-11 lg:w-auto lg:min-h-[36px] lg:h-9 lg:px-2.5 xl:px-3 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] hover:border-[var(--kg-border-strong)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] text-xs font-semibold flex items-center justify-center gap-1.5 lg:gap-2 transition-colors whitespace-nowrap flex-shrink-0"
               title="Tìm nhanh phân hệ (Ctrl+K)"
+              aria-label="Tìm nhanh phân hệ"
             >
-              <Search size={14} strokeWidth={1.85} className="text-[var(--kg-accent-ink)] flex-shrink-0" />
-              <span className="hidden xl:inline">Tìm phân hệ, thao tác...</span>
-              <span className="xl:hidden">Tìm nhanh</span>
-              <kbd className="hidden lg:inline-block px-1.5 py-0.5 rounded-md bg-[var(--kg-surface)] border border-[var(--kg-border)] text-[10px] font-mono font-bold text-[var(--kg-text-muted)]">
+              <Search size={15} strokeWidth={1.85} className="text-[var(--kg-accent-ink)] flex-shrink-0" />
+              <span className="hidden 2xl:inline">Tìm phân hệ, thao tác...</span>
+              <span className="hidden lg:inline 2xl:hidden">Tìm nhanh</span>
+              <kbd className="hidden xl:inline-block px-1.5 py-0.5 rounded-md bg-[var(--kg-surface)] border border-[var(--kg-border)] text-[10px] font-mono font-bold text-[var(--kg-text-muted)]">
                 Ctrl K
               </kbd>
             </button>
 
-            <div className="flex items-center">
+            <div className="flex items-center flex-shrink-0">
               {renderSyncPill()}
             </div>
 
-            <div className="min-h-[44px] h-11 lg:min-h-[36px] lg:h-9 px-3 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-xs font-medium text-[var(--kg-text-muted)] flex items-center gap-1.5 whitespace-nowrap">
+            <div className="min-h-[40px] h-10 lg:min-h-[36px] lg:h-9 px-2.5 lg:px-3 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-xs font-medium text-[var(--kg-text-muted)] flex items-center gap-1.5 whitespace-nowrap flex-shrink-0">
               <Clock size={13} strokeWidth={1.85} className="text-[var(--kg-accent-ink)] flex-shrink-0" />
               <span>
-                <span className="hidden lg:inline">Ca: </span>
+                <span className="hidden 2xl:inline">Ca: </span>
                 <strong className="font-bold text-[var(--kg-text)] tabular-nums">{shiftName}</strong>
               </span>
             </div>
@@ -552,16 +553,17 @@ export default function KgAppShell({
               type="button"
               onClick={() => handleTabChange('profile')}
               title={`${currentUser?.fullname || 'Nhân sự'} (${isAdmin ? 'Quản lý' : 'Nhân viên'})`}
-              className="min-h-[44px] h-11 lg:min-h-[36px] lg:h-9 pl-1.5 pr-2.5 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] hover:border-[var(--kg-border-strong)] flex items-center gap-2 transition-colors"
+              aria-label="Hồ sơ cá nhân"
+              className="w-11 h-11 lg:w-9 lg:h-9 xl:w-auto xl:min-h-[36px] xl:h-9 xl:pl-1.5 xl:pr-2.5 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] hover:border-[var(--kg-border-strong)] flex items-center justify-center gap-2 transition-colors flex-shrink-0"
             >
               {currentUser?.avatarUrl ? (
-                <img src={currentUser.avatarUrl} alt="" className="w-6 h-6 rounded-lg object-cover" />
+                <img src={currentUser.avatarUrl} alt="" className="w-6 h-6 rounded-lg object-cover flex-shrink-0" />
               ) : (
-                <span className="w-6 h-6 rounded-lg bg-[var(--kg-primary)] text-white text-[11px] font-extrabold flex items-center justify-center">
+                <span className="w-6 h-6 rounded-lg bg-[var(--kg-primary)] text-white text-[11px] font-extrabold flex items-center justify-center flex-shrink-0">
                   {getSafeDisplayInitial(currentUser?.fullname, currentUser?.username)}
                 </span>
               )}
-              <span className="hidden xl:inline text-xs font-bold text-[var(--kg-text)] max-w-[120px] truncate">
+              <span className="hidden xl:inline text-xs font-bold text-[var(--kg-text)] max-w-[110px] 2xl:max-w-[140px] truncate">
                 {currentUser?.fullname || 'Nhân sự'}
               </span>
             </button>
@@ -572,7 +574,7 @@ export default function KgAppShell({
         <div
           className={`kg-workspace-stage flex-1 w-full ${
             isWideModule ? 'max-w-[1520px]' : 'max-w-[1260px]'
-          } mx-auto px-3.5 sm:px-5 md:px-7 py-3 sm:py-4 md:py-6 pb-28 md:pb-20 min-h-0`}
+          } mx-auto px-3.5 sm:px-5 md:px-6 lg:px-7 py-3 sm:py-4 md:py-5 pb-[calc(6.5rem+env(safe-area-inset-bottom,0px))] md:pb-12 min-h-0`}
         >
           {children}
         </div>
@@ -595,7 +597,7 @@ export default function KgAppShell({
               onFocus={() => onPrefetch?.(tab.id)}
               onTouchStart={() => onPrefetch?.(tab.id)}
               aria-current={isActive ? 'page' : undefined}
-              className="relative flex-1 min-w-[44px] min-h-[48px] px-0.5 py-1 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all touch-manipulation select-none active:scale-95"
+              className="relative flex-1 min-w-0 min-h-[48px] px-0.5 py-1 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all touch-manipulation select-none active:scale-95"
             >
               <div
                 className={`w-10 h-7 rounded-xl flex items-center justify-center transition-all ${
@@ -607,7 +609,7 @@ export default function KgAppShell({
                 <Icon size={17} />
               </div>
               <span
-                className={`text-[11px] tracking-tight leading-tight whitespace-nowrap max-w-full ${
+                className={`text-[10.5px] sm:text-[11px] tracking-tight leading-tight whitespace-nowrap truncate w-full text-center px-0.5 ${
                   isActive ? 'font-extrabold text-white' : 'font-medium text-slate-200'
                 }`}
               >
@@ -623,7 +625,7 @@ export default function KgAppShell({
             <button
               type="button"
               onClick={() => setIsMoreOpen(true)}
-              className="relative flex-1 min-w-[44px] min-h-[48px] px-0.5 py-1 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all touch-manipulation select-none active:scale-95"
+              className="relative flex-1 min-w-0 min-h-[48px] px-0.5 py-1 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all touch-manipulation select-none active:scale-95"
             >
               <div
                 className={`w-10 h-7 rounded-xl flex items-center justify-center transition-all ${
@@ -635,7 +637,7 @@ export default function KgAppShell({
                 <MoreHorizontal size={17} />
               </div>
               <span
-                className={`text-[11px] tracking-tight leading-tight whitespace-nowrap max-w-full ${
+                className={`text-[10.5px] sm:text-[11px] tracking-tight leading-tight whitespace-nowrap truncate w-full text-center px-0.5 ${
                   isMoreActionActive ? 'font-extrabold text-white' : 'font-medium text-slate-200'
                 }`}
               >

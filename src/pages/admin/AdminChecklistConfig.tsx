@@ -321,7 +321,7 @@ function AdminChecklistConfigContent() {
   };
 
   return (
-    <div className="p-4 space-y-4 animate-fade-in pb-24 md:pb-12 max-w-6xl mx-auto">
+    <div className="p-4 md:px-0 md:pt-1 space-y-4 animate-fade-in pb-24 md:pb-12 max-w-6xl mx-auto">
       <KgModuleHero
         moduleId="checklist"
         title="Cấu hình Checklist Phân Khu"
@@ -336,27 +336,27 @@ function AdminChecklistConfigContent() {
       />
 
       {isDirty && (
-        <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 flex flex-wrap items-center justify-between gap-2 text-xs">
-          <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-bold">
-            <AlertTriangle size={15} className="flex-shrink-0" />
+        <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+          <div className="flex items-start sm:items-center gap-2 text-amber-800 dark:text-amber-300 font-bold">
+            <AlertTriangle size={15} className="flex-shrink-0 mt-0.5 sm:mt-0" />
             <span>Bạn có thay đổi danh mục checklist chưa lưu lên Google Sheets.</span>
           </div>
           <button
             type="button"
             onClick={() => void handleSaveAll()}
             disabled={isSaving}
-            className="min-h-[44px] sm:min-h-[36px] px-3.5 py-1.5 rounded-xl bg-[var(--kg-primary)] text-white font-extrabold inline-flex items-center gap-1.5 shadow-xs"
+            className="w-full sm:w-auto min-h-[44px] sm:min-h-[36px] px-4 py-1.5 rounded-xl bg-[var(--kg-primary)] text-white font-extrabold inline-flex items-center justify-center gap-1.5 shadow-xs whitespace-nowrap shrink-0"
           >
-            {isSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+            {isSaving ? <Loader2 size={13} className="animate-spin shrink-0" /> : <Save size={13} className="shrink-0" />}
             <span>Lưu ngay</span>
           </button>
         </div>
       )}
 
       <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--kg-border)] pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--kg-border)] pb-4">
           <h3 className="font-extrabold text-sm sm:text-base text-[var(--kg-text)] flex items-center gap-2">
-            <ClipboardCheck size={20} className="text-[var(--kg-primary-ink)]" />
+            <ClipboardCheck size={20} className="text-[var(--kg-primary-ink)] shrink-0" />
             <span>
               Danh sách Hạng mục (
               <span className="font-mono tabular-nums">
@@ -366,11 +366,11 @@ function AdminChecklistConfigContent() {
             </span>
           </h3>
 
-          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full sm:w-auto">
             <button
               type="button"
               onClick={() => void fetchConfig(false)}
-              className="flex-1 sm:flex-none min-h-[44px] sm:min-h-[38px] flex items-center justify-center bg-[var(--kg-surface-soft)] text-[var(--kg-text)] hover:bg-[var(--kg-border)]/40 border border-[var(--kg-border)] px-3.5 py-2 rounded-xl font-bold text-xs transition-colors"
+              className="min-h-[44px] sm:min-h-[38px] flex items-center justify-center bg-[var(--kg-surface-soft)] text-[var(--kg-text)] hover:bg-[var(--kg-border)]/40 border border-[var(--kg-border)] px-3.5 py-2 rounded-xl font-bold text-xs transition-colors whitespace-nowrap"
             >
               <RefreshCw size={14} className="mr-1.5 flex-shrink-0" />
               <span>Tải lại</span>
@@ -379,7 +379,7 @@ function AdminChecklistConfigContent() {
             <button
               type="button"
               onClick={() => void handleAdd()}
-              className="flex-1 sm:flex-none min-h-[44px] sm:min-h-[38px] flex items-center justify-center bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] border border-[var(--kg-primary)]/25 px-3.5 py-2 rounded-xl font-bold text-xs transition-colors"
+              className="min-h-[44px] sm:min-h-[38px] flex items-center justify-center bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] border border-[var(--kg-primary)]/25 px-3.5 py-2 rounded-xl font-bold text-xs transition-colors whitespace-nowrap"
             >
               <Plus size={14} className="mr-1.5 flex-shrink-0" />
               <span>Thêm Mới</span>
@@ -389,7 +389,7 @@ function AdminChecklistConfigContent() {
               type="button"
               onClick={() => void handleSaveAll()}
               disabled={isSaving}
-              className="w-full sm:w-auto min-h-[44px] sm:min-h-[38px] flex items-center justify-center bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white px-4 py-2 rounded-xl font-bold text-xs transition-all disabled:opacity-50 shadow-xs"
+              className="col-span-2 sm:col-span-1 min-h-[44px] sm:min-h-[38px] flex items-center justify-center bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white px-4 py-2 rounded-xl font-bold text-xs transition-all disabled:opacity-50 shadow-xs whitespace-nowrap"
             >
               {isSaving ? (
                 <Loader2 size={14} className="mr-1.5 animate-spin flex-shrink-0" />
@@ -414,14 +414,14 @@ function AdminChecklistConfigContent() {
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Tìm tiêu đề, mô tả, mã..."
               aria-label="Tìm hạng mục checklist"
-              className="w-full min-h-[44px] sm:min-h-[38px] pl-9 pr-8 py-2 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-base sm:text-xs font-semibold text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
+              className="w-full min-h-[44px] sm:min-h-[38px] pl-9 pr-10 py-2 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-base sm:text-xs font-semibold text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
             />
             {searchQuery && (
               <button
                 type="button"
                 aria-label="Xóa từ khóa tìm kiếm"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]"
+                className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 inline-flex items-center justify-center rounded-lg text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface)]"
               >
                 <X size={13} />
               </button>
@@ -471,7 +471,7 @@ function AdminChecklistConfigContent() {
               <button
                 type="button"
                 onClick={resetFilters}
-                className="min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface)] text-xs font-bold text-[var(--kg-accent-ink)] shrink-0"
+                className="min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface)] text-xs font-bold text-[var(--kg-accent-ink)] shrink-0 whitespace-nowrap"
               >
                 Xóa lọc
               </button>
@@ -556,21 +556,21 @@ function AdminChecklistConfigContent() {
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2 pt-2 border-t border-[var(--kg-border)]">
+                    <div className="flex items-center sm:justify-end gap-2 pt-2.5 border-t border-[var(--kg-border)]">
                       <button
                         type="button"
                         onClick={() => void handleEdit(item)}
-                        className="flex-1 min-h-[44px] inline-flex items-center justify-center gap-1.5 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] text-xs font-bold text-[var(--kg-primary-ink)] hover:border-[var(--kg-primary)]"
+                        className="flex-1 sm:flex-none min-h-[44px] sm:min-h-[38px] px-4 inline-flex items-center justify-center gap-1.5 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] text-xs font-bold text-[var(--kg-primary-ink)] hover:border-[var(--kg-primary)] whitespace-nowrap"
                       >
-                        <Edit2 size={14} /> Sửa hạng mục
+                        <Edit2 size={14} className="shrink-0" /> Sửa hạng mục
                       </button>
                       <button
                         type="button"
                         onClick={() => void handleDelete(item.id)}
                         aria-label={`Xóa ${item.title}`}
-                        className="min-h-[44px] min-w-[44px] px-3 inline-flex items-center justify-center gap-1 rounded-xl bg-rose-500/10 border border-rose-500/25 text-xs font-bold text-rose-600 dark:text-rose-400"
+                        className="min-h-[44px] sm:min-h-[38px] min-w-[44px] px-3.5 inline-flex items-center justify-center gap-1.5 rounded-xl bg-rose-500/10 border border-rose-500/25 text-xs font-bold text-rose-600 dark:text-rose-400 whitespace-nowrap shrink-0"
                       >
-                        <Trash2 size={14} /> Xóa
+                        <Trash2 size={14} className="shrink-0" /> Xóa
                       </button>
                     </div>
                   </article>
@@ -632,17 +632,19 @@ function AdminChecklistConfigContent() {
                           <div className="flex justify-end gap-1.5">
                             <button
                               type="button"
+                              title="Sửa hạng mục"
                               aria-label="Sửa hạng mục"
                               onClick={() => void handleEdit(item)}
-                              className="w-9 h-9 inline-flex items-center justify-center text-[var(--kg-primary-ink)] hover:bg-[var(--kg-primary-soft)] rounded-xl transition-colors"
+                              className="w-9 h-9 inline-flex items-center justify-center text-[var(--kg-primary-ink)] hover:bg-[var(--kg-primary-soft)] border border-transparent hover:border-[var(--kg-primary)]/20 rounded-xl transition-colors"
                             >
                               <Edit2 size={15} />
                             </button>
                             <button
                               type="button"
+                              title="Xóa hạng mục"
                               aria-label="Xóa hạng mục"
                               onClick={() => void handleDelete(item.id)}
-                              className="w-9 h-9 inline-flex items-center justify-center text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors"
+                              className="w-9 h-9 inline-flex items-center justify-center text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 rounded-xl transition-colors"
                             >
                               <Trash2 size={15} />
                             </button>

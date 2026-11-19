@@ -203,21 +203,25 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
         </div>
 
         {/* Stepper Pills */}
-        <div className="flex items-center gap-1.5 px-4 sm:px-5 pt-3">
+        <div className="flex items-center gap-1.5 px-4 sm:px-5 pt-1">
           {ONBOARDING_STEPS.map((item, idx) => (
             <button
               key={item.id}
               type="button"
               aria-label={`Xem bước ${idx + 1}: ${item.title}`}
               onClick={() => setStepIndex(idx)}
-              className={`h-2 flex-1 rounded-full transition-colors ${
-                idx === stepIndex
-                  ? 'bg-[var(--kg-primary)]'
-                  : idx < stepIndex
-                    ? 'bg-[var(--kg-success)]'
-                    : 'bg-[var(--kg-surface-soft)] border border-[var(--kg-border)]'
-              }`}
-            />
+              className="flex-1 min-h-[40px] sm:min-h-[36px] py-2 flex items-center cursor-pointer touch-manipulation group"
+            >
+              <span
+                className={`h-2 w-full rounded-full transition-colors ${
+                  idx === stepIndex
+                    ? 'bg-[var(--kg-primary)]'
+                    : idx < stepIndex
+                      ? 'bg-[var(--kg-success)]'
+                      : 'bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] group-hover:border-[var(--kg-border-strong)]'
+                }`}
+              />
+            </button>
           ))}
         </div>
 
@@ -257,7 +261,7 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
         </div>
 
         {/* Footer */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-5 py-3.5 border-t border-[var(--kg-border)] bg-[var(--kg-surface-soft)]">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-5 py-3.5 pb-safe sm:pb-3.5 border-t border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex-shrink-0">
           <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-[var(--kg-text-muted)] select-none min-h-[44px] sm:min-h-[32px]">
             <input
               type="checkbox"

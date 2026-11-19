@@ -535,7 +535,7 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
   };
 
   return (
-    <div className="p-4 space-y-4 animate-fade-in pb-24 md:pb-12 max-w-6xl mx-auto">
+    <div className="p-4 md:px-0 md:pt-1 space-y-4 animate-fade-in pb-24 md:pb-12 max-w-6xl mx-auto">
       <KgModuleHero
         moduleId="admin"
         title="Cấu Hình Hệ Thống & AI"
@@ -545,9 +545,9 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
           <button
             type="button"
             onClick={() => navigateToHubSubTab('admin_system', 'audit')}
-            className="min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface)] hover:bg-[var(--kg-surface-soft)] text-xs font-bold text-[var(--kg-text)] inline-flex items-center gap-1.5"
+            className="w-full sm:w-auto min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface)] hover:bg-[var(--kg-surface-soft)] text-xs font-bold text-[var(--kg-text)] inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
           >
-            <ShieldCheck size={14} className="text-[var(--kg-primary-ink)]" />
+            <ShieldCheck size={14} className="text-[var(--kg-primary-ink)] shrink-0" />
             <span>Nhật ký kiểm toán</span>
           </button>
         }
@@ -555,7 +555,7 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
 
       {/* 1. Release Notes & Version */}
       <div className="bg-[var(--kg-surface)] border border-[var(--kg-accent)]/30 p-4 sm:p-5 rounded-2xl shadow-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           <div className="flex items-start sm:items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-xl bg-[var(--kg-accent)] text-white dark:text-[#0D1015] flex items-center justify-center shadow-xs flex-shrink-0">
               <Sparkles size={18} />
@@ -574,30 +574,30 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 flex-shrink-0 w-full lg:w-auto">
             <button
               type="button"
               onClick={() => openReleaseNotesModal('added')}
-              className="min-h-[44px] sm:min-h-[38px] px-3 py-1.5 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] hover:border-[var(--kg-border-strong)] text-xs font-bold text-[var(--kg-text)] inline-flex items-center gap-1.5"
+              className="min-h-[44px] sm:min-h-[38px] px-3 py-1.5 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] hover:border-[var(--kg-border-strong)] text-xs font-bold text-[var(--kg-text)] inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
             >
-              <Sparkles size={13} className="text-emerald-600 dark:text-emerald-400" />
-              Nâng cấp thêm
+              <Sparkles size={13} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span>Nâng cấp thêm</span>
             </button>
             <button
               type="button"
               onClick={() => openReleaseNotesModal('updated')}
-              className="min-h-[44px] sm:min-h-[38px] px-3 py-1.5 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] hover:border-[var(--kg-border-strong)] text-xs font-bold text-[var(--kg-text)] inline-flex items-center gap-1.5"
+              className="min-h-[44px] sm:min-h-[38px] px-3 py-1.5 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] hover:border-[var(--kg-border-strong)] text-xs font-bold text-[var(--kg-text)] inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
             >
-              <Wrench size={13} className="text-[var(--kg-primary-ink)]" />
-              Chỉnh sửa
+              <Wrench size={13} className="text-[var(--kg-primary-ink)] shrink-0" />
+              <span>Chỉnh sửa</span>
             </button>
             <button
               type="button"
               onClick={() => openReleaseNotesModal('history')}
-              className="min-h-[44px] sm:min-h-[38px] px-3.5 py-1.5 rounded-xl bg-[var(--kg-accent)] hover:brightness-95 text-white dark:text-[#0D1015] text-xs font-bold inline-flex items-center gap-1.5 shadow-xs"
+              className="col-span-2 sm:col-span-1 min-h-[44px] sm:min-h-[38px] px-3.5 py-1.5 rounded-xl bg-[var(--kg-accent)] hover:brightness-95 text-white dark:text-[#0D1015] text-xs font-bold inline-flex items-center justify-center gap-1.5 shadow-xs whitespace-nowrap"
             >
-              <History size={13} />
-              Nhật ký phiên bản
+              <History size={13} className="shrink-0" />
+              <span>Nhật ký phiên bản</span>
             </button>
           </div>
         </div>
@@ -606,19 +606,19 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
       {/* 2. Company Info + Restaurant GPS Side-by-Side on Desktop */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Company Info (AdminOrg) */}
-        <section className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-5 rounded-2xl shadow-xs space-y-4">
-          <div className="flex items-center justify-between gap-2 border-b border-[var(--kg-border)] pb-3">
-            <h3 className="font-extrabold text-sm sm:text-base text-[var(--kg-text)] flex items-center gap-2">
-              <Building2 size={18} className="text-[var(--kg-primary-ink)]" />
-              Thông tin Doanh nghiệp
+        <section className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-4 sm:p-5 rounded-2xl shadow-xs space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--kg-border)] pb-3">
+            <h3 className="font-extrabold text-sm sm:text-base text-[var(--kg-text)] flex items-center gap-2 min-w-0">
+              <Building2 size={18} className="text-[var(--kg-primary-ink)] shrink-0" />
+              <span>Thông tin Doanh nghiệp</span>
             </h3>
             <button
               type="button"
               onClick={() => void handleSaveOrg()}
               disabled={savingOrg}
-              className="min-h-[44px] sm:min-h-[36px] px-3.5 py-1.5 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs font-extrabold inline-flex items-center gap-1.5 shadow-xs disabled:opacity-50"
+              className="min-h-[42px] sm:min-h-[36px] px-3.5 py-1.5 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50 whitespace-nowrap shrink-0"
             >
-              {savingOrg ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+              {savingOrg ? <Loader2 size={14} className="animate-spin shrink-0" /> : <Save size={14} className="shrink-0" />}
               <span>{savingOrg ? 'Đang lưu...' : 'Lưu Tổ chức'}</span>
             </button>
           </div>
@@ -690,7 +690,7 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
                         setDraftSecondary('');
                         setOrgSheetMode('role');
                       }}
-                      className="min-h-[36px] px-2.5 py-1 rounded-lg bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] text-xs font-bold inline-flex items-center gap-1"
+                      className="min-h-[40px] sm:min-h-[34px] px-3 py-1 rounded-lg bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] text-xs font-bold inline-flex items-center gap-1 whitespace-nowrap"
                     >
                       <Plus size={12} /> Thêm Role
                     </button>
@@ -714,7 +714,7 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
                         <button
                           type="button"
                           onClick={() => setRoles(roles.filter((x) => x.id !== r.id))}
-                          className="min-h-[36px] px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-bold shrink-0"
+                          className="min-h-[40px] sm:min-h-[34px] px-3 py-1 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-bold shrink-0 whitespace-nowrap"
                         >
                           Xóa
                         </button>
@@ -735,7 +735,7 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
                         setDraftSecondary('1.0');
                         setOrgSheetMode('org');
                       }}
-                      className="min-h-[36px] px-2.5 py-1 rounded-lg bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] text-xs font-bold inline-flex items-center gap-1"
+                      className="min-h-[40px] sm:min-h-[34px] px-3 py-1 rounded-lg bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] text-xs font-bold inline-flex items-center gap-1 whitespace-nowrap"
                     >
                       <Plus size={12} /> Thêm loại NV
                     </button>
@@ -758,7 +758,7 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
                         onClick={() =>
                           setOrgStructure(orgStructure.filter((x) => x.id !== org.id))
                         }
-                        className="min-h-[36px] px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-bold shrink-0"
+                        className="min-h-[40px] sm:min-h-[34px] px-3 py-1 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-bold shrink-0 whitespace-nowrap"
                       >
                         Xóa
                       </button>
@@ -813,7 +813,7 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
                 type="button"
                 aria-label="Đóng thông báo GPS"
                 onClick={() => setGpsBanner(null)}
-                className="p-1 rounded-lg opacity-70 hover:opacity-100 shrink-0"
+                className="w-9 h-9 sm:w-8 sm:h-8 inline-flex items-center justify-center rounded-lg opacity-75 hover:opacity-100 hover:bg-black/5 shrink-0"
               >
                 <X size={14} />
               </button>
@@ -875,15 +875,17 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
             </span>
           </p>
 
-          <button
-            type="button"
-            onClick={() => void handleSaveGPS()}
-            disabled={savingGps}
-            className="w-full min-h-[44px] sm:min-h-[40px] rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs sm:text-sm font-extrabold inline-flex items-center justify-center gap-2 shadow-xs disabled:opacity-50"
-          >
-            {savingGps ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-            <span>{savingGps ? 'Đang lưu...' : `Lưu Cấu Hình GPS (Bán kính ${kgRadius}m)`}</span>
-          </button>
+          <div className="flex sm:justify-end">
+            <button
+              type="button"
+              onClick={() => void handleSaveGPS()}
+              disabled={savingGps}
+              className="w-full sm:w-auto sm:px-5 min-h-[44px] sm:min-h-[40px] rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs sm:text-sm font-extrabold inline-flex items-center justify-center gap-2 shadow-xs disabled:opacity-50 whitespace-nowrap"
+            >
+              {savingGps ? <Loader2 size={15} className="animate-spin shrink-0" /> : <Save size={15} className="shrink-0" />}
+              <span>{savingGps ? 'Đang lưu...' : `Lưu Cấu Hình GPS (${kgRadius}m)`}</span>
+            </button>
+          </div>
 
           {/* Expandable GAS-echo Disclosure: shiftCodes & registrationCloseTime */}
           <div className="border-t border-[var(--kg-border)] pt-3">
@@ -933,7 +935,7 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
                         setNewShiftType('standard');
                         setIsAddShiftOpen(true);
                       }}
-                      className="min-h-[36px] px-2.5 py-1 rounded-lg bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] text-xs font-bold inline-flex items-center gap-1"
+                      className="min-h-[40px] sm:min-h-[34px] px-3 py-1 rounded-lg bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] text-xs font-bold inline-flex items-center gap-1 whitespace-nowrap"
                     >
                       <Plus size={12} /> Thêm mã ca
                     </button>
@@ -954,7 +956,7 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
                       <button
                         type="button"
                         onClick={() => setShiftCodes(shiftCodes.filter((x) => x.id !== s.id))}
-                        className="min-h-[36px] px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-bold shrink-0 inline-flex items-center gap-1"
+                        className="min-h-[40px] sm:min-h-[34px] px-3 py-1 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-bold shrink-0 inline-flex items-center gap-1 whitespace-nowrap"
                       >
                         <Trash2 size={12} /> Xóa
                       </button>
@@ -968,19 +970,19 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
       </div>
 
       {/* 3. Cloudflare Edge D1 / KV Health */}
-      <section className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-5 rounded-2xl shadow-xs space-y-3">
+      <section className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-4 sm:p-5 rounded-2xl shadow-xs space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--kg-border)] pb-3">
-          <h3 className="font-extrabold flex items-center text-[var(--kg-text)] text-sm sm:text-base">
-            <Database size={18} className="mr-2 text-emerald-600 dark:text-emerald-400" />
-            Cơ sở dữ liệu Edge (Cloudflare D1 SQLite + KV + Google Sheets)
+          <h3 className="font-extrabold flex items-center text-[var(--kg-text)] text-sm sm:text-base min-w-0">
+            <Database size={18} className="mr-2 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span>Cơ sở dữ liệu Edge (Cloudflare D1 SQLite + KV + Google Sheets)</span>
           </h3>
           <button
             type="button"
             onClick={() => void loadEdgeDbStatus()}
             disabled={checkingEdge}
-            className="min-h-[44px] sm:min-h-[36px] text-xs bg-emerald-500/10 border border-emerald-500/25 text-emerald-700 dark:text-emerald-300 font-bold px-3.5 py-1.5 rounded-xl inline-flex items-center hover:bg-emerald-500/20 disabled:opacity-60"
+            className="min-h-[42px] sm:min-h-[36px] text-xs bg-emerald-500/10 border border-emerald-500/25 text-emerald-700 dark:text-emerald-300 font-bold px-3.5 py-1.5 rounded-xl inline-flex items-center hover:bg-emerald-500/20 disabled:opacity-60 whitespace-nowrap shrink-0"
           >
-            <RefreshCw size={13} className={`mr-1.5 ${checkingEdge ? 'animate-spin' : ''}`} />
+            <RefreshCw size={13} className={`mr-1.5 shrink-0 ${checkingEdge ? 'animate-spin' : ''}`} />
             Kiểm tra DB
           </button>
         </div>
@@ -992,7 +994,7 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
               type="button"
               onClick={() => void loadEdgeDbStatus()}
               disabled={checkingEdge}
-              className="min-h-[36px] px-3 py-1 rounded-lg bg-[var(--kg-primary)] text-white text-xs font-bold"
+              className="min-h-[40px] sm:min-h-[36px] px-3.5 py-1 rounded-lg bg-[var(--kg-primary)] text-white text-xs font-bold whitespace-nowrap"
             >
               Thử lại
             </button>
@@ -1069,10 +1071,10 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
       {/* 4. Groq AI Analysis + Master PIN-Gated Keys & Prompts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* AI Keys (Master PIN Protected) */}
-        <section className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-5 rounded-2xl shadow-xs space-y-4">
-          <div className="flex items-center justify-between gap-2 border-b border-[var(--kg-border)] pb-3">
+        <section className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-4 sm:p-5 rounded-2xl shadow-xs space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--kg-border)] pb-3">
             <h3 className="font-extrabold flex items-center text-[var(--kg-text)] text-sm sm:text-base">
-              <Cpu size={18} className="mr-2 text-[var(--kg-primary-ink)]" />
+              <Cpu size={18} className="mr-2 text-[var(--kg-primary-ink)] shrink-0" />
               Quản lý Nguồn lực AI (Groq)
             </h3>
             {isAdminUnlocked && (
@@ -1082,22 +1084,24 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
                   store.setGroqKeysInput('');
                   store.setAdminUnlocked(false);
                 }}
-                className="min-h-[36px] px-3 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-xs text-amber-800 dark:text-amber-300 font-bold inline-flex items-center gap-1"
+                className="min-h-[40px] sm:min-h-[36px] px-3 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-xs text-amber-800 dark:text-amber-300 font-bold inline-flex items-center gap-1 whitespace-nowrap"
               >
                 <Lock size={12} /> Khóa lại
               </button>
             )}
           </div>
 
-          <button
-            type="button"
-            onClick={() => void analyzeWithGroq()}
-            disabled={analyzingGroq}
-            className="w-full min-h-[44px] bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-bold py-2.5 px-4 rounded-xl text-xs sm:text-sm inline-flex items-center justify-center gap-2 shadow-xs disabled:opacity-60"
-          >
-            {analyzingGroq ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />}
-            <span>{analyzingGroq ? 'Đang phân tích với Groq AI...' : 'Groq AI tóm tắt chấm công'}</span>
-          </button>
+          <div className="flex sm:justify-start">
+            <button
+              type="button"
+              onClick={() => void analyzeWithGroq()}
+              disabled={analyzingGroq}
+              className="w-full sm:w-auto sm:px-5 min-h-[44px] sm:min-h-[40px] bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-bold py-2.5 px-4 rounded-xl text-xs sm:text-sm inline-flex items-center justify-center gap-2 shadow-xs disabled:opacity-60 whitespace-nowrap"
+            >
+              {analyzingGroq ? <Loader2 size={16} className="animate-spin shrink-0" /> : <Wand2 size={16} className="shrink-0" />}
+              <span>{analyzingGroq ? 'Đang phân tích với Groq AI...' : 'Groq AI tóm tắt chấm công'}</span>
+            </button>
+          </div>
 
           {groqAnalysis && (
             <div className="rounded-xl border border-[var(--kg-primary)]/25 bg-[var(--kg-surface-soft)] overflow-hidden">
@@ -1105,7 +1109,7 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
                 <button
                   type="button"
                   onClick={() => setGroqPanelExpanded((v) => !v)}
-                  className="flex items-center gap-2 text-xs font-extrabold text-[var(--kg-text)] min-w-0"
+                  className="flex items-center gap-2 text-xs font-extrabold text-[var(--kg-text)] min-w-0 min-h-[36px]"
                 >
                   <Sparkles size={14} className="text-[var(--kg-primary-ink)] shrink-0" />
                   <span className="truncate">Phân tích Groq AI</span>
@@ -1118,7 +1122,7 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
                   type="button"
                   aria-label="Đóng kết quả Groq AI"
                   onClick={() => setGroqAnalysis(null)}
-                  className="p-1 rounded-lg text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]"
+                  className="w-9 h-9 sm:w-8 sm:h-8 inline-flex items-center justify-center rounded-lg text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface)] shrink-0"
                 >
                   <X size={14} />
                 </button>
@@ -1156,21 +1160,21 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
                     if (pinError) setPinError('');
                   }}
                   placeholder="Nhập Master PIN để xem / cập nhật API Keys..."
-                  className="flex-1 min-h-[44px] sm:min-h-[40px] bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3 py-2 text-base sm:text-sm font-mono text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
+                  className="flex-1 min-w-0 min-h-[44px] sm:min-h-[40px] bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3 py-2 text-base sm:text-sm font-mono text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
                 />
                 <button
                   type="submit"
                   disabled={verifyingPin || !pinInput.trim()}
-                  className="min-h-[44px] sm:min-h-[40px] px-4 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-bold text-xs sm:text-sm inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] px-4 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-bold text-xs sm:text-sm inline-flex items-center justify-center gap-1.5 disabled:opacity-50 whitespace-nowrap shrink-0"
                 >
-                  {verifyingPin ? <Loader2 size={14} className="animate-spin" /> : <KeyRound size={14} />}
+                  {verifyingPin ? <Loader2 size={14} className="animate-spin shrink-0" /> : <KeyRound size={14} className="shrink-0" />}
                   <span>Mở khóa</span>
                 </button>
               </div>
             </form>
           ) : (
             <div className="space-y-3 pt-1">
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center gap-2">
                 <label className="text-xs font-bold text-[var(--kg-text-muted)]">
                   Danh sách Groq API Keys (mỗi dòng 1 key)
                 </label>
@@ -1178,7 +1182,7 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
                   href="https://console.groq.com/keys"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[11px] text-[var(--kg-primary-ink)] font-bold inline-flex items-center gap-1 hover:underline"
+                  className="text-[11px] text-[var(--kg-primary-ink)] font-bold inline-flex items-center gap-1 hover:underline whitespace-nowrap shrink-0"
                 >
                   Lấy Key miễn phí <ExternalLink size={11} />
                 </a>
@@ -1207,19 +1211,21 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
                   })}
                 </div>
               )}
-              <button
-                type="button"
-                onClick={() => void syncApiKeys()}
-                className="w-full min-h-[44px] sm:min-h-[40px] bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-bold py-2.5 rounded-xl text-xs sm:text-sm inline-flex items-center justify-center gap-1.5"
-              >
-                <CloudUpload size={15} /> Lưu &amp; Đồng bộ API Keys
-              </button>
+              <div className="flex sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => void syncApiKeys()}
+                  className="w-full sm:w-auto sm:px-5 min-h-[44px] sm:min-h-[40px] bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-bold py-2.5 rounded-xl text-xs sm:text-sm inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
+                >
+                  <CloudUpload size={15} className="shrink-0" /> Lưu &amp; Đồng bộ API Keys
+                </button>
+              </div>
             </div>
           )}
         </section>
 
         {/* System Prompts */}
-        <section className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-5 rounded-2xl shadow-xs space-y-4">
+        <section className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-4 sm:p-5 rounded-2xl shadow-xs space-y-4">
           <div className="flex flex-wrap justify-between items-center gap-2 border-b border-[var(--kg-border)] pb-3">
             <h3 className="font-extrabold flex items-center text-[var(--kg-text)] text-sm sm:text-base">
               <ShieldAlert size={18} className="mr-2 text-[var(--kg-accent-ink)] shrink-0" />
@@ -1228,7 +1234,7 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
             <button
               type="button"
               onClick={addPrompt}
-              className="min-h-[44px] sm:min-h-[36px] text-xs bg-[var(--kg-accent-soft)] border border-[var(--kg-accent)]/25 text-[var(--kg-accent-ink)] font-bold px-3 py-1.5 rounded-xl inline-flex items-center gap-1"
+              className="min-h-[42px] sm:min-h-[36px] text-xs bg-[var(--kg-accent-soft)] border border-[var(--kg-accent)]/25 text-[var(--kg-accent-ink)] font-bold px-3 py-1.5 rounded-xl inline-flex items-center gap-1 whitespace-nowrap"
             >
               <Plus size={14} /> Thêm Prompt
             </button>
@@ -1243,7 +1249,7 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
                 <button
                   type="button"
                   onClick={addPrompt}
-                  className="min-h-[38px] px-3.5 py-1.5 rounded-xl bg-[var(--kg-accent-soft)] text-[var(--kg-accent-ink)] text-xs font-bold"
+                  className="min-h-[42px] sm:min-h-[36px] px-3.5 py-1.5 rounded-xl bg-[var(--kg-accent-soft)] text-[var(--kg-accent-ink)] text-xs font-bold whitespace-nowrap"
                 >
                   + Tạo prompt đầu tiên
                 </button>
@@ -1274,7 +1280,7 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
                         placeholder="System Context..."
                       />
                       <div className="flex items-center justify-between pt-1">
-                        <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-[var(--kg-text)]">
+                        <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-[var(--kg-text)] min-h-[40px]">
                           <input
                             type="checkbox"
                             checked={prompt.isActive}
@@ -1286,7 +1292,7 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
                         <button
                           type="button"
                           onClick={() => setEditingPromptId(null)}
-                          className="min-h-[36px] px-3.5 py-1.5 rounded-xl bg-[var(--kg-primary)] text-white text-xs font-bold inline-flex items-center gap-1"
+                          className="min-h-[40px] sm:min-h-[36px] px-3.5 py-1.5 rounded-xl bg-[var(--kg-primary)] text-white text-xs font-bold inline-flex items-center gap-1 whitespace-nowrap"
                         >
                           <Check size={14} /> Xong
                         </button>
@@ -1308,17 +1314,19 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
                         <div className="flex gap-1 shrink-0">
                           <button
                             type="button"
+                            title="Sửa prompt"
                             aria-label="Sửa prompt"
                             onClick={() => setEditingPromptId(prompt.id)}
-                            className="w-9 h-9 inline-flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-primary-ink)] rounded-lg"
+                            className="w-10 h-10 sm:w-9 sm:h-9 inline-flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-primary-ink)] hover:bg-[var(--kg-surface)] rounded-lg"
                           >
                             <Edit2 size={14} />
                           </button>
                           <button
                             type="button"
+                            title="Xóa prompt"
                             aria-label="Xóa prompt"
                             onClick={() => removePrompt(prompt.id)}
-                            className="w-9 h-9 inline-flex items-center justify-center text-[var(--kg-text-muted)] hover:text-rose-600 rounded-lg"
+                            className="w-10 h-10 sm:w-9 sm:h-9 inline-flex items-center justify-center text-[var(--kg-text-muted)] hover:text-rose-600 hover:bg-rose-500/10 rounded-lg"
                           >
                             <Trash2 size={14} />
                           </button>
@@ -1333,13 +1341,15 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
               ))
             )}
 
-            <button
-              type="button"
-              onClick={() => void syncAiPrompts()}
-              className="w-full min-h-[44px] sm:min-h-[40px] bg-[var(--kg-accent)] hover:brightness-95 text-white dark:text-[#0D1015] font-bold py-2.5 rounded-xl text-xs sm:text-sm inline-flex items-center justify-center gap-1.5"
-            >
-              <CloudUpload size={15} /> Lưu Cấu hình Prompts
-            </button>
+            <div className="flex sm:justify-end">
+              <button
+                type="button"
+                onClick={() => void syncAiPrompts()}
+                className="w-full sm:w-auto sm:px-5 min-h-[44px] sm:min-h-[40px] bg-[var(--kg-accent)] hover:brightness-95 text-white dark:text-[#0D1015] font-bold py-2.5 rounded-xl text-xs sm:text-sm inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
+              >
+                <CloudUpload size={15} className="shrink-0" /> Lưu Cấu hình Prompts
+              </button>
+            </div>
           </div>
         </section>
       </div>

@@ -259,10 +259,10 @@ export default function Login() {
 
   return (
     <div className="login-shell relative flex-1 flex flex-col justify-between p-3.5 sm:p-6 lg:p-8 min-h-dvh bg-[var(--kg-bg)] text-[var(--kg-text)] font-sans transition-colors duration-200 overflow-x-hidden">
-      {/* Top Bar: Mobile 56px Compact Brand Header + Utility Controls */}
-      <header className="relative z-20 w-full max-w-5xl mx-auto h-14 flex items-center justify-between gap-2 pb-2 md:pb-4">
+      {/* Top Bar: Mobile/Tablet 56px Compact Brand Header + Utility Controls */}
+      <header className="relative z-20 w-full max-w-5xl mx-auto h-14 flex items-center justify-between gap-2 pb-2 lg:pb-4">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="md:hidden w-9 h-9 rounded-xl bg-white border border-[var(--kg-border)] p-1 shadow-xs flex items-center justify-center shrink-0">
+          <div className="lg:hidden w-9 h-9 rounded-xl bg-white border border-[var(--kg-border)] p-1 shadow-xs flex items-center justify-center shrink-0">
             <img
               src="/android-chrome-192x192.png?v=3"
               width={28}
@@ -273,7 +273,7 @@ export default function Login() {
               className="w-full h-full object-contain"
             />
           </div>
-          <div className="md:hidden min-w-0">
+          <div className="lg:hidden min-w-0">
             <p className="text-xs font-extrabold tracking-tight text-[var(--kg-text)] truncate leading-none">
               KING&apos;S GRILL
             </p>
@@ -281,13 +281,13 @@ export default function Login() {
               Staff OS
             </p>
           </div>
-          <div className="hidden md:block">
+          <div className="hidden lg:block">
             <KgVersionBadge showCodename />
           </div>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <div className="md:hidden">
+          <div className="lg:hidden">
             <KgVersionBadge />
           </div>
           <button
@@ -302,10 +302,10 @@ export default function Login() {
         </div>
       </header>
 
-      {/* Main Split: Mobile single-column above the fold; Tablet/Desktop 2-col inside max-w-5xl */}
-      <div className="relative z-10 my-auto w-full max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[1.04fr_0.96fr] gap-4 sm:gap-6 lg:gap-8 items-stretch">
-        {/* LEFT SHOWCASE: Tablet & Desktop Editorial Brand Atelier (Hidden on mobile so Kiosk + Login stay immediately above the fold) */}
-        <section className="hidden md:flex min-w-0 rounded-3xl bg-[var(--kg-rail-bg)] border border-[var(--kg-rail-border)] p-6 lg:p-9 text-[var(--kg-rail-text)] shadow-hero relative overflow-hidden flex-col justify-between gap-8">
+      {/* Main Split: Mobile/Tablet Portrait centered single-column; Laptop/Desktop (>= 1024px) 2-col Editorial Atelier inside max-w-5xl */}
+      <div className="relative z-10 my-auto w-full max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-[1.04fr_0.96fr] gap-4 sm:gap-6 lg:gap-8 items-stretch">
+        {/* LEFT SHOWCASE: Laptop & Desktop Editorial Brand Atelier */}
+        <section className="hidden lg:flex min-w-0 rounded-3xl bg-[var(--kg-rail-bg)] border border-[var(--kg-rail-border)] p-7 lg:p-9 text-[var(--kg-rail-text)] shadow-hero relative overflow-hidden flex-col justify-between gap-8">
           <div
             aria-hidden="true"
             className="pointer-events-none absolute -right-12 -top-12 w-64 h-64 rounded-full bg-[var(--kg-accent)]/20"
@@ -359,7 +359,7 @@ export default function Login() {
         </section>
 
         {/* RIGHT FORM PANEL */}
-        <div className="w-full min-w-0 max-w-md mx-auto md:max-w-none flex flex-col justify-center gap-3.5">
+        <div className="w-full min-w-0 max-w-md md:max-w-[480px] mx-auto lg:max-w-none flex flex-col justify-center gap-3.5">
           {/* OPEN MULTI-EMPLOYEE FACE ID STATION CTA (v2 Parallel Kiosk) */}
           {mode === 'login' && (
             <button
@@ -369,7 +369,7 @@ export default function Login() {
               className="w-full min-h-[64px] text-left rounded-2xl bg-[var(--kg-rail-bg)] hover:brightness-110 border border-[var(--kg-rail-border)] p-3.5 sm:p-4 text-[var(--kg-rail-text)] shadow-md transition-all duration-150 flex items-center justify-between gap-3 group cursor-pointer"
             >
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-11 h-11 rounded-xl bg-[var(--kg-accent)] text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+                <div className="w-11 h-11 rounded-xl bg-[var(--kg-accent)] text-white dark:text-[#0D1015] flex items-center justify-center flex-shrink-0 shadow-xs">
                   <ScanFace size={22} />
                 </div>
                 <div className="min-w-0">
@@ -519,7 +519,7 @@ export default function Login() {
 
                 <button
                   type="submit"
-                  className="login-primary w-full bg-[var(--kg-accent)] hover:brightness-95 text-white font-bold py-3 rounded-xl transition-all duration-150 flex items-center justify-center gap-2 text-sm shadow-md active:scale-[0.99] min-h-[48px]"
+                  className="login-primary w-full bg-[var(--kg-accent)] border-[var(--kg-accent)] hover:brightness-95 text-white dark:text-[#0D1015] font-bold py-3 rounded-xl transition-all duration-150 flex items-center justify-center gap-2 text-sm shadow-md active:scale-[0.99] min-h-[48px]"
                 >
                   <span>Đăng nhập vào Ca trực</span> <ArrowRight size={16} />
                 </button>
@@ -774,7 +774,7 @@ export default function Login() {
                     </div>
                     <button
                       type="submit"
-                      className="w-full bg-[var(--kg-success)] hover:brightness-95 text-white font-semibold py-3 rounded-xl transition-colors duration-150 text-sm shadow-xs active:scale-[0.99] min-h-[44px]"
+                      className="w-full bg-[var(--kg-success)] hover:brightness-95 text-white dark:text-[#0D1015] font-semibold py-3 rounded-xl transition-colors duration-150 text-sm shadow-xs active:scale-[0.99] min-h-[44px]"
                     >
                       Đặt lại mật khẩu
                     </button>

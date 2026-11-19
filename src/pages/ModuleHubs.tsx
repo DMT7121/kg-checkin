@@ -69,7 +69,7 @@ function AdminSalaryRates() {
   const users = useAppStore((s) => s.users);
   if (!isAdminUser(currentUser) || !currentUser) return null;
   return (
-    <div className="p-4 space-y-4 animate-fade-in pb-24 md:pb-12 max-w-6xl mx-auto">
+    <div className="p-0 sm:p-2 md:p-4 space-y-4 animate-fade-in max-w-6xl mx-auto">
       <KgModuleHero
         moduleId="admin-payroll"
         title="Đơn Giá Lương & Hạn Mức Ứng"
@@ -232,8 +232,8 @@ function ModuleHub({
 
   return (
     <div className="kg-module-hub min-h-full">
-      <div className="kg-module-tabs-wrap relative md:sticky md:top-[60px] z-20 bg-[var(--kg-bg)]/95 pb-2.5 pt-0.5 md:backdrop-blur-sm transition-colors">
-        <div className="kg-module-tabs mx-auto max-w-[1520px] flex overflow-x-auto hide-scrollbar no-scrollbar sm:overflow-visible gap-1.5 rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface)] p-1 sm:p-1.5 shadow-xs">
+      <div className="kg-module-tabs-wrap relative md:sticky md:top-[60px] z-20 bg-[var(--kg-bg)]/95 pb-2.5 pt-1 md:backdrop-blur-sm transition-colors">
+        <div className="kg-module-tabs mx-auto max-w-[1520px] flex overflow-x-auto hide-scrollbar no-scrollbar gap-1 sm:gap-1.5 rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface)] p-1 sm:p-1.5 shadow-xs">
           {allowedTabs.map((tab) => {
             const Icon = tab.icon;
             const selected = tab.id === active.id;
@@ -250,7 +250,7 @@ function ModuleHub({
                   });
                 }}
                 aria-current={selected ? 'page' : undefined}
-                className={`kg-module-tab relative inline-flex shrink-0 sm:flex-1 items-center justify-center flex-row gap-1.5 sm:gap-2 px-3.5 py-2 text-xs min-h-[44px] sm:min-h-[40px] rounded-xl transition-all duration-150 select-none touch-manipulation whitespace-nowrap ${
+                className={`kg-module-tab relative inline-flex flex-1 min-w-0 items-center justify-center flex-col sm:flex-row gap-0.5 sm:gap-2 px-1.5 sm:px-3.5 py-1.5 sm:py-2 text-[11px] sm:text-xs min-h-[48px] sm:min-h-[40px] rounded-xl transition-all duration-150 select-none touch-manipulation whitespace-nowrap ${
                   selected
                     ? 'bg-[var(--kg-primary)] text-white font-bold shadow-xs'
                     : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)] font-semibold'
@@ -260,8 +260,8 @@ function ModuleHub({
                   size={15}
                   className={`flex-shrink-0 ${selected ? 'text-white' : 'text-[var(--kg-text-muted)]'}`}
                 />
-                <span className="hidden sm:inline tracking-tight whitespace-nowrap">{tab.label}</span>
-                <span className="inline sm:hidden tracking-tight whitespace-nowrap">
+                <span className="hidden lg:inline tracking-tight whitespace-nowrap truncate">{tab.label}</span>
+                <span className="inline lg:hidden tracking-tight whitespace-nowrap truncate max-w-full">
                   {tab.shortLabel || tab.label}
                 </span>
                 {selected && (
@@ -395,7 +395,7 @@ export function WorkHub() {
             <button
               type="button"
               onClick={() => jumpToWorkSubTab('soldout')}
-              className={`min-h-[44px] sm:min-h-[34px] px-3 py-1 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 transition-colors active:scale-95 ${
+              className={`min-h-[44px] sm:min-h-[36px] px-3 py-1 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 transition-colors active:scale-95 whitespace-nowrap ${
                 soldOutItems.length > 0
                   ? 'bg-[var(--kg-warning-soft)] border-[var(--kg-warning)]/30 text-[var(--kg-warning)]'
                   : 'bg-[var(--kg-surface-soft)] border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
@@ -418,7 +418,7 @@ export function WorkHub() {
             <button
               type="button"
               onClick={() => jumpToWorkSubTab('incidents')}
-              className={`min-h-[44px] sm:min-h-[34px] px-3 py-1 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 transition-colors active:scale-95 ${
+              className={`min-h-[44px] sm:min-h-[36px] px-3 py-1 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 transition-colors active:scale-95 whitespace-nowrap ${
                 openIncidentCount > 0
                   ? 'bg-[var(--kg-danger-soft)] border-[var(--kg-danger)]/30 text-[var(--kg-danger)]'
                   : 'bg-[var(--kg-surface-soft)] border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'

@@ -163,6 +163,7 @@
     -moz-osx-font-smoothing: grayscale;
     overscroll-behavior-y: none;
     overflow-x: hidden;
+    overflow-x: clip;
   }
 
   h1, h2, h3, h4, h5, h6 {

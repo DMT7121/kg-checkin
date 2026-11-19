@@ -145,7 +145,7 @@ export default function Profile() {
   const isFacePartial = Boolean(myFaceProfile && faceAngleCount > 0 && faceAngleCount < 5);
 
   return (
-    <div className="max-w-4xl mx-auto p-4 space-y-4 animate-slide-up pb-10">
+    <div className="max-w-5xl mx-auto p-4 space-y-4 animate-slide-up pb-10">
       <KgModuleHero
         moduleId="profile"
         title="Hồ Sơ Của Tôi"
@@ -365,7 +365,7 @@ export default function Profile() {
             icon={RefreshCw}
             loading={syncing}
             onClick={() => void loadProfile()}
-            className="w-full min-h-[44px]"
+            className="w-full sm:w-auto lg:w-full min-h-[44px] sm:min-h-[40px]"
           >
             Cập nhật trạng thái mới nhất
           </KgButton>

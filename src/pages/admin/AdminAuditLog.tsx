@@ -186,30 +186,30 @@ function AdminAuditLogContent() {
   };
 
   return (
-    <div className="p-4 space-y-4 animate-fade-in pb-24 md:pb-12 max-w-7xl mx-auto">
+    <div className="p-4 md:px-0 md:pt-1 space-y-4 animate-fade-in pb-24 md:pb-12 max-w-7xl mx-auto">
       <KgModuleHero
         moduleId="admin"
         title="Nhật Ký Kiểm Toán Bảo Mật"
         description="Truy vết bất biến thao tác chốt lương, sửa công, duyệt két, thưởng/phạt và phân quyền (tự động ẩn khóa bí mật & mật khẩu)."
         eyebrow="Hệ thống · Audit"
         actions={
-          <div className="flex items-center gap-2">
+          <div className="grid grid-cols-2 sm:flex items-center gap-2 w-full sm:w-auto">
             <button
               type="button"
               onClick={() => void fetchLogs(limit, true)}
               disabled={loading}
-              className="min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface)] hover:bg-[var(--kg-surface-soft)] text-xs font-bold text-[var(--kg-text)] inline-flex items-center gap-1.5 disabled:opacity-50"
+              className="min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface)] hover:bg-[var(--kg-surface-soft)] text-xs font-bold text-[var(--kg-text)] inline-flex items-center justify-center gap-1.5 disabled:opacity-50 whitespace-nowrap"
             >
-              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+              <RefreshCw size={14} className={loading ? 'animate-spin shrink-0' : 'shrink-0'} />
               <span>Làm mới</span>
             </button>
             <button
               type="button"
               onClick={handleExportCsv}
               disabled={filteredLogs.length === 0}
-              className="min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-xs disabled:opacity-45"
+              className="min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs font-bold inline-flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-45 whitespace-nowrap"
             >
-              <Download size={14} />
+              <Download size={14} className="shrink-0" />
               <span>Xuất CSV</span>
             </button>
           </div>
@@ -233,7 +233,7 @@ function AdminAuditLogContent() {
               }}
               placeholder="Tìm người thực hiện, đối tượng, tháng lương..."
               aria-label="Tìm nhật ký kiểm toán"
-              className="w-full min-h-[44px] sm:min-h-[38px] pl-9 pr-8 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-base sm:text-xs font-medium text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
+              className="w-full min-h-[44px] sm:min-h-[38px] pl-9 pr-10 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-base sm:text-xs font-medium text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
             />
             {query && (
               <button
@@ -243,7 +243,7 @@ function AdminAuditLogContent() {
                   setPage(1);
                 }}
                 aria-label="Xóa từ khóa"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]"
+                className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 inline-flex items-center justify-center rounded-lg text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface)]"
               >
                 <X size={13} />
               </button>
@@ -298,7 +298,7 @@ function AdminAuditLogContent() {
             <button
               type="button"
               onClick={resetFilters}
-              className="text-[var(--kg-accent-ink)] hover:underline font-black"
+              className="min-h-[36px] sm:min-h-[30px] px-2.5 py-1 rounded-lg bg-[var(--kg-accent-soft)] text-[var(--kg-accent-ink)] hover:brightness-95 font-bold whitespace-nowrap"
             >
               Xóa bộ lọc
             </button>
@@ -335,12 +335,12 @@ function AdminAuditLogContent() {
               <table className="w-full text-left border-collapse text-xs">
                 <thead className="sticky top-0 z-10 bg-[var(--kg-surface-soft)] border-b border-[var(--kg-border)] text-[11px] font-black uppercase tracking-wider text-[var(--kg-text-muted)]">
                   <tr>
-                    <th className="py-3 px-4 w-44">Thời gian</th>
-                    <th className="py-3 px-4 w-60">Thao tác</th>
-                    <th className="py-3 px-4 w-40">Người thực hiện</th>
-                    <th className="py-3 px-4 w-40">Đối tượng</th>
-                    <th className="py-3 px-4">Tóm tắt</th>
-                    <th className="py-3 px-4 w-20 text-right">Chi tiết</th>
+                    <th className="py-3 px-3.5 w-36 whitespace-nowrap">Thời gian</th>
+                    <th className="py-3 px-3.5 w-48 whitespace-nowrap">Thao tác</th>
+                    <th className="py-3 px-3.5 w-32 whitespace-nowrap">Người thực hiện</th>
+                    <th className="py-3 px-3.5 w-32 whitespace-nowrap">Đối tượng</th>
+                    <th className="py-3 px-3.5">Tóm tắt</th>
+                    <th className="py-3 px-3.5 w-16 text-right whitespace-nowrap">Chi tiết</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--kg-border)]">
@@ -354,34 +354,35 @@ function AdminAuditLogContent() {
                         onClick={() => setSelectedEntry(entry)}
                         className="hover:bg-[var(--kg-surface-soft)]/60 cursor-pointer transition-colors"
                       >
-                        <td className="py-3 px-4 font-mono tabular-nums text-[var(--kg-text-muted)] whitespace-nowrap">
+                        <td className="py-3 px-3.5 font-mono tabular-nums text-[var(--kg-text-muted)] whitespace-nowrap">
                           {timeStr}
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-3 px-3.5">
                           <span className="inline-block px-2 py-0.5 rounded-md bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] font-bold text-[11px]">
                             {actionLabel}
                           </span>
                         </td>
-                        <td className="py-3 px-4 font-mono font-bold text-[var(--kg-text)] truncate max-w-[160px]">
+                        <td className="py-3 px-3.5 font-mono font-bold text-[var(--kg-text)] truncate max-w-[140px]">
                           @{actorName}
                         </td>
-                        <td className="py-3 px-4 font-mono text-[var(--kg-text-muted)] truncate max-w-[160px]">
+                        <td className="py-3 px-3.5 font-mono text-[var(--kg-text-muted)] truncate max-w-[140px]">
                           {entry.target || '—'}
                         </td>
-                        <td className="py-3 px-4 text-[var(--kg-text)] max-w-[360px] truncate">
+                        <td className="py-3 px-3.5 text-[var(--kg-text)] max-w-[360px] truncate">
                           {entry.summary || '—'}
                         </td>
-                        <td className="py-3 px-4 text-right">
+                        <td className="py-3 px-3.5 text-right">
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedEntry(entry);
                             }}
+                            title="Xem chi tiết"
                             aria-label="Xem chi tiết bản ghi kiểm toán"
-                            className="min-h-[32px] px-2.5 py-1 rounded-lg bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-border)]/50 text-[var(--kg-primary-ink)] font-bold inline-flex items-center gap-1"
+                            className="min-h-[36px] min-w-[36px] px-2.5 py-1 rounded-lg bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-border)]/50 text-[var(--kg-primary-ink)] font-bold inline-flex items-center justify-center gap-1"
                           >
-                            <Eye size={13} />
+                            <Eye size={14} />
                           </button>
                         </td>
                       </tr>
@@ -436,7 +437,7 @@ function AdminAuditLogContent() {
                 type="button"
                 disabled={safePage <= 1}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-xs font-bold text-[var(--kg-text)] inline-flex items-center gap-1 disabled:opacity-45"
+                className="min-h-[44px] sm:min-h-[36px] px-3.5 py-1.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-xs font-bold text-[var(--kg-text)] inline-flex items-center gap-1 disabled:opacity-45 whitespace-nowrap"
               >
                 <ChevronLeft size={14} /> Trước
               </button>
@@ -447,7 +448,7 @@ function AdminAuditLogContent() {
                 type="button"
                 disabled={safePage >= totalPages}
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className="min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-xs font-bold text-[var(--kg-text)] inline-flex items-center gap-1 disabled:opacity-45"
+                className="min-h-[44px] sm:min-h-[36px] px-3.5 py-1.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-xs font-bold text-[var(--kg-text)] inline-flex items-center gap-1 disabled:opacity-45 whitespace-nowrap"
               >
                 Sau <ChevronRight size={14} />
               </button>

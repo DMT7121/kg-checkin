@@ -793,22 +793,22 @@ function AdminApprovalInboxContent() {
     visibleAdjustments.length;
 
   return (
-    <div className="p-4 space-y-4 animate-fade-in pb-24 md:pb-12 max-w-6xl mx-auto">
+    <div className="p-4 md:px-0 md:pt-1 space-y-4 animate-fade-in pb-24 md:pb-12 max-w-6xl mx-auto">
       <KgModuleHero
         moduleId="admin-ops"
         title="Hộp Duyệt 1 Chạm"
         description="Gom toàn bộ yêu cầu bổ sung công, đổi ca, đối soát két, sự cố, ứng lương và điều chỉnh lương vào một hàng chờ thống nhất."
         eyebrow="Điều hành"
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             {matchedUnconfirmedCash.length > 0 && (
               <button
                 type="button"
                 disabled={bulkConfirmingCash}
                 onClick={() => void handleBulkConfirmMatchedCash()}
-                className="min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold inline-flex items-center gap-1.5 shadow-xs disabled:opacity-50"
+                className="flex-1 sm:flex-none min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50 whitespace-nowrap"
               >
-                <CheckCheck size={14} />
+                <CheckCheck size={14} className="shrink-0" />
                 <span>
                   {bulkConfirmingCash
                     ? 'Đang duyệt...'
@@ -820,9 +820,9 @@ function AdminApprovalInboxContent() {
               type="button"
               onClick={() => void loadAllQueues(true)}
               disabled={refreshing || loading}
-              className="min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface)] hover:bg-[var(--kg-surface-soft)] text-xs font-bold text-[var(--kg-text)] inline-flex items-center gap-1.5 disabled:opacity-50"
+              className="flex-1 sm:flex-none min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface)] hover:bg-[var(--kg-surface-soft)] text-xs font-bold text-[var(--kg-text)] inline-flex items-center justify-center gap-1.5 disabled:opacity-50 whitespace-nowrap"
             >
-              <RefreshCw size={14} className={refreshing || loading ? 'animate-spin' : ''} />
+              <RefreshCw size={14} className={refreshing || loading ? 'animate-spin shrink-0' : 'shrink-0'} />
               <span>Làm mới</span>
             </button>
           </div>
@@ -832,7 +832,7 @@ function AdminApprovalInboxContent() {
       {/* Category Filter Chips + Search */}
       <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-3 space-y-2.5 shadow-xs">
         <div
-          className="flex gap-1.5 overflow-x-auto hide-scrollbar no-scrollbar pb-0.5"
+          className="flex gap-1.5 overflow-x-auto hide-scrollbar no-scrollbar pb-0.5 sm:flex-wrap sm:overflow-visible sm:pb-0"
           role="tablist"
           aria-label="Lọc danh mục hộp duyệt"
         >
@@ -846,7 +846,7 @@ function AdminApprovalInboxContent() {
                 role="tab"
                 aria-selected={active}
                 onClick={() => setCategory(chip.id)}
-                className={`min-h-[44px] sm:min-h-[36px] shrink-0 px-3 py-1.5 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${
+                className={`min-h-[44px] sm:min-h-[36px] shrink-0 px-2.5 py-1.5 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${
                   active
                     ? 'bg-[var(--kg-primary)] border-[var(--kg-primary)] text-white shadow-xs'
                     : 'bg-[var(--kg-surface-soft)] border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
@@ -872,7 +872,7 @@ function AdminApprovalInboxContent() {
 
         {category !== 'cash' && category !== 'incidents' && (
           <div className="flex flex-col sm:flex-row gap-2">
-            <div className="relative flex-1">
+            <div className="relative flex-1 min-w-0">
               <Search
                 size={14}
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--kg-text-muted)] pointer-events-none"
@@ -883,34 +883,34 @@ function AdminApprovalInboxContent() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Tìm nhân viên, ngày, ca, lý do..."
                 aria-label="Tìm trong hộp duyệt"
-                className="w-full min-h-[44px] sm:min-h-[38px] pl-9 pr-8 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-base sm:text-xs font-medium text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
+                className="w-full min-h-[44px] sm:min-h-[38px] pl-9 pr-10 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-base sm:text-xs font-medium text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
                   aria-label="Xóa tìm kiếm"
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 inline-flex items-center justify-center rounded-lg text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface)]"
                 >
                   <X size={13} />
                 </button>
               )}
             </div>
-            <div className="flex items-center gap-1.5 shrink-0">
+            <div className="grid grid-cols-2 sm:flex items-center gap-2 sm:gap-1.5 shrink-0">
               <button
                 type="button"
                 onClick={() => navigateToHubSubTab('admin_ops', 'schedule')}
-                className="min-h-[44px] sm:min-h-[38px] px-3 py-1.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-xs font-bold text-[var(--kg-text)] hover:border-[var(--kg-border-strong)] inline-flex items-center gap-1.5"
+                className="min-h-[44px] sm:min-h-[38px] px-3 py-1.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-xs font-bold text-[var(--kg-text)] hover:border-[var(--kg-border-strong)] inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
               >
-                <CalendarClock size={14} />
+                <CalendarClock size={14} className="shrink-0" />
                 <span>Xếp lịch</span>
               </button>
               <button
                 type="button"
                 onClick={() => navigateToHubSubTab('admin_people_pay', 'payroll')}
-                className="min-h-[44px] sm:min-h-[38px] px-3 py-1.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-xs font-bold text-[var(--kg-text)] hover:border-[var(--kg-border-strong)] inline-flex items-center gap-1.5"
+                className="min-h-[44px] sm:min-h-[38px] px-3 py-1.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-xs font-bold text-[var(--kg-text)] hover:border-[var(--kg-border-strong)] inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
               >
-                <Banknote size={14} />
+                <Banknote size={14} className="shrink-0" />
                 <span>Bảng lương</span>
               </button>
             </div>
@@ -921,9 +921,9 @@ function AdminApprovalInboxContent() {
       {/* Partial Queue Errors */}
       {Object.keys(queueErrors).length > 0 && !globalError && (
         <div className="rounded-2xl border border-amber-500/35 bg-amber-500/10 px-4 py-3 flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-amber-800 dark:text-amber-300">
-          <div className="flex items-center gap-2 min-w-0">
-            <AlertTriangle size={15} className="shrink-0" />
-            <span className="truncate">
+          <div className="flex items-start sm:items-center gap-2 min-w-0 flex-1">
+            <AlertTriangle size={15} className="shrink-0 mt-0.5 sm:mt-0" />
+            <span className="leading-snug">
               Một số hàng chờ chưa tải được ({Object.keys(queueErrors).length}/6):{' '}
               {Object.values(queueErrors)[0]}
             </span>
@@ -931,7 +931,7 @@ function AdminApprovalInboxContent() {
           <button
             type="button"
             onClick={() => void loadAllQueues(true)}
-            className="min-h-[36px] px-3 py-1 rounded-lg bg-[var(--kg-primary)] text-white text-xs font-bold"
+            className="min-h-[40px] sm:min-h-[36px] px-3.5 py-1.5 rounded-xl bg-[var(--kg-primary)] text-white text-xs font-bold whitespace-nowrap shrink-0"
           >
             Tải lại
           </button>
@@ -1052,7 +1052,7 @@ function AdminApprovalInboxContent() {
                               </a>
                             )}
                           </div>
-                          <div className="flex items-center gap-2 pt-2 border-t border-[var(--kg-border)]">
+                          <div className="flex flex-wrap sm:flex-nowrap items-center sm:justify-end gap-2 pt-2.5 border-t border-[var(--kg-border)]">
                             <button
                               type="button"
                               disabled={Boolean(busyKey)}
@@ -1060,17 +1060,17 @@ function AdminApprovalInboxContent() {
                                 setNoteText('');
                                 setNoteSheet({ kind: 'missed_reject', claim });
                               }}
-                              className="flex-1 min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
+                              className="flex-1 sm:flex-none min-w-[110px] min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-50 whitespace-nowrap"
                             >
-                              <X size={14} /> Từ chối
+                              <X size={14} className="shrink-0" /> Từ chối
                             </button>
                             <button
                               type="button"
                               disabled={Boolean(busyKey)}
                               onClick={() => void handleApproveMissed(claim)}
-                              className="flex-1 min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50"
+                              className="flex-1 sm:flex-none min-w-[126px] min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50 whitespace-nowrap"
                             >
-                              <Check size={14} /> {isBusy ? 'Đang duyệt...' : 'Duyệt 1 chạm'}
+                              <Check size={14} className="shrink-0" /> {isBusy ? 'Đang duyệt...' : 'Duyệt 1 chạm'}
                             </button>
                           </div>
                         </article>
@@ -1128,22 +1128,22 @@ function AdminApprovalInboxContent() {
                               </p>
                             )}
                           </div>
-                          <div className="flex items-center gap-2 pt-2 border-t border-[var(--kg-border)]">
+                          <div className="flex flex-wrap sm:flex-nowrap items-center sm:justify-end gap-2 pt-2.5 border-t border-[var(--kg-border)]">
                             <button
                               type="button"
                               disabled={Boolean(busyKey)}
                               onClick={() => void handleSwapDecision(req, 'REJECT')}
-                              className="flex-1 min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
+                              className="flex-1 sm:flex-none min-w-[110px] min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-50 whitespace-nowrap"
                             >
-                              <X size={14} /> Từ chối
+                              <X size={14} className="shrink-0" /> Từ chối
                             </button>
                             <button
                               type="button"
                               disabled={Boolean(busyKey)}
                               onClick={() => void handleSwapDecision(req, 'APPROVE')}
-                              className="flex-1 min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50"
+                              className="flex-1 sm:flex-none min-w-[120px] min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50 whitespace-nowrap"
                             >
-                              <Check size={14} /> {isBusy ? 'Đang xử lý...' : 'Phê duyệt'}
+                              <Check size={14} className="shrink-0" /> {isBusy ? 'Đang xử lý...' : 'Phê duyệt'}
                             </button>
                           </div>
                         </article>
@@ -1157,15 +1157,15 @@ function AdminApprovalInboxContent() {
           {/* 3. Cash Handover Disputes (Compact cards in ALL mode; full CashAuditPanel on cash tab) */}
           {category === 'all' && visibleCash.length > 0 && (
             <section className="space-y-2.5">
-              <div className="flex items-center justify-between px-0.5">
-                <h3 className="text-xs font-extrabold uppercase tracking-wider text-[var(--kg-text-muted)] flex items-center gap-1.5">
-                  <Banknote size={14} className="text-amber-600 dark:text-amber-400" />
-                  Đối soát két cần kiểm tra ({visibleCash.length})
+              <div className="flex items-center justify-between gap-2 px-0.5">
+                <h3 className="text-xs font-extrabold uppercase tracking-wider text-[var(--kg-text-muted)] flex items-center gap-1.5 min-w-0">
+                  <Banknote size={14} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                  <span className="truncate">Đối soát két cần kiểm tra ({visibleCash.length})</span>
                 </h3>
                 <button
                   type="button"
                   onClick={() => setCategory('cash')}
-                  className="text-xs font-bold text-[var(--kg-primary-ink)] hover:underline"
+                  className="min-h-[36px] px-2.5 py-1 rounded-lg hover:bg-[var(--kg-surface-soft)] text-xs font-bold text-[var(--kg-primary-ink)] inline-flex items-center whitespace-nowrap shrink-0"
                 >
                   Mở sổ két đầy đủ →
                 </button>
@@ -1190,7 +1190,7 @@ function AdminApprovalInboxContent() {
                             </p>
                           </div>
                           <span
-                            className={`px-2 py-0.5 rounded-lg text-xs font-mono tabular-nums font-black ${
+                            className={`px-2 py-0.5 rounded-lg text-xs font-mono tabular-nums font-black shrink-0 ${
                               diff < 0
                                 ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
                                 : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
@@ -1199,9 +1199,9 @@ function AdminApprovalInboxContent() {
                             {formatSignedVnd(diff)}
                           </span>
                         </div>
-                        <div className="grid grid-cols-2 gap-2 text-xs font-mono tabular-nums">
+                        <div className="grid grid-cols-2 gap-2 text-xs font-mono tabular-nums text-right">
                           <div className="rounded-xl bg-[var(--kg-surface-soft)] px-2.5 py-1.5">
-                            <span className="block font-sans text-[10px] text-[var(--kg-text-muted)]">
+                            <span className="block font-sans text-left text-[10px] text-[var(--kg-text-muted)]">
                               Lý thuyết
                             </span>
                             <span className="font-bold text-[var(--kg-text)]">
@@ -1209,7 +1209,7 @@ function AdminApprovalInboxContent() {
                             </span>
                           </div>
                           <div className="rounded-xl bg-[var(--kg-surface-soft)] px-2.5 py-1.5">
-                            <span className="block font-sans text-[10px] text-[var(--kg-text-muted)]">
+                            <span className="block font-sans text-left text-[10px] text-[var(--kg-text-muted)]">
                               Thực giao
                             </span>
                             <span className="font-bold text-[var(--kg-text)]">
@@ -1223,7 +1223,7 @@ function AdminApprovalInboxContent() {
                           </p>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 pt-2 border-t border-[var(--kg-border)]">
+                      <div className="flex flex-wrap sm:flex-nowrap items-center sm:justify-end gap-2 pt-2.5 border-t border-[var(--kg-border)]">
                         <button
                           type="button"
                           disabled={Boolean(busyKey)}
@@ -1231,7 +1231,7 @@ function AdminApprovalInboxContent() {
                             setNoteText(item.managerNote || '');
                             setNoteSheet({ kind: 'cash_dispute', handover: item });
                           }}
-                          className="flex-1 min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-300 text-xs font-bold disabled:opacity-50"
+                          className="flex-1 sm:flex-none min-w-[136px] min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-300 text-xs font-bold disabled:opacity-50 whitespace-nowrap"
                         >
                           Yêu cầu giải trình
                         </button>
@@ -1239,7 +1239,7 @@ function AdminApprovalInboxContent() {
                           type="button"
                           disabled={Boolean(busyKey)}
                           onClick={() => void handleConfirmCashQuick(item)}
-                          className="flex-1 min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold disabled:opacity-50"
+                          className="flex-1 sm:flex-none min-w-[126px] min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold disabled:opacity-50 whitespace-nowrap"
                         >
                           {isBusy ? 'Đang lưu...' : 'Duyệt chốt két'}
                         </button>
@@ -1254,15 +1254,15 @@ function AdminApprovalInboxContent() {
           {/* 4. Open Incidents (Compact cards in ALL mode; full IncidentCenterPanel on incidents tab) */}
           {category === 'all' && visibleIncidents.length > 0 && (
             <section className="space-y-2.5">
-              <div className="flex items-center justify-between px-0.5">
-                <h3 className="text-xs font-extrabold uppercase tracking-wider text-[var(--kg-text-muted)] flex items-center gap-1.5">
-                  <ShieldAlert size={14} className="text-rose-600 dark:text-rose-400" />
-                  Sự cố đang mở / xử lý ({visibleIncidents.length})
+              <div className="flex items-center justify-between gap-2 px-0.5">
+                <h3 className="text-xs font-extrabold uppercase tracking-wider text-[var(--kg-text-muted)] flex items-center gap-1.5 min-w-0">
+                  <ShieldAlert size={14} className="text-rose-600 dark:text-rose-400 shrink-0" />
+                  <span className="truncate">Sự cố đang mở / xử lý ({visibleIncidents.length})</span>
                 </h3>
                 <button
                   type="button"
                   onClick={() => setCategory('incidents')}
-                  className="text-xs font-bold text-[var(--kg-primary-ink)] hover:underline"
+                  className="min-h-[36px] px-2.5 py-1 rounded-lg hover:bg-[var(--kg-surface-soft)] text-xs font-bold text-[var(--kg-primary-ink)] inline-flex items-center whitespace-nowrap shrink-0"
                 >
                   Chi tiết sự cố 4 bước →
                 </button>
@@ -1298,13 +1298,13 @@ function AdminApprovalInboxContent() {
                           {inc.description}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2 pt-2 border-t border-[var(--kg-border)]">
+                      <div className="flex flex-wrap sm:flex-nowrap items-center sm:justify-end gap-2 pt-2.5 border-t border-[var(--kg-border)]">
                         {inc.status !== 'Investigating' && (
                           <button
                             type="button"
                             disabled={Boolean(busyKey)}
                             onClick={() => void handleIncidentQuickStatus(inc, 'Investigating')}
-                            className="flex-1 min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-300 text-xs font-bold disabled:opacity-50"
+                            className="flex-1 sm:flex-none min-w-[116px] min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-300 text-xs font-bold disabled:opacity-50 whitespace-nowrap"
                           >
                             Nhận xử lý
                           </button>
@@ -1313,7 +1313,7 @@ function AdminApprovalInboxContent() {
                           type="button"
                           disabled={Boolean(busyKey)}
                           onClick={() => void handleIncidentQuickStatus(inc, 'Resolved')}
-                          className="flex-1 min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold disabled:opacity-50"
+                          className="flex-1 sm:flex-none min-w-[144px] min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold disabled:opacity-50 whitespace-nowrap"
                         >
                           {isBusy ? 'Đang lưu...' : 'Đánh dấu đã xử lý'}
                         </button>
@@ -1370,22 +1370,22 @@ function AdminApprovalInboxContent() {
                               </p>
                             )}
                           </div>
-                          <div className="flex items-center gap-2 pt-2 border-t border-[var(--kg-border)]">
+                          <div className="flex flex-wrap sm:flex-nowrap items-center sm:justify-end gap-2 pt-2.5 border-t border-[var(--kg-border)]">
                             <button
                               type="button"
                               disabled={Boolean(busyKey)}
                               onClick={() => void handleAdvanceDecision(adv, 'REJECT')}
-                              className="flex-1 min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
+                              className="flex-1 sm:flex-none min-w-[110px] min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-50 whitespace-nowrap"
                             >
-                              <X size={14} /> Từ chối
+                              <X size={14} className="shrink-0" /> Từ chối
                             </button>
                             <button
                               type="button"
                               disabled={Boolean(busyKey)}
                               onClick={() => void handleAdvanceDecision(adv, 'APPROVE')}
-                              className="flex-1 min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50"
+                              className="flex-1 sm:flex-none min-w-[120px] min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50 whitespace-nowrap"
                             >
-                              <Check size={14} /> {isBusy ? 'Đang xử lý...' : 'Duyệt ứng'}
+                              <Check size={14} className="shrink-0" /> {isBusy ? 'Đang xử lý...' : 'Duyệt ứng'}
                             </button>
                           </div>
                         </article>
@@ -1432,8 +1432,8 @@ function AdminApprovalInboxContent() {
                             <KgStatusBadge variant="warning">Chờ duyệt</KgStatusBadge>
                           </div>
                           <div className="grid grid-cols-2 gap-2 text-xs">
-                            <div className="rounded-xl bg-[var(--kg-surface-soft)] p-2.5 border border-[var(--kg-border)]">
-                              <span className="block text-[10px] font-bold uppercase text-[var(--kg-text-muted)]">
+                            <div className="rounded-xl bg-[var(--kg-surface-soft)] p-2.5 border border-[var(--kg-border)] text-right">
+                              <span className="block text-left text-[10px] font-bold uppercase text-[var(--kg-text-muted)]">
                                 Hiện tại
                               </span>
                               <span className="font-mono tabular-nums font-extrabold text-[var(--kg-text)]">
@@ -1443,8 +1443,8 @@ function AdminApprovalInboxContent() {
                                 {salaryTypeLabel(req.currentType)}
                               </span>
                             </div>
-                            <div className="rounded-xl bg-[var(--kg-surface-soft)] p-2.5 border border-[var(--kg-accent)]/35">
-                              <span className="block text-[10px] font-bold uppercase text-[var(--kg-accent-ink)]">
+                            <div className="rounded-xl bg-[var(--kg-surface-soft)] p-2.5 border border-[var(--kg-accent)]/35 text-right">
+                              <span className="block text-left text-[10px] font-bold uppercase text-[var(--kg-accent-ink)]">
                                 Đề xuất
                               </span>
                               <span className="font-mono tabular-nums font-extrabold text-[var(--kg-accent-ink)]">
@@ -1459,7 +1459,7 @@ function AdminApprovalInboxContent() {
                             <p className="text-xs text-[var(--kg-text)]">{req.reason}</p>
                           )}
                         </div>
-                        <div className="flex items-center gap-2 pt-2 border-t border-[var(--kg-border)]">
+                        <div className="flex flex-wrap sm:flex-nowrap items-center sm:justify-end gap-2 pt-2.5 border-t border-[var(--kg-border)]">
                           <button
                             type="button"
                             disabled={Boolean(busyKey)}
@@ -1471,9 +1471,9 @@ function AdminApprovalInboxContent() {
                                 status: 'Rejected',
                               });
                             }}
-                            className="flex-1 min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 text-xs font-bold inline-flex items-center justify-center gap-1.5"
+                            className="flex-1 sm:flex-none min-w-[110px] min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 text-xs font-bold inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
                           >
-                            <X size={14} /> Từ chối
+                            <X size={14} className="shrink-0" /> Từ chối
                           </button>
                           <button
                             type="button"
@@ -1486,9 +1486,9 @@ function AdminApprovalInboxContent() {
                                 status: 'Approved',
                               });
                             }}
-                            className="flex-1 min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 shadow-xs"
+                            className="flex-1 sm:flex-none min-w-[140px] min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 shadow-xs whitespace-nowrap"
                           >
-                            <Check size={14} /> Duyệt &amp; cập nhật
+                            <Check size={14} className="shrink-0" /> Duyệt &amp; cập nhật
                           </button>
                         </div>
                       </article>
