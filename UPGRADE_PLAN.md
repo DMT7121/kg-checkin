@@ -1,8 +1,8 @@
-# BẢN THIẾT KẾ KIẾN TRÚC ỨNG DỤNG KING'S GRILL (`v4.0.1` — 11-Hub Super-App & Edge D1) 🏗️
+# BẢN THIẾT KẾ KIẾN TRÚC ỨNG DỤNG KING'S GRILL (`v4.1.0` — 11-Hub Consolidated Super-App & Edge D1) 🏗️
 
-Kiến trúc hiện hành (`v4.0.1`) tổ chức ứng dụng theo mô hình **11-Hub Super-App IA** (`Warm Hospitality Edition`) với tuyến **Cloudflare Edge D1 (`/api`)** làm gateway chính, **Google Apps Script + Google Sheets/Drive** đồng bộ nền, và phân quyền chặt chẽ qua `isAdminUser(user)` (`admin` vs `tester`/`user`).
+Kiến trúc hiện hành (`v4.1.0`) tổ chức ứng dụng theo mô hình **11-Hub Consolidated Super-App IA** (8 phân hệ nhân sự + 3 phân hệ quản trị, `Warm Hospitality Edition`) với tuyến **Cloudflare Edge D1 (`/api`)** làm gateway chính, **Google Apps Script + Google Sheets/Drive** đồng bộ nền, **zero legacy heavy dependencies** (đã loại bỏ hoàn toàn `sweetalert2`, `framer-motion`, `face-api.js`, `canvas-confetti`, giảm ~22 MB gói deploy), và phân quyền chặt chẽ qua `isAdminUser(user)` (`admin` vs `tester`/`user`).
 
-> **Trạng thái đối chiếu thực tế (`v4.0.1`):** Các nhóm chức năng cốt lõi dưới đây đã triển khai và chuẩn hóa theo `DESIGN.md`, `CORE_WEBAPP_ARCHITECTURE.md`, và `UPGRADE_PROGRESS.md`. Các mục đánh dấu `📌 Roadmap` là phần định hướng mở rộng dài hạn chưa bật chính thức.
+> **Trạng thái đối chiếu thực tế (`v4.1.0`):** Toàn bộ **6 Wave nâng cấp kiến trúc & UX** đã hoàn thành 100% và đồng bộ với `DESIGN.md`, `CORE_WEBAPP_ARCHITECTURE.md`, và `UPGRADE_PROGRESS.md`. Các mục đánh dấu `📌 Roadmap` là phần định hướng mở rộng dài hạn chưa bật chính thức.
 
 ---
 

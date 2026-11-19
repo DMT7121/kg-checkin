@@ -1,33 +1,38 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Activity,
   BadgeCheck,
   Ban,
   BriefcaseBusiness,
   CalendarClock,
-  History,
+  ChevronRight,
   KeyRound,
-  Layers,
   LoaderCircle,
+  Lock,
   Mail,
   PauseCircle,
   RefreshCw,
+  ScanFace,
   ShieldCheck,
   Sparkles,
   UserX,
-  Wrench,
 } from 'lucide-react';
 import { KgModuleHero, KgAlertCard, KgButton, KgCard } from '../components/KgDesignSystem';
 import {
-  APP_CODENAME,
   APP_RELEASE_DATE,
   APP_VERSION_TAG,
-  RELEASE_STATS,
   openReleaseNotesModal,
 } from '../config/releaseNotes';
 import { callApi } from '../services/api';
 import { useAppStore, type User } from '../store/useAppStore';
 import { getEmploymentStatusMeta } from '../utils/employment';
+import {
+  getCachedFaceProfiles,
+  subscribeCachedFaceProfiles,
+  syncLatestFaceProfilesFromEdge,
+  decodeInt8B64ToVectors,
+  type RawFaceProfileDto,
+} from '../utils/faceProfileCache';
 
 const roleLabel = (role?: string) => {
   if (role === 'admin') return 'Quản trị viên';
@@ -36,11 +41,12 @@ const roleLabel = (role?: string) => {
 };
 
 export default function Profile() {
-  const currentUser = useAppStore(state => state.currentUser);
-  const setCurrentUser = useAppStore(state => state.setCurrentUser);
+  const currentUser = useAppStore((state) => state.currentUser);
+  const setCurrentUser = useAppStore((state) => state.setCurrentUser);
   const [profile, setProfile] = useState<User | null>(currentUser);
   const [syncing, setSyncing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [faceProfiles, setFaceProfiles] = useState<RawFaceProfileDto[]>(() => getCachedFaceProfiles());
 
   const loadProfile = useCallback(async () => {
     const user = useAppStore.getState().currentUser;
@@ -79,39 +85,71 @@ export default function Profile() {
     return () => window.clearTimeout(timer);
   }, [loadProfile]);
 
+  useEffect(() => {
+    const unsubscribe = subscribeCachedFaceProfiles((profiles) => {
+      setFaceProfiles(profiles);
+    });
+    if (getCachedFaceProfiles().length === 0) {
+      void syncLatestFaceProfilesFromEdge(callApi).then((synced) => {
+        if (synced.length > 0) setFaceProfiles(synced);
+      });
+    }
+    return unsubscribe;
+  }, []);
+
+  const myFaceProfile = useMemo(() => {
+    if (!profile?.username) return null;
+    const target = profile.username.trim().toLowerCase();
+    return faceProfiles.find((p) => p.username.trim().toLowerCase() === target) || null;
+  }, [faceProfiles, profile?.username]);
+
+  const faceAngleCount = useMemo(() => {
+    if (!myFaceProfile) return 0;
+    if (typeof myFaceProfile.anglesCount === 'number' && myFaceProfile.anglesCount > 0) {
+      return myFaceProfile.anglesCount;
+    }
+    return decodeInt8B64ToVectors(myFaceProfile.vectorsB64).length;
+  }, [myFaceProfile]);
+
   if (!profile) return null;
   const status = getEmploymentStatusMeta(profile.employmentStatus);
-  const statusIcon = status.value === 'active'
-    ? Activity
-    : status.value === 'leave'
-      ? PauseCircle
-      : status.value === 'suspended' ? Ban : UserX;
-  const StatusIcon = statusIcon;
+  const StatusIcon =
+    status.value === 'active'
+      ? Activity
+      : status.value === 'leave'
+        ? PauseCircle
+        : status.value === 'suspended'
+          ? Ban
+          : UserX;
 
-  const permissions = profile.role === 'admin'
-    ? [
-        'Toàn quyền cấu hình và quản lý hệ thống',
-        'Quản lý nhân sự, lương, phân ca và phân công',
-        'Xem báo cáo và xử lý các yêu cầu nội bộ',
-      ]
-    : profile.role === 'tester'
+  const permissions =
+    profile.role === 'admin'
       ? [
-          'Kiểm thử các module được hệ thống cho phép',
-          'Xem dữ liệu phục vụ kiểm tra vận hành',
-          'Không được thay đổi trạng thái lao động của nhân sự',
+          'Toàn quyền cấu hình và quản lý hệ thống',
+          'Quản lý nhân sự, lương, phân ca và phân công',
+          'Xem báo cáo và xử lý các yêu cầu nội bộ',
         ]
-      : [
-          'Xem và thao tác dữ liệu cá nhân',
-          'Đăng ký ca, chấm công và nhận phân công khi đang hoạt động',
-          'Gửi đề nghị, góp ý và theo dõi thông tin lương cá nhân',
-        ];
+      : profile.role === 'tester'
+        ? [
+            'Kiểm thử các module được hệ thống cho phép',
+            'Xem dữ liệu phục vụ kiểm tra vận hành',
+            'Không được thay đổi trạng thái lao động của nhân sự',
+          ]
+        : [
+            'Xem và thao tác dữ liệu cá nhân',
+            'Đăng ký ca, chấm công và nhận phân công khi đang hoạt động',
+            'Gửi đề nghị, góp ý và theo dõi thông tin lương cá nhân',
+          ];
+
+  const isFaceReady = Boolean(myFaceProfile && faceAngleCount >= 5);
+  const isFacePartial = Boolean(myFaceProfile && faceAngleCount > 0 && faceAngleCount < 5);
 
   return (
-    <div className="p-4 space-y-4 animate-slide-up pb-10">
+    <div className="max-w-4xl mx-auto p-4 space-y-4 animate-slide-up pb-10">
       <KgModuleHero
         moduleId="profile"
         title="Hồ Sơ Của Tôi"
-        description="Theo dõi trạng thái làm việc, chức vụ và quyền truy cập của bạn trong nhà hàng."
+        description="Theo dõi trạng thái làm việc, nhận diện khuôn mặt, chức vụ và quyền truy cập của bạn."
         eyebrow="Nhân sự"
         actions={
           syncing ? (
@@ -134,185 +172,205 @@ export default function Profile() {
         </KgAlertCard>
       )}
 
-      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] overflow-hidden rounded-2xl shadow-xs">
-        <div className="bg-[var(--kg-surface-soft)] border-b border-[var(--kg-border)] p-5 sm:p-6 text-[var(--kg-text)]">
-          <div className="flex items-center gap-4">
-            {profile.avatarUrl ? (
-              <img src={profile.avatarUrl} alt="" className="h-16 w-16 rounded-2xl border border-[var(--kg-border)] object-cover shadow-xs" />
-            ) : (
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--kg-primary)] text-white text-2xl font-black shadow-xs">
-                {profile.fullname.charAt(0).toUpperCase()}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+        {/* LEFT COLUMN: Identity + Employment Status + Face ID 5-angle status */}
+        <div className="lg:col-span-7 space-y-4">
+          <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] overflow-hidden rounded-2xl shadow-xs">
+            <div className="bg-[var(--kg-surface-soft)] border-b border-[var(--kg-border)] p-5 sm:p-6 text-[var(--kg-text)]">
+              <div className="flex items-center gap-4">
+                {profile.avatarUrl ? (
+                  <img
+                    src={profile.avatarUrl}
+                    alt=""
+                    className="h-16 w-16 rounded-2xl border border-[var(--kg-border)] object-cover shadow-xs flex-shrink-0"
+                  />
+                ) : (
+                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--kg-primary)] text-white text-2xl font-black shadow-xs flex-shrink-0">
+                    {profile.fullname.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <h2 className="truncate text-xl font-black text-[var(--kg-text)]">{profile.fullname}</h2>
+                  <p className="mt-0.5 text-xs font-mono text-[var(--kg-text-muted)]">@{profile.username}</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    <span className="rounded-full bg-[var(--kg-surface)] border border-[var(--kg-border)] px-2.5 py-1 text-[10px] font-extrabold text-[var(--kg-text)]">
+                      {profile.position || 'Nhân viên'}
+                    </span>
+                    <span className="rounded-full bg-[var(--kg-primary-soft)] px-2.5 py-1 text-[10px] font-extrabold text-[var(--kg-primary-ink)]">
+                      {roleLabel(profile.role)}
+                    </span>
+                  </div>
+                </div>
               </div>
-            )}
-            <div className="min-w-0">
-              <h2 className="truncate text-xl font-black text-[var(--kg-text)]">{profile.fullname}</h2>
-              <p className="mt-1 text-xs font-mono text-[var(--kg-text-muted)]">@{profile.username}</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <span className="rounded-full bg-[var(--kg-surface)] border border-[var(--kg-border)] px-2.5 py-1 text-[10px] font-extrabold text-[var(--kg-text)]">
-                  {profile.position || 'Nhân viên'}
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Employment Status */}
+              <div className={`rounded-2xl border p-4 ${status.badgeClass}`}>
+                <div className="flex items-start gap-3">
+                  <StatusIcon size={22} className="mt-0.5 flex-shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-black uppercase tracking-[0.15em] opacity-70">
+                      Trạng thái hoạt động
+                    </p>
+                    <h3 className="mt-1 text-base sm:text-lg font-black">{status.label}</h3>
+                    <p className="mt-1 text-xs leading-5 opacity-80">{status.description}</p>
+                    {profile.statusUntil && (
+                      <p className="mt-2 flex items-center gap-1.5 text-xs font-extrabold font-mono tabular-nums">
+                        <CalendarClock size={14} /> Thời hạn: {profile.statusUntil}
+                      </p>
+                    )}
+                    {profile.statusReason && (
+                      <p className="mt-2 rounded-lg bg-[var(--kg-surface)]/80 border border-[var(--kg-border)] px-3 py-2 text-xs text-[var(--kg-text)]">
+                        Ghi chú: {profile.statusReason}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Face ID 5-angle Status Badge */}
+              <div
+                className={`rounded-2xl border p-3.5 flex items-center justify-between gap-3 ${
+                  isFaceReady
+                    ? 'bg-[var(--kg-success-soft)] border-[var(--kg-success)]/30'
+                    : isFacePartial
+                      ? 'bg-[var(--kg-warning-soft)] border-[var(--kg-warning)]/30'
+                      : 'bg-[var(--kg-surface-soft)] border-[var(--kg-border)]'
+                }`}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                      isFaceReady
+                        ? 'bg-[var(--kg-success)] text-white'
+                        : isFacePartial
+                          ? 'bg-[var(--kg-warning)] text-white'
+                          : 'bg-[var(--kg-surface)] border border-[var(--kg-border)] text-[var(--kg-text-muted)]'
+                    }`}
+                  >
+                    <ScanFace size={20} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-xs font-black text-[var(--kg-text)]">
+                        Face ID Chấm công
+                      </span>
+                      {myFaceProfile?.isLocked && (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-[var(--kg-surface)] border border-[var(--kg-border)] text-[10px] font-bold text-[var(--kg-text-muted)]">
+                          <Lock size={9} /> Đã khóa
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] font-medium text-[var(--kg-text-muted)] mt-0.5">
+                      {isFaceReady
+                        ? 'Đã kích hoạt đủ 5 góc nhận diện khuôn mặt'
+                        : isFacePartial
+                          ? `Mới ghi nhận ${faceAngleCount}/5 góc — cần bổ sung thêm`
+                          : 'Chưa đăng ký dữ liệu khuôn mặt 5 góc'}
+                    </p>
+                  </div>
+                </div>
+                <span
+                  className={`px-2.5 py-1 rounded-full text-xs font-black font-mono tabular-nums flex-shrink-0 border ${
+                    isFaceReady
+                      ? 'bg-[var(--kg-surface)] text-[var(--kg-success)] border-[var(--kg-success)]/30'
+                      : isFacePartial
+                        ? 'bg-[var(--kg-surface)] text-[var(--kg-warning)] border-[var(--kg-warning)]/30'
+                        : 'bg-[var(--kg-surface)] text-[var(--kg-text-muted)] border-[var(--kg-border)]'
+                  }`}
+                >
+                  {Math.min(faceAngleCount, 5)}/5 góc
                 </span>
-                <span className="rounded-full bg-[var(--kg-primary-soft)] px-2.5 py-1 text-[10px] font-extrabold text-[var(--kg-primary-ink)]">
-                  {roleLabel(profile.role)}
-                </span>
+              </div>
+
+              {/* Account Details Grid */}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] p-3.5">
+                  <p className="flex items-center gap-2 text-[10px] font-bold uppercase text-[var(--kg-text-soft)]">
+                    <BriefcaseBusiness size={14} /> Chức vụ
+                  </p>
+                  <p className="mt-1.5 font-extrabold text-sm text-[var(--kg-text)]">
+                    {profile.position || 'Nhân viên'}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] p-3.5">
+                  <p className="flex items-center gap-2 text-[10px] font-bold uppercase text-[var(--kg-text-soft)]">
+                    <ShieldCheck size={14} /> Phân quyền
+                  </p>
+                  <p className="mt-1.5 font-extrabold text-sm text-[var(--kg-text)]">
+                    {roleLabel(profile.role)}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] p-3.5 sm:col-span-2">
+                  <p className="flex items-center gap-2 text-[10px] font-bold uppercase text-[var(--kg-text-soft)]">
+                    <Mail size={14} /> Email
+                  </p>
+                  <p className="mt-1.5 break-all text-sm font-bold text-[var(--kg-text)]">
+                    {profile.email || 'Chưa cập nhật'}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="p-5">
-          <div className={`rounded-2xl border p-4 ${status.badgeClass}`}>
-            <div className="flex items-start gap-3">
-              <StatusIcon size={23} className="mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.15em] opacity-70">Trạng thái hoạt động</p>
-                <h3 className="mt-1 text-lg font-black">{status.label}</h3>
-                <p className="mt-1 text-xs leading-5 opacity-80">{status.description}</p>
-                {profile.statusUntil && (
-                  <p className="mt-2 flex items-center gap-1.5 text-xs font-extrabold font-mono tabular-nums">
-                    <CalendarClock size={14} /> Thời hạn: {profile.statusUntil}
+        {/* RIGHT COLUMN: Permissions + Compact 1-row Version Link + Refresh */}
+        <div className="lg:col-span-5 space-y-4">
+          <KgCard>
+            <h3 className="flex items-center gap-2 font-extrabold text-sm sm:text-base text-[var(--kg-text)]">
+              <KeyRound size={17} className="text-[var(--kg-primary-ink)]" />
+              Quyền của tài khoản
+            </h3>
+            <div className="mt-3.5 space-y-2">
+              {permissions.map((permission) => (
+                <div
+                  key={permission}
+                  className="flex items-start gap-2.5 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] p-3"
+                >
+                  <BadgeCheck size={16} className="mt-0.5 flex-shrink-0 text-[var(--kg-success)]" />
+                  <p className="text-xs font-semibold leading-5 text-[var(--kg-text-muted)]">
+                    {permission}
                   </p>
-                )}
-                {profile.statusReason && (
-                  <p className="mt-2 rounded-lg bg-[var(--kg-surface)]/80 border border-[var(--kg-border)] px-3 py-2 text-xs text-[var(--kg-text)]">
-                    Ghi chú: {profile.statusReason}
-                  </p>
-                )}
-              </div>
+                </div>
+              ))}
             </div>
-          </div>
+          </KgCard>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] p-3.5">
-              <p className="flex items-center gap-2 text-[10px] font-bold uppercase text-[var(--kg-text-soft)]">
-                <BriefcaseBusiness size={14} /> Chức vụ
-              </p>
-              <p className="mt-2 font-extrabold text-[var(--kg-text)]">{profile.position || 'Nhân viên'}</p>
-            </div>
-            <div className="rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] p-3.5">
-              <p className="flex items-center gap-2 text-[10px] font-bold uppercase text-[var(--kg-text-soft)]">
-                <ShieldCheck size={14} /> Phân quyền
-              </p>
-              <p className="mt-2 font-extrabold text-[var(--kg-text)]">{roleLabel(profile.role)}</p>
-            </div>
-            <div className="rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] p-3.5 sm:col-span-2">
-              <p className="flex items-center gap-2 text-[10px] font-bold uppercase text-[var(--kg-text-soft)]">
-                <Mail size={14} /> Email
-              </p>
-              <p className="mt-2 break-all text-sm font-bold text-[var(--kg-text)]">
-                {profile.email || 'Chưa cập nhật'}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Thông tin Phiên bản & Nhật ký Nâng cấp Hệ thống */}
-      <KgCard className="border-[var(--kg-accent)]/25 bg-[var(--kg-accent-soft)]">
-        <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-[var(--kg-border)]">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-[var(--kg-accent)] text-white dark:text-[#0D1015] flex items-center justify-center shadow-xs flex-shrink-0">
-              <Sparkles size={17} />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="font-extrabold text-sm sm:text-base text-[var(--kg-text)]">
-                  Phiên bản ứng dụng {APP_VERSION_TAG}
-                </h3>
-                <span className="px-2 py-0.5 rounded-md bg-[var(--kg-surface)] border border-[var(--kg-border)] text-[11px] font-mono tabular-nums font-bold text-[var(--kg-accent-ink)]">
-                  {APP_RELEASE_DATE}
-                </span>
-              </div>
-              <p className="text-xs text-[var(--kg-text-muted)] font-medium mt-0.5">
-                {APP_CODENAME} • Đổi mới 100% giao diện &amp; tối ưu khít đa thiết bị di động
-              </p>
-            </div>
-          </div>
+          {/* Compact 1-row Version & Changelog Link */}
           <button
             type="button"
             onClick={() => openReleaseNotesModal('all')}
-            className="min-h-[44px] sm:min-h-[40px] px-3.5 py-2 rounded-xl bg-[var(--kg-accent)] hover:brightness-95 text-white dark:text-[#0D1015] text-xs font-bold transition-colors shadow-xs touch-manipulation"
+            className="w-full min-h-[48px] px-4 py-3 rounded-2xl bg-[var(--kg-surface)] border border-[var(--kg-border)] hover:border-[var(--kg-border-strong)] hover:bg-[var(--kg-surface-soft)] transition-colors flex items-center justify-between gap-2 text-left shadow-xs touch-manipulation"
           >
-            Xem toàn bộ điểm mới →
-          </button>
-        </div>
-
-        <div className="mt-3.5 grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {RELEASE_STATS.map((stat) => (
-            <div
-              key={stat.label}
-              className="rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] p-2.5"
-            >
-              <p className="text-sm font-extrabold font-mono tabular-nums text-[var(--kg-accent-ink)]">
-                {stat.value}
-              </p>
-              <p className="text-[11px] font-semibold text-[var(--kg-text-muted)] mt-0.5">
-                {stat.label}
-              </p>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="w-8 h-8 rounded-lg bg-[var(--kg-accent-soft)] text-[var(--kg-accent-ink)] flex items-center justify-center flex-shrink-0">
+                <Sparkles size={15} />
+              </span>
+              <div className="min-w-0 flex items-center gap-1.5 flex-wrap text-xs">
+                <span className="font-extrabold text-[var(--kg-text)]">
+                  Phiên bản <span className="font-mono tabular-nums">{APP_VERSION_TAG}</span>
+                </span>
+                <span className="text-[var(--kg-text-soft)]">({APP_RELEASE_DATE})</span>
+                <span className="text-[var(--kg-text-soft)]">•</span>
+                <span className="font-bold text-[var(--kg-primary-ink)]">Xem nhật ký →</span>
+              </div>
             </div>
-          ))}
-        </div>
+            <ChevronRight size={16} className="text-[var(--kg-text-muted)] flex-shrink-0" />
+          </button>
 
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => openReleaseNotesModal('added')}
-            className="min-h-[44px] sm:min-h-[40px] px-3 py-1.5 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] hover:border-[var(--kg-border-strong)] text-xs font-bold text-[var(--kg-text)] inline-flex items-center gap-1.5 touch-manipulation"
+          <KgButton
+            variant="secondary"
+            size="md"
+            icon={RefreshCw}
+            loading={syncing}
+            onClick={() => void loadProfile()}
+            className="w-full min-h-[44px]"
           >
-            <Sparkles size={13} className="text-[var(--kg-success)]" />
-            Nâng cấp thêm gì
-          </button>
-          <button
-            type="button"
-            onClick={() => openReleaseNotesModal('redesigned')}
-            className="min-h-[44px] sm:min-h-[40px] px-3 py-1.5 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] hover:border-[var(--kg-border-strong)] text-xs font-bold text-[var(--kg-text)] inline-flex items-center gap-1.5 touch-manipulation"
-          >
-            <Layers size={13} className="text-[var(--kg-accent-ink)]" />
-            Đổi mới UI &amp; Mobile
-          </button>
-          <button
-            type="button"
-            onClick={() => openReleaseNotesModal('updated')}
-            className="min-h-[44px] sm:min-h-[40px] px-3 py-1.5 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] hover:border-[var(--kg-border-strong)] text-xs font-bold text-[var(--kg-text)] inline-flex items-center gap-1.5 touch-manipulation"
-          >
-            <Wrench size={13} className="text-[var(--kg-primary-ink)]" />
-            Chỉnh sửa / Cập nhật
-          </button>
-          <button
-            type="button"
-            onClick={() => openReleaseNotesModal('history')}
-            className="min-h-[44px] sm:min-h-[40px] px-3 py-1.5 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] hover:border-[var(--kg-border-strong)] text-xs font-bold text-[var(--kg-text)] inline-flex items-center gap-1.5 touch-manipulation"
-          >
-            <History size={13} className="text-[var(--kg-text-muted)]" />
-            Lịch sử phiên bản
-          </button>
+            Cập nhật trạng thái mới nhất
+          </KgButton>
         </div>
-      </KgCard>
-
-      <KgCard>
-        <h3 className="flex items-center gap-2 font-extrabold text-[var(--kg-text)]">
-          <KeyRound size={18} className="text-[var(--kg-primary-ink)]" />
-          Quyền của tài khoản
-        </h3>
-        <div className="mt-4 space-y-2.5">
-          {permissions.map(permission => (
-            <div key={permission} className="flex items-start gap-2.5 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] p-3">
-              <BadgeCheck size={17} className="mt-0.5 flex-shrink-0 text-[var(--kg-success)]" />
-              <p className="text-xs font-semibold leading-5 text-[var(--kg-text-muted)]">{permission}</p>
-            </div>
-          ))}
-        </div>
-      </KgCard>
-
-      <KgButton
-        variant="secondary"
-        size="md"
-        icon={RefreshCw}
-        loading={syncing}
-        onClick={() => void loadProfile()}
-        className="w-full"
-      >
-        Cập nhật trạng thái mới nhất
-      </KgButton>
+      </div>
     </div>
   );
 }

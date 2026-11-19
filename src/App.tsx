@@ -17,6 +17,7 @@ import { setCachedFaceProfiles } from './utils/faceProfileCache';
 import { isAdminUser } from './utils/permissions';
 import LoadingScreen from './components/LoadingScreen';
 import AppErrorBoundary from './components/AppErrorBoundary';
+import KgFeedbackHost from './components/KgFeedbackHost';
 import type { TabId } from './types/navigation';
 
 const AIAssistant = lazy(() => import('./components/AIAssistant'));
@@ -226,6 +227,9 @@ export default function App() {
       {/* Global Loading Modal */}
       <LoadingScreen />
 
+      {/* Global Feedback Host (Toasts, Confirm/Alert Sheets, Loading Overlay) */}
+      <KgFeedbackHost />
+
       {/* Image Preview Modal - lazy-loaded on demand */}
       {isPreviewOpen && (
         <Suspense fallback={null}>
@@ -233,7 +237,7 @@ export default function App() {
         </Suspense>
       )}
 
-      {/* v4.0.1 Release Center & What's New Modal */}
+      {/* v5.0 Release Center & What's New Modal */}
       <Suspense fallback={null}>
         <VersionReleaseModal />
       </Suspense>

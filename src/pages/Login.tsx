@@ -1,24 +1,34 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
+import { hydrateSessionAfterLogin } from '../services/authSession';
 import {
   getCachedFaceProfiles,
   subscribeCachedFaceProfiles,
   syncLatestFaceProfilesFromEdge,
-} from '../services/faceRecognitionV2';
+} from '../utils/faceProfileCache';
+import { speak } from '../utils/helpers';
 import {
-  speak,
-  computeWeekInfo,
-  getScheduleRegistrationWindow,
-  isNextWeekScheduleRegistered,
-  isScheduleRegistrationRequired,
-  markScheduleRegisteredLocally,
-  getSavedRegisteredShiftsForWeek,
-} from '../utils/helpers';
-import { User, Lock, Eye, EyeOff, ChevronLeft, ArrowRight, Mail, Phone, Calendar, ShieldCheck, KeyRound, MapPin, ScanFace, Check, Sun, Moon, Sparkles } from 'lucide-react';
+  User,
+  Lock,
+  Eye,
+  EyeOff,
+  ChevronLeft,
+  ArrowRight,
+  Mail,
+  Phone,
+  Calendar,
+  ShieldCheck,
+  KeyRound,
+  MapPin,
+  ScanFace,
+  Check,
+  Sun,
+  Moon,
+} from 'lucide-react';
 import { hashPassword } from '../utils/security';
-import { KgVersionBadge } from '../components/VersionReleaseModal';
-import { APP_RELEASE_DATE, APP_VERSION_TAG, openReleaseNotesModal } from '../config/releaseNotes';
+import { KgVersionBadge } from '../components/KgVersionBadge';
+import { APP_VERSION_TAG } from '../config/appVersion';
 import { KgAlertCard } from '../components/KgDesignSystem';
 
 const FastFaceScannerV2 = lazy(() => import('../components/FastFaceScannerV2'));
@@ -30,7 +40,14 @@ export default function Login() {
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [rememberMe, setRememberMe] = useState(() => localStorage.getItem('kg_remember') !== 'false');
-  const [registerForm, setRegisterForm] = useState({ username: '', password: '', fullname: '', dob: '', email: '', phone: '' });
+  const [registerForm, setRegisterForm] = useState({
+    username: '',
+    password: '',
+    fullname: '',
+    dob: '',
+    email: '',
+    phone: '',
+  });
 
   // Forgot Password States
   const [forgotForm, setForgotForm] = useState({ email: '' });
@@ -69,155 +86,30 @@ export default function Login() {
     };
   }, []);
 
-  const handleLogin = async (e?: React.FormEvent, bioCreds?: { username: string; password: string }) => {
+  const handleLogin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setAuthNotice(null);
     store.setLoading(true, 'Đang đăng nhập...');
 
-    const payload = bioCreds || loginForm;
     let passwordHash = '';
     try {
-      passwordHash = await hashPassword(payload.password);
-    } catch { /* ignore */ }
+      passwordHash = await hashPassword(loginForm.password);
+    } catch {
+      /* ignore */
+    }
 
-    const res = await callApi('LOGIN', {
-      ...payload,
-      passwordHash: passwordHash || undefined
-    }, { timeoutMs: 15000, maxAttempts: 1 });
+    const res = await callApi(
+      'LOGIN',
+      {
+        ...loginForm,
+        passwordHash: passwordHash || undefined,
+      },
+      { timeoutMs: 15000, maxAttempts: 1 }
+    );
     store.setLoading(false);
 
     if (res?.ok) {
-      // Clear any stale logs from Kiosk or previous account on shared phones before hydrating new session
-      store.setLogs([]);
-      store.setLastCheckInTime(0);
-      try {
-        localStorage.removeItem('kg_logs');
-      } catch {
-        // Ignore storage access errors in restricted webviews
-      }
-      store.setCurrentUser(res.data);
-      // Persist session
-      localStorage.setItem('kg_user', JSON.stringify(res.data));
-      localStorage.setItem('kg_session_time', Date.now().toString());
-      localStorage.setItem('kg_remember', rememberMe ? 'true' : 'false');
-
-      // Init week schedule data
-      const weekInfo = computeWeekInfo();
-      const initShifts: Record<string, string> = {};
-      weekInfo.weekDatesKeys.forEach((k) => (initShifts[k] = 'OFF'));
-      store.setShiftData(initShifts);
-
-      // Restore registered shifts from localStorage immediately ONLY if matching expectedWeekKey
-      const expectedWeekKey = weekInfo.monthSheet + '|' + weekInfo.weekLabel;
-      const savedShifts = getSavedRegisteredShiftsForWeek(res.data.username, weekInfo);
-      const hasLocalReg = isNextWeekScheduleRegistered(false, res.data.username, weekInfo, savedShifts, null);
-      if (hasLocalReg) {
-        if (savedShifts && savedShifts.length === 7) {
-          store.setRegisteredShifts(savedShifts);
-          const regShifts: Record<string, string> = {};
-          weekInfo.weekDatesKeys.forEach((k, i) => (regShifts[k] = savedShifts[i]));
-          store.setShiftData(regShifts);
-        }
-        store.setScheduleRegistered(true, expectedWeekKey);
-        markScheduleRegisteredLocally(res.data.username, expectedWeekKey, savedShifts);
-      } else {
-        store.setScheduleRegistered(false);
-        store.setRegisteredShifts([]);
-      }
-
-      speak('Đăng nhập thành công. Xin chào ' + res.data.fullname);
-
-      // Fetch data in background (non-blocking for faster login)
-      const currentWeekInfo = computeWeekInfo(undefined, false);
-      callApi('GET_DATA', {
-        username: res.data.username,
-        fullname: res.data.fullname,
-        role: res.data.role,
-        monthSheet: weekInfo.monthSheet,
-        weekLabel: weekInfo.weekLabel,
-        currentMonthSheet: currentWeekInfo.monthSheet,
-        currentWeekLabel: currentWeekInfo.weekLabel,
-      }, { background: true }).then((dataRes) => {
-        if (dataRes?.ok) {
-          store.setLogs(dataRes.data.logs || []);
-          store.setStats(dataRes.data.stats || { totalCheckIn: 0, validCount: 0 });
-          store.setUsers(dataRes.data.users || []);
-          if (dataRes.data.keys) store.setGroqKeys(dataRes.data.keys);
-
-          const serverConfirmed = dataRes.data.isScheduleRegistered === true;
-          const isReg =
-            serverConfirmed ||
-            isNextWeekScheduleRegistered(
-              false,
-              res.data.username,
-              weekInfo,
-              dataRes.data.registeredShifts,
-              serverConfirmed ? expectedWeekKey : null
-            );
-          if (isReg) {
-            const finalShifts =
-              Array.isArray(dataRes.data.registeredShifts) && dataRes.data.registeredShifts.length === 7
-                ? dataRes.data.registeredShifts
-                : savedShifts;
-            if (finalShifts && finalShifts.length === 7) {
-              store.setRegisteredShifts(finalShifts);
-              const regShifts: Record<string, string> = {};
-              weekInfo.weekDatesKeys.forEach((k, i) => (regShifts[k] = finalShifts[i]));
-              store.setShiftData(regShifts);
-            }
-            markScheduleRegisteredLocally(res.data.username, expectedWeekKey, finalShifts, {
-              updatedAt: dataRes.data.scheduleUpdatedAt,
-              sheetSynced: dataRes.data.scheduleSheetSynced !== false,
-              offReason: dataRes.data.scheduleOffReason,
-              status: dataRes.data.scheduleStatus,
-            });
-            store.setScheduleRegistered(true, expectedWeekKey, {
-              updatedAt: dataRes.data.scheduleUpdatedAt,
-              sheetSynced: dataRes.data.scheduleSheetSynced !== false,
-              offReason: dataRes.data.scheduleOffReason,
-            });
-          } else {
-            store.setScheduleRegistered(false);
-            store.setRegisteredShifts([]);
-          }
-          store.setScheduleMeta({ isScheduleHydrated: true });
-
-          if (dataRes.data.approvedShifts) store.setApprovedShifts(dataRes.data.approvedShifts);
-          if (dataRes.data.currentWeekApprovedShifts !== undefined) {
-            store.setCurrentWeekApprovedShifts(dataRes.data.currentWeekApprovedShifts);
-          } else if (
-            currentWeekInfo.monthSheet !== weekInfo.monthSheet ||
-            currentWeekInfo.weekLabel !== weekInfo.weekLabel
-          ) {
-            callApi('GET_DATA', {
-              username: res.data.username,
-              fullname: res.data.fullname,
-              role: res.data.role,
-              monthSheet: currentWeekInfo.monthSheet,
-              weekLabel: currentWeekInfo.weekLabel,
-            }, { background: true }).then((cwRes) => {
-              if (cwRes?.ok) {
-                store.setCurrentWeekApprovedShifts(cwRes.data?.approvedShifts ?? null);
-              }
-            });
-          } else {
-            store.setCurrentWeekApprovedShifts(dataRes.data.approvedShifts ?? null);
-          }
-          if (dataRes.data.gpsConfig) store.setServerGpsConfig(dataRes.data.gpsConfig);
-          if (dataRes.data.orgConfig) store.setServerOrgConfig(dataRes.data.orgConfig);
-          if (dataRes.data.payrollConfig) store.setServerPayrollConfig(dataRes.data.payrollConfig);
-          localStorage.setItem('kg_stats', JSON.stringify(dataRes.data.stats || { totalCheckIn: 0, validCount: 0 }));
-          store.setLastFetchTime(Date.now());
-
-          // Mandatory schedule registration guidance on T5, T6, T7 before 17:00
-          const regWindow = getScheduleRegistrationWindow();
-          const mustRegister = isScheduleRegistrationRequired(res.data);
-          if (mustRegister && regWindow.isMandatoryWindow && !isReg) {
-            // Smoothly direct staff straight to schedule registration sub-tab
-            store.setCurrentTab('schedule');
-          }
-        }
-      });
+      hydrateSessionAfterLogin(res.data, rememberMe);
     } else if (res) {
       speak('Đăng nhập thất bại');
       setAuthNotice({
@@ -241,11 +133,13 @@ export default function Login() {
     let passwordHash = '';
     try {
       passwordHash = await hashPassword(registerForm.password);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     const res = await callApi('REGISTER', {
       ...registerForm,
-      passwordHash: passwordHash || undefined
+      passwordHash: passwordHash || undefined,
     });
     store.setLoading(false);
 
@@ -257,7 +151,6 @@ export default function Login() {
       });
       setMode('login');
       setRegisterForm({ username: '', password: '', fullname: '', dob: '', email: '', phone: '' });
-      // Tự động điền username vào form đăng nhập
       setLoginForm({ ...loginForm, username: registerForm.username });
     } else if (res) {
       setAuthNotice({
@@ -301,7 +194,8 @@ export default function Login() {
         setAuthNotice({
           variant: 'error',
           title: 'Không thể gửi OTP',
-          text: res?.message || 'Không tìm thấy Email hoặc máy chủ đang bận. Vui lòng kiểm tra lại.',
+          text:
+            res?.message || 'Không tìm thấy Email hoặc máy chủ đang bận. Vui lòng kiểm tra lại.',
         });
       }
     } else {
@@ -317,13 +211,15 @@ export default function Login() {
       let passwordHash = '';
       try {
         passwordHash = await hashPassword(resetForm.newPassword);
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
 
       const res = await callApi('RESET_PASSWORD', {
         email: forgotForm.email,
         otp: resetForm.otp,
         newPassword: resetForm.newPassword,
-        passwordHash: passwordHash || undefined
+        passwordHash: passwordHash || undefined,
       });
       store.setLoading(false);
 
@@ -348,7 +244,7 @@ export default function Login() {
   };
 
   const handleDobChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
+    let value = e.target.value.replace(/\D/g, '');
     if (value.length > 8) value = value.slice(0, 8);
 
     let formattedValue = value;
@@ -362,33 +258,62 @@ export default function Login() {
   };
 
   return (
-    <div className="login-shell relative flex-1 flex flex-col justify-between p-3.5 sm:p-6 lg:p-8 min-h-screen bg-[var(--kg-bg)] text-[var(--kg-text)] font-sans transition-colors duration-200 overflow-x-hidden">
-      {/* Top Utility Bar (Zero overlap on 360px-1920px) */}
-      <header className="relative z-20 w-full max-w-6xl mx-auto flex items-center justify-between gap-2 pb-3 sm:pb-4">
-        <KgVersionBadge showCodename />
-        <button
-          type="button"
-          onClick={toggleDarkMode}
-          aria-label={isDark ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'}
-          title={isDark ? 'Giao diện sáng' : 'Giao diện tối'}
-          className="w-11 h-11 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] inline-flex items-center justify-center shadow-xs transition-colors flex-shrink-0"
-        >
-          {isDark ? <Sun size={18} className="text-amber-400" /> : <Moon size={18} />}
-        </button>
+    <div className="login-shell relative flex-1 flex flex-col justify-between p-3.5 sm:p-6 lg:p-8 min-h-dvh bg-[var(--kg-bg)] text-[var(--kg-text)] font-sans transition-colors duration-200 overflow-x-hidden">
+      {/* Top Bar: Mobile 56px Compact Brand Header + Utility Controls */}
+      <header className="relative z-20 w-full max-w-5xl mx-auto h-14 flex items-center justify-between gap-2 pb-2 md:pb-4">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="md:hidden w-9 h-9 rounded-xl bg-white border border-[var(--kg-border)] p-1 shadow-xs flex items-center justify-center shrink-0">
+            <img
+              src="/android-chrome-192x192.png?v=3"
+              width={28}
+              height={28}
+              decoding="async"
+              fetchPriority="high"
+              alt="King's Grill Logo"
+              className="w-full h-full object-contain"
+            />
+          </div>
+          <div className="md:hidden min-w-0">
+            <p className="text-xs font-extrabold tracking-tight text-[var(--kg-text)] truncate leading-none">
+              KING&apos;S GRILL
+            </p>
+            <p className="text-[10.5px] font-semibold text-[var(--kg-text-muted)] truncate mt-0.5 leading-none">
+              Staff OS
+            </p>
+          </div>
+          <div className="hidden md:block">
+            <KgVersionBadge showCodename />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="md:hidden">
+            <KgVersionBadge />
+          </div>
+          <button
+            type="button"
+            onClick={toggleDarkMode}
+            aria-label={isDark ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'}
+            title={isDark ? 'Giao diện sáng' : 'Giao diện tối'}
+            className="w-11 h-11 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] inline-flex items-center justify-center shadow-xs transition-colors flex-shrink-0"
+          >
+            {isDark ? <Sun size={18} className="text-[var(--kg-warning)]" /> : <Moon size={18} />}
+          </button>
+        </div>
       </header>
 
-      <div className="relative z-10 my-auto w-full max-w-6xl mx-auto grid lg:grid-cols-[1.06fr_0.94fr] gap-4 sm:gap-6 lg:gap-8 items-stretch">
-        {/* LEFT SHOWCASE: Warm Hospitality Midnight × Grill Ember Atelier */}
-        <section className="min-w-0 rounded-2xl sm:rounded-3xl bg-[#0B253C] dark:bg-[#121824] border border-white/10 p-4 sm:p-7 lg:p-9 text-white shadow-[0_20px_48px_-16px_rgba(11,37,60,0.42)] relative overflow-hidden flex flex-col justify-between gap-4 lg:gap-8">
+      {/* Main Split: Mobile single-column above the fold; Tablet/Desktop 2-col inside max-w-5xl */}
+      <div className="relative z-10 my-auto w-full max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[1.04fr_0.96fr] gap-4 sm:gap-6 lg:gap-8 items-stretch">
+        {/* LEFT SHOWCASE: Tablet & Desktop Editorial Brand Atelier (Hidden on mobile so Kiosk + Login stay immediately above the fold) */}
+        <section className="hidden md:flex min-w-0 rounded-3xl bg-[var(--kg-rail-bg)] border border-[var(--kg-rail-border)] p-6 lg:p-9 text-[var(--kg-rail-text)] shadow-hero relative overflow-hidden flex-col justify-between gap-8">
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute right-0 top-0 w-64 h-64 rounded-full bg-[#C8432B]/25 blur-3xl"
+            className="pointer-events-none absolute -right-12 -top-12 w-64 h-64 rounded-full bg-[var(--kg-accent)]/20"
           />
 
-          {/* Compact Mobile Header + Full Desktop Editorial Showcase */}
-          <div className="relative z-10 space-y-3 sm:space-y-5">
-            <div className="flex items-center gap-3">
-              <div className="login-logo-card w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-white p-1.5 sm:p-2 shadow-md flex items-center justify-center flex-shrink-0">
+          <div className="relative z-10 space-y-5">
+            <div className="flex items-center gap-3.5">
+              <div className="login-logo-card w-14 h-14 lg:w-16 lg:h-16 rounded-2xl bg-white p-2 shadow-md flex items-center justify-center flex-shrink-0">
                 <img
                   src="/android-chrome-192x192.png?v=3"
                   srcSet="/android-chrome-192x192.png?v=3 1x, /android-chrome-512x512.png?v=3 2x"
@@ -401,94 +326,67 @@ export default function Login() {
                 />
               </div>
               <div className="min-w-0">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/15 border border-white/20 text-[11px] font-extrabold uppercase tracking-wider text-amber-200">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[var(--kg-rail-surface)] border border-[var(--kg-rail-border)] text-[11px] font-extrabold uppercase tracking-wider text-amber-200">
                   KING&apos;S GRILL STAFF OS
                 </span>
-                <p className="text-xs sm:text-sm text-slate-200 font-semibold mt-1 truncate">
+                <p className="text-xs sm:text-sm text-[var(--kg-rail-muted)] font-semibold mt-1 truncate">
                   Warm Hospitality Super-App • {APP_VERSION_TAG}
                 </p>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <h1 className="text-xl sm:text-3xl lg:text-[34px] font-extrabold text-white tracking-tight leading-[1.18] text-balance">
+            <div className="space-y-2.5">
+              <h1 className="text-2xl lg:text-[32px] font-extrabold text-[var(--kg-rail-text)] tracking-tight leading-[1.18] text-balance">
                 Vận hành tinh gọn &amp; Chấm công thông minh thế hệ mới
               </h1>
-              <p className="hidden sm:block text-sm text-slate-200/90 max-w-lg leading-relaxed text-pretty">
-                Không gian điều hành ca trực, AI FaceID, bàn giao khu vực và đối soát công lương minh bạch — được tái thiết kế 100% chuẩn khít trên mọi thiết bị&nbsp;di&nbsp;động.
+              <p className="text-sm text-[var(--kg-rail-muted)] max-w-lg leading-relaxed text-pretty">
+                Không gian điều hành ca trực, AI FaceID 5 góc, bàn giao khu vực và đối soát công lương minh bạch — đồng bộ tức thì trên mọi thiết bị.
               </p>
-            </div>
-
-            <div className="hidden sm:flex flex-wrap items-center gap-2 pt-1">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 border border-white/15 text-xs font-semibold text-white">
-                <ScanFace size={14} className="text-amber-300" /> AI Face Match
-              </span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 border border-white/15 text-xs font-semibold text-white">
-                <MapPin size={14} className="text-emerald-300" /> GPS Geofence
-              </span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 border border-white/15 text-xs font-semibold text-white">
-                <ShieldCheck size={14} className="text-sky-300" /> Công lương minh bạch
-              </span>
             </div>
           </div>
 
-          {/* Interactive v4.0.0 Release Notes Card (Visible on BOTH Mobile & Desktop) */}
-          <button
-            type="button"
-            onClick={() => openReleaseNotesModal('all')}
-            className="relative z-10 w-full min-h-[48px] text-left rounded-xl sm:rounded-2xl bg-white/10 hover:bg-white/15 border border-white/20 p-3 sm:p-4 transition-all active:scale-[0.99] flex items-center justify-between gap-3 group"
-          >
-            <div className="min-w-0 space-y-0.5">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#B83821] text-white text-[11px] font-extrabold font-mono tabular-nums">
-                  <Sparkles size={11} /> MỚI {APP_VERSION_TAG}
-                </span>
-                <span className="text-[11px] font-semibold text-slate-200 font-mono tabular-nums">
-                  Cập nhật {APP_RELEASE_DATE}
-                </span>
-              </div>
-              <p className="text-xs sm:text-[13px] font-bold text-white leading-snug">
-                Đổi mới 100% giao diện Mobile Super-App, Nút AI Home ảo &amp; Nhật ký phiên bản
-              </p>
-              <p className="hidden sm:block text-xs text-slate-200/85">
-                Nhấn để xem chi tiết nâng cấp thêm gì, chỉnh sửa &amp; tối ưu gì ở bản mới
-              </p>
-            </div>
-            <span className="w-9 h-9 rounded-xl bg-white/15 group-hover:bg-[#B83821] text-white flex items-center justify-center flex-shrink-0 transition-colors">
-              <ArrowRight size={16} />
+          <div className="relative z-10 flex flex-wrap items-center gap-2 pt-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--kg-rail-surface)] border border-[var(--kg-rail-border)] text-xs font-semibold text-[var(--kg-rail-text)]">
+              <ScanFace size={14} className="text-amber-300" /> AI Face Match 5 góc
             </span>
-          </button>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--kg-rail-surface)] border border-[var(--kg-rail-border)] text-xs font-semibold text-[var(--kg-rail-text)]">
+              <MapPin size={14} className="text-emerald-300" /> GPS Geofence ≤25m
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--kg-rail-surface)] border border-[var(--kg-rail-border)] text-xs font-semibold text-[var(--kg-rail-text)]">
+              <ShieldCheck size={14} className="text-sky-300" /> Công lương minh bạch
+            </span>
+          </div>
         </section>
 
         {/* RIGHT FORM PANEL */}
-        <div className="w-full min-w-0 max-w-lg mx-auto lg:max-w-none flex flex-col justify-center gap-3.5">
+        <div className="w-full min-w-0 max-w-md mx-auto md:max-w-none flex flex-col justify-center gap-3.5">
           {/* OPEN MULTI-EMPLOYEE FACE ID STATION CTA (v2 Parallel Kiosk) */}
           {mode === 'login' && (
             <button
               type="button"
               onClick={() => setKioskScannerOpen(true)}
               data-testid="open-kiosk-face-v2"
-              className="w-full min-h-[64px] text-left rounded-2xl bg-[#0D1015] dark:bg-[#161A22] hover:bg-[#151A23] dark:hover:bg-[#1E2430] border border-[#2B3240] p-3.5 sm:p-4 text-[#F7F4EE] shadow-md transition-colors duration-150 flex items-center justify-between gap-3 group cursor-pointer"
+              className="w-full min-h-[64px] text-left rounded-2xl bg-[var(--kg-rail-bg)] hover:brightness-110 border border-[var(--kg-rail-border)] p-3.5 sm:p-4 text-[var(--kg-rail-text)] shadow-md transition-all duration-150 flex items-center justify-between gap-3 group cursor-pointer"
             >
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-11 h-11 rounded-xl bg-[#C8432B] text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+                <div className="w-11 h-11 rounded-xl bg-[var(--kg-accent)] text-white flex items-center justify-center flex-shrink-0 shadow-xs">
                   <ScanFace size={22} />
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-xs sm:text-sm font-extrabold text-[#F7F4EE] tracking-tight">
+                    <span className="text-xs sm:text-sm font-extrabold text-[var(--kg-rail-text)] tracking-tight">
                       Chấm Công Khuôn Mặt Nhanh
                     </span>
                     <span
                       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono tabular-nums font-bold border ${
                         syncedProfileCount > 0
-                          ? 'bg-[#0F291E] border-[#34D399]/60 text-[#34D399]'
-                          : 'bg-[#0B253C] border-[#60A5FA]/50 text-[#93C5FD]'
+                          ? 'bg-emerald-950/70 border-emerald-400/50 text-emerald-300'
+                          : 'bg-sky-950/70 border-sky-400/50 text-sky-300'
                       }`}
                     >
                       <span
                         className={`w-1.5 h-1.5 rounded-full ${
-                          syncedProfileCount > 0 ? 'bg-[#34D399]' : 'bg-[#60A5FA]'
+                          syncedProfileCount > 0 ? 'bg-emerald-400' : 'bg-sky-400'
                         }`}
                       />
                       <span>
@@ -498,18 +396,18 @@ export default function Login() {
                       </span>
                     </span>
                   </div>
-                  <p className="text-[11px] text-[#B5AFA6] mt-0.5 leading-snug">
+                  <p className="text-[11px] text-[var(--kg-rail-muted)] mt-0.5 leading-snug">
                     Mở trạm quét tự động • Bán kính ≤25m
                   </p>
                 </div>
               </div>
-              <span className="w-9 h-9 rounded-xl bg-[#1F2530] group-hover:bg-[#C8432B] border border-[#374151] group-hover:border-[#C8432B] text-white flex items-center justify-center flex-shrink-0 transition-colors">
+              <span className="w-9 h-9 rounded-xl bg-[var(--kg-rail-surface)] group-hover:bg-[var(--kg-accent)] border border-[var(--kg-rail-border)] group-hover:border-[var(--kg-accent)] text-[var(--kg-rail-text)] group-hover:text-white flex items-center justify-center flex-shrink-0 transition-colors">
                 <ArrowRight size={16} />
               </span>
             </button>
           )}
 
-          {/* Inline Auth Feedback Banner (Replaces Swal.fire) */}
+          {/* Inline Auth Feedback Banner */}
           {authNotice && (
             <KgAlertCard variant={authNotice.variant} title={authNotice.title}>
               {authNotice.text}
@@ -518,12 +416,12 @@ export default function Login() {
 
           {/* LOGIN FORM */}
           {mode === 'login' && (
-            <div className="login-card relative overflow-hidden bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl sm:rounded-3xl p-5 sm:p-7 lg:p-8 shadow-card">
+            <div className="login-card relative overflow-hidden bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl sm:rounded-3xl p-5 sm:p-7 shadow-card">
               <span
                 aria-hidden="true"
-                className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#0B253C] via-[#C8432B] to-[#D97706]"
+                className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[var(--kg-primary)] via-[var(--kg-accent)] to-[var(--kg-warning)]"
               />
-              <div className="mb-5">
+              <div className="mb-4 sm:mb-5">
                 <span className="inline-block text-[11px] font-extrabold uppercase tracking-wider text-[var(--kg-accent-ink)] mb-1">
                   Cổng xác thực nhân sự
                 </span>
@@ -551,7 +449,7 @@ export default function Login() {
                       required
                       value={loginForm.username}
                       onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
-                      className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:bg-[var(--kg-surface)] focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 text-[var(--kg-text)] placeholder-[var(--kg-text-soft)] min-h-[46px] transition-colors"
+                      className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl pl-10 pr-4 py-2.5 text-base sm:text-sm focus:outline-none focus:bg-[var(--kg-surface)] focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 text-[var(--kg-text)] placeholder-[var(--kg-text-soft)] min-h-[46px] transition-colors"
                       placeholder="Nhập tên đăng nhập"
                     />
                   </div>
@@ -573,7 +471,7 @@ export default function Login() {
                       required
                       value={loginForm.password}
                       onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                      className="flex-1 min-w-0 bg-transparent border-0 py-2.5 pr-2 text-sm focus:outline-none focus:ring-0 text-[var(--kg-text)] placeholder-[var(--kg-text-soft)] min-h-[44px]"
+                      className="flex-1 min-w-0 bg-transparent border-0 py-2.5 pr-2 text-base sm:text-sm focus:outline-none focus:ring-0 text-[var(--kg-text)] placeholder-[var(--kg-text-soft)] min-h-[44px]"
                       placeholder="Nhập mật khẩu"
                     />
                     <button
@@ -588,7 +486,10 @@ export default function Login() {
                 </div>
 
                 <div className="flex items-center justify-between gap-2 py-0.5">
-                  <label htmlFor="remember-me" className="inline-flex items-center gap-2.5 min-h-[44px] pr-2 cursor-pointer select-none">
+                  <label
+                    htmlFor="remember-me"
+                    className="inline-flex items-center gap-2.5 min-h-[44px] pr-2 cursor-pointer select-none"
+                  >
                     <input
                       id="remember-me"
                       name="remember-me"
@@ -606,7 +507,10 @@ export default function Login() {
                   </label>
                   <button
                     type="button"
-                    onClick={() => { setAuthNotice(null); setMode('forgot'); }}
+                    onClick={() => {
+                      setAuthNotice(null);
+                      setMode('forgot');
+                    }}
                     className="text-xs font-bold text-[var(--kg-accent-ink)] hover:underline min-h-[44px] px-2 inline-flex items-center whitespace-nowrap"
                   >
                     Quên mật khẩu?
@@ -615,7 +519,7 @@ export default function Login() {
 
                 <button
                   type="submit"
-                  className="login-primary w-full bg-[#B83821] hover:bg-[#9E2F1B] text-white font-bold py-3 rounded-xl transition-colors duration-150 flex items-center justify-center gap-2 text-sm shadow-md active:scale-[0.99] min-h-[48px]"
+                  className="login-primary w-full bg-[var(--kg-accent)] hover:brightness-95 text-white font-bold py-3 rounded-xl transition-all duration-150 flex items-center justify-center gap-2 text-sm shadow-md active:scale-[0.99] min-h-[48px]"
                 >
                   <span>Đăng nhập vào Ca trực</span> <ArrowRight size={16} />
                 </button>
@@ -624,7 +528,10 @@ export default function Login() {
                 <span className="text-xs text-[var(--kg-text-muted)]">Chưa có tài khoản?</span>
                 <button
                   type="button"
-                  onClick={() => { setAuthNotice(null); setMode('register'); }}
+                  onClick={() => {
+                    setAuthNotice(null);
+                    setMode('register');
+                  }}
                   className="text-xs font-bold text-[var(--kg-primary-ink)] hover:underline min-h-[44px] px-2 inline-flex items-center"
                 >
                   Đăng ký nhân sự mới
@@ -633,11 +540,16 @@ export default function Login() {
             </div>
           )}
 
+          {/* REGISTER FORM */}
           {mode === 'register' && (
-            <div className="login-card bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-6 sm:p-7 shadow-card">
+            <div className="login-card bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-5 sm:p-7 shadow-card">
               <div className="mb-5">
-                <h2 className="text-lg sm:text-xl font-bold text-[var(--kg-text)] tracking-tight">Đăng ký nhân sự mới</h2>
-                <p className="text-xs text-[var(--kg-text-muted)] mt-1">Tạo hồ sơ để bắt đầu xếp lịch ca và chấm công</p>
+                <h2 className="text-lg sm:text-xl font-bold text-[var(--kg-text)] tracking-tight">
+                  Đăng ký nhân sự mới
+                </h2>
+                <p className="text-xs text-[var(--kg-text-muted)] mt-1">
+                  Tạo hồ sơ để bắt đầu xếp lịch ca và chấm công
+                </p>
               </div>
 
               <form onSubmit={handleRegister} className="space-y-4">
@@ -658,7 +570,7 @@ export default function Login() {
                         value={registerForm.username}
                         onChange={(e) => setRegisterForm({ ...registerForm, username: e.target.value })}
                         placeholder="VD: nguyenvana"
-                        className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 transition-colors placeholder-[var(--kg-text-soft)] min-h-[44px]"
+                        className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 transition-colors placeholder-[var(--kg-text-soft)] min-h-[44px]"
                       />
                     </div>
                     <div className="space-y-1">
@@ -673,7 +585,7 @@ export default function Login() {
                         value={registerForm.password}
                         onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
                         placeholder="Tối thiểu 6 ký tự"
-                        className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 transition-colors placeholder-[var(--kg-text-soft)] min-h-[44px]"
+                        className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 transition-colors placeholder-[var(--kg-text-soft)] min-h-[44px]"
                       />
                     </div>
                   </div>
@@ -697,13 +609,17 @@ export default function Login() {
                         value={registerForm.fullname}
                         onChange={(e) => setRegisterForm({ ...registerForm, fullname: e.target.value })}
                         placeholder="Gõ tiếng Việt có dấu (VD: Nguyễn Văn A)"
-                        className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 transition-colors placeholder-[var(--kg-text-soft)] min-h-[44px]"
+                        className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 transition-colors placeholder-[var(--kg-text-soft)] min-h-[44px]"
                       />
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="space-y-1">
-                        <label htmlFor="reg-email" className="flex items-center gap-1 text-xs font-semibold text-[var(--kg-text)]">
-                          <Mail size={12} className="text-[var(--kg-text-soft)]" /> Email cá nhân <span className="text-[var(--kg-danger)]">*</span>
+                        <label
+                          htmlFor="reg-email"
+                          className="flex items-center gap-1 text-xs font-semibold text-[var(--kg-text)]"
+                        >
+                          <Mail size={12} className="text-[var(--kg-text-soft)]" /> Email cá nhân{' '}
+                          <span className="text-[var(--kg-danger)]">*</span>
                         </label>
                         <input
                           id="reg-email"
@@ -713,12 +629,16 @@ export default function Login() {
                           value={registerForm.email}
                           onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
                           placeholder="email@gmail.com"
-                          className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 transition-colors placeholder-[var(--kg-text-soft)] min-h-[44px]"
+                          className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 transition-colors placeholder-[var(--kg-text-soft)] min-h-[44px]"
                         />
                       </div>
                       <div className="space-y-1">
-                        <label htmlFor="reg-phone" className="flex items-center gap-1 text-xs font-semibold text-[var(--kg-text)]">
-                          <Phone size={12} className="text-[var(--kg-text-soft)]" /> Số điện thoại <span className="text-[var(--kg-danger)]">*</span>
+                        <label
+                          htmlFor="reg-phone"
+                          className="flex items-center gap-1 text-xs font-semibold text-[var(--kg-text)]"
+                        >
+                          <Phone size={12} className="text-[var(--kg-text-soft)]" /> Số điện thoại{' '}
+                          <span className="text-[var(--kg-danger)]">*</span>
                         </label>
                         <input
                           id="reg-phone"
@@ -728,12 +648,15 @@ export default function Login() {
                           value={registerForm.phone}
                           onChange={(e) => setRegisterForm({ ...registerForm, phone: e.target.value })}
                           placeholder="09xxxxxxxx"
-                          className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs font-mono tabular-nums text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 transition-colors placeholder-[var(--kg-text-soft)] min-h-[44px]"
+                          className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-base sm:text-sm font-mono tabular-nums text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 transition-colors placeholder-[var(--kg-text-soft)] min-h-[44px]"
                         />
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <label htmlFor="reg-dob" className="flex items-center gap-1 text-xs font-semibold text-[var(--kg-text)]">
+                      <label
+                        htmlFor="reg-dob"
+                        className="flex items-center gap-1 text-xs font-semibold text-[var(--kg-text)]"
+                      >
                         <Calendar size={12} className="text-[var(--kg-text-soft)]" /> Ngày sinh (DD/MM/YYYY)
                       </label>
                       <input
@@ -743,7 +666,7 @@ export default function Login() {
                         value={registerForm.dob}
                         onChange={handleDobChange}
                         placeholder="Gõ 8 số liền nhau, VD: 15082002"
-                        className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs font-mono tabular-nums text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 transition-colors placeholder-[var(--kg-text-soft)] min-h-[44px]"
+                        className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-base sm:text-sm font-mono tabular-nums text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 transition-colors placeholder-[var(--kg-text-soft)] min-h-[44px]"
                       />
                     </div>
                   </div>
@@ -757,7 +680,10 @@ export default function Login() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setAuthNotice(null); setMode('login'); }}
+                  onClick={() => {
+                    setAuthNotice(null);
+                    setMode('login');
+                  }}
                   className="w-full text-center text-xs font-semibold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] flex items-center justify-center gap-1 transition-colors min-h-[44px]"
                 >
                   <ChevronLeft size={14} /> Quay lại đăng nhập
@@ -768,13 +694,17 @@ export default function Login() {
 
           {/* FORGOT PASSWORD FORM */}
           {mode === 'forgot' && (
-            <div className="login-card bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-6 sm:p-7 shadow-card">
+            <div className="login-card bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-5 sm:p-7 shadow-card">
               <div className="mb-5 text-center">
                 <div className="w-11 h-11 rounded-xl bg-[var(--kg-accent-soft)] border border-[var(--kg-accent)]/20 flex items-center justify-center mx-auto mb-3 text-[var(--kg-accent)]">
                   <KeyRound size={20} />
                 </div>
-                <h2 className="text-lg sm:text-xl font-bold text-[var(--kg-text)] tracking-tight">Khôi phục mật khẩu</h2>
-                <p className="text-xs text-[var(--kg-text-muted)] mt-1">Nhập email đã đăng ký để nhận mã OTP 6 chữ số</p>
+                <h2 className="text-lg sm:text-xl font-bold text-[var(--kg-text)] tracking-tight">
+                  Khôi phục mật khẩu
+                </h2>
+                <p className="text-xs text-[var(--kg-text-muted)] mt-1">
+                  Nhập email đã đăng ký để nhận mã OTP 6 chữ số
+                </p>
               </div>
 
               <form onSubmit={handleForgot} className="space-y-4">
@@ -796,7 +726,7 @@ export default function Login() {
                           value={forgotForm.email}
                           onChange={(e) => setForgotForm({ email: e.target.value })}
                           placeholder="Nhập email cá nhân đã đăng ký"
-                          className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:bg-[var(--kg-surface)] focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 text-[var(--kg-text)] placeholder-[var(--kg-text-soft)] min-h-[44px]"
+                          className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl pl-10 pr-4 py-2.5 text-base sm:text-sm focus:outline-none focus:bg-[var(--kg-surface)] focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 text-[var(--kg-text)] placeholder-[var(--kg-text-soft)] min-h-[44px]"
                         />
                       </div>
                     </div>
@@ -822,7 +752,7 @@ export default function Login() {
                           value={resetForm.otp}
                           onChange={(e) => setResetForm({ ...resetForm, otp: e.target.value })}
                           placeholder="000000"
-                          className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-4 py-2.5 text-base text-center tracking-[0.35em] font-mono tabular-nums font-bold focus:outline-none focus:bg-[var(--kg-surface)] focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 text-[var(--kg-text)] min-h-[44px]"
+                          className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-4 py-2.5 text-base sm:text-sm text-center tracking-[0.35em] font-mono tabular-nums font-bold focus:outline-none focus:bg-[var(--kg-surface)] focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 text-[var(--kg-text)] min-h-[44px]"
                           maxLength={6}
                         />
                       </div>
@@ -838,7 +768,7 @@ export default function Login() {
                           value={resetForm.newPassword}
                           onChange={(e) => setResetForm({ ...resetForm, newPassword: e.target.value })}
                           placeholder="Nhập mật khẩu mới"
-                          className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:bg-[var(--kg-surface)] focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 text-[var(--kg-text)] min-h-[44px]"
+                          className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-4 py-2.5 text-base sm:text-sm focus:outline-none focus:bg-[var(--kg-surface)] focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 text-[var(--kg-text)] min-h-[44px]"
                         />
                       </div>
                     </div>
@@ -853,7 +783,11 @@ export default function Login() {
 
                 <button
                   type="button"
-                  onClick={() => { setAuthNotice(null); setMode('login'); setForgotStep(1); }}
+                  onClick={() => {
+                    setAuthNotice(null);
+                    setMode('login');
+                    setForgotStep(1);
+                  }}
                   className="w-full text-center text-xs font-semibold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] flex items-center justify-center gap-1 transition-colors min-h-[44px]"
                 >
                   <ChevronLeft size={14} /> Quay lại đăng nhập
@@ -865,7 +799,7 @@ export default function Login() {
       </div>
 
       {/* Subtle Footer Version Stamp */}
-      <footer className="relative z-10 w-full max-w-6xl mx-auto pt-4 text-center text-[11px] font-medium text-[var(--kg-text-muted)]">
+      <footer className="relative z-10 w-full max-w-5xl mx-auto pt-4 text-center text-[11px] font-medium text-[var(--kg-text-muted)]">
         King&apos;s Grill Staff OS <span className="font-mono tabular-nums font-bold">{APP_VERSION_TAG}</span> • Chuẩn hóa giao diện đa thiết bị
       </footer>
 

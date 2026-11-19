@@ -32,7 +32,6 @@ import {
 } from '../utils/attendanceSequence';
 import { refreshAppData } from '../utils/refreshData';
 import { enqueueTask } from '../utils/offlineQueue';
-import confetti from 'canvas-confetti';
 
 export interface MissedClaimItem {
   id: string;
@@ -60,6 +59,7 @@ interface MissedCheckInModalProps {
   existingLogs?: LogEntry[];
   onSubmitted?: () => void;
   onSuccess?: () => void;
+  initialTab?: 'create' | 'history' | 'admin';
   defaultType?: 'Vào ca' | 'Ra ca';
   defaultDate?: string;
   defaultTime?: string;
@@ -169,6 +169,7 @@ export default function MissedCheckInModal({
   existingLogs,
   onSubmitted,
   onSuccess,
+  initialTab,
   defaultType,
   defaultDate,
   defaultTime,
@@ -183,7 +184,17 @@ export default function MissedCheckInModal({
   const isAdmin = currentUser?.role === 'admin' || currentUser?.username === 'ADMIN';
   const logsSource = existingLogs && existingLogs.length > 0 ? existingLogs : storeLogs;
 
-  const [activeTab, setActiveTab] = useState<'create' | 'history' | 'admin'>('create');
+  const resolveInitialTab = useCallback(
+    (): 'create' | 'history' | 'admin' =>
+      initialTab === 'admin' && isAdmin
+        ? 'admin'
+        : initialTab === 'history'
+        ? 'history'
+        : 'create',
+    [initialTab, isAdmin]
+  );
+
+  const [activeTab, setActiveTab] = useState<'create' | 'history' | 'admin'>(resolveInitialTab);
 
   const todayWorkdayDmy = useMemo(() => getWorkdayOwnerDmy(0), []);
   const yesterdayWorkdayDmy = useMemo(() => getWorkdayOwnerDmy(-1), []);
@@ -263,6 +274,7 @@ export default function MissedCheckInModal({
   // Sync defaults when modal opens
   useEffect(() => {
     if (!isOpen) return;
+    setActiveTab(resolveInitialTab());
     setSubmittedClaim(null);
     setInlineNotice(null);
     if (defaultDate) {
@@ -285,7 +297,7 @@ export default function MissedCheckInModal({
       }
     }
     setManualEmptyDayAction(defaultType === 'Ra ca' ? 'Ra ca' : null);
-  }, [isOpen, defaultDate, defaultTime, defaultShift, defaultReason, defaultType]);
+  }, [isOpen, resolveInitialTab, defaultDate, defaultTime, defaultShift, defaultReason, defaultType]);
 
   // Keep preset reason aligned with Vào ca vs Ra ca automatically unless user picked technical reason
   useEffect(() => {
@@ -441,11 +453,6 @@ export default function MissedCheckInModal({
       const currentList = getLocalClaims();
       saveLocalClaims([newClaim, ...currentList.filter((c) => c.id !== newClaim.id)]);
 
-      try {
-        confetti({ particleCount: 40, spread: 55, origin: { y: 0.65 } });
-      } catch {
-        // ignore canvas confetti error in headless environments
-      }
       setSubmittedClaim(newClaim);
       onSubmitted?.();
       onSuccess?.();
@@ -900,11 +907,11 @@ export default function MissedCheckInModal({
                         }
                       }}
                       required
-                      className="w-full px-3 py-2.5 min-h-[44px] rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-xs sm:text-sm font-bold font-mono tabular-nums text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)]"
+                      className="w-full px-3 py-2.5 min-h-[44px] rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-base sm:text-sm font-bold font-mono tabular-nums text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)]"
                     />
                   </div>
 
-                  {/* Step 2: Smart Missing-Punch Single Action Button ("Vào ca" OR "Ra ca") */}
+                  {/* Step 2: Smart Missing-Punch Status Indicator ("Vào ca" OR "Ra ca") */}
                   <div className="p-3 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] space-y-2.5">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <span className="text-[11px] font-black uppercase tracking-wider text-[var(--kg-text-muted)]">
@@ -939,26 +946,44 @@ export default function MissedCheckInModal({
                       </div>
                     ) : (
                       <>
-                        {/* ONLY display the smart missing Vào ca OR Ra ca button */}
+                        {/* Soft-tinted status indicator (distinct from bottom primary submit button) */}
                         <button
                           type="button"
                           data-testid="missed-smart-type-btn"
                           onClick={() => {
-                            // Focus time input for fast ergonomic completion
                             const el = document.getElementById('missed-claim-time-input');
                             el?.focus();
                           }}
-                          className={`w-full p-3 min-h-[50px] rounded-xl border-2 flex items-center justify-between gap-2.5 transition ${
+                          className={`w-full px-3 py-2.5 min-h-[46px] rounded-xl border border-dashed flex items-center justify-between gap-2.5 text-left transition ${
                             isSmartOut
-                              ? 'bg-rose-600 text-white border-rose-500 shadow-xs'
-                              : 'bg-emerald-600 text-white border-emerald-500 shadow-xs'
+                              ? 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/40'
+                              : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/40'
                           }`}
                         >
                           <div className="flex items-center gap-2 font-black text-sm">
-                            {isSmartOut ? <LogOut size={18} /> : <LogIn size={18} />}
-                            <span>{effectiveBaseAction}</span>
+                            <span
+                              className={`w-7 h-7 rounded-lg flex items-center justify-center text-white shrink-0 ${
+                                isSmartOut ? 'bg-rose-600' : 'bg-emerald-600'
+                              }`}
+                            >
+                              {isSmartOut ? <LogOut size={15} /> : <LogIn size={15} />}
+                            </span>
+                            <div className="min-w-0">
+                              <span className="block text-[10px] font-bold uppercase tracking-wider opacity-80 leading-none">
+                                Hệ thống tự xác định
+                              </span>
+                              <span className="block text-sm font-black leading-tight mt-0.5">
+                                {effectiveBaseAction}
+                              </span>
+                            </div>
                           </div>
-                          <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-white/20 text-white">
+                          <span
+                            className={`text-[10.5px] font-bold px-2.5 py-1 rounded-full border shrink-0 ${
+                              isSmartOut
+                                ? 'bg-rose-500/15 border-rose-500/30 text-rose-700 dark:text-rose-300'
+                                : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
+                            }`}
+                          >
                             Chờ Admin duyệt
                           </span>
                         </button>
@@ -986,7 +1011,7 @@ export default function MissedCheckInModal({
                         value={claimTime}
                         onChange={(e) => setClaimTime(e.target.value)}
                         required
-                        className="w-full px-3 py-2.5 min-h-[44px] rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-sm font-black font-mono tabular-nums text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)]"
+                        className="w-full px-3 py-2.5 min-h-[44px] rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-base sm:text-sm font-black font-mono tabular-nums text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)]"
                       />
                     </div>
 
@@ -1001,7 +1026,7 @@ export default function MissedCheckInModal({
                         id="missed-claim-shift-select"
                         value={claimShift}
                         onChange={(e) => setClaimShift(e.target.value)}
-                        className="w-full px-3 py-2.5 min-h-[44px] rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-xs sm:text-sm font-bold text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)]"
+                        className="w-full px-3 py-2.5 min-h-[44px] rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-base sm:text-sm font-bold text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)]"
                       >
                         <option value="15:00">Ca 15:00</option>
                         <option value="16:00">Ca 16:00</option>
@@ -1023,7 +1048,7 @@ export default function MissedCheckInModal({
                         key={t}
                         type="button"
                         onClick={() => setClaimTime(t)}
-                        className={`px-2 py-1 rounded-lg text-[11px] font-mono tabular-nums font-bold border transition ${
+                        className={`px-2.5 py-1.5 sm:py-1 min-h-[44px] sm:min-h-[34px] rounded-lg text-xs sm:text-[11px] font-mono tabular-nums font-bold border transition touch-manipulation shrink-0 ${
                           claimTime === t
                             ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)]'
                             : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)] hover:text-[var(--kg-text)]'
@@ -1317,7 +1342,7 @@ export default function MissedCheckInModal({
                                 placeholder="Nhập lý do từ chối..."
                                 value={rejectReason}
                                 onChange={(e) => setRejectReason(e.target.value)}
-                                className="w-full px-3 py-2 min-h-[40px] text-xs rounded-xl bg-[var(--kg-surface)] border border-rose-400 focus:outline-none"
+                                className="w-full px-3 py-2 min-h-[44px] text-base sm:text-sm rounded-xl bg-[var(--kg-surface)] border border-rose-400 focus:outline-none text-[var(--kg-text)]"
                               />
                               <div className="flex gap-2">
                                 <button

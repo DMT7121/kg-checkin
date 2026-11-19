@@ -22,12 +22,14 @@ import {
   type CheckInTypeString,
   getCheckInCooldown,
   auditCheckInAnomalies,
-  getPreviewShiftClass,
   evaluateCheckInGeofence,
   getScheduleRegistrationWindow,
   isNextWeekScheduleRegistered,
   isScheduleRegistrationRequired
 } from '../utils/helpers';
+import { useCameraStream } from '../hooks/useCameraStream';
+import { captureCheckInFrame } from '../utils/captureCheckInFrame';
+import CheckInReceiptSheet, { type SubmittedPunchReceipt } from '../components/checkin/CheckInReceiptSheet';
 import {
   formatUnifiedPunchLabel,
   isCheckInLabel,
@@ -40,7 +42,7 @@ import {
   subscribeCachedFaceProfiles,
   upsertCachedFaceProfile,
   type RawFaceProfileDto,
-} from '../services/faceRecognitionV2';
+} from '../utils/faceProfileCache';
 import { refreshAppData } from '../utils/refreshData';
 import { renderCheckInWatermarkCanvas } from '../utils/checkinWatermark';
 import {
@@ -51,19 +53,15 @@ import {
   RotateCcw,
   LogIn,
   LogOut,
-  UserCheck,
   AlertTriangle,
   Clock,
   CalendarClock,
-  Sparkles,
   ShieldCheck,
   CheckCircle2,
-  Info,
   Moon,
   ChevronRight,
   ChevronDown,
   Check,
-  PartyPopper,
   Users,
   Crosshair,
   Radio,
@@ -76,10 +74,8 @@ import {
   Zap,
   ScanFace,
   UserPlus,
-  Loader2,
-  CloudUpload
+  Loader2
 } from 'lucide-react';
-import confetti from 'canvas-confetti';
 import {
   KgButton,
   KgBottomSheet,
@@ -472,10 +468,25 @@ export default function CheckIn() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
   const logoImgRef = useRef<HTMLImageElement | null>(null);
+
+  const {
+    streamRef,
+    isStartingRef: isStartingCameraRef,
+    cameraActive,
+    cameraError,
+    setCameraError,
+    cameraErrorMessage,
+    setCameraErrorMessage,
+    startCamera,
+    stopCamera,
+  } = useCameraStream({
+    videoRef,
+    suspendedRef: v1CameraSuspendedRef,
+    onFallbackToast: speak,
+  });
+  stopCameraRef.current = stopCamera;
 
   useEffect(() => {
     const img = new Image();
@@ -511,14 +522,6 @@ export default function CheckIn() {
     bestAcc: null,
     bestDist: null
   });
-
-  const [cameraActive, setCameraActive] = useState(false);
-  const [cameraError, setCameraError] = useState(false);
-  const [cameraErrorMessage, setCameraErrorMessage] = useState('');
-  const [isFaceModelLoaded, setIsFaceModelLoaded] = useState(false);
-  const [faceModelUnavailable, setFaceModelUnavailable] = useState(false);
-  const [isFaceDetected, setIsFaceDetected] = useState(false);
-  const faceApiRef = useRef<any>(null);
 
   // Bottom sheets / toast states to replace SweetAlert
   const [spamWarningOpen, setSpamWarningOpen] = useState(false);
@@ -583,22 +586,7 @@ export default function CheckIn() {
     return () => clearInterval(interval);
   }, [capturedImage, photoCapturedAtMs, handlePhotoExpired]);
 
-  const [lastSubmittedPunch, setLastSubmittedPunch] = useState<{
-    type: 'Vào ca' | 'Ra ca' | string;
-    fullname: string;
-    time: string;
-    location: string;
-    distMeters: string;
-    isValid: boolean;
-    shift: string;
-    email: string;
-    sheetSaved?: boolean;
-    edgeBuffered?: boolean;
-    supplementSubmittedText?: string;
-    lateMins?: number;
-    penaltyAmount?: number;
-    checklistPending?: boolean;
-  } | null>(null);
+  const [lastSubmittedPunch, setLastSubmittedPunch] = useState<SubmittedPunchReceipt | null>(null);
   const [pendingSurveyAfterPunch, setPendingSurveyAfterPunch] = useState(false);
 
   // Clock initialization
@@ -970,7 +958,6 @@ export default function CheckIn() {
       if (isInside) {
         speak('Vị trí đã hợp lệ, sẵn sàng chấm công');
         prevGpsValidRef.current = true;
-        confetti({ particleCount: 35, spread: 60, origin: { y: 0.7 } });
       } else {
         speak(`Đã lấy vị trí vệ tinh, khoảng cách ${Math.round(chosen.dist)} mét`);
         prevGpsValidRef.current = false;
@@ -1034,173 +1021,6 @@ export default function CheckIn() {
   const restartGps = useCallback(() => {
     handlePrecisionRescan();
   }, [handlePrecisionRescan]);
-
-  // Camera Logic
-  const cameraSessionRef = useRef(0);
-
-  const stopCamera = useCallback(() => {
-    cameraSessionRef.current += 1;
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-    setCameraActive(false);
-  }, []);
-  stopCameraRef.current = stopCamera;
-
-  const isStartingCameraRef = useRef(false);
-
-  const startCamera = useCallback(async () => {
-    if (isStartingCameraRef.current || v1CameraSuspendedRef.current) return;
-    isStartingCameraRef.current = true;
-    const sessionId = ++cameraSessionRef.current;
-    setCameraError(false);
-    setCameraErrorMessage('');
-    
-    try {
-      if (!window.isSecureContext && location.hostname !== 'localhost') {
-        setCameraErrorMessage('Camera chỉ hoạt động trên kết nối HTTPS an toàn.');
-        setCameraError(true);
-        return;
-      }
-      if (!navigator.mediaDevices?.getUserMedia) {
-        setCameraErrorMessage('Trình duyệt này không hỗ trợ mở camera trực tiếp.');
-        setCameraError(true);
-        return;
-      }
-
-      const constraintsList: MediaStreamConstraints[] = [
-        {
-          video: {
-            facingMode: { ideal: 'user' },
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          }
-        },
-        { video: { facingMode: { ideal: 'user' } } },
-        { video: true }
-      ];
-
-      for (const constraint of constraintsList) {
-        try {
-          if (streamRef.current) {
-            streamRef.current.getTracks().forEach((t) => t.stop());
-            streamRef.current = null;
-          }
-          const stream = await navigator.mediaDevices.getUserMedia(constraint);
-          if (cameraSessionRef.current !== sessionId) {
-            stream.getTracks().forEach((t) => t.stop());
-            return;
-          }
-          streamRef.current = stream;
-          const video = videoRef.current;
-          if (!video) {
-            stream.getTracks().forEach((t) => t.stop());
-            streamRef.current = null;
-            continue;
-          }
-
-          // Critical iOS Safari / WebKit properties: must set before srcObject & play
-          video.setAttribute('playsinline', 'true');
-          video.setAttribute('webkit-playsinline', 'true');
-          video.muted = true;
-          video.playsInline = true;
-          video.srcObject = stream;
-
-          // Recover automatically if iOS Safari / WKWebView terminates MediaStreamTrack after phone call or lock screen
-          const primaryTrack = stream.getVideoTracks?.()[0];
-          if (primaryTrack) {
-            primaryTrack.onended = () => {
-              if (
-                cameraSessionRef.current === sessionId &&
-                !v1CameraSuspendedRef.current &&
-                document.visibilityState === 'visible'
-              ) {
-                setCameraActive(false);
-                void startCamera();
-              }
-            };
-          }
-
-          await new Promise<void>((resolve, reject) => {
-            let settled = false;
-            const timeoutId = setTimeout(() => {
-              if (!settled) {
-                settled = true;
-                reject(new Error('Camera initialization timeout'));
-              }
-            }, 2200);
-
-            const tryPlay = () => {
-              if (settled) return;
-              video.play().then(() => {
-                const pollStart = Date.now();
-                const pollInterval = setInterval(() => {
-                  if (settled || cameraSessionRef.current !== sessionId) {
-                    clearInterval(pollInterval);
-                    return;
-                  }
-                  if (video.videoWidth > 0 && !video.paused) {
-                    settled = true;
-                    clearInterval(pollInterval);
-                    clearTimeout(timeoutId);
-                    setCameraActive(true);
-                    resolve();
-                  } else if (Date.now() - pollStart > 1200) {
-                    settled = true;
-                    clearInterval(pollInterval);
-                    clearTimeout(timeoutId);
-                    reject(new Error('Video stream empty'));
-                  }
-                }, 80);
-              }).catch((playErr) => {
-                if (!settled) {
-                  settled = true;
-                  clearTimeout(timeoutId);
-                  reject(playErr);
-                }
-              });
-            };
-
-            if (video.readyState >= 1) {
-              tryPlay();
-            } else {
-              video.onloadedmetadata = () => tryPlay();
-            }
-
-            video.onerror = () => {
-              if (!settled) {
-                settled = true;
-                clearTimeout(timeoutId);
-                reject(new Error('Video element error'));
-              }
-            };
-          });
-          
-          isStartingCameraRef.current = false;
-          return;
-        } catch (error) {
-          const cameraException = error as DOMException;
-          if (cameraException?.name === 'NotAllowedError' || cameraException?.name === 'SecurityError') {
-            setCameraErrorMessage('Quyền camera đang bị tắt. Nhấn nút chụp ảnh để dùng máy ảnh điện thoại hoặc cấp quyền lại.');
-            break;
-          }
-          if (cameraException?.name === 'NotFoundError') {
-            setCameraErrorMessage('Không tìm thấy camera trực tiếp. Nhấn nút chụp ảnh để mở máy ảnh điện thoại.');
-            break;
-          }
-        }
-      }
-      setCameraError(true);
-      setCameraErrorMessage((message) => message || 'Nhấn nút chụp ảnh bên dưới để chụp trực tiếp bằng máy ảnh hệ thống điện thoại.');
-      speak('Đang chuyển sang chế độ chụp bằng máy ảnh điện thoại.');
-    } finally {
-      isStartingCameraRef.current = false;
-    }
-  }, []);
 
   const cleanCanvasRef = useRef<HTMLCanvasElement | null>(null);
   // Preserves the verified in-radius GPS snapshot right when native camera (<input capture>) opens on mobile
@@ -1293,53 +1113,25 @@ export default function CheckIn() {
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    if (!video || !canvas || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !video.videoWidth || !video.videoHeight) {
+    // Optimized HD portrait 720x1280 (9:16): crisp watermark legibility + 60% lighter payload & WebKit canvas RAM on iPhone
+    const targetW = 720, targetH = 1280;
+    const captured =
+      video && canvas
+        ? captureCheckInFrame({
+            video,
+            canvas,
+            cleanCanvas: cleanCanvasRef.current,
+            targetW,
+            targetH,
+            mirror: true,
+          })
+        : null;
+    if (!canvas || !captured) {
       setCameraErrorMessage('Camera chưa sẵn sàng. Vui lòng chờ một chút rồi thử lại.');
       return;
     }
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Optimized HD portrait 720x1280 (9:16): crisp watermark legibility + 60% lighter payload & WebKit canvas RAM on iPhone
-    const targetW = 720, targetH = 1280;
-    const targetWidth = targetW, targetHeight = targetH;
-    canvas.width = targetWidth; canvas.height = targetHeight;
-    const vw = video.videoWidth, vh = video.videoHeight;
-    const canvasRatio = targetWidth / targetHeight, videoRatio = vw / vh;
-    let sx: number, sy: number, sWidth: number, sHeight: number;
-
-    if (videoRatio > canvasRatio) { sHeight = vh; sWidth = vh * canvasRatio; sx = (vw - sWidth) / 2; sy = 0; }
-    else { sWidth = vw; sHeight = vw / canvasRatio; sx = 0; sy = (vh - sHeight) / 2; }
-
-    // Note: Do NOT apply CSS ctx.filter on iOS WebKit <video> drawImage, as WebKit hardware video buffers can fail or render black
-    ctx.save();
-    ctx.filter = 'none';
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    ctx.translate(targetWidth, 0); ctx.scale(-1, 1);
-    ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
-    ctx.restore();
-
-    // Preserve clean unwatermarked frame for real-time re-stamping in modal
-    if (!cleanCanvasRef.current) {
-      cleanCanvasRef.current = document.createElement('canvas');
-    }
-    cleanCanvasRef.current.width = targetWidth;
-    cleanCanvasRef.current.height = targetHeight;
-    const cleanCtx = cleanCanvasRef.current.getContext('2d');
-    if (cleanCtx) {
-      cleanCtx.drawImage(canvas, 0, 0);
-    }
-
-    // Exact capture timestamp down to seconds
-    const now = new Date();
-    const d = String(now.getDate()).padStart(2, '0');
-    const m = String(now.getMonth() + 1).padStart(2, '0');
-    const y = now.getFullYear();
-    const h = String(now.getHours()).padStart(2, '0');
-    const min = String(now.getMinutes()).padStart(2, '0');
-    const s = String(now.getSeconds()).padStart(2, '0');
-    const exactTime = `${d}/${m}/${y} ${h}:${min}:${s}`;
+    cleanCanvasRef.current = captured.cleanCanvas;
+    const { ctx, exactTime } = captured;
     
     const currentGps = useAppStore.getState().gps;
     const addr = currentGps.address || KG_STANDARD_ADDRESS;
@@ -1985,15 +1777,6 @@ export default function CheckIn() {
           checklistPending: Boolean(res?.data?.checklistPending),
         });
 
-        confetti({
-          particleCount: 150,
-          spread: 80,
-          origin: { y: 0.6 },
-          colors: isClockInType
-            ? ['#10b981', '#06b6d4', '#facc15', '#3b82f6', '#ec4899']
-            : ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'],
-        });
-
         if (isClockInType) {
           speak(`Ting! Đã ghi nhận thành công điểm danh ${type}. Chúc bạn ca làm việc vui vẻ!`);
         } else {
@@ -2322,28 +2105,6 @@ export default function CheckIn() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checkinMode, faceEnrollModalOpen]);
 
-  // Lazy-load face-api.js + tfjs-core ONLY after live camera stream is active so 4G viewfinder opens instantly
-  useEffect(() => {
-    if (!cameraActive || isFaceModelLoaded || faceModelUnavailable) return;
-    let cancelled = false;
-    const timer = window.setTimeout(async () => {
-      try {
-        const faceapi = await import('face-api.js');
-        if (cancelled) return;
-        faceApiRef.current = faceapi;
-        await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
-        if (!cancelled) setIsFaceModelLoaded(true);
-      } catch (e) {
-        console.error('Face API model load error:', e);
-        if (!cancelled) setFaceModelUnavailable(true);
-      }
-    }, 120);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [cameraActive, isFaceModelLoaded, faceModelUnavailable]);
-
   // iOS Safari / Mobile Lifecycle: auto-resume camera and GPS when returning from background, phone lock, or app switch
   useEffect(() => {
     const handleVisibilityResume = () => {
@@ -2382,62 +2143,6 @@ export default function CheckIn() {
     };
   }, [cameraActive, capturedImage, isPrecisionScanning, startCamera, startGpsWatch]);
 
-  // AI bounding box detection loop - throttled to 800ms to save CPU & battery
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | undefined;
-    if (cameraActive && !capturedImage && isFaceModelLoaded && videoRef.current && overlayCanvasRef.current) {
-      const video = videoRef.current;
-      const canvas = overlayCanvasRef.current;
-      const faceapi = faceApiRef.current;
-      if (!faceapi) return;
-      const detectorOpts = new faceapi.TinyFaceDetectorOptions({ inputSize: 160 });
-
-      interval = setInterval(async () => {
-        if (video.paused || video.ended || !cameraActive || Boolean(capturedImage)) return;
-        
-        try {
-          const detections = await faceapi.detectAllFaces(video, detectorOpts);
-          
-          const displaySize = { width: video.videoWidth, height: video.videoHeight };
-          if (displaySize.width > 0 && displaySize.height > 0) {
-            faceapi.matchDimensions(canvas, displaySize);
-            const resizedDetections = faceapi.resizeResults(detections, displaySize);
-            
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-              ctx.clearRect(0, 0, canvas.width, canvas.height);
-              ctx.save();
-              ctx.translate(canvas.width, 0);
-              ctx.scale(-1, 1);
-              
-              if (resizedDetections.length === 1) {
-                setIsFaceDetected(true);
-                ctx.strokeStyle = '#14b8a6';
-                ctx.lineWidth = 4;
-                const box = resizedDetections[0].box;
-                ctx.strokeRect(box.x, box.y, box.width, box.height);
-              } else {
-                setIsFaceDetected(false);
-                if (resizedDetections.length > 1) {
-                  ctx.strokeStyle = '#ef4444';
-                  ctx.lineWidth = 4;
-                  resizedDetections.forEach((det: { box: { x: number; y: number; width: number; height: number } }) => {
-                    const box = det.box;
-                    ctx.strokeRect(box.x, box.y, box.width, box.height);
-                  });
-                }
-              }
-              ctx.restore();
-            }
-          }
-        } catch {
-          // Keep the camera usable even if a detection frame fails.
-        }
-      }, 800);
-    }
-    return () => clearInterval(interval);
-  }, [cameraActive, capturedImage, isFaceModelLoaded]);
-
   const handleAdminCalibrateGps = async () => {
     if (!currentUser || (currentUser.role !== 'admin' && currentUser.username !== 'ADMIN')) return;
     if (!gps.lat || !gps.lng) {
@@ -2469,7 +2174,6 @@ export default function CheckIn() {
           message: 'Khoảng cách: 0m / 25m - Hợp lệ'
         });
         speak('Đã lưu vị trí gốc nhà hàng. Vị trí hợp lệ.');
-        confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
         setFeedbackTitle('Cập nhật thành công!');
         setFeedbackMessage('Đã đặt vị trí hiện tại làm tọa độ chuẩn của Nhà Hàng (Bán kính 25m). Toàn bộ nhân sự tại quán sẽ chấm công chuẩn xác 100%!');
         setFeedbackType('success');
@@ -2518,54 +2222,56 @@ export default function CheckIn() {
         />
       </div>
 
-      {/* Parallel Check-In Mode Switcher (v1 <-> v2) + 1 Compact Expandable Status Strip */}
-      <div className="max-w-md mx-auto space-y-2">
-        <div
-          data-testid="checkin-mode-toggle"
-          role="tablist"
-          aria-label="Chuyển đổi phiên bản chấm công"
-          className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] shadow-xs"
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={checkinMode === 'v1'}
-            data-testid="mode-v1-btn"
-            onClick={() => switchCheckinMode('v1')}
-            className={`min-h-[44px] px-3 py-2 rounded-lg text-xs font-black tracking-tight flex items-center justify-center gap-1.5 transition-colors touch-manipulation ${
-              checkinMode === 'v1'
-                ? 'bg-[var(--kg-surface-soft)] text-[var(--kg-text)] border border-[var(--kg-border)] shadow-xs'
-                : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
-            }`}
+      {/* Parallel Check-In Mode Switcher (v1 <-> v2) + Blocking Banners */}
+      <div className="max-w-md lg:max-w-5xl mx-auto space-y-2.5">
+        <div className="max-w-md mx-auto lg:mx-0">
+          <div
+            data-testid="checkin-mode-toggle"
+            role="tablist"
+            aria-label="Chuyển đổi phiên bản chấm công"
+            className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] shadow-xs"
           >
-            <Camera size={15} className="shrink-0" />
-            <span>Chụp ảnh (v1)</span>
-          </button>
-
-          <button
-            type="button"
-            role="tab"
-            aria-selected={checkinMode === 'v2'}
-            data-testid="mode-v2-btn"
-            onClick={handleSelectV2Mode}
-            className={`min-h-[44px] px-3 py-2 rounded-lg text-xs font-black tracking-tight flex items-center justify-center gap-1.5 transition-colors touch-manipulation ${
-              checkinMode === 'v2'
-                ? 'bg-[var(--kg-primary)] text-white shadow-xs'
-                : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
-            }`}
-          >
-            <ScanFace size={15} className="shrink-0" />
-            <span>Face ID Nhanh</span>
-            <span
-              className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded font-mono tabular-nums ${
-                checkinMode === 'v2'
-                  ? 'bg-white/20 text-white'
-                  : 'bg-[var(--kg-primary-soft)] text-[var(--kg-primary)]'
+            <button
+              type="button"
+              role="tab"
+              aria-selected={checkinMode === 'v1'}
+              data-testid="mode-v1-btn"
+              onClick={() => switchCheckinMode('v1')}
+              className={`min-h-[44px] px-3 py-2 rounded-lg text-xs font-black tracking-tight flex items-center justify-center gap-1.5 transition-colors touch-manipulation ${
+                checkinMode === 'v1'
+                  ? 'bg-[var(--kg-surface-soft)] text-[var(--kg-text)] border border-[var(--kg-border)] shadow-xs'
+                  : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
               }`}
             >
-              V2
-            </span>
-          </button>
+              <Camera size={15} className="shrink-0" />
+              <span>Chụp ảnh (v1)</span>
+            </button>
+
+            <button
+              type="button"
+              role="tab"
+              aria-selected={checkinMode === 'v2'}
+              data-testid="mode-v2-btn"
+              onClick={handleSelectV2Mode}
+              className={`min-h-[44px] px-3 py-2 rounded-lg text-xs font-black tracking-tight flex items-center justify-center gap-1.5 transition-colors touch-manipulation ${
+                checkinMode === 'v2'
+                  ? 'bg-[var(--kg-primary)] text-white shadow-xs'
+                  : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
+              }`}
+            >
+              <ScanFace size={15} className="shrink-0" />
+              <span>Face ID Nhanh</span>
+              <span
+                className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded font-mono tabular-nums ${
+                  checkinMode === 'v2'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-[var(--kg-primary-soft)] text-[var(--kg-primary)]'
+                }`}
+              >
+                V2
+              </span>
+            </button>
+          </div>
         </div>
 
         {/* Blocking State 1: 15-Minute Anti-Spam Per-Employee Cooldown Banner */}
@@ -2619,20 +2325,18 @@ export default function CheckIn() {
           </div>
         )}
 
-        {/* Single Compact Expandable Pre-Capture Status Strip (keeps viewport-shutter-btn above the fold on 360-390px) */}
+        {/* Mobile Compact 1-Line Expandable Pre-Capture Status Strip (hidden on lg: where full right rail is always visible) */}
         <div
           data-testid="checkin-status-strip"
-          className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl px-2.5 py-1.5 shadow-xs"
+          className="lg:hidden bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl px-2.5 py-1.5 shadow-xs"
         >
           <div className="flex items-center justify-between gap-1.5">
-            {/* Compact Status Summary Pills */}
             <button
               type="button"
               onClick={() => setStatusStripExpanded((v) => !v)}
               aria-expanded={statusStripExpanded}
               className="min-h-[44px] sm:min-h-[36px] flex-1 min-w-0 flex items-center gap-1.5 text-left rounded-xl px-1.5 py-1 hover:bg-[var(--kg-surface-soft)] transition-colors touch-manipulation"
             >
-              {/* Shift Status Pill */}
               <span
                 className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-bold border truncate ${
                   recommendation.isOpenShift
@@ -2658,7 +2362,6 @@ export default function CheckIn() {
                 </span>
               </span>
 
-              {/* GPS Status Pill */}
               <span
                 className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-bold font-mono tabular-nums border shrink-0 ${
                   gps.isValid
@@ -2676,7 +2379,6 @@ export default function CheckIn() {
                 </span>
               </span>
 
-              {/* Warning Counter Pill (if any non-blocking alerts exist) */}
               {(anomalies.length > 0 || missingAlerts.length > 0) && (
                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-[10px] font-black bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/35 shrink-0 font-mono tabular-nums">
                   <AlertTriangle size={10} />
@@ -2685,7 +2387,6 @@ export default function CheckIn() {
               )}
             </button>
 
-            {/* Right Quick Action Cluster (>=44px mobile touch targets) */}
             <div className="flex items-center gap-1 shrink-0">
               {!selfFaceProfile && (
                 <button
@@ -2730,7 +2431,6 @@ export default function CheckIn() {
             </div>
           </div>
 
-          {/* Slim Live Precision Scan Progress when scanning even if collapsed */}
           {isPrecisionScanning && (
             <div className="mt-1.5 px-1.5 pb-1 space-y-1">
               <div className="flex items-center justify-between text-[10px] font-bold text-blue-700 dark:text-blue-300">
@@ -2750,156 +2450,342 @@ export default function CheckIn() {
               </div>
             </div>
           )}
+        </div>
 
-          {/* Expanded Details Panel */}
-          {statusStripExpanded && (
-            <div className="mt-2 pt-2.5 border-t border-[var(--kg-border)] space-y-2.5 pb-1 animate-fade-in">
-              {/* Face ID Status & Quick Actions */}
-              <div className="rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] p-2.5 space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${
-                        selfFaceProfile
-                          ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-600 dark:text-emerald-400'
-                          : 'bg-amber-500/10 border-amber-500/25 text-amber-600 dark:text-amber-400'
-                      }`}
-                    >
-                      <ScanFace size={16} />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-xs font-black text-[var(--kg-text)] truncate">
-                          {selfFaceProfile ? 'Face ID 5 góc: Sẵn sàng' : 'Chưa đăng ký Face ID'}
-                        </span>
-                        {selfFaceProfile && (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25">
-                            <Lock size={9} /> Khóa bảo mật
-                          </span>
-                        )}
-                        {allFaceProfiles.length > 0 && (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono tabular-nums font-bold bg-[var(--kg-surface)] border border-[var(--kg-border)] text-[var(--kg-text-muted)]">
-                            {allFaceProfiles.length} hồ sơ
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-[var(--kg-text-muted)] leading-snug truncate">
-                        {selfFaceProfile
-                          ? 'Nhận diện tức thì trên mọi điện thoại tại quán'
-                          : 'Đăng ký 5 góc 1 lần để chấm công siêu tốc'}
-                      </p>
-                    </div>
-                  </div>
+        {/* RESPONSIVE WORKSPACE GRID: Mobile stacked | Desktop/Tablet 2-Column (lg:grid-cols-12) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 items-start">
+          {/* LEFT 7 COLS (Desktop): Camera Viewport (max-w-lg) + Primary Capture CTA */}
+          <div className="order-2 lg:order-1 lg:col-span-7 space-y-3">
+            {/* Camera Viewport: Solid high-contrast overlays, ergonomic mobile & crisp desktop height */}
+            <div className={`relative bg-slate-950 rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm aspect-[3/4] sm:aspect-[9/16] lg:aspect-[4/5] min-h-[340px] max-h-[410px] sm:min-h-[460px] sm:max-h-[540px] lg:min-h-[500px] lg:max-h-[600px] group border-[4px] sm:border-[5px] max-w-sm lg:max-w-lg mx-auto transition-all ${isWithinRadius ? 'border-blue-600' : 'border-red-500'}`}>
+              <video ref={videoRef} autoPlay muted playsInline {...{ 'webkit-playsinline': 'true' }} className={`w-full h-full object-cover mirror-cam ${(cameraError || capturedImage) ? 'hidden' : ''}`} />
+              <canvas ref={canvasRef} className="hidden" />
+              <input
+                type="file"
+                ref={fileInputRef}
+                data-testid="native-camera-file-input"
+                accept="image/*"
+                capture="user"
+                className="hidden"
+                onChange={handleFileUpload}
+              />
 
-                  {currentUser?.role !== 'admin' && selfFaceProfile && (
-                    <button
-                      type="button"
-                      onClick={() => switchCheckinMode('v2')}
-                      className="min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs font-extrabold whitespace-nowrap inline-flex items-center gap-1.5 transition-colors shrink-0 touch-manipulation"
-                    >
-                      <ScanFace size={14} />
-                      <span>Mở Quét v2</span>
-                    </button>
-                  )}
+              {/* Camera Error / No Video */}
+              {cameraError && !capturedImage && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 text-white p-6 text-center z-50">
+                  <CameraOff size={44} className="mb-4 text-slate-500" />
+                  <p className="mb-2 text-sm font-black">Chưa thể mở camera trực tiếp</p>
+                  <p className="mb-6 text-xs text-slate-300 leading-normal max-w-[240px]">{cameraErrorMessage || 'Hãy dùng máy ảnh hệ thống điện thoại để chụp ảnh chấm công.'}</p>
+                  <KgButton onClick={handleCaptureTrigger} variant="primary" size="md" icon={Camera} className="w-full max-w-[220px]">
+                    {recommendation.baseAction === 'Ra ca' ? 'Chụp ảnh Ra ca' : 'Chụp ảnh Vào ca'}
+                  </KgButton>
+                  <button type="button" onClick={() => void startCamera()} className="text-xs text-slate-400 hover:text-white underline flex items-center mt-5 min-h-[44px] p-2">
+                    <RotateCcw className="mr-1.5" size={13} /> Thử lại Camera trực tiếp
+                  </button>
                 </div>
+              )}
 
-                {currentUser?.role === 'admin' && (
-                  <div className="grid grid-cols-2 gap-2 pt-0.5">
-                    {selfFaceProfile ? (
-                      <button
-                        type="button"
-                        onClick={() => switchCheckinMode('v2')}
-                        className="min-h-[44px] px-3 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition-colors touch-manipulation"
-                      >
-                        <ScanFace size={14} />
-                        <span>Mở Trạm Quét v2</span>
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={openFaceEnrollmentModal}
-                        className="min-h-[44px] px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition-colors touch-manipulation"
-                      >
-                        <UserPlus size={14} />
-                        <span>ĐK cho tôi</span>
-                      </button>
-                    )}
-
-                    <button
-                      type="button"
-                      data-testid="admin-enroll-staff-btn"
-                      onClick={openAdminStaffFacePicker}
-                      className="min-h-[44px] px-3 py-2 rounded-xl bg-[#0B253C] hover:opacity-90 text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition-colors touch-manipulation"
-                    >
-                      <Users size={14} />
-                      <span>ĐK cho nhân viên</span>
-                    </button>
-                  </div>
-                )}
+              {/* Floating timer (solid high-contrast pill) */}
+              <div className="absolute top-3.5 left-3.5 right-3.5 flex justify-between items-center pointer-events-none z-20">
+                <div className="bg-slate-950/90 text-white text-[11px] font-bold px-3 py-1.5 rounded-full font-mono tabular-nums border border-white/15 shadow-md">
+                  <span>{currentTime}</span>
+                </div>
+                <div className="bg-red-500 w-2.5 h-2.5 rounded-full animate-pulse shadow-[0_0_8px_red]" />
               </div>
 
-              {/* Check-In Anomaly Alert Banner */}
-              {anomalies.length > 0 && (
-                <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-2.5 text-[var(--kg-text)]">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-wider bg-rose-500/20 px-1.5 py-0.5 rounded">
-                          Cần kiểm tra
-                        </span>
-                        <span className="text-xs font-bold font-mono tabular-nums">{anomalies[0].logTime}</span>
-                      </div>
-                      <p className="text-[11px] font-semibold mt-1">
-                        Đề xuất: <b>&quot;{formatUnifiedPunchLabel(anomalies[0].suggestedType)}&quot;</b> (hiện tại: &quot;{formatUnifiedPunchLabel(anomalies[0].type)}&quot;)
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => store.setCurrentTab('history')}
-                      className="min-h-[44px] sm:min-h-[36px] px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black whitespace-nowrap active:scale-95 transition-all flex-shrink-0 touch-manipulation"
-                    >
-                      Sửa loại →
-                    </button>
-                  </div>
+              {/* Floating Locked Notice if Out of Radius */}
+              {!isWithinRadius && !capturedImage && (
+                <div className="absolute inset-x-4 top-14 z-30 pointer-events-none flex justify-center">
+                  <span className="bg-rose-600 text-white text-xs px-3.5 py-1.5 rounded-full flex items-center shadow-lg font-bold gap-1.5 border border-rose-400/50 animate-pulse">
+                    <Lock size={13} className="text-white" />
+                    Ngoài bán kính {targetRadius}m {currentDist !== null ? `(${currentDist}m)` : ''} • Đã khóa camera
+                  </span>
                 </div>
               )}
 
-              {/* Missing Check-in Alerts Banner */}
-              {missingAlerts.length > 0 && (
-                <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-2.5 text-[var(--kg-text)]">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider bg-amber-500/20 px-1.5 py-0.5 rounded">
-                          Thiếu lượt &quot;{missingAlerts[0].missingType}&quot;
-                        </span>
-                        <span className="text-xs font-bold font-mono tabular-nums">
-                          {missingAlerts[0].dateStr}
-                        </span>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedMissingAlert(missingAlerts[0]);
-                        setMissedModalOpen(true);
-                      }}
-                      className="min-h-[44px] sm:min-h-[36px] px-3 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl text-xs whitespace-nowrap active:scale-95 transition-all flex-shrink-0 touch-manipulation"
-                    >
-                      Báo ngay →
-                    </button>
+              {/* Static CSS Oval Framing Guide */}
+              {isWithinRadius && !cameraError && !capturedImage && cameraActive && (
+                <>
+                  <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-10 pb-8">
+                    <div
+                      aria-hidden="true"
+                      className="w-[58%] max-w-[210px] aspect-[3/4] rounded-[9999px] border-2 border-dashed border-emerald-400/75 shadow-[0_0_0_9999px_rgba(2,6,23,0.18)]"
+                    />
                   </div>
+                  <div className="absolute inset-x-4 top-14 z-30 pointer-events-none flex justify-center">
+                    <span className="bg-emerald-700 text-white text-xs px-3.5 py-1.5 rounded-full flex items-center shadow-md font-bold gap-1.5 border border-emerald-400/40">
+                      ✓ Căn khuôn mặt vào khung • Sẵn sàng chụp ảnh
+                    </span>
+                  </div>
+                </>
+              )}
+
+              {/* Controls inside camera viewport — always interactive so shutter is NEVER dead */}
+              {!capturedImage && !cameraError && (
+                <div className="absolute bottom-5 left-0 right-0 flex justify-center items-center space-x-6 z-20">
+                  <button
+                    type="button"
+                    onClick={() => { stopCamera(); setTimeout(() => void startCamera(), 250); }}
+                    className="w-12 h-12 bg-slate-950/85 hover:bg-slate-900 text-white rounded-full flex items-center justify-center shadow-lg border border-white/20 active:scale-90 transition-all touch-manipulation"
+                    title="Khởi động lại camera"
+                  >
+                    <RotateCcw size={18} />
+                  </button>
+
+                  <button
+                    type="button"
+                    data-testid="viewport-shutter-btn"
+                    onClick={handleCaptureTrigger}
+                    aria-label="Chụp ảnh chấm công"
+                    title={
+                      !isWithinRadius
+                        ? 'Kiểm tra vị trí GPS & chụp ảnh chấm công'
+                        : recommendation.baseAction === 'Ra ca'
+                        ? 'Chụp ảnh Ra ca'
+                        : 'Chụp ảnh Vào ca'
+                    }
+                    className="group relative touch-manipulation transition-all duration-150 scale-100 active:scale-95"
+                  >
+                    {!isWithinRadius ? (
+                      <>
+                        <div className="absolute inset-0 bg-rose-600 rounded-full opacity-30 scale-110 animate-ping" />
+                        <div className="w-16 h-16 bg-rose-950/90 border-4 border-rose-500 rounded-full flex items-center justify-center shadow-lg">
+                          <Lock size={22} className="text-rose-400" />
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="absolute inset-0 bg-white rounded-full opacity-35 scale-110" />
+                        <div className="w-16 h-16 bg-transparent border-4 border-white rounded-full flex items-center justify-center shadow-lg">
+                          <div
+                            className={`w-11 h-11 rounded-full transition-all flex items-center justify-center ${
+                              cameraActive ? 'bg-green-500' : 'bg-white'
+                            } group-hover:scale-105`}
+                          >
+                            {!cameraActive && <Camera size={18} className="text-slate-900" />}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </button>
                 </div>
               )}
 
-              {/* Current Shift Details + Team Attendance */}
-              <div className="rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] p-2.5 space-y-2">
+              {/* Captured image display with crisp solid action dock */}
+              {capturedImage && (
+                <div className="absolute inset-0 bg-slate-950 z-30 flex flex-col items-center justify-center animate-fade-in">
+                  <img
+                    src={capturedImage}
+                    className="w-full h-full object-cover rounded-2xl"
+                    alt="Ảnh chấm công có đóng dấu"
+                  />
+
+                  <div className="absolute top-2 inset-x-2 z-40 pointer-events-auto">
+                    <div className="bg-slate-950/95 border border-white/20 rounded-xl px-2 py-1 flex items-center justify-between shadow-2xl shadow-black/70">
+                      <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-950 border border-emerald-400/50 text-emerald-300 text-[10.5px] font-bold shadow-sm whitespace-nowrap shrink-0">
+                        <CheckCircle2 size={11} className="text-emerald-400 shrink-0" />
+                        <span>Đã đóng dấu</span>
+                        <span className="text-emerald-400/50 font-normal">•</span>
+                        <span
+                          className={`font-mono tabular-nums ${
+                            photoTimeLeftSeconds <= 15
+                              ? 'text-rose-400 animate-pulse font-black'
+                              : photoTimeLeftSeconds <= 30
+                              ? 'text-amber-300'
+                              : 'text-slate-200'
+                          }`}
+                          title="Thời hạn ảnh chụp có hiệu lực"
+                        >
+                          {photoTimeLeftSeconds}s
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            store.setPreviewImageUrl(capturedImage);
+                            store.setPreviewOpen(true);
+                          }}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 min-h-[44px] sm:min-h-[32px] bg-slate-800 hover:bg-slate-700 active:scale-95 text-white rounded-lg border border-white/20 transition-all text-[11px] font-semibold whitespace-nowrap shrink-0 touch-manipulation"
+                          title="Xem toàn màn hình"
+                        >
+                          <Maximize2 size={12} className="shrink-0" />
+                          <span>Xem to</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            store.setCapturedImage(null);
+                            store.setCapturedTime(null);
+                            setCapturedGps(null);
+                            setPhotoCapturedAtMs(null);
+                            setPhotoTimeLeftSeconds(PHOTO_EXPIRATION_SECONDS);
+                            setUserResolvedDisambiguation(null);
+                          }}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 min-h-[44px] sm:min-h-[32px] bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-lg border border-rose-400/40 shadow-md transition-all text-[11px] font-bold whitespace-nowrap shrink-0 touch-manipulation"
+                          title="Chụp lại ảnh"
+                        >
+                          <RotateCcw size={12} className="shrink-0" />
+                          <span>Chụp lại</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bottom Progress Bar: 60s Visual Depletion */}
+                  <div className="absolute bottom-0 inset-x-0 h-1.5 bg-black/50 overflow-hidden z-40 pointer-events-none">
+                    <div
+                      className={`h-full transition-all duration-500 ${
+                        photoTimeLeftSeconds <= 15
+                          ? 'bg-rose-500'
+                          : photoTimeLeftSeconds <= 30
+                          ? 'bg-amber-500'
+                          : 'bg-emerald-500'
+                      }`}
+                      style={{ width: `${(photoTimeLeftSeconds / PHOTO_EXPIRATION_SECONDS) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Primary Action Button: Always interactive when !capturedImage so staff NEVER hit a dead button */}
+            <div className="max-w-sm lg:max-w-lg mx-auto space-y-2">
+              <KgButton
+                data-testid="primary-capture-action-btn"
+                variant={(userResolvedDisambiguation || smartIntent.smartSuggestedAction) === 'Ra ca' && capturedImage ? 'danger' : 'primary'}
+                size="lg"
+                disabled={capturedImage ? !canSubmit || isSubmittingPunch : false}
+                onClick={() => {
+                  if (!capturedImage) {
+                    handleCaptureTrigger();
+                    return;
+                  }
+                  if (isCooldownBlocked) {
+                    speak(`Vui lòng đợi thêm ${cooldown.remainingMinutesFormatted} để chấm công lại.`);
+                    setSpamWarningText(`Quy định chống trùng lặp: Bạn vừa chấm ${formatUnifiedPunchLabel(cooldown.lastType || 'công')} lúc ${cooldown.lastTimeStr || ''}. Vui lòng đợi thêm ${cooldown.remainingMinutesFormatted} trước lượt chấm tiếp theo.`);
+                    setSpamWarningOpen(true);
+                    return;
+                  }
+                  if (recommendation.isMaxPunchesReached) {
+                    setFeedbackTitle('Đã đủ 4 lượt chấm công trong ngày');
+                    setFeedbackMessage('Hệ thống đã ghi nhận đủ 2 cặp Vào ca – Ra ca trong chu kỳ 06:00 – 05:59 hiện tại.');
+                    setFeedbackType('info');
+                    setFeedbackSheetOpen(true);
+                    return;
+                  }
+                  if (!isWithinRadius) {
+                    speak('Bạn đang ở ngoài bán kính 25m nhà hàng.');
+                    setFeedbackTitle('Ngoài bán kính chấm công');
+                    setFeedbackMessage(`Khoảng cách hiện tại: ${currentDist ?? 'quá'}m (quy định ≤ ${targetRadius}m). Vui lòng di chuyển vào nhà hàng để chấm công.`);
+                    setFeedbackType('warning');
+                    setFeedbackSheetOpen(true);
+                    return;
+                  }
+                  setModalChosenType(userResolvedDisambiguation || smartIntent.smartSuggestedAction);
+                  setHasAcknowledgedEarlyOut(false);
+                  setConfirmCheckInModalOpen(true);
+                }}
+                className={`w-full h-14 min-h-[52px] shadow-lg rounded-2xl text-[15px] font-black tracking-wide border-none active:scale-[0.97] transition-all touch-manipulation flex items-center justify-center gap-2.5 ${
+                  isCooldownBlocked
+                    ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                    : recommendation.isMaxPunchesReached
+                    ? 'bg-slate-600 hover:bg-slate-700 text-white'
+                    : capturedImage
+                    ? !canSubmit || isSubmittingPunch
+                      ? 'opacity-60 cursor-not-allowed bg-slate-400 text-white'
+                      : (userResolvedDisambiguation || smartIntent.smartSuggestedAction) === 'Ra ca'
+                      ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-md'
+                      : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md'
+                    : smartIntent.requiresDisambiguation
+                    ? 'bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-md'
+                    : smartIntent.smartSuggestedAction === 'Ra ca'
+                    ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-md'
+                    : 'bg-[var(--kg-primary)] hover:opacity-95 text-white shadow-md'
+                }`}
+                icon={
+                  isSubmittingPunch
+                    ? Loader2
+                    : capturedImage
+                    ? (userResolvedDisambiguation || smartIntent.smartSuggestedAction) === 'Ra ca'
+                      ? LogOut
+                      : LogIn
+                    : Camera
+                }
+              >
+                {isSubmittingPunch
+                  ? 'ĐANG XÁC NHẬN TỨC THÌ...'
+                  : isCooldownBlocked
+                  ? `GIÃN CÁCH (${cooldown.remainingMinutesFormatted})`
+                  : recommendation.isMaxPunchesReached
+                  ? 'ĐÃ ĐỦ 4 LƯỢT TRONG NGÀY'
+                  : capturedImage
+                  ? `${(userResolvedDisambiguation || smartIntent.smartSuggestedAction) === 'Ra ca' ? 'Xác nhận Ra ca' : 'Xác nhận Vào ca'} (${photoTimeLeftSeconds}s)`
+                  : smartIntent.requiresDisambiguation
+                  ? 'CHỤP ẢNH XÁC NHẬN CA'
+                  : smartIntent.smartSuggestedAction === 'Ra ca'
+                  ? 'CHỤP ẢNH RA CA'
+                  : 'CHỤP ẢNH VÀO CA'}
+              </KgButton>
+
+              {!canSubmit && (
+                <p className="text-[11px] text-center text-[var(--kg-text-muted)] font-medium">
+                  {isCooldownBlocked
+                    ? `Cần chờ thêm ${cooldown.remainingMinutesFormatted} theo quy định giãn cách 15 phút.`
+                    : recommendation.isMaxPunchesReached
+                    ? 'Bạn đã hoàn tất đủ 2 cặp Vào ca – Ra ca trong chu kỳ ngày công hiện tại.'
+                    : !capturedImage && !isWithinRadius
+                    ? gps.lat === null
+                      ? 'Đang lấy vị trí GPS... Nhấn nút chụp ảnh để tự động quét vị trí.'
+                      : `Ngoài bán kính ${targetRadius}m (${currentDist ?? 'quá'}m). Nhấn nút chụp ảnh để quét lại GPS vệ tinh.`
+                    : !isWithinRadius
+                    ? `Ngoài bán kính ${targetRadius}m (${currentDist ?? 'quá'}m). Không thể gửi chấm công.`
+                    : photoTimeLeftSeconds <= 0
+                    ? 'Ảnh chụp đã hết hạn 60 giây. Vui lòng chụp lại ảnh mới.'
+                    : `Nhấn nút chụp ảnh để thực hiện ${recommendation.baseAction.toLowerCase()}.`}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* RIGHT 5 COLS (Desktop always open with zero accordion clicks; Mobile expands via Status Strip) */}
+          <div className="order-1 lg:order-2 lg:col-span-5 space-y-3">
+            <div className={`${statusStripExpanded ? 'block' : 'hidden lg:block'} space-y-3 animate-fade-in`}>
+              {/* Live Shift Details + Team Attendance */}
+              <div className="rounded-2xl bg-[var(--kg-surface)] border border-[var(--kg-border)] p-3.5 shadow-xs space-y-2.5">
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-black text-[var(--kg-text)] truncate">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10.5px] font-bold border ${
+                          recommendation.isOpenShift
+                            ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/25'
+                            : recommendation.isOvernightShift
+                            ? 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/25'
+                            : recommendation.hasInToday
+                            ? 'bg-[var(--kg-primary-soft)] text-[var(--kg-primary)] border-[var(--kg-primary)]/20'
+                            : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)]'
+                        }`}
+                      >
+                        {recommendation.isOpenShift && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                        )}
+                        <span>
+                          {recommendation.isOvernightShift
+                            ? `Ca đêm ${recommendation.openShiftTime}`
+                            : recommendation.isOpenShift
+                            ? `Trong ca${smartIntent.openShiftDurationFormatted ? ` • ${smartIntent.openShiftDurationFormatted}` : ''}`
+                            : recommendation.hasInToday
+                            ? 'Đã vào ca'
+                            : 'Chưa vào ca'}
+                        </span>
+                      </span>
+                    </div>
+                    <p className="text-xs font-black text-[var(--kg-text)] truncate mt-1.5">
                       {currentUser?.fullname || 'Nhân viên'}
                     </p>
-                    <p className="text-[11px] text-[var(--kg-text-muted)] leading-snug font-medium">
+                    <p className="text-[11px] text-[var(--kg-text-muted)] leading-snug font-medium mt-0.5">
                       {recommendation.reason}
                     </p>
                   </div>
@@ -2915,7 +2801,7 @@ export default function CheckIn() {
                 </div>
 
                 {smartIntent.requiresDisambiguation && (
-                  <div className="p-2 rounded-lg bg-amber-500/15 border border-amber-500/35 flex items-start gap-2 text-[11px]">
+                  <div className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/35 flex items-start gap-2 text-[11px]">
                     <AlertTriangle size={14} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                     <div className="min-w-0">
                       <p className="font-black text-amber-800 dark:text-amber-300 leading-snug">
@@ -2927,7 +2813,7 @@ export default function CheckIn() {
               </div>
 
               {/* GPS Details & Precision Rescan */}
-              <div className="rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] p-2.5 space-y-2">
+              <div className="rounded-2xl bg-[var(--kg-surface)] border border-[var(--kg-border)] p-3.5 shadow-xs space-y-2.5">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -2950,14 +2836,47 @@ export default function CheckIn() {
                         variant="subtle"
                       />
                     </div>
-                    <p className="font-bold text-xs mt-0.5 leading-snug break-words text-[var(--kg-text)]">
+                    <p className="font-bold text-xs mt-1 leading-snug break-words text-[var(--kg-text)]">
                       {gps.address ? gps.address : gps.status}
                     </p>
-                    <span className={`mt-1 inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-bold border ${gps.isValid ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'}`}>
+                    <span className={`mt-1.5 inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-bold border ${gps.isValid ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'}`}>
                       {gps.message}
                     </span>
                   </div>
+                  <button
+                    type="button"
+                    onClick={restartGps}
+                    disabled={isPrecisionScanning}
+                    aria-label="Quét lại định vị GPS"
+                    title="Làm mới định vị GPS"
+                    className="hidden lg:inline-flex w-10 h-10 rounded-xl bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-border)] border border-[var(--kg-border)] text-[var(--kg-primary)] items-center justify-center transition-colors disabled:opacity-60 shrink-0"
+                  >
+                    <RefreshCw
+                      size={15}
+                      className={isPrecisionScanning || gps.status.includes('Đang') ? 'animate-spin' : ''}
+                    />
+                  </button>
                 </div>
+
+                {isPrecisionScanning && (
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[10px] font-bold text-blue-700 dark:text-blue-300">
+                      <span className="inline-flex items-center gap-1">
+                        <Radio size={11} className="animate-pulse" />
+                        Đang dò vệ tinh ({scanProgress.current}/{scanProgress.total})...
+                      </span>
+                      {scanProgress.bestAcc !== null && (
+                        <span className="font-mono tabular-nums">±{scanProgress.bestAcc}m</span>
+                      )}
+                    </div>
+                    <div className="w-full bg-blue-200/50 dark:bg-blue-950/60 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className="bg-blue-600 dark:bg-blue-400 h-1.5 rounded-full transition-all duration-300"
+                        style={{ width: `${Math.min(100, Math.max(15, (scanProgress.current / scanProgress.total) * 100))}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {!gps.isValid && gps.lat !== null && !isPrecisionScanning && (
                   <div className="flex flex-col sm:flex-row gap-2 pt-1">
@@ -2990,346 +2909,227 @@ export default function CheckIn() {
                   </button>
                 )}
               </div>
-            </div>
-          )}
-        </div>
-      </div>
 
-      {/* Camera Viewport: Ergonomic mobile height so Camera + Shutter + Primary CTA stay immediately accessible */}
-      <div className={`relative bg-slate-950 rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm aspect-[3/4] sm:aspect-[9/16] min-h-[340px] max-h-[410px] sm:min-h-[480px] sm:max-h-[580px] group border-[4px] sm:border-[5px] max-w-sm mx-auto transition-all ${isWithinRadius ? 'border-blue-600' : 'border-red-500'}`}>
-        <video ref={videoRef} autoPlay muted playsInline {...{ 'webkit-playsinline': 'true' }} className={`w-full h-full object-cover mirror-cam ${(cameraError || capturedImage) ? 'hidden' : ''}`} />
-        <canvas ref={overlayCanvasRef} className={`absolute inset-0 w-full h-full object-cover pointer-events-none ${(cameraError || capturedImage) ? 'hidden' : ''}`} />
-        <canvas ref={canvasRef} className="hidden" />
-        <input
-          type="file"
-          ref={fileInputRef}
-          data-testid="native-camera-file-input"
-          accept="image/*"
-          capture="user"
-          className="hidden"
-          onChange={handleFileUpload}
-        />
-
-        {/* Camera Error / No Video */}
-        {cameraError && !capturedImage && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 text-white p-6 text-center z-50">
-            <CameraOff size={44} className="mb-4 text-slate-500" />
-            <p className="mb-2 text-sm font-black">Chưa thể mở camera trực tiếp</p>
-            <p className="mb-6 text-xs text-slate-300 leading-normal max-w-[240px]">{cameraErrorMessage || 'Hãy dùng máy ảnh hệ thống điện thoại để chụp ảnh chấm công.'}</p>
-            <KgButton onClick={handleCaptureTrigger} variant="primary" size="md" icon={Camera} className="w-full max-w-[220px]">
-              {recommendation.baseAction === 'Ra ca' ? 'Chụp ảnh Ra ca' : 'Chụp ảnh Vào ca'}
-            </KgButton>
-            <button type="button" onClick={() => void startCamera()} className="text-xs text-slate-400 hover:text-white underline flex items-center mt-5 min-h-[44px] p-2">
-              <RotateCcw className="mr-1.5" size={13} /> Thử lại Camera trực tiếp
-            </button>
-          </div>
-        )}
-
-        {/* Floating timer */}
-        <div className="absolute top-4 left-4 right-4 flex justify-between items-start pointer-events-none z-20">
-          <div className="bg-black/60 text-white text-[11px] font-bold px-3 py-1.5 rounded-full backdrop-blur-md font-mono border border-white/10 shadow-md">
-            <span>{currentTime}</span>
-          </div>
-          <div className="bg-red-500 w-2.5 h-2.5 rounded-full animate-pulse shadow-[0_0_8px_red]" />
-        </div>
-
-        {/* Floating Locked Notice if Out of Radius */}
-        {!isWithinRadius && !capturedImage && (
-          <div className="absolute inset-x-4 top-14 z-30 pointer-events-none flex justify-center">
-            <span className="bg-rose-600/95 text-white text-xs px-3.5 py-1.5 rounded-full backdrop-blur-sm flex items-center shadow-lg font-bold gap-1.5 border border-rose-400/40 animate-pulse">
-              <Lock size={13} className="text-white" />
-              Ngoài bán kính {targetRadius}m {currentDist !== null ? `(${currentDist}m)` : ''} • Đã khóa camera
-            </span>
-          </div>
-        )}
-
-        {/* AI Face Detection Overlays (Only when within radius) */}
-        {isWithinRadius && !cameraError && !capturedImage && cameraActive && (
-          <div className="absolute inset-x-4 top-14 z-30 pointer-events-none flex justify-center">
-            {!isFaceModelLoaded && !faceModelUnavailable ? (
-              <span className="bg-black/70 text-white text-xs px-3.5 py-1.5 rounded-full backdrop-blur-sm flex items-center shadow-md font-semibold gap-1.5">
-                <RefreshCw size={13} className="animate-spin" /> Đang tải AI...
-              </span>
-            ) : faceModelUnavailable ? (
-              <span className="bg-amber-600/90 text-white text-xs px-3.5 py-1.5 rounded-full backdrop-blur-sm flex items-center shadow-md font-bold gap-1.5">
-                Camera sẵn sàng • nhận diện khuôn mặt ngoại tuyến
-              </span>
-            ) : !isFaceDetected ? (
-              <span className="bg-amber-600/90 text-white text-xs px-3.5 py-1.5 rounded-full backdrop-blur-sm flex items-center shadow-md font-bold gap-1.5">
-                Căn 1 khuôn mặt giữa khung hình
-              </span>
-            ) : (
-              <span className="bg-green-600/90 text-white text-xs px-3.5 py-1.5 rounded-full backdrop-blur-sm flex items-center shadow-md font-bold gap-1.5">
-                ✓ Sẵn sàng chụp ảnh
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Controls inside camera viewport — always interactive so shutter is NEVER dead */}
-        {!capturedImage && !cameraError && (
-          <div className="absolute bottom-6 left-0 right-0 flex justify-center items-center space-x-6 z-20">
-            <button
-              type="button"
-              onClick={() => { stopCamera(); setTimeout(() => void startCamera(), 250); }}
-              className="w-12 h-12 bg-black/55 hover:bg-black/70 text-white rounded-full flex items-center justify-center shadow-lg border border-white/15 active:scale-90 transition-all touch-manipulation"
-              title="Khởi động lại camera"
-            >
-              <RotateCcw size={18} />
-            </button>
-
-            <button
-              type="button"
-              data-testid="viewport-shutter-btn"
-              onClick={handleCaptureTrigger}
-              aria-label="Chụp ảnh chấm công"
-              title={
-                !isWithinRadius
-                  ? 'Kiểm tra vị trí GPS & chụp ảnh chấm công'
-                  : recommendation.baseAction === 'Ra ca'
-                  ? 'Chụp ảnh Ra ca'
-                  : 'Chụp ảnh Vào ca'
-              }
-              className="group relative touch-manipulation transition-all duration-150 scale-100 active:scale-95"
-            >
-              {!isWithinRadius ? (
-                <>
-                  <div className="absolute inset-0 bg-rose-600 rounded-full opacity-30 scale-110 animate-ping" />
-                  <div className="w-16 h-16 bg-rose-950/85 border-4 border-rose-500 rounded-full flex items-center justify-center shadow-lg">
-                    <Lock size={22} className="text-rose-400" />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="absolute inset-0 bg-white rounded-full opacity-35 scale-110" />
-                  <div className="w-16 h-16 bg-transparent border-4 border-white rounded-full flex items-center justify-center shadow-lg">
+              {/* Face ID Status & Quick Actions */}
+              <div className="rounded-2xl bg-[var(--kg-surface)] border border-[var(--kg-border)] p-3.5 shadow-xs space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
                     <div
-                      className={`w-11 h-11 rounded-full transition-all flex items-center justify-center ${
-                        isFaceDetected ? 'bg-green-500' : 'bg-white'
-                      } group-hover:scale-105`}
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
+                        selfFaceProfile
+                          ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-600 dark:text-emerald-400'
+                          : 'bg-amber-500/10 border-amber-500/25 text-amber-600 dark:text-amber-400'
+                      }`}
                     >
-                      {!cameraActive && <Camera size={18} className="text-slate-900" />}
+                      <ScanFace size={17} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs font-black text-[var(--kg-text)] truncate">
+                          {selfFaceProfile ? 'Face ID 5 góc: Sẵn sàng' : 'Chưa đăng ký Face ID'}
+                        </span>
+                        {selfFaceProfile && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25">
+                            <Lock size={9} /> Khóa bảo mật
+                          </span>
+                        )}
+                        {allFaceProfiles.length > 0 && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono tabular-nums font-bold bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-text-muted)]">
+                            {allFaceProfiles.length} hồ sơ
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-[var(--kg-text-muted)] leading-snug truncate mt-0.5">
+                        {selfFaceProfile
+                          ? 'Nhận diện tức thì trên mọi điện thoại tại quán'
+                          : 'Đăng ký 5 góc 1 lần để chấm công siêu tốc'}
+                      </p>
                     </div>
                   </div>
-                </>
+
+                  {currentUser?.role !== 'admin' && (
+                    selfFaceProfile ? (
+                      <button
+                        type="button"
+                        onClick={() => switchCheckinMode('v2')}
+                        className="min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs font-extrabold whitespace-nowrap inline-flex items-center gap-1.5 transition-colors shrink-0 touch-manipulation"
+                      >
+                        <ScanFace size={14} />
+                        <span>Mở Quét v2</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={openFaceEnrollmentModal}
+                        className="min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-extrabold whitespace-nowrap inline-flex items-center gap-1.5 transition-colors shrink-0 touch-manipulation"
+                      >
+                        <UserPlus size={14} />
+                        <span>ĐK 5 góc</span>
+                      </button>
+                    )
+                  )}
+                </div>
+
+                {currentUser?.role === 'admin' && (
+                  <div className="grid grid-cols-2 gap-2 pt-0.5">
+                    {selfFaceProfile ? (
+                      <button
+                        type="button"
+                        onClick={() => switchCheckinMode('v2')}
+                        className="min-h-[44px] px-3 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition-colors touch-manipulation"
+                      >
+                        <ScanFace size={14} />
+                        <span>Mở Trạm Quét v2</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={openFaceEnrollmentModal}
+                        className="min-h-[44px] px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition-colors touch-manipulation"
+                      >
+                        <UserPlus size={14} />
+                        <span>ĐK cho tôi</span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      data-testid="admin-enroll-staff-btn"
+                      onClick={openAdminStaffFacePicker}
+                      className="min-h-[44px] px-3 py-2 rounded-xl bg-[var(--kg-rail-bg)] hover:opacity-90 text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition-colors touch-manipulation"
+                    >
+                      <Users size={14} />
+                      <span>ĐK cho nhân viên</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Check-In Anomaly Alert Banner */}
+              {anomalies.length > 0 && (
+                <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-3 text-[var(--kg-text)]">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-wider bg-rose-500/20 px-1.5 py-0.5 rounded">
+                          Cần kiểm tra
+                        </span>
+                        <span className="text-xs font-bold font-mono tabular-nums">{anomalies[0].logTime}</span>
+                      </div>
+                      <p className="text-[11px] font-semibold mt-1">
+                        Đề xuất: <b>&quot;{formatUnifiedPunchLabel(anomalies[0].suggestedType)}&quot;</b> (hiện tại: &quot;{formatUnifiedPunchLabel(anomalies[0].type)}&quot;)
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => store.setCurrentTab('history')}
+                      className="min-h-[44px] sm:min-h-[36px] px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black whitespace-nowrap active:scale-95 transition-all flex-shrink-0 touch-manipulation"
+                    >
+                      Sửa loại →
+                    </button>
+                  </div>
+                </div>
               )}
-            </button>
+
+              {/* Missing Check-in Alerts Banner */}
+              {missingAlerts.length > 0 && (
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 text-[var(--kg-text)]">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider bg-amber-500/20 px-1.5 py-0.5 rounded">
+                          Thiếu lượt &quot;{missingAlerts[0].missingType}&quot;
+                        </span>
+                        <span className="text-xs font-bold font-mono tabular-nums">
+                          {missingAlerts[0].dateStr}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedMissingAlert(missingAlerts[0]);
+                        setMissedModalOpen(true);
+                      }}
+                      className="min-h-[44px] sm:min-h-[36px] px-3 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl text-xs whitespace-nowrap active:scale-95 transition-all flex-shrink-0 touch-manipulation"
+                    >
+                      Báo ngay →
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Desktop Missed-Punch Action Card (always visible in right rail on lg:) */}
+            <div className="hidden lg:block">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedMissingAlert(null);
+                  setMissedModalOpen(true);
+                }}
+                className="w-full p-3.5 min-h-[54px] rounded-2xl bg-[var(--kg-surface)] hover:bg-[var(--kg-surface-soft)] text-[var(--kg-text)] border border-amber-500/35 text-left shadow-xs transition active:scale-[0.98] touch-manipulation flex items-center justify-between gap-3 group"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition">
+                    <Clock size={20} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-black text-[var(--kg-text)] leading-tight flex items-center gap-1.5 flex-wrap">
+                      <span>Bổ sung chấm công</span>
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300">
+                        Chờ Admin duyệt
+                      </span>
+                    </p>
+                    <p className="text-[11px] text-[var(--kg-text-muted)] mt-0.5 leading-snug font-medium">
+                      {recommendation.baseAction === 'Vào ca'
+                        ? 'Quên bấm Vào ca đầu giờ? Bổ sung ngay →'
+                        : 'Quên bấm lượt trước hoặc lỗi mạng? Bổ sung →'}
+                    </p>
+                  </div>
+                </div>
+                <div className="w-8 h-8 rounded-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex items-center justify-center flex-shrink-0 text-[var(--kg-text-muted)] group-hover:text-amber-500 group-hover:border-amber-500/30 transition">
+                  <ChevronRight size={16} />
+                </div>
+              </button>
+            </div>
           </div>
-        )}
+        </div>
 
-        {/* Captured image display with 100% full-fill uncropped watermark */}
-        {capturedImage && (
-          <div className="absolute inset-0 bg-slate-950 z-30 flex flex-col items-center justify-center animate-fade-in">
-            <img
-              src={capturedImage}
-              className="w-full h-full object-cover rounded-2xl"
-              alt="Ảnh chấm công có đóng dấu"
-            />
-            
-            {/* Top Floating Glass Dock with Status & Fast Actions */}
-            <div className="absolute top-2 inset-x-2 z-40 pointer-events-auto">
-              <div className="bg-slate-950/85 backdrop-blur-md border border-white/20 rounded-xl px-2 py-1 flex items-center justify-between shadow-2xl shadow-black/70">
-                {/* Left: Combined Status & Live Countdown Chip */}
-                <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[10.5px] font-bold shadow-sm whitespace-nowrap shrink-0">
-                  <CheckCircle2 size={11} className="text-emerald-400 shrink-0" />
-                  <span>Đã đóng dấu</span>
-                  <span className="text-emerald-400/50 font-normal">•</span>
-                  <span
-                    className={`font-mono ${
-                      photoTimeLeftSeconds <= 15
-                        ? 'text-rose-400 animate-pulse font-black'
-                        : photoTimeLeftSeconds <= 30
-                        ? 'text-amber-300'
-                        : 'text-slate-300'
-                    }`}
-                    title="Thời hạn ảnh chụp có hiệu lực"
-                  >
-                    {photoTimeLeftSeconds}s
+        {/* Mobile Missed Checkin Helper Card (below Camera & Primary CTA on < lg) */}
+        <div className="lg:hidden max-w-sm mx-auto pt-1 pb-6">
+          <button
+            type="button"
+            data-testid="open-missed-checkin-helper-btn"
+            onClick={() => {
+              setSelectedMissingAlert(null);
+              setMissedModalOpen(true);
+            }}
+            className="w-full p-3.5 min-h-[54px] rounded-2xl bg-[var(--kg-surface)] hover:bg-[var(--kg-surface-soft)] text-[var(--kg-text)] border border-amber-500/35 text-left shadow-xs transition active:scale-[0.98] touch-manipulation flex items-center justify-between gap-3 group"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition">
+                <Clock size={20} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-black text-[var(--kg-text)] leading-tight flex items-center gap-1.5 flex-wrap">
+                  <span>Bổ sung chấm công</span>
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300">
+                    Chờ Admin duyệt
                   </span>
-                </div>
-
-                {/* Right: Fast Actions (>=44px mobile touch targets, zero clipping) */}
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      store.setPreviewImageUrl(capturedImage);
-                      store.setPreviewOpen(true);
-                    }}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 min-h-[44px] sm:min-h-[32px] bg-white/10 hover:bg-white/20 active:scale-95 text-white rounded-lg border border-white/15 backdrop-blur-sm transition-all text-[11px] font-semibold whitespace-nowrap shrink-0 touch-manipulation"
-                    title="Xem toàn màn hình"
-                  >
-                    <Maximize2 size={12} className="shrink-0" />
-                    <span>Xem to</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      store.setCapturedImage(null);
-                      store.setCapturedTime(null);
-                      setCapturedGps(null);
-                      setPhotoCapturedAtMs(null);
-                      setPhotoTimeLeftSeconds(PHOTO_EXPIRATION_SECONDS);
-                      setUserResolvedDisambiguation(null);
-                    }}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 min-h-[44px] sm:min-h-[32px] bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-lg border border-rose-400/40 shadow-md transition-all text-[11px] font-bold whitespace-nowrap shrink-0 touch-manipulation"
-                    title="Chụp lại ảnh"
-                  >
-                    <RotateCcw size={12} className="shrink-0" />
-                    <span>Chụp lại</span>
-                  </button>
-                </div>
+                </p>
+                <p className="text-[11px] text-[var(--kg-text-muted)] mt-0.5 leading-snug font-medium">
+                  {recommendation.baseAction === 'Vào ca'
+                    ? 'Quên bấm Vào ca đầu giờ? Bổ sung ngay để chuyển sang Ra ca →'
+                    : 'Quên bấm lượt trước hoặc lỗi mạng? Chọn ngày để bổ sung →'}
+                </p>
               </div>
             </div>
-
-            {/* Bottom Progress Bar: 60s Visual Depletion (single primary CTA below frame avoids 3-way confirmation overlap) */}
-            <div className="absolute bottom-0 inset-x-0 h-1.5 bg-black/40 overflow-hidden z-40 pointer-events-none">
-              <div
-                className={`h-full transition-all duration-500 ${
-                  photoTimeLeftSeconds <= 15
-                    ? 'bg-rose-500'
-                    : photoTimeLeftSeconds <= 30
-                    ? 'bg-amber-500'
-                    : 'bg-emerald-500'
-                }`}
-                style={{ width: `${(photoTimeLeftSeconds / PHOTO_EXPIRATION_SECONDS) * 100}%` }}
-              />
+            <div className="w-8 h-8 rounded-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex items-center justify-center flex-shrink-0 text-[var(--kg-text-muted)] group-hover:text-amber-500 group-hover:border-amber-500/30 transition">
+              <ChevronRight size={16} />
             </div>
-          </div>
-        )}
-      </div>
-
-      {/* Primary Action Button: Always interactive when !capturedImage so staff NEVER hit a dead button */}
-      <div className="max-w-sm mx-auto space-y-2.5">
-        <KgButton
-          data-testid="primary-capture-action-btn"
-          variant={(userResolvedDisambiguation || smartIntent.smartSuggestedAction) === 'Ra ca' && capturedImage ? 'danger' : 'primary'}
-          size="lg"
-          disabled={capturedImage ? !canSubmit || isSubmittingPunch : false}
-          onClick={() => {
-            if (!capturedImage) {
-              handleCaptureTrigger();
-              return;
-            }
-            if (isCooldownBlocked) {
-              speak(`Vui lòng đợi thêm ${cooldown.remainingMinutesFormatted} để chấm công lại.`);
-              setSpamWarningText(`Quy định chống trùng lặp: Bạn vừa chấm ${formatUnifiedPunchLabel(cooldown.lastType || 'công')} lúc ${cooldown.lastTimeStr || ''}. Vui lòng đợi thêm ${cooldown.remainingMinutesFormatted} trước lượt chấm tiếp theo.`);
-              setSpamWarningOpen(true);
-              return;
-            }
-            if (recommendation.isMaxPunchesReached) {
-              setFeedbackTitle('Đã đủ 4 lượt chấm công trong ngày');
-              setFeedbackMessage('Hệ thống đã ghi nhận đủ 2 cặp Vào ca – Ra ca trong chu kỳ 06:00 – 05:59 hiện tại.');
-              setFeedbackType('info');
-              setFeedbackSheetOpen(true);
-              return;
-            }
-            if (!isWithinRadius) {
-              speak('Bạn đang ở ngoài bán kính 25m nhà hàng.');
-              setFeedbackTitle('Ngoài bán kính chấm công');
-              setFeedbackMessage(`Khoảng cách hiện tại: ${currentDist ?? 'quá'}m (quy định ≤ ${targetRadius}m). Vui lòng di chuyển vào nhà hàng để chấm công.`);
-              setFeedbackType('warning');
-              setFeedbackSheetOpen(true);
-              return;
-            }
-            setModalChosenType(userResolvedDisambiguation || smartIntent.smartSuggestedAction);
-            setHasAcknowledgedEarlyOut(false);
-            setConfirmCheckInModalOpen(true);
-          }}
-          className={`w-full h-14 min-h-[52px] shadow-lg rounded-2xl text-[15px] font-black tracking-wide border-none active:scale-[0.97] transition-all touch-manipulation flex items-center justify-center gap-2.5 ${
-            isCooldownBlocked
-              ? 'bg-amber-600 hover:bg-amber-700 text-white'
-              : recommendation.isMaxPunchesReached
-              ? 'bg-slate-600 hover:bg-slate-700 text-white'
-              : capturedImage
-              ? !canSubmit || isSubmittingPunch
-                ? 'opacity-60 cursor-not-allowed bg-slate-400 text-white'
-                : (userResolvedDisambiguation || smartIntent.smartSuggestedAction) === 'Ra ca'
-                ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-md'
-                : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md'
-              : smartIntent.requiresDisambiguation
-              ? 'bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-md'
-              : smartIntent.smartSuggestedAction === 'Ra ca'
-              ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-md'
-              : 'bg-[var(--kg-primary)] hover:opacity-95 text-white shadow-md'
-          }`}
-          icon={
-            isSubmittingPunch
-              ? Loader2
-              : capturedImage
-              ? (userResolvedDisambiguation || smartIntent.smartSuggestedAction) === 'Ra ca'
-                ? LogOut
-                : LogIn
-              : Camera
-          }
-        >
-          {isSubmittingPunch
-            ? 'ĐANG XÁC NHẬN TỨC THÌ...'
-            : isCooldownBlocked
-            ? `GIÃN CÁCH (${cooldown.remainingMinutesFormatted})`
-            : recommendation.isMaxPunchesReached
-            ? 'ĐÃ ĐỦ 4 LƯỢT TRONG NGÀY'
-            : capturedImage
-            ? `${(userResolvedDisambiguation || smartIntent.smartSuggestedAction) === 'Ra ca' ? 'Xác nhận Ra ca' : 'Xác nhận Vào ca'} (${photoTimeLeftSeconds}s)`
-            : smartIntent.requiresDisambiguation
-            ? 'CHỤP ẢNH XÁC NHẬN CA'
-            : smartIntent.smartSuggestedAction === 'Ra ca'
-            ? 'CHỤP ẢNH RA CA'
-            : 'CHỤP ẢNH VÀO CA'}
-        </KgButton>
-
-        {!canSubmit && (
-          <p className="text-[11px] text-center text-[var(--kg-text-muted)] font-medium">
-            {isCooldownBlocked
-              ? `Cần chờ thêm ${cooldown.remainingMinutesFormatted} theo quy định giãn cách 15 phút.`
-              : recommendation.isMaxPunchesReached
-              ? 'Bạn đã hoàn tất đủ 2 cặp Vào ca – Ra ca trong chu kỳ ngày công hiện tại.'
-              : !capturedImage && !isWithinRadius
-              ? gps.lat === null
-                ? 'Đang lấy vị trí GPS... Nhấn nút chụp ảnh để tự động quét vị trí.'
-                : `Ngoài bán kính ${targetRadius}m (${currentDist ?? 'quá'}m). Nhấn nút chụp ảnh để quét lại GPS vệ tinh.`
-              : !isWithinRadius
-              ? `Ngoài bán kính ${targetRadius}m (${currentDist ?? 'quá'}m). Không thể gửi chấm công.`
-              : photoTimeLeftSeconds <= 0
-              ? 'Ảnh chụp đã hết hạn 60 giây. Vui lòng chụp lại ảnh mới.'
-              : `Nhấn nút chụp ảnh để thực hiện ${recommendation.baseAction.toLowerCase()}.`}
-          </p>
-        )}
-      </div>
-
-      {/* Missed Checkin Helper Card - Streamlined Guidance to "Bổ sung chấm công" */}
-      <div className="max-w-sm mx-auto pt-2 pb-8">
-        <button
-          type="button"
-          data-testid="open-missed-checkin-helper-btn"
-          onClick={() => {
-            setSelectedMissingAlert(null);
-            setMissedModalOpen(true);
-          }}
-          className="w-full p-3.5 min-h-[54px] rounded-2xl bg-[var(--kg-surface)] hover:bg-[var(--kg-surface-soft)] text-[var(--kg-text)] border border-amber-500/35 text-left shadow-xs transition active:scale-[0.98] touch-manipulation flex items-center justify-between gap-3 group"
-        >
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition">
-              <Clock size={20} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-black text-[var(--kg-text)] leading-tight flex items-center gap-1.5 flex-wrap">
-                <span>Bổ sung chấm công</span>
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300">
-                  Chờ Admin duyệt
-                </span>
-              </p>
-              <p className="text-[11px] text-[var(--kg-text-muted)] mt-0.5 leading-snug font-medium">
-                {recommendation.baseAction === 'Vào ca'
-                  ? 'Quên bấm Vào ca đầu giờ? Bổ sung ngay để chuyển sang Ra ca →'
-                  : 'Quên bấm lượt trước hoặc lỗi mạng? Chọn ngày để bổ sung →'}
-              </p>
-            </div>
-          </div>
-          <div className="w-8 h-8 rounded-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex items-center justify-center flex-shrink-0 text-[var(--kg-text-muted)] group-hover:text-amber-500 group-hover:border-amber-500/30 transition">
-            <ChevronRight size={16} />
-          </div>
-        </button>
+          </button>
+        </div>
       </div>
 
       {/* Smart Context-Aware Confirmation & Disambiguation Bottom Sheet (Zero Wrong Vào/Ra Clicks) */}
@@ -3877,210 +3677,32 @@ export default function CheckIn() {
         }}
       />
 
-      {/* General info feedback sheet */}
-      <KgBottomSheet isOpen={feedbackSheetOpen} onClose={() => setFeedbackSheetOpen(false)} title={feedbackType === 'success' ? (isCheckInLabel(lastSubmittedPunch?.type || '') ? 'Bắt đầu ca làm việc' : 'Hoàn thành ca làm việc') : 'Thông báo'}>
-        {feedbackType === 'success' && lastSubmittedPunch ? (
-          <div className="space-y-4 py-2">
-            {/* Operational Receipt Header */}
-            <div className="text-center">
-              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-xs ${
-                isCheckInLabel(lastSubmittedPunch.type)
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-[var(--kg-primary)] text-white'
-              }`}>
-                {isCheckInLabel(lastSubmittedPunch.type) ? (
-                  <Sparkles size={28} />
-                ) : (
-                  <PartyPopper size={28} />
-                )}
-              </div>
-
-              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${
-                isCheckInLabel(lastSubmittedPunch.type)
-                  ? 'bg-[var(--kg-success-soft)] text-[var(--kg-success)] border border-[var(--kg-success)]/25'
-                  : 'bg-[var(--kg-primary-soft)] text-[var(--kg-primary)] border border-[var(--kg-primary)]/20'
-              }`}>
-                <span className={`w-2 h-2 rounded-full ${isCheckInLabel(lastSubmittedPunch.type) ? 'bg-emerald-500' : 'bg-[var(--kg-primary)]'}`} />
-                {`${formatUnifiedPunchLabel(lastSubmittedPunch.type).toUpperCase()} THÀNH CÔNG`}
-              </span>
-
-              <h3 className="mt-2 text-lg sm:text-xl font-bold text-[var(--kg-text)] tracking-tight">
-                {`Điểm danh ${formatUnifiedPunchLabel(lastSubmittedPunch.type)} thành công`}
-              </h3>
-
-              <p className="mt-1 text-xs text-[var(--kg-text-muted)] max-w-xs mx-auto leading-relaxed">
-                {isCheckInLabel(lastSubmittedPunch.type)
-                  ? 'Chúc bạn một ca làm việc tràn đầy năng lượng và phục vụ khách hàng chu đáo!'
-                  : 'Cảm ơn bạn đã hoàn thành ca trực hôm nay. Hãy nghỉ ngơi thật tốt nhé!'}
-              </p>
-            </div>
-
-            {/* Synchronized Detail Metrics Card */}
-            <div className="bg-[var(--kg-surface-soft)] rounded-2xl p-3.5 border border-[var(--kg-border)] space-y-2 text-xs">
-              {/* Prominent Honest Google Sheet / Cloud Ledger Confirmation Badge */}
-              <div
-                className={`flex items-center justify-between pb-2 border-b -mx-3.5 -mt-3.5 p-3 rounded-t-2xl ${
-                  lastSubmittedPunch.sheetSaved
-                    ? 'border-[var(--kg-success)]/20 bg-[var(--kg-success-soft)]'
-                    : 'border-sky-500/25 bg-sky-500/10'
-                }`}
-              >
-                <span
-                  className={`font-bold uppercase tracking-wider text-[11px] flex items-center gap-1.5 ${
-                    lastSubmittedPunch.sheetSaved
-                      ? 'text-[var(--kg-success)]'
-                      : 'text-sky-700 dark:text-sky-300'
-                  }`}
-                >
-                  {lastSubmittedPunch.sheetSaved ? (
-                    <CheckCircle2 size={15} />
-                  ) : (
-                    <CloudUpload size={15} />
-                  )}
-                  Bảng Chấm Công
-                </span>
-                <span
-                  className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                    lastSubmittedPunch.sheetSaved
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-sky-600 text-white'
-                  }`}
-                >
-                  {lastSubmittedPunch.sheetSaved
-                    ? '✓ ĐÃ GHI GOOGLE SHEETS 100%'
-                    : '☁️ ĐÃ BẢO LÃNH ĐÁM MÂY • ĐANG GHI SHEET'}
-                </span>
-              </div>
-
-              {!lastSubmittedPunch.sheetSaved && lastSubmittedPunch.edgeBuffered && (
-                <div className="p-2 rounded-xl bg-sky-500/10 border border-sky-500/25 text-[11px] text-sky-800 dark:text-sky-300 font-semibold leading-snug">
-                  Lượt chấm đã được khóa an toàn trên Đám mây Cloudflare D1 và tự động ghi vào Google Sheets kể cả khi bạn đóng ứng dụng.
-                </div>
-              )}
-
-              {Boolean(lastSubmittedPunch.supplementSubmittedText) && (
-                <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-[11px] text-emerald-800 dark:text-emerald-300 font-bold flex items-center gap-1.5 leading-snug">
-                  <CheckCircle2 size={14} className="shrink-0 text-emerald-600 dark:text-emerald-400" />
-                  <span>{lastSubmittedPunch.supplementSubmittedText}</span>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between pb-2 border-b border-[var(--kg-border)]">
-                <span className="text-[var(--kg-text-muted)] font-semibold uppercase tracking-wider text-[10px]">Nhân sự</span>
-                <span className="font-bold text-[var(--kg-text)] text-sm">{lastSubmittedPunch.fullname}</span>
-              </div>
-              <div className="flex items-center justify-between pb-2 border-b border-[var(--kg-border)]">
-                <span className="text-[var(--kg-text-muted)] font-semibold uppercase tracking-wider text-[10px]">Thời gian</span>
-                <span className="font-mono tabular-nums font-bold text-[var(--kg-primary)]">{lastSubmittedPunch.time}</span>
-              </div>
-              <div className="flex items-center justify-between pb-2 border-b border-[var(--kg-border)]">
-                <span className="text-[var(--kg-text-muted)] font-semibold uppercase tracking-wider text-[10px]">Ca làm việc</span>
-                <span className={`inline-block px-2.5 py-0.5 rounded-lg font-bold text-xs ${getPreviewShiftClass(lastSubmittedPunch.shift)}`}>
-                  {lastSubmittedPunch.shift}
-                </span>
-              </div>
-              <div className="flex items-center justify-between pb-2 border-b border-[var(--kg-border)]">
-                <span className="text-[var(--kg-text-muted)] font-semibold uppercase tracking-wider text-[10px]">Định vị GPS</span>
-                <span className="font-mono tabular-nums font-bold text-[var(--kg-success)] flex items-center gap-1">
-                  <CheckCircle2 size={13} /> {lastSubmittedPunch.distMeters} • Hợp lệ
-                </span>
-              </div>
-              <div className="flex items-center justify-between pt-0.5">
-                <span className="text-[var(--kg-text-muted)] font-semibold uppercase tracking-wider text-[10px]">Email thông báo</span>
-                <span className="font-medium text-[var(--kg-text-muted)] truncate max-w-[200px]" title={lastSubmittedPunch.email}>
-                  {lastSubmittedPunch.email}
-                </span>
-              </div>
-
-              {/* Late penalty banner if late */}
-              {Boolean(lastSubmittedPunch.lateMins && lastSubmittedPunch.lateMins > 0) && (
-                <div className="mt-2 p-2.5 rounded-xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/25 text-amber-800 dark:text-amber-300 flex items-center gap-2">
-                  <AlertTriangle size={15} className="shrink-0 text-amber-600" />
-                  <span className="text-[11px] font-bold">
-                    Đi trễ <span className="font-mono tabular-nums">{lastSubmittedPunch.lateMins}</span> phút • Khấu trừ tạm tính: <span className="font-mono tabular-nums">-{(lastSubmittedPunch.penaltyAmount || 0).toLocaleString()}đ</span>
-                  </span>
-                </div>
-              )}
-
-              {/* Checklist reminder banner if checklist pending */}
-              {Boolean(lastSubmittedPunch.checklistPending) && (
-                <div className="mt-2 p-2.5 rounded-xl bg-[var(--kg-info-soft)] border border-[var(--kg-info)]/25 text-[var(--kg-info)] flex items-center gap-2">
-                  <Info size={15} className="shrink-0" />
-                  <span className="text-[11px] font-semibold">
-                    Nhắc nhở: Bạn có checklist vận hành ca trực cần hoàn thành.
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Action button */}
-            <button
-              type="button"
-              onClick={() => {
-                setFeedbackSheetOpen(false);
-                if (pendingSurveyAfterPunch) {
-                  setPendingSurveyAfterPunch(false);
-                  setTimeout(() => {
-                    setSurveyEmotion(null);
-                    setSurveyNote('');
-                    setSurveyOpen(true);
-                  }, 350);
-                }
-              }}
-              className={`w-full py-3.5 rounded-xl font-bold text-sm text-white shadow-xs active:scale-[0.98] transition-colors flex items-center justify-center gap-2 min-h-[44px] ${
-                isCheckInLabel(lastSubmittedPunch.type)
-                  ? 'bg-emerald-600 hover:bg-emerald-700'
-                  : 'bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)]'
-              }`}
-            >
-              <CheckCircle2 size={18} />
-              Hoàn tất
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-4 text-center py-2">
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto ${
-              feedbackType === 'warning' ? 'bg-[var(--kg-warning-soft)] text-[var(--kg-warning)]' : 'bg-[var(--kg-primary-soft)] text-[var(--kg-primary)]'
-            }`}>
-              {feedbackType === 'warning' ? <AlertTriangle size={24} /> : <UserCheck size={24} />}
-            </div>
-            <h4 className="text-base font-bold text-[var(--kg-text)]">{feedbackTitle}</h4>
-            <p className="text-xs text-[var(--kg-text-muted)] whitespace-pre-line leading-relaxed">
-              {feedbackMessage}
-            </p>
-            {feedbackType === 'warning' && !isWithinRadius && (
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFeedbackSheetOpen(false);
-                    handlePrecisionRescan();
-                  }}
-                  className="min-h-[44px] px-3 py-2 rounded-xl bg-[var(--kg-primary)] hover:opacity-90 text-white text-xs font-black inline-flex items-center justify-center gap-1.5 active:scale-95 transition touch-manipulation"
-                >
-                  <Radio size={14} />
-                  <span>Quét lại GPS</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFeedbackSheetOpen(false);
-                    setSelectedMissingAlert(null);
-                    setMissedModalOpen(true);
-                  }}
-                  className="min-h-[44px] px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black inline-flex items-center justify-center gap-1.5 active:scale-95 transition touch-manipulation"
-                >
-                  <Clock size={14} />
-                  <span>Bổ sung công</span>
-                </button>
-              </div>
-            )}
-            <KgButton variant="secondary" size="md" className="w-full" onClick={() => setFeedbackSheetOpen(false)}>
-              Đóng
-            </KgButton>
-          </div>
-        )}
-      </KgBottomSheet>
+      {/* General info / Operational Receipt Sheet */}
+      <CheckInReceiptSheet
+        isOpen={feedbackSheetOpen}
+        onClose={() => setFeedbackSheetOpen(false)}
+        feedbackType={feedbackType}
+        feedbackTitle={feedbackTitle}
+        feedbackMessage={feedbackMessage}
+        lastSubmittedPunch={lastSubmittedPunch}
+        isWithinRadius={isWithinRadius}
+        onCompleteSuccess={() => {
+          setFeedbackSheetOpen(false);
+          if (pendingSurveyAfterPunch) {
+            setPendingSurveyAfterPunch(false);
+            setTimeout(() => {
+              setSurveyEmotion(null);
+              setSurveyNote('');
+              setSurveyOpen(true);
+            }, 350);
+          }
+        }}
+        onPrecisionRescan={handlePrecisionRescan}
+        onOpenMissedModal={() => {
+          setSelectedMissingAlert(null);
+          setMissedModalOpen(true);
+        }}
+      />
 
       {/* Pulse survey bottom sheet */}
       <KgBottomSheet isOpen={surveyOpen} onClose={() => setSurveyOpen(false)} title="Khảo sát sức khỏe đầu ca">

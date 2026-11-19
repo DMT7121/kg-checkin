@@ -1,7 +1,8 @@
-# DESIGN.md — King's Grill Staff OS `v4.0.1` (Warm Hospitality Super-App)
+# DESIGN.md — King's Grill Staff OS `v5.0` (Unified Staff OS 5.0)
 
-- **Version:** `4.0.1` (`Warm Hospitality Super-App Edition`)
-- **Archetype:** `editorial-atelier-ops` — Slim Architectural Rail (Desktop) + Native Super-App Floating Pill Dock (Mobile)
+- **Version:** `5.0` (`Unified Staff OS 5.0 — 11-Hub Consolidated Edition`)
+- **Archetype:** `editorial-atelier-ops` — Slim Architectural Rail (Desktop) + Compact Icon+Micro-Label Rail (Tablet `md–lg`) + Native Super-App Floating Pill Dock (Mobile `< md`)
+- **Zero Legacy Heavy Runtime Dependencies:** `sweetalert2`, `framer-motion`, `face-api.js`, and `canvas-confetti` fully removed; all dialogs, toasts, and transitions use native `--kg-*` CSS (`<= 200ms`) + `useFeedbackStore` (`kgToast`, `kgConfirm`, `kgLoading`) + `KgBottomSheet`.
 
 ---
 
@@ -91,13 +92,15 @@ All surfaces, inks, borders, and semantic states are defined in `src/index.css` 
 
 | Layer | Z-Index | Component / Role |
 | :--- | :--- | :--- |
-| Sticky Headers & Sync Bar | `z-30` | Inline legends, sticky Checklist batch sync bar |
-| Shell Navigation | `z-40` – `z-60` | Desktop Architectural Rail & Mobile Floating Pill Dock |
-| Bottom Sheets & Lightbox | `z-[10050]` | `KgBottomSheet`, `KgConfirmSheet`, `KgActionSheet`, Lightbox |
+| Sticky Sub-Tabs & Bulk Bars | `z-20` – `z-30` | `ModuleHub` sticky sub-tabs (`md:top-[60px]`), `HrList` sticky bulk bar (`md:top-[124px]`), Checklist sticky sync bar |
+| Shell Navigation | `z-40` – `z-60` | Desktop Architectural Rail, Tablet Compact Rail, Mobile Floating Pill Dock (`h-dvh`) |
+| Bottom Sheets, Command Palette & Floating AI | `z-[10050]` – `z-[10055]` | `KgBottomSheet`, `KgConfirmSheet`, `KgActionSheet`, `KgFeatureTip`, `KgCommandPalette`, `AIAssistant`, Lightbox |
 | Startup Modal — Priority 1 | `z-[10060]` | `NewbieGuideModal` (`newbie_guide`) |
 | Startup Modal — Priority 2 | `z-[10070]` | `VersionReleaseModal` (`version_release`) |
+| Kiosk & Operational Full-Screen Modals | `z-[10075]` | `AdminStaffFacePickerModal`, `MissedCheckInModal` |
 | Startup Modal — Priority 3 | `z-[10080]` | `MandatoryScheduleModal` (`mandatory_schedule` — blocking until submitted) |
-| Blocking Loading Overlay | `z-[10200]` | `KgLoadingOverlay` / `LoadingScreen` |
+| Blocking Loading Overlay & Global Feedback | `z-[10200]` | `KgLoadingOverlay` / `LoadingScreen` / `KgGlobalFeedback` |
 | Startup Modal — Priority 4 | `z-[10300]` | `ZaloWarning` (`zalo` — highest priority in-app browser gate) |
 
+- **Responsive Table Breakpoint Rule (`>= lg` / `1024px`):** Dense data tables (`HrDesktopTable`, `AdminChecklistConfig`, `AdminAuditLog`, `PayrollManagerView`, `Handover`) switch to full-width card lists below `1024px` (`< lg`) so iPad Portrait (`768px–1023px`) and Mobile (`360px–430px`) have zero horizontal overflow.
 - **Modal Queue (`src/utils/modalQueue.ts`):** Coordinates startup/system modals via pub/sub (`useModalQueue`) so only the highest-priority active modal (`zalo > mandatory_schedule > version_release > newbie_guide`) renders at any moment—preventing simultaneous modal stacking.

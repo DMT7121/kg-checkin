@@ -6,11 +6,17 @@ export type TabId =
   | 'income'
   | 'communications'
   | 'knowledge'
+  | 'admin_ops'
+  | 'admin_people_pay'
+  | 'admin_system'
+  // Legacy hub aliases (preserved for deep-links & backward compatibility)
   | 'admin_people'
   | 'admin_workforce'
   | 'admin_work'
   | 'admin_income'
-  | 'admin_system'
+  // Sub-tabs & leaf aliases
+  | 'ledger'
+  | 'incidents'
   | 'news'
   | 'soldout'
   | 'feedback'

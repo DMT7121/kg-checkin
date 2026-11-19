@@ -59,10 +59,24 @@ export function computeCentroid(vectors: Float32Array[], dim = FACE_EMBEDDING_DI
   return l2Normalize(sum);
 }
 
+interface NodeBufferLike {
+  from(
+    arrayBuffer: ArrayBufferLike,
+    byteOffset?: number,
+    length?: number
+  ): { toString(encoding: 'base64'): string };
+  from(input: string, encoding: 'base64'): Uint8Array;
+}
+
+function getNodeBuffer(): NodeBufferLike | undefined {
+  return (globalThis as { Buffer?: NodeBufferLike }).Buffer;
+}
+
 function uint8ToBase64UrlSafe(bytes: Uint8Array): string {
   let b64 = '';
-  if (typeof Buffer !== 'undefined') {
-    b64 = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString('base64');
+  const nodeBuffer = getNodeBuffer();
+  if (nodeBuffer) {
+    b64 = nodeBuffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString('base64');
   } else {
     let bin = '';
     for (let i = 0; i < bytes.length; i++) {
@@ -81,8 +95,9 @@ function base64ToUint8(b64: string): Uint8Array {
   const clean = stripped.replace(/-/g, '+').replace(/_/g, '/');
   const padded = clean.padEnd(Math.ceil(clean.length / 4) * 4, '=');
   try {
-    if (typeof Buffer !== 'undefined') {
-      const buf = Buffer.from(padded, 'base64');
+    const nodeBuffer = getNodeBuffer();
+    if (nodeBuffer) {
+      const buf = nodeBuffer.from(padded, 'base64');
       return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
     }
     const bin = atob(padded);

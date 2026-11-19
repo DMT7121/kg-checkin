@@ -40,6 +40,14 @@ export function hasTabPermission(tabId: TabId, user: User | null): boolean {
 
   // 2. Admin/Management tabs (Admin only)
   const adminTabs: TabId[] = [
+    'admin_ops',
+    'admin_people_pay',
+    'admin_system',
+    // Legacy admin hub & leaf aliases
+    'admin_people',
+    'admin_workforce',
+    'admin_work',
+    'admin_income',
     'admin',
     'hr_list',
     'admin_org',
@@ -47,7 +55,7 @@ export function hasTabPermission(tabId: TabId, user: User | null): boolean {
     'admin_operations',
     'admin_payroll',
     'admin_checklist',
-    'admin_analytics'
+    'admin_analytics',
   ];
   if (adminTabs.includes(tabId)) {
     return false;
@@ -62,8 +70,8 @@ export function hasTabPermission(tabId: TabId, user: User | null): boolean {
     return allowedPositions.includes(position);
   }
 
-  if (tabId === 'handover') {
-    // Handover is only for responsible roles (cashiers, kitchen, bar, leaders, managers)
+  if (tabId === 'handover' || tabId === 'incidents') {
+    // Handover & incident ledger are only for responsible roles (cashiers, kitchen, bar, leaders, managers)
     // Denied: Phục vụ, Tạp vụ, Bảo vệ
     const allowedPositions = ['Quản lý', 'Tổ trưởng', 'Thu ngân', 'Bếp', 'Pha chế'];
     return allowedPositions.includes(position);
@@ -94,17 +102,27 @@ export function getTabLabel(tabId: TabId): string {
     checkin: 'Chấm công',
     checklist: 'Checklist việc',
     handover: 'Bàn giao ca',
+    incidents: 'Sự cố ca',
     operations: 'Phân công trực',
     schedule: 'Lịch đăng ký',
     swap: 'Đổi ca',
     roster: 'Lịch tổng',
+    ledger: 'Bảng công & Nhật ký',
     history: 'Lịch sử chấm công',
     timesheet: 'Bảng công',
     advance: 'Ứng lương',
     payroll: 'Phiếu lương',
     discipline: 'Kỷ luật',
     reward: 'King Coins',
-    admin: 'Cấu hình AI',
+    income: 'Cộng đồng',
+    admin_ops: 'Điều hành & Duyệt',
+    admin_people_pay: 'Nhân sự & Lương',
+    admin_system: 'Báo cáo & Hệ thống',
+    admin_people: 'Nhân sự & Lương',
+    admin_workforce: 'Điều hành & Duyệt',
+    admin_work: 'Điều hành & Duyệt',
+    admin_income: 'Nhân sự & Lương',
+    admin: 'Cấu hình & AI',
     hr_list: 'Danh sách nhân sự',
     admin_org: 'Tổ chức & Quyền',
     admin_shift: 'Phân ca',
@@ -113,7 +131,7 @@ export function getTabLabel(tabId: TabId): string {
     admin_checklist: 'Cấu hình checklist',
     admin_analytics: 'Thống kê & Báo cáo',
     profile: 'Hồ sơ cá nhân',
-    guide: 'Hướng dẫn sử dụng',
+    guide: 'Kiến thức & SOP',
   };
   return labels[tabId] || tabId;
 }

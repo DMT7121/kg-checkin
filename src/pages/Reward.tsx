@@ -1,15 +1,12 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import { buildHealthyReliabilityRanking } from '../utils/trainingGamification';
 import {
   Award,
-  Star,
-  Gift,
   Trophy,
   Crown,
   Medal,
-  AlertCircle,
   History,
   RefreshCw,
   Sparkles,
@@ -18,17 +15,14 @@ import {
   ClipboardCheck,
   ArrowLeftRight,
   Scale,
-  Clock,
-  AlertTriangle,
-  Coffee,
-  CalendarCheck,
-  Banknote,
-  ShoppingBag,
   GraduationCap,
 } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { KgModuleHero } from '../components/KgDesignSystem';
-
+import {
+  KgErrorState,
+  KgFeatureTip,
+  KgModuleHero,
+  KgSkeleton,
+} from '../components/KgDesignSystem';
 
 interface CoinEntry {
   id: string;
@@ -50,324 +44,323 @@ export default function Reward() {
   const [totalPoints, setTotalPoints] = useState(0);
   const [coinHistory, setCoinHistory] = useState<CoinEntry[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [activeTab, setActiveTab] = useState<'wallet' | 'leaderboard' | 'shop'>('wallet');
+  const [activeTab, setActiveTab] = useState<'wallet' | 'leaderboard'>('wallet');
   const [loading, setLoading] = useState(Boolean(currentUser?.username));
+  const [loadError, setLoadError] = useState('');
 
-  // Fetch data on mount
-  useEffect(() => {
+  const fetchRewardData = useCallback(async () => {
     const username = currentUser?.username;
-    if (!username) return;
-    let cancelled = false;
-    const fetchData = async () => {
-      try {
-        const [coinsRes, boardRes] = await Promise.all([
-          callApi('GET_USER_COINS', { username }, { background: true }),
-          callApi('GET_LEADERBOARD', {}, { background: true })
-        ]);
-        if (cancelled) return;
-        if (coinsRes?.ok) {
-          setTotalPoints(coinsRes.data.totalPoints || 0);
-          setCoinHistory(coinsRes.data.history || []);
-        }
-        if (boardRes?.ok) {
-          setLeaderboard(boardRes.data || []);
-        }
-      } catch (e) { console.error('Reward fetch error:', e); }
-      if (!cancelled) setLoading(false);
-    };
-    void fetchData();
-    return () => {
-      cancelled = true;
-    };
+    if (!username) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setLoadError('');
+    try {
+      const [coinsRes, boardRes] = await Promise.all([
+        callApi('GET_USER_COINS', { username }, { background: true }),
+        callApi('GET_LEADERBOARD', {}, { background: true }),
+      ]);
+      if (coinsRes?.ok) {
+        setTotalPoints(coinsRes.data?.totalPoints || 0);
+        setCoinHistory(Array.isArray(coinsRes.data?.history) ? coinsRes.data.history : []);
+      }
+      if (boardRes?.ok) {
+        setLeaderboard(Array.isArray(boardRes.data) ? boardRes.data : []);
+      }
+      if (!coinsRes?.ok && !boardRes?.ok) {
+        setLoadError(
+          coinsRes?.message || boardRes?.message || 'Không thể tải dữ liệu điểm thưởng King Coins.',
+        );
+      }
+    } catch {
+      setLoadError('Lỗi kết nối máy chủ khi tải ví King Coins và Bảng vàng.');
+    } finally {
+      setLoading(false);
+    }
   }, [currentUser?.username]);
+
+  useEffect(() => {
+    void fetchRewardData();
+  }, [fetchRewardData]);
 
   const healthyRanking = useMemo(
     () => buildHealthyReliabilityRanking(leaderboard, currentUser?.username),
-    [leaderboard, currentUser?.username]
+    [leaderboard, currentUser?.username],
   );
 
-  // Find user positive rank (healthy recognition — only positive accumulated totals appear on leaderboard)
   const myRank = healthyRanking.myPositiveRank ?? '-';
 
   const renderSourceIcon = (source: string) => {
     switch (source) {
-      case 'CheckIn': return <MapPin size={17} />;
-      case 'Checklist': return <ClipboardCheck size={17} />;
-      case 'Handover': return <ArrowLeftRight size={17} />;
-      case 'Training': return <GraduationCap size={17} />;
-      case 'Discipline': return <Scale size={17} />;
-      default: return <Coins size={17} />;
+      case 'CheckIn':
+        return <MapPin size={17} />;
+      case 'Checklist':
+        return <ClipboardCheck size={17} />;
+      case 'Handover':
+        return <ArrowLeftRight size={17} />;
+      case 'Training':
+        return <GraduationCap size={17} />;
+      case 'Discipline':
+        return <Scale size={17} />;
+      default:
+        return <Coins size={17} />;
     }
   };
 
   return (
-    <div className="p-4 space-y-4 animate-fade-in pb-20">
-      
+    <div className="p-4 space-y-4 animate-fade-in pb-20 max-w-4xl mx-auto w-full">
       <KgModuleHero
         moduleId="reward"
-        title="King Coins"
+        title="King Coins & Bảng Vàng"
         description="Tích điểm từ chấm công đúng giờ, checklist công việc, bàn giao ca và đào tạo SOP."
-        eyebrow="Phần thưởng"
-        tipTitle="Cơ chế Tích lũy King Coins (Theo hệ thống)"
+        eyebrow="Ghi nhận"
+        tipTitle="Cơ chế Tích lũy King Coins"
         tips={[
-          "Chấm công đúng giờ: +5 Coins mỗi ca hợp lệ (đi trễ: -10 Coins).",
-          "Hoàn thành Checklist: +10 Coins khi đồng bộ tiến độ ca.",
-          "Bàn giao ca đầy đủ: +15 Coins mỗi lượt bàn giao xác nhận.",
-          "Đào tạo SOP & Thưởng/Phạt: Cộng điểm theo từng bài kiểm tra đạt ≥70%; Thưởng nóng +20 Coins, Phạt lỗi -15 Coins.",
-          "Cửa hàng đổi quà hiện đang ở chế độ Sắp mở / Chỉ xem để bạn theo dõi mốc tích lũy."
+          'Chấm công đúng giờ: +5 Coins mỗi ca hợp lệ (đi trễ: -10 Coins).',
+          'Hoàn thành Checklist: +10 Coins khi đồng bộ tiến độ ca.',
+          'Bàn giao ca đầy đủ: +15 Coins mỗi lượt bàn giao xác nhận.',
+          'Đào tạo SOP & Thưởng/Phạt: Cộng điểm theo từng bài kiểm tra đạt ≥70%; Thưởng nóng +20 Coins, Phạt lỗi -15 Coins.',
         ]}
+        actions={
+          <button
+            type="button"
+            onClick={() => void fetchRewardData()}
+            disabled={loading}
+            aria-label="Làm mới điểm thưởng King Coins"
+            className="min-w-[44px] min-h-[44px] sm:min-w-[36px] sm:min-h-[36px] rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition-colors touch-manipulation"
+          >
+            <RefreshCw size={15} className={loading ? 'animate-spin text-[var(--kg-primary)]' : ''} />
+          </button>
+        }
       />
 
-      {/* Points Card */}
-      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-5 flex flex-wrap items-center justify-between gap-4 relative z-10 w-full shadow-xs mb-4">
+      {/* Points Summary Card + Compact Coin Rules Info Pill */}
+      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4 shadow-xs">
         <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0">
+          <div className="w-12 h-12 rounded-2xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/30 text-[var(--kg-warning)] flex items-center justify-center flex-shrink-0">
             <Coins size={24} />
           </div>
           <div>
-            <p className="text-[11px] text-[var(--kg-text-muted)] font-black mb-1 uppercase tracking-wider">King Coins khả dụng</p>
+            <p className="text-[11px] text-[var(--kg-text-muted)] font-black mb-1 uppercase tracking-wider">
+              King Coins khả dụng
+            </p>
             <div className="flex items-baseline gap-1.5">
-              <span className="text-3xl sm:text-4xl font-mono tabular-nums font-black leading-none text-[var(--kg-text)]">{loading ? '...' : totalPoints}</span>
-              <span className="text-xs font-extrabold uppercase tracking-wider text-amber-600 dark:text-amber-400">Coins</span>
+              <span className="text-3xl sm:text-4xl font-mono tabular-nums font-black leading-none text-[var(--kg-text)]">
+                {loading ? '...' : totalPoints}
+              </span>
+              <span className="text-xs font-extrabold uppercase tracking-wider text-[var(--kg-warning)]">
+                Coins
+              </span>
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2.5 ml-auto">
+
+        <div className="flex items-center gap-2.5 ml-auto flex-wrap">
           <div className="bg-[var(--kg-surface-soft)] rounded-xl px-3.5 py-2 text-center border border-[var(--kg-border)]">
             <p className="text-[10px] text-[var(--kg-text-muted)] font-black uppercase tracking-wider">Hạng</p>
-            <p className="text-lg font-mono tabular-nums font-black leading-tight text-[var(--kg-primary)]">{loading ? '-' : `#${myRank}`}</p>
+            <p className="text-lg font-mono tabular-nums font-black leading-tight text-[var(--kg-primary-ink)]">
+              {loading ? '-' : `#${myRank}`}
+            </p>
           </div>
-          <button 
-            type="button"
-            onClick={() => setActiveTab('shop')}
-            className="min-h-[44px] sm:min-h-[40px] bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-black px-4 py-2.5 sm:px-5 sm:py-3 rounded-xl text-xs sm:text-sm shadow-xs active:scale-95 transition-all touch-manipulation"
-          >
-            Xem quà
-          </button>
+          <KgFeatureTip
+            title="Bảng quy đổi điểm King Coins"
+            tips={[
+              'Đúng giờ: +5 Coins · Đi trễ: -10 Coins',
+              'Checklist hoàn thành: +10 Coins',
+              'Bàn giao ca: +15 Coins',
+              'Bài kiểm tra SOP đạt ≥70%: Cộng theo từng bài',
+              'Thưởng nóng: +20 Coins · Phạt lỗi: -15 Coins',
+            ]}
+            variant="badge"
+            triggerText="Cách tích điểm"
+          />
         </div>
       </div>
 
-      {/* Points Source Guide */}
-      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-3.5 shadow-xs">
-        <div className="flex items-center gap-2 mb-2.5">
-          <Sparkles size={14} className="text-amber-500" />
-          <span className="text-xs font-black text-[var(--kg-text)]">Cơ chế tích điểm thi đua thực tế</span>
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          {[
-            { label: 'Đúng giờ', pts: '+5', positive: true, Icon: MapPin },
-            { label: 'Checklist', pts: '+10', positive: true, Icon: ClipboardCheck },
-            { label: 'Bàn giao', pts: '+15', positive: true, Icon: ArrowLeftRight },
-            { label: 'Học SOP', pts: 'Theo bài', positive: true, Icon: GraduationCap },
-            { label: 'Thưởng nóng', pts: '+20', positive: true, Icon: Star },
-            { label: 'Đi trễ', pts: '-10', positive: false, Icon: Clock },
-            { label: 'Phạt lỗi', pts: '-15', positive: false, Icon: AlertTriangle },
-          ].map((item, i) => (
-            <div key={i} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold ${item.positive ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-900/40' : 'bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400 border border-rose-200/50 dark:border-rose-900/40'}`}>
-              <item.Icon size={12} />
-              <span>{item.label}</span>
-              <span className="font-mono tabular-nums font-black">{item.pts}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Navigation Tabs */}
+      {/* 2 Crisp Navigation Tabs */}
       <div className="flex bg-[var(--kg-surface)] border border-[var(--kg-border)] p-1.5 rounded-2xl shadow-xs gap-1.5">
-        {[
-          { id: 'wallet', label: 'Lịch sử', icon: History },
-          { id: 'leaderboard', label: 'Bảng vàng', icon: Trophy },
-          { id: 'shop', label: 'Cửa hàng', icon: Gift },
-        ].map((tab) => {
+        {(
+          [
+            { id: 'wallet', label: 'Ví điểm & Lịch sử', icon: History },
+            { id: 'leaderboard', label: 'Bảng vàng', icon: Trophy },
+          ] as const
+        ).map((tab) => {
           const isSelected = activeTab === tab.id;
           return (
             <button
               key={tab.id}
               type="button"
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => setActiveTab(tab.id)}
               className={`min-h-[44px] sm:min-h-[40px] flex-1 flex items-center justify-center space-x-1.5 py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all active:scale-95 select-none touch-manipulation ${
-                isSelected 
-                  ? 'bg-[var(--kg-primary)] text-white shadow-xs scale-[1.01]' 
+                isSelected
+                  ? 'bg-[var(--kg-primary)] text-white shadow-xs'
                   : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
               }`}
             >
               <tab.icon size={15} className={isSelected ? 'text-white' : 'opacity-80'} />
               <span>{tab.label}</span>
-              {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-[var(--kg-accent)] ml-0.5" />}
             </button>
           );
         })}
       </div>
 
-      {/* Content Area */}
-      <motion.div
-        key={activeTab}
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.16 }}
-      >
-        {/* TAB 1: LỊCH SỬ */}
-        {activeTab === 'wallet' && (
-          <div className="space-y-4">
-            <h3 className="font-bold text-[var(--kg-text)] flex items-center gap-2">
-              <History size={18} className="text-[var(--kg-primary)]" /> Lịch sử nhận điểm
-            </h3>
-            
-            {loading ? (
-              <div className="flex items-center justify-center py-12 text-[var(--kg-text-muted)]">
-                <RefreshCw size={20} className="animate-spin mr-2" /> Đang tải...
-              </div>
-            ) : coinHistory.length === 0 ? (
-              <div className="soft3d-card p-8 text-center">
-                <Award size={40} className="mx-auto mb-3 text-[var(--kg-text-soft)]" />
-                <p className="text-sm font-semibold text-[var(--kg-text-muted)]">Chưa có lịch sử điểm nào.</p>
-                <p className="text-xs text-[var(--kg-text-soft)] mt-1">Hãy chấm công đúng giờ và hoàn thành checklist để tích điểm!</p>
-              </div>
-            ) : (
-              <div className="space-y-2.5">
-                {coinHistory.map((item) => (
-                  <div key={item.id} className="soft3d-card p-3.5 rounded-2xl flex items-center justify-between">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                        item.points > 0 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
-                      }`}>
-                        {renderSourceIcon(item.source)}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-bold text-sm text-[var(--kg-text)] truncate">{item.action}</p>
-                        <p className="text-[11px] font-mono tabular-nums text-[var(--kg-text-muted)]">{item.date} • {item.source}</p>
-                      </div>
-                    </div>
-                    <span className={`font-mono tabular-nums font-black text-sm flex-shrink-0 ml-2 inline-flex items-center gap-1 ${item.points > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                      {item.points > 0 ? '+' : ''}{item.points} <Coins size={14} className="text-amber-500" />
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* TAB 2: LEADERBOARD */}
-        {activeTab === 'leaderboard' && (
-          <div className="space-y-4">
-            <div className="bg-[var(--kg-surface)] p-5 rounded-2xl border border-[var(--kg-border)] text-center shadow-2xs space-y-2">
-              <div className="w-12 h-12 rounded-2xl bg-amber-500/15 text-amber-500 flex items-center justify-center mx-auto mb-1">
-                <Trophy size={24} />
-              </div>
-              <h3 className="font-black text-base sm:text-lg text-[var(--kg-text)]">
-                Bảng Vàng Chuyên Cần &amp; Đồng Đội Tin Cậy
+      {loadError ? (
+        <KgErrorState
+          title="Không thể tải dữ liệu King Coins"
+          description={loadError}
+          onRetry={() => void fetchRewardData()}
+        />
+      ) : (
+        <div key={activeTab} className="kg-fade-in">
+          {/* TAB 1: VÍ ĐIỂM & LỊCH SỬ */}
+          {activeTab === 'wallet' && (
+            <div className="space-y-3">
+              <h3 className="font-bold text-[var(--kg-text)] flex items-center gap-2 text-sm">
+                <History size={17} className="text-[var(--kg-primary-ink)]" /> Lịch sử nhận điểm
               </h3>
-              <p className="text-xs sm:text-sm text-[var(--kg-text-muted)] font-medium">
-                Vinh danh tổng điểm dương tích lũy từ chấm công đúng giờ (+5), checklist (+10), bàn giao ca (+15), đào tạo SOP và thưởng nóng (+20). Các khoản trừ điểm (-10 đi trễ, -15 phạt lỗi) được hiển thị riêng tại Lịch sử ví.
-              </p>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-xs font-semibold text-[var(--kg-text)]">
-                <Sparkles size={13} className="text-amber-500 shrink-0" />
-                <span>{healthyRanking.encouragementMessage}</span>
-              </div>
-            </div>
 
-            {loading ? (
-              <div className="flex items-center justify-center py-12 text-[var(--kg-text-muted)]">
-                <RefreshCw size={20} className="animate-spin mr-2" /> Đang tải...
-              </div>
-            ) : healthyRanking.entries.length === 0 ? (
-              <div className="soft3d-card p-8 text-center">
-                <Trophy size={40} className="mx-auto mb-3 text-[var(--kg-text-soft)]" />
-                <p className="text-sm text-[var(--kg-text-muted)]">Chưa có thành viên nào trên Bảng Vàng kỳ này.</p>
-              </div>
-            ) : (
-              <div className="soft3d-card overflow-hidden">
-                {healthyRanking.entries.map((user) => {
-                  const isMe = user.username === currentUser?.username;
-                  return (
-                    <div key={user.username} className={`flex items-center p-4 border-b border-[var(--kg-border)] last:border-0 ${isMe ? 'bg-[var(--kg-primary-soft)]' : ''}`}>
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-mono tabular-nums font-bold text-sm mr-3 flex-shrink-0 ${
-                        user.rank === 1 ? 'bg-amber-400 text-amber-950 shadow-2xs' :
-                        user.rank === 2 ? 'bg-slate-200 text-slate-800 dark:bg-slate-600 dark:text-slate-100' :
-                        user.rank === 3 ? 'bg-amber-600 text-white' : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)]'
-                      }`}>
-                        {user.rank === 1 ? <Crown size={16} /> : user.rank <= 3 ? <Medal size={16} /> : user.rank}
-                      </div>
-                      <div className="flex-1 min-w-0 pr-2">
-                        <p className={`font-bold text-sm truncate ${isMe ? 'text-[var(--kg-primary)]' : 'text-[var(--kg-text)]'}`}>
-                          {user.fullname} {isMe && '(Bạn)'}
-                        </p>
-                        <span className={`inline-block mt-0.5 text-[10px] font-extrabold px-2 py-0.5 rounded-md ${
-                          user.badgeLabel === 'Ngôi Sao Chuẩn Mực'
-                            ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
-                            : user.badgeLabel === 'Đồng Đội Tin Cậy'
-                              ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-                              : 'bg-sky-500/15 text-sky-700 dark:text-sky-300'
-                        }`}>
-                          {user.badgeLabel}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1.5 font-mono tabular-nums font-black text-[var(--kg-text)] flex-shrink-0 text-right">
-                        +{user.totalPoints} <Coins size={15} className="text-amber-500" />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* TAB 3: CỬA HÀNG */}
-        {activeTab === 'shop' && (
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="font-bold text-[var(--kg-text)] flex items-center gap-2">
-                <Gift size={18} className="text-[var(--kg-accent-ink)]" /> Quà tặng dự kiến
-              </h3>
-              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] border border-[var(--kg-warning)]/25">
-                Sắp mở đổi quà / Chỉ xem
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3.5">
-              {[
-                { name: 'Voucher Trà Sữa Phúc Long', cost: 150, Icon: Coffee, badgeBg: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' },
-                { name: '1 Ngày Nghỉ Phép', cost: 500, Icon: CalendarCheck, badgeBg: 'bg-sky-500/15 text-sky-700 dark:text-sky-300' },
-                { name: 'Voucher 100k Tiền mặt', cost: 1000, Icon: Banknote, badgeBg: 'bg-amber-500/15 text-amber-700 dark:text-amber-300' },
-                { name: "Balo King's Grill", cost: 800, Icon: ShoppingBag, badgeBg: 'bg-[var(--kg-accent-soft)] text-[var(--kg-accent-ink)]' },
-              ].map((item, idx) => (
-                <div key={idx} className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 flex flex-col shadow-2xs">
-                  <div className="flex justify-center mb-1">
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)]">
-                      Sắp mở / Chỉ xem
-                    </span>
-                  </div>
-                  <div className={`w-12 h-12 rounded-2xl ${item.badgeBg} flex items-center justify-center mx-auto mb-3 mt-1`}>
-                    <item.Icon size={24} />
-                  </div>
-                  <h4 className="font-bold text-xs sm:text-sm text-[var(--kg-text)] text-center mb-3 line-clamp-2 min-h-[36px]">{item.name}</h4>
-                  <div className="mt-auto">
-                    <button
-                      type="button"
-                      disabled
-                      aria-disabled="true"
-                      className="w-full min-h-[44px] sm:min-h-[40px] py-2.5 px-2 rounded-xl text-xs font-mono tabular-nums font-bold inline-flex items-center justify-center gap-1.5 bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] opacity-85 cursor-not-allowed"
-                    >
-                      <span className="font-sans">Chỉ xem ·</span>
-                      <span>{item.cost}</span>
-                      <Coins size={13} className="text-[var(--kg-warning)]" />
-                    </button>
-                  </div>
+              {loading ? (
+                <div className="space-y-2.5">
+                  <KgSkeleton className="h-16 w-full" />
+                  <KgSkeleton className="h-16 w-full" />
+                  <KgSkeleton className="h-16 w-full" />
                 </div>
-              ))}
+              ) : coinHistory.length === 0 ? (
+                <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-xs p-8 text-center">
+                  <Award size={40} className="mx-auto mb-3 text-[var(--kg-text-soft)]" />
+                  <p className="text-sm font-semibold text-[var(--kg-text-muted)]">Chưa có lịch sử điểm nào.</p>
+                  <p className="text-xs text-[var(--kg-text-soft)] mt-1">
+                    Hãy chấm công đúng giờ và hoàn thành checklist để tích điểm!
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {coinHistory.map((item) => (
+                    <div
+                      key={item.id}
+                      className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-xs p-3.5 flex items-center justify-between gap-3"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                            item.points > 0
+                              ? 'bg-[var(--kg-success-soft)] text-[var(--kg-success)]'
+                              : 'bg-[var(--kg-danger-soft)] text-[var(--kg-danger)]'
+                          }`}
+                        >
+                          {renderSourceIcon(item.source)}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-bold text-sm text-[var(--kg-text)] truncate">{item.action}</p>
+                          <p className="text-[11px] font-mono tabular-nums text-[var(--kg-text-muted)]">
+                            {item.date} • {item.source}
+                          </p>
+                        </div>
+                      </div>
+                      <span
+                        className={`font-mono tabular-nums font-black text-sm flex-shrink-0 ml-2 inline-flex items-center gap-1 ${
+                          item.points > 0 ? 'text-[var(--kg-success)]' : 'text-[var(--kg-danger)]'
+                        }`}
+                      >
+                        {item.points > 0 ? '+' : ''}
+                        {item.points} <Coins size={14} className="text-[var(--kg-warning)]" />
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-            
-            <div className="bg-[var(--kg-info-soft)] p-4 rounded-xl border border-[var(--kg-info)]/25 flex items-start gap-3 mt-4">
-              <AlertCircle size={18} className="text-[var(--kg-info)] flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-[var(--kg-text)] font-medium leading-relaxed">
-                Danh mục quà tặng hiện đang ở chế độ <b>Sắp mở đổi quà / Chỉ xem</b> để bạn tham khảo mốc điểm. Cổng đổi quà trực tuyến có xác nhận Quản lý sẽ được kích hoạt ở bản cập nhật tiếp theo — số dư King Coins của bạn không bị trừ tại đây.
-              </p>
+          )}
+
+          {/* TAB 2: BẢNG VÀNG */}
+          {activeTab === 'leaderboard' && (
+            <div className="space-y-4">
+              <div className="bg-[var(--kg-surface)] p-5 rounded-2xl border border-[var(--kg-border)] text-center shadow-xs space-y-2">
+                <div className="w-12 h-12 rounded-2xl bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] flex items-center justify-center mx-auto mb-1">
+                  <Trophy size={24} />
+                </div>
+                <h3 className="font-black text-base sm:text-lg text-[var(--kg-text)]">
+                  Bảng Vàng Chuyên Cần &amp; Đồng Đội Tin Cậy
+                </h3>
+                <p className="text-xs sm:text-sm text-[var(--kg-text-muted)] font-medium">
+                  Vinh danh tổng điểm dương tích lũy từ chấm công đúng giờ (+5), checklist (+10), bàn giao ca (+15), đào tạo SOP và thưởng nóng (+20). Các khoản trừ điểm được hiển thị riêng tại Ví điểm.
+                </p>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-xs font-semibold text-[var(--kg-text)]">
+                  <Sparkles size={13} className="text-[var(--kg-warning)] shrink-0" />
+                  <span>{healthyRanking.encouragementMessage}</span>
+                </div>
+              </div>
+
+              {loading ? (
+                <div className="space-y-2.5">
+                  <KgSkeleton className="h-16 w-full" />
+                  <KgSkeleton className="h-16 w-full" />
+                  <KgSkeleton className="h-16 w-full" />
+                </div>
+              ) : healthyRanking.entries.length === 0 ? (
+                <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-xs p-8 text-center">
+                  <Trophy size={40} className="mx-auto mb-3 text-[var(--kg-text-soft)]" />
+                  <p className="text-sm text-[var(--kg-text-muted)]">
+                    Chưa có thành viên nào trên Bảng Vàng kỳ này.
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-xs overflow-hidden">
+                  {healthyRanking.entries.map((user) => {
+                    const isMe = user.username === currentUser?.username;
+                    return (
+                      <div
+                        key={user.username}
+                        className={`flex items-center p-4 border-b border-[var(--kg-border)] last:border-0 ${
+                          isMe ? 'bg-[var(--kg-primary-soft)]' : ''
+                        }`}
+                      >
+                        <div
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center font-mono tabular-nums font-bold text-sm mr-3 flex-shrink-0 ${
+                            user.rank === 1
+                              ? 'bg-amber-400 text-amber-950 shadow-2xs'
+                              : user.rank === 2
+                                ? 'bg-[var(--kg-surface-soft)] text-[var(--kg-text)] border border-[var(--kg-border-strong)]'
+                                : user.rank === 3
+                                  ? 'bg-[var(--kg-warning)] text-white'
+                                  : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)]'
+                          }`}
+                        >
+                          {user.rank === 1 ? <Crown size={16} /> : user.rank <= 3 ? <Medal size={16} /> : user.rank}
+                        </div>
+                        <div className="flex-1 min-w-0 pr-2">
+                          <p
+                            className={`font-bold text-sm truncate ${
+                              isMe ? 'text-[var(--kg-primary-ink)]' : 'text-[var(--kg-text)]'
+                            }`}
+                          >
+                            {user.fullname} {isMe && '(Bạn)'}
+                          </p>
+                          <span
+                            className={`inline-block mt-0.5 text-[10px] font-extrabold px-2 py-0.5 rounded-md ${
+                              user.badgeLabel === 'Ngôi Sao Chuẩn Mực'
+                                ? 'bg-[var(--kg-warning-soft)] text-[var(--kg-warning)]'
+                                : user.badgeLabel === 'Đồng Đội Tin Cậy'
+                                  ? 'bg-[var(--kg-success-soft)] text-[var(--kg-success)]'
+                                  : 'bg-[var(--kg-info-soft)] text-[var(--kg-info)]'
+                            }`}
+                          >
+                            {user.badgeLabel}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 font-mono tabular-nums font-black text-[var(--kg-text)] flex-shrink-0 text-right">
+                          +{user.totalPoints} <Coins size={15} className="text-[var(--kg-warning)]" />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          </div>
-        )}
-      </motion.div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

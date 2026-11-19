@@ -56,29 +56,18 @@ export default {
           borderDark: 'rgba(255, 255, 255, 0.1)',
         }
       },
-      backgroundImage: {
-        'gradient-hero': 'var(--gradient-hero)',
-        'gradient-primary': 'var(--gradient-primary)',
-        'gradient-soft': 'var(--gradient-soft)',
-      },
       boxShadow: {
         card: 'var(--shadow-card)',
         soft: 'var(--shadow-soft)',
         hero: 'var(--shadow-hero)',
-        'kumo-ring': 'var(--elev-ring)',
       },
       animation: {
         'fade-in': 'fadeIn 0.16s cubic-bezier(0.2, 0, 0, 1)',
-        'slide-up': 'slideUp 0.2s cubic-bezier(0.2, 0, 0, 1)',
-        'pulse-ring': 'pulseRing 1.6s cubic-bezier(0.215, 0.61, 0.355, 1) infinite'
+        'slide-up': 'slideUp 0.18s cubic-bezier(0.2, 0, 0, 1)',
       },
       keyframes: {
         fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
         slideUp: { '0%': { transform: 'translateY(8px)', opacity: '0' }, '100%': { transform: 'none', opacity: '1' } },
-        pulseRing: {
-          '0%': { transform: 'scale(0.85)', opacity: '0.55' },
-          '100%': { transform: 'scale(1.9)', opacity: '0' }
-        }
       }
     },
   },

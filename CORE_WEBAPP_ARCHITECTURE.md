@@ -1,47 +1,47 @@
-# CORE WEBAPP ARCHITECTURE - KING'S GRILL STAFF OS (v4.0.1)
+# CORE WEBAPP ARCHITECTURE - KING'S GRILL STAFF OS (v5.0)
 
-Tài liệu này phân tích chi tiết kiến trúc lõi, cấu trúc dữ liệu, luồng nghiệp vụ, API và mô hình biên (Cloudflare Edge D1 + Google Apps Script) của **King's Grill Staff OS `v4.0.1`** (`kg-checkin`). Đây là tài liệu kỹ thuật nền tảng phục vụ bảo trì, mở rộng và kiểm thử mà không phá vỡ bất biến nghiệp vụ.
+Tài liệu này phân tích chi tiết kiến trúc lõi, cấu trúc dữ liệu, luồng nghiệp vụ, API và mô hình biên (Cloudflare Edge D1 + Google Apps Script) của **King's Grill Staff OS `v5.0`** (`kg-checkin`). Đây là tài liệu kỹ thuật nền tảng phục vụ bảo trì, mở rộng và kiểm thử mà không phá vỡ bất biến nghiệp vụ.
 
 ---
 
-## A. Tổng Quan Hệ Thống (v4.0.1)
+## A. Tổng Quan Hệ Thống (v5.0)
 
-**King's Grill Staff OS** là hệ điều hành nhân sự, chấm công sinh trắc học và vận hành nhà hàng theo mô hình **11-Hub Super-App IA** (`Warm Hospitality Edition`), kết hợp **Cloudflare Pages Functions + D1 Edge Gateway (`/api`)** làm tuyến chính và **Google Apps Script (GAS) + Google Sheets/Drive** làm lớp đồng bộ lưu trữ & báo cáo.
+**King's Grill Staff OS** là hệ điều hành nhân sự, chấm công sinh trắc học và vận hành nhà hàng theo mô hình **11-Hub Consolidated Super-App IA** (8 phân hệ nhân sự + 3 phân hệ quản trị, `Warm Hospitality Edition`), kết hợp **Cloudflare Pages Functions + D1 Edge Gateway (`/api`)** làm tuyến chính và **Google Apps Script (GAS) + Google Sheets/Drive** làm lớp đồng bộ lưu trữ & báo cáo.
 
 ### 1. Các nhóm chức năng chính:
 - **Xác thực & RBAC chặt chẽ:** Đăng ký, đăng nhập (Mật khẩu & Face ID V2 Kiosk), khôi phục mật khẩu OTP, phân quyền tập trung qua `isAdminUser(user)` (`src/utils/permissions.ts` — chỉ `role === 'admin'` có quyền quản trị; `tester` được giữ nghiêm ngặt ở quyền nhân viên thường).
-- **Chấm công thông minh & Zero-Loss Offline Vault:** Chấm công GPS (Kalman filter + kiểm soát bán kính), Face Recognition V2 (`@mediapipe/tasks-vision` + `onnxruntime-web/wasm` 512-D ArcFace + MiniFASNet anti-spoofing, cùng fallback `face-api.js` lazy-loaded), chu kỳ ca `06:00–05:59` hỗ trợ ca đêm, lưu trữ chống mất dữ liệu tại `kg_punch_vault_v1` + `SyncVaultDrawer.tsx`.
-- **11-Hub Information Architecture:** Tổ chức toàn bộ phân hệ vào 11 Hub (6 Hub nhân sự + 5 Hub quản trị) cùng `dashboard`, `checkin`, `profile`, `TAB_ALIAS_MAP`, deep-link `?tab=&sub=`, và sự kiện `kg:subtab-select`.
-- **Vận hành nhà hàng:** Checklist 4 khu vực có lưu nháp cục bộ (`localStorage`), Sổ bàn giao ca & đối soát két tiền 2 chiều (`ACKNOWLEDGE_HANDOVER` / `REVIEW_HANDOVER`), quản lý sự cố 4 trạng thái (`Open` → `Investigating` → `Resolved` → `CostRecorded`), báo cáo Món hết (Sold Out) với live strip trong `WorkHub`.
-- **Công lương & Tài chính:** Bảng công (`Timesheet`), Quy trình xác nhận phiếu lương 4 bước (`Draft` → `Staff_Confirming` → `Disputed` → `Locked`), cấu hình lương tháng (`MonthlySalaryManager`), ứng lương (`Advance`), thưởng/phạt (`Discipline`), và King Coins (`Reward`).
-- **Truyền thông, Đào tạo & Trợ lý AI:** Bảng tin (`NewsFeed`), Hòm thư góp ý (`Feedback`), Tài liệu SOP & CUKCUK (`Training`), Khảo sát đầu ca, và AI Chatbot (`AIAssistant.tsx`).
+- **Chấm công thông minh & Zero-Loss Offline Vault:** Chấm công GPS (Kalman filter + kiểm soát bán kính), Face Recognition V2 thuần ONNX/MediaPipe (`@mediapipe/tasks-vision` + `onnxruntime-web/wasm` 512-D ArcFace + MiniFASNet anti-spoofing — đã gỡ bỏ hoàn toàn `face-api.js` / `tfjs-core` & giảm **~22 MB** dung lượng deploy), chu kỳ ca `06:00–05:59` hỗ trợ ca đêm, lưu trữ chống mất dữ liệu tại `kg_punch_vault_v1` + `SyncVaultDrawer.tsx`.
+- **11-Hub Consolidated Information Architecture:** Hợp nhất toàn bộ ứng dụng vào **8 Hub nhân sự** (`dashboard`, `checkin`, `attendance`, `workforce`, `profile`, `work`, `communications`, `knowledge`) và **3 Hub quản trị** (`admin_ops`, `admin_people_pay`, `admin_system`) cùng `TAB_ALIAS_MAP`, deep-link `?tab=&sub=`, và sự kiện `kg:subtab-select` (bảo toàn 100% đường dẫn tương thích ngược).
+- **Vận hành nhà hàng:** Checklist 4 khu vực có lưu nháp cục bộ (`localStorage`), Sổ bàn giao ca & đối soát két tiền 2 chiều (`ACKNOWLEDGE_HANDOVER` / `REVIEW_HANDOVER`), phân hệ **Sự cố ca (`IncidentTracker.tsx`)** độc lập với quy trình 4 trạng thái (`Open` → `Investigating` → `Resolved` → `CostRecorded`), báo cáo Món hết (Sold Out) với live strip trong `WorkHub`.
+- **Công lương & Tài chính:** Màn hình **Bảng công & Nhật ký hợp nhất (`AttendanceLedger.tsx`)**, Quy trình xác nhận phiếu lương 4 bước (`Draft` → `Staff_Confirming` → `Disputed` → `Locked`), cấu hình đơn giá lương tháng + hạn mức ứng lương (`MonthlySalaryManager.tsx`), ứng lương (`Advance`), thưởng/phạt (`Discipline`), và King Coins (`Reward`).
+- **Hộp duyệt 1 chạm & Quản trị tinh gọn:** `AdminApprovalInbox.tsx` gom 6 hàng chờ quản lý (Bổ sung công, Đổi ca/Nghỉ phép, Đối soát két + "Duyệt tất cả ca khớp", Sự cố mở, Ứng lương, Đề nghị điều chỉnh lương), `AdminSettingsUnified.tsx` hợp nhất Doanh nghiệp + GPS + Edge D1 + AI Keys (Master PIN) + Release Notes, và `AdminAuditLog.tsx` chuyên biệt với lọc ngày/tìm kiếm/drawer chi tiết/CSV an toàn.
 
 ### 2. Công nghệ sử dụng:
-- **Frontend:** React 19 (Vite 5) + TypeScript + Zustand 5 (`useShallow` atomic selectors) + TailwindCSS (`--kg-*` semantic tokens trong `DESIGN.md`) + Framer Motion + Lucide Icons.
-- **Biometrics (Lazy/Isolated):** `@mediapipe/tasks-vision` + `onnxruntime-web/wasm` (chunk `face-v2-biometrics`) tách biệt khỏi `src/utils/faceProfileCache.ts` (zero-WASM DTO/cache). Fallback `face-api.js` + `@tensorflow/tfjs-core` nạp động khi cần.
+- **Frontend:** React 19 (Vite 5) + TypeScript + Zustand 5 (`useShallow` atomic selectors + `useFeedbackStore` thay thế hoàn toàn `sweetalert2`) + TailwindCSS (`--kg-*` semantic tokens trong `DESIGN.md`, CSS transitions `<= 200ms` thay thế hoàn toàn `framer-motion` & `canvas-confetti`) + Lucide Icons.
+- **Biometrics (Lazy/Isolated):** `@mediapipe/tasks-vision` + `onnxruntime-web/wasm` (chunk `face-v2-biometrics`) tách biệt hoàn toàn khỏi `src/utils/faceProfileCache.ts` (zero-WASM DTO/cache).
 - **Edge Gateway (Primary `/api`):** Cloudflare Pages Functions (`functions/api.js`) + Cloudflare D1 (`edge_face_profiles`, `edge_sync_queue`, attendance overlay 30h) với failover tự động sang `PRIMARY_EDGE_API_URL` (`https://kg-checkin.pages.dev/api`).
 - **Backend Đồng bộ & Báo cáo:** Google Apps Script (`gas/Code.gs`, `gas/Engine.gs`, `gas/Handlers.gs`) + Google Sheets + Google Drive + Mail Relay (`gas-relay/`).
 
 ---
 
-## B. Cấu Trúc Thư Mục, 11-Hub IA & Các File Lõi
+## B. Cấu Trúc Thư Mục, 11-Hub Consolidated IA & Các File Lõi
 
-### 1. Bảng 11-Hub IA (`src/config/moduleRegistry.ts` & `src/pages/ModuleHubs.tsx`)
-| Hub ID | Nhãn hiển thị | Nhóm | Sub-tabs (`?tab=&sub=`) | Phân quyền |
+### 1. Bảng 11-Hub Consolidated IA (`src/config/moduleRegistry.ts` & `src/pages/ModuleHubs.tsx`)
+| Module / Hub ID | Nhãn hiển thị | Nhóm | Sub-tabs (`?tab=&sub=`) | Phân quyền |
 | :--- | :--- | :--- | :--- | :--- |
-| `attendance` | Công & Lương | Cá nhân | `payroll`, `timesheet`, `history`, `advance` | Tất cả |
-| `workforce` | Lịch Làm Việc | Cá nhân | `schedule`, `roster`, `swap` | Tất cả |
-| `work` | Vận Hành Nhà Hàng | Vận hành | `checklist`, `operations`, `handover`, `soldout` | Theo vị trí (`permissions.ts`) |
-| `income` | Thi đua & Kỷ luật | Cá nhân | `reward`, `discipline` | Tất cả |
-| `communications` | Bảng tin & Góp ý | Vận hành | `news`, `feedback` | Tất cả |
-| `knowledge` | Kiến thức & Đào tạo | Vận hành | `training`, `guide` | `training` theo vị trí |
-| `admin_people` | Nhân sự & Tổ chức | Quản lý & Cấu hình | `employees` (`HrList`), `organization` (`AdminOrg`) | Chỉ `admin` (`isAdminUser`) |
-| `admin_workforce` | Ca làm & Chấm công | Quản lý & Cấu hình | `schedule`, `settings` (`AdminShift`) | Chỉ `admin` |
-| `admin_work` | Điều phối & Công việc | Quản lý & Cấu hình | `checklist` (`AdminChecklistConfig`), `operations` (`AdminOperations`) | Chỉ `admin` |
-| `admin_income` | Lương & Ghi nhận | Quản lý & Cấu hình | `config` (`AdminPayroll`), `payroll`, `advance`, `discipline` | Chỉ `admin` |
-| `admin_system` | Hệ thống & Báo cáo | Quản lý & Cấu hình | `analytics` (`AdminAnalytics`), `ai` (`Admin`) | Chỉ `admin` |
+| `dashboard` | Hôm nay | Cá nhân | *(Màn hình chính cấp 1)* | Tất cả |
+| `checkin` | Chấm công | Cá nhân | *(Camera / Face ID V2 Kiosk cấp 1)* | Tất cả |
+| `attendance` | Công & Thu nhập | Cá nhân | `payroll`, `ledger` (`AttendanceLedger`), `advance`, `discipline` | Tất cả |
+| `workforce` | Lịch làm việc | Cá nhân | `schedule`, `roster`, `swap` | Tất cả |
+| `profile` | Hồ sơ của tôi | Cá nhân | *(Hồ sơ & đổi mật khẩu cấp 1)* | Tất cả |
+| `work` | Vận hành Ca | Vận hành | `checklist`, `handover`, `incidents` (`IncidentTracker`), `soldout` | Theo vị trí (`permissions.ts`) |
+| `communications` | Cộng đồng | Vận hành | `news`, `feedback`, `reward` | Tất cả |
+| `knowledge` | Kiến thức & SOP | Vận hành | `Training` (gồm SOP, CUKCUK & hướng dẫn tích hợp) | `training` theo vị trí |
+| `admin_ops` | Điều hành & Duyệt | Quản lý & Cấu hình | `inbox` (`AdminApprovalInbox`), `schedule`, `dispatch` (`AdminOperations`), `checklist` (`AdminChecklistConfig`) | Chỉ `admin` (`isAdminUser`) |
+| `admin_people_pay` | Nhân sự & Lương | Quản lý & Cấu hình | `employees` (`HrList`), `payroll`, `salary_rates` (`MonthlySalaryManager`), `discipline` | Chỉ `admin` |
+| `admin_system` | Báo cáo & Hệ thống | Quản lý & Cấu hình | `analytics` (`AdminAnalytics`), `settings` (`AdminSettingsUnified`), `audit` (`AdminAuditLog`) | Chỉ `admin` |
 
-*(Ngoài 11 Hub trên là 3 màn hình cấp 1: `dashboard` (Hôm nay / Command Center), `checkin` (Chấm công chuyên biệt), và `profile` (Hồ sơ cá nhân). Các legacy tab ID cũ được ánh xạ tự động qua `TAB_ALIAS_MAP` trong `useAppStore.ts`.)*
+*(Các Hub/Tab ID cũ như `income`, `admin_people`, `admin_workforce`, `admin_work`, `admin_income`, `timesheet`, `history`, `admin_org`, `admin_shift`, `admin_payroll`, `admin` được bảo toàn 100% qua `TAB_ALIAS_MAP`, `subTabAliases` và các wrapper tương thích ngược.)*
 
 ### 2. Các File Lõi Frontend & Edge
 | File/Thư mục | Vai trò | Phần lõi liên quan | Ghi chú |

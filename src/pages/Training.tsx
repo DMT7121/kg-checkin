@@ -1,28 +1,65 @@
-import { useState, useEffect, useMemo, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
+import { lazy, Suspense, useState, useEffect, useMemo, type ReactNode } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import {
-  GraduationCap, BookOpen, Award, CheckCircle2,
-  RefreshCw, ChevronRight, Search, Sparkles,
-  HelpCircle, BookMarked, UserCheck, ChevronDown, ChevronUp,
-  X, Zap, ShieldAlert, ListFilter, Eye, FileText, Tablet,
-  Frown, UtensilsCrossed, Receipt, Flame, ShieldCheck, ArrowLeftRight,
-  Shield, CalendarClock, Gavel, Heart, BarChart3, ClipboardCheck,
-  Star, Briefcase, Users, DoorOpen, Megaphone, CreditCard,
-  ChefHat, GlassWater, Banknote, Car, Video, Trash2, AlertTriangle, Coins,
-  MessageSquare, type LucideIcon
+  GraduationCap,
+  BookOpen,
+  Award,
+  CheckCircle2,
+  RefreshCw,
+  ChevronRight,
+  Search,
+  Sparkles,
+  HelpCircle,
+  BookMarked,
+  UserCheck,
+  ChevronDown,
+  ChevronUp,
+  X,
+  Zap,
+  ShieldAlert,
+  ListFilter,
+  Eye,
+  FileText,
+  Tablet,
+  Frown,
+  UtensilsCrossed,
+  Receipt,
+  Flame,
+  ShieldCheck,
+  ArrowLeftRight,
+  Shield,
+  CalendarClock,
+  Gavel,
+  Heart,
+  BarChart3,
+  ClipboardCheck,
+  Star,
+  Briefcase,
+  Users,
+  DoorOpen,
+  Megaphone,
+  CreditCard,
+  ChefHat,
+  GlassWater,
+  Banknote,
+  Car,
+  Video,
+  Trash2,
+  AlertTriangle,
+  Coins,
+  MessageSquare,
+  Compass,
+  type LucideIcon,
 } from 'lucide-react';
-import Swal from 'sweetalert2';
-import confetti from 'canvas-confetti';
-import { motion } from 'framer-motion';
-import { sopData } from './sopData';
-import { cukcukData } from './cukcukData';
+import { kgAlert, kgToast } from '../store/useFeedbackStore';
+import type { SopSection } from './sopData';
+import type { CukcukStep } from './cukcukData';
 import {
   isCriticalSop,
   searchSops,
   sectionMatchesScope,
-  type SopScope
+  type SopScope,
 } from '../utils/sopSearch';
 import {
   computeRoleReadinessProgress,
@@ -36,8 +73,10 @@ import {
   KgButton,
   KgInput,
   KgBottomSheet,
-  KgModuleHero
+  KgModuleHero,
 } from '../components/KgDesignSystem';
+
+const CukcukGuideLightbox = lazy(() => import('../components/training/CukcukGuideLightbox'));
 
 interface QuizQuestion {
   q: string;
@@ -133,7 +172,19 @@ function isSafeExternalUrl(rawHref: string | null): string | null {
 
 const ALLOWED_SOP_LI_CLASSES = new Set(['icon-tip', 'icon-note', 'icon-danger', 'icon-script']);
 
-function renderSafeSopNode(node: ChildNode, key: string): ReactNode {
+function getSopLiIconColorClass(liClass: string): string {
+  if (liClass.includes('icon-tip')) return 'text-[var(--kg-info)]';
+  if (liClass.includes('icon-note')) return 'text-[var(--kg-warning)]';
+  if (liClass.includes('icon-danger')) return 'text-[var(--kg-danger)]';
+  if (liClass.includes('icon-script')) return 'text-[var(--kg-text-muted)]';
+  return 'text-[var(--kg-primary)]';
+}
+
+function renderSafeSopNode(
+  node: ChildNode,
+  key: string,
+  parentLiClass = '',
+): ReactNode {
   if (node.nodeType === 3) {
     return node.textContent;
   }
@@ -141,21 +192,30 @@ function renderSafeSopNode(node: ChildNode, key: string): ReactNode {
 
   const el = node as Element;
   const tag = el.tagName.toLowerCase();
-  const children = Array.from(el.childNodes).map((child, idx) => renderSafeSopNode(child, `${key}_${idx}`));
 
   switch (tag) {
     case 'ul':
-      return <ul key={key}>{children}</ul>;
+      return (
+        <ul key={key} className="list-none pl-0 my-2 space-y-2.5">
+          {Array.from(el.childNodes).map((child, idx) => renderSafeSopNode(child, `${key}_${idx}`))}
+        </ul>
+      );
     case 'ol':
-      return <ol key={key}>{children}</ol>;
+      return (
+        <ol key={key} className="list-none pl-0 mt-2 w-full space-y-2">
+          {Array.from(el.childNodes).map((child, idx) => renderSafeSopNode(child, `${key}_${idx}`))}
+        </ol>
+      );
     case 'li': {
       const clsList = (el.getAttribute('class') || '')
         .split(/\s+/)
         .filter((c) => ALLOWED_SOP_LI_CLASSES.has(c))
         .join(' ');
       return (
-        <li key={key} className={clsList || undefined}>
-          {children}
+        <li key={key} className="flex items-start leading-relaxed text-[var(--kg-text)]">
+          {Array.from(el.childNodes).map((child, idx) =>
+            renderSafeSopNode(child, `${key}_${idx}`, clsList),
+          )}
         </li>
       );
     }
@@ -164,34 +224,82 @@ function renderSafeSopNode(node: ChildNode, key: string): ReactNode {
       const isDanger = /triangle-exclamation|circle-exclamation|fire|biohazard|ban|gavel/.test(cls);
       const isCheck = /check|award|star|shield/.test(cls);
       const FallbackIcon = isDanger ? AlertTriangle : isCheck ? CheckCircle2 : SopIcon;
+      const iconTone = getSopLiIconColorClass(parentLiClass);
       return (
-        <span key={key} className="sop-inline-icon" aria-hidden="true">
+        <span
+          key={key}
+          className={`flex-shrink-0 w-5 mr-2.5 mt-1 inline-flex items-center justify-center ${iconTone}`}
+          aria-hidden="true"
+        >
           {isDanger || isCheck ? <FallbackIcon size={15} /> : <SopIcon name={cls} size={15} />}
         </span>
       );
     }
     case 'strong':
     case 'b':
-      return <strong key={key}>{children}</strong>;
+      return (
+        <strong key={key} className="font-bold text-[var(--kg-text)]">
+          {Array.from(el.childNodes).map((child, idx) =>
+            renderSafeSopNode(child, `${key}_${idx}`, parentLiClass),
+          )}
+        </strong>
+      );
     case 'em':
-      return <em key={key}>{children}</em>;
+      return (
+        <em key={key}>
+          {Array.from(el.childNodes).map((child, idx) =>
+            renderSafeSopNode(child, `${key}_${idx}`, parentLiClass),
+          )}
+        </em>
+      );
     case 'br':
       return <br key={key} />;
     case 'a': {
       const safeHref = isSafeExternalUrl(el.getAttribute('href'));
+      const children = Array.from(el.childNodes).map((child, idx) =>
+        renderSafeSopNode(child, `${key}_${idx}`, parentLiClass),
+      );
       if (!safeHref) return <span key={key}>{children}</span>;
       return (
-        <a key={key} href={safeHref} target="_blank" rel="noopener noreferrer">
+        <a
+          key={key}
+          href={safeHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[var(--kg-primary-ink)] font-semibold underline hover:opacity-80"
+        >
           {children}
         </a>
       );
     }
     case 'span':
     case 'p':
-    case 'div':
-      return <span key={key}>{children}</span>;
+    case 'div': {
+      const children = Array.from(el.childNodes).map((child, idx) =>
+        renderSafeSopNode(child, `${key}_${idx}`, parentLiClass),
+      );
+      const isScript = parentLiClass.includes('icon-script') && tag === 'span';
+      return (
+        <span
+          key={key}
+          className={
+            isScript
+              ? 'font-mono italic bg-[var(--kg-surface-soft)] px-1.5 py-0.5 rounded'
+              : undefined
+          }
+        >
+          {children}
+        </span>
+      );
+    }
     default:
-      return <span key={key}>{children}</span>;
+      return (
+        <span key={key}>
+          {Array.from(el.childNodes).map((child, idx) =>
+            renderSafeSopNode(child, `${key}_${idx}`, parentLiClass),
+          )}
+        </span>
+      );
   }
 }
 
@@ -204,7 +312,7 @@ function SopDetailsRenderer({ html }: { html: string }) {
     return Array.from(doc.body.childNodes).map((child, idx) => renderSafeSopNode(child, `sop_${idx}`));
   }, [html]);
 
-  return <div className="max-w-[68ch]">{nodes}</div>;
+  return <div className="max-w-[68ch] text-sm text-[var(--kg-text)] leading-relaxed font-medium">{nodes}</div>;
 }
 
 const SOP_SCOPES: { id: SopScope; label: string }[] = [
@@ -216,10 +324,9 @@ const SOP_SCOPES: { id: SopScope; label: string }[] = [
 ];
 
 export default function Training() {
-
   const currentUser = useAppStore((s) => s.currentUser);
   const setAiOpen = useAppStore((s) => s.setAiOpen);
-  const store = { setAiOpen };
+
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
   const [activeLesson, setActiveLesson] = useState<string | null>(null);
@@ -239,10 +346,11 @@ export default function Training() {
   });
   const [loading, setLoading] = useState(true);
 
-  // Tabs: 'sop' (Sổ tay vận hành) or 'quiz' (Bài học & Đào tạo) or 'cukcuk' (Hướng dẫn CUKCUK)
+  // Flat KnowledgeCenter tabs: Tra cứu SOP | Kiểm tra | CUKCUK
   const [activeTab, setActiveTab] = useState<'sop' | 'quiz' | 'cukcuk'>('sop');
 
-  // SOP State
+  // SOP State (loaded dynamically on demand)
+  const [sopData, setSopData] = useState<SopSection[]>([]);
   const [selectedSection, setSelectedSection] = useState<string>('welcome');
   const [searchTerm, setSearchTerm] = useState('');
   const [sopScope, setSopScope] = useState<SopScope>('all');
@@ -250,216 +358,65 @@ export default function Training() {
   const [openAccordions, setOpenAccordions] = useState<Record<string, boolean>>({});
   const [isMobileCategoryOpen, setIsMobileCategoryOpen] = useState(false);
 
-  // CUKCUK State
+  // CUKCUK State (loaded dynamically on demand)
+  const [cukcukData, setCukcukData] = useState<CukcukStep[]>([]);
+  const [cukcukLoading, setCukcukLoading] = useState(false);
   const [cukcukSearch, setCukcukSearch] = useState('');
   const [activeCukcukIndex, setActiveCukcukIndex] = useState<number | null>(null);
-  const [zoomScale, setZoomScale] = useState(1);
-  const [zoomPos, setZoomPos] = useState({ x: 0, y: 0 });
-  const [isDraggingZoom, setIsDraggingZoom] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [touchStartDist, setTouchStartDist] = useState<number | null>(null);
-  const [touchStartScale, setTouchStartScale] = useState<number>(1);
-  const [lastTouchTime, setLastTouchTime] = useState<number>(0);
-  const [swipeStartX, setSwipeStartX] = useState<number | null>(null);
-  const [swipeStartY, setSwipeStartY] = useState<number | null>(null);
-  const [showDescription, setShowDescription] = useState(false);
 
-  const selectCukcukStep = (nextIndex: number | null) => {
-    setActiveCukcukIndex(nextIndex);
-    setZoomScale(1);
-    setZoomPos({ x: 0, y: 0 });
-    setShowDescription(false);
-  };
-
-  const resetZoom = () => {
-    setZoomScale(1);
-    setZoomPos({ x: 0, y: 0 });
-  };
-
-  const zoomIn = () => {
-    setZoomScale(prev => Math.min(prev + 0.25, 4));
-  };
-  const zoomOut = () => {
-    setZoomScale(prev => Math.max(prev - 0.25, 0.75));
-  };
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (zoomScale <= 1) return;
-    setIsDraggingZoom(true);
-    setDragStart({ x: e.clientX - zoomPos.x, y: e.clientY - zoomPos.y });
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDraggingZoom || zoomScale <= 1) return;
-    setZoomPos({
-      x: e.clientX - dragStart.x,
-      y: e.clientY - dragStart.y
-    });
-  };
-
-  const handleMouseUp = () => {
-    setIsDraggingZoom(false);
-  };
-
-  const handleWheel = (e: React.WheelEvent) => {
-    const zoomIntensity = 0.15;
-    const delta = e.deltaY < 0 ? 1 : -1;
-    setZoomScale(prev => Math.max(0.75, Math.min(prev + delta * zoomIntensity, 4)));
-  };
-
-  const getTouchDistance = (e: React.TouchEvent) => {
-    if (e.touches.length < 2) return 0;
-    const t1 = e.touches[0];
-    const t2 = e.touches[1];
-    return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-  };
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const now = e.timeStamp;
-    
-    // Check for double-tap zoom
-    if (e.touches.length === 1) {
-      if (now - lastTouchTime < 300) {
-        e.preventDefault();
-        handleDoubleClick();
-        setLastTouchTime(0); // Reset lastTouchTime
-        return;
-      }
-      setLastTouchTime(now);
-
-      const touch = e.touches[0];
-      // single touch starts panning if scale is > 1
-      if (zoomScale > 1) {
-        setIsDraggingZoom(true);
-        setDragStart({ x: touch.clientX - zoomPos.x, y: touch.clientY - zoomPos.y });
-      } else {
-        // Record starting touch coordinates for swiping
-        setSwipeStartX(touch.clientX);
-        setSwipeStartY(touch.clientY);
-      }
-    } else if (e.touches.length === 2) {
-      // Two-finger touch starts pinch zoom
-      const dist = getTouchDistance(e);
-      setTouchStartDist(dist);
-      setTouchStartScale(zoomScale);
-      setIsDraggingZoom(false);
-    }
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (e.touches.length === 2 && touchStartDist !== null) {
-      e.preventDefault();
-      const currentDist = getTouchDistance(e);
-      if (currentDist > 0) {
-        const scaleRatio = currentDist / touchStartDist;
-        const newScale = Math.max(0.75, Math.min(touchStartScale * scaleRatio, 4));
-        setZoomScale(newScale);
-      }
-    } else if (e.touches.length === 1) {
-      if (isDraggingZoom && zoomScale > 1) {
-        e.preventDefault();
-        const touch = e.touches[0];
-        setZoomPos({
-          x: touch.clientX - dragStart.x,
-          y: touch.clientY - dragStart.y
-        });
-      } else if (zoomScale === 1 && swipeStartX !== null && swipeStartY !== null) {
-        const touch = e.touches[0];
-        const diffX = touch.clientX - swipeStartX;
-        const diffY = touch.clientY - swipeStartY;
-        if (Math.abs(diffX) > Math.abs(diffY)) {
-          // Prevent scroll if swiping horizontally
-          if (e.cancelable) e.preventDefault();
-        }
-      }
-    }
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    setIsDraggingZoom(false);
-    setTouchStartDist(null);
-
-    // Handle swiping
-    if (zoomScale === 1 && swipeStartX !== null && swipeStartY !== null && e.changedTouches.length > 0) {
-      const touch = e.changedTouches[0];
-      const diffX = touch.clientX - swipeStartX;
-      const diffY = touch.clientY - swipeStartY;
-
-      // Threshold for swipe: 60px
-      if (Math.abs(diffX) > 60 && Math.abs(diffX) > Math.abs(diffY)) {
-        if (diffX < 0) {
-          // Swiped left -> Next step
-          if (activeCukcukIndex !== null && activeCukcukIndex < cukcukData.length - 1) {
-            selectCukcukStep(activeCukcukIndex + 1);
-          }
-        } else {
-          // Swiped right -> Previous step
-          if (activeCukcukIndex !== null && activeCukcukIndex > 0) {
-            selectCukcukStep(activeCukcukIndex - 1);
-          }
-        }
-      }
-    }
-    setSwipeStartX(null);
-    setSwipeStartY(null);
-  };
-
-  const handleDoubleClick = () => {
-    if (zoomScale > 1) {
-      resetZoom();
-    } else {
-      setZoomScale(2);
-      setZoomPos({ x: 0, y: 0 });
-    }
-  };
-
-  // Keyboard events inside lightbox
   useEffect(() => {
-    if (activeCukcukIndex === null) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        selectCukcukStep(null);
-      } else if (e.key === 'ArrowLeft') {
-        if (activeCukcukIndex > 0) {
-          selectCukcukStep(activeCukcukIndex - 1);
-        }
-      } else if (e.key === 'ArrowRight') {
-        if (activeCukcukIndex < cukcukData.length - 1) {
-          selectCukcukStep(activeCukcukIndex + 1);
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
+    if (activeTab !== 'sop' || sopData.length > 0) return;
+    let cancelled = false;
+    void import('./sopData').then((mod) => {
+      if (!cancelled) setSopData(mod.sopData);
+    });
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
+      cancelled = true;
     };
-  }, [activeCukcukIndex]);
+  }, [activeTab, sopData.length]);
 
-  // Filter cukcuk steps
+  useEffect(() => {
+    if (activeTab !== 'cukcuk' || cukcukData.length > 0) return;
+    let cancelled = false;
+    setCukcukLoading(true);
+    void import('./cukcukData')
+      .then((mod) => {
+        if (!cancelled) setCukcukData(mod.cukcukData);
+      })
+      .finally(() => {
+        if (!cancelled) setCukcukLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, cukcukData.length]);
+
   const filteredCukcukSteps = useMemo(() => {
     const term = cukcukSearch.trim().toLowerCase();
     if (!term) return cukcukData;
     return cukcukData.filter(
-      item =>
+      (item) =>
         item.title.toLowerCase().includes(term) ||
         item.description.toLowerCase().includes(term) ||
-        `bước ${item.step}`.includes(term)
+        `bước ${item.step}`.includes(term),
     );
-  }, [cukcukSearch]);
+  }, [cukcukData, cukcukSearch]);
 
-
-
-  // Fetch training lessons
+  // Fetch training lessons & progress
   useEffect(() => {
+    if (!currentUser?.username) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
     const fetchData = async () => {
       setLoading(true);
       try {
         const [contentRes, progressRes] = await Promise.all([
           callApi('GET_TRAINING_CONTENT', {}, { background: true }),
-          callApi('GET_TRAINING_PROGRESS', { username: currentUser!.username }, { background: true })
+          callApi('GET_TRAINING_PROGRESS', { username: currentUser.username }, { background: true }),
         ]);
+        if (cancelled) return;
         if (contentRes?.ok) {
           const safeLessons = Array.isArray(contentRes.data)
             ? contentRes.data
@@ -479,17 +436,18 @@ export default function Training() {
         }
       } catch (e) {
         console.error('Training fetch error:', e);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      setLoading(false);
     };
-    fetchData();
-  }, [currentUser]);
-
-
+    void fetchData();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser?.username]);
 
   const totalLessons = lessons.length;
-  const completedCount = [...completedIds].filter(id => lessons.some(l => l.id === id)).length;
-  const progressPct = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
+  const completedCount = [...completedIds].filter((id) => lessons.some((l) => l.id === id)).length;
 
   const roleReadiness = useMemo(
     () =>
@@ -499,7 +457,7 @@ export default function Training() {
         completedLessonIds: completedIds,
         availableLessons: lessons,
       }),
-    [currentUser?.position, readSopIds, completedIds, lessons]
+    [currentUser?.position, readSopIds, completedIds, lessons],
   );
 
   const toggleMarkSopRead = (sectionId: string) => {
@@ -522,7 +480,7 @@ export default function Training() {
     const session = createShuffledQuizSession(
       lesson.id,
       lesson.quiz,
-      `${currentUser?.username || 'staff'}-${lesson.id}-${nextNonce}`
+      `${currentUser?.username || 'staff'}-${lesson.id}-${nextNonce}`,
     );
     setActiveShuffledSession(session);
     setWrongReviews([]);
@@ -531,6 +489,7 @@ export default function Training() {
   };
 
   const handleSubmitQuiz = async (lesson: Lesson) => {
+    if (!currentUser?.username) return;
     const session =
       activeShuffledSession && activeShuffledSession.lessonId === lesson.id
         ? activeShuffledSession
@@ -540,183 +499,135 @@ export default function Training() {
 
     if (!evaluation.passed) {
       setWrongReviews(evaluation.wrongReviews);
-      Swal.fire({
-        title: 'Chưa đạt yêu cầu',
-        html: `Bạn trả lời đúng <b class="tabular-nums">${evaluation.correctCount}/${evaluation.totalQuestions}</b> câu (<b class="tabular-nums">${evaluation.scorePct}%</b>).<br/>Cần đạt tối thiểu <b>70%</b> để hoàn thành. Hãy xem gợi ý ôn tập bên dưới và bấm <b>Đảo đề &amp; Thử lại</b>.`,
-        icon: 'warning',
-        confirmButtonText: 'Xem câu cần ôn lại',
-        confirmButtonColor: '#d97706'
-      });
+      void kgAlert(
+        'Chưa đạt yêu cầu',
+        `Bạn trả lời đúng ${evaluation.correctCount}/${evaluation.totalQuestions} câu (${evaluation.scorePct}%).\nCần đạt tối thiểu 70% để hoàn thành. Hãy xem gợi ý ôn tập bên dưới và bấm Đảo đề & Thử lại.`,
+        'warning',
+      );
       return;
     }
 
     const res = await callApi('SUBMIT_TRAINING_QUIZ', {
-      username: currentUser!.username,
-      fullname: currentUser!.fullname,
+      username: currentUser.username,
+      fullname: currentUser.fullname,
       lessonId: lesson.id,
       lessonTitle: lesson.title,
       score: evaluation.scorePct,
-      points: lesson.points
+      points: lesson.points,
     });
 
     if (res?.ok) {
-      confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#f59e0b', '#22c55e', '#3b82f6'] });
-      setCompletedIds(prev => new Set([...prev, lesson.id]));
+      setCompletedIds((prev) => new Set([...prev, lesson.id]));
       setQuizMode(null);
       setActiveShuffledSession(null);
       setWrongReviews([]);
       setAnswers({});
-      Swal.fire({
-        title: 'Hoàn thành xuất sắc!',
-        html: `Điểm: <b class="tabular-nums">${evaluation.scorePct}%</b> (${evaluation.correctCount}/${evaluation.totalQuestions})<br/>+${lesson.points} King Coins đã được cộng!`,
-        icon: 'success',
-        confirmButtonColor: '#4F8A5B'
-      });
+      void kgAlert(
+        'Hoàn thành xuất sắc!',
+        `Điểm: ${evaluation.scorePct}% (${evaluation.correctCount}/${evaluation.totalQuestions})\n+${lesson.points} King Coins đã được cộng!`,
+        'success',
+      );
     } else {
-      Swal.fire('Lưu ý', res?.message || 'Không thể ghi nhận kết quả', 'info');
+      kgToast(res?.message || 'Không thể ghi nhận kết quả', 'info', 'Lưu ý');
     }
   };
 
-  // Toggle Accordion in SOP view
   const toggleAccordion = (subtitle: string) => {
-    setOpenAccordions(prev => ({
+    setOpenAccordions((prev) => ({
       ...prev,
-      [subtitle]: !prev[subtitle]
+      [subtitle]: !prev[subtitle],
     }));
   };
 
   const searchResults = useMemo(
     () => searchSops(sopData, searchTerm, sopScope, currentUser?.position),
-    [searchTerm, sopScope, currentUser?.position]
+    [sopData, searchTerm, sopScope, currentUser?.position],
   );
 
   const visibleSopSections = useMemo(
-    () => sopData.filter(section => sectionMatchesScope(section, sopScope, currentUser?.position)),
-    [sopScope, currentUser?.position]
+    () => sopData.filter((section) => sectionMatchesScope(section, sopScope, currentUser?.position)),
+    [sopData, sopScope, currentUser?.position],
   );
 
-  // Pre-load active section content (derive fallback cleanly without setState)
-  const activeSopSection = visibleSopSections.find(s => s.id === selectedSection) || visibleSopSections[0];
+  const activeSopSection =
+    visibleSopSections.find((s) => s.id === selectedSection) || visibleSopSections[0];
   const effectiveSelectedSection = activeSopSection?.id || selectedSection;
-  const activeSopItems = activeSopSection?.content.filter(
-    item => sopScope !== 'critical' || isCriticalSop(activeSopSection, item)
-  ) || [];
-  const generalSops = visibleSopSections.filter(s => s.group === 'general');
-  const departmentSops = visibleSopSections.filter(s => s.group === 'department');
+  const activeSopItems =
+    activeSopSection?.content.filter(
+      (item) => sopScope !== 'critical' || isCriticalSop(activeSopSection, item),
+    ) || [];
+  const generalSops = visibleSopSections.filter((s) => s.group === 'general');
+  const departmentSops = visibleSopSections.filter((s) => s.group === 'department');
 
   const getQuickSopList = (html: string): string[] => {
     const liMatches = html.match(/<li[^>]*>([\s\S]*?)<\/li>/gi);
     if (liMatches && liMatches.length > 0) {
       return liMatches
         .slice(0, 3)
-        .map(li => {
-          let clean = li.replace(/<[^>]+>/g, '').trim();
-          clean = clean.replace(/\s+/g, ' ');
-          return clean;
-        })
+        .map((li) => li.replace(/<[^>]+>/g, '').trim().replace(/\s+/g, ' '))
         .filter(Boolean);
     }
     const cleanHtml = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-    const sentences = cleanHtml.split(/[.!?]+/).map(s => s.trim()).filter(Boolean);
+    const sentences = cleanHtml
+      .split(/[.!?]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
     return sentences.slice(0, 2);
   };
 
   return (
     <div className="p-4 animate-slide-up pb-12 space-y-4 max-w-7xl mx-auto w-full">
-      <style>{`
-        .sop-content-details ul {
-          list-style-type: none;
-          padding-left: 0 !important;
-          margin-top: 0.5rem;
-          margin-bottom: 0.5rem;
-        }
-        .sop-content-details li {
-          margin-bottom: 0.75rem;
-          color: inherit;
-          display: flex;
-          align-items: flex-start;
-          line-height: 1.6;
-        }
-        .sop-content-details li .sop-inline-icon {
-          flex-shrink: 0;
-          width: 1.25rem;
-          margin-right: 0.65rem;
-          margin-top: 4px;
-          color: var(--kg-primary);
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .sop-content-details strong {
-          color: inherit;
-          font-weight: 700;
-        }
-        .sop-content-details a {
-          color: var(--kg-primary);
-          font-weight: 600;
-          text-decoration: underline;
-        }
-        .sop-content-details a:hover {
-          opacity: 0.8;
-        }
-        .sop-content-details li.icon-tip .sop-inline-icon { color: var(--kg-info) !important; }
-        .sop-content-details li.icon-note .sop-inline-icon { color: var(--kg-warning) !important; }
-        .sop-content-details li.icon-danger .sop-inline-icon { color: var(--kg-danger) !important; }
-        .sop-content-details li.icon-script .sop-inline-icon { color: var(--kg-text-muted) !important; }
-        .sop-content-details li.icon-script span {
-          font-family: monospace;
-          font-style: italic;
-          background-color: var(--kg-surface-soft);
-          padding: 2px 6px;
-          border-radius: 4px;
-        }
-        .sop-content-details ol {
-          list-style-type: none;
-          padding-left: 0 !important;
-          margin-top: 0.5rem;
-          width: 100%;
-        }
-        .sop-content-details ol li {
-          margin-bottom: 0.5rem;
-        }
-        .chat-bubble-content hr {
-          border-top: 1px solid var(--kg-border);
-          margin: 0.75rem 0;
-        }
-      `}</style>
-      {/* Header Banner */}
+      {/* Flat KnowledgeCenter Hero */}
       <KgModuleHero
         moduleId="training"
-        eyebrow="Đào tạo SOP"
+        eyebrow="Trung tâm Kiến thức"
         title="Sổ Tay Vận Hành & Đào Tạo"
-        description="Tra cứu quy trình chuẩn (SOP), nội quy nhà hàng và làm bài kiểm tra nghiệp vụ tích lũy King Coins."
-        features={totalLessons > 0 ? [`${completedCount}/${totalLessons} bài hoàn thành`] : [`${sopData.length} chuyên đề SOP`]}
+        description="Tra cứu SOP, làm bài kiểm tra đạt ≥70% nhận King Coins và xem hướng dẫn POS CUKCUK."
+        features={
+          totalLessons > 0
+            ? [`${completedCount}/${totalLessons} bài đạt`, `${readSopIds.length} SOP đã đọc`]
+            : [`${sopData.length} chuyên đề SOP`]
+        }
         tipTitle="Hướng dẫn Tự học & Kiểm tra SOP"
         tips={[
-          "Tab SOP: Hướng dẫn chi tiết từng vị trí (Phục vụ, Pha chế, Bếp, Thu ngân, Vệ sinh).",
-          "Tab Bài kiểm tra: Trả lời câu hỏi trắc nghiệm thực tế, đạt tối thiểu 70% sẽ hoàn thành bài và nhận thưởng King Coins.",
-          "Tab Trợ lý AI: Hỏi đáp trực tiếp các tình huống giao tiếp với khách hàng hoặc xử lý sự cố."
+          'Tra cứu SOP: Hướng dẫn chi tiết từng vị trí (Phục vụ, Pha chế, Bếp, Thu ngân, Vệ sinh) kèm nút tìm nhanh theo tình huống.',
+          'Kiểm tra: Trả lời câu hỏi trắc nghiệm thực tế, đạt tối thiểu 70% để hoàn thành bài và nhận thưởng King Coins.',
+          'CUKCUK: Hướng dẫn từng bước thao tác máy POS / máy tính bảng kèm ảnh phóng to.',
+          'Bấm "Hướng dẫn dùng OS" để xem lại Cẩm nang 5 bước thao tác Staff OS bất cứ lúc nào.',
         ]}
+        actions={
+          <KgButton
+            type="button"
+            variant="secondary"
+            size="sm"
+            icon={Compass}
+            onClick={() => window.dispatchEvent(new CustomEvent('kg:open-newbie-guide'))}
+          >
+            Hướng dẫn dùng OS
+          </KgButton>
+        }
       />
 
-      {/* Role-Readiness Certification Track */}
+      {/* Unified Reading & Role-Readiness Progress Tracker */}
       <KgCard className="p-4 sm:p-5 border border-[var(--kg-border)] shadow-xs space-y-3">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1 min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-[var(--kg-primary-soft)] text-[var(--kg-primary)]">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)]">
                 <GraduationCap size={13} />
                 {currentUser?.position || 'Nhân sự Vận hành'}
               </span>
               <span
-                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold ${
+                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold border ${
                   roleReadiness.isRoleCertified
-                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/50'
-                    : 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200/60 dark:border-amber-800/50'
+                    ? 'bg-[var(--kg-success-soft)] text-[var(--kg-success)] border-[var(--kg-success)]/30'
+                    : 'bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] border-[var(--kg-warning)]/30'
                 }`}
               >
                 {roleReadiness.isRoleCertified ? <ShieldCheck size={13} /> : <Zap size={13} />}
-                {roleReadiness.isRoleCertified ? `Đã mở khóa: ${roleReadiness.badgeLabel}` : 'Đang mở khóa chuẩn vị trí'}
+                {roleReadiness.isRoleCertified
+                  ? `Đã mở khóa: ${roleReadiness.badgeLabel}`
+                  : 'Đang mở khóa chuẩn vị trí'}
               </span>
             </div>
             <h3 className="text-sm sm:text-base font-extrabold text-[var(--kg-text)]">
@@ -728,19 +639,20 @@ export default function Training() {
           </div>
 
           <div className="text-right shrink-0">
-            <p className="text-lg sm:text-xl font-black font-mono tabular-nums text-[var(--kg-primary)]">
+            <p className="text-lg sm:text-xl font-black font-mono tabular-nums text-[var(--kg-primary-ink)]">
               {roleReadiness.completionPct}%
             </p>
             <p className="text-[11px] font-mono tabular-nums text-[var(--kg-text-muted)] font-semibold">
               {roleReadiness.completedMilestones}/{roleReadiness.totalMilestones} mốc chuẩn
+              {totalLessons > 0 ? ` · ${completedCount}/${totalLessons} bài` : ''}
             </p>
           </div>
         </div>
 
-        <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden">
+        <div className="w-full bg-[var(--kg-surface-soft)] rounded-full h-2.5 overflow-hidden border border-[var(--kg-border)]">
           <div
             className={`h-full rounded-full transition-all duration-300 ${
-              roleReadiness.isRoleCertified ? 'bg-emerald-500' : 'bg-[var(--kg-primary)]'
+              roleReadiness.isRoleCertified ? 'bg-[var(--kg-success)]' : 'bg-[var(--kg-primary)]'
             }`}
             style={{ width: `${roleReadiness.completionPct}%` }}
           />
@@ -749,7 +661,8 @@ export default function Training() {
         {roleReadiness.nextAction && (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1">
             <p className="text-xs font-semibold text-[var(--kg-text-muted)]">
-              Bước tiếp theo: <span className="text-[var(--kg-text)] font-bold">{roleReadiness.nextAction.label}</span>
+              Bước tiếp theo:{' '}
+              <span className="text-[var(--kg-text)] font-bold">{roleReadiness.nextAction.label}</span>
             </p>
             <button
               type="button"
@@ -764,7 +677,7 @@ export default function Training() {
                   setActiveLesson(roleReadiness.nextAction.targetId);
                 }
               }}
-              className="px-3.5 py-2 rounded-xl bg-[var(--kg-primary)] text-white text-xs font-black inline-flex items-center justify-center gap-1.5 hover:opacity-95 active:scale-95 transition-all shrink-0"
+              className="min-h-[44px] sm:min-h-[36px] px-3.5 py-2 rounded-xl bg-[var(--kg-primary)] text-white text-xs font-black inline-flex items-center justify-center gap-1.5 hover:opacity-95 active:scale-95 transition-all shrink-0 touch-manipulation"
             >
               <span>Tiếp tục lộ trình</span>
               <ChevronRight size={14} />
@@ -773,56 +686,51 @@ export default function Training() {
         )}
       </KgCard>
 
-      {/* Tab Buttons */}
-      <div className="flex gap-2 overflow-x-auto hide-scrollbar mb-6 p-1.5 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-xs">
-          <button
-            type="button"
-            onClick={() => setActiveTab('sop')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black whitespace-nowrap transition-all active:scale-95 flex-shrink-0 select-none ${
-              activeTab === 'sop'
-                ? 'bg-[var(--kg-primary)] text-white shadow-xs scale-[1.01]'
-                : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
-            }`}
-          >
-            <BookMarked size={15} /> Tra cứu SOP
-            {activeTab === 'sop' && <span className="w-1.5 h-1.5 rounded-full bg-[var(--kg-accent)] ml-0.5" />}
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('quiz')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black whitespace-nowrap transition-all active:scale-95 relative flex-shrink-0 select-none ${
-              activeTab === 'quiz'
-                ? 'bg-[var(--kg-primary)] text-white shadow-xs scale-[1.01]'
-                : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
-            }`}
-          >
-            <UserCheck size={15} /> Kiểm tra năng lực
-            {activeTab === 'quiz' && <span className="w-1.5 h-1.5 rounded-full bg-[var(--kg-accent)] ml-0.5" />}
-            {totalLessons > 0 && completedCount < totalLessons && activeTab !== 'quiz' && (
-              <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
-              </span>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('cukcuk')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black whitespace-nowrap transition-all active:scale-95 flex-shrink-0 select-none ${
-              activeTab === 'cukcuk'
-                ? 'bg-[var(--kg-primary)] text-white shadow-xs scale-[1.01]'
-                : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
-            }`}
-          >
-            <Tablet size={15} /> Hướng dẫn CUKCUK
-            {activeTab === 'cukcuk' && <span className="w-1.5 h-1.5 rounded-full bg-[var(--kg-accent)] ml-0.5" />}
-          </button>
+      {/* Flat 3-Tab KnowledgeCenter Switcher: Tra cứu SOP | Kiểm tra | CUKCUK */}
+      <div className="flex gap-1.5 overflow-x-auto hide-scrollbar p-1.5 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-xs">
+        <button
+          type="button"
+          onClick={() => setActiveTab('sop')}
+          className={`flex-1 sm:flex-initial min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap transition-all active:scale-95 flex-shrink-0 select-none touch-manipulation ${
+            activeTab === 'sop'
+              ? 'bg-[var(--kg-primary)] text-white shadow-xs'
+              : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
+          }`}
+        >
+          <BookMarked size={15} /> Tra cứu SOP
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('quiz')}
+          className={`flex-1 sm:flex-initial min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap transition-all active:scale-95 relative flex-shrink-0 select-none touch-manipulation ${
+            activeTab === 'quiz'
+              ? 'bg-[var(--kg-primary)] text-white shadow-xs'
+              : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
+          }`}
+        >
+          <UserCheck size={15} /> Kiểm tra
+          {totalLessons > 0 && completedCount < totalLessons && activeTab !== 'quiz' && (
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono tabular-nums bg-[var(--kg-danger-soft)] text-[var(--kg-danger)]">
+              {totalLessons - completedCount}
+            </span>
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('cukcuk')}
+          className={`flex-1 sm:flex-initial min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap transition-all active:scale-95 flex-shrink-0 select-none touch-manipulation ${
+            activeTab === 'cukcuk'
+              ? 'bg-[var(--kg-primary)] text-white shadow-xs'
+              : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
+          }`}
+        >
+          <Tablet size={15} /> CUKCUK
+        </button>
       </div>
 
       {/* Tab 1: Tra cứu SOP */}
       {activeTab === 'sop' && (
         <div className="space-y-4">
-          {/* Controls: Search & AI Assistant button */}
           <div className="flex flex-col sm:flex-row gap-3 w-full items-stretch sm:items-center">
             <div className="flex-1 min-w-0">
               <KgInput
@@ -836,7 +744,7 @@ export default function Training() {
                     <button
                       type="button"
                       onClick={() => setSearchTerm('')}
-                      className="w-9 h-9 rounded-lg inline-flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)] transition-colors"
+                      className="w-10 h-10 sm:w-9 sm:h-9 rounded-lg inline-flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)] transition-colors touch-manipulation"
                       aria-label="Xóa nội dung tìm kiếm"
                     >
                       <X size={15} />
@@ -847,9 +755,9 @@ export default function Training() {
             </div>
             <KgButton
               variant="primary"
-              onClick={() => store.setAiOpen(true)}
+              onClick={() => setAiOpen(true)}
               icon={Sparkles}
-              className="bg-[var(--kg-primary)] border-none text-white hover:opacity-90 h-[44px] shadow-xs"
+              className="h-[44px] shadow-xs"
             >
               King&apos;s Grill AI Assistant
             </KgButton>
@@ -864,7 +772,7 @@ export default function Training() {
                 </h3>
               </div>
               <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
-                {QUICK_SOP_QUERIES.map(item => {
+                {QUICK_SOP_QUERIES.map((item) => {
                   const QuickIcon = item.icon;
                   return (
                     <button
@@ -874,7 +782,7 @@ export default function Training() {
                         setSearchTerm(item.query);
                         setSopScope('all');
                       }}
-                      className={`flex-shrink-0 inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-bold transition-all active:scale-95 ${
+                      className={`min-h-[44px] sm:min-h-[36px] flex-shrink-0 inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-bold transition-all active:scale-95 touch-manipulation ${
                         searchTerm === item.query
                           ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)] shadow-sm'
                           : 'bg-[var(--kg-surface)] text-[var(--kg-text)] border-[var(--kg-border)] hover:border-[var(--kg-primary)]'
@@ -893,12 +801,12 @@ export default function Training() {
                 <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--kg-text-muted)] flex-shrink-0 pr-1">
                   <ListFilter size={13} /> Lọc:
                 </span>
-                {SOP_SCOPES.map(scope => (
+                {SOP_SCOPES.map((scope) => (
                   <button
                     key={scope.id}
                     type="button"
                     onClick={() => setSopScope(scope.id)}
-                    className={`flex-shrink-0 min-h-[36px] inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-bold border transition-colors touch-manipulation ${
+                    className={`flex-shrink-0 min-h-[44px] sm:min-h-[36px] inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-bold border transition-colors touch-manipulation ${
                       sopScope === scope.id
                         ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)]'
                         : 'bg-[var(--kg-surface)] text-[var(--kg-text-muted)] border-[var(--kg-border)] hover:text-[var(--kg-text)]'
@@ -913,8 +821,10 @@ export default function Training() {
                 <button
                   type="button"
                   onClick={() => setSopViewMode('quick')}
-                  className={`inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-bold touch-manipulation ${
-                    sopViewMode === 'quick' ? 'bg-[var(--kg-surface)] text-[var(--kg-primary)] shadow-sm' : 'text-[var(--kg-text-muted)]'
+                  className={`inline-flex items-center gap-1.5 min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-bold touch-manipulation ${
+                    sopViewMode === 'quick'
+                      ? 'bg-[var(--kg-surface)] text-[var(--kg-primary-ink)] shadow-sm'
+                      : 'text-[var(--kg-text-muted)]'
                   }`}
                 >
                   <Eye size={13} /> Xem nhanh
@@ -922,8 +832,10 @@ export default function Training() {
                 <button
                   type="button"
                   onClick={() => setSopViewMode('full')}
-                  className={`inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-bold touch-manipulation ${
-                    sopViewMode === 'full' ? 'bg-[var(--kg-surface)] text-[var(--kg-primary)] shadow-sm' : 'text-[var(--kg-text-muted)]'
+                  className={`inline-flex items-center gap-1.5 min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-bold touch-manipulation ${
+                    sopViewMode === 'full'
+                      ? 'bg-[var(--kg-surface)] text-[var(--kg-primary-ink)] shadow-sm'
+                      : 'text-[var(--kg-text-muted)]'
                   }`}
                 >
                   <FileText size={13} /> Đầy đủ
@@ -932,9 +844,7 @@ export default function Training() {
             </div>
           </KgCard>
 
-          {/* SOP Explorer Layout */}
           {searchTerm.trim() ? (
-            /* Search Results View */
             <div className="space-y-3">
               <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--kg-text-muted)] px-1">
                 Kết quả tìm kiếm cho &ldquo;{searchTerm}&rdquo; ({searchResults.length} kết quả)
@@ -943,7 +853,9 @@ export default function Training() {
                 <KgCard className="p-8 text-center">
                   <HelpCircle size={40} className="mx-auto mb-3 text-[var(--kg-text-soft)]" />
                   <p className="text-sm font-bold text-[var(--kg-text)]">Không tìm thấy kết quả nào</p>
-                  <p className="text-xs text-[var(--kg-text-muted)] mt-1">Hãy thử tìm từ khóa khác hoặc bấm King&apos;s Grill AI Assistant để hỏi nhanh nhé.</p>
+                  <p className="text-xs text-[var(--kg-text-muted)] mt-1">
+                    Hãy thử tìm từ khóa khác hoặc bấm King&apos;s Grill AI Assistant để hỏi nhanh nhé.
+                  </p>
                 </KgCard>
               ) : (
                 <div className="grid grid-cols-1 gap-3">
@@ -968,7 +880,9 @@ export default function Training() {
                                 </span>
                               )}
                             </div>
-                            <h4 className="font-extrabold text-[var(--kg-text)] text-sm leading-snug">{item.subtitle}</h4>
+                            <h4 className="font-extrabold text-[var(--kg-text)] text-sm leading-snug">
+                              {item.subtitle}
+                            </h4>
                             {!isOpen && (
                               <p className="mt-2 text-xs leading-relaxed text-[var(--kg-text-muted)] line-clamp-3">
                                 {excerpt}
@@ -976,18 +890,25 @@ export default function Training() {
                             )}
                             {matchedTerms.length > 0 && !isOpen && (
                               <div className="flex flex-wrap gap-1 mt-2">
-                                {matchedTerms.slice(0, 4).map(term => (
-                                  <span key={term} className="rounded-md bg-[var(--kg-info-soft)] px-1.5 py-0.5 text-[9px] font-bold text-[var(--kg-info)]">
+                                {matchedTerms.slice(0, 4).map((term) => (
+                                  <span
+                                    key={term}
+                                    className="rounded-md bg-[var(--kg-info-soft)] px-1.5 py-0.5 text-[9px] font-bold text-[var(--kg-info)]"
+                                  >
                                     {term}
                                   </span>
                                 ))}
                               </div>
                             )}
                           </div>
-                          {isOpen ? <ChevronUp size={16} className="text-[var(--kg-text-muted)] mt-1" /> : <ChevronDown size={16} className="text-[var(--kg-text-muted)] mt-1" />}
+                          {isOpen ? (
+                            <ChevronUp size={16} className="text-[var(--kg-text-muted)] mt-1" />
+                          ) : (
+                            <ChevronDown size={16} className="text-[var(--kg-text-muted)] mt-1" />
+                          )}
                         </button>
                         {isOpen && (
-                          <div className="p-4 sm:p-5 bg-[var(--kg-surface)] border-t border-[var(--kg-border)] text-sm text-[var(--kg-text)] leading-relaxed font-medium sop-content-details">
+                          <div className="p-4 sm:p-5 bg-[var(--kg-surface)] border-t border-[var(--kg-border)]">
                             <SopDetailsRenderer html={item.details} />
                           </div>
                         )}
@@ -998,20 +919,25 @@ export default function Training() {
               )}
             </div>
           ) : (
-            /* Regular Categories View */
             <div className="space-y-4">
               {/* Mobile Category Selector */}
               <div className="block lg:hidden w-full">
                 <button
                   type="button"
                   onClick={() => setIsMobileCategoryOpen(true)}
-                  className="w-full flex items-center justify-between p-3.5 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-xs active:scale-[0.99] transition-all font-bold text-sm text-[var(--kg-text)]"
+                  className="w-full min-h-[44px] flex items-center justify-between p-3.5 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-xs active:scale-[0.99] transition-all font-bold text-sm text-[var(--kg-text)] touch-manipulation"
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
-                    {activeSopSection && <SopIcon name={activeSopSection.icon} size={16} className="text-[var(--kg-primary)] flex-shrink-0" />}
+                    {activeSopSection && (
+                      <SopIcon
+                        name={activeSopSection.icon}
+                        size={16}
+                        className="text-[var(--kg-primary-ink)] flex-shrink-0"
+                      />
+                    )}
                     <span className="truncate">{activeSopSection?.title || 'Chọn danh mục quy trình'}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500 flex-shrink-0">
+                  <div className="flex items-center gap-2 text-xs text-[var(--kg-text-muted)] flex-shrink-0">
                     <span>Thay đổi</span>
                     <ChevronDown size={14} />
                   </div>
@@ -1019,158 +945,201 @@ export default function Training() {
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-                {/* Left Column: Category selector list */}
+                {/* Desktop Left Category List */}
                 <div className="hidden lg:block lg:col-span-4 space-y-4">
-                <KgCard className="p-4 space-y-4">
-                  {/* General Category Group */}
-                  <div>
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--kg-text-muted)] border-b border-[var(--kg-border)] pb-2 mb-2">
-                      Tiêu chuẩn chung
-                    </h3>
-                    <div className="space-y-1">
-                      {generalSops.map(section => (
-                        <button
-                          key={section.id}
-                          onClick={() => setSelectedSection(section.id)}
-                          className={`w-full min-h-[40px] flex items-center p-2.5 rounded-xl text-left text-xs font-bold transition-all gap-2.5 active:scale-95 ${
-                            effectiveSelectedSection === section.id
-                              ? 'bg-[var(--kg-primary)] text-white shadow-xs'
-                              : 'text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)]'
-                          }`}
-                        >
-                          <SopIcon name={section.icon} size={15} className={`flex-shrink-0 ${effectiveSelectedSection === section.id ? 'text-white' : 'text-[var(--kg-text-muted)]'}`} />
-                          <span className="truncate">{section.title}</span>
-                        </button>
-                      ))}
+                  <KgCard className="p-4 space-y-4">
+                    <div>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--kg-text-muted)] border-b border-[var(--kg-border)] pb-2 mb-2">
+                        Tiêu chuẩn chung
+                      </h3>
+                      <div className="space-y-1">
+                        {generalSops.map((section) => (
+                          <button
+                            type="button"
+                            key={section.id}
+                            onClick={() => setSelectedSection(section.id)}
+                            className={`w-full min-h-[40px] flex items-center p-2.5 rounded-xl text-left text-xs font-bold transition-all gap-2.5 active:scale-95 ${
+                              effectiveSelectedSection === section.id
+                                ? 'bg-[var(--kg-primary)] text-white shadow-xs'
+                                : 'text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)]'
+                            }`}
+                          >
+                            <SopIcon
+                              name={section.icon}
+                              size={15}
+                              className={`flex-shrink-0 ${
+                                effectiveSelectedSection === section.id
+                                  ? 'text-white'
+                                  : 'text-[var(--kg-text-muted)]'
+                              }`}
+                            />
+                            <span className="truncate flex-1">{section.title}</span>
+                            {readSopIds.includes(section.id) && (
+                              <CheckCircle2
+                                size={13}
+                                className={
+                                  effectiveSelectedSection === section.id
+                                    ? 'text-white/90 shrink-0'
+                                    : 'text-[var(--kg-success)] shrink-0'
+                                }
+                              />
+                            )}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Department Category Group */}
-                  <div>
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--kg-text-muted)] border-b border-[var(--kg-border)] pb-2 mb-2">
-                      Quy trình bộ phận
-                    </h3>
-                    <div className="space-y-1">
-                      {departmentSops.map(section => (
-                        <button
-                          key={section.id}
-                          onClick={() => setSelectedSection(section.id)}
-                          className={`w-full min-h-[40px] flex items-center p-2.5 rounded-xl text-left text-xs font-bold transition-all gap-2.5 active:scale-95 ${
-                            effectiveSelectedSection === section.id
-                              ? 'bg-[var(--kg-primary)] text-white shadow-xs'
-                              : 'text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)]'
-                          }`}
-                        >
-                          <SopIcon name={section.icon} size={15} className={`flex-shrink-0 ${effectiveSelectedSection === section.id ? 'text-white' : 'text-[var(--kg-text-muted)]'}`} />
-                          <span className="truncate">{section.title}</span>
-                        </button>
-                      ))}
+                    <div>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--kg-text-muted)] border-b border-[var(--kg-border)] pb-2 mb-2">
+                        Quy trình bộ phận
+                      </h3>
+                      <div className="space-y-1">
+                        {departmentSops.map((section) => (
+                          <button
+                            type="button"
+                            key={section.id}
+                            onClick={() => setSelectedSection(section.id)}
+                            className={`w-full min-h-[40px] flex items-center p-2.5 rounded-xl text-left text-xs font-bold transition-all gap-2.5 active:scale-95 ${
+                              effectiveSelectedSection === section.id
+                                ? 'bg-[var(--kg-primary)] text-white shadow-xs'
+                                : 'text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)]'
+                            }`}
+                          >
+                            <SopIcon
+                              name={section.icon}
+                              size={15}
+                              className={`flex-shrink-0 ${
+                                effectiveSelectedSection === section.id
+                                  ? 'text-white'
+                                  : 'text-[var(--kg-text-muted)]'
+                              }`}
+                            />
+                            <span className="truncate flex-1">{section.title}</span>
+                            {readSopIds.includes(section.id) && (
+                              <CheckCircle2
+                                size={13}
+                                className={
+                                  effectiveSelectedSection === section.id
+                                    ? 'text-white/90 shrink-0'
+                                    : 'text-[var(--kg-success)] shrink-0'
+                                }
+                              />
+                            )}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                </KgCard>
-              </div>
-
-              {/* Right Column: Active section details */}
-              <div className="lg:col-span-8 space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-1 px-1">
-                  <div className="flex items-center gap-2 min-w-0">
-                    {activeSopSection && (
-                      <>
-                        <SopIcon name={activeSopSection.icon} size={18} className="text-[var(--kg-primary)] flex-shrink-0" />
-                        <h3 className="text-base font-extrabold text-slate-800 dark:text-white truncate">
-                          {activeSopSection.title}
-                        </h3>
-                      </>
-                    )}
-                  </div>
-                  {activeSopSection && (
-                    <button
-                      type="button"
-                      onClick={() => toggleMarkSopRead(activeSopSection.id)}
-                      className={`min-h-[38px] px-3.5 py-2 rounded-xl text-xs font-extrabold inline-flex items-center gap-1.5 transition-all active:scale-95 touch-manipulation ${
-                        readSopIds.includes(activeSopSection.id)
-                          ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60'
-                          : 'bg-[var(--kg-surface)] text-[var(--kg-primary)] border border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]'
-                      }`}
-                    >
-                      <CheckCircle2 size={14} />
-                      <span>
-                        {readSopIds.includes(activeSopSection.id)
-                          ? 'Đã xác nhận nắm vững SOP'
-                          : 'Xác nhận đã đọc & nắm vững'}
-                      </span>
-                    </button>
-                  )}
+                  </KgCard>
                 </div>
 
-                {activeSopItems.map((item, idx) => {
-                  const isOpen = sopViewMode === 'full' || (openAccordions[item.subtitle] ?? (idx === 0));
-                  return (
-                    <KgCard key={idx} className="overflow-hidden p-0 border border-[var(--kg-border)] animate-fade-in">
-                      <button
-                        onClick={() => toggleAccordion(item.subtitle)}
-                        className="w-full flex items-center justify-between p-4 bg-[var(--kg-surface-soft)] border-b border-[var(--kg-border)] text-left"
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          {item.icon && <SopIcon name={item.icon} size={15} className="text-[var(--kg-primary)] flex-shrink-0" />}
-                          <h4 className="font-extrabold text-[var(--kg-text)] text-sm truncate">{item.subtitle}</h4>
-                        </div>
-                        {isOpen ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
-                      </button>
-                      {isOpen && (
-                        <div className="p-4 sm:p-5 bg-[var(--kg-surface)] text-sm text-[var(--kg-text)] leading-relaxed font-medium sop-content-details">
-                          <SopDetailsRenderer html={item.details} />
-                        </div>
+                {/* Right Column: Active Section Details */}
+                <div className="lg:col-span-8 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-1 px-1">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {activeSopSection && (
+                        <>
+                          <SopIcon
+                            name={activeSopSection.icon}
+                            size={18}
+                            className="text-[var(--kg-primary-ink)] flex-shrink-0"
+                          />
+                          <h3 className="text-base font-extrabold text-[var(--kg-text)] truncate">
+                            {activeSopSection.title}
+                          </h3>
+                        </>
                       )}
-                      {!isOpen && sopViewMode === 'quick' && (
+                    </div>
+                    {activeSopSection && (
+                      <button
+                        type="button"
+                        onClick={() => toggleMarkSopRead(activeSopSection.id)}
+                        className={`min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl text-xs font-extrabold inline-flex items-center gap-1.5 transition-all active:scale-95 touch-manipulation border ${
+                          readSopIds.includes(activeSopSection.id)
+                            ? 'bg-[var(--kg-success-soft)] text-[var(--kg-success)] border-[var(--kg-success)]/30'
+                            : 'bg-[var(--kg-surface)] text-[var(--kg-primary-ink)] border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]'
+                        }`}
+                      >
+                        <CheckCircle2 size={14} />
+                        <span>
+                          {readSopIds.includes(activeSopSection.id)
+                            ? 'Đã xác nhận nắm vững SOP'
+                            : 'Xác nhận đã đọc & nắm vững'}
+                        </span>
+                      </button>
+                    )}
+                  </div>
+
+                  {activeSopItems.map((item, idx) => {
+                    const isOpen = sopViewMode === 'full' || (openAccordions[item.subtitle] ?? idx === 0);
+                    return (
+                      <KgCard
+                        key={idx}
+                        className="overflow-hidden p-0 border border-[var(--kg-border)] animate-fade-in"
+                      >
                         <button
                           type="button"
                           onClick={() => toggleAccordion(item.subtitle)}
-                          className="w-full px-5 py-3 text-left bg-[var(--kg-surface-soft)]/50 border-t border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)] transition-colors"
+                          className="w-full min-h-[44px] flex items-center justify-between p-4 bg-[var(--kg-surface-soft)] border-b border-[var(--kg-border)] text-left touch-manipulation"
                         >
-                          <div className="space-y-1">
-                            {getQuickSopList(item.details).map((text, idx) => (
-                              <div key={idx} className="flex items-start gap-2 text-xs font-semibold text-[var(--kg-text-muted)] leading-relaxed">
-                                <span className="text-[var(--kg-primary)] select-none flex-shrink-0">•</span>
-                                <span className="line-clamp-1">{text}</span>
-                              </div>
-                            ))}
-                            <div className="flex items-center gap-1 text-[10px] text-[var(--kg-primary)] font-extrabold mt-1.5 hover:underline">
-                              <span>Xem đầy đủ</span>
-                              <ChevronDown size={11} />
-                            </div>
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            {item.icon && (
+                              <SopIcon
+                                name={item.icon}
+                                size={15}
+                                className="text-[var(--kg-primary-ink)] flex-shrink-0"
+                              />
+                            )}
+                            <h4 className="font-extrabold text-[var(--kg-text)] text-sm truncate">
+                              {item.subtitle}
+                            </h4>
                           </div>
+                          {isOpen ? (
+                            <ChevronUp size={16} className="text-[var(--kg-text-muted)] shrink-0" />
+                          ) : (
+                            <ChevronDown size={16} className="text-[var(--kg-text-muted)] shrink-0" />
+                          )}
                         </button>
-                      )}
-                    </KgCard>
-                  );
-                })}
+                        {isOpen && (
+                          <div className="p-4 sm:p-5 bg-[var(--kg-surface)]">
+                            <SopDetailsRenderer html={item.details} />
+                          </div>
+                        )}
+                        {!isOpen && sopViewMode === 'quick' && (
+                          <button
+                            type="button"
+                            onClick={() => toggleAccordion(item.subtitle)}
+                            className="w-full px-5 py-3 text-left bg-[var(--kg-surface-soft)]/50 border-t border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)] transition-colors"
+                          >
+                            <div className="space-y-1">
+                              {getQuickSopList(item.details).map((text, bulletIdx) => (
+                                <div
+                                  key={bulletIdx}
+                                  className="flex items-start gap-2 text-xs font-semibold text-[var(--kg-text-muted)] leading-relaxed"
+                                >
+                                  <span className="text-[var(--kg-primary-ink)] select-none flex-shrink-0">•</span>
+                                  <span className="line-clamp-1">{text}</span>
+                                </div>
+                              ))}
+                              <div className="flex items-center gap-1 text-[10px] text-[var(--kg-primary-ink)] font-extrabold mt-1.5 hover:underline">
+                                <span>Xem đầy đủ</span>
+                                <ChevronDown size={11} />
+                              </div>
+                            </div>
+                          </button>
+                        )}
+                      </KgCard>
+                    );
+                  })}
+                </div>
               </div>
             </div>
-          </div>
           )}
         </div>
       )}
 
       {/* Tab 2: Kiểm tra năng lực */}
       {activeTab === 'quiz' && (
-        <div className="space-y-4">
-          {/* Progress Overview */}
-          <KgCard className="p-4 shadow-xs border-[var(--kg-border)]">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Tiến độ bài học kiểm tra</span>
-              <span className="text-sm font-black font-mono tabular-nums text-[var(--kg-primary)]">{completedCount}/{totalLessons} bài</span>
-            </div>
-            <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-3 overflow-hidden">
-              <div
-                className="bg-[var(--kg-primary)] h-full rounded-full transition-all duration-300"
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
-            <p className="text-right text-[10px] font-mono tabular-nums text-slate-500 dark:text-slate-400 mt-1.5 font-bold">{progressPct}% Hoàn thành</p>
-          </KgCard>
-
-          {/* Lessons List */}
+        <div className="space-y-3">
           {loading ? (
             <div className="flex items-center justify-center py-12 text-[var(--kg-text-muted)]">
               <RefreshCw size={20} className="animate-spin mr-2" /> Đang tải bài học...
@@ -1178,25 +1147,24 @@ export default function Training() {
           ) : lessons.length === 0 ? (
             <KgCard className="p-8 text-center border-dashed border-[var(--kg-border)]">
               <GraduationCap size={40} className="mx-auto mb-3 text-[var(--kg-text-soft)]" />
-              <p className="text-sm text-[var(--kg-text-muted)] font-bold">Chưa có bài học nào được cấu hình trên hệ thống.</p>
+              <p className="text-sm text-[var(--kg-text-muted)] font-bold">
+                Chưa có bài học nào được cấu hình trên hệ thống.
+              </p>
             </KgCard>
           ) : (
             <div className="space-y-3">
-              {lessons.map((lesson, idx) => {
+              {lessons.map((lesson) => {
                 const isCompleted = completedIds.has(lesson.id);
                 const isActive = activeLesson === lesson.id;
                 const isQuiz = quizMode === lesson.id;
 
                 return (
-                  <motion.div
+                  <div
                     key={lesson.id}
-                    className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-xs overflow-hidden"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.04 }}
+                    className="kg-fade-in bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-xs overflow-hidden"
                   >
-                    {/* Lesson Header */}
                     <button
+                      type="button"
                       onClick={() => {
                         setActiveLesson(isActive ? null : lesson.id);
                         if (isActive) {
@@ -1204,28 +1172,32 @@ export default function Training() {
                           setAnswers({});
                         }
                       }}
-                      className="w-full flex items-center justify-between p-4 text-left focus:outline-none"
+                      className="w-full min-h-[44px] flex items-center justify-between p-4 text-left focus:outline-none touch-manipulation"
                     >
                       <div className="flex items-center min-w-0">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center mr-3 flex-shrink-0 ${
-                          isCompleted
-                            ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400'
-                            : 'bg-amber-50 text-amber-600 dark:bg-amber-950/20 dark:text-amber-400'
-                        }`}>
+                        <div
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center mr-3 flex-shrink-0 ${
+                            isCompleted
+                              ? 'bg-[var(--kg-success-soft)] text-[var(--kg-success)]'
+                              : 'bg-[var(--kg-warning-soft)] text-[var(--kg-warning)]'
+                          }`}
+                        >
                           {isCompleted ? <CheckCircle2 size={20} /> : <BookOpen size={20} />}
                         </div>
                         <div className="min-w-0">
-                          <h4 className="font-extrabold text-slate-800 dark:text-white text-sm truncate">{lesson.title}</h4>
-                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5 font-mono tabular-nums">
+                          <h4 className="font-extrabold text-[var(--kg-text)] text-sm truncate">
+                            {lesson.title}
+                          </h4>
+                          <p className="text-[10px] text-[var(--kg-text-muted)] mt-0.5 flex items-center gap-1.5 font-mono tabular-nums">
                             {isCompleted ? (
-                              <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-sans font-bold">
+                              <span className="inline-flex items-center gap-1 text-[var(--kg-success)] font-sans font-bold">
                                 <CheckCircle2 size={11} /> Đã hoàn thành
                               </span>
                             ) : (
                               <>
                                 <span>{lesson.quiz.length} câu hỏi</span>
                                 <span>•</span>
-                                <span className="inline-flex items-center gap-0.5 text-amber-600 dark:text-amber-400 font-bold">
+                                <span className="inline-flex items-center gap-0.5 text-[var(--kg-warning)] font-bold">
                                   +{lesson.points} <Coins size={11} />
                                 </span>
                               </>
@@ -1233,72 +1205,70 @@ export default function Training() {
                           </p>
                         </div>
                       </div>
-                      <ChevronRight size={18} className={`text-gray-400 transition-transform flex-shrink-0 ${isActive ? 'rotate-90' : ''}`} />
+                      <ChevronRight
+                        size={18}
+                        className={`text-[var(--kg-text-muted)] transition-transform flex-shrink-0 ${
+                          isActive ? 'rotate-90' : ''
+                        }`}
+                      />
                     </button>
 
-                    {/* Lesson Content */}
                     {isActive && !isQuiz && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        className="px-4 pb-4 border-t border-gray-100 dark:border-gray-800 pt-4"
-                      >
-                        <div className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-line leading-relaxed mb-4 font-medium max-w-[68ch]">
+                      <div className="kg-fade-in px-4 pb-4 border-t border-[var(--kg-border)] pt-4">
+                        <div className="text-sm text-[var(--kg-text-muted)] whitespace-pre-line leading-relaxed mb-4 font-medium max-w-[68ch]">
                           {lesson.content}
                         </div>
                         {!isCompleted && lesson.quiz.length > 0 && (
                           <KgButton
                             onClick={() => startShuffledQuiz(lesson)}
-                            className="w-full bg-[var(--kg-primary)] hover:opacity-95 text-white"
+                            className="w-full"
                             icon={Award}
                           >
                             Làm bài kiểm tra (+{lesson.points} King Coins)
                           </KgButton>
                         )}
                         {isCompleted && (
-                          <div className="p-3 bg-emerald-50 dark:bg-emerald-950/20 rounded-xl text-emerald-600 dark:text-emerald-400 text-xs font-bold text-center border border-emerald-100 dark:border-emerald-900/10">
+                          <div className="p-3 bg-[var(--kg-success-soft)] rounded-xl text-[var(--kg-success)] text-xs font-bold text-center border border-[var(--kg-success)]/25">
                             ✓ Bạn đã hoàn thành bài này!
                           </div>
                         )}
-                      </motion.div>
+                      </div>
                     )}
 
-                    {/* Quiz Mode */}
                     {isQuiz && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        className="px-4 pb-4 border-t border-amber-100 dark:border-amber-900/30 pt-4 bg-amber-50/20 dark:bg-amber-950/5"
-                      >
+                      <div className="kg-fade-in px-4 pb-4 border-t border-[var(--kg-warning)]/25 pt-4 bg-[var(--kg-surface-soft)]/40">
                         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
                           <div className="flex items-center gap-2">
-                            <Award size={18} className="text-amber-500" />
-                            <h4 className="font-extrabold text-slate-800 dark:text-white text-sm">Trắc nghiệm: {lesson.title}</h4>
+                            <Award size={18} className="text-[var(--kg-warning)]" />
+                            <h4 className="font-extrabold text-[var(--kg-text)] text-sm">
+                              Trắc nghiệm: {lesson.title}
+                            </h4>
                           </div>
-                          <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100/80 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300">
-                            Đề chống học vẹt • Tự đảo đáp án
+                          <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] border border-[var(--kg-warning)]/25">
+                            Đạt ≥70% • Tự đảo đáp án
                           </span>
                         </div>
 
                         {wrongReviews.length > 0 && (
-                          <div className="mb-4 p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 space-y-2">
+                          <div className="mb-4 p-3.5 rounded-xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/30 space-y-2">
                             <div className="flex items-center justify-between gap-2">
-                              <p className="text-xs font-extrabold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
-                                <AlertTriangle size={14} className="text-amber-600 shrink-0" />
+                              <p className="text-xs font-extrabold text-[var(--kg-warning)] flex items-center gap-1.5">
+                                <AlertTriangle size={14} className="shrink-0" />
                                 Cần ôn lại {wrongReviews.length} câu trước khi làm lượt mới:
                               </p>
                               <button
                                 type="button"
                                 onClick={() => startShuffledQuiz(lesson)}
-                                className="text-xs font-black text-amber-700 dark:text-amber-300 underline hover:opacity-80 shrink-0"
+                                className="min-h-[36px] text-xs font-black text-[var(--kg-warning)] underline hover:opacity-80 shrink-0 touch-manipulation"
                               >
                                 Đảo đề &amp; Thử lại
                               </button>
                             </div>
-                            <ul className="space-y-1.5 text-xs text-amber-900/90 dark:text-amber-200/90">
+                            <ul className="space-y-1.5 text-xs text-[var(--kg-text)]">
                               {wrongReviews.map((w) => (
                                 <li key={w.questionNumber} className="leading-relaxed">
-                                  <b>Câu {w.questionNumber}:</b> Đáp án vừa chọn <i>&ldquo;{w.pickedOptionText}&rdquo;</i> chưa chính xác. {w.reviewHint}
+                                  <b>Câu {w.questionNumber}:</b> Đáp án vừa chọn{' '}
+                                  <i>&ldquo;{w.pickedOptionText}&rdquo;</i> chưa chính xác. {w.reviewHint}
                                 </li>
                               ))}
                             </ul>
@@ -1317,35 +1287,41 @@ export default function Training() {
                               }))
                           ).map((q, qIdx) => (
                             <div key={qIdx}>
-                              <p className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                              <p className="text-sm font-bold text-[var(--kg-text)] mb-2">
                                 Câu {qIdx + 1}: {q.q}
                               </p>
-                                <div className="space-y-2.5">
-                                  {q.options.map((opt, oIdx) => {
-                                    const isSelected = answers[qIdx] === oIdx;
-                                    return (
-                                      <label
-                                        key={oIdx}
-                                        className={`flex items-center p-3.5 border-2 rounded-2xl cursor-pointer transition-all active:scale-[0.99] select-none ${
+                              <div className="space-y-2.5">
+                                {q.options.map((opt, oIdx) => {
+                                  const isSelected = answers[qIdx] === oIdx;
+                                  return (
+                                    <label
+                                      key={oIdx}
+                                      className={`flex items-center p-3.5 min-h-[44px] border-2 rounded-2xl cursor-pointer transition-all active:scale-[0.99] select-none touch-manipulation ${
+                                        isSelected
+                                          ? 'border-[var(--kg-warning)] bg-[var(--kg-warning-soft)] shadow-xs'
+                                          : 'border-[var(--kg-border)] bg-[var(--kg-surface)] hover:border-[var(--kg-border-strong)]'
+                                      }`}
+                                    >
+                                      <input
+                                        type="radio"
+                                        name={`q${lesson.id}_${qIdx}`}
+                                        checked={isSelected}
+                                        onChange={() => setAnswers((prev) => ({ ...prev, [qIdx]: oIdx }))}
+                                        className="text-[var(--kg-warning)] mr-3 w-4 h-4 focus:ring-[var(--kg-warning)] focus:ring-offset-0"
+                                      />
+                                      <span
+                                        className={`text-xs sm:text-sm leading-relaxed ${
                                           isSelected
-                                            ? 'border-amber-500 bg-amber-50/50 dark:bg-amber-950/30 dark:border-amber-500 shadow-xs'
-                                            : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700'
+                                            ? 'text-[var(--kg-text)] font-black'
+                                            : 'text-[var(--kg-text-muted)] font-semibold'
                                         }`}
                                       >
-                                        <input
-                                          type="radio"
-                                          name={`q${lesson.id}_${qIdx}`}
-                                          checked={isSelected}
-                                          onChange={() => setAnswers(prev => ({ ...prev, [qIdx]: oIdx }))}
-                                          className="text-amber-500 mr-3 w-4 h-4 focus:ring-amber-500 focus:ring-offset-0"
-                                        />
-                                        <span className={`text-xs sm:text-sm leading-relaxed ${isSelected ? 'text-amber-900 dark:text-amber-200 font-black' : 'text-slate-700 dark:text-slate-300 font-semibold'}`}>
-                                          {opt}
-                                        </span>
-                                      </label>
-                                    );
-                                  })}
-                                </div>
+                                        {opt}
+                                      </span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -1366,13 +1342,13 @@ export default function Training() {
                           {(() => {
                             const answeredCount = lesson.quiz.reduce(
                               (count, _q, idx) => (answers[idx] !== undefined ? count + 1 : count),
-                              0
+                              0,
                             );
                             const unansweredCount = Math.max(0, lesson.quiz.length - answeredCount);
                             return (
                               <KgButton
                                 variant="warning"
-                                onClick={() => handleSubmitQuiz(lesson)}
+                                onClick={() => void handleSubmitQuiz(lesson)}
                                 disabled={unansweredCount > 0}
                                 className="flex-1"
                               >
@@ -1383,9 +1359,9 @@ export default function Training() {
                             );
                           })()}
                         </div>
-                      </motion.div>
+                      </div>
                     )}
-                  </motion.div>
+                  </div>
                 );
               })}
             </div>
@@ -1393,10 +1369,9 @@ export default function Training() {
         </div>
       )}
 
-      {/* Tab 3: Hướng dẫn CUKCUK */}
+      {/* Tab 3: CUKCUK */}
       {activeTab === 'cukcuk' && (
         <div className="space-y-4">
-          {/* Controls: Search */}
           <div className="w-full">
             <KgInput
               placeholder="Tìm kiếm bước hướng dẫn (ví dụ: đăng nhập, hủy món, chuyển bàn...)"
@@ -1409,7 +1384,7 @@ export default function Training() {
                   <button
                     type="button"
                     onClick={() => setCukcukSearch('')}
-                    className="w-9 h-9 rounded-lg inline-flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)] transition-colors"
+                    className="w-10 h-10 sm:w-9 sm:h-9 rounded-lg inline-flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)] transition-colors touch-manipulation"
                     aria-label="Xóa tìm kiếm CUKCUK"
                   >
                     <X size={16} />
@@ -1419,77 +1394,76 @@ export default function Training() {
             />
           </div>
 
-          {filteredCukcukSteps.length === 0 ? (
-            <KgCard className="p-8 text-center border-dashed border-slate-100 dark:border-slate-800">
-              <HelpCircle size={40} className="mx-auto mb-3 text-slate-300 dark:text-slate-600" />
-              <p className="text-sm text-slate-500 font-bold">Không tìm thấy bước hướng dẫn nào khớp với từ khóa.</p>
+          {cukcukLoading ? (
+            <KgCard className="p-8 text-center">
+              <RefreshCw size={24} className="mx-auto mb-2 animate-spin text-[var(--kg-primary)]" />
+              <p className="text-xs font-semibold text-[var(--kg-text-muted)]">
+                Đang tải hướng dẫn CUKCUK...
+              </p>
+            </KgCard>
+          ) : filteredCukcukSteps.length === 0 ? (
+            <KgCard className="p-8 text-center border-dashed border-[var(--kg-border)]">
+              <HelpCircle size={40} className="mx-auto mb-3 text-[var(--kg-text-soft)]" />
+              <p className="text-sm text-[var(--kg-text-muted)] font-bold">
+                Không tìm thấy bước hướng dẫn nào khớp với từ khóa.
+              </p>
             </KgCard>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {filteredCukcukSteps.map((stepItem) => {
-                const originalIndex = cukcukData.findIndex(item => item.step === stepItem.step);
+                const originalIndex = cukcukData.findIndex((item) => item.step === stepItem.step);
 
                 return (
-                  <motion.div
+                  <div
                     key={stepItem.step}
-                    className="flex flex-col justify-between overflow-hidden rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface)] shadow-xs hover:shadow-md transition-all duration-200 group"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.18 }}
+                    className="kg-fade-in flex flex-col justify-between overflow-hidden rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface)] shadow-xs hover:shadow-md transition-all duration-200 group"
                   >
-                    {/* Header */}
-                    <div className="p-4 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/20">
-                      <span className="text-[11px] font-black tracking-wider uppercase px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600 dark:bg-blue-950/35 dark:text-blue-400">
+                    <div className="p-4 border-b border-[var(--kg-border)] flex items-center justify-between gap-2 bg-[var(--kg-surface-soft)]/60">
+                      <span className="text-[11px] font-black tracking-wider uppercase px-2.5 py-0.5 rounded-full bg-[var(--kg-info-soft)] text-[var(--kg-info)] shrink-0">
                         Bước {stepItem.step < 10 ? `0${stepItem.step}` : stepItem.step}
                       </span>
-                      <h4 className="font-extrabold text-slate-800 dark:text-white text-xs truncate max-w-[180px]">
+                      <h4 className="font-extrabold text-[var(--kg-text)] text-xs truncate">
                         {stepItem.title}
                       </h4>
                     </div>
 
-                    {/* Image Area */}
-                    <div
-                      onClick={() => {
-                        selectCukcukStep(originalIndex);
-                      }}
-                      className="relative overflow-hidden cursor-zoom-in bg-slate-100 dark:bg-slate-950 flex items-center justify-center border-b border-slate-100 dark:border-slate-800/80 aspect-video"
+                    <button
+                      type="button"
+                      onClick={() => setActiveCukcukIndex(originalIndex)}
+                      className="relative overflow-hidden cursor-zoom-in bg-[var(--kg-surface-soft)] flex items-center justify-center border-b border-[var(--kg-border)] aspect-video w-full"
                     >
                       <img
                         src={stepItem.image}
                         alt={stepItem.title}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                         loading="lazy"
                       />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
-                        <span className="bg-white/90 dark:bg-slate-900/90 text-slate-800 dark:text-white text-[11px] font-bold px-3 py-1.5 rounded-xl shadow-md flex items-center gap-1.5 backdrop-blur-sm">
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200">
+                        <span className="bg-[var(--kg-surface)]/95 text-[var(--kg-text)] text-[11px] font-bold px-3 py-1.5 rounded-xl shadow-md flex items-center gap-1.5">
                           <Eye size={12} /> Xem ảnh rõ nét
                         </span>
                       </div>
-                    </div>
+                    </button>
 
-                    {/* Description */}
                     <div className="p-4 flex-1 flex flex-col justify-between">
-                      <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-semibold mb-4 min-h-[48px]">
+                      <p className="text-xs text-[var(--kg-text-muted)] leading-relaxed font-semibold mb-4 min-h-[48px]">
                         {stepItem.description}
                       </p>
                       <button
                         type="button"
-                        onClick={() => {
-                          selectCukcukStep(originalIndex);
-                        }}
-                        className="w-full py-2.5 text-center text-xs font-black text-blue-600 dark:text-blue-400 bg-blue-50/50 hover:bg-blue-50 dark:bg-blue-950/20 dark:hover:bg-blue-950/35 rounded-xl transition-all duration-200"
+                        onClick={() => setActiveCukcukIndex(originalIndex)}
+                        className="w-full min-h-[44px] sm:min-h-[38px] py-2 text-center text-xs font-black text-[var(--kg-info)] bg-[var(--kg-info-soft)] hover:brightness-95 rounded-xl transition-all duration-150 touch-manipulation"
                       >
                         Phóng to chi tiết
                       </button>
                     </div>
-                  </motion.div>
+                  </div>
                 );
               })}
             </div>
           )}
         </div>
       )}
-
 
       {/* Mobile Category Selector Bottom Sheet */}
       <KgBottomSheet
@@ -1498,53 +1472,85 @@ export default function Training() {
         title="Danh mục quy trình (SOP)"
       >
         <div className="space-y-4 py-2">
-          {/* General Category Group */}
           <div>
             <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-[var(--kg-text-muted)] border-b border-[var(--kg-border)] pb-2 mb-2">
               Tiêu chuẩn chung
             </h4>
             <div className="grid grid-cols-1 gap-1.5">
-              {generalSops.map(section => (
+              {generalSops.map((section) => (
                 <button
+                  type="button"
                   key={section.id}
                   onClick={() => {
                     setSelectedSection(section.id);
                     setIsMobileCategoryOpen(false);
                   }}
-                  className={`w-full min-h-[44px] flex items-center p-3 rounded-xl text-left text-xs font-bold transition-all gap-3 active:scale-98 ${
+                  className={`w-full min-h-[44px] flex items-center p-3 rounded-xl text-left text-xs font-bold transition-all gap-3 active:scale-98 touch-manipulation ${
                     effectiveSelectedSection === section.id
                       ? 'bg-[var(--kg-primary)] text-white shadow-xs'
                       : 'bg-[var(--kg-surface)] text-[var(--kg-text)] border border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]'
                   }`}
                 >
-                  <SopIcon name={section.icon} size={16} className={`flex-shrink-0 ${effectiveSelectedSection === section.id ? 'text-white' : 'text-[var(--kg-text-muted)]'}`} />
-                  <span className="truncate">{section.title}</span>
+                  <SopIcon
+                    name={section.icon}
+                    size={16}
+                    className={`flex-shrink-0 ${
+                      effectiveSelectedSection === section.id ? 'text-white' : 'text-[var(--kg-text-muted)]'
+                    }`}
+                  />
+                  <span className="truncate flex-1">{section.title}</span>
+                  {readSopIds.includes(section.id) && (
+                    <CheckCircle2
+                      size={14}
+                      className={
+                        effectiveSelectedSection === section.id
+                          ? 'text-white/90 shrink-0'
+                          : 'text-[var(--kg-success)] shrink-0'
+                      }
+                    />
+                  )}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Department Category Group */}
           <div className="pt-2">
             <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-[var(--kg-text-muted)] border-b border-[var(--kg-border)] pb-2 mb-2">
               Quy trình bộ phận
             </h4>
             <div className="grid grid-cols-1 gap-1.5">
-              {departmentSops.map(section => (
+              {departmentSops.map((section) => (
                 <button
+                  type="button"
                   key={section.id}
                   onClick={() => {
                     setSelectedSection(section.id);
                     setIsMobileCategoryOpen(false);
                   }}
-                  className={`w-full min-h-[44px] flex items-center p-3 rounded-xl text-left text-xs font-bold transition-all gap-3 active:scale-98 ${
+                  className={`w-full min-h-[44px] flex items-center p-3 rounded-xl text-left text-xs font-bold transition-all gap-3 active:scale-98 touch-manipulation ${
                     effectiveSelectedSection === section.id
                       ? 'bg-[var(--kg-primary)] text-white shadow-xs'
                       : 'bg-[var(--kg-surface)] text-[var(--kg-text)] border border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]'
                   }`}
                 >
-                  <SopIcon name={section.icon} size={16} className={`flex-shrink-0 ${effectiveSelectedSection === section.id ? 'text-white' : 'text-[var(--kg-text-muted)]'}`} />
-                  <span className="truncate">{section.title}</span>
+                  <SopIcon
+                    name={section.icon}
+                    size={16}
+                    className={`flex-shrink-0 ${
+                      effectiveSelectedSection === section.id ? 'text-white' : 'text-[var(--kg-text-muted)]'
+                    }`}
+                  />
+                  <span className="truncate flex-1">{section.title}</span>
+                  {readSopIds.includes(section.id) && (
+                    <CheckCircle2
+                      size={14}
+                      className={
+                        effectiveSelectedSection === section.id
+                          ? 'text-white/90 shrink-0'
+                          : 'text-[var(--kg-success)] shrink-0'
+                      }
+                    />
+                  )}
                 </button>
               ))}
             </div>
@@ -1552,160 +1558,15 @@ export default function Training() {
         </div>
       </KgBottomSheet>
 
-      {/* Lightbox Zoom Modal */}
-      {activeCukcukIndex !== null && createPortal(
-        <div id="cukcuk-lightbox" className="fixed inset-0 z-[10050] flex flex-col items-center justify-center bg-black/95 backdrop-blur-sm select-none">
-          {/* Header Controls */}
-          <div className="absolute top-0 inset-x-0 p-4 flex items-center justify-between bg-gradient-to-b from-black/80 to-black/0 text-white z-10">
-            <div className="flex flex-col">
-              <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold font-mono tabular-nums">
-                Hướng dẫn sử dụng CUKCUK • Bước {activeCukcukIndex + 1}/{cukcukData.length}
-              </span>
-              <h3 className="text-sm font-black text-white">
-                {cukcukData[activeCukcukIndex].title}
-              </h3>
-            </div>
-            
-            {/* Zoom Percent indicator */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-black font-mono tabular-nums bg-slate-800 px-2.5 py-1 rounded-lg text-slate-300">
-                {Math.round(zoomScale * 100)}%
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  selectCukcukStep(null);
-                }}
-                className="p-2 bg-slate-800 hover:bg-slate-700 active:scale-95 rounded-xl transition-all"
-                title="Đóng (Esc)"
-              >
-                <X size={20} />
-              </button>
-            </div>
-          </div>
-
-          {/* Image Container with Panning/Zooming */}
-          <div 
-            className="w-full h-full flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing p-4 select-none touch-none"
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            onWheel={handleWheel}
-          >
-            <div
-              className="transition-transform duration-75 ease-out select-none"
-              style={{
-                transform: `translate(${zoomPos.x}px, ${zoomPos.y}px) scale(${zoomScale})`,
-              }}
-              onDoubleClick={handleDoubleClick}
-            >
-              <img
-                src={cukcukData[activeCukcukIndex].image}
-                alt={cukcukData[activeCukcukIndex].title}
-                className="max-h-[80vh] max-w-[95vw] md:max-h-[85vh] md:max-w-[85vw] object-contain pointer-events-none rounded shadow-2xl border border-white/10"
-              />
-            </div>
-          </div>
-
-          {/* Floating Action Bar (360px-safe responsive zoom controls) */}
-          <div className="absolute bottom-4 sm:bottom-6 flex flex-col items-center gap-2.5 sm:gap-3 w-full max-w-lg px-3 sm:px-6 z-10">
-            {/* Description Text */}
-            {!showDescription ? (
-              <button
-                type="button"
-                onClick={() => setShowDescription(true)}
-                className="min-h-[44px] sm:min-h-[38px] bg-slate-900/90 hover:bg-slate-800 text-slate-200 text-xs font-bold px-4 py-2 rounded-xl shadow-md border border-slate-800 flex items-center gap-2 backdrop-blur-sm transition-all active:scale-95 animate-fade-in"
-              >
-                <BookOpen size={14} className="text-blue-400" />
-                Đọc hướng dẫn, mô tả
-              </button>
-            ) : (
-              <div className="bg-slate-900/90 text-slate-100 text-xs font-semibold p-3.5 sm:p-4 rounded-2xl shadow-xl border border-slate-800/80 backdrop-blur-md w-full leading-relaxed relative flex flex-col items-center animate-slide-up">
-                <div className="max-h-[120px] overflow-y-auto w-full text-center mb-1">
-                  {cukcukData[activeCukcukIndex].description}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowDescription(false)}
-                  className="min-h-[36px] px-3 text-[11px] text-slate-400 hover:text-white font-bold flex items-center gap-1 mt-1 hover:underline"
-                >
-                  <ChevronDown size={12} /> Thu gọn
-                </button>
-              </div>
-            )}
-
-            {/* Controls */}
-            <div className="flex items-center justify-between gap-1.5 sm:gap-2 w-full bg-slate-900/85 backdrop-blur-md px-2 sm:px-4 py-2 rounded-2xl border border-slate-800/80 shadow-2xl">
-              <button
-                type="button"
-                disabled={activeCukcukIndex === 0}
-                onClick={() => {
-                  if (activeCukcukIndex > 0) {
-                    selectCukcukStep(activeCukcukIndex - 1);
-                  }
-                }}
-                aria-label="Bước trước"
-                className="min-w-[44px] min-h-[44px] sm:min-w-[38px] sm:min-h-[38px] flex items-center justify-center bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none active:scale-95 rounded-xl transition-all text-white flex-shrink-0"
-                title="Bước trước"
-              >
-                <ChevronRight size={18} className="rotate-180" />
-              </button>
-
-              <div className="flex items-center justify-center gap-1.5 sm:gap-2 min-w-0">
-                <button
-                  type="button"
-                  onClick={zoomOut}
-                  aria-label="Thu nhỏ"
-                  className="min-w-[44px] min-h-[44px] sm:min-h-[36px] px-2.5 sm:px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1 active:scale-95 transition-all whitespace-nowrap"
-                  title="Thu nhỏ"
-                >
-                  <span className="text-sm font-black">−</span>
-                  <span className="hidden sm:inline">Thu nhỏ</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={resetZoom}
-                  aria-label="Đặt lại zoom"
-                  className="min-w-[48px] min-h-[44px] sm:min-h-[36px] px-2.5 sm:px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-bold font-mono tabular-nums rounded-xl text-xs flex items-center justify-center active:scale-95 transition-all whitespace-nowrap"
-                  title="Đặt lại zoom"
-                >
-                  <span className="sm:hidden">{Math.round(zoomScale * 100)}%</span>
-                  <span className="hidden sm:inline">Reset</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={zoomIn}
-                  aria-label="Phóng to"
-                  className="min-w-[44px] min-h-[44px] sm:min-h-[36px] px-2.5 sm:px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1 active:scale-95 transition-all whitespace-nowrap"
-                  title="Phóng to"
-                >
-                  <span className="text-sm font-black">+</span>
-                  <span className="hidden sm:inline">Phóng to</span>
-                </button>
-              </div>
-
-              <button
-                type="button"
-                disabled={activeCukcukIndex === cukcukData.length - 1}
-                onClick={() => {
-                  if (activeCukcukIndex < cukcukData.length - 1) {
-                    selectCukcukStep(activeCukcukIndex + 1);
-                  }
-                }}
-                aria-label="Bước sau"
-                className="min-w-[44px] min-h-[44px] sm:min-w-[38px] sm:min-h-[38px] flex items-center justify-center bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none active:scale-95 rounded-xl transition-all text-white flex-shrink-0"
-                title="Bước sau"
-              >
-                <ChevronRight size={18} />
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
+      {/* Lazy-loaded CUKCUK Lightbox */}
+      {activeCukcukIndex !== null && cukcukData[activeCukcukIndex] && (
+        <Suspense fallback={null}>
+          <CukcukGuideLightbox
+            steps={cukcukData}
+            activeIndex={activeCukcukIndex}
+            onSelectIndex={setActiveCukcukIndex}
+          />
+        </Suspense>
       )}
     </div>
   );

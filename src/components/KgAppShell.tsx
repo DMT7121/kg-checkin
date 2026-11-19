@@ -16,13 +16,16 @@ import {
   Sparkles,
 } from 'lucide-react';
 import NotificationBell from './NotificationBell';
-import NewbieGuideModal from './NewbieGuideModal';
-import KgCommandPalette from './KgCommandPalette';
-import { KgVersionBadge } from './VersionReleaseModal';
-import { APP_CODENAME, APP_VERSION_TAG, openReleaseNotesModal } from '../config/releaseNotes';
+import { KgVersionBadge } from './KgVersionBadge';
+import { APP_CODENAME, APP_VERSION_TAG, openReleaseNotesModal } from '../config/appVersion';
 import { KgActionSheet, KgBottomSheet, KgSyncStatus } from './KgDesignSystem';
 import { getTabLabel, hasTabPermission, isAdminUser } from '../utils/permissions';
-import { navigationModules, type NavigationGroup } from '../config/moduleRegistry';
+import {
+  BOTTOM_ADMIN_TABS,
+  BOTTOM_STAFF_TABS,
+  navigationModules,
+  type NavigationGroup,
+} from '../config/moduleRegistry';
 import {
   getFailedVaultPunches,
   getQueue,
@@ -39,26 +42,16 @@ import { getSafeDisplayInitial, resolveInitialRailExpanded } from '../utils/shel
 import type { TabId } from '../types/navigation';
 
 const SyncVaultDrawer = lazy(() => import('./SyncVaultDrawer'));
+const NewbieGuideModal = lazy(() => import('./NewbieGuideModal'));
+const KgCommandPalette = lazy(() => import('./KgCommandPalette'));
 
 const WIDE_MODULE_TABS = new Set<TabId>([
   'attendance',
   'workforce',
   'work',
-  'income',
-  'admin_people',
-  'admin_workforce',
-  'admin_work',
-  'admin_income',
+  'admin_ops',
+  'admin_people_pay',
   'admin_system',
-  'schedule',
-  'roster',
-  'timesheet',
-  'payroll',
-  'admin_shift',
-  'admin_payroll',
-  'admin_operations',
-  'admin_analytics',
-  'hr_list',
 ]);
 
 export default function KgAppShell({
@@ -86,10 +79,14 @@ export default function KgAppShell({
   const [failedVaultCount, setFailedVaultCount] = useState(() => getFailedVaultPunches().length);
   const [isRefreshing, setIsRefreshing] = useState(() => isAppRefreshing());
   const [isQueueBusy, setIsQueueBusy] = useState(() => isQueueSyncing());
+  const [isOnline, setIsOnline] = useState(() => (typeof navigator !== 'undefined' ? navigator.onLine : true));
+  const [isDesktopViewport, setIsDesktopViewport] = useState<boolean>(() =>
+    typeof window !== 'undefined' ? window.innerWidth >= 768 : true,
+  );
   const isSyncing = isRefreshing || isQueueBusy;
   const syncAttentionCount = pendingSyncCount + failedVaultCount;
 
-  // Laptop/PC (>= 1280px) defaults to Expanded Rail with labels; Tablet (< 1280px) defaults compact
+  // Laptop/PC (>= 1280px) defaults to Expanded Rail with labels; Tablet (< 1280px) defaults compact with micro-labels
   const [isRailExpanded, setIsRailExpanded] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem('kg_rail_expanded_v4');
@@ -116,6 +113,7 @@ export default function KgAppShell({
 
   useEffect(() => {
     const handleViewportResize = () => {
+      setIsDesktopViewport(window.innerWidth >= 768);
       try {
         const saved = localStorage.getItem('kg_rail_expanded_v4');
         if (saved === 'true' || saved === 'false') return;
@@ -124,8 +122,21 @@ export default function KgAppShell({
         /* ignore */
       }
     };
+    const mql = typeof window.matchMedia === 'function' ? window.matchMedia('(min-width: 768px)') : null;
+    const handleMediaChange = (e: MediaQueryListEvent) => setIsDesktopViewport(e.matches);
+    const goOnline = () => setIsOnline(true);
+    const goOffline = () => setIsOnline(false);
+
     window.addEventListener('resize', handleViewportResize);
-    return () => window.removeEventListener('resize', handleViewportResize);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    mql?.addEventListener?.('change', handleMediaChange);
+    return () => {
+      window.removeEventListener('resize', handleViewportResize);
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+      mql?.removeEventListener?.('change', handleMediaChange);
+    };
   }, []);
 
   useEffect(() => {
@@ -220,16 +231,14 @@ export default function KgAppShell({
 
   const bottomTabs = useMemo(() => {
     if (isAdmin) {
-      const adminBottomIds: TabId[] = ['dashboard', 'checkin', 'admin_workforce', 'admin_people'];
-      const resolvedAdmin = adminBottomIds
+      const resolvedAdmin = BOTTOM_ADMIN_TABS
         .map((id) => allowedModules.find((m) => m.id === id))
         .filter((m): m is (typeof navigationModules)[number] => Boolean(m));
       if (resolvedAdmin.length >= 3) {
         return resolvedAdmin;
       }
     }
-    const staffBottomIds: TabId[] = ['dashboard', 'checkin', 'work', 'workforce'];
-    return staffBottomIds
+    return BOTTOM_STAFF_TABS
       .map((id) => allowedModules.find((m) => m.id === id))
       .filter((m): m is (typeof navigationModules)[number] => Boolean(m));
   }, [isAdmin, allowedModules]);
@@ -240,30 +249,6 @@ export default function KgAppShell({
       ...module,
       onClick: () => handleTabChange(module.id),
     }));
-
-  const allMoreActions = [
-    {
-      id: 'release_notes_action' as TabId,
-      label: `Điểm mới ${APP_VERSION_TAG}`,
-      icon: Sparkles,
-      group: 'Cá nhân' as const,
-      onClick: () => {
-        setIsMoreOpen(false);
-        openReleaseNotesModal('all');
-      },
-    },
-    {
-      id: 'guide_modal_action' as TabId,
-      label: 'Cẩm nang người mới',
-      icon: GraduationCap,
-      group: 'Vận hành' as const,
-      onClick: () => {
-        setIsMoreOpen(false);
-        setIsGuideOpen(true);
-      },
-    },
-    ...moreActions,
-  ];
 
   const groupOrder: NavigationGroup[] = ['Cá nhân', 'Vận hành', 'Quản lý & Cấu hình'];
   const menuGroups = groupOrder
@@ -281,89 +266,107 @@ export default function KgAppShell({
     return `${shortName} • ${roleText}`;
   })();
 
-  return (
-    <div className="w-full min-h-screen flex flex-col md:flex-row bg-[var(--kg-bg)] text-[var(--kg-text)] transition-colors duration-150">
-      {/* 1. MOBILE SUPER-APP HEADER (< 768px) */}
-      <header className="sticky top-0 z-40 w-full min-h-[56px] bg-[var(--kg-surface)]/95 backdrop-blur-md border-b border-[var(--kg-border)] px-3 py-2 pt-safe-top flex flex-col gap-1.5 md:hidden">
-        <div className="flex justify-between items-center gap-2 w-full">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <button
-              type="button"
-              onClick={() => handleTabChange('dashboard')}
-              className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl bg-[var(--kg-rail-bg)] border border-white/15 flex items-center justify-center flex-shrink-0 shadow-xs active:scale-95 transition-transform touch-manipulation"
-              aria-label="Về trang Hôm nay"
-            >
-              <img src="/android-chrome-192x192.png?v=3" alt="King's Grill" className="w-5 h-5 object-contain" />
-            </button>
+  // Single NotificationBell element mounted only in the active responsive shell slot
+  const notificationBell = <NotificationBell />;
 
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <h1 className="font-extrabold text-[14px] tracking-tight leading-tight text-[var(--kg-text)] truncate">
-                  {activeTitle}
-                </h1>
-                <span className="hidden sm:inline-flex flex-shrink-0">
-                  <KgVersionBadge variant="compact" />
-                </span>
-              </div>
+  const syncDotClass = !isOnline || failedVaultCount > 0
+    ? 'bg-[var(--kg-danger)]'
+    : syncAttentionCount > 0
+      ? 'bg-[var(--kg-warning)]'
+      : isSyncing
+        ? 'bg-[var(--kg-info)] animate-pulse'
+        : 'bg-[var(--kg-success)]';
+
+  return (
+    <div className="w-full min-h-dvh flex flex-col md:flex-row bg-[var(--kg-bg)] text-[var(--kg-text)] transition-colors duration-150">
+      {/* 1. MOBILE SUPER-APP HEADER (< 768px — Crisp 1-Row 56px Header) */}
+      <header className="sticky top-0 z-40 w-full min-h-[56px] bg-[var(--kg-surface)]/95 backdrop-blur-md border-b border-[var(--kg-border)] px-3 py-1.5 pt-safe-top flex items-center justify-between gap-2 md:hidden">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <button
+            type="button"
+            onClick={() => handleTabChange('dashboard')}
+            className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl bg-[var(--kg-rail-bg)] border border-white/15 flex items-center justify-center flex-shrink-0 shadow-xs active:scale-95 transition-transform touch-manipulation"
+            aria-label="Về trang Hôm nay"
+          >
+            <img src="/android-chrome-192x192.png?v=3" alt="King's Grill" className="w-5 h-5 object-contain" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsSyncVaultOpen(true)}
+            className="min-w-0 flex-1 min-h-[44px] flex flex-col justify-center text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--kg-primary-ink)] rounded-lg px-0.5"
+            aria-label="Mở trạng thái đồng bộ và Vault ngoại tuyến"
+            title="Chạm để kiểm tra trạng thái đồng bộ & Vault"
+          >
+            <div className="flex items-center gap-1.5 min-w-0">
+              <h1 className="font-extrabold text-[14px] tracking-tight leading-tight text-[var(--kg-text)] truncate">
+                {activeTitle}
+              </h1>
+              <span className="hidden sm:inline-flex flex-shrink-0">
+                <KgVersionBadge variant="compact" />
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 min-w-0 mt-0.5">
+              <span
+                aria-hidden="true"
+                className={`w-2 h-2 rounded-full flex-shrink-0 ${syncDotClass}`}
+              />
               <p className="text-[11px] font-medium text-[var(--kg-text-muted)] truncate">
-                {syncAttentionCount > 0 ? `${syncAttentionCount} mục cần đồng bộ • ${userSubtitle}` : `${shiftName} • ${userSubtitle}`}
+                {failedVaultCount > 0
+                  ? `Lỗi Vault (${failedVaultCount}) • ${userSubtitle}`
+                  : syncAttentionCount > 0
+                    ? `Chờ đồng bộ (${syncAttentionCount}) • ${userSubtitle}`
+                    : `${shiftName} • ${userSubtitle}`}
               </p>
             </div>
-          </div>
-
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <div className="hidden sm:inline-flex">
-              {renderSyncPill()}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setIsCommandOpen(true)}
-              className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] flex items-center justify-center active:scale-95 transition-colors touch-manipulation"
-              title="Tìm nhanh phân hệ"
-              aria-label="Tìm nhanh phân hệ"
-            >
-              <Search size={16} strokeWidth={1.85} />
-            </button>
-
-            <NotificationBell />
-
-            <button
-              type="button"
-              onClick={() => setIsMobileAccountOpen(true)}
-              className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex items-center justify-center active:scale-95 transition-colors touch-manipulation overflow-hidden"
-              title="Tài khoản & Tiện ích"
-              aria-label="Tài khoản và cài đặt"
-            >
-              {currentUser?.avatarUrl ? (
-                <img src={currentUser.avatarUrl} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <span className="w-7 h-7 rounded-full bg-[var(--kg-accent)] text-white text-xs font-extrabold flex items-center justify-center">
-                  {getSafeDisplayInitial(currentUser?.fullname, currentUser?.username)}
-                </span>
-              )}
-            </button>
-          </div>
+          </button>
         </div>
 
-        <div className="flex items-center justify-between gap-2 sm:hidden">
-          {renderSyncPill()}
-          <span className="text-[11px] font-medium text-[var(--kg-text-muted)] truncate">
-            {shiftName}
-          </span>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <div className="hidden sm:inline-flex">
+            {renderSyncPill()}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsCommandOpen(true)}
+            className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] flex items-center justify-center active:scale-95 transition-colors touch-manipulation"
+            title="Tìm nhanh phân hệ"
+            aria-label="Tìm nhanh phân hệ"
+          >
+            <Search size={16} strokeWidth={1.85} />
+          </button>
+
+          {!isDesktopViewport && notificationBell}
+
+          <button
+            type="button"
+            onClick={() => setIsMobileAccountOpen(true)}
+            className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex items-center justify-center active:scale-95 transition-colors touch-manipulation overflow-hidden"
+            title="Tài khoản & Tiện ích"
+            aria-label="Tài khoản và cài đặt"
+          >
+            {currentUser?.avatarUrl ? (
+              <img src={currentUser.avatarUrl} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <span className="w-7 h-7 rounded-full bg-[var(--kg-accent)] text-white dark:text-[#0D1015] text-xs font-extrabold flex items-center justify-center">
+                {getSafeDisplayInitial(currentUser?.fullname, currentUser?.username)}
+              </span>
+            )}
+          </button>
         </div>
       </header>
 
-      {/* 2. DESKTOP ARCHITECTURAL MIDNIGHT RAIL (232px Expanded >= 1280px ↔ 72px Compact Spine) */}
+      {/* 2. DESKTOP ARCHITECTURAL MIDNIGHT RAIL (232px Expanded >= 1280px ↔ 76px Tablet Compact Spine w/ Micro-Labels) */}
       <aside
         aria-label="Thanh điều hướng chính"
         className={`hidden md:flex flex-col ${
-          isRailExpanded ? 'w-[232px]' : 'w-[72px]'
-        } shrink-0 bg-[var(--kg-rail-bg)] text-[var(--kg-rail-text)] border-r border-[var(--kg-rail-border)] h-screen sticky top-0 overflow-hidden transition-[width] duration-200 ease-out select-none`}
+          isRailExpanded ? 'w-[232px]' : 'w-[76px]'
+        } shrink-0 bg-[var(--kg-rail-bg)] text-[var(--kg-rail-text)] border-r border-[var(--kg-rail-border)] h-dvh sticky top-0 overflow-hidden transition-[width] duration-200 ease-out select-none`}
       >
         {/* Brand Crest + Expand Toggle */}
         <div
-          className={`h-[54px] border-b border-[var(--kg-rail-border)] flex items-center ${
+          className={`h-[60px] border-b border-[var(--kg-rail-border)] flex items-center ${
             isRailExpanded ? 'justify-between px-3' : 'justify-center px-1.5'
           } flex-shrink-0`}
         >
@@ -389,7 +392,7 @@ export default function KgAppShell({
               <button
                 type="button"
                 onClick={toggleRailExpanded}
-                className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/15 text-[var(--kg-rail-muted)] hover:text-white flex items-center justify-center transition-colors flex-shrink-0"
+                className="w-11 h-11 lg:w-8 lg:h-8 rounded-lg bg-white/10 hover:bg-white/15 text-[var(--kg-rail-muted)] hover:text-white flex items-center justify-center transition-colors flex-shrink-0"
                 title="Thu gọn thành thanh Icon"
                 aria-label="Thu gọn thanh điều hướng"
               >
@@ -400,7 +403,7 @@ export default function KgAppShell({
             <button
               type="button"
               onClick={toggleRailExpanded}
-              className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 flex items-center justify-center transition-colors relative group"
+              className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 flex items-center justify-center transition-colors relative group"
               title="Mở rộng danh mục điều hướng"
               aria-label="Mở rộng danh mục điều hướng"
             >
@@ -410,8 +413,8 @@ export default function KgAppShell({
           )}
         </div>
 
-        {/* Navigation Groups — Compact Vertical Rhythm Fitting All 14 Admin Modules Above the Fold */}
-        <nav className="flex-1 min-h-0 py-2 px-2 space-y-2 overflow-y-auto">
+        {/* Navigation Groups — 11 Canonical Modules with Touch-Safe Micro-Labels in Compact Mode */}
+        <nav className="flex-1 min-h-0 py-2 px-1.5 space-y-2 overflow-y-auto hide-scrollbar">
           {menuGroups.map((group, gIdx) => (
             <div key={group.label} className="space-y-0.5">
               {isRailExpanded ? (
@@ -419,7 +422,7 @@ export default function KgAppShell({
                   {group.label}
                 </p>
               ) : (
-                gIdx > 0 && <div className="mx-2.5 my-1.5 border-t border-[var(--kg-rail-border)]" />
+                gIdx > 0 && <div className="mx-2 my-1.5 border-t border-[var(--kg-rail-border)]" />
               )}
 
               {group.items.map((item) => {
@@ -435,19 +438,23 @@ export default function KgAppShell({
                     title={!isRailExpanded ? `${item.label} (${group.label})` : undefined}
                     aria-label={item.label}
                     aria-current={isActive ? 'page' : undefined}
-                    className={`relative w-full rounded-xl transition-all flex items-center ${
+                    className={`relative w-full rounded-xl transition-all flex items-center touch-manipulation ${
                       isRailExpanded
-                        ? 'px-2.5 py-1.5 gap-2.5 justify-start text-left min-h-[34px]'
-                        : 'p-1.5 justify-center min-h-[35px]'
+                        ? 'px-2.5 py-2 gap-2.5 justify-start text-left min-h-[44px] lg:min-h-[36px]'
+                        : 'flex-col justify-center gap-0.5 px-1 py-1.5 min-h-[44px]'
                     } ${
                       isActive
-                        ? 'bg-[var(--kg-accent)] text-white shadow-sm font-bold ring-1 ring-white/20'
+                        ? 'bg-[var(--kg-accent)] text-white dark:text-[#0D1015] shadow-sm font-bold ring-1 ring-white/20'
                         : 'text-[var(--kg-rail-muted)] hover:text-white hover:bg-[var(--kg-rail-surface)] font-medium'
                     }`}
                   >
                     <Icon size={17} className="flex-shrink-0" />
-                    {isRailExpanded && (
+                    {isRailExpanded ? (
                       <span className="text-[12.5px] leading-tight truncate flex-1">{item.label}</span>
+                    ) : (
+                      <span className="text-[10px] leading-tight tracking-tight truncate max-w-full font-semibold">
+                        {item.shortLabel || item.label}
+                      </span>
                     )}
                   </button>
                 );
@@ -466,7 +473,7 @@ export default function KgAppShell({
             <button
               type="button"
               onClick={() => setIsGuideOpen(true)}
-              className="w-9 h-8 rounded-lg bg-[var(--kg-rail-surface)] hover:bg-white/15 text-amber-300 flex items-center justify-center transition-colors"
+              className="w-11 h-11 lg:w-9 lg:h-8 rounded-lg bg-[var(--kg-rail-surface)] hover:bg-white/15 text-amber-300 flex items-center justify-center transition-colors"
               title="Cẩm nang hướng dẫn người mới"
               aria-label="Cẩm nang hướng dẫn người mới"
             >
@@ -476,7 +483,7 @@ export default function KgAppShell({
             <button
               type="button"
               onClick={() => toggleDarkMode()}
-              className="w-9 h-8 rounded-lg bg-[var(--kg-rail-surface)] hover:bg-white/15 text-[var(--kg-rail-text)] flex items-center justify-center transition-colors"
+              className="w-11 h-11 lg:w-9 lg:h-8 rounded-lg bg-[var(--kg-rail-surface)] hover:bg-white/15 text-[var(--kg-rail-text)] flex items-center justify-center transition-colors"
               title={isDark ? 'Chuyển sang Giao diện Sáng' : 'Chuyển sang Giao diện Tối'}
               aria-label={isDark ? 'Chuyển sang Giao diện Sáng' : 'Chuyển sang Giao diện Tối'}
             >
@@ -487,7 +494,7 @@ export default function KgAppShell({
           <button
             type="button"
             onClick={handleLogout}
-            className="w-9 h-8 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-400/25 flex items-center justify-center transition-colors"
+            className="w-11 h-11 lg:w-9 lg:h-8 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-400/25 flex items-center justify-center transition-colors"
             title="Đăng xuất tài khoản"
             aria-label="Đăng xuất tài khoản"
           >
@@ -497,7 +504,7 @@ export default function KgAppShell({
       </aside>
 
       {/* 3. MAIN WORKSPACE */}
-      <main className="kg-app-main flex-1 flex flex-col min-w-0 min-h-screen md:h-screen md:overflow-y-auto overflow-x-clip">
+      <main className="kg-app-main flex-1 flex flex-col min-w-0 min-h-dvh md:h-dvh md:overflow-y-auto overflow-x-clip">
         {/* Desktop Editorial Masthead (60px) */}
         <div className="hidden md:flex h-[60px] justify-between items-center gap-3 px-5 lg:px-7 border-b border-[var(--kg-border)] bg-[var(--kg-surface)] sticky top-0 z-30 flex-shrink-0">
           <div className="flex items-center gap-2.5 min-w-0">
@@ -516,7 +523,7 @@ export default function KgAppShell({
             <button
               type="button"
               onClick={() => setIsCommandOpen(true)}
-              className="min-h-[44px] lg:min-h-[36px] lg:h-9 px-3 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] hover:border-[var(--kg-border-strong)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] text-xs font-semibold flex items-center gap-2 transition-colors whitespace-nowrap"
+              className="min-h-[44px] h-11 lg:min-h-[36px] lg:h-9 px-3 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] hover:border-[var(--kg-border-strong)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] text-xs font-semibold flex items-center gap-2 transition-colors whitespace-nowrap"
               title="Tìm nhanh phân hệ (Ctrl+K)"
             >
               <Search size={14} strokeWidth={1.85} className="text-[var(--kg-accent-ink)] flex-shrink-0" />
@@ -531,7 +538,7 @@ export default function KgAppShell({
               {renderSyncPill()}
             </div>
 
-            <div className="min-h-[44px] lg:min-h-[36px] lg:h-9 px-3 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-xs font-medium text-[var(--kg-text-muted)] flex items-center gap-1.5 whitespace-nowrap">
+            <div className="min-h-[44px] h-11 lg:min-h-[36px] lg:h-9 px-3 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-xs font-medium text-[var(--kg-text-muted)] flex items-center gap-1.5 whitespace-nowrap">
               <Clock size={13} strokeWidth={1.85} className="text-[var(--kg-accent-ink)] flex-shrink-0" />
               <span>
                 <span className="hidden lg:inline">Ca: </span>
@@ -539,13 +546,13 @@ export default function KgAppShell({
               </span>
             </div>
 
-            <NotificationBell />
+            {isDesktopViewport && notificationBell}
 
             <button
               type="button"
               onClick={() => handleTabChange('profile')}
               title={`${currentUser?.fullname || 'Nhân sự'} (${isAdmin ? 'Quản lý' : 'Nhân viên'})`}
-              className="min-h-[44px] lg:min-h-[36px] lg:h-9 pl-1.5 pr-2.5 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] hover:border-[var(--kg-border-strong)] flex items-center gap-2 transition-colors"
+              className="min-h-[44px] h-11 lg:min-h-[36px] lg:h-9 pl-1.5 pr-2.5 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] hover:border-[var(--kg-border-strong)] flex items-center gap-2 transition-colors"
             >
               {currentUser?.avatarUrl ? (
                 <img src={currentUser.avatarUrl} alt="" className="w-6 h-6 rounded-lg object-cover" />
@@ -593,7 +600,7 @@ export default function KgAppShell({
               <div
                 className={`w-10 h-7 rounded-xl flex items-center justify-center transition-all ${
                   isActive
-                    ? 'bg-[var(--kg-accent)] text-white shadow-sm'
+                    ? 'bg-[var(--kg-accent)] text-white dark:text-[#0D1015] shadow-sm'
                     : 'text-slate-300'
                 }`}
               >
@@ -611,7 +618,7 @@ export default function KgAppShell({
         })}
 
         {(() => {
-          const isMoreActionActive = allMoreActions.some((action) => currentTab === action.id);
+          const isMoreActionActive = moreActions.some((action) => currentTab === action.id);
           return (
             <button
               type="button"
@@ -621,7 +628,7 @@ export default function KgAppShell({
               <div
                 className={`w-10 h-7 rounded-xl flex items-center justify-center transition-all ${
                   isMoreActionActive
-                    ? 'bg-[var(--kg-accent)] text-white shadow-sm'
+                    ? 'bg-[var(--kg-accent)] text-white dark:text-[#0D1015] shadow-sm'
                     : 'text-slate-300'
                 }`}
               >
@@ -651,7 +658,7 @@ export default function KgAppShell({
               {currentUser?.avatarUrl ? (
                 <img src={currentUser.avatarUrl} alt="" className="w-full h-full object-cover" />
               ) : (
-                currentUser?.fullname?.charAt(0) || 'U'
+                getSafeDisplayInitial(currentUser?.fullname, currentUser?.username)
               )}
             </div>
             <div className="min-w-0 flex-1">
@@ -679,7 +686,7 @@ export default function KgAppShell({
             >
               <span className="flex items-center gap-2.5 min-w-0">
                 <Sparkles size={17} strokeWidth={1.85} className="text-[var(--kg-accent-ink)] flex-shrink-0" />
-                <span className="truncate">Thông tin phiên bản & Điểm mới</span>
+                <span className="truncate">Thông tin phiên bản &amp; Điểm mới</span>
               </span>
               <span className="px-2 py-0.5 rounded-full bg-[var(--kg-accent-soft)] text-[var(--kg-accent-ink)] text-xs font-mono font-bold flex-shrink-0">
                 {APP_VERSION_TAG}
@@ -697,7 +704,7 @@ export default function KgAppShell({
               >
                 <span className="flex items-center gap-2.5">
                   <UserIcon size={17} strokeWidth={1.8} className="text-[var(--kg-primary-ink)]" />
-                  Hồ sơ cá nhân & Mật khẩu
+                  Hồ sơ cá nhân &amp; Mật khẩu
                 </span>
                 <ChevronRight size={16} className="text-[var(--kg-text-muted)]" />
               </button>
@@ -753,32 +760,40 @@ export default function KgAppShell({
         </div>
       </KgBottomSheet>
 
-      {/* More Action Sheet */}
+      {/* More Action Sheet (Deduplicated — Release Notes & Newbie Guide live in Account Sheet) */}
       <KgActionSheet
         isOpen={isMoreOpen}
         onClose={() => setIsMoreOpen(false)}
-        title="Danh mục Phân hệ & Tiện ích"
-        actions={allMoreActions.map((action) => ({
+        title="Danh mục Phân hệ"
+        actions={moreActions.map((action) => ({
           ...action,
           active: currentTab === action.id,
           onPrefetch: () => onPrefetch?.(action.id),
         }))}
       />
 
-      {/* Global Newbie Guide Modal */}
-      <NewbieGuideModal
-        isOpen={isGuideOpen}
-        onClose={() => setIsGuideOpen(false)}
-        onNavigateTab={handleTabChange}
-      />
+      {/* Global Newbie Guide Modal - lazy-loaded on demand */}
+      {isGuideOpen && (
+        <Suspense fallback={null}>
+          <NewbieGuideModal
+            isOpen={isGuideOpen}
+            onClose={() => setIsGuideOpen(false)}
+            onNavigateTab={handleTabChange}
+          />
+        </Suspense>
+      )}
 
-      {/* Global Command Palette (Ctrl+K / Cmd+K) */}
-      <KgCommandPalette
-        isOpen={isCommandOpen}
-        onClose={() => setIsCommandOpen(false)}
-        onNavigateTab={handleTabChange}
-        onOpenGuide={() => setIsGuideOpen(true)}
-      />
+      {/* Global Command Palette (Ctrl+K / Cmd+K) - lazy-loaded on demand */}
+      {isCommandOpen && (
+        <Suspense fallback={null}>
+          <KgCommandPalette
+            isOpen={isCommandOpen}
+            onClose={() => setIsCommandOpen(false)}
+            onNavigateTab={handleTabChange}
+            onOpenGuide={() => setIsGuideOpen(true)}
+          />
+        </Suspense>
+      )}
 
       {/* Offline Vault Inspection & Manual Retry Drawer */}
       {isSyncVaultOpen && (

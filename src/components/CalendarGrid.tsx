@@ -1,5 +1,5 @@
-import React from 'react';
-import { SHORT_DAY_NAMES } from '../utils/helpers';
+import React, { useMemo } from 'react';
+import { SHORT_DAY_NAMES, getVietnamDateParts } from '../utils/helpers';
 import type { MonthDateInfo } from '../utils/helpers';
 import { getCalendarDayMeta } from '../utils/calendarHighlights';
 
@@ -9,6 +9,11 @@ interface CalendarGridProps {
 }
 
 export default function CalendarGrid({ monthDates, renderCell }: CalendarGridProps) {
+  const todayKey = useMemo(() => {
+    const vn = getVietnamDateParts();
+    return `${vn.year}-${String(vn.month).padStart(2, '0')}-${String(vn.day).padStart(2, '0')}`;
+  }, []);
+
   if (!monthDates || monthDates.length === 0) return null;
 
   const firstDay = monthDates[0];
@@ -38,8 +43,9 @@ export default function CalendarGrid({ monthDates, renderCell }: CalendarGridPro
       <div className="grid grid-cols-7 gap-1 sm:gap-2 auto-rows-fr">
         {blanks}
         {monthDates.map((mDate) => {
-          const isToday = new Date().toDateString() === mDate.date.toDateString();
+          const isToday = mDate.dateKey === todayKey;
           const dayMeta = getCalendarDayMeta(mDate.dateKey);
+          const dayNum = getVietnamDateParts(mDate.date).day;
 
           return (
             <div
@@ -61,7 +67,7 @@ export default function CalendarGrid({ monthDates, renderCell }: CalendarGridPro
                         : 'text-[var(--kg-text)]'
                   }`}
                 >
-                  {mDate.date.getDate()}
+                  {dayNum}
                 </span>
               </div>
 

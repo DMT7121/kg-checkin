@@ -1,24 +1,21 @@
-import React, { useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  Sparkles,
-  Camera,
-  Calendar,
-  ClipboardCheck,
-  Repeat,
-  Banknote,
-  Award,
-  BookOpen,
+  ArrowLeft,
   ArrowRight,
+  Banknote,
+  BookOpen,
+  Calendar,
+  Camera,
   CheckCircle2,
-  AlertCircle,
+  ClipboardCheck,
+  GraduationCap,
   X,
-  Clock,
-  Check,
-  ChevronRight,
+  type LucideIcon,
 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import type { TabId } from '../types/navigation';
+import { navigateToHubSubTab } from '../utils/hubNavigation';
 import { KgButton } from './KgDesignSystem';
 import { useDialogA11y, useModalQueue } from '../utils/modalQueue';
 
@@ -28,13 +25,97 @@ interface NewbieGuideModalProps {
   onNavigateTab?: (tab: TabId) => void;
 }
 
-type GuideTabKey = 'start' | 'checkin' | 'schedule' | 'checklist' | 'payroll' | 'criteria';
+interface OnboardingStep {
+  id: string;
+  title: string;
+  subtitle: string;
+  icon: LucideIcon;
+  points: string[];
+  tip: string;
+  targetHub: TabId;
+  targetSubTab?: string;
+  ctaLabel: string;
+}
+
+const ONBOARDING_STEPS: OnboardingStep[] = [
+  {
+    id: 'checkin',
+    title: '1. Chấm công Face ID & GPS',
+    subtitle: 'Vào ca và ra ca nhanh chóng ngay tại nhà hàng.',
+    icon: Camera,
+    points: [
+      'Cấp quyền Camera & Vị trí (GPS) và đứng trong phạm vi nhà hàng (≤25m).',
+      'Hệ thống tự gợi ý Vào ca hoặc Ra ca; bỏ kính râm/khẩu trang và nhìn thẳng vào khung.',
+      'Chấm công thành công sẽ hiện nhãn xanh "Hợp lệ" trong Lịch sử chấm công.',
+    ],
+    tip: 'Nếu GPS bị lệch, hãy mở Google Maps bấm định vị rồi quay lại tải lại trang.',
+    targetHub: 'checkin',
+    ctaLabel: 'Mở Chấm công',
+  },
+  {
+    id: 'schedule',
+    title: '2. Đăng ký lịch làm & Đổi ca',
+    subtitle: 'Chủ động chọn ca tuần tới trước 17:00 Thứ Bảy.',
+    icon: Calendar,
+    points: [
+      'Vào Lịch làm việc -> Lịch của tôi để chọn Ca Sáng, Ca Tối hoặc OFF cho từng ngày T2–CN.',
+      'Ngày đăng ký OFF bắt buộc nhập lý do ngắn gọn trước khi gửi.',
+      'Cần đổi ca đột xuất: tạo yêu cầu tại tab Đổi ca để đồng nghiệp và Quản lý duyệt tự động.',
+    ],
+    tip: 'Kiểm tra tab Lịch tổng để nắm đội hình cùng ca trước khi đi làm.',
+    targetHub: 'workforce',
+    targetSubTab: 'schedule',
+    ctaLabel: 'Mở Lịch làm việc',
+  },
+  {
+    id: 'work',
+    title: '3. Checklist phân khu, Két & Sự cố',
+    subtitle: 'Đồng bộ công việc trực tuyến theo 4 khu A, B, C, D&E.',
+    icon: ClipboardCheck,
+    points: [
+      'Checklist phân khu tự động hiển thị nhóm trực hôm nay và tự lưu từng đầu mục (không yêu cầu chụp ảnh, có lưu nháp nếu mất mạng).',
+      'Thu ngân/Tổ trưởng đối soát két 2 chiều (Nhận đủ két -> Chốt két theo POS) tại tab Bàn giao ca.',
+      'Phát hiện thiết bị hỏng hoặc sự cố trong ca: báo ngay tại tab Sự cố ca trong 2 chạm.',
+    ],
+    tip: 'Bếp/Bar báo món hết tại tab Món hết (86) để phục vụ cập nhật tức thì.',
+    targetHub: 'work',
+    targetSubTab: 'checklist',
+    ctaLabel: 'Mở Vận hành',
+  },
+  {
+    id: 'attendance',
+    title: '4. Công, Phiếu lương & Ứng lương',
+    subtitle: 'Minh bạch giờ công thực tế, phụ cấp và thu nhập hàng tháng.',
+    icon: Banknote,
+    points: [
+      'Theo dõi giờ công, ca hợp lệ và phiếu lương chi tiết tại Công & Lương -> Phiếu lương.',
+      'Cần ứng lương giữa tháng: kiểm tra hạn mức khả dụng và gửi đề nghị tại tab Ứng lương.',
+      'Nếu phát hiện sai lệch giờ công hoặc bảng lương, gửi đề nghị điều chỉnh ngay trong Phiếu lương hoặc báo trực tiếp Quản lý.',
+    ],
+    tip: 'Kiểm tra Bảng công & Nhật ký cuối mỗi tuần để chốt công chính xác.',
+    targetHub: 'attendance',
+    targetSubTab: 'payroll',
+    ctaLabel: 'Mở Công & Lương',
+  },
+  {
+    id: 'knowledge',
+    title: '5. Tra cứu SOP, CUKCUK & King Coins',
+    subtitle: 'Nắm vững quy trình chuẩn và tích lũy điểm thi đua.',
+    icon: GraduationCap,
+    points: [
+      'Tra cứu nhanh quy trình phục vụ, PCCC, xử lý tình huống khách và hướng dẫn POS CUKCUK tại Kiến thức.',
+      'Hoàn thành bài kiểm tra năng lực đạt ≥70% để nhận thưởng King Coins.',
+      'Chấm công đúng giờ (+5), Checklist (+10) và Bàn giao ca (+15) cũng cộng King Coins tại Bảng tin & Ghi nhận.',
+    ],
+    tip: 'Bạn luôn có thể mở lại cẩm nang này từ nút "Hướng dẫn dùng OS" trong mục Kiến thức.',
+    targetHub: 'knowledge',
+    ctaLabel: 'Mở Kiến thức & SOP',
+  },
+];
 
 export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: NewbieGuideModalProps) {
   const currentUser = useAppStore((s) => s.currentUser);
-  const setCurrentTab = useAppStore((s) => s.setCurrentTab);
-  const store = { setCurrentTab };
-  const [activeTab, setActiveTab] = useState<GuideTabKey>('start');
+  const [stepIndex, setStepIndex] = useState(0);
   const [dontShowAgain, setDontShowAgain] = useState(false);
   const dialogRef = useRef<HTMLDivElement | null>(null);
 
@@ -43,9 +124,9 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
   const handleFinish = () => {
     if (currentUser?.username) {
       localStorage.setItem(`kg_onboarding_completed_${currentUser.username}`, 'true');
-    }
-    if (dontShowAgain && currentUser?.username) {
-      localStorage.setItem(`kg_onboarding_never_${currentUser.username}`, 'true');
+      if (dontShowAgain) {
+        localStorage.setItem(`kg_onboarding_never_${currentUser.username}`, 'true');
+      }
     }
     onClose();
   };
@@ -59,34 +140,30 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
 
   if (!activeInQueue || typeof document === 'undefined') return null;
 
-  const handleNavigate = (tab: TabId) => {
+  const step = ONBOARDING_STEPS[stepIndex] || ONBOARDING_STEPS[0];
+  const StepIcon = step.icon;
+  const isFirst = stepIndex === 0;
+  const isLast = stepIndex === ONBOARDING_STEPS.length - 1;
+
+  const handleJump = () => {
     handleFinish();
-    if (onNavigateTab) {
-      onNavigateTab(tab);
+    if (step.targetSubTab) {
+      navigateToHubSubTab(step.targetHub, step.targetSubTab);
+    } else if (onNavigateTab) {
+      onNavigateTab(step.targetHub);
     } else {
-      store.setCurrentTab(tab);
+      navigateToHubSubTab(step.targetHub);
     }
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
-  const tabs: { key: GuideTabKey; label: string; shortLabel: string; icon: React.ComponentType<any>; badge?: string }[] = [
-    { key: 'start', label: 'Khởi đầu nhanh', shortLabel: '5 Bước đầu', icon: Sparkles, badge: '5 bước' },
-    { key: 'checkin', label: 'Chấm công Face ID', shortLabel: 'Chấm công', icon: Camera },
-    { key: 'schedule', label: 'Đăng ký lịch làm', shortLabel: 'Xếp lịch', icon: Calendar },
-    { key: 'checklist', label: 'Checklist & Bàn giao', shortLabel: 'Checklist', icon: ClipboardCheck },
-    { key: 'payroll', label: 'Lương & Điểm thưởng', shortLabel: 'Lương & Thưởng', icon: Banknote },
-    { key: 'criteria', label: 'Tiêu chuẩn ĐẠT', shortLabel: 'Tiêu chuẩn ĐẠT', icon: CheckCircle2, badge: 'ĐẠT / LỖI' },
-  ];
-
   return createPortal(
-    <div className="fixed inset-0 z-[10060] flex items-center justify-center p-2.5 sm:p-4 md:p-6 animate-fade-in">
-      {/* Dark Backdrop */}
+    <div className="fixed inset-0 z-[10060] flex items-end sm:items-center justify-center p-2.5 sm:p-4 animate-fade-in">
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
         onClick={handleFinish}
       />
 
-      {/* Main Modal Card */}
       <div
         ref={dialogRef}
         tabIndex={-1}
@@ -94,28 +171,23 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
         aria-modal="true"
         aria-labelledby="kg-newbie-guide-title"
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-4xl max-h-[88dvh] sm:max-h-[90vh] mx-auto bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-2xl sm:rounded-3xl shadow-2xl border border-[var(--kg-border)] flex flex-col overflow-hidden z-10 focus:outline-none"
+        className="relative w-full max-w-xl max-h-[88dvh] bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-2xl sm:rounded-3xl shadow-2xl border border-[var(--kg-border)] flex flex-col overflow-hidden z-10 focus:outline-none"
       >
-        {/* Modal Header */}
-        <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 sm:py-4 border-b border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex-shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-2xl bg-[var(--kg-primary)] text-white flex items-center justify-center shadow-soft flex-shrink-0">
-              <BookOpen size={20} />
+        {/* Header */}
+        <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 border-b border-[var(--kg-border)] bg-[var(--kg-surface-soft)]">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-[var(--kg-primary)] text-white flex items-center justify-center shrink-0">
+              <BookOpen size={18} />
             </div>
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2
-                  id="kg-newbie-guide-title"
-                  className="text-base sm:text-lg font-black tracking-tight text-[var(--kg-text)]"
-                >
-                  Cẩm Nang Nhập Môn Nhân Sự Mới
-                </h2>
-                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-[var(--kg-accent)] text-white dark:text-[#0D1015] shadow-soft">
-                  King's Grill OS
-                </span>
-              </div>
-              <p className="text-xs text-[var(--kg-text-muted)] font-semibold mt-0.5">
-                Hướng dẫn chuẩn hóa quy trình vận hành &amp; các mốc tiêu chuẩn thành công
+              <h2
+                id="kg-newbie-guide-title"
+                className="text-sm sm:text-base font-black text-[var(--kg-text)] truncate"
+              >
+                Hướng dẫn nhanh King&apos;s Grill OS
+              </h2>
+              <p className="text-[11px] font-mono tabular-nums font-bold text-[var(--kg-text-muted)]">
+                Bước {stepIndex + 1}/{ONBOARDING_STEPS.length}
               </p>
             </div>
           </div>
@@ -123,503 +195,69 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
           <button
             type="button"
             onClick={handleFinish}
-            className="w-11 h-11 sm:w-9 sm:h-9 rounded-xl bg-[var(--kg-surface)] hover:bg-[var(--kg-border)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition-colors duration-150 active:scale-95 flex-shrink-0 touch-manipulation"
+            className="w-11 h-11 sm:w-9 sm:h-9 rounded-xl bg-[var(--kg-surface)] hover:bg-[var(--kg-border)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition-colors shrink-0 touch-manipulation"
             aria-label="Đóng"
           >
             <X size={16} />
           </button>
         </div>
 
-        {/* Tab Navigation Row */}
-        <div className="relative flex-shrink-0 border-b border-[var(--kg-border)] bg-[var(--kg-surface-soft)]/60">
-          <div className="flex items-center gap-2 px-3 sm:px-4 py-2.5 overflow-x-auto hide-scrollbar">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.key;
-              return (
-                <button
-                  type="button"
-                  key={tab.key}
-                  onClick={(e) => {
-                    setActiveTab(tab.key);
-                    e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-                  }}
-                  className={`relative flex items-center gap-2 min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl text-xs font-black transition-colors duration-150 whitespace-nowrap active:scale-95 flex-shrink-0 select-none touch-manipulation ${
-                    isActive
-                      ? 'bg-[var(--kg-primary)] text-white shadow-soft ring-1 ring-[var(--kg-primary)]'
-                      : 'bg-[var(--kg-surface)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] hover:text-[var(--kg-text)] hover:border-[var(--kg-border-strong)]'
-                  }`}
-                >
-                  <Icon size={15} className={`flex-shrink-0 ${isActive ? 'text-white' : 'opacity-80'}`} />
-                  <span className="hidden sm:inline">{tab.label}</span>
-                  <span className="inline sm:hidden">{tab.shortLabel}</span>
-                  {tab.badge && (
-                    <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-extrabold uppercase ${
-                      isActive ? 'bg-white/20 text-white' : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)]'
-                    }`}>
-                      {tab.badge}
-                    </span>
-                  )}
-                  {isActive && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--kg-accent)] shadow-[0_0_6px_var(--kg-accent)] animate-pulse flex-shrink-0" />
-                  )}
-                </button>
-              );
-            })}
+        {/* Stepper Pills */}
+        <div className="flex items-center gap-1.5 px-4 sm:px-5 pt-3">
+          {ONBOARDING_STEPS.map((item, idx) => (
+            <button
+              key={item.id}
+              type="button"
+              aria-label={`Xem bước ${idx + 1}: ${item.title}`}
+              onClick={() => setStepIndex(idx)}
+              className={`h-2 flex-1 rounded-full transition-colors ${
+                idx === stepIndex
+                  ? 'bg-[var(--kg-primary)]'
+                  : idx < stepIndex
+                    ? 'bg-[var(--kg-success)]'
+                    : 'bg-[var(--kg-surface-soft)] border border-[var(--kg-border)]'
+              }`}
+            />
+          ))}
+        </div>
+
+        {/* Step Body */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] border border-[var(--kg-primary)]/20 flex items-center justify-center shrink-0">
+              <StepIcon size={21} />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-base font-black text-[var(--kg-text)]">{step.title}</h3>
+              <p className="text-xs text-[var(--kg-text-muted)] font-medium mt-0.5">{step.subtitle}</p>
+            </div>
+          </div>
+
+          <ul className="space-y-2.5">
+            {step.points.map((point, idx) => (
+              <li
+                key={idx}
+                className="flex items-start gap-2.5 p-3 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-xs sm:text-sm text-[var(--kg-text)] leading-relaxed font-medium"
+              >
+                <CheckCircle2 size={16} className="text-[var(--kg-success)] shrink-0 mt-0.5" />
+                <span>{point}</span>
+              </li>
+            ))}
+          </ul>
+
+          <div className="p-3 rounded-xl bg-[var(--kg-info-soft)] border border-[var(--kg-info)]/25 text-xs text-[var(--kg-text)] leading-relaxed">
+            <b className="text-[var(--kg-info)]">Mẹo:</b> {step.tip}
+          </div>
+
+          <div className="flex justify-end">
+            <KgButton type="button" variant="secondary" size="sm" onClick={handleJump}>
+              {step.ctaLabel}
+            </KgButton>
           </div>
         </div>
 
-        {/* Tab Content Body (Scrollable) */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
-
-          {/* TAB 1: 5 BƯỚC KHỞI ĐẦU NHANH */}
-          {activeTab === 'start' && (
-            <div className="space-y-6 animate-fade-in">
-              <div className="p-4 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex items-start gap-3.5">
-                <div className="w-9 h-9 rounded-xl bg-[var(--kg-primary)] text-white flex items-center justify-center flex-shrink-0 font-black shadow-soft">
-                  <Sparkles size={17} strokeWidth={1.75} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-black text-[var(--kg-text)]">
-                    Chào mừng bạn gia nhập đội ngũ King's Grill!
-                  </h3>
-                  <p className="text-xs text-[var(--kg-text-muted)] mt-1 leading-relaxed font-medium">
-                    Hệ thống King's Grill Staff OS được thiết kế để tự động hóa toàn diện quy trình làm việc. Dưới đây là <b>5 đầu việc cốt lõi</b> bạn cần thực hiện mỗi ca trực:
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                {[
-                  {
-                    step: '1',
-                    title: 'Đến nhà hàng & Chấm công Vào Ca',
-                    desc: 'Đứng trong bán kính nhà hàng (≤25m), mở tab Chấm công, quét Live Camera & GPS.',
-                    target: 'checkin' as TabId,
-                    btnText: 'Xem Chấm công',
-                    color: 'text-[var(--kg-primary-ink)] bg-[var(--kg-primary-soft)] border border-[var(--kg-primary)]/20'
-                  },
-                  {
-                    step: '2',
-                    title: 'Xem việc cần làm & Checklist ca',
-                    desc: 'Mở trang Hôm nay và Vận hành để nhận các nhiệm vụ phân khu (phục vụ/bar/bếp/thu ngân).',
-                    target: 'work' as TabId,
-                    btnText: 'Xem Checklist',
-                    color: 'text-[var(--kg-warning)] bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/20'
-                  },
-                  {
-                    step: '3',
-                    title: 'Bàn giao ca & Ghi nhận sự cố',
-                    desc: 'Thu ngân/Tổ trưởng kiểm đếm tiền két mặt và ghi chú tình hình cho ca tiếp quản.',
-                    target: 'work' as TabId,
-                    btnText: 'Xem Bàn giao',
-                    color: 'text-[var(--kg-info)] bg-[var(--kg-info-soft)] border border-[var(--kg-info)]/20'
-                  },
-                  {
-                    step: '4',
-                    title: 'Chấm công Ra Ca khi hết giờ',
-                    desc: 'Bấm "Ra Ca" để hệ thống chốt số giờ làm việc thực tế và quy đổi công lương.',
-                    target: 'checkin' as TabId,
-                    btnText: 'Chấm công',
-                    color: 'text-[var(--kg-success)] bg-[var(--kg-success-soft)] border border-[var(--kg-success)]/20'
-                  },
-                  {
-                    step: '5',
-                    title: 'Đăng ký lịch làm việc tuần mới',
-                    desc: 'Chủ động chọn ca Sáng/Tối/OFF cho tuần tới trước 17:00 Thứ Bảy hàng tuần.',
-                    target: 'workforce' as TabId,
-                    btnText: 'Đăng ký Lịch',
-                    color: 'text-[var(--kg-accent-ink)] bg-[var(--kg-accent-soft)] border border-[var(--kg-accent)]/20'
-                  },
-                  {
-                    step: '★',
-                    title: 'Học SOP & Tích luỹ King Coins',
-                    desc: 'Học quy trình món, tiêu chuẩn phục vụ và nhận thưởng King Coins khi hoàn thành tốt.',
-                    target: 'knowledge' as TabId,
-                    btnText: 'Học SOP',
-                    color: 'text-[var(--kg-primary-ink)] bg-[var(--kg-info-soft)] border border-[var(--kg-info)]/20'
-                  },
-                ].map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="p-4 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex flex-col justify-between space-y-3 hover:border-[var(--kg-border-strong)] transition-colors duration-150"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 font-bold text-xs ${item.color}`}>
-                        {item.step}
-                      </div>
-                      <div className="min-w-0">
-                        <h4 className="text-xs font-bold text-[var(--kg-text)] leading-tight">{item.title}</h4>
-                        <p className="text-[11px] text-[var(--kg-text-muted)] mt-1 leading-relaxed font-medium">{item.desc}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-end pt-1">
-                      <button
-                        type="button"
-                        onClick={() => handleNavigate(item.target)}
-                        className="min-h-[44px] sm:min-h-[32px] px-2 inline-flex items-center gap-1 text-xs font-semibold text-[var(--kg-primary-ink)] hover:underline active:scale-95 touch-manipulation"
-                      >
-                        {item.btnText} <ChevronRight size={13} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 2: CHẤM CÔNG FACE ID & GPS */}
-          {activeTab === 'checkin' && (
-            <div className="space-y-5 animate-fade-in">
-              <div className="border-b border-[var(--kg-border)] pb-3">
-                <h3 className="text-sm font-black uppercase tracking-wider text-[var(--kg-primary-ink)] flex items-center gap-2">
-                  <Camera size={16} /> Quy trình Chấm công Face ID &amp; Định vị GPS
-                </h3>
-                <p className="text-xs text-[var(--kg-text-muted)] mt-1 font-medium">
-                  Chấm công thông minh sử dụng camera đối chiếu khuôn mặt và toạ độ định vị GPS để xác thực bạn có mặt trực tiếp tại nhà hàng.
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                {[
-                  {
-                    num: '1',
-                    title: 'Cấp quyền Trình duyệt (Camera & Vị trí)',
-                    desc: 'Khi mở trang, nhấn "Cho phép" (Allow) nếu trình duyệt hỏi quyền truy cập Vị trí (GPS) và Máy ảnh (Camera).'
-                  },
-                  {
-                    num: '2',
-                    title: 'Đứng trong phạm vi nhà hàng (≤ 25m)',
-                    desc: 'Hệ thống tự động đo khoảng cách từ toạ độ GPS của bạn đến nhà hàng. Khoảng cách phải nằm trong bán kính 25 mét (Hợp lệ).'
-                  },
-                  {
-                    num: '3',
-                    title: 'Kiểm tra loại chấm công (Gợi ý thông minh)',
-                    desc: 'Hệ thống tự động đề xuất Vào ca (lần đầu/06:00-19:30/sau 19:30) hoặc Ra ca (đã vào ca). Bạn có thể bấm chuyển đổi nếu cần.'
-                  },
-                  {
-                    num: '4',
-                    title: 'Đưa khuôn mặt vào chính giữa khung hình',
-                    desc: 'Bỏ kính râm hoặc khẩu trang, đứng ở nơi đủ ánh sáng và nhấn nút chụp. AI sẽ tự động so khớp khuôn mặt.'
-                  }
-                ].map((s, idx) => (
-                  <div key={idx} className="flex items-start gap-3 p-3.5 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)]">
-                    <div className="w-7 h-7 rounded-xl bg-[var(--kg-primary)] text-white flex items-center justify-center font-black text-xs flex-shrink-0 shadow-soft font-mono tabular-nums">
-                      {s.num}
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-black text-[var(--kg-text)]">{s.title}</h4>
-                      <p className="text-[11px] text-[var(--kg-text-muted)] font-medium mt-0.5 leading-relaxed">{s.desc}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="p-4 rounded-2xl bg-[var(--kg-success-soft)] border border-[var(--kg-success)]/25 space-y-2">
-                <div className="flex items-center gap-2 text-[var(--kg-success)]">
-                  <CheckCircle2 size={16} className="flex-shrink-0" />
-                  <h4 className="text-xs font-black uppercase tracking-wider">Mục tiêu: Thế nào là Chấm công THÀNH CÔNG?</h4>
-                </div>
-                <ul className="text-xs text-[var(--kg-text)] font-medium space-y-1.5 pl-6 list-disc">
-                  <li>Màn hình hiện thông báo xanh <b>"Chấm công thành công! Hợp lệ"</b> kèm lời chào âm thanh của hệ thống.</li>
-                  <li>Trạng thái trên trang Hôm nay chuyển sang huy hiệu xanh <b>"Đã vào ca"</b> (hoặc <b>"Đã ra ca"</b>).</li>
-                  <li>Trong mục <b>Lịch sử chấm công</b> xuất hiện bản ghi mới có nhãn <b>✓ Hợp lệ</b> kèm thời gian IN/OUT chuẩn xác.</li>
-                </ul>
-              </div>
-
-              <div className="p-3.5 rounded-2xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/25 flex items-start gap-2.5">
-                <AlertCircle size={16} className="text-[var(--kg-warning)] flex-shrink-0 mt-0.5" />
-                <div className="text-xs font-medium text-[var(--kg-text)] leading-relaxed">
-                  <b>Mẹo xử lý khi bị báo Ngoài toạ độ / Sai vị trí GPS:</b> Hãy mở ứng dụng <i>Google Maps</i> trên điện thoại, bấm vào biểu tượng định vị để máy cập nhật GPS chính xác, sau đó quay lại webapp tải lại trang (Reload).
-                </div>
-              </div>
-
-              <div className="flex justify-end">
-                <KgButton
-                  variant="primary"
-                  size="sm"
-                  icon={Camera}
-                  onClick={() => handleNavigate('checkin')}
-                >
-                  Thử Chấm Công Ngay
-                </KgButton>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: ĐĂNG KÝ LỊCH & ĐỔI CA */}
-          {activeTab === 'schedule' && (
-            <div className="space-y-5 animate-fade-in">
-              <div className="border-b border-[var(--kg-border)] pb-3">
-                <h3 className="text-sm font-black uppercase tracking-wider text-[var(--kg-primary-ink)] flex items-center gap-2">
-                  <Calendar size={16} /> Đăng Ký Lịch Làm Việc &amp; Quy Trình Đổi Ca
-                </h3>
-                <p className="text-xs text-[var(--kg-text-muted)] mt-1 font-medium">
-                  Chủ động lựa chọn ca làm việc mong muốn cho tuần tiếp theo và xử lý đổi ca linh hoạt khi có việc đột xuất.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] space-y-3">
-                  <h4 className="text-xs font-black text-[var(--kg-text)] flex items-center gap-1.5">
-                    <Calendar size={15} className="text-[var(--kg-primary-ink)]" /> 1. Đăng ký ca tuần mới
-                  </h4>
-                  <ol className="text-xs text-[var(--kg-text-muted)] space-y-2 pl-4 list-decimal font-medium leading-relaxed">
-                    <li>Vào tab <b>Lịch Làm Việc</b> &rarr; Chọn xem biểu mẫu tuần tới.</li>
-                    <li>Bấm chọn <b>Ca Sáng</b>, <b>Ca Tối</b> hoặc <b>OFF (Nghỉ)</b> cho từng ngày từ T2 đến CN.</li>
-                    <li>Nếu chọn OFF, bắt buộc nhập <b>Lý do nghỉ</b> vào ô ghi chú.</li>
-                    <li>Bấm <b>"Đăng ký lịch làm"</b> để gửi lên Quản lý duyệt.</li>
-                  </ol>
-                  <p className="text-[11px] font-bold text-[var(--kg-warning)] flex items-center gap-1">
-                    <Clock size={12} /> Hạn chót: Trước 17:00 Thứ Bảy hàng tuần.
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] space-y-3">
-                  <h4 className="text-xs font-black text-[var(--kg-text)] flex items-center gap-1.5">
-                    <Repeat size={15} className="text-[var(--kg-primary-ink)]" /> 2. Đổi ca hoặc Xin nghỉ đột xuất
-                  </h4>
-                  <ol className="text-xs text-[var(--kg-text-muted)] space-y-2 pl-4 list-decimal font-medium leading-relaxed">
-                    <li>Vào mục <b>Đổi ca</b> &rarr; Bấm <b>"Tạo yêu cầu mới"</b>.</li>
-                    <li>Chọn Ngày làm việc và Ca muốn đổi.</li>
-                    <li>Chọn hình thức: <i>"Đổi ca với đồng nghiệp"</i> hoặc <i>"Xin nghỉ phép (gửi Quản lý)"</i>.</li>
-                    <li>Nhập lý do rõ ràng và bấm <b>"Gửi yêu cầu"</b>.</li>
-                  </ol>
-                  <p className="text-[11px] font-bold text-[var(--kg-primary-ink)] flex items-center gap-1">
-                    <Repeat size={12} /> Quy trình: Đồng nghiệp đồng ý &rarr; Quản lý duyệt &rarr; Lịch tự cập nhật.
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-[var(--kg-success-soft)] border border-[var(--kg-success)]/25 space-y-2">
-                <div className="flex items-center gap-2 text-[var(--kg-success)]">
-                  <CheckCircle2 size={16} className="flex-shrink-0" />
-                  <h4 className="text-xs font-black uppercase tracking-wider">Mục tiêu: Thế nào là ĐÃ GỬI &amp; ĐẠT LỊCH?</h4>
-                </div>
-                <ul className="text-xs text-[var(--kg-text)] font-medium space-y-1.5 pl-6 list-disc">
-                  <li>Sau khi bấm nộp, hệ thống hiện thông báo <b>"Đã đăng ký lịch làm việc thành công"</b>.</li>
-                  <li>Thẻ việc cần làm trên Dashboard đổi sang trạng thái huy hiệu xanh <b>"Đã đăng ký"</b>.</li>
-                  <li>Khi Quản lý bấm "Công bố lịch", lịch của bạn sẽ hiển thị ca làm việc chính thức tại trang Hôm nay.</li>
-                </ul>
-              </div>
-
-              <div className="flex justify-end">
-                <KgButton
-                  variant="primary"
-                  size="sm"
-                  icon={Calendar}
-                  onClick={() => handleNavigate('workforce')}
-                >
-                  Mở Phân Hệ Lịch Làm
-                </KgButton>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 4: CHECKLIST & BÀN GIAO */}
-          {activeTab === 'checklist' && (
-            <div className="space-y-5 animate-fade-in">
-              <div className="border-b border-[var(--kg-border)] pb-3">
-                <h3 className="text-sm font-black uppercase tracking-wider text-[var(--kg-primary-ink)] flex items-center gap-2">
-                  <ClipboardCheck size={16} /> Checklist Vận Hành &amp; Sổ Bàn Giao Ca
-                </h3>
-                <p className="text-xs text-[var(--kg-text-muted)] mt-1 font-medium">
-                  Đảm bảo chất lượng phục vụ 5 sao và bảo toàn doanh thu, tài sản nhà hàng qua từng ca làm việc.
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                <div className="p-4 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] space-y-3">
-                  <h4 className="text-xs font-black text-[var(--kg-text)] flex items-center gap-1.5">
-                    <ClipboardCheck size={15} className="text-[var(--kg-success)]" /> 1. Checklist công việc theo vị trí
-                  </h4>
-                  <div className="text-xs text-[var(--kg-text-muted)] space-y-2 font-medium leading-relaxed">
-                    <p>Mỗi vị trí (Phục vụ, Thu ngân, Bếp, Bar) có danh sách các đầu mục chuẩn bị <b>Đầu ca</b>, kiểm soát <b>Giữa ca</b> và dọn dẹp vệ sinh <b>Cuối ca</b>:</p>
-                    <ul className="list-disc pl-5 space-y-1">
-                      <li>Truy cập mục <b>Checklist việc</b> trong phân hệ Vận hành.</li>
-                      <li>Thực hiện công việc ngoài thực tế, sau đó tích chọn hoàn thành trên ứng dụng.</li>
-                      <li>Chụp ảnh minh chứng thực tế (nếu đầu mục có biểu tượng máy ảnh yêu cầu).</li>
-                      <li>Bấm <b>"Nộp checklist"</b> để hoàn tất báo cáo ca trực.</li>
-                    </ul>
-                  </div>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] space-y-3">
-                  <h4 className="text-xs font-black text-[var(--kg-text)] flex items-center gap-1.5">
-                    <Repeat size={15} className="text-[var(--kg-warning)]" /> 2. Sổ bàn giao ca &amp; Két tiền mặt (Thu ngân / Tổ trưởng)
-                  </h4>
-                  <div className="text-xs text-[var(--kg-text-muted)] space-y-2 font-medium leading-relaxed">
-                    <ul className="list-disc pl-5 space-y-1">
-                      <li>Nhập số tiền két ban đầu và tổng số tiền mặt thực tế kiểm đếm cuối ca.</li>
-                      <li>Ghi nhận rõ ràng chênh lệch tiền mặt (nếu có) kèm lý do giải trình.</li>
-                      <li>Ghi chú các sự cố phát sinh (hỏng hóc, phàn nàn của khách) và các việc cần ca sau lưu ý.</li>
-                      <li>Bấm <b>"Gửi bàn giao ca"</b> để lưu sổ điện tử.</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-[var(--kg-success-soft)] border border-[var(--kg-success)]/25 space-y-2">
-                <div className="flex items-center gap-2 text-[var(--kg-success)]">
-                  <CheckCircle2 size={16} className="flex-shrink-0" />
-                  <h4 className="text-xs font-black uppercase tracking-wider">Mục tiêu: Thế nào là Checklist &amp; Bàn giao ĐẠT?</h4>
-                </div>
-                <ul className="text-xs text-[var(--kg-text)] font-medium space-y-1.5 pl-6 list-disc">
-                  <li>Thanh tiến độ checklist đạt <b>100%</b> các hạng mục bắt buộc.</li>
-                  <li>Hệ thống báo <b>"Đã nộp checklist thành công"</b>, thẻ trên Dashboard đổi thành huy hiệu xanh <b>"Đã nộp"</b>.</li>
-                  <li>Bạn được cộng điểm thi đua <b>King Coins</b> tự động vào tài khoản cá nhân.</li>
-                  <li>Sổ bàn giao hiển thị trạng thái <b>"Đã ghi nhận"</b>.</li>
-                </ul>
-              </div>
-
-              <div className="flex justify-end">
-                <KgButton
-                  variant="primary"
-                  size="sm"
-                  icon={ClipboardCheck}
-                  onClick={() => handleNavigate('work')}
-                >
-                  Mở Phân Hệ Vận Hành
-                </KgButton>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 5: LƯƠNG & KING COINS */}
-          {activeTab === 'payroll' && (
-            <div className="space-y-5 animate-fade-in">
-              <div className="border-b border-[var(--kg-border)] pb-3">
-                <h3 className="text-sm font-black uppercase tracking-wider text-[var(--kg-primary-ink)] flex items-center gap-2">
-                  <Banknote size={16} /> Phiếu Lương, Tạm Ứng &amp; Điểm Thưởng King Coins
-                </h3>
-                <p className="text-xs text-[var(--kg-text-muted)] mt-1 font-medium">
-                  Minh bạch 100% thu nhập, theo dõi giờ công thực tế và tích lũy điểm thi đua.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] space-y-3">
-                  <h4 className="text-xs font-black text-[var(--kg-text)] flex items-center gap-1.5">
-                    <Banknote size={15} className="text-[var(--kg-success)]" /> Tra cứu Lương &amp; Ứng Lương
-                  </h4>
-                  <ul className="text-xs text-[var(--kg-text-muted)] space-y-2 font-medium leading-relaxed list-disc pl-4">
-                    <li><b>Phiếu lương:</b> Xem tổng số giờ làm việc thực tế quy đổi từ các ca chấm công hợp lệ, lương cơ bản theo giờ, phụ cấp ăn ca và các khoản cộng/trừ.</li>
-                    <li><b>Ứng lương tạm thời:</b> Xem hạn mức ứng được phép (tính theo số công đã làm) &rarr; Nhập số tiền muốn ứng &rarr; Gửi Admin duyệt chi.</li>
-                  </ul>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] space-y-3">
-                  <h4 className="text-xs font-black text-[var(--kg-text)] flex items-center gap-1.5">
-                    <Award size={15} className="text-[var(--kg-warning)]" /> Điểm thưởng King Coins
-                  </h4>
-                  <ul className="text-xs text-[var(--kg-text-muted)] space-y-2 font-medium leading-relaxed list-disc pl-4">
-                    <li><b>King Coins:</b> Đơn vị khen thưởng nội bộ vinh danh sự nỗ lực và trách nhiệm của bạn.</li>
-                    <li><b>Cơ chế cộng điểm:</b> Chấm công đúng giờ (+5), hoàn thành checklist (+10), bàn giao ca (+15), hoàn thành SOP/thưởng nóng.</li>
-                    <li>Theo dõi số dư và Bảng Vàng thi đua tại mục King Coins.</li>
-                  </ul>
-                </div>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-[var(--kg-success-soft)] border border-[var(--kg-success)]/25 space-y-2">
-                <div className="flex items-center gap-2 text-[var(--kg-success)]">
-                  <CheckCircle2 size={16} className="flex-shrink-0" />
-                  <h4 className="text-xs font-black uppercase tracking-wider">Mục tiêu: Đảm bảo quyền lợi thu nhập</h4>
-                </div>
-                <ul className="text-xs text-[var(--kg-text)] font-medium space-y-1.5 pl-6 list-disc">
-                  <li>Kiểm tra bảng công sau mỗi ca làm việc để đảm bảo giờ công đã được ghi nhận đầy đủ.</li>
-                  <li>Nếu có sai lệch công làm, hãy liên hệ ngay với Quản lý hoặc gửi ý kiến qua mục <b>Góp ý</b> để được điều chỉnh kịp thời.</li>
-                </ul>
-              </div>
-
-              <div className="flex justify-end">
-                <KgButton
-                  variant="primary"
-                  size="sm"
-                  icon={Banknote}
-                  onClick={() => handleNavigate('attendance')}
-                >
-                  Mở Phân Hệ Công &amp; Lương
-                </KgButton>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 6: BẢNG TIÊU CHUẨN ĐẠT / THÀNH CÔNG */}
-          {activeTab === 'criteria' && (
-            <div className="space-y-5 animate-fade-in">
-              <div className="border-b border-[var(--kg-border)] pb-3">
-                <h3 className="text-sm font-black uppercase tracking-wider text-[var(--kg-success)] flex items-center gap-2">
-                  <CheckCircle2 size={16} /> Bảng Tra Cứu Tiêu Chuẩn "Thành Công / Đạt" Toàn Diện
-                </h3>
-                <p className="text-xs text-[var(--kg-text-muted)] mt-1 font-medium">
-                  Tra cứu nhanh các dấu hiệu nhận biết hệ thống đã ghi nhận thao tác của bạn thành công 100%.
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                {[
-                  {
-                    action: 'Chấm công Vào ca / Ra ca',
-                    success: 'Hiện thông báo xanh "Chấm công thành công! Hợp lệ", AI phát âm thanh chào mừng, Dashboard hiện "Đã vào ca", Lịch sử có log có nhãn ✓ Hợp lệ.',
-                    failed: 'Hiện thông báo đỏ "Ngoài toạ độ GPS" hoặc "Không nhận diện được khuôn mặt". Cần mở Google Maps định vị lại hoặc lau camera.'
-                  },
-                  {
-                    action: 'Đăng ký lịch làm tuần mới',
-                    success: 'Bấm nộp trước 17:00 Thứ Bảy, hệ thống báo "Đã gửi đăng ký", Dashboard chuyển sang thẻ "Đã đăng ký", lịch hiển thị các ca đã chọn chờ Admin duyệt.',
-                    failed: 'Chưa bấm nút "Đăng ký lịch làm" hoặc thiếu lý do cho ngày đăng ký OFF.'
-                  },
-                  {
-                    action: 'Checklist công việc ca trực',
-                    success: 'Tích đủ 100% việc bắt buộc, đính kèm ảnh (nếu có yêu cầu), Dashboard chuyển sang "Đã nộp", nhận điểm King Coins.',
-                    failed: 'Bỏ sót đầu mục bắt buộc hoặc chưa bấm "Nộp checklist".'
-                  },
-                  {
-                    action: 'Sổ bàn giao ca & Két tiền',
-                    success: 'Điền đủ số tiền két thực tế, giải trình chênh lệch, lưu sổ thành công, Dashboard hiện "Đã ghi nhận".',
-                    failed: 'Chưa bấm "Gửi bàn giao ca" hoặc bỏ trống số tiền kiểm đếm.'
-                  },
-                  {
-                    action: 'Yêu cầu Đổi ca / Xin nghỉ',
-                    success: 'Trạng thái chuyển sang "Đã duyệt" sau khi đồng nghiệp và Admin đồng ý, lịch làm tự động chuyển giao.',
-                    failed: 'Đang ở trạng thái "Chờ đồng nghiệp duyệt" hoặc "Bị từ chối" (có ghi chú lý do).'
-                  },
-                  {
-                    action: 'Học tập SOP nghiệp vụ',
-                    success: 'Đọc kỹ tài liệu và bấm "Đã hiểu & Hoàn thành", tiến trình tự học tăng % và bài viết có nhãn "✓ Đã học".',
-                    failed: 'Chưa bấm nút xác nhận hoàn thành ở cuối tài liệu.'
-                  }
-                ].map((item, idx) => (
-                  <div key={idx} className="p-4 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] space-y-2.5">
-                    <h4 className="text-xs font-black text-[var(--kg-text)] flex items-center gap-1.5">
-                      <span className="w-5 h-5 rounded-lg bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] flex items-center justify-center text-[10px] font-black font-mono tabular-nums">
-                        {idx + 1}
-                      </span>
-                      {item.action}
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs">
-                      <div className="p-2.5 rounded-xl bg-[var(--kg-success-soft)] border border-[var(--kg-success)]/25">
-                        <span className="font-black text-[var(--kg-success)] flex items-center gap-1 mb-1">
-                          <Check size={13} /> Như thế nào là THÀNH CÔNG / ĐẠT:
-                        </span>
-                        <p className="text-[11px] text-[var(--kg-text)] font-medium leading-relaxed">{item.success}</p>
-                      </div>
-                      <div className="p-2.5 rounded-xl bg-[var(--kg-danger-soft)] border border-[var(--kg-danger)]/25">
-                        <span className="font-black text-[var(--kg-danger)] flex items-center gap-1 mb-1">
-                          <X size={13} /> Dấu hiệu CHƯA ĐẠT / LỖI:
-                        </span>
-                        <p className="text-[11px] text-[var(--kg-text)] font-medium leading-relaxed">{item.failed}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-        </div>
-
-        {/* Modal Footer */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 sm:px-5 py-3.5 border-t border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex-shrink-0">
+        {/* Footer */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-5 py-3.5 border-t border-[var(--kg-border)] bg-[var(--kg-surface-soft)]">
           <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-[var(--kg-text-muted)] select-none min-h-[44px] sm:min-h-[32px]">
             <input
               type="checkbox"
@@ -627,42 +265,50 @@ export default function NewbieGuideModal({ isOpen, onClose, onNavigateTab }: New
               onChange={(e) => setDontShowAgain(e.target.checked)}
               className="w-4 h-4 rounded border-[var(--kg-border-strong)] text-[var(--kg-primary)] focus:ring-[var(--kg-primary-ink)]"
             />
-            <span>Đã hiểu, không tự động hiển thị lại lần sau</span>
+            <span>Không tự động hiển thị lại</span>
           </label>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            {activeTab !== 'criteria' ? (
+            {!isFirst && (
               <KgButton
+                type="button"
                 variant="secondary"
                 size="sm"
-                onClick={() => {
-                  const currentIndex = tabs.findIndex(t => t.key === activeTab);
-                  if (currentIndex < tabs.length - 1) {
-                    setActiveTab(tabs[currentIndex + 1].key);
-                  }
-                }}
+                icon={ArrowLeft}
+                onClick={() => setStepIndex((i) => Math.max(0, i - 1))}
+                className="flex-1 sm:flex-initial"
+              >
+                Trước
+              </KgButton>
+            )}
+            {!isLast ? (
+              <KgButton
+                type="button"
+                variant="primary"
+                size="sm"
+                onClick={() => setStepIndex((i) => Math.min(ONBOARDING_STEPS.length - 1, i + 1))}
                 className="flex-1 sm:flex-initial"
               >
                 <span className="inline-flex items-center gap-1.5">
-                  Bước tiếp theo <ArrowRight size={14} />
+                  Tiếp theo <ArrowRight size={14} />
                 </span>
               </KgButton>
-            ) : null}
-
-            <KgButton
-              variant="primary"
-              size="sm"
-              icon={CheckCircle2}
-              onClick={handleFinish}
-              className="flex-1 sm:flex-initial font-bold"
-            >
-              Tôi Đã Hiểu &amp; Bắt Đầu Làm Việc
-            </KgButton>
+            ) : (
+              <KgButton
+                type="button"
+                variant="primary"
+                size="sm"
+                icon={CheckCircle2}
+                onClick={handleFinish}
+                className="flex-1 sm:flex-initial font-bold"
+              >
+                Bắt đầu làm việc
+              </KgButton>
+            )}
           </div>
         </div>
-
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

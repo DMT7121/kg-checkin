@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X,
@@ -92,10 +92,10 @@ import {
   type HydratedFaceProfile,
   type RawFaceProfileDto,
 } from '../services/faceRecognitionV2';
-import FaceEnrollmentModal from './FaceEnrollmentModal';
-import AdminStaffFacePickerModal, {
-  type StaffFacePickerCandidate,
-} from './AdminStaffFacePickerModal';
+import type { StaffFacePickerCandidate } from './AdminStaffFacePickerModal';
+
+const FaceEnrollmentModal = lazy(() => import('./FaceEnrollmentModal'));
+const AdminStaffFacePickerModal = lazy(() => import('./AdminStaffFacePickerModal'));
 
 export interface FastFaceScannerV2Props {
   isOpen: boolean;
@@ -1942,8 +1942,10 @@ export default function FastFaceScannerV2({
           </div>
         </header>
 
-        {/* FULL-SCREEN LIVE CAMERA VIEWPORT */}
-        <div className="relative flex-1 w-full bg-[#0D1015] overflow-hidden flex flex-col justify-between">
+        {/* MAIN BODY: Mobile Full-Screen Viewport | Desktop/Tablet Command View (lg:grid-cols-[1fr_360px]) */}
+        <div className="relative flex-1 min-h-0 w-full flex flex-col lg:grid lg:grid-cols-[1fr_360px] overflow-hidden bg-[#0D1015]">
+        {/* LIVE CAMERA VIEWPORT (Left col on lg:, Fullscreen on mobile) */}
+        <div className="relative flex-1 min-h-0 w-full bg-[#0D1015] overflow-hidden flex flex-col justify-between">
           <video
             ref={videoRef}
             autoPlay
@@ -2047,13 +2049,13 @@ export default function FastFaceScannerV2({
 
           {/* CLEAN UNOBSTRUCTED CENTER RETICLE OR VERIFIED PUNCH CARD */}
           {engineReady && cameraReady && !cameraError && (
-            <div className="relative z-20 flex-1 flex flex-col items-center justify-center px-4 py-2 pointer-events-none">
+            <div className="relative z-20 flex-1 min-h-0 flex flex-col items-center justify-center px-4 py-2 pointer-events-none">
               {trayNotice?.kind === 'SUCCESS' ? (
                 <div
                   data-testid="v2-punch-confirmed-card"
                   role="status"
                   aria-live="assertive"
-                  className="pointer-events-auto w-full max-w-sm bg-[#0D1015] border-2 border-[#34D399] rounded-2xl p-4 sm:p-5 shadow-2xl space-y-3 text-center"
+                  className="pointer-events-auto w-full max-w-sm max-h-[70dvh] overflow-y-auto bg-[#0D1015] border-2 border-[#34D399] rounded-2xl p-4 sm:p-5 shadow-2xl space-y-3 text-center"
                 >
                   <div className="flex items-center justify-center gap-2.5">
                     <div className="w-11 h-11 rounded-2xl bg-[#15803D] border border-[#34D399] text-white flex items-center justify-center shrink-0">
@@ -2160,7 +2162,7 @@ export default function FastFaceScannerV2({
                   data-testid="v2-smart-disambiguation-card"
                   role="alertdialog"
                   aria-labelledby="v2-disambiguation-title"
-                  className="pointer-events-auto w-full max-w-sm bg-[#0D1015] border-2 border-[#FBBF24] rounded-2xl p-4 sm:p-5 shadow-2xl space-y-3 text-left"
+                  className="pointer-events-auto w-full max-w-sm max-h-[70dvh] overflow-y-auto bg-[#0D1015] border-2 border-[#FBBF24] rounded-2xl p-4 sm:p-5 shadow-2xl space-y-3 text-left"
                 >
                   <div className="flex items-start gap-2.5">
                     <div className="w-10 h-10 rounded-xl bg-[#291F0F] border border-[#FBBF24] text-[#FBBF24] flex items-center justify-center shrink-0">
@@ -2275,8 +2277,8 @@ export default function FastFaceScannerV2({
             </div>
           )}
 
-          {/* ERGONOMIC ONE-HANDED BOTTOM THUMB DOCK */}
-          <footer className="relative z-30 w-full bg-[#0D1015] border-t border-[#242B38] px-3 sm:px-5 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] shrink-0">
+          {/* ERGONOMIC ONE-HANDED BOTTOM THUMB DOCK (Mobile & Tablet < lg) */}
+          <footer className="relative z-30 w-full bg-[#0D1015] border-t border-[#242B38] px-3 sm:px-5 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] shrink-0 lg:hidden">
             <div className="max-w-xl mx-auto space-y-2">
               {/* Contextual Status Banner (Cooldown / Max Punches / Error) OR Recent Chips */}
               {trayNotice &&
@@ -2411,50 +2413,231 @@ export default function FastFaceScannerV2({
             </div>
           </footer>
         </div>
+
+        {/* DESKTOP / TABLET COMMAND RAIL (lg:grid-cols-[1fr_360px] Right Column) */}
+        <aside className="hidden lg:flex flex-col w-[360px] bg-[#0D1015] border-l border-[#242B38] p-4 gap-3.5 overflow-y-auto shrink-0">
+          {/* Station Telemetry & GPS Status */}
+          <div className="rounded-2xl bg-[#161A22] border border-[#2B3240] p-3.5 space-y-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#9CA3AF]">
+                Trạng thái trạm Kiosk
+              </span>
+              <span
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono tabular-nums font-bold border ${
+                  isGpsReady
+                    ? 'bg-[#0F291E] border-[#34D399]/60 text-[#34D399]'
+                    : 'bg-[#2A1416] border-[#F87171]/60 text-[#FCA5A5]'
+                }`}
+              >
+                <MapPin size={10} />
+                {isGpsReady ? 'GPS Hợp lệ' : 'Chờ GPS'}
+              </span>
+            </div>
+            <p className="text-xs font-mono tabular-nums font-bold text-[#F7F4EE]">
+              {localGps.statusText}
+            </p>
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
+                type="button"
+                onClick={startStationGpsWatch}
+                className="min-h-[40px] px-2.5 py-1.5 rounded-xl bg-[#0D1015] hover:bg-[#1F2530] border border-[#2B3240] text-[11px] font-bold text-[#F7F4EE] inline-flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <MapPin size={13} className="text-[#34D399]" />
+                <span>Làm mới GPS</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => void syncProfilesAndAttendanceState(true)}
+                disabled={loadingProfiles}
+                className="min-h-[40px] px-2.5 py-1.5 rounded-xl bg-[#0D1015] hover:bg-[#1F2530] border border-[#2B3240] text-[11px] font-bold text-[#F7F4EE] inline-flex items-center justify-center gap-1.5 disabled:opacity-50 transition-colors"
+              >
+                <RefreshCw size={13} className={loadingProfiles ? 'animate-spin' : 'text-[#60A5FA]'} />
+                <span>Đồng bộ ({hydratedProfiles.length})</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Contextual Alert (Cooldown / Max Punches / Error) */}
+          {trayNotice && trayNotice.kind !== 'SUCCESS' && trayNotice.kind !== 'SUBMITTING' && (
+            <div
+              className={`rounded-2xl border p-3 bg-[#161A22] space-y-2 ${
+                trayNotice.kind === 'COOLDOWN' ? 'border-[#FBBF24]' : 'border-[#F87171]'
+              }`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center text-white shrink-0 ${
+                      trayNotice.kind === 'COOLDOWN' ? 'bg-[#B45309]' : 'bg-[#DC2626]'
+                    }`}
+                  >
+                    {trayNotice.kind === 'COOLDOWN' ? <Clock size={16} /> : <AlertTriangle size={16} />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-extrabold text-[#F7F4EE] truncate">{trayNotice.fullname}</p>
+                    {trayNotice.punchType && (
+                      <span className="text-[10px] font-bold text-[#FBBF24]">{trayNotice.punchType}</span>
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setTrayNotice(null)}
+                  className="px-2.5 py-1 rounded-lg bg-[#0D1015] border border-[#2B3240] text-[10px] font-bold text-[#B5AFA6] hover:text-[#F7F4EE]"
+                >
+                  Đóng
+                </button>
+              </div>
+              <p className="text-[11px] text-[#D1CEC7] leading-snug">{trayNotice.subMessage}</p>
+            </div>
+          )}
+
+          {/* Live Station Log Rail */}
+          <div className="flex-1 min-h-[160px] rounded-2xl bg-[#161A22] border border-[#2B3240] p-3.5 flex flex-col gap-2.5 overflow-hidden">
+            <div className="flex items-center justify-between gap-2 border-b border-[#242B38] pb-2">
+              <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#9CA3AF]">
+                Nhật ký trạm trực tiếp
+              </span>
+              <span className="px-2 py-0.5 rounded-full bg-[#0D1015] border border-[#2B3240] text-[10px] font-mono tabular-nums font-bold text-[#34D399]">
+                {recentPunches.length} lượt
+              </span>
+            </div>
+
+            {recentPunches.length > 0 ? (
+              <div className="flex-1 overflow-y-auto space-y-2 pr-0.5">
+                {recentPunches.map((rp) => (
+                  <div
+                    key={rp.id}
+                    className="rounded-xl bg-[#0D1015] border border-[#2B3240] px-3 py-2 flex items-center justify-between gap-2"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-xs font-extrabold text-[#F7F4EE] truncate">{rp.fullname}</p>
+                      <p className="text-[10.5px] font-mono tabular-nums text-[#9CA3AF] mt-0.5">
+                        {formatUnifiedPunchLabel(rp.punchType)} • {rp.timeShort}
+                      </p>
+                    </div>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#0F291E] border border-[#34D399]/50 text-[10px] font-bold text-[#34D399] shrink-0">
+                      <CheckCircle2 size={11} />
+                      {rp.photoUploaded ? 'Đã lưu' : 'Ghi Sheet'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center text-center px-3 py-6 text-[#9CA3AF] space-y-1.5">
+                <ShieldCheck size={22} className="text-[#34D399]" />
+                <p className="text-xs font-bold text-[#F7F4EE]">Sẵn sàng quét tự động</p>
+                <p className="text-[11px] leading-snug">
+                  Tự động luân phiên Vào ca ⇄ Ra ca • Giãn cách 15 phút/NV
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Desktop Quick Controls: Camera Facing, Admin Enroll, Self Enroll, Switch V1 */}
+          <div className="space-y-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleToggleCameraFacing}
+              className="w-full min-h-[44px] px-3 py-2 rounded-xl bg-[#161A22] hover:bg-[#1F2530] border border-[#2B3240] text-xs font-extrabold text-[#F7F4EE] inline-flex items-center justify-center gap-1.5 transition-colors"
+            >
+              <SwitchCamera size={15} className="text-[#34D399] shrink-0" />
+              <span>Chuyển sang {cameraFacing === 'user' ? 'Camera sau' : 'Camera trước'}</span>
+            </button>
+
+            {isAdminAccount && (
+              <button
+                type="button"
+                onClick={() => {
+                  stopCameraAndGps();
+                  setAdminPickerOpen(true);
+                }}
+                className="w-full min-h-[44px] px-3 py-2 rounded-xl bg-[#0B253C] hover:bg-[#163654] border border-[#34D399]/60 text-xs font-extrabold text-[#34D399] inline-flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <Users size={15} className="shrink-0" />
+                <span>Đăng ký khuôn mặt nhân viên</span>
+              </button>
+            )}
+
+            {!isAdminAccount && showSelfEnrollPrompt && (
+              <button
+                type="button"
+                onClick={() => {
+                  stopCameraAndGps();
+                  setAdminSelectedStaff(null);
+                  setEnrollModalOpen(true);
+                }}
+                className="w-full min-h-[44px] px-3 py-2 rounded-xl bg-[#C8432B] hover:bg-[#B83821] text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <UserPlus size={15} className="shrink-0" />
+                <span>Đăng ký khuôn mặt 5 góc</span>
+              </button>
+            )}
+
+            {onSwitchToV1 && (
+              <button
+                type="button"
+                onClick={() => {
+                  stopCameraAndGps();
+                  onSwitchToV1();
+                }}
+                className="w-full min-h-[44px] px-3 py-2 rounded-xl bg-[#161A22] hover:bg-[#1F2530] border border-[#2B3240] text-xs font-extrabold text-[#FBBF24] inline-flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <Camera size={14} className="shrink-0" />
+                <span>Chuyển sang Chụp ảnh (v1)</span>
+              </button>
+            )}
+          </div>
+        </aside>
+        </div>
       </div>
 
       {/* Admin Staff Picker Modal inside Scanner */}
       {isAdminAccount && adminPickerOpen && (
-        <AdminStaffFacePickerModal
-          isOpen={adminPickerOpen}
-          adminUsername={currentUser?.username || 'ADMIN'}
-          initialProfiles={rawProfiles}
-          onClose={() => {
-            setAdminPickerOpen(false);
-            void syncProfilesAndAttendanceState(true);
-          }}
-          onSelectEmployee={(emp, latestProfiles) => {
-            if (latestProfiles.length > 0) {
-              setCachedFaceProfiles(latestProfiles);
-            }
-            setAdminSelectedStaff(emp);
-            setAdminPickerOpen(false);
-            setEnrollModalOpen(true);
-          }}
-        />
+        <Suspense fallback={null}>
+          <AdminStaffFacePickerModal
+            isOpen={adminPickerOpen}
+            adminUsername={currentUser?.username || 'ADMIN'}
+            initialProfiles={rawProfiles}
+            onClose={() => {
+              setAdminPickerOpen(false);
+              void syncProfilesAndAttendanceState(true);
+            }}
+            onSelectEmployee={(emp, latestProfiles) => {
+              if (latestProfiles.length > 0) {
+                setCachedFaceProfiles(latestProfiles);
+              }
+              setAdminSelectedStaff(emp);
+              setAdminPickerOpen(false);
+              setEnrollModalOpen(true);
+            }}
+          />
+        </Suspense>
       )}
 
       {/* Inline 5-Angle Enrollment Modal (Self or Admin-Assisted Staff Enrollment) */}
       {!isKioskMode && enrollTargetUser && enrollModalOpen && (
-        <FaceEnrollmentModal
-          isOpen={enrollModalOpen}
-          onClose={handleCloseEnrollModal}
-          user={enrollTargetUser}
-          existingProfiles={rawProfiles}
-          enrolledByAdmin={isEnrollingOnBehalfOfStaff}
-          adminActorUsername={currentUser?.username}
-          onEnrolledSuccess={handleEnrollSuccess}
-          onStartScanningNow={handleCloseEnrollModal}
-          onPickAnotherStaff={
-            isAdminAccount
-              ? () => {
-                  setEnrollModalOpen(false);
-                  setAdminSelectedStaff(null);
-                  setAdminPickerOpen(true);
-                }
-              : undefined
-          }
-        />
+        <Suspense fallback={null}>
+          <FaceEnrollmentModal
+            isOpen={enrollModalOpen}
+            onClose={handleCloseEnrollModal}
+            user={enrollTargetUser}
+            existingProfiles={rawProfiles}
+            enrolledByAdmin={isEnrollingOnBehalfOfStaff}
+            adminActorUsername={currentUser?.username}
+            onEnrolledSuccess={handleEnrollSuccess}
+            onStartScanningNow={handleCloseEnrollModal}
+            onPickAnotherStaff={
+              isAdminAccount
+                ? () => {
+                    setEnrollModalOpen(false);
+                    setAdminSelectedStaff(null);
+                    setAdminPickerOpen(true);
+                  }
+                : undefined
+            }
+          />
+        </Suspense>
       )}
     </>,
     document.body

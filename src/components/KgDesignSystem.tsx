@@ -1,6 +1,5 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, AlertCircle, CheckCircle2, AlertTriangle, Info, RefreshCw, Wifi, WifiOff,
   LayoutDashboard, MapPin, CalendarDays, Users, ArrowLeftRight, Clock, History,
@@ -13,6 +12,7 @@ import { useDialogA11y } from '../utils/modalQueue';
 
 export { KgFeatureTip, type KgFeatureTipProps } from './KgFeatureTip';
 export { KgFeatureTip as KgTooltip } from './KgFeatureTip';
+export { KgLoadingOverlay } from './KgLoadingOverlay';
 
 // ============================================
 // Layout Components (Cloudflare Kumo × KG Brand)
@@ -29,7 +29,7 @@ export function KgPage({
 }) {
   return (
     <div
-      className={`w-full ${wide ? 'max-w-[1520px]' : 'max-w-[1360px]'} mx-auto px-3 sm:px-4 md:px-5 py-3 md:py-4 space-y-4 ${className}`}
+      className={`w-full ${wide ? 'max-w-[1520px]' : 'max-w-[1360px]'} mx-auto px-0 sm:px-4 md:px-5 py-2.5 sm:py-3 md:py-4 space-y-3.5 sm:space-y-4 ${className}`}
     >
       {children}
     </div>
@@ -359,7 +359,7 @@ export function KgSelect({
         id={selectId}
         required={required}
         aria-invalid={Boolean(error) || undefined}
-        className={`w-full min-h-[42px] px-3.5 py-2 text-base sm:text-sm bg-[var(--kg-surface)] border ${
+        className={`w-full min-h-[44px] sm:min-h-[42px] px-3.5 py-2 text-base sm:text-sm bg-[var(--kg-surface)] border ${
           error ? 'border-[var(--kg-danger)]' : 'border-[var(--kg-border)] hover:border-[var(--kg-border-strong)]'
         } rounded-lg focus:border-[var(--kg-primary)] focus:outline-none transition-colors text-[var(--kg-text)] disabled:bg-[var(--kg-surface-soft)] disabled:text-[var(--kg-text-muted)]`}
         {...props}
@@ -589,25 +589,6 @@ export function KgEmptyState({
   );
 }
 
-export function KgLoadingOverlay({ text = 'Đang xử lý...' }: { text?: string }) {
-  if (typeof document === 'undefined') return null;
-  return createPortal(
-    <div
-      role="status"
-      aria-live="polite"
-      className="fixed inset-0 bg-black/55 backdrop-blur-sm z-[10200] flex items-center justify-center p-4"
-    >
-      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-4 sm:p-5 rounded-xl flex items-center gap-3.5 max-w-xs w-full mx-auto shadow-xl">
-        <RefreshCw className="w-5 h-5 text-[var(--kg-primary)] animate-spin flex-shrink-0" />
-        <span className="text-sm font-semibold text-[var(--kg-text)] leading-snug">
-          {text}
-        </span>
-      </div>
-    </div>,
-    document.body
-  );
-}
-
 // ============================================
 // Feedback & Overlay Components
 // ============================================
@@ -656,12 +637,8 @@ export function KgToast({
   const Icon = icons[message.type];
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 24, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: 12, scale: 0.98 }}
-      transition={{ duration: 0.15 }}
-      className={`flex items-center gap-3 p-3.5 rounded-xl border shadow-lg max-w-sm pointer-events-auto ${typeStyles[message.type]}`}
+    <div
+      className={`kg-toast-in flex items-center gap-3 p-3.5 rounded-xl border shadow-lg max-w-sm pointer-events-auto ${typeStyles[message.type]}`}
     >
       <Icon size={18} strokeWidth={1.75} className={`flex-shrink-0 ${iconColors[message.type]}`} />
       <span className="text-xs font-semibold leading-normal flex-1">{message.title}</span>
@@ -673,7 +650,7 @@ export function KgToast({
       >
         <X size={14} />
       </button>
-    </motion.div>
+    </div>
   );
 }
 
@@ -705,67 +682,55 @@ export function KgBottomSheet({
     closeOnEscape: true,
   });
 
-  if (typeof document === 'undefined') return null;
+  if (!resolvedOpen || typeof document === 'undefined') return null;
 
   return createPortal(
-    <AnimatePresence>
-      {resolvedOpen && (
-        <div className="fixed inset-0 z-[10050] flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6">
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            onClick={onClose}
-            className="fixed inset-0 bg-black/55 backdrop-blur-sm pointer-events-auto"
-          />
-          <motion.div
-            ref={dialogRef}
-            tabIndex={-1}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={titleId}
-            initial={{ opacity: 0, y: 18, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 18, scale: 0.98 }}
-            transition={{ duration: 0.18, ease: [0.2, 0, 0, 1] }}
-            onClick={(e) => e.stopPropagation()}
-            className="relative z-10 w-full max-w-lg max-h-[90dvh] sm:max-h-[85vh] mx-auto bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-t-2xl sm:rounded-2xl border border-[var(--kg-border)] shadow-2xl flex flex-col pointer-events-auto overflow-hidden pb-safe focus:outline-none"
-          >
-            <div className="px-4 sm:px-5 py-3.5 border-b border-[var(--kg-border)] bg-[var(--kg-surface-soft)]/70 flex items-center justify-between gap-3 flex-shrink-0">
-              <div className="min-w-0 flex-1">
-                <h3 id={titleId} className="text-sm font-semibold text-[var(--kg-text)] truncate">
-                  {title}
-                </h3>
-                {subtitle && (
-                  <p className="text-xs text-[var(--kg-text-muted)] mt-0.5 leading-snug line-clamp-2">
-                    {subtitle}
-                  </p>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="Đóng hộp thoại"
-                className="w-11 h-11 sm:w-9 sm:h-9 rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] active:scale-95 transition-colors flex-shrink-0 touch-manipulation"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 min-h-0">
-              {children}
-            </div>
-
-            {footer && (
-              <div className="px-4 sm:px-5 py-3 border-t border-[var(--kg-border)] bg-[var(--kg-surface-soft)]/50 flex-shrink-0">
-                {footer}
-              </div>
+    <div className="fixed inset-0 z-[10050] flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6">
+      <div
+        onClick={onClose}
+        className="kg-fade-in fixed inset-0 bg-black/55 backdrop-blur-sm pointer-events-auto"
+      />
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        onClick={(e) => e.stopPropagation()}
+        className="kg-sheet-up sm:kg-scale-in relative z-10 w-full max-w-lg max-h-[90dvh] sm:max-h-[85vh] mx-auto bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-t-2xl sm:rounded-2xl border border-[var(--kg-border)] shadow-2xl flex flex-col pointer-events-auto overflow-hidden pb-safe focus:outline-none"
+      >
+        <div className="px-4 sm:px-5 py-3.5 border-b border-[var(--kg-border)] bg-[var(--kg-surface-soft)]/70 flex items-center justify-between gap-3 flex-shrink-0">
+          <div className="min-w-0 flex-1">
+            <h3 id={titleId} className="text-sm font-semibold text-[var(--kg-text)] truncate">
+              {title}
+            </h3>
+            {subtitle && (
+              <p className="text-xs text-[var(--kg-text-muted)] mt-0.5 leading-snug line-clamp-2">
+                {subtitle}
+              </p>
             )}
-          </motion.div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Đóng hộp thoại"
+            className="w-11 h-11 sm:w-9 sm:h-9 rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] active:scale-95 transition-colors flex-shrink-0 touch-manipulation"
+          >
+            <X size={16} />
+          </button>
         </div>
-      )}
-    </AnimatePresence>,
+
+        <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 min-h-0">
+          {children}
+        </div>
+
+        {footer && (
+          <div className="px-4 sm:px-5 py-3 border-t border-[var(--kg-border)] bg-[var(--kg-surface-soft)]/50 flex-shrink-0">
+            {footer}
+          </div>
+        )}
+      </div>
+    </div>,
     document.body
   );
 }
@@ -990,6 +955,13 @@ const MODULE_ICON_MAP = {
   today: LayoutDashboard,
   dashboard: LayoutDashboard,
   checkin: MapPin,
+  attendance: Clock,
+  workforce: CalendarDays,
+  work: ClipboardCheck,
+  communications: Newspaper,
+  knowledge: GraduationCap,
+  ledger: Clock,
+  incidents: AlertTriangle,
   schedule: CalendarDays,
   roster: Users,
   swap: ArrowLeftRight,
@@ -1008,6 +980,9 @@ const MODULE_ICON_MAP = {
   training: GraduationCap,
   guide: BookOpen,
   admin: Building2,
+  adminops: Network,
+  adminpeoplepay: Users,
+  adminsystem: BarChart3,
   hrlist: Users,
   adminorg: KeyRound,
   adminshift: CalendarRange,
@@ -1055,51 +1030,68 @@ export function KgModuleHero({
   const hasTip = Boolean(tipContent || tips || (description && description.length > 24));
 
   return (
-    <section className="kg-module-hero relative overflow-hidden bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl px-3.5 py-3 sm:px-5 sm:py-4 shadow-card mb-3 sm:mb-4">
+    <section className="kg-module-hero relative overflow-hidden bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl px-3.5 py-2.5 sm:px-5 sm:py-4 shadow-card mb-2.5 sm:mb-4">
       <span
         aria-hidden="true"
-        className="absolute left-0 top-3 bottom-3 w-1 rounded-r-full bg-[var(--kg-accent)]"
+        className="absolute left-0 top-2.5 bottom-2.5 sm:top-3 sm:bottom-3 w-1 rounded-r-full bg-[var(--kg-accent)]"
       />
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 pl-1.5">
-        <div className="flex items-start sm:items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-[var(--kg-accent-soft)] border border-[var(--kg-accent)]/20 text-[var(--kg-accent-ink)] flex items-center justify-center flex-shrink-0 mt-0.5 sm:mt-0">
-            <Icon size={19} strokeWidth={1.85} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1 text-[10.5px] sm:text-[11px] font-bold uppercase tracking-wider text-[var(--kg-accent-ink)]">
-                {eyebrow}
-              </span>
-              {features.slice(0, 2).map((feat, idx) => (
-                <span
-                  key={idx}
-                  className={`${idx > 0 ? 'hidden sm:inline-flex' : 'inline-flex'} items-center px-2 py-0.5 rounded-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[10.5px] sm:text-[11px] font-semibold text-[var(--kg-text-muted)]`}
-                >
-                  {feat}
-                </span>
-              ))}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 pl-1.5">
+        <div className="flex items-center justify-between gap-2.5 min-w-0 flex-1">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-[var(--kg-accent-soft)] border border-[var(--kg-accent)]/20 text-[var(--kg-accent-ink)] flex items-center justify-center flex-shrink-0">
+              <Icon size={17} strokeWidth={1.85} className="sm:w-[19px] sm:h-[19px]" />
             </div>
-            <h1 className="text-[15px] sm:text-lg md:text-xl font-extrabold text-[var(--kg-text)] leading-snug tracking-tight mt-0.5">
-              {title}
-            </h1>
-            {description && (
-              <p className="text-xs text-[var(--kg-text-muted)] mt-0.5 line-clamp-2 sm:line-clamp-1 leading-relaxed">
-                {description}
-              </p>
-            )}
+            <div className="min-w-0 flex-1">
+              <div className="hidden sm:flex items-center gap-2 flex-wrap">
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[var(--kg-accent-ink)]">
+                  {eyebrow}
+                </span>
+                {features.slice(0, 2).map((feat, idx) => (
+                  <span
+                    key={idx}
+                    className="inline-flex items-center px-2 py-0.5 rounded-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[11px] font-semibold text-[var(--kg-text-muted)]"
+                  >
+                    {feat}
+                  </span>
+                ))}
+              </div>
+              <h1 className="text-[15px] sm:text-lg md:text-xl font-extrabold text-[var(--kg-text)] leading-snug tracking-tight truncate sm:mt-0.5">
+                {title}
+              </h1>
+              {description && (
+                <p className="hidden sm:block text-xs text-[var(--kg-text-muted)] mt-0.5 line-clamp-1 leading-relaxed">
+                  {description}
+                </p>
+              )}
+            </div>
           </div>
-        </div>
 
-        {(hasTip || actions) && (
-          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap flex-shrink-0">
-            {hasTip && (
+          {hasTip && (
+            <div className="sm:hidden flex-shrink-0">
               <KgFeatureTip
                 title={tipTitle || `Hướng dẫn: ${title}`}
                 content={tipContent || description}
                 tips={tips}
-                variant="badge"
-                triggerText="Mẹo & Lưu ý"
+                variant="subtle"
+                iconType="help"
               />
+            </div>
+          )}
+        </div>
+
+        {(hasTip || actions) && (
+          <div className={`flex items-center gap-2 flex-wrap sm:flex-nowrap flex-shrink-0 ${!actions ? 'hidden sm:flex' : ''}`}>
+            {hasTip && (
+              <div className="hidden sm:inline-flex">
+                <KgFeatureTip
+                  title={tipTitle || `Hướng dẫn: ${title}`}
+                  content={tipContent || description}
+                  tips={tips}
+                  variant="badge"
+                  iconType="help"
+                  triggerText="Mẹo & Lưu ý"
+                />
+              </div>
             )}
             {actions}
           </div>

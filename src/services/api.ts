@@ -1,6 +1,8 @@
 // ============================================
 // api.ts - GAS & Cloudflare Edge D1 API Service
 // ============================================
+import { kgToast } from '../store/useFeedbackStore';
+
 const inFlightReadCalls = new Map<string, Promise<any>>();
 const responseCache = new Map<string, { expiresAt: number; value: any }>();
 
@@ -349,8 +351,7 @@ export async function callApi(
       if (!bg) {
         options?.onLoadingEnd?.();
         console.error('[API] Error:', lastEndpointError);
-        const { default: Swal } = await import('sweetalert2');
-        Swal.fire('Lỗi mạng', 'Mất kết nối server. Vui lòng thử lại.', 'error');
+        kgToast('Mất kết nối server. Vui lòng thử lại.', 'error', 'Lỗi mạng', 4000);
       }
       return null;
     }

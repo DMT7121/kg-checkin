@@ -228,12 +228,17 @@ describe('Wave 4 — GAS Server Training & Leaderboard Integrity + 4G Bundle Gua
     assert.ok(!boardRes.data.some((u: any) => u.username === 'nv_minus'));
   });
 
-  test('4G PWA performance guards: Login avoids 3.2MB /LOGO.png, Vite splits tfjs-core, and sw.js protects /api & HTML', () => {
+  test('4G PWA performance guards: Login avoids 3.2MB /LOGO.png, legacy face-api.js/tfjs-core removed, and sw.js protects /api & HTML', () => {
     const loginSrc = fs.readFileSync(path.join(ROOT, 'src', 'pages', 'Login.tsx'), 'utf8');
     assert.ok(!loginSrc.includes('/LOGO.png'), 'Login.tsx must not eagerly load 3.2MB /LOGO.png on 4G');
 
     const viteSrc = fs.readFileSync(path.join(ROOT, 'vite.config.ts'), 'utf8');
-    assert.ok(viteSrc.includes('tfjs-core'), 'vite.config.ts must split @tensorflow/tfjs into its own chunk');
+    assert.ok(!viteSrc.includes('tfjs-core'), 'vite.config.ts must not reference removed tfjs-core chunk');
+    assert.ok(!viteSrc.includes('face-api.js'), 'vite.config.ts must not reference removed face-api.js');
+
+    const pkgSrc = fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8');
+    assert.ok(!pkgSrc.includes('"face-api.js"'), 'package.json must not depend on legacy face-api.js');
+    assert.ok(!pkgSrc.includes('tfjs-core'), 'package.json must not depend on legacy tfjs-core');
 
     const swPath = path.join(ROOT, 'public', 'sw.js');
     assert.ok(fs.existsSync(swPath), 'public/sw.js must exist for offline PWA app-shell & model caching');

@@ -1,21 +1,37 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useAppStore } from '../store/useAppStore';
+import { useAppStore, type User } from '../store/useAppStore';
+import { kgAlert, kgConfirm, kgToast } from '../store/useFeedbackStore';
 import { callApi } from '../services/api';
 import { getPreviewShiftClass } from '../utils/helpers';
-import Swal from 'sweetalert2';
+import { navigateToHubSubTab } from '../utils/hubNavigation';
 import {
+  Check,
+  ChevronDown,
+  Circle,
   ClipboardCheck,
   CheckCircle2,
   CheckSquare,
-  FileText,
   CheckSquare2,
+  LoaderCircle,
+  MapPin,
   RefreshCw,
+  Sparkles,
   Users,
+  UsersRound,
 } from 'lucide-react';
-import { KgModuleHero } from '../components/KgDesignSystem';
+import { KgButton, KgFeatureTip, KgModuleHero } from '../components/KgDesignSystem';
 import EmploymentStatusNotice from '../components/EmploymentStatusNotice';
 import { isWorkEligible } from '../utils/employment';
 import { mergeChecklistAreaState } from '../utils/operationsReconciliation';
+import {
+  emptyOperationsConfig,
+  normalizeOperationsConfig,
+  todayIso,
+  type OperationAssignment,
+  type OperationTask,
+  type OperationTaskLog,
+  type OperationsConfig,
+} from '../types/operations';
 
 // Configuration keys
 const AREA_CODES = ['A', 'B', 'C', 'D&E'] as const;
@@ -75,7 +91,7 @@ interface ChecklistDraftAreaPayload {
 const getChecklistDraftStorageKey = (
   username: string | undefined,
   dateStr: string,
-  shiftName: string
+  shiftName: string,
 ) => `kg_ops_checklist_draft_${username || 'anon'}_${dateStr}_${shiftName || 'default'}`;
 
 const readChecklistDrafts = (key: string): Record<string, ChecklistDraftAreaPayload> => {
@@ -104,21 +120,28 @@ const clearAreaChecklistDraft = (key: string, area: AreaCode) => {
   }
 };
 
+function matchZoneToAreaCode(zoneName?: string): AreaCode | null {
+  if (!zoneName) return null;
+  const norm = zoneName.trim().toLowerCase();
+  if (/d\s*&?\s*e|\bd\b.*\be\b|sảnh sau|wc/.test(norm)) return 'D&E';
+  if (/khu\s*a\b|^a\b|sảnh trước/.test(norm)) return 'A';
+  if (/khu\s*b\b|^b\b|bar|thu ngân/.test(norm)) return 'B';
+  if (/khu\s*c\b|^c\b|bếp|kho/.test(norm)) return 'C';
+  return null;
+}
+
 export default function Checklist() {
   const currentUser = useAppStore((s) => s.currentUser);
+  const users = useAppStore((s) => s.users);
+  const setCurrentUser = useAppStore((s) => s.setCurrentUser);
   const shiftName = useAppStore((s) => s.shiftName);
   const setGlobalLoading = useAppStore((s) => s.setLoading);
   const setTodayChecklistDone = useAppStore((s) => s.setTodayChecklistDone);
-  const store = { setLoading: setGlobalLoading };
 
   const [loading, setLoading] = useState(true);
   const [refreshingTeammates, setRefreshingTeammates] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [workDate, setWorkDate] = useState(() => {
-    const d = new Date();
-    const off = d.getTimezoneOffset();
-    return new Date(d.getTime() - off * 60000).toISOString().slice(0, 10);
-  });
+  const [workDate, setWorkDate] = useState(() => todayIso());
 
   const [checklist, setChecklist] = useState<ChecklistGroup[]>([]);
   const [states, setStates] = useState<Record<string, SavedAreaState>>({});
@@ -137,9 +160,17 @@ export default function Checklist() {
     return null;
   });
   const [activePhase, setActivePhase] = useState<string>('ALL');
-  const [saveMode, setSaveMode] = useState<'single' | 'batch'>('batch');
 
-  // Local changes buffer (pending delta sync — persisted per username + date + shift)
+  // Merged Operations state ("Nhóm trực & Khu phân công hôm nay" + optional extra dispatch tasks)
+  const [opsConfig, setOpsConfig] = useState<OperationsConfig>(emptyOperationsConfig);
+  const [opsTaskLogs, setOpsTaskLogs] = useState<OperationTaskLog[]>([]);
+  const [opsTeamMembers, setOpsTeamMembers] = useState<User[]>([]);
+  const [opsLoading, setOpsLoading] = useState(false);
+  const [updatingOpsTaskId, setUpdatingOpsTaskId] = useState('');
+  const [showExtraOpsTasks, setShowExtraOpsTasks] = useState(false);
+  const autoSelectedZoneRef = useRef(false);
+
+  // Offline / fallback pending buffer (persisted per username + date + shift)
   const [pending, setPending] = useState<Record<string, Partial<SavedItemState>>>({});
   const [removedParticipantKeys, setRemovedParticipantKeys] = useState<string[]>([]);
   const [pendingSupply, setPendingSupply] = useState<Record<string, any> | null>(null);
@@ -152,11 +183,11 @@ export default function Checklist() {
   const draftStorageKey = getChecklistDraftStorageKey(
     currentUser?.username,
     workDate,
-    shiftName
+    shiftName,
   );
   const hydratedDraftIdRef = useRef<string | null>(null);
 
-  // Hydrate persisted pending batch draft for (username + date + shift + area)
+  // Hydrate persisted pending draft for (username + date + shift + area)
   useEffect(() => {
     if (!selectedArea) {
       hydratedDraftIdRef.current = null;
@@ -180,7 +211,7 @@ export default function Checklist() {
     hydratedDraftIdRef.current = targetDraftId;
   }, [draftStorageKey, selectedArea]);
 
-  // Persist pending batch draft to localStorage whenever buffered changes update
+  // Persist pending offline/fallback draft to localStorage whenever buffered changes update
   useEffect(() => {
     if (!selectedArea) return;
     const targetDraftId = `${draftStorageKey}::${selectedArea}`;
@@ -219,6 +250,51 @@ export default function Checklist() {
     pendingSignatures,
   ]);
 
+  // Load Operations assignment & team context (merged from Operations.tsx, preserves employmentProfile refresh)
+  const loadOperationsContext = useCallback(async () => {
+    const user = useAppStore.getState().currentUser;
+    if (!user) return;
+    setOpsLoading(true);
+    try {
+      const res = await callApi(
+        'GET_OPERATIONS_CONFIG',
+        {
+          role: user.role,
+          username: user.username,
+          forceRefresh: true,
+        },
+        { background: true, cacheTtlMs: 0, timeoutMs: 35000 },
+      );
+      if (res?.ok) {
+        if (res.data?.employmentProfile) {
+          const refreshedUser = { ...user, ...res.data.employmentProfile };
+          setCurrentUser(refreshedUser);
+          try {
+            localStorage.setItem('kg_user', JSON.stringify(refreshedUser));
+          } catch {
+            // ignore storage errors
+          }
+        }
+        const normalizedConfig = normalizeOperationsConfig(res.data?.config);
+        setOpsConfig(normalizedConfig);
+        setOpsTaskLogs(Array.isArray(res.data?.taskLogs) ? res.data.taskLogs : []);
+        setOpsTeamMembers(Array.isArray(res.data?.members) ? res.data.members : []);
+      }
+    } catch {
+      // Non-blocking: checklist still works even if dispatch banner fails to load
+    } finally {
+      setOpsLoading(false);
+    }
+  }, [setCurrentUser]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadOperationsContext();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadOperationsContext]);
+
+  // Load checklist structure & saved area states
   useEffect(() => {
     let isCancelled = false;
     const loadInitialChecklist = async () => {
@@ -232,17 +308,166 @@ export default function Checklist() {
       } catch (err) {
         if (!isCancelled) {
           console.error(err);
-          Swal.fire('Lỗi', 'Không thể kết nối server để nạp dữ liệu checklist.', 'error');
+          kgToast('Không thể kết nối server để nạp dữ liệu checklist.', 'error', 'Lỗi');
         }
       } finally {
         if (!isCancelled) setLoading(false);
       }
     };
-    loadInitialChecklist();
+    void loadInitialChecklist();
     return () => {
       isCancelled = true;
     };
   }, [workDate]);
+
+  // Derived Operations context for today / workDate
+  const directoryUsers = users.length ? users : opsTeamMembers;
+  const myTeam = useMemo(
+    () =>
+      opsConfig.teams.find(
+        (team) =>
+          currentUser &&
+          (team.leaderUsername === currentUser.username ||
+            team.memberUsernames.includes(currentUser.username)),
+      ),
+    [opsConfig.teams, currentUser],
+  );
+
+  const dateAssignments = useMemo(
+    () =>
+      opsConfig.assignments.filter((assignment) => assignment.date === workDate),
+    [opsConfig.assignments, workDate],
+  );
+
+  const myTodayAssignment = useMemo<OperationAssignment | null>(() => {
+    if (!dateAssignments.length) return null;
+    if (myTeam) {
+      const teamMatch = dateAssignments.find((a) => a.teamId === myTeam.id);
+      if (teamMatch) return teamMatch;
+    }
+    if (currentUser?.username) {
+      const shiftMatch = dateAssignments.find(
+        (a) => a.memberShifts && a.memberShifts[currentUser.username] && a.memberShifts[currentUser.username] !== 'OFF',
+      );
+      if (shiftMatch) return shiftMatch;
+    }
+    return dateAssignments[0] || null;
+  }, [dateAssignments, myTeam, currentUser?.username]);
+
+  const assignedZone = useMemo(
+    () =>
+      myTodayAssignment
+        ? opsConfig.zones.find((z) => z.id === myTodayAssignment.zoneId) || null
+        : null,
+    [opsConfig.zones, myTodayAssignment],
+  );
+
+  const assignedAreaCode = useMemo(
+    () => matchZoneToAreaCode(assignedZone?.name),
+    [assignedZone?.name],
+  );
+
+  // Auto-preselect user's assigned zone A/B/C/D&E when no area is chosen yet
+  useEffect(() => {
+    if (autoSelectedZoneRef.current || selectedArea || !assignedAreaCode) return;
+    autoSelectedZoneRef.current = true;
+    setSelectedArea(assignedAreaCode);
+    try {
+      const name = currentUser?.fullname || currentUser?.username || '';
+      localStorage.setItem('kg_ops_checklist_session_v7', JSON.stringify({ name, area: assignedAreaCode }));
+    } catch {
+      // ignore storage errors
+    }
+  }, [assignedAreaCode, selectedArea, currentUser?.fullname, currentUser?.username]);
+
+  // Relevant dispatch assignment & extra operation tasks for the currently selected area (or assigned zone)
+  const activeOpsAssignment = useMemo<OperationAssignment | null>(() => {
+    if (!dateAssignments.length) return null;
+    if (selectedArea) {
+      const areaMatch = dateAssignments.find((a) => {
+        const z = opsConfig.zones.find((zone) => zone.id === a.zoneId);
+        return matchZoneToAreaCode(z?.name) === selectedArea;
+      });
+      if (areaMatch) return areaMatch;
+    }
+    return myTodayAssignment;
+  }, [dateAssignments, opsConfig.zones, selectedArea, myTodayAssignment]);
+
+  const activeOpsTasks = useMemo<OperationTask[]>(() => {
+    if (!activeOpsAssignment) return [];
+    return opsConfig.tasks.filter((task) => task.zoneId === activeOpsAssignment.zoneId);
+  }, [opsConfig.tasks, activeOpsAssignment]);
+
+  const activeOpsCompletedIds = useMemo(() => {
+    if (!activeOpsAssignment || !currentUser) return new Set<string>();
+    return new Set(
+      opsTaskLogs
+        .filter((log) => log.assignmentId === activeOpsAssignment.id && log.username === currentUser.username)
+        .map((log) => log.taskId),
+    );
+  }, [opsTaskLogs, activeOpsAssignment, currentUser]);
+
+  const toggleOperationTask = async (
+    assignment: OperationAssignment,
+    taskId: string,
+    completed: boolean,
+  ) => {
+    if (!currentUser) return;
+    setUpdatingOpsTaskId(`${assignment.id}_${taskId}`);
+    try {
+      const res = await callApi('TOGGLE_OPERATION_TASK', {
+        role: currentUser.role,
+        username: currentUser.username,
+        fullname: currentUser.fullname,
+        assignmentId: assignment.id,
+        taskId,
+        date: assignment.date,
+        completed,
+      });
+      if (!res?.ok) {
+        kgToast(res?.message || 'Chưa cập nhật được đầu việc điều phối. Vui lòng thử lại.', 'error');
+        return;
+      }
+      if (completed) {
+        setOpsTaskLogs((current) => [
+          ...current.filter(
+            (log) =>
+              !(
+                log.assignmentId === assignment.id &&
+                log.taskId === taskId &&
+                log.username === currentUser.username
+              ),
+          ),
+          {
+            id: `${assignment.id}_${taskId}_${currentUser.username}`,
+            date: assignment.date,
+            assignmentId: assignment.id,
+            taskId,
+            username: currentUser.username,
+            fullname: currentUser.fullname,
+            completedAt: res.data?.completedAt || 'Vừa xong',
+            status: 'Completed',
+            note: '',
+          },
+        ]);
+      } else {
+        setOpsTaskLogs((current) =>
+          current.filter(
+            (log) =>
+              !(
+                log.assignmentId === assignment.id &&
+                log.taskId === taskId &&
+                log.username === currentUser.username
+              ),
+          ),
+        );
+      }
+    } catch {
+      kgToast('Lỗi kết nối khi cập nhật trạng thái nhiệm vụ.', 'error');
+    } finally {
+      setUpdatingOpsTaskId('');
+    }
+  };
 
   // Pull latest teammates' progress without wiping local unsaved pending ticks
   const refreshTeammatesProgress = useCallback(async () => {
@@ -251,7 +476,7 @@ export default function Checklist() {
       const res = await callApi(
         'GET_OPS_CHECKLIST_INIT',
         { dateStr: workDate, forceRefresh: true },
-        { background: true, cacheTtlMs: 0 }
+        { background: true, cacheTtlMs: 0 },
       );
       if (res?.ok && res.data?.states) {
         setStates((prev) => {
@@ -266,14 +491,14 @@ export default function Checklist() {
           return next;
         });
       }
+      void loadOperationsContext();
     } catch {
       // Silent background refresh
     } finally {
       setRefreshingTeammates(false);
     }
-  }, [workDate]);
+  }, [workDate, loadOperationsContext]);
 
-  // Save/Restore session name
   const sessionName = currentUser?.fullname || currentUser?.username || '';
 
   // Get active area data (merged with pending values)
@@ -290,12 +515,10 @@ export default function Checklist() {
     };
   }, [states, selectedArea]);
 
-  // Flat list of checklist items
   const flatItems = useMemo(() => {
     return checklist.flatMap((group) => group.items.map((item) => ({ ...item, group })));
   }, [checklist]);
 
-  // Helpers to compute merged item states
   const getMergedItemState = useCallback(
     (item: ChecklistItem): SavedItemState => {
       const saved = areaData.items[item.id] || { checked: false, note: '', subchecks: {} };
@@ -321,7 +544,7 @@ export default function Checklist() {
         at: p.at || saved.at || '',
       };
     },
-    [areaData.items, pending]
+    [areaData.items, pending],
   );
 
   const isItemCompleteForArea = (area: AreaCode, item: ChecklistItem): boolean => {
@@ -333,12 +556,138 @@ export default function Checklist() {
     return !!raw.checked;
   };
 
-  // Atomic single-item patch with automatic fallback to concurrent-safe SAVE_OPS_CHECKLIST_STATE
+  // Sync state to Google Sheets with concurrent-safe delta merging
+  const syncToServer = async (
+    area: AreaCode,
+    participants: SavedAreaState['participants'],
+    items: SavedAreaState['items'],
+    supply: SavedAreaState['supply'],
+    signatures: SavedAreaState['signatures'],
+    deltaItems: Record<string, Partial<SavedItemState>> = {},
+    removedKeys: string[] = [],
+    deltaSignatures?: Partial<SavedAreaState['signatures']>,
+    silentSuccess = false,
+  ): Promise<boolean> => {
+    setIsSaving(true);
+    if (!silentSuccess) {
+      setGlobalLoading(true, 'Đang đồng bộ tiến độ Checklist an toàn...');
+    }
+
+    try {
+      let latestRemoteAreaState: SavedAreaState | undefined = states[area];
+      try {
+        const freshRes = await callApi(
+          'GET_OPS_CHECKLIST_INIT',
+          { dateStr: workDate, forceRefresh: true },
+          { background: true, cacheTtlMs: 0 },
+        );
+        if (freshRes?.ok && freshRes.data?.states?.[area]) {
+          latestRemoteAreaState = freshRes.data.states[area];
+        }
+      } catch {
+        // Proceed with cached base if pre-read times out
+      }
+
+      const preMerged = mergeChecklistAreaState(latestRemoteAreaState, {
+        participants,
+        removedParticipantKeys: removedKeys,
+        items,
+        deltaItems: Object.keys(deltaItems).length > 0 ? deltaItems : undefined,
+        supply,
+        signatures,
+        deltaSignatures,
+      });
+
+      const res = await callApi(
+        'SAVE_OPS_CHECKLIST_STATE',
+        {
+          dateStr: workDate,
+          area,
+          username: currentUser?.username,
+          fullname: currentUser?.fullname,
+          participants: preMerged.participants,
+          removedParticipantKeys: removedKeys,
+          items: preMerged.items,
+          deltaItems,
+          supply: preMerged.supply,
+          signatures: preMerged.signatures,
+          deltaSignatures,
+        },
+        { background: silentSuccess },
+      );
+
+      if (res?.ok) {
+        const serverMerged: SavedAreaState = res.data?.state
+          ? mergeChecklistAreaState(preMerged, res.data.state)
+          : preMerged;
+
+        if (Object.values(serverMerged.items).some((it) => it?.checked)) {
+          setTodayChecklistDone(true);
+        }
+
+        setStates((prev) => ({
+          ...prev,
+          [area]: serverMerged,
+        }));
+
+        if (!silentSuccess) {
+          setPending({});
+          setRemovedParticipantKeys([]);
+          setPendingSupply(null);
+          setPendingSignatures(null);
+          setNoteDrafts({});
+          clearAreaChecklistDraft(draftStorageKey, area);
+          kgToast('Đã đồng bộ & gộp tiến độ cùng đồng đội!', 'success', undefined, 2600);
+        }
+        return true;
+      }
+      throw new Error(res?.message || 'API error');
+    } catch (err) {
+      console.error(err);
+      if (!silentSuccess) {
+        void kgAlert(
+          'Lỗi đồng bộ',
+          'Không thể gửi dữ liệu lên máy chủ. Tiến độ đã được lưu nháp trên thiết bị để bạn bấm Đồng bộ lại.',
+          'error',
+        );
+      }
+      return false;
+    } finally {
+      setIsSaving(false);
+      if (!silentSuccess) {
+        setGlobalLoading(false);
+      }
+    }
+  };
+
+  // Atomic single-item patch (default mode) with offline/draft fallback into `pending`
   const syncSingleItemDelta = async (
     area: AreaCode,
     itemId: string,
-    stateUpdate: Partial<SavedItemState>
+    stateUpdate: Partial<SavedItemState>,
   ) => {
+    // Apply optimistically to local area state right away for crisp instant UX
+    setStates((prev) => {
+      const base = prev[area] || { participants: [], items: {}, supply: {}, signatures: {} };
+      return {
+        ...prev,
+        [area]: mergeChecklistAreaState(base, {
+          participants: areaData.participants,
+          deltaItems: { [itemId]: stateUpdate },
+        }),
+      };
+    });
+
+    // If offline right now, persist immediately in draft buffer for later sync
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      setPending((prev) => ({
+        ...prev,
+        [itemId]: { ...(prev[itemId] || {}), ...stateUpdate },
+      }));
+      kgToast('Đang mất mạng — đã lưu nháp trên máy để đồng bộ sau.', 'warning', undefined, 2400);
+      return;
+    }
+
     setIsSaving(true);
     try {
       const patchRes = await callApi(
@@ -356,7 +705,7 @@ export default function Checklist() {
           by: stateUpdate.by || sessionName,
           at: stateUpdate.at || new Date().toISOString(),
         },
-        { background: true }
+        { background: true },
       );
 
       if (patchRes?.ok) {
@@ -371,43 +720,63 @@ export default function Checklist() {
               });
           return { ...prev, [area]: nextAreaState };
         });
+        setPending((prev) => {
+          if (!(itemId in prev)) return prev;
+          const copy = { ...prev };
+          delete copy[itemId];
+          return copy;
+        });
         return;
       }
 
-      // Fallback when local dev connects directly to legacy GAS before clasp push
+      // Fallback to concurrent-safe SAVE_OPS_CHECKLIST_STATE if PATCH endpoint unavailable
       const fallbackMerged = mergeChecklistAreaState(states[area], {
         participants: areaData.participants,
         deltaItems: { [itemId]: stateUpdate },
       });
-      await syncToServer(
+      const fallbackOk = await syncToServer(
         area,
         fallbackMerged.participants,
         fallbackMerged.items,
         fallbackMerged.supply,
         fallbackMerged.signatures,
-        { [itemId]: stateUpdate }
+        { [itemId]: stateUpdate },
+        [],
+        undefined,
+        true,
       );
+      if (!fallbackOk) {
+        setPending((prev) => ({
+          ...prev,
+          [itemId]: { ...(prev[itemId] || {}), ...stateUpdate },
+        }));
+        kgToast('Kết nối yếu — đã lưu tạm mục này trên thiết bị.', 'warning', undefined, 2400);
+      }
+    } catch {
+      setPending((prev) => ({
+        ...prev,
+        [itemId]: { ...(prev[itemId] || {}), ...stateUpdate },
+      }));
+      kgToast('Chưa gửi được — đã lưu nháp trên thiết bị để đồng bộ sau.', 'warning', undefined, 2400);
     } finally {
       setIsSaving(false);
     }
   };
 
   // Handle joining checklist area
-  const handleJoinArea = (area: AreaCode) => {
+  const handleJoinArea = async (area: AreaCode) => {
     if (selectedArea === area) return;
     if (Object.keys(pending).length || pendingSupply || pendingSignatures) {
-      Swal.fire({
-        title: 'Có thay đổi chưa lưu',
-        text: 'Bạn có thay đổi chưa đồng bộ. Bạn vẫn muốn chuyển khu vực chứ?',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: 'Chuyển và bỏ qua thay đổi',
-        cancelButtonText: 'Hủy',
-      }).then((result) => {
-        if (result.isConfirmed) {
-          performJoinArea(area);
-        }
+      const confirmed = await kgConfirm({
+        title: 'Có thay đổi chưa đồng bộ',
+        message: 'Bạn có thay đổi lưu nháp chưa đồng bộ lên máy chủ. Bạn vẫn muốn chuyển khu vực chứ?',
+        confirmLabel: 'Chuyển và bỏ qua nháp',
+        cancelLabel: 'Hủy',
+        tone: 'warning',
       });
+      if (confirmed) {
+        performJoinArea(area);
+      }
     } else {
       performJoinArea(area);
     }
@@ -424,7 +793,11 @@ export default function Checklist() {
     setPendingSignatures(null);
     setNoteDrafts({});
 
-    localStorage.setItem('kg_ops_checklist_session_v7', JSON.stringify({ name: sessionName, area }));
+    try {
+      localStorage.setItem('kg_ops_checklist_session_v7', JSON.stringify({ name: sessionName, area }));
+    } catch {
+      // ignore storage errors
+    }
 
     const rawState = states[area] || { participants: [], items: {}, supply: {}, signatures: {} };
     const participants = [...(rawState.participants || [])];
@@ -443,14 +816,11 @@ export default function Checklist() {
           participants,
         },
       }));
-      if (saveMode === 'single') {
-        syncToServer(area, participants, rawState.items, rawState.supply, rawState.signatures, {});
-      }
+      void syncToServer(area, participants, rawState.items, rawState.supply, rawState.signatures, {}, [], undefined, true);
     }
   };
 
-  // Add other participant teammate
-  const handleAddParticipant = () => {
+  const handleAddParticipant = async () => {
     if (!selectedArea || !participantInput.trim()) return;
 
     const rawState = states[selectedArea] || { participants: [], items: {}, supply: {}, signatures: {} };
@@ -473,16 +843,24 @@ export default function Checklist() {
       }));
       setParticipantInput('');
 
-      if (saveMode === 'single') {
-        syncToServer(selectedArea, participants, rawState.items, rawState.supply, rawState.signatures, {});
-      } else {
+      const ok = await syncToServer(
+        selectedArea,
+        participants,
+        rawState.items,
+        rawState.supply,
+        rawState.signatures,
+        {},
+        [],
+        undefined,
+        true,
+      );
+      if (!ok) {
         setPending((p) => ({ ...p, _participants_trigger: {} }));
       }
     }
   };
 
-  // Remove participant
-  const handleRemoveParticipant = (key: string) => {
+  const handleRemoveParticipant = async (key: string) => {
     if (!selectedArea) return;
     const rawState = states[selectedArea] || { participants: [], items: {}, supply: {}, signatures: {} };
     const participants = (rawState.participants || []).filter((p) => p.key !== key);
@@ -496,16 +874,18 @@ export default function Checklist() {
       },
     }));
 
-    if (saveMode === 'single') {
-      syncToServer(
-        selectedArea,
-        participants,
-        rawState.items,
-        rawState.supply,
-        rawState.signatures,
-        {},
-        nextRemoved
-      );
+    const ok = await syncToServer(
+      selectedArea,
+      participants,
+      rawState.items,
+      rawState.supply,
+      rawState.signatures,
+      {},
+      nextRemoved,
+      undefined,
+      true,
+    );
+    if (ok) {
       setRemovedParticipantKeys([]);
     } else {
       setRemovedParticipantKeys(nextRemoved);
@@ -513,7 +893,6 @@ export default function Checklist() {
     }
   };
 
-  // Toggle main checklist item
   const handleToggleItem = async (item: ChecklistItem, checked: boolean) => {
     if (!selectedArea) return;
 
@@ -532,20 +911,9 @@ export default function Checklist() {
       at: new Date().toISOString(),
     };
 
-    if (saveMode === 'single') {
-      await syncSingleItemDelta(selectedArea, item.id, stateUpdate);
-    } else {
-      setPending((prev) => ({
-        ...prev,
-        [item.id]: {
-          ...(prev[item.id] || {}),
-          ...stateUpdate,
-        },
-      }));
-    }
+    await syncSingleItemDelta(selectedArea, item.id, stateUpdate);
   };
 
-  // Toggle subtask (preserves teammates' ticks on sibling subtasks)
   const handleToggleSubtask = async (item: ChecklistItem, subId: string, checked: boolean) => {
     if (!selectedArea) return;
 
@@ -559,26 +927,14 @@ export default function Checklist() {
 
     const stateUpdate: Partial<SavedItemState> = {
       checked: allChecked,
-      // Send only the changed subtask in delta so concurrent teammates' subtasks are never overwritten
       subchecks: { ...(pending[item.id]?.subchecks || {}), [subId]: checked },
       by: sessionName,
       at: new Date().toISOString(),
     };
 
-    if (saveMode === 'single') {
-      await syncSingleItemDelta(selectedArea, item.id, stateUpdate);
-    } else {
-      setPending((prev) => ({
-        ...prev,
-        [item.id]: {
-          ...(prev[item.id] || {}),
-          ...stateUpdate,
-        },
-      }));
-    }
+    await syncSingleItemDelta(selectedArea, item.id, stateUpdate);
   };
 
-  // Handle Note Save
   const handleSaveNote = async (itemId: string, noteText: string) => {
     if (!selectedArea) return;
 
@@ -595,36 +951,10 @@ export default function Checklist() {
       at: new Date().toISOString(),
     };
 
-    if (saveMode === 'single') {
-      await syncSingleItemDelta(selectedArea, itemId, stateUpdate);
-      Swal.fire({
-        toast: true,
-        position: 'top-end',
-        icon: 'success',
-        title: 'Đã lưu ghi chú trực tuyến!',
-        showConfirmButton: false,
-        timer: 1500,
-      });
-    } else {
-      setPending((prev) => ({
-        ...prev,
-        [itemId]: {
-          ...(prev[itemId] || {}),
-          ...stateUpdate,
-        },
-      }));
-      Swal.fire({
-        toast: true,
-        position: 'top-end',
-        icon: 'info',
-        title: 'Đã lưu tạm ghi chú. Bấm Đồng bộ ngay để gửi lên Sheet!',
-        showConfirmButton: false,
-        timer: 1500,
-      });
-    }
+    await syncSingleItemDelta(selectedArea, itemId, stateUpdate);
+    kgToast('Đã lưu ghi chú!', 'success', undefined, 1800);
   };
 
-  // Handle Supplies Change
   const handleSupplyChange = (key: string, value: any) => {
     const currentSupply = pendingSupply || areaData.supply || {};
     setPendingSupply({
@@ -638,124 +968,16 @@ export default function Checklist() {
   const handleSaveSupply = async () => {
     if (!selectedArea || !pendingSupply) return;
 
-    if (saveMode === 'single') {
-      await syncToServer(
-        selectedArea,
-        areaData.participants,
-        areaData.items,
-        pendingSupply,
-        areaData.signatures,
-        {}
-      );
+    const ok = await syncToServer(
+      selectedArea,
+      areaData.participants,
+      areaData.items,
+      pendingSupply,
+      areaData.signatures,
+      {},
+    );
+    if (ok) {
       setPendingSupply(null);
-    } else {
-      Swal.fire({
-        toast: true,
-        position: 'top-end',
-        icon: 'success',
-        title: 'Đã ghi nhận đề xuất vật tư tạm thời!',
-        showConfirmButton: false,
-        timer: 1500,
-      });
-    }
-  };
-
-  // Sync state to Google Sheets with concurrent-safe delta merging
-  const syncToServer = async (
-    area: AreaCode,
-    participants: SavedAreaState['participants'],
-    items: SavedAreaState['items'],
-    supply: SavedAreaState['supply'],
-    signatures: SavedAreaState['signatures'],
-    deltaItems: Record<string, Partial<SavedItemState>> = {},
-    removedKeys: string[] = [],
-    deltaSignatures?: Partial<SavedAreaState['signatures']>
-  ) => {
-    setIsSaving(true);
-    store.setLoading(true, 'Đang đồng bộ tiến độ Checklist an toàn...');
-
-    try {
-      // Pull freshest teammate state right before saving so even legacy GAS never loses concurrent ticks
-      let latestRemoteAreaState: SavedAreaState | undefined = states[area];
-      try {
-        const freshRes = await callApi(
-          'GET_OPS_CHECKLIST_INIT',
-          { dateStr: workDate, forceRefresh: true },
-          { background: true, cacheTtlMs: 0 }
-        );
-        if (freshRes?.ok && freshRes.data?.states?.[area]) {
-          latestRemoteAreaState = freshRes.data.states[area];
-        }
-      } catch {
-        // Proceed with cached base if pre-read times out
-      }
-
-      const preMerged = mergeChecklistAreaState(latestRemoteAreaState, {
-        participants,
-        removedParticipantKeys: removedKeys,
-        items,
-        deltaItems: Object.keys(deltaItems).length > 0 ? deltaItems : undefined,
-        supply,
-        signatures,
-        deltaSignatures,
-      });
-
-      const res = await callApi('SAVE_OPS_CHECKLIST_STATE', {
-        dateStr: workDate,
-        area,
-        username: currentUser?.username,
-        fullname: currentUser?.fullname,
-        participants: preMerged.participants,
-        removedParticipantKeys: removedKeys,
-        items: preMerged.items,
-        deltaItems,
-        supply: preMerged.supply,
-        signatures: preMerged.signatures,
-        deltaSignatures,
-      });
-
-      if (res?.ok) {
-        const serverMerged: SavedAreaState = res.data?.state
-          ? mergeChecklistAreaState(preMerged, res.data.state)
-          : preMerged;
-
-        if (Object.values(serverMerged.items).some((it) => it?.checked)) {
-          setTodayChecklistDone(true);
-        }
-
-        setStates((prev) => ({
-          ...prev,
-          [area]: serverMerged,
-        }));
-
-        setPending({});
-        setRemovedParticipantKeys([]);
-        setPendingSupply(null);
-        setPendingSignatures(null);
-        setNoteDrafts({});
-        clearAreaChecklistDraft(draftStorageKey, area);
-
-        Swal.fire({
-          icon: 'success',
-          title: 'Đã đồng bộ & gộp tiến độ cùng đồng đội!',
-          toast: true,
-          position: 'top-end',
-          showConfirmButton: false,
-          timer: 2600,
-        });
-      } else {
-        throw new Error(res?.message || 'API error');
-      }
-    } catch (err) {
-      console.error(err);
-      Swal.fire(
-        'Lỗi đồng bộ',
-        'Không thể gửi dữ liệu lên Google Sheets. Tiến độ vẫn được giữ nguyên trên màn hình để bấm gửi lại.',
-        'error'
-      );
-    } finally {
-      setIsSaving(false);
-      store.setLoading(false);
     }
   };
 
@@ -785,19 +1007,17 @@ export default function Checklist() {
       localMerged.signatures,
       cleanDeltaItems,
       removedParticipantKeys,
-      pendingSignatures || undefined
+      pendingSignatures || undefined,
     );
   };
 
-  // Group filter logic
   const isGroupVisible = useCallback(
     (group: ChecklistGroup) => {
       return activePhase === 'ALL' || group.phase === activePhase || group.shift === activePhase;
     },
-    [activePhase]
+    [activePhase],
   );
 
-  // Compute metrics for progress bar
   const activeMetrics = useMemo(() => {
     const activeItems = flatItems.filter((item) => isGroupVisible(item.group));
     const total = activeItems.length;
@@ -814,7 +1034,6 @@ export default function Checklist() {
     return { done, total, subDone, subTotal, pct };
   }, [flatItems, getMergedItemState, isGroupVisible]);
 
-  // Tab definitions
   const tabs = [
     { key: 'ALL', label: 'Tất cả' },
     { key: 'CHECKLIST ĐẦU CA', label: 'Đầu ca' },
@@ -822,7 +1041,7 @@ export default function Checklist() {
     { key: 'CA 15H: SETUP BÀN', label: 'Ca 15h' },
     { key: 'CA 17H: RÀ SOÁT & HOÀN THIỆN', label: 'Ca 17h' },
     { key: 'XUỐNG CA LẦN 1', label: 'Xuống ca 1' },
-    { key: 'XUỐNG CA SAU CÙNG', label: 'Xuống ca cuối' }
+    { key: 'XUỐNG CA SAU CÙNG', label: 'Xuống ca cuối' },
   ];
 
   const hasPendingChanges =
@@ -836,27 +1055,121 @@ export default function Checklist() {
   }
 
   return (
-    <div className="p-4 space-y-6 max-w-7xl mx-auto pb-28">
+    <div className="p-4 space-y-4 sm:space-y-5 max-w-7xl mx-auto pb-28">
       <KgModuleHero
         moduleId="checklist"
         title="Checklist Vận Hành Theo Khu Vực"
-        description="Đồng bộ trực tuyến theo thời gian thực cho 4 khu vực. Hỗ trợ việc con và đề xuất vật tư."
+        description="Tự động lưu từng mục theo thời gian thực cho 4 khu vực, kèm thông tin nhóm trực và khu phân công hôm nay."
         eyebrow="Vận hành"
-        tipTitle="Tiêu chuẩn Kiểm tra Checklist Vận hành"
+        features={['Lưu tự động tức thì', 'Nháp ngoại tuyến']}
+        tipTitle="Tiêu chuẩn & Ghi chú Vận hành"
         tips={[
-          "Khu vực A (Sảnh & Bàn ăn): Vệ sinh bàn ghế, lau sàn, kiểm tra lọ gia vị và menu.",
-          "Khu vực B (Quầy Bar & Thu ngân): Chuẩn bị ly tách, nguyên liệu pha chế, máy POS và hoá đơn.",
-          "Khu vực C (Bếp & Kho): Kiểm tra nhiệt độ tủ đông/mát, vệ sinh bề mặt chế biến, an toàn thực phẩm.",
-          "Khu vực D & E (Vệ sinh & Cơ sở vật chất): Kiểm tra nhà vệ sinh, hệ thống ánh sáng, điều hòa và âm thanh.",
-          "Chạm vào từng đầu mục để đánh dấu hoàn tất. Dữ liệu sẽ tự động đồng bộ lên máy chủ."
+          'Đầu ca (15h & 17h): Vệ sinh khu vực trực, lau bàn ghế, setup đầy đủ chén đũa. Đọc thông tin bàn đặt trước và các món ngừng bán.',
+          'Cuối ca (Hạ ca & Kết ca): Hỗ trợ ca sau thu gọn đồ. Ca sau cùng vệ sinh menu, xô đá, quạt trang trí, đổ rác, tắt điện/thiết bị và dọn nhà vệ sinh.',
+          'Khu A (Sảnh & Bàn ăn) · Khu B (Quầy Bar & Thu ngân) · Khu C (Bếp & Kho) · Khu D&E (Sảnh sau & WC).',
+          'Chạm vào từng đầu mục để lưu ngay lên máy chủ; nếu mất mạng sẽ tự lưu nháp trên máy để đồng bộ lại.',
         ]}
       />
 
-      {/* Date & Mode selector */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-4 rounded-2xl shadow-xs flex flex-col justify-center">
-          <label className="block text-xs font-black text-[var(--kg-text-muted)] mb-1 uppercase tracking-wider">Ngày làm việc</label>
+      {/* Merged Operations Banner: Nhóm trực & Khu phân công hôm nay + Compact Date Bar */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch">
+        <div className="lg:col-span-8 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-3.5 sm:p-4 shadow-xs flex flex-col justify-between gap-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <span
+                className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-white"
+                style={{ backgroundColor: myTeam?.color || 'var(--kg-primary)' }}
+              >
+                <UsersRound size={16} />
+              </span>
+              <div className="min-w-0">
+                <h2 className="text-xs sm:text-sm font-extrabold text-[var(--kg-text)] truncate">
+                  Nhóm trực &amp; Khu phân công hôm nay
+                </h2>
+                <p className="text-[11px] text-[var(--kg-text-muted)] truncate">
+                  {opsLoading
+                    ? 'Đang tải phân công đội ngũ...'
+                    : myTeam
+                      ? `${myTeam.name}${assignedZone ? ` · ${assignedZone.name}` : ''}${myTodayAssignment?.shift ? ` · ${myTodayAssignment.shift}` : ''}`
+                      : assignedZone
+                        ? `${assignedZone.name}${myTodayAssignment?.shift ? ` · ${myTodayAssignment.shift}` : ''}`
+                        : 'Chưa có lịch phân khu riêng — chọn khu vực của bạn bên dưới'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {assignedAreaCode && selectedArea !== assignedAreaCode && (
+                <button
+                  type="button"
+                  onClick={() => handleJoinArea(assignedAreaCode)}
+                  className="min-h-[44px] sm:min-h-[34px] px-3 py-1 rounded-xl bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] border border-[var(--kg-primary)]/20 text-xs font-bold inline-flex items-center gap-1.5 hover:brightness-95 touch-manipulation"
+                >
+                  <MapPin size={13} />
+                  <span>Về Khu {assignedAreaCode}</span>
+                </button>
+              )}
+              {currentUser?.role === 'admin' && (
+                <KgButton
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  icon={Sparkles}
+                  onClick={() => navigateToHubSubTab('admin_ops', 'dispatch')}
+                >
+                  Điều phối
+                </KgButton>
+              )}
+            </div>
+          </div>
+
+          {myTeam && myTeam.memberUsernames.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-[var(--kg-border)]/70">
+              {myTeam.memberUsernames.map((username) => {
+                const employee = directoryUsers.find((u) => u.username === username);
+                const isLeader = myTeam.leaderUsername === username;
+                const isMe = currentUser?.username === username;
+                return (
+                  <span
+                    key={username}
+                    className={`inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-[11px] font-bold ${
+                      isLeader
+                        ? 'border-[var(--kg-warning)]/35 bg-[var(--kg-warning-soft)] text-[var(--kg-warning)]'
+                        : isMe
+                          ? 'border-[var(--kg-primary)]/35 bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)]'
+                          : 'border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text)]'
+                    }`}
+                  >
+                    <span>{employee?.fullname || username}</span>
+                    {isLeader && <span className="text-[9px] uppercase opacity-90">· Trưởng nhóm</span>}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+
+          {myTodayAssignment?.note && (
+            <p className="rounded-xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/25 px-3 py-1.5 text-[11px] font-semibold text-[var(--kg-warning)]">
+              Lưu ý điều phối: {myTodayAssignment.note}
+            </p>
+          )}
+        </div>
+
+        {/* Compact Date Picker */}
+        <div className="lg:col-span-4 bg-[var(--kg-surface)] border border-[var(--kg-border)] px-3.5 py-3 sm:p-4 rounded-2xl shadow-xs flex flex-col justify-center">
+          <div className="flex items-center justify-between gap-2 mb-1.5">
+            <label
+              htmlFor="checklist-work-date"
+              className="text-[11px] font-black text-[var(--kg-text-muted)] uppercase tracking-wider"
+            >
+              Ngày làm việc
+            </label>
+            <span className="text-[10px] font-bold text-[var(--kg-success)] bg-[var(--kg-success-soft)] px-2 py-0.5 rounded-full">
+              {isSaving ? 'Đang lưu...' : 'Tự động lưu'}
+            </span>
+          </div>
           <input
+            id="checklist-work-date"
             type="date"
             value={workDate}
             onChange={(e) => {
@@ -868,32 +1181,8 @@ export default function Checklist() {
               setPendingSignatures(null);
               setNoteDrafts({});
             }}
-            className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)] font-bold min-h-[44px]"
+            className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)] font-bold min-h-[44px]"
           />
-        </div>
-
-        <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-4 rounded-2xl shadow-xs md:col-span-2 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="w-full">
-            <span className="block text-xs font-black text-[var(--kg-text-muted)] mb-2 uppercase tracking-wider">
-              Chế độ lưu trữ (Chống ghi đè đồng thời)
-            </span>
-            <div className="grid grid-cols-2 gap-3 w-full">
-              <button
-                type="button"
-                onClick={() => setSaveMode('batch')}
-                className={`min-h-[44px] px-4 py-2.5 rounded-xl text-xs font-black transition-all touch-manipulation ${saveMode === 'batch' ? 'bg-[var(--kg-primary)] text-white shadow-xs' : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] hover:text-[var(--kg-text)]'}`}
-              >
-                Lưu hàng loạt (Khuyên dùng)
-              </button>
-              <button
-                type="button"
-                onClick={() => setSaveMode('single')}
-                className={`min-h-[44px] px-4 py-2.5 rounded-xl text-xs font-black transition-all touch-manipulation ${saveMode === 'single' ? 'bg-[var(--kg-primary)] text-white shadow-xs' : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] hover:text-[var(--kg-text)]'}`}
-              >
-                Lưu trực tiếp tức thì
-              </button>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -904,21 +1193,30 @@ export default function Checklist() {
           const totalCount = flatItems.length;
           const pct = totalCount ? Math.round((doneCount / totalCount) * 100) : 0;
           const isSelected = selectedArea === area;
+          const isAssigned = assignedAreaCode === area;
           const participants = states[area]?.participants || [];
 
           return (
-            <div
+            <button
+              type="button"
               key={area}
               onClick={() => handleJoinArea(area)}
-              className={`p-4 rounded-2xl border-2 transition-all cursor-pointer select-none flex flex-col justify-between shadow-xs ${
+              className={`p-3.5 sm:p-4 rounded-2xl border-2 text-left transition-all cursor-pointer select-none flex flex-col justify-between shadow-xs touch-manipulation ${
                 isSelected
                   ? 'border-[var(--kg-accent)] bg-[var(--kg-surface)] shadow-md ring-2 ring-[var(--kg-accent)]/20'
                   : 'border-[var(--kg-border)] bg-[var(--kg-surface)] hover:border-[var(--kg-accent)]/40'
               }`}
             >
-              <div className="mb-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-base text-[var(--kg-text)]">Khu {area}</span>
+              <div className="mb-2 w-full">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="font-bold text-sm sm:text-base text-[var(--kg-text)] inline-flex items-center gap-1.5">
+                    <span>Khu {area}</span>
+                    {isAssigned && (
+                      <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full bg-[var(--kg-info-soft)] text-[var(--kg-info)]">
+                        Của bạn
+                      </span>
+                    )}
+                  </span>
                   <span className="text-xs font-mono tabular-nums font-bold px-2 py-0.5 rounded-full bg-[var(--kg-surface-soft)] text-[var(--kg-primary)] border border-[var(--kg-border)]">
                     {pct}%
                   </span>
@@ -927,13 +1225,13 @@ export default function Checklist() {
                   {AREA_STATION_LABELS[area]}
                 </span>
               </div>
-              <div className="h-2 w-full bg-[var(--kg-surface-soft)] rounded-full overflow-hidden mb-3 border border-[var(--kg-border)]/50">
+              <div className="h-2 w-full bg-[var(--kg-surface-soft)] rounded-full overflow-hidden mb-2.5 border border-[var(--kg-border)]/50">
                 <div
                   className="h-full bg-[var(--kg-accent)] rounded-full transition-all duration-200"
                   style={{ width: `${pct}%` }}
                 />
               </div>
-              <div className="text-[11px] font-semibold text-[var(--kg-text-muted)] mb-3">
+              <div className="text-[11px] font-semibold text-[var(--kg-text-muted)] mb-2">
                 <span className="font-mono tabular-nums">{participants.length}</span> nhân viên ·{' '}
                 <span className="font-mono tabular-nums">
                   {doneCount}/{totalCount}
@@ -941,8 +1239,7 @@ export default function Checklist() {
                 mục
               </div>
 
-              {/* Participant mini list */}
-              <div className="flex flex-wrap gap-1 mt-auto pt-2 border-t border-dashed border-[var(--kg-border)]">
+              <div className="flex flex-wrap gap-1 mt-auto pt-2 border-t border-dashed border-[var(--kg-border)] w-full">
                 {participants.length > 0 ? (
                   participants.map((p) => (
                     <span
@@ -957,14 +1254,101 @@ export default function Checklist() {
                   <span className="text-[10px] text-[var(--kg-text-muted)]">Chưa có ai</span>
                 )}
               </div>
-            </div>
+            </button>
           );
         })}
       </div>
 
+      {/* Expandable Extra Dispatch Tasks — rendered ONLY when config.tasks.length > 0 for active zone */}
+      {activeOpsAssignment && activeOpsTasks.length > 0 && (
+        <section className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-xs overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setShowExtraOpsTasks((v) => !v)}
+            aria-expanded={showExtraOpsTasks}
+            className="w-full min-h-[44px] px-4 py-3 flex items-center justify-between gap-3 text-left hover:bg-[var(--kg-surface-soft)]/50 transition-colors touch-manipulation"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="w-8 h-8 rounded-xl bg-[var(--kg-info-soft)] text-[var(--kg-info)] flex items-center justify-center flex-shrink-0">
+                <Sparkles size={15} />
+              </span>
+              <div className="min-w-0">
+                <h3 className="text-xs sm:text-sm font-extrabold text-[var(--kg-text)] truncate">
+                  Đầu việc điều phối bổ sung
+                </h3>
+                <p className="text-[11px] font-mono tabular-nums text-[var(--kg-text-muted)]">
+                  Đã hoàn thành {activeOpsCompletedIds.size}/{activeOpsTasks.length} đầu việc được giao thêm
+                </p>
+              </div>
+            </div>
+            <ChevronDown
+              size={18}
+              className={`text-[var(--kg-text-muted)] transition-transform flex-shrink-0 ${showExtraOpsTasks ? 'rotate-180' : ''}`}
+            />
+          </button>
+
+          {showExtraOpsTasks && (
+            <div className="border-t border-[var(--kg-border)] p-4 space-y-2">
+              {activeOpsTasks.map((task) => {
+                const completed = activeOpsCompletedIds.has(task.id);
+                const updating = updatingOpsTaskId === `${activeOpsAssignment.id}_${task.id}`;
+                return (
+                  <button
+                    type="button"
+                    key={task.id}
+                    onClick={() => toggleOperationTask(activeOpsAssignment, task.id, !completed)}
+                    disabled={updating}
+                    className={`flex w-full min-h-[44px] items-start gap-3 rounded-xl border p-3 text-left transition touch-manipulation ${
+                      completed
+                        ? 'border-[var(--kg-success)]/40 bg-[var(--kg-success-soft)]'
+                        : 'border-[var(--kg-border)] bg-[var(--kg-surface-soft)]/50 hover:border-[var(--kg-primary)]'
+                    }`}
+                  >
+                    <span
+                      className={`mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg ${
+                        completed
+                          ? 'bg-[var(--kg-success)] text-white'
+                          : 'bg-[var(--kg-surface)] text-[var(--kg-text-muted)] border border-[var(--kg-border)]'
+                      }`}
+                    >
+                      {updating ? (
+                        <LoaderCircle size={15} className="animate-spin" />
+                      ) : completed ? (
+                        <Check size={16} />
+                      ) : (
+                        <Circle size={15} />
+                      )}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span
+                        className={`block text-xs sm:text-sm font-extrabold ${
+                          completed ? 'text-[var(--kg-success)] line-through' : 'text-[var(--kg-text)]'
+                        }`}
+                      >
+                        {task.title}
+                      </span>
+                      {task.description && (
+                        <span className="mt-0.5 block text-xs leading-5 text-[var(--kg-text-muted)]">
+                          {task.description}
+                        </span>
+                      )}
+                      {task.frequency && (
+                        <span className="mt-1 inline-block text-[10px] font-bold uppercase text-[var(--kg-text-muted)] bg-[var(--kg-surface)] border border-[var(--kg-border)] px-1.5 py-0.5 rounded">
+                          {task.frequency}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
+
       {/* Main Panel Layout */}
       {!selectedArea ? (
-        <div className="text-center py-14 soft3d-card max-w-lg mx-auto px-6">
+        <div className="text-center py-12 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-card max-w-lg mx-auto px-6">
           <div className="w-12 h-12 rounded-2xl bg-[var(--kg-primary-soft)] text-[var(--kg-primary)] flex items-center justify-center mx-auto mb-3">
             <ClipboardCheck size={24} />
           </div>
@@ -972,20 +1356,31 @@ export default function Checklist() {
             Bắt đầu thực hiện Checklist
           </h3>
           <p className="text-xs sm:text-sm text-[var(--kg-text-muted)] mt-1.5 leading-relaxed">
-            Vui lòng chọn một khu vực trực (Khu A, B, C, hoặc D&amp;E) ở trên để bắt đầu tham gia và ghi nhận kết quả công việc.
+            Chọn một khu vực trực (Khu A, B, C, hoặc D&amp;E) ở trên để bắt đầu ghi nhận kết quả công việc.
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
           {/* Left Column: Checklist & Steps */}
-          <div className="lg:col-span-2 space-y-5">
+          <div className="lg:col-span-2 space-y-4">
             {/* Header & Tabs */}
-            <div className="soft3d-card p-4 space-y-4">
-              <div className="flex justify-between items-center flex-wrap gap-4 border-b border-[var(--kg-border)] pb-3">
-                <div>
-                  <h3 className="font-bold text-base text-[var(--kg-text)]">
-                    Khu {selectedArea} · {AREA_STATION_LABELS[selectedArea]}
-                  </h3>
+            <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-card p-4 space-y-3.5">
+              <div className="flex justify-between items-center flex-wrap gap-3 border-b border-[var(--kg-border)] pb-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-bold text-base text-[var(--kg-text)]">
+                      Khu {selectedArea} · {AREA_STATION_LABELS[selectedArea]}
+                    </h3>
+                    <KgFeatureTip
+                      title="Ghi chú vận hành theo ca"
+                      tips={[
+                        'Đầu ca (15h & 17h): Vệ sinh khu vực trực, lau bàn ghế, setup đầy đủ chén đũa. Đọc thông tin bàn đặt trước và các món ngừng bán.',
+                        'Cuối ca (Hạ ca & Kết ca): Hỗ trợ ca sau thu gọn đồ. Ca sau cùng vệ sinh menu, xô đá, quạt trang trí, đổ rác, tắt hết nguồn điện/thiết bị chiếu sáng và dọn dẹp nhà vệ sinh.',
+                      ]}
+                      variant="badge"
+                      triggerText="Ghi chú ca"
+                    />
+                  </div>
                   <p className="text-xs font-mono tabular-nums text-[var(--kg-text-muted)] mt-0.5">
                     Ngày {workDate.split('-').reverse().join('/')}
                   </p>
@@ -1024,16 +1419,16 @@ export default function Checklist() {
                 </div>
               </div>
 
-              {/* Tabs */}
+              {/* Phase Tabs */}
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-                {tabs.map(t => (
-                  <button 
+                {tabs.map((t) => (
+                  <button
                     key={t.key}
                     type="button"
                     onClick={() => setActivePhase(t.key)}
                     className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors border min-h-[44px] sm:min-h-[34px] touch-manipulation ${
-                      activePhase === t.key 
-                        ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)] shadow-xs' 
+                      activePhase === t.key
+                        ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)] shadow-xs'
                         : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)] hover:text-[var(--kg-text)]'
                     }`}
                   >
@@ -1043,40 +1438,48 @@ export default function Checklist() {
               </div>
             </div>
 
-            {/* Checklist Items list */}
+            {/* Checklist Items List */}
             {loading ? (
-              <div className="flex justify-center p-12"><RefreshCw className="animate-spin text-[var(--kg-primary)]" size={28} /></div>
-            ) : flatItems.filter(item => isGroupVisible(item.group)).length === 0 ? (
-              <div className="text-center py-12 soft3d-card">
+              <div className="flex justify-center p-12">
+                <RefreshCw className="animate-spin text-[var(--kg-primary)]" size={28} />
+              </div>
+            ) : flatItems.filter((item) => isGroupVisible(item.group)).length === 0 ? (
+              <div className="text-center py-12 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-card">
                 <CheckSquare size={40} className="mx-auto text-[var(--kg-text-soft)] mb-3" />
-                <p className="text-[var(--kg-text-muted)] text-xs sm:text-sm font-medium">Không có hạng mục nào cho bộ lọc này.</p>
+                <p className="text-[var(--kg-text-muted)] text-xs sm:text-sm font-medium">
+                  Không có hạng mục nào cho bộ lọc này.
+                </p>
               </div>
             ) : (
               <div className="space-y-4">
-                {checklist.filter(isGroupVisible).map(group => (
+                {checklist.filter(isGroupVisible).map((group) => (
                   <div key={`${group.phase}-${group.shift}-${group.section}`} className="space-y-3">
-                    
-                    {/* Header Group */}
                     <div className="flex flex-wrap items-center gap-2 pt-2">
-                      <span className="text-[10px] font-bold uppercase bg-[var(--kg-primary-soft)] text-[var(--kg-primary)] border border-[var(--kg-primary)]/15 px-2.5 py-0.5 rounded-full">{group.phase}</span>
-                      <span className={`text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full shadow-2xs ${getPreviewShiftClass(group.shift)}`}>{group.shift}</span>
+                      <span className="text-[10px] font-bold uppercase bg-[var(--kg-primary-soft)] text-[var(--kg-primary)] border border-[var(--kg-primary)]/15 px-2.5 py-0.5 rounded-full">
+                        {group.phase}
+                      </span>
+                      <span
+                        className={`text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full shadow-2xs ${getPreviewShiftClass(group.shift)}`}
+                      >
+                        {group.shift}
+                      </span>
                       <span className="text-xs font-semibold text-[var(--kg-text-muted)]">{group.section}</span>
                     </div>
 
-                    {group.items.map(item => {
+                    {group.items.map((item) => {
                       const itemState = getMergedItemState(item);
                       const hasSubtasks = Array.isArray(item.subitems) && item.subitems.length > 0;
                       const hasPending = Object.prototype.hasOwnProperty.call(pending, item.id);
-                      const subDone = (item.subitems || []).filter(sub => !!itemState.subchecks?.[sub.id]).length;
+                      const subDone = (item.subitems || []).filter((sub) => !!itemState.subchecks?.[sub.id]).length;
                       const subTotal = item.subitems?.length || 0;
 
                       return (
-                        <div 
+                        <div
                           key={item.id}
-                          className={`p-4 rounded-2xl border transition-colors soft3d-card ${
-                            itemState.checked 
-                              ? 'border-[var(--kg-success)]/35 bg-[var(--kg-success-soft)]/30' 
-                              : 'border-[var(--kg-border)]'
+                          className={`p-4 rounded-2xl border shadow-card transition-colors ${
+                            itemState.checked
+                              ? 'border-[var(--kg-success)]/35 bg-[var(--kg-success-soft)]/30'
+                              : 'border-[var(--kg-border)] bg-[var(--kg-surface)]'
                           }`}
                         >
                           <div className="flex items-start justify-between gap-3">
@@ -1085,21 +1488,28 @@ export default function Checklist() {
                                 {item.no}
                               </span>
                               <div className="min-w-0">
-                                <h4 className={`text-sm font-bold ${itemState.checked ? 'text-[var(--kg-success)] line-through opacity-85' : 'text-[var(--kg-text)]'}`}>
+                                <h4
+                                  className={`text-sm font-bold ${
+                                    itemState.checked
+                                      ? 'text-[var(--kg-success)] line-through opacity-85'
+                                      : 'text-[var(--kg-text)]'
+                                  }`}
+                                >
                                   {item.title}
                                 </h4>
-                                <p className="text-xs text-[var(--kg-text-muted)] mt-1 whitespace-pre-wrap leading-relaxed">{item.text}</p>
+                                <p className="text-xs text-[var(--kg-text-muted)] mt-1 whitespace-pre-wrap leading-relaxed">
+                                  {item.text}
+                                </p>
                               </div>
                             </div>
-                            
-                            {/* Checkbox button */}
+
                             <button
                               type="button"
                               aria-label={`Đánh dấu hạng mục ${item.title}`}
                               onClick={() => handleToggleItem(item, !itemState.checked)}
                               className={`flex-shrink-0 w-11 h-11 sm:w-10 sm:h-10 rounded-xl border-2 flex items-center justify-center transition-colors touch-manipulation ${
-                                itemState.checked 
-                                  ? 'bg-[var(--kg-success)] border-[var(--kg-success)] text-white' 
+                                itemState.checked
+                                  ? 'bg-[var(--kg-success)] border-[var(--kg-success)] text-white'
                                   : 'border-[var(--kg-border-strong)] bg-[var(--kg-surface-soft)] text-transparent hover:border-[var(--kg-primary)]'
                               }`}
                             >
@@ -1107,25 +1517,31 @@ export default function Checklist() {
                             </button>
                           </div>
 
-                          {/* Subtasks block */}
                           {hasSubtasks && (
                             <div className="mt-3.5 p-3 bg-[var(--kg-surface-soft)] rounded-xl border border-[var(--kg-border)]">
                               <div className="flex justify-between items-center text-[10px] font-bold text-[var(--kg-text-muted)] uppercase tracking-wider mb-2 border-b border-[var(--kg-border)] pb-1.5">
                                 <span>Danh sách việc con</span>
-                                <span className="font-mono tabular-nums text-[var(--kg-primary)]">{subDone}/{subTotal} hoàn thành</span>
+                                <span className="font-mono tabular-nums text-[var(--kg-primary)]">
+                                  {subDone}/{subTotal} hoàn thành
+                                </span>
                               </div>
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                {item.subitems.map(sub => {
+                                {item.subitems.map((sub) => {
                                   const isSubChecked = !!itemState.subchecks?.[sub.id];
                                   return (
-                                    <label key={sub.id} className="flex items-center space-x-2 text-xs text-[var(--kg-text)] cursor-pointer select-none min-h-[44px] sm:min-h-[32px] touch-manipulation">
-                                      <input 
-                                        type="checkbox" 
+                                    <label
+                                      key={sub.id}
+                                      className="flex items-center space-x-2 text-xs text-[var(--kg-text)] cursor-pointer select-none min-h-[44px] sm:min-h-[32px] touch-manipulation"
+                                    >
+                                      <input
+                                        type="checkbox"
                                         checked={isSubChecked}
                                         onChange={(e) => handleToggleSubtask(item, sub.id, e.target.checked)}
                                         className="h-5 w-5 sm:h-4.5 sm:w-4.5 rounded border-[var(--kg-border-strong)] text-[var(--kg-primary)] focus:ring-[var(--kg-primary)]/20 bg-[var(--kg-surface)]"
                                       />
-                                      <span className={isSubChecked ? 'line-through text-[var(--kg-text-muted)]' : ''}>{sub.text}</span>
+                                      <span className={isSubChecked ? 'line-through text-[var(--kg-text-muted)]' : ''}>
+                                        {sub.text}
+                                      </span>
                                     </label>
                                   );
                                 })}
@@ -1133,20 +1549,23 @@ export default function Checklist() {
                             </div>
                           )}
 
-                          {/* Note / Edit section */}
                           <div className="mt-3 flex items-center justify-between border-t border-[var(--kg-border)] pt-3 flex-wrap gap-2 text-[10px] font-semibold text-[var(--kg-text-muted)]">
                             <div className="flex items-center space-x-2">
                               {itemState.checked ? (
                                 <span className="text-[var(--kg-success)] bg-[var(--kg-success-soft)] px-2 py-0.5 rounded-full">
-                                  ✓ Xong {itemState.by ? `bởi ${itemState.by.split(' ').pop()}` : ''} {itemState.at ? `lúc ${itemState.at.substring(11, 16)}` : ''}
+                                  ✓ Xong {itemState.by ? `bởi ${itemState.by.split(' ').pop()}` : ''}{' '}
+                                  {itemState.at ? `lúc ${itemState.at.substring(11, 16)}` : ''}
                                 </span>
                               ) : (
                                 <span>Chưa hoàn thành</span>
                               )}
-                              {hasPending && <span className="bg-[var(--kg-warning-soft)] text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-full">Lưu tạm</span>}
+                              {hasPending && (
+                                <span className="bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] px-2 py-0.5 rounded-full">
+                                  Lưu nháp ngoại tuyến
+                                </span>
+                              )}
                             </div>
-                            
-                            {/* Inline Note text input (controlled, synced with teammate updates) */}
+
                             <div className="w-full flex items-center space-x-2 mt-1">
                               <textarea
                                 value={
@@ -1157,18 +1576,6 @@ export default function Checklist() {
                                 onChange={(e) => {
                                   const nextNote = e.target.value;
                                   setNoteDrafts((prev) => ({ ...prev, [item.id]: nextNote }));
-                                  if (saveMode === 'batch' && selectedArea) {
-                                    setPending((prev) => ({
-                                      ...prev,
-                                      [item.id]: {
-                                        ...(prev[item.id] || {}),
-                                        checked: itemState.checked,
-                                        note: nextNote,
-                                        by: sessionName,
-                                        at: new Date().toISOString(),
-                                      },
-                                    }));
-                                  }
                                 }}
                                 onBlur={(e) => {
                                   const nextNote = e.target.value;
@@ -1178,7 +1585,7 @@ export default function Checklist() {
                                     delete copy[item.id];
                                     return copy;
                                   });
-                                  handleSaveNote(item.id, nextNote);
+                                  void handleSaveNote(item.id, nextNote);
                                 }}
                                 aria-label={`Ghi chú cho ${item.title}`}
                                 placeholder="Ghi chú kết quả công việc/hỏng hóc nếu có..."
@@ -1187,7 +1594,6 @@ export default function Checklist() {
                               />
                             </div>
                           </div>
-
                         </div>
                       );
                     })}
@@ -1197,25 +1603,28 @@ export default function Checklist() {
             )}
           </div>
 
-          {/* Right Column: Sidebar (Participants, Supplies, Signatures) */}
-          <div className="space-y-5">
-
+          {/* Right Column: Sidebar (Participants & Supplies) */}
+          <div className="space-y-4">
             {/* Participants manager */}
-            <div className="soft3d-card p-5">
+            <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-card p-4 sm:p-5">
               <h3 className="font-bold text-sm text-[var(--kg-text)] flex items-center mb-3.5">
                 <Users size={16} className="mr-2 text-[var(--kg-primary)]" />
                 <span>Nhân viên trực Khu {selectedArea}</span>
               </h3>
-              
-              {/* Teammates List */}
+
               <div className="space-y-2 mb-4 max-h-[180px] overflow-y-auto pr-1">
                 {areaData.participants.length > 0 ? (
-                  areaData.participants.map(p => (
-                    <div key={p.key} className="flex justify-between items-center bg-[var(--kg-surface-soft)] p-2.5 rounded-xl border border-[var(--kg-border)] text-xs font-semibold text-[var(--kg-text)]">
-                      <span className="inline-flex items-center gap-1.5 truncate"><Users size={13} className="text-[var(--kg-text-muted)] shrink-0" /> {p.name}</span>
-                      <button 
+                  areaData.participants.map((p) => (
+                    <div
+                      key={p.key}
+                      className="flex justify-between items-center bg-[var(--kg-surface-soft)] p-2.5 rounded-xl border border-[var(--kg-border)] text-xs font-semibold text-[var(--kg-text)]"
+                    >
+                      <span className="inline-flex items-center gap-1.5 truncate">
+                        <Users size={13} className="text-[var(--kg-text-muted)] shrink-0" /> {p.name}
+                      </span>
+                      <button
                         type="button"
-                        onClick={() => handleRemoveParticipant(p.key)}
+                        onClick={() => void handleRemoveParticipant(p.key)}
                         className="min-h-[44px] min-w-[44px] sm:min-h-[28px] sm:min-w-0 inline-flex items-center justify-center text-[var(--kg-danger)] hover:underline active:scale-95 transition-all text-[11px] font-semibold px-2 touch-manipulation"
                       >
                         Bỏ
@@ -1223,23 +1632,30 @@ export default function Checklist() {
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-[var(--kg-text-muted)] text-center py-2">Chưa có nhân viên nào tham gia</p>
+                  <p className="text-xs text-[var(--kg-text-muted)] text-center py-2">
+                    Chưa có nhân viên nào tham gia
+                  </p>
                 )}
               </div>
 
-              {/* Add Teammates Input */}
               <div className="flex gap-2">
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={participantInput}
                   onChange={(e) => setParticipantInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      void handleAddParticipant();
+                    }
+                  }}
                   aria-label="Thêm tên nhân viên trực"
                   placeholder="Thêm tên nhân viên trực..."
                   className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3 py-2 text-xs text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] placeholder-[var(--kg-text-soft)] min-h-[44px] sm:min-h-[40px]"
                 />
-                <button 
+                <button
                   type="button"
-                  onClick={handleAddParticipant}
+                  onClick={() => void handleAddParticipant()}
                   className="bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-semibold px-4 py-2 rounded-xl text-xs flex items-center justify-center min-h-[44px] sm:min-h-[40px] flex-shrink-0 touch-manipulation"
                 >
                   Thêm
@@ -1247,31 +1663,13 @@ export default function Checklist() {
               </div>
             </div>
 
-            {/* Operational guidelines */}
-            <div className="soft3d-card p-5 space-y-3.5">
-              <h3 className="font-bold text-sm text-[var(--kg-text)] flex items-center">
-                <FileText size={16} className="mr-2 text-[var(--kg-warning)]" />
-                <span>Ghi chú vận hành</span>
-              </h3>
-              <div className="space-y-3 text-xs text-[var(--kg-text-muted)] font-medium leading-relaxed">
-                <div>
-                  <strong className="text-[var(--kg-text)] block mb-0.5">Đầu ca (15h &amp; 17h):</strong>
-                  Vệ sinh khu vực trực, lau bàn ghế, setup đầy đủ chén đũa. Đọc thông tin bàn đặt trước và các món ngừng bán.
-                </div>
-                <div>
-                  <strong className="text-[var(--kg-text)] block mb-0.5">Cuối ca (Hạ ca &amp; Kết ca):</strong>
-                  Hỗ trợ ca sau thu gọn đồ. Ca sau cùng vệ sinh menu, xô đá, quạt trang trí, đổ rác, tắt hết nguồn điện/thiết bị chiếu sáng và dọn dẹp nhà vệ sinh.
-                </div>
-              </div>
-            </div>
-
             {/* Supplies Proposal */}
-            <div className="soft3d-card p-5 space-y-4">
+            <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-card p-4 sm:p-5 space-y-4">
               <h3 className="font-bold text-sm text-[var(--kg-text)] flex items-center">
                 <CheckSquare2 size={16} className="mr-2 text-[var(--kg-success)]" />
                 <span>Đề xuất cấp vật tư</span>
               </h3>
-              
+
               <div className="grid grid-cols-2 gap-2 text-xs font-medium text-[var(--kg-text)]">
                 {[
                   { k: 'du_dung', l: 'Đủ dùng' },
@@ -1281,16 +1679,17 @@ export default function Checklist() {
                   { k: 'tam', l: 'Tăm' },
                   { k: 'xien_tre', l: 'Xiên tre' },
                   { k: 'bao_tay', l: 'Bao tay' },
-                  { k: 'bao_rac', l: 'Bao rác' }
-                ].map(s => {
-                  const isChecked = pendingSupply 
-                    ? !!pendingSupply[s.k] 
-                    : !!areaData.supply?.[s.k];
+                  { k: 'bao_rac', l: 'Bao rác' },
+                ].map((s) => {
+                  const isChecked = pendingSupply ? !!pendingSupply[s.k] : !!areaData.supply?.[s.k];
 
                   return (
-                    <label key={s.k} className="flex items-center space-x-2 cursor-pointer min-h-[44px] sm:min-h-[30px] touch-manipulation">
-                      <input 
-                        type="checkbox" 
+                    <label
+                      key={s.k}
+                      className="flex items-center space-x-2 cursor-pointer min-h-[44px] sm:min-h-[30px] touch-manipulation"
+                    >
+                      <input
+                        type="checkbox"
                         checked={isChecked}
                         onChange={(e) => handleSupplyChange(s.k, e.target.checked)}
                         className="h-5 w-5 sm:h-4.5 sm:w-4.5 rounded border-[var(--kg-border-strong)] text-[var(--kg-primary)] focus:ring-[var(--kg-primary)]/20 bg-[var(--kg-surface)]"
@@ -1302,25 +1701,25 @@ export default function Checklist() {
               </div>
 
               <div className="space-y-2">
-                <textarea 
-                  value={pendingSupply ? (pendingSupply.note || '') : (areaData.supply?.note || '')}
+                <textarea
+                  value={pendingSupply ? pendingSupply.note || '' : areaData.supply?.note || ''}
                   onChange={(e) => handleSupplyChange('note', e.target.value)}
                   aria-label="Ghi chú số lượng vật tư cần cấp"
                   placeholder="Ghi chú số lượng cần cấp..."
                   className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3 py-2 text-xs text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] placeholder-[var(--kg-text-soft)] min-h-[60px]"
                 />
-                
+
                 <div className="flex justify-between items-center text-[10px] text-[var(--kg-text-muted)]">
                   <span>
-                    {areaData.supply?.savedAt 
+                    {areaData.supply?.savedAt
                       ? `Lưu: ${areaData.supply.by?.split(' ').pop()} lúc ${areaData.supply.savedAt.substring(11, 16)}`
                       : 'Lưu đề xuất sau cùng của ca'}
                   </span>
-                  
+
                   {pendingSupply && (
-                    <button 
+                    <button
                       type="button"
-                      onClick={handleSaveSupply}
+                      onClick={() => void handleSaveSupply()}
                       className="min-h-[44px] sm:min-h-[30px] bg-[var(--kg-success-soft)] text-[var(--kg-success)] border border-[var(--kg-success)]/25 px-3 py-1 rounded-xl font-bold transition-colors text-[10px] touch-manipulation"
                     >
                       Lưu đề xuất
@@ -1329,24 +1728,22 @@ export default function Checklist() {
                 </div>
               </div>
             </div>
-
           </div>
-
         </div>
       )}
 
-      {/* Sticky Sync bar whenever unsaved local changes exist */}
+      {/* Sticky Sync bar whenever unsaved offline/fallback local changes exist */}
       {selectedArea && hasPendingChanges && (
         <div className="sticky bottom-20 md:bottom-4 z-30 bg-[var(--kg-surface)] border border-[var(--kg-border-strong)] p-3.5 sm:p-4 rounded-2xl flex items-center justify-between shadow-elevated animate-slide-up">
           <div className="flex items-center space-x-2.5 min-w-0 pr-2">
             <span className="flex w-2.5 h-2.5 bg-[var(--kg-accent)] rounded-full animate-ping flex-shrink-0" />
             <span className="text-xs font-bold text-[var(--kg-text)] truncate">
-              Có thay đổi chưa đồng bộ lên Google Sheets
+              Có thay đổi lưu nháp chưa đồng bộ lên máy chủ
             </span>
           </div>
-          <button 
+          <button
             type="button"
-            onClick={handleSyncAllPending}
+            onClick={() => void handleSyncAllPending()}
             disabled={isSaving}
             className="bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-bold px-4 sm:px-5 py-2.5 rounded-xl text-xs transition-colors active:scale-95 shadow-xs flex items-center space-x-1.5 flex-shrink-0 min-h-[44px] sm:min-h-[40px] touch-manipulation"
           >

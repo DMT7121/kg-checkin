@@ -1,7 +1,6 @@
 import { useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { CalendarClock, AlertTriangle, Clock, ChevronRight, ShieldCheck } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { type ScheduleRegistrationWindowStatus } from '../utils/helpers';
 import { useDialogA11y, useModalQueue } from '../utils/modalQueue';
 
@@ -32,24 +31,19 @@ export default function MandatoryScheduleModal({
   if (!activeInQueue || typeof document === 'undefined') return null;
 
   return createPortal(
-    <AnimatePresence>
+    <div
+      className="kg-fade-in fixed inset-0 z-[10080] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md select-none"
+      onClick={(e) => e.stopPropagation()}
+    >
       <div
-        className="fixed inset-0 z-[10080] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md animate-fade-in select-none"
+        ref={dialogRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="kg-mandatory-schedule-title"
+        className="kg-scale-in relative z-10 w-full max-w-md max-h-[88dvh] sm:max-h-[90vh] mx-auto bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-2xl sm:rounded-3xl shadow-2xl border-2 border-[var(--kg-warning)]/45 flex flex-col overflow-hidden focus:outline-none"
         onClick={(e) => e.stopPropagation()}
       >
-        <motion.div
-          ref={dialogRef}
-          tabIndex={-1}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="kg-mandatory-schedule-title"
-          initial={{ opacity: 0, scale: 0.96, y: 12 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.96, y: 12 }}
-          transition={{ duration: 0.18, ease: 'easeOut' }}
-          className="relative z-10 w-full max-w-md max-h-[88dvh] sm:max-h-[90vh] mx-auto bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-2xl sm:rounded-3xl shadow-2xl border-2 border-[var(--kg-warning)]/45 flex flex-col overflow-hidden focus:outline-none"
-          onClick={(e) => e.stopPropagation()}
-        >
           {/* Top Accent Bar */}
           <div className="h-2 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 flex-shrink-0" />
 
@@ -126,9 +120,8 @@ export default function MandatoryScheduleModal({
               </div>
             </div>
           </div>
-        </motion.div>
       </div>
-    </AnimatePresence>,
+    </div>,
     document.body
   );
 }

@@ -1,8 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
+import { kgToast, type FeedbackTone } from '../store/useFeedbackStore';
 import { callApi } from '../services/api';
-import { Send, EyeOff, User, Clock, AlertCircle, CornerDownRight, RefreshCw } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { navigateToHubSubTab } from '../utils/hubNavigation';
+import {
+  Send,
+  EyeOff,
+  User,
+  Clock,
+  AlertCircle,
+  CornerDownRight,
+  RefreshCw,
+  Wrench,
+  ArrowRight,
+} from 'lucide-react';
 import {
   KgButton,
   KgEmptyState,
@@ -10,8 +21,6 @@ import {
   KgModuleHero,
   KgSkeleton,
   KgStatusBadge,
-  KgToast,
-  type ToastMessage,
 } from '../components/KgDesignSystem';
 
 const FEEDBACK_CATEGORIES = [
@@ -47,14 +56,8 @@ export default function Feedback() {
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyBusyId, setReplyBusyId] = useState<string | null>(null);
 
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
-
-  const pushToast = useCallback((title: string, type: ToastMessage['type']) => {
-    setToasts((prev) => [...prev.slice(-2), { id: `${Date.now()}_${Math.random()}`, title, type }]);
-  }, []);
-
-  const dismissToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+  const pushToast = useCallback((message: string, tone: FeedbackTone) => {
+    kgToast(message, tone);
   }, []);
 
   const fetchFeedbacks = useCallback(
@@ -88,7 +91,7 @@ export default function Feedback() {
   );
 
   useEffect(() => {
-    fetchFeedbacks(feedbacks.length === 0);
+    void fetchFeedbacks(feedbacks.length === 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -192,13 +195,15 @@ export default function Feedback() {
         ]}
       />
 
-      <div className="relative z-20 flex-1 flex flex-col space-y-4">
-        {/* User Submit Form */}
+      {/* Desktop lg:grid-cols-12 (5/7 split for staff, full 12 cols for admin) */}
+      <div className="relative z-20 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+        {/* Left Column (5 cols on lg): User Submit Form */}
         {!isAdmin && (
-          <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 sm:p-5 shadow-xs shrink-0 space-y-3">
+          <div className="lg:col-span-5 lg:sticky lg:top-28 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 sm:p-5 shadow-xs space-y-3">
             <h3 className="font-black text-[var(--kg-text)] text-xs sm:text-sm flex items-center">
               <Send size={15} className="mr-2 text-[var(--kg-primary)]" /> Gửi phản hồi / kiến nghị mới
             </h3>
+
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
                 <label
@@ -219,6 +224,22 @@ export default function Feedback() {
                 </select>
               </div>
 
+              {/* Subtle inline hint directing urgent broken-equipment reports to Work -> Incidents */}
+              <div className="p-2.5 rounded-xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/25 flex items-center justify-between gap-2 text-[11px]">
+                <span className="inline-flex items-center gap-1.5 text-[var(--kg-text)] font-medium leading-snug">
+                  <Wrench size={13} className="text-[var(--kg-warning)] shrink-0" />
+                  <span>Thiết bị hỏng cần sửa gấp trong ca?</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => navigateToHubSubTab('work', 'incidents')}
+                  className="min-h-[36px] px-2.5 py-1 rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-warning)]/30 text-[var(--kg-warning)] font-extrabold inline-flex items-center gap-1 hover:brightness-95 shrink-0 touch-manipulation"
+                >
+                  <span>Báo sự cố</span>
+                  <ArrowRight size={12} />
+                </button>
+              </div>
+
               <div>
                 <label
                   htmlFor="feedback-content"
@@ -234,7 +255,7 @@ export default function Feedback() {
                     if (formError) setFormError('');
                   }}
                   placeholder="Nhập nội dung chi tiết..."
-                  rows={3}
+                  rows={4}
                   className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)] text-xs sm:text-sm"
                 />
               </div>
@@ -248,7 +269,7 @@ export default function Feedback() {
               <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
                 <label className="flex items-center space-x-2 cursor-pointer select-none min-h-[44px]">
                   <div
-                    className={`w-9 h-5 flex items-center bg-gray-300 dark:bg-gray-700 rounded-full p-0.5 transition-colors duration-200 ${
+                    className={`w-9 h-5 flex items-center bg-[var(--kg-border-strong)] rounded-full p-0.5 transition-colors duration-200 ${
                       isAnonymous ? '!bg-[var(--kg-primary)]' : ''
                     }`}
                   >
@@ -283,15 +304,15 @@ export default function Feedback() {
           </div>
         )}
 
-        {/* Feedback List + Filters */}
-        <div className="flex-1 space-y-3">
+        {/* Right Column (7 cols on lg for staff, 12 cols for admin): Feedback List + Filters */}
+        <div className={`${isAdmin ? 'lg:col-span-12' : 'lg:col-span-7'} space-y-3`}>
           <div className="flex flex-wrap items-center justify-between gap-2 px-1">
             <h3 className="font-black text-[var(--kg-text-muted)] text-[11px] uppercase tracking-wider">
               Lịch sử phản hồi (<span className="font-mono tabular-nums">{filteredFeedbacks.length}</span>)
             </h3>
             <button
               type="button"
-              onClick={() => fetchFeedbacks(false)}
+              onClick={() => void fetchFeedbacks(false)}
               disabled={isRefreshing || loading}
               aria-label="Làm mới danh sách phản hồi"
               className="min-w-[44px] min-h-[44px] sm:min-w-[36px] sm:min-h-[36px] rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition-colors touch-manipulation"
@@ -345,7 +366,7 @@ export default function Feedback() {
             <KgErrorState
               title="Không thể tải lịch sử góp ý"
               description={loadError}
-              onRetry={() => fetchFeedbacks(false)}
+              onRetry={() => void fetchFeedbacks(false)}
             />
           ) : loading ? (
             <div className="space-y-3">
@@ -377,14 +398,11 @@ export default function Feedback() {
               }
             />
           ) : (
-            <AnimatePresence>
-              {filteredFeedbacks.map((fb, idx) => (
-                <motion.div
+            <div className="space-y-3">
+              {filteredFeedbacks.map((fb) => (
+                <div
                   key={fb.id}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.03 }}
-                  className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 shadow-xs space-y-2.5"
+                  className="kg-fade-in bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 shadow-xs space-y-2.5"
                 >
                   <div className="flex justify-between items-start gap-2">
                     <div className="flex items-center space-x-2">
@@ -454,7 +472,7 @@ export default function Feedback() {
                               size="sm"
                               loading={replyBusyId === fb.id}
                               disabled={!replyContent.trim()}
-                              onClick={() => handleReply(fb.id)}
+                              onClick={() => void handleReply(fb.id)}
                             >
                               Gửi phản hồi
                             </KgButton>
@@ -473,19 +491,11 @@ export default function Feedback() {
                       )}
                     </div>
                   ) : null}
-                </motion.div>
+                </div>
               ))}
-            </AnimatePresence>
+            </div>
           )}
         </div>
-      </div>
-
-      <div className="fixed bottom-20 md:bottom-6 right-4 z-[10100] flex flex-col gap-2 pointer-events-none">
-        <AnimatePresence>
-          {toasts.map((t) => (
-            <KgToast key={t.id} message={t} onClose={dismissToast} />
-          ))}
-        </AnimatePresence>
       </div>
     </div>
   );

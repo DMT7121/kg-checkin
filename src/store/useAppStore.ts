@@ -627,32 +627,47 @@ export const useAppStore = create<AppState>((set) => ({
     set({ loading, loadingText: loadingText ?? 'Đang xử lý...' }),
   setUpdating: (isUpdating) => set({ isUpdating }),
   setCurrentTab: (rawTab) => {
-    const TAB_ALIAS_MAP: Partial<Record<TabId, { hub: TabId; subTab: string }>> = {
+    const TAB_ALIAS_MAP: Partial<Record<TabId, { hub: TabId; subTab?: string }>> = {
+      // Workforce leaf aliases
       schedule: { hub: 'workforce', subTab: 'schedule' },
       roster: { hub: 'workforce', subTab: 'roster' },
       swap: { hub: 'workforce', subTab: 'swap' },
-      history: { hub: 'attendance', subTab: 'history' },
-      timesheet: { hub: 'attendance', subTab: 'timesheet' },
+      // Attendance & Income leaf aliases
+      ledger: { hub: 'attendance', subTab: 'ledger' },
+      history: { hub: 'attendance', subTab: 'ledger' },
+      timesheet: { hub: 'attendance', subTab: 'ledger' },
       payroll: { hub: 'attendance', subTab: 'payroll' },
       advance: { hub: 'attendance', subTab: 'advance' },
-      reward: { hub: 'income', subTab: 'reward' },
-      discipline: { hub: 'income', subTab: 'discipline' },
+      discipline: { hub: 'attendance', subTab: 'discipline' },
+      // Old Income hub & Reward aliases -> Communications
+      income: { hub: 'communications', subTab: 'reward' },
+      reward: { hub: 'communications', subTab: 'reward' },
+      // Work leaf aliases
       checklist: { hub: 'work', subTab: 'checklist' },
-      operations: { hub: 'work', subTab: 'operations' },
+      operations: { hub: 'work', subTab: 'checklist' },
       handover: { hub: 'work', subTab: 'handover' },
+      incidents: { hub: 'work', subTab: 'incidents' },
       soldout: { hub: 'work', subTab: 'soldout' },
+      // Communications leaf aliases
       news: { hub: 'communications', subTab: 'news' },
       feedback: { hub: 'communications', subTab: 'feedback' },
-      training: { hub: 'knowledge', subTab: 'training' },
-      guide: { hub: 'knowledge', subTab: 'guide' },
-      hr_list: { hub: 'admin_people', subTab: 'employees' },
-      admin_org: { hub: 'admin_people', subTab: 'organization' },
-      admin_shift: { hub: 'admin_workforce', subTab: 'settings' },
-      admin_operations: { hub: 'admin_work', subTab: 'operations' },
-      admin_checklist: { hub: 'admin_work', subTab: 'checklist' },
-      admin_payroll: { hub: 'admin_income', subTab: 'config' },
+      // Knowledge leaf aliases (flat direct page)
+      training: { hub: 'knowledge' },
+      guide: { hub: 'knowledge' },
+      // Legacy Admin Hub aliases -> 3 Canonical Admin Hubs
+      admin_people: { hub: 'admin_people_pay', subTab: 'employees' },
+      admin_workforce: { hub: 'admin_ops', subTab: 'schedule' },
+      admin_work: { hub: 'admin_ops', subTab: 'dispatch' },
+      admin_income: { hub: 'admin_people_pay', subTab: 'payroll' },
+      // Admin leaf aliases
+      hr_list: { hub: 'admin_people_pay', subTab: 'employees' },
+      admin_org: { hub: 'admin_system', subTab: 'audit' },
+      admin_shift: { hub: 'admin_ops', subTab: 'schedule' },
+      admin_operations: { hub: 'admin_ops', subTab: 'dispatch' },
+      admin_checklist: { hub: 'admin_ops', subTab: 'checklist' },
+      admin_payroll: { hub: 'admin_people_pay', subTab: 'salary_rates' },
       admin_analytics: { hub: 'admin_system', subTab: 'analytics' },
-      admin: { hub: 'admin_system', subTab: 'ai' },
+      admin: { hub: 'admin_system', subTab: 'settings' },
     };
 
     const alias = TAB_ALIAS_MAP[rawTab];

@@ -1,17 +1,38 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '../store/useAppStore';
+import { kgConfirm, kgToast } from '../store/useFeedbackStore';
 import { callApi } from '../services/api';
-import { DAY_NAMES, SHORT_DAY_NAMES, computeWeekInfo, ResponsiveShift, getPreviewShiftClass } from '../utils/helpers';
+import {
+  DAY_NAMES,
+  SHORT_DAY_NAMES,
+  computeWeekInfo,
+  ResponsiveShift,
+  getPreviewShiftClass,
+} from '../utils/helpers';
 import { isWorkEligible } from '../utils/employment';
 import { validateSmartShiftSwap } from '../utils/shiftSwapValidator';
-import { Send, BellRing, Copy, User, Megaphone, Inbox, Clock, HandshakeIcon, LogOut, AlertTriangle, CheckCircle2, RefreshCw } from 'lucide-react';
-import { KgModuleHero, KgAlertCard, KgButton, KgConfirmSheet, KgToast, type ToastMessage } from '../components/KgDesignSystem';
+import {
+  Send,
+  BellRing,
+  Copy,
+  User,
+  Megaphone,
+  Inbox,
+  Clock,
+  HandshakeIcon,
+  LogOut,
+  AlertTriangle,
+  CheckCircle2,
+  RefreshCw,
+} from 'lucide-react';
+import { KgModuleHero, KgAlertCard, KgButton, KgConfirmSheet } from '../components/KgDesignSystem';
 import { getSafeDisplayInitial } from '../utils/shellLayout';
 
 function formatSwapTimestamp(createdAt: unknown): string {
   if (!createdAt) return 'Chưa rõ thời gian';
-  const raw = typeof createdAt === 'number' ? createdAt : Number(createdAt) || Date.parse(String(createdAt));
+  const raw =
+    typeof createdAt === 'number' ? createdAt : Number(createdAt) || Date.parse(String(createdAt));
   if (!Number.isFinite(raw) || raw <= 0) return 'Chưa rõ thời gian';
   const ts = raw < 1e12 ? raw * 1000 : raw;
   const diffMs = Date.now() - ts;
@@ -26,7 +47,6 @@ function formatSwapTimestamp(createdAt: unknown): string {
   return `${dd}/${mm} ${hh}:${min}`;
 }
 
-
 export default function SwapShift() {
   const store = useAppStore(
     useShallow((s) => ({
@@ -40,23 +60,32 @@ export default function SwapShift() {
       setSwapRequests: s.setSwapRequests,
       setHasNewSwaps: s.setHasNewSwaps,
       setLoading: s.setLoading,
-    }))
+    })),
   );
-  const { currentUser, users, approvedShifts, currentWeekApprovedShifts, swapRequests: rawSwapRequests } = store;
-  const swapRequests = Array.isArray(rawSwapRequests) ? rawSwapRequests : [];
+  const {
+    currentUser,
+    users,
+    approvedShifts,
+    currentWeekApprovedShifts,
+    swapRequests: rawSwapRequests,
+  } = store;
+  const swapRequests = useMemo(
+    () => (Array.isArray(rawSwapRequests) ? rawSwapRequests : []),
+    [rawSwapRequests],
+  );
   const [currentWeekInfo] = useState(() => computeWeekInfo(undefined, false));
   const [nextWeekInfo] = useState(() => computeWeekInfo(undefined, true));
   const [weekScope, setWeekScope] = useState<'current' | 'next'>(() =>
     currentWeekApprovedShifts && currentWeekApprovedShifts.some((s) => s && s !== 'OFF')
       ? 'current'
-      : 'next'
+      : 'next',
   );
   const weekInfo = weekScope === 'current' ? currentWeekInfo : nextWeekInfo;
   const activeApprovedShifts =
     weekScope === 'current'
       ? currentWeekApprovedShifts ?? approvedShifts
       : approvedShifts;
-  
+
   const [viewTab, setViewTab] = useState<'board' | 'post' | 'leave'>('board');
   const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(null);
   const [targetUsername, setTargetUsername] = useState<string>('ALL');
@@ -64,10 +93,13 @@ export default function SwapShift() {
   const [coworkerShiftMap, setCoworkerShiftMap] = useState<Record<string, string[]>>({});
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [inlineNotice, setInlineNotice] = useState<{ variant: 'error' | 'warning' | 'success' | 'info'; title: string; text: string } | null>(null);
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [inlineNotice, setInlineNotice] = useState<{
+    variant: 'error' | 'warning' | 'success' | 'info';
+    title: string;
+    text: string;
+  } | null>(null);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission | 'unsupported'>(() =>
-    typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'unsupported'
+    typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'unsupported',
   );
   const [pendingSubmitConfirm, setPendingSubmitConfirm] = useState<{
     title: string;
@@ -87,19 +119,11 @@ export default function SwapShift() {
   } | null>(null);
   const [acceptSuccessZaloReq, setAcceptSuccessZaloReq] = useState<any | null>(null);
 
-  const pushToast = useCallback((title: string, type: ToastMessage['type'] = 'info') => {
-    setToasts((prev) => [...prev.slice(-2), { id: `${Date.now()}_${Math.random()}`, title, type }]);
-  }, []);
-
-  const dismissToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  }, []);
-
   const eligibleCoworkers = useMemo(() => {
     const myPos = (currentUser?.position || '').trim().toLowerCase();
     return users
       .filter(
-        (u) => u.username !== currentUser?.username && u.role !== 'admin' && isWorkEligible(u)
+        (u) => u.username !== currentUser?.username && u.role !== 'admin' && isWorkEligible(u),
       )
       .sort((a, b) => {
         const aSame = Boolean(myPos && (a.position || '').trim().toLowerCase() === myPos);
@@ -134,7 +158,7 @@ export default function SwapShift() {
     try {
       const res = await callApi('GET_SWAP_REQUESTS', {
         username: currentUser?.username,
-        role: currentUser?.role
+        role: currentUser?.role,
       });
       if (res?.ok) {
         store.setSwapRequests(Array.isArray(res.data) ? res.data : []);
@@ -187,32 +211,40 @@ export default function SwapShift() {
       const perm = await Notification.requestPermission();
       setNotifPermission(perm);
       if (perm === 'granted') {
-        pushToast('Đã bật thông báo đổi ca!', 'success');
+        kgToast('Đã bật thông báo đổi ca!', 'success');
       } else {
-        pushToast('Trình duyệt chưa cấp quyền thông báo.', 'warning');
+        kgToast('Trình duyệt chưa cấp quyền thông báo.', 'warning');
       }
     } catch {
-      pushToast('Không thể yêu cầu quyền thông báo trên trình duyệt này.', 'warning');
+      kgToast('Không thể yêu cầu quyền thông báo trên trình duyệt này.', 'warning');
     }
   };
 
   const handleSwapRequest = () => {
     setInlineNotice(null);
     if (selectedDayIndex === null) {
-      setInlineNotice({ variant: 'warning', title: 'Chưa chọn ngày', text: 'Vui lòng chọn ngày muốn đổi ca.' });
+      setInlineNotice({
+        variant: 'warning',
+        title: 'Chưa chọn ngày',
+        text: 'Vui lòng chọn ngày muốn đổi ca.',
+      });
       return;
     }
-    
+
     const myShift = activeApprovedShifts?.[selectedDayIndex] || 'OFF';
     if (myShift === 'OFF') {
-      setInlineNotice({ variant: 'warning', title: 'Không thể đổi ca', text: 'Bạn đang OFF ngày này, không thể đổi ca.' });
+      setInlineNotice({
+        variant: 'warning',
+        title: 'Không thể đổi ca',
+        text: 'Bạn đang OFF ngày này, không thể đổi ca.',
+      });
       return;
     }
 
     const dayName = DAY_NAMES[selectedDayIndex];
     const isLeave = viewTab === 'leave';
     const isPublic = !isLeave && targetUsername === 'ALL';
-    const targetUser = isPublic || isLeave ? null : users.find(u => u.username === targetUsername);
+    const targetUser = isPublic || isLeave ? null : users.find((u) => u.username === targetUsername);
 
     if (!isLeave && !isPublic && directSwapValidation && !directSwapValidation.valid) {
       setInlineNotice({
@@ -244,8 +276,12 @@ export default function SwapShift() {
       isPublic,
       dayIndex: selectedDayIndex,
       shift: myShift,
-      targetUsername: isLeave ? 'ADMIN' : (isPublic ? 'ALL' : targetUser?.username || ''),
-      targetFullname: isLeave ? 'Quản Lý (Xin Nghỉ Phép)' : (isPublic ? 'ALL' : targetUser?.fullname || ''),
+      targetUsername: isLeave ? 'ADMIN' : isPublic ? 'ALL' : targetUser?.username || '',
+      targetFullname: isLeave
+        ? 'Quản Lý (Xin Nghỉ Phép)'
+        : isPublic
+          ? 'ALL'
+          : targetUser?.fullname || '',
       reasonText: reason || (isLeave ? 'Xin nghỉ phép đột xuất' : 'Cần hỗ trợ đổi ca đột xuất'),
     });
   };
@@ -265,28 +301,39 @@ export default function SwapShift() {
         reason: item.reasonText,
         targetUsername: item.targetUsername,
         targetFullname: item.targetFullname,
-        monthSheet: weekInfo.monthSheet
+        monthSheet: weekInfo.monthSheet,
       });
       store.setLoading(false);
       if (apiRes?.ok) {
         let successMsg = '';
-        if (item.isLeave) successMsg = 'Đơn xin nghỉ phép đã được gửi đến Quản Lý để chờ duyệt.';
-        else if (item.isPublic) successMsg = 'Yêu cầu của bạn đã được đăng lên Bảng tin.';
-        else successMsg = `Yêu cầu đổi ca đã gửi đến ${item.targetFullname}. Hãy nhắn Zalo cho họ nhé!`;
+        if (item.isLeave)
+          successMsg = 'Đơn xin nghỉ phép đã được gửi đến Quản Lý để chờ duyệt.';
+        else if (item.isPublic)
+          successMsg = 'Yêu cầu của bạn đã được đăng lên Bảng tin.';
+        else
+          successMsg = `Yêu cầu đổi ca đã gửi đến ${item.targetFullname}. Hãy nhắn Zalo cho họ nhé!`;
 
         setInlineNotice({ variant: 'success', title: 'Đã gửi thành công', text: successMsg });
-        pushToast(successMsg, 'success');
+        kgToast(successMsg, 'success');
         setSelectedDayIndex(null);
         setTargetUsername('ALL');
         setReason('');
         if (item.isPublic || item.isLeave) setViewTab('board');
         void loadSwapRequests();
       } else {
-        setInlineNotice({ variant: 'error', title: 'Gửi yêu cầu thất bại', text: apiRes?.message || 'Có lỗi xảy ra.' });
+        setInlineNotice({
+          variant: 'error',
+          title: 'Gửi yêu cầu thất bại',
+          text: apiRes?.message || 'Có lỗi xảy ra.',
+        });
       }
     } catch {
       store.setLoading(false);
-      setInlineNotice({ variant: 'error', title: 'Lỗi mạng', text: 'Không thể gửi yêu cầu lúc này. Vui lòng thử lại.' });
+      setInlineNotice({
+        variant: 'error',
+        title: 'Lỗi mạng',
+        text: 'Không thể gửi yêu cầu lúc này. Vui lòng thử lại.',
+      });
     }
   };
 
@@ -294,18 +341,17 @@ export default function SwapShift() {
     if (selectedDayIndex === null || targetUsername === 'ALL') return '';
     const myShift = activeApprovedShifts?.[selectedDayIndex] || 'OFF';
     const dayName = DAY_NAMES[selectedDayIndex];
-    const targetUser = users.find(u => u.username === targetUsername);
+    const targetUser = users.find((u) => u.username === targetUsername);
     const scopeText = weekScope === 'current' ? 'tuần này' : 'tuần tới';
     return `Chào ${targetUser?.fullname}, mình có lịch làm ca ${myShift} vào ${dayName} ${scopeText} (${weekInfo.weekDates[selectedDayIndex]}). Bạn có thể đổi ca này giúp mình được không? Lý do: ${reason || 'Bận việc đột xuất'}. Cảm ơn bạn nhiều!`;
   };
 
-  const getPublicZaloMessage = (req: any) => {
-    return `Chào ${req.fullname}, mình thấy bạn đang cần đổi ca ${req.shift} vào ${req.dayName}. Mình có thể làm thay ca này cho bạn nhé!`;
-  };
+  const getPublicZaloMessage = (req: any) =>
+    `Chào ${req.fullname}, mình thấy bạn đang cần đổi ca ${req.shift} vào ${req.dayName}. Mình có thể làm thay ca này cho bạn nhé!`;
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    pushToast('Đã copy tin nhắn!', 'success');
+    kgToast('Đã copy tin nhắn!', 'success');
   };
 
   const handleAcceptSwap = (req: any) => {
@@ -353,21 +399,115 @@ export default function SwapShift() {
       const apiRes = await callApi('ACCEPT_SWAP', {
         swapId: req.id,
         targetUsername: currentUser?.username,
-        targetFullname: currentUser?.fullname
+        targetFullname: currentUser?.fullname,
       });
       store.setLoading(false);
       if (apiRes?.ok) {
         setAcceptSuccessZaloReq(req);
-        pushToast('Đã ghi nhận nhận ca thành công!', 'success');
+        kgToast('Đã ghi nhận nhận ca thành công!', 'success');
         void loadSwapRequests();
       } else {
-        setInlineNotice({ variant: 'error', title: 'Lỗi nhận ca', text: apiRes?.message || 'Có lỗi xảy ra.' });
+        setInlineNotice({
+          variant: 'error',
+          title: 'Lỗi nhận ca',
+          text: apiRes?.message || 'Có lỗi xảy ra.',
+        });
       }
     } catch {
       store.setLoading(false);
-      setInlineNotice({ variant: 'error', title: 'Lỗi mạng', text: 'Không thể kết nối máy chủ.' });
+      setInlineNotice({
+        variant: 'error',
+        title: 'Lỗi mạng',
+        text: 'Không thể kết nối máy chủ.',
+      });
     }
   };
+
+  const handleAdminDecision = async (req: any, decision: 'APPROVE' | 'REJECT') => {
+    const isApprove = decision === 'APPROVE';
+    const confirmed = await kgConfirm({
+      title: isApprove ? 'Phê duyệt yêu cầu?' : 'Từ chối yêu cầu?',
+      message: isApprove
+        ? req.targetUsername === 'ADMIN'
+          ? `Phê duyệt đơn xin nghỉ phép của ${req.fullname} vào ${req.dayName} (${req.date})?`
+          : `Phê duyệt đổi ca ${req.shift} ngày ${req.dayName} (${req.date}) giữa ${req.fullname} và ${req.targetFullname}?`
+        : `Từ chối yêu cầu của ${req.fullname} vào ${req.dayName} (${req.date})?`,
+      confirmLabel: isApprove ? 'Phê duyệt' : 'Từ chối',
+      cancelLabel: 'Hủy',
+      tone: isApprove ? 'primary' : 'danger',
+    });
+    if (!confirmed) return;
+
+    store.setLoading(true, isApprove ? 'Đang duyệt...' : 'Đang từ chối...');
+    try {
+      const res = await callApi('APPROVE_SWAP', { swapId: req.id, decision });
+      store.setLoading(false);
+      if (res?.ok) {
+        kgToast(
+          isApprove ? 'Đã duyệt đổi ca thành công!' : 'Đã từ chối yêu cầu đổi ca.',
+          isApprove ? 'success' : 'info',
+        );
+        void loadSwapRequests();
+      } else {
+        setInlineNotice({
+          variant: 'error',
+          title: isApprove ? 'Lỗi duyệt đổi ca' : 'Lỗi từ chối đổi ca',
+          text:
+            res?.message ||
+            (isApprove ? 'Không thể duyệt yêu cầu đổi ca.' : 'Không thể từ chối yêu cầu đổi ca.'),
+        });
+      }
+    } catch {
+      store.setLoading(false);
+      setInlineNotice({
+        variant: 'error',
+        title: 'Lỗi mạng',
+        text: 'Không thể kết nối máy chủ.',
+      });
+    }
+  };
+
+  const handleDeleteSwap = async (req: any) => {
+    const confirmed = await kgConfirm({
+      title: 'Xóa bài đăng đổi ca?',
+      message: `Xóa yêu cầu ca ${req.shift} vào ${req.dayName} (${req.date})? Hành động này không thể hoàn tác.`,
+      confirmLabel: 'Xóa bài đăng',
+      cancelLabel: 'Giữ lại',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
+
+    store.setLoading(true, 'Đang xóa bài đăng...');
+    try {
+      await callApi('DELETE_SWAP', { swapId: req.id, username: currentUser?.username });
+      store.setLoading(false);
+      kgToast('Đã xóa bài đăng.', 'info');
+      void loadSwapRequests();
+    } catch {
+      store.setLoading(false);
+      setInlineNotice({
+        variant: 'error',
+        title: 'Lỗi mạng',
+        text: 'Không thể xóa bài đăng lúc này.',
+      });
+    }
+  };
+
+  const pendingAdminRequests = useMemo(
+    () => swapRequests.filter((req) => req.status === 'Pending_Admin'),
+    [swapRequests],
+  );
+
+  const visibleBoardRequests = useMemo(
+    () =>
+      swapRequests.filter(
+        (req) =>
+          currentUser?.role === 'admin' ||
+          req.targetUsername !== 'ADMIN' ||
+          req.username === currentUser?.username,
+      ),
+    [swapRequests, currentUser?.role, currentUser?.username],
+  );
 
   return (
     <div className="p-4 pb-24 md:pb-10 animate-slide-up">
@@ -378,10 +518,10 @@ export default function SwapShift() {
         eyebrow="Bảng tin"
         tipTitle="Quy chế Đổi Ca & Nghỉ Phép"
         tips={[
-          "Đổi ca: Cần thỏa thuận trước với đồng nghiệp cùng vị trí nghiệp vụ (Phục vụ đổi Phục vụ, Pha chế đổi Pha chế).",
-          "Thời hạn gửi yêu cầu: Trước giờ bắt đầu ca làm tối thiểu 24 giờ để Quản lý kịp thời phê duyệt.",
+          'Đổi ca: Cần thỏa thuận trước với đồng nghiệp cùng vị trí nghiệp vụ (Phục vụ đổi Phục vụ, Pha chế đổi Pha chế).',
+          'Thời hạn gửi yêu cầu: Trước giờ bắt đầu ca làm tối thiểu 24 giờ để Quản lý kịp thời phê duyệt.',
           "Tìm người thay: Nếu có việc gấp không thể đổi 2 chiều, hãy đăng tin 'Tìm người thay' lên bảng tin.",
-          "Sau khi đồng nghiệp bấm nhận ca, hệ thống sẽ gửi thông báo cho Quản lý xác nhận cuối cùng."
+          'Sau khi đồng nghiệp bấm nhận ca, hệ thống sẽ gửi thông báo cho Quản lý xác nhận cuối cùng.',
         ]}
         actions={
           notifPermission === 'default' ? (
@@ -405,7 +545,12 @@ export default function SwapShift() {
           <KgAlertCard variant="error" title="Lỗi tải bảng tin đổi ca">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-1">
               <span>{loadError}</span>
-              <KgButton size="sm" variant="secondary" icon={RefreshCw} onClick={() => void loadSwapRequests()}>
+              <KgButton
+                size="sm"
+                variant="secondary"
+                icon={RefreshCw}
+                onClick={() => void loadSwapRequests()}
+              >
                 Thử lại
               </KgButton>
             </div>
@@ -415,103 +560,122 @@ export default function SwapShift() {
 
       {/* Tabs Menu */}
       <div className="grid grid-cols-3 sm:flex bg-[var(--kg-surface)] border border-[var(--kg-border)] p-1 sm:p-1.5 rounded-2xl mb-6 shadow-xs gap-1 sm:gap-1.5">
-        <button 
+        <button
           type="button"
-          onClick={() => setViewTab('board')} 
+          onClick={() => setViewTab('board')}
           className={`flex-1 min-w-0 min-h-[44px] sm:min-h-[40px] px-1.5 sm:px-3.5 py-2 sm:py-2.5 flex items-center justify-center gap-1 sm:gap-1.5 rounded-xl text-[11.5px] sm:text-sm font-black transition-all active:scale-95 select-none whitespace-nowrap touch-manipulation ${
-            viewTab === 'board' 
-              ? 'bg-[var(--kg-primary)] text-white shadow-xs' 
+            viewTab === 'board'
+              ? 'bg-[var(--kg-primary)] text-white shadow-xs'
               : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
           }`}
         >
           <Megaphone size={14} className="flex-shrink-0" />
           <span className="truncate">Bảng tin</span>
-          {viewTab === 'board' && <span className="hidden sm:inline-block w-1.5 h-1.5 rounded-full bg-[var(--kg-accent)] flex-shrink-0" />}
-          {store.hasNewSwaps && viewTab !== 'board' && <span className="w-2 h-2 rounded-full bg-[var(--kg-danger)] flex-shrink-0 animate-ping" />}
+          {viewTab === 'board' && (
+            <span className="hidden sm:inline-block w-1.5 h-1.5 rounded-full bg-[var(--kg-accent)] flex-shrink-0" />
+          )}
+          {store.hasNewSwaps && viewTab !== 'board' && (
+            <span className="w-2 h-2 rounded-full bg-[var(--kg-danger)] flex-shrink-0 animate-ping" />
+          )}
         </button>
-        <button 
+        <button
           type="button"
-          onClick={() => setViewTab('post')} 
+          onClick={() => setViewTab('post')}
           className={`flex-1 min-w-0 min-h-[44px] sm:min-h-[40px] px-1.5 sm:px-3.5 py-2 sm:py-2.5 flex items-center justify-center gap-1 sm:gap-1.5 rounded-xl text-[11.5px] sm:text-sm font-black transition-all active:scale-95 select-none whitespace-nowrap touch-manipulation ${
-            viewTab === 'post' 
-              ? 'bg-[var(--kg-primary)] text-white shadow-xs' 
+            viewTab === 'post'
+              ? 'bg-[var(--kg-primary)] text-white shadow-xs'
               : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
           }`}
         >
           <Send size={14} className="flex-shrink-0" />
           <span className="truncate">Tìm người thay</span>
-          {viewTab === 'post' && <span className="hidden sm:inline-block w-1.5 h-1.5 rounded-full bg-[var(--kg-accent)] flex-shrink-0" />}
+          {viewTab === 'post' && (
+            <span className="hidden sm:inline-block w-1.5 h-1.5 rounded-full bg-[var(--kg-accent)] flex-shrink-0" />
+          )}
         </button>
-        <button 
+        <button
           type="button"
-          onClick={() => setViewTab('leave')} 
+          onClick={() => setViewTab('leave')}
           className={`flex-1 min-w-0 min-h-[44px] sm:min-h-[40px] px-1.5 sm:px-3.5 py-2 sm:py-2.5 flex items-center justify-center gap-1 sm:gap-1.5 rounded-xl text-[11.5px] sm:text-sm font-black transition-all active:scale-95 select-none whitespace-nowrap touch-manipulation ${
-            viewTab === 'leave' 
-              ? 'bg-[var(--kg-primary)] text-white shadow-xs' 
+            viewTab === 'leave'
+              ? 'bg-[var(--kg-primary)] text-white shadow-xs'
               : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
           }`}
         >
           <LogOut size={14} className="flex-shrink-0" />
           <span className="truncate">Xin nghỉ phép</span>
-          {viewTab === 'leave' && <span className="hidden sm:inline-block w-1.5 h-1.5 rounded-full bg-[var(--kg-accent)] flex-shrink-0" />}
+          {viewTab === 'leave' && (
+            <span className="hidden sm:inline-block w-1.5 h-1.5 rounded-full bg-[var(--kg-accent)] flex-shrink-0" />
+          )}
         </button>
       </div>
 
       {/* BOARD VIEW */}
       {viewTab === 'board' && (
-        <div className="space-y-4">
-          
+        <div className="space-y-6">
           {/* Admin Approval Section */}
-          {currentUser?.role === 'admin' && swapRequests.filter(req => req.status === 'Pending_Admin').length > 0 && (
-            <div className="mb-8">
+          {currentUser?.role === 'admin' && pendingAdminRequests.length > 0 && (
+            <div>
               <h3 className="font-bold text-[var(--kg-text)] mb-3 flex items-center">
-                <Inbox size={18} className="mr-2 text-[var(--kg-primary)]" /> Cần Admin Duyệt
+                <Inbox size={18} className="mr-2 text-[var(--kg-primary)]" /> Cần Admin Duyệt (
+                <span className="font-mono tabular-nums">{pendingAdminRequests.length}</span>)
               </h3>
-              <div className="space-y-3">
-                {swapRequests.filter(req => req.status === 'Pending_Admin').map((req) => (
-                  <div key={req.id} className="bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/30 rounded-2xl p-4 animate-fade-in">
-                    <div className="mb-2">
-                      <span className="font-bold text-[var(--kg-text)]">{req.fullname}</span>
-                      <span className="text-[var(--kg-text-muted)] text-sm mx-1">muốn</span>
-                      <span className="font-bold text-[var(--kg-primary)] inline-flex items-center">
-                        {req.targetUsername === 'ADMIN' ? 'Xin Nghỉ Phép' : <>Đổi ca <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-black mx-1 shadow-2xs ${getPreviewShiftClass(req.shift)}`}><ResponsiveShift shift={req.shift} /></span></>}
-                      </span>
-                      <span className="text-[var(--kg-text-muted)] text-sm mx-1">vào</span>
-                      <span className="font-bold text-[var(--kg-text)]">{req.dayName} ({req.date})</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {pendingAdminRequests.map((req) => (
+                  <div
+                    key={req.id}
+                    className="bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/30 rounded-2xl p-4 flex flex-col justify-between animate-fade-in"
+                  >
+                    <div>
+                      <div className="mb-2 text-sm leading-relaxed">
+                        <span className="font-bold text-[var(--kg-text)]">{req.fullname}</span>
+                        <span className="text-[var(--kg-text-muted)] mx-1">muốn</span>
+                        <span className="font-bold text-[var(--kg-primary)] inline-flex items-center">
+                          {req.targetUsername === 'ADMIN' ? (
+                            'Xin Nghỉ Phép'
+                          ) : (
+                            <>
+                              Đổi ca{' '}
+                              <span
+                                className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-black mx-1 shadow-2xs ${getPreviewShiftClass(req.shift)}`}
+                              >
+                                <ResponsiveShift shift={req.shift} />
+                              </span>
+                            </>
+                          )}
+                        </span>
+                        <span className="text-[var(--kg-text-muted)] mx-1">vào</span>
+                        <span className="font-bold text-[var(--kg-text)] font-mono tabular-nums">
+                          {req.dayName} ({req.date})
+                        </span>
+                      </div>
+                      <div className="bg-[var(--kg-surface)] p-3 rounded-xl mb-3 text-xs sm:text-sm border border-[var(--kg-border)] space-y-1">
+                        <p>
+                          <span className="text-[var(--kg-text-muted)]">Lý do:</span> {req.reason}
+                        </p>
+                        {req.targetUsername !== 'ADMIN' && (
+                          <p>
+                            <span className="text-[var(--kg-text-muted)]">Người nhận thay:</span>{' '}
+                            <span className="font-bold text-[var(--kg-primary)]">
+                              {req.targetFullname}
+                            </span>
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <div className="bg-[var(--kg-surface)] p-3 rounded-xl mb-3 text-sm border border-[var(--kg-border)]">
-                      <p className="mb-1"><span className="text-[var(--kg-text-muted)]">Lý do:</span> {req.reason}</p>
-                      {req.targetUsername !== 'ADMIN' && (
-                        <p><span className="text-[var(--kg-text-muted)]">Người nhận thay:</span> <span className="font-bold text-[var(--kg-primary)]">{req.targetFullname}</span></p>
-                      )}
-                    </div>
-                    <div className="flex space-x-2">
-                      <button type="button" onClick={() => {
-                        store.setLoading(true, 'Đang duyệt...');
-                        callApi('APPROVE_SWAP', { swapId: req.id, decision: 'APPROVE' }).then(res => {
-                          store.setLoading(false);
-                          if (res?.ok) {
-                            pushToast('Đã duyệt đổi ca thành công!', 'success');
-                            void loadSwapRequests();
-                          } else {
-                            setInlineNotice({ variant: 'error', title: 'Lỗi duyệt đổi ca', text: res?.message || 'Không thể duyệt yêu cầu đổi ca.' });
-                          }
-                        });
-                      }} className="flex-1 min-h-[44px] bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-bold py-2.5 rounded-xl text-sm transition touch-manipulation">
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void handleAdminDecision(req, 'APPROVE')}
+                        className="flex-1 min-h-[44px] bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-bold py-2.5 rounded-xl text-xs sm:text-sm transition touch-manipulation"
+                      >
                         Phê duyệt
                       </button>
-                      <button type="button" onClick={() => {
-                        store.setLoading(true, 'Đang từ chối...');
-                        callApi('APPROVE_SWAP', { swapId: req.id, decision: 'REJECT' }).then(res => {
-                          store.setLoading(false);
-                          if (res?.ok) {
-                            pushToast('Đã từ chối yêu cầu đổi ca.', 'info');
-                            void loadSwapRequests();
-                          } else {
-                            setInlineNotice({ variant: 'error', title: 'Lỗi từ chối đổi ca', text: res?.message || 'Không thể từ chối yêu cầu đổi ca.' });
-                          }
-                        });
-                      }} className="flex-1 min-h-[44px] bg-[var(--kg-danger)] hover:brightness-95 text-white dark:text-[#0D1015] font-bold py-2.5 rounded-xl text-sm transition touch-manipulation">
+                      <button
+                        type="button"
+                        onClick={() => void handleAdminDecision(req, 'REJECT')}
+                        className="flex-1 min-h-[44px] bg-[var(--kg-danger)] hover:brightness-95 text-white dark:text-[#0D1015] font-bold py-2.5 rounded-xl text-xs sm:text-sm transition touch-manipulation"
+                      >
                         Từ chối
                       </button>
                     </div>
@@ -521,88 +685,123 @@ export default function SwapShift() {
             </div>
           )}
 
-          <div className="flex items-center justify-between gap-2 mb-3">
-            <h3 className="font-bold text-[var(--kg-text)]">Tất cả bài đăng</h3>
-            <button
-              type="button"
-              onClick={() => void loadSwapRequests()}
-              disabled={isRefreshing}
-              className="min-h-[44px] sm:min-h-[34px] px-3 py-1.5 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] text-xs font-bold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] inline-flex items-center gap-1.5 touch-manipulation disabled:opacity-60"
-            >
-              <RefreshCw size={13} className={isRefreshing ? 'animate-spin' : ''} />
-              <span>Làm mới</span>
-            </button>
-          </div>
-          {swapRequests.filter((req) => currentUser?.role === 'admin' || req.targetUsername !== 'ADMIN' || req.username === currentUser?.username).length === 0 ? (
-            <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-8 text-center">
-              <Inbox size={48} className="mx-auto text-[var(--kg-text-soft)] mb-4" />
-              <h3 className="text-[var(--kg-text-muted)] font-bold mb-1">Chưa có ai cần đổi ca</h3>
-              <p className="text-xs text-[var(--kg-text-soft)]">Những yêu cầu đổi ca sẽ xuất hiện ở đây.</p>
+          <div>
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h3 className="font-bold text-[var(--kg-text)]">Tất cả bài đăng</h3>
+              <button
+                type="button"
+                onClick={() => void loadSwapRequests()}
+                disabled={isRefreshing}
+                className="min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] text-xs font-bold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] inline-flex items-center gap-1.5 touch-manipulation disabled:opacity-60"
+              >
+                <RefreshCw size={13} className={isRefreshing ? 'animate-spin' : ''} />
+                <span>Làm mới</span>
+              </button>
             </div>
-          ) : (
-            swapRequests
-              .filter((req) => currentUser?.role === 'admin' || req.targetUsername !== 'ADMIN' || req.username === currentUser?.username)
-              .map((req) => (
-              <div key={req.id} className="bg-[var(--kg-surface)] rounded-2xl p-5 border border-[var(--kg-border)] relative overflow-hidden animate-fade-in group">
-                {req.username === currentUser?.username && (
-                  <div className="absolute top-0 right-0 bg-[var(--kg-primary)] text-white text-[10px] font-bold px-2.5 py-1 rounded-bl-lg">Của bạn</div>
-                )}
-                <div className="flex justify-between items-start mb-3">
-                  <div className="flex items-center">
-                    <div className="w-10 h-10 rounded-full bg-[var(--kg-accent-soft)] text-[var(--kg-primary)] flex items-center justify-center font-bold text-lg mr-3 border border-[var(--kg-primary)]/20">
-                      {getSafeDisplayInitial(req.fullname, req.username)}
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-[var(--kg-text)] text-sm">{req.fullname || req.username || 'Nhân sự'}</h4>
-                      <p className="text-[10px] text-[var(--kg-text-muted)] flex items-center mt-0.5 font-mono tabular-nums"><Clock size={10} className="mr-1" /> {formatSwapTimestamp(req.createdAt)}</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl p-3 mb-4">
-                  <p className="text-sm text-[var(--kg-text)] font-medium mb-1.5 flex items-center flex-wrap">
-                    Cần người làm thay ca <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-black mx-1.5 shadow-2xs ${getPreviewShiftClass(req.shift)}`}><ResponsiveShift shift={req.shift} /></span>
-                  </p>
-                  <p className="text-xs text-[var(--kg-text-muted)] font-bold mb-2">Vào {req.dayName} ({req.date})</p>
-                  <p className="text-xs text-[var(--kg-text-muted)] italic flex items-start">
-                    <span className="font-semibold not-italic mr-1 text-[var(--kg-text)]">Lý do:</span> {req.reason}
-                  </p>
-                </div>
-
-                {req.username !== currentUser?.username &&
-                req.status === 'Pending_User' &&
-                (!req.targetUsername || req.targetUsername === 'ALL' || req.targetUsername === currentUser?.username) ? (
-                  <button type="button" onClick={() => handleAcceptSwap(req)} className="w-full min-h-[44px] bg-[var(--kg-accent-soft)] text-[var(--kg-primary)] font-bold py-3 rounded-xl border border-[var(--kg-primary)]/25 hover:bg-[var(--kg-primary)] hover:text-white transition-all flex items-center justify-center text-sm touch-manipulation">
-                    <HandshakeIcon size={16} className="mr-2" /> Nhận làm thay ca này
-                  </button>
-                ) : req.status === 'Pending_User' && req.targetUsername && req.targetUsername !== 'ALL' && req.username !== currentUser?.username ? (
-                  <div className="w-full bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] font-bold py-2.5 rounded-xl border border-[var(--kg-border)] text-center text-xs">
-                    Đã gửi trực tiếp cho {req.targetFullname || req.targetUsername}
-                  </div>
-                ) : req.status === 'Pending_Admin' ? (
-                  <div className="w-full bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] font-bold py-2.5 rounded-xl border border-[var(--kg-warning)]/25 text-center text-xs flex items-center justify-center gap-1.5">
-                    <Clock size={13} /> Đang chờ Admin duyệt (Người nhận: {req.targetFullname})
-                  </div>
-                ) : req.username === currentUser?.username ? (
-                  <button type="button" onClick={() => {
-                    store.setLoading(true);
-                    callApi('DELETE_SWAP', { swapId: req.id, username: currentUser?.username }).then(() => {
-                      store.setLoading(false);
-                      void loadSwapRequests();
-                    });
-                  }} className="w-full min-h-[44px] bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] font-bold py-2.5 rounded-xl border border-[var(--kg-danger)]/25 hover:brightness-95 transition-all text-xs touch-manipulation">
-                    Xóa bài đăng
-                  </button>
-                ) : null}
+            {visibleBoardRequests.length === 0 ? (
+              <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-8 text-center">
+                <Inbox size={48} className="mx-auto text-[var(--kg-text-soft)] mb-4" />
+                <h3 className="text-[var(--kg-text-muted)] font-bold mb-1">
+                  Chưa có ai cần đổi ca
+                </h3>
+                <p className="text-xs text-[var(--kg-text-soft)]">
+                  Những yêu cầu đổi ca sẽ xuất hiện ở đây.
+                </p>
               </div>
-            ))
-          )}
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {visibleBoardRequests.map((req) => (
+                  <div
+                    key={req.id}
+                    className="bg-[var(--kg-surface)] rounded-2xl p-4 sm:p-5 border border-[var(--kg-border)] relative overflow-hidden animate-fade-in flex flex-col justify-between shadow-xs"
+                  >
+                    <div>
+                      {req.username === currentUser?.username && (
+                        <div className="absolute top-0 right-0 bg-[var(--kg-primary)] text-white text-[10px] font-bold px-2.5 py-1 rounded-bl-lg">
+                          Của bạn
+                        </div>
+                      )}
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex items-center min-w-0">
+                          <div className="w-10 h-10 rounded-full bg-[var(--kg-accent-soft)] text-[var(--kg-primary)] flex items-center justify-center font-bold text-lg mr-3 border border-[var(--kg-primary)]/20 flex-shrink-0">
+                            {getSafeDisplayInitial(req.fullname, req.username)}
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="font-bold text-[var(--kg-text)] text-sm truncate">
+                              {req.fullname || req.username || 'Nhân sự'}
+                            </h4>
+                            <p className="text-[10px] text-[var(--kg-text-muted)] flex items-center mt-0.5 font-mono tabular-nums">
+                              <Clock size={10} className="mr-1" />{' '}
+                              {formatSwapTimestamp(req.createdAt)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl p-3 mb-4">
+                        <p className="text-sm text-[var(--kg-text)] font-medium mb-1.5 flex items-center flex-wrap">
+                          Cần người làm thay ca{' '}
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-black mx-1.5 shadow-2xs ${getPreviewShiftClass(req.shift)}`}
+                          >
+                            <ResponsiveShift shift={req.shift} />
+                          </span>
+                        </p>
+                        <p className="text-xs text-[var(--kg-text-muted)] font-bold mb-2 font-mono tabular-nums">
+                          Vào {req.dayName} ({req.date})
+                        </p>
+                        <p className="text-xs text-[var(--kg-text-muted)] italic flex items-start">
+                          <span className="font-semibold not-italic mr-1 text-[var(--kg-text)]">
+                            Lý do:
+                          </span>{' '}
+                          {req.reason}
+                        </p>
+                      </div>
+                    </div>
+
+                    {req.username !== currentUser?.username &&
+                    req.status === 'Pending_User' &&
+                    (!req.targetUsername ||
+                      req.targetUsername === 'ALL' ||
+                      req.targetUsername === currentUser?.username) ? (
+                      <button
+                        type="button"
+                        onClick={() => handleAcceptSwap(req)}
+                        className="w-full min-h-[44px] bg-[var(--kg-accent-soft)] text-[var(--kg-primary)] font-bold py-2.5 rounded-xl border border-[var(--kg-primary)]/25 hover:bg-[var(--kg-primary)] hover:text-white transition-all flex items-center justify-center text-sm touch-manipulation"
+                      >
+                        <HandshakeIcon size={16} className="mr-2" /> Nhận làm thay ca này
+                      </button>
+                    ) : req.status === 'Pending_User' &&
+                      req.targetUsername &&
+                      req.targetUsername !== 'ALL' &&
+                      req.username !== currentUser?.username ? (
+                      <div className="w-full bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] font-bold py-2.5 rounded-xl border border-[var(--kg-border)] text-center text-xs">
+                        Đã gửi trực tiếp cho {req.targetFullname || req.targetUsername}
+                      </div>
+                    ) : req.status === 'Pending_Admin' ? (
+                      <div className="w-full bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] font-bold py-2.5 rounded-xl border border-[var(--kg-warning)]/25 text-center text-xs flex items-center justify-center gap-1.5">
+                        <Clock size={13} /> Chờ Admin duyệt ({req.targetFullname})
+                      </div>
+                    ) : req.username === currentUser?.username ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleDeleteSwap(req)}
+                        className="w-full min-h-[44px] bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] font-bold py-2.5 rounded-xl border border-[var(--kg-danger)]/25 hover:brightness-95 transition-all text-xs touch-manipulation"
+                      >
+                        Xóa bài đăng
+                      </button>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
       {/* POST / LEAVE VIEW */}
       {(viewTab === 'post' || viewTab === 'leave') && (
-        <div className="animate-fade-in">
+        <div className="animate-fade-in max-w-3xl mx-auto">
           <div className="flex bg-[var(--kg-surface)] border border-[var(--kg-border)] p-1 rounded-xl mb-4 gap-1">
             <button
               type="button"
@@ -633,29 +832,68 @@ export default function SwapShift() {
               Tuần tới ({nextWeekInfo.weekLabel})
             </button>
           </div>
-          {weekScope === 'next' && store.isScheduleRegistered && (!activeApprovedShifts || activeApprovedShifts.length === 0) && (
-            <div className="bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/30 rounded-2xl p-4 mb-4 flex items-center space-x-3">
-              <Clock size={20} className="text-[var(--kg-warning)] flex-shrink-0" />
-              <p className="text-xs text-[var(--kg-warning)] font-medium">
-                Lịch làm việc tuần tới đang ở trạng thái <strong>Chờ duyệt</strong>. Bạn có thể đổi ca hoặc xin nghỉ sau khi quản lý phê duyệt lịch.
-              </p>
-            </div>
-          )}
-          <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-5 mb-6">
-            <h3 className="font-bold text-[var(--kg-text)] mb-4">
+          {weekScope === 'next' &&
+            store.isScheduleRegistered &&
+            (!activeApprovedShifts || activeApprovedShifts.length === 0) && (
+              <div className="bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/30 rounded-2xl p-4 mb-4 flex items-center space-x-3">
+                <Clock size={20} className="text-[var(--kg-warning)] flex-shrink-0" />
+                <p className="text-xs text-[var(--kg-warning)] font-medium">
+                  Lịch làm việc tuần tới đang ở trạng thái <strong>Chờ duyệt</strong>. Bạn có thể đổi
+                  ca hoặc xin nghỉ sau khi quản lý phê duyệt lịch.
+                </p>
+              </div>
+            )}
+
+          {/* Glanceable 7-Day Grid Picker (Zero horizontal scroll) */}
+          <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 sm:p-5 mb-5">
+            <h3 className="font-bold text-[var(--kg-text)] mb-3.5 text-sm sm:text-base">
               1. Chọn ca của bạn muốn {viewTab === 'leave' ? 'xin nghỉ' : 'đổi'}
             </h3>
-            <div className="flex overflow-x-auto space-x-2 pb-2 snap-x">
+            <div className="grid grid-cols-7 gap-1 sm:gap-2 min-w-0">
               {SHORT_DAY_NAMES.map((shortDay, i) => {
                 const shift = activeApprovedShifts?.[i] || 'OFF';
                 const isSelected = selectedDayIndex === i;
                 const isOff = shift === 'OFF';
+                const [dd, mm] = (weekInfo.weekDates[i] || '').split('/');
                 return (
-                  <button key={i} type="button" disabled={isOff} onClick={() => setSelectedDayIndex(i)}
-                    className={`flex-shrink-0 w-20 min-h-[72px] snap-center rounded-xl p-2 border-2 transition-all touch-manipulation ${isOff ? 'opacity-50 grayscale cursor-not-allowed border-[var(--kg-border)]' : isSelected ? 'border-[var(--kg-primary)] bg-[var(--kg-accent-soft)]' : 'border-[var(--kg-border)] bg-[var(--kg-surface-soft)]'}`}>
-                    <div className={`text-[12px] font-bold font-mono tabular-nums mb-0.5 ${isSelected ? 'text-[var(--kg-primary)]' : 'text-[var(--kg-text)]'}`}>{weekInfo.weekDates[i]}</div>
-                    <div className={`text-[10px] font-medium mb-1.5 ${isSelected ? 'text-[var(--kg-primary)]' : 'text-[var(--kg-text-muted)]'}`}>{shortDay}</div>
-                    <div className={`text-xs font-black py-1.5 px-1 rounded-lg transition-all ${isSelected ? 'ring-2 ring-[var(--kg-primary)] ring-offset-1 shadow-md scale-105 ' : 'shadow-2xs '}${getPreviewShiftClass(shift)}`}><ResponsiveShift shift={shift} /></div>
+                  <button
+                    key={i}
+                    type="button"
+                    disabled={isOff}
+                    onClick={() => setSelectedDayIndex(i)}
+                    className={`min-w-0 min-h-[78px] rounded-xl p-1 sm:p-2 border-2 flex flex-col items-center justify-between transition-all touch-manipulation ${
+                      isOff
+                        ? 'opacity-45 grayscale cursor-not-allowed border-[var(--kg-border)] bg-[var(--kg-surface-soft)]'
+                        : isSelected
+                          ? 'border-[var(--kg-primary)] bg-[var(--kg-accent-soft)] shadow-xs'
+                          : 'border-[var(--kg-border)] bg-[var(--kg-surface-soft)] hover:border-[var(--kg-border-strong)]'
+                    }`}
+                  >
+                    <div className="flex flex-col items-center min-w-0 w-full">
+                      <span
+                        className={`text-[10px] sm:text-xs font-bold font-mono tabular-nums truncate max-w-full ${
+                          isSelected ? 'text-[var(--kg-primary)]' : 'text-[var(--kg-text)]'
+                        }`}
+                      >
+                        {dd}/{mm}
+                      </span>
+                      <span
+                        className={`text-[9px] sm:text-[10px] font-semibold ${
+                          isSelected ? 'text-[var(--kg-primary)]' : 'text-[var(--kg-text-muted)]'
+                        }`}
+                      >
+                        {shortDay}
+                      </span>
+                    </div>
+                    <div
+                      className={`w-full text-[10px] sm:text-xs font-black py-1 px-0.5 rounded-lg text-center truncate transition-all ${
+                        isSelected
+                          ? 'ring-2 ring-[var(--kg-primary)] ring-offset-1 shadow-sm '
+                          : 'shadow-2xs '
+                      }${getPreviewShiftClass(shift)}`}
+                    >
+                      <ResponsiveShift shift={shift} />
+                    </div>
                   </button>
                 );
               })}
@@ -663,26 +901,45 @@ export default function SwapShift() {
           </div>
 
           {viewTab === 'post' && (
-            <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-5 mb-6">
-              <label htmlFor="swap-target-user" className="block font-bold text-[var(--kg-text)] mb-3">2. Chọn người làm thay</label>
+            <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 sm:p-5 mb-5">
+              <label
+                htmlFor="swap-target-user"
+                className="block font-bold text-[var(--kg-text)] mb-3 text-sm sm:text-base"
+              >
+                2. Chọn người làm thay
+              </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <User size={16} className="text-[var(--kg-text-soft)]" />
                 </div>
-                <select id="swap-target-user" value={targetUsername} onChange={(e) => setTargetUsername(e.target.value)} className="w-full min-h-[44px] bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl pl-10 pr-4 py-3 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)] appearance-none">
-                  <option value="ALL" className="font-bold text-[var(--kg-primary)]">Tất cả mọi người (Đăng lên Chợ)</option>
-                  {eligibleCoworkers.map(u => {
+                <select
+                  id="swap-target-user"
+                  value={targetUsername}
+                  onChange={(e) => setTargetUsername(e.target.value)}
+                  className="w-full min-h-[44px] bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl pl-10 pr-4 py-3 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)] appearance-none"
+                >
+                  <option value="ALL" className="font-bold text-[var(--kg-primary)]">
+                    Tất cả mọi người (Đăng lên Chợ)
+                  </option>
+                  {eligibleCoworkers.map((u) => {
                     const myPos = (currentUser?.position || '').trim().toLowerCase();
-                    const isSamePos = Boolean(myPos && (u.position || '').trim().toLowerCase() === myPos);
+                    const isSamePos = Boolean(
+                      myPos && (u.position || '').trim().toLowerCase() === myPos,
+                    );
                     const uShifts =
                       coworkerShiftMap[u.username.toLowerCase()] ||
                       coworkerShiftMap[u.fullname.trim().toLowerCase()];
                     const dayShift =
                       selectedDayIndex !== null && uShifts ? uShifts[selectedDayIndex] || 'OFF' : '';
-                    const suffix = dayShift ? ` (${dayShift === 'OFF' ? 'Đang OFF' : `Bận ca ${dayShift}`})` : '';
+                    const suffix = dayShift
+                      ? ` (${dayShift === 'OFF' ? 'Đang OFF' : `Bận ca ${dayShift}`})`
+                      : '';
                     return (
                       <option key={u.username} value={u.username}>
-                        {isSamePos ? '★ ' : ''}{u.fullname}{u.position ? ` · ${u.position}` : ''}{suffix}
+                        {isSamePos ? '★ ' : ''}
+                        {u.fullname}
+                        {u.position ? ` · ${u.position}` : ''}
+                        {suffix}
                       </option>
                     );
                   })}
@@ -714,54 +971,99 @@ export default function SwapShift() {
                 </div>
               )}
 
-              <label htmlFor="swap-reason" className="block font-bold text-[var(--kg-text)] mt-5 mb-2">Lý do đổi ca</label>
-              <input id="swap-reason" type="text" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Nhập lý do..." className="w-full min-h-[44px] bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-4 py-3 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)]" />
+              <label
+                htmlFor="swap-reason"
+                className="block font-bold text-[var(--kg-text)] mt-5 mb-2 text-sm"
+              >
+                Lý do đổi ca
+              </label>
+              <input
+                id="swap-reason"
+                type="text"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Nhập lý do..."
+                className="w-full min-h-[44px] bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-4 py-3 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)]"
+              />
             </div>
           )}
 
           {viewTab === 'leave' && (
-            <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-5 mb-6">
-              <label htmlFor="leave-reason" className="block font-bold text-[var(--kg-text)] mb-2">2. Lý do xin nghỉ phép</label>
-              <input id="leave-reason" type="text" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Nhập lý do xin nghỉ..." className="w-full min-h-[44px] bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-4 py-3 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)]" />
-              <p className="text-xs text-[var(--kg-text-muted)] mt-2 italic">Lưu ý: Đơn xin nghỉ phép sẽ được gửi trực tiếp cho Quản lý phê duyệt.</p>
+            <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 sm:p-5 mb-5">
+              <label
+                htmlFor="leave-reason"
+                className="block font-bold text-[var(--kg-text)] mb-2 text-sm sm:text-base"
+              >
+                2. Lý do xin nghỉ phép
+              </label>
+              <input
+                id="leave-reason"
+                type="text"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Nhập lý do xin nghỉ..."
+                className="w-full min-h-[44px] bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-4 py-3 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)]"
+              />
+              <p className="text-xs text-[var(--kg-text-muted)] mt-2 italic">
+                Lưu ý: Đơn xin nghỉ phép sẽ được gửi trực tiếp cho Quản lý phê duyệt.
+              </p>
             </div>
           )}
 
           {selectedDayIndex !== null && targetUsername !== 'ALL' && viewTab === 'post' && (
-            <div className="bg-[var(--kg-accent-soft)] border border-[var(--kg-primary)]/20 rounded-2xl p-4 mb-6 animate-fade-in">
+            <div className="bg-[var(--kg-accent-soft)] border border-[var(--kg-primary)]/20 rounded-2xl p-4 mb-5 animate-fade-in">
               <div className="flex items-center mb-2">
                 <BellRing size={16} className="text-[var(--kg-primary)] mr-2" />
-                <span className="font-bold text-sm text-[var(--kg-primary)]">Tin nhắn tự động Zalo</span>
+                <span className="font-bold text-sm text-[var(--kg-primary)]">
+                  Tin nhắn tự động Zalo
+                </span>
               </div>
-              <p className="text-xs text-[var(--kg-text)] italic bg-[var(--kg-surface)] p-3 rounded-xl border border-[var(--kg-border)]">&quot;{getZaloMessage()}&quot;</p>
-              <div className="flex space-x-2 mt-3">
-                <button type="button" onClick={() => copyToClipboard(getZaloMessage())} className="flex-1 min-h-[44px] bg-[var(--kg-surface)] text-[var(--kg-primary)] text-xs font-bold py-2 rounded-lg border border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)] transition flex items-center justify-center touch-manipulation">
+              <p className="text-xs text-[var(--kg-text)] italic bg-[var(--kg-surface)] p-3 rounded-xl border border-[var(--kg-border)]">
+                &quot;{getZaloMessage()}&quot;
+              </p>
+              <div className="flex gap-2 mt-3">
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(getZaloMessage())}
+                  className="flex-1 min-h-[44px] bg-[var(--kg-surface)] text-[var(--kg-primary)] text-xs font-bold py-2 rounded-lg border border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)] transition flex items-center justify-center touch-manipulation"
+                >
                   <Copy size={14} className="mr-1" /> Copy
                 </button>
-                <a href={`https://zalo.me`} target="_blank" rel="noreferrer" className="flex-1 min-h-[44px] bg-[#0068ff] text-white text-xs font-bold py-2 rounded-lg hover:bg-blue-700 transition flex items-center justify-center text-center touch-manipulation">
+                <a
+                  href="https://zalo.me"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex-1 min-h-[44px] bg-[var(--kg-info)] hover:brightness-95 text-white text-xs font-bold py-2 rounded-lg transition flex items-center justify-center text-center touch-manipulation"
+                >
                   Mở Zalo
                 </a>
               </div>
             </div>
           )}
 
-          <button 
+          <button
             type="button"
-            onClick={handleSwapRequest} 
-            className="w-full min-h-[48px] bg-[var(--kg-primary)] text-white font-black py-4 rounded-2xl shadow-md hover:brightness-110 transition-all transform active:scale-98 flex items-center justify-center touch-manipulation border-none text-xs sm:text-sm tracking-wider uppercase"
+            onClick={handleSwapRequest}
+            className="w-full min-h-[48px] bg-[var(--kg-primary)] text-white font-black py-3.5 rounded-2xl shadow-md hover:brightness-110 transition-all transform active:scale-98 flex items-center justify-center touch-manipulation border-none text-xs sm:text-sm tracking-wider uppercase"
           >
             {viewTab === 'leave' ? (
-              <><LogOut size={18} className="mr-2 text-[var(--kg-accent)]" /> GỬI YÊU CẦU NGHỈ PHÉP</>
+              <>
+                <LogOut size={18} className="mr-2 text-[var(--kg-accent)]" /> GỬI YÊU CẦU NGHỈ PHÉP
+              </>
             ) : targetUsername === 'ALL' ? (
-              <><Megaphone size={18} className="mr-2 text-[var(--kg-accent)]" /> ĐĂNG LÊN BẢNG TIN</>
+              <>
+                <Megaphone size={18} className="mr-2 text-[var(--kg-accent)]" /> ĐĂNG LÊN BẢNG TIN
+              </>
             ) : (
-              <><Send size={18} className="mr-2 text-[var(--kg-accent)]" /> GỬI YÊU CẦU ĐỔI CA</>
+              <>
+                <Send size={18} className="mr-2 text-[var(--kg-accent)]" /> GỬI YÊU CẦU ĐỔI CA
+              </>
             )}
           </button>
         </div>
       )}
 
-      {/* Confirmation Sheets (Replaces Swal.fire) */}
+      {/* Confirmation Sheets */}
       <KgConfirmSheet
         isOpen={Boolean(pendingSubmitConfirm)}
         onClose={() => setPendingSubmitConfirm(null)}
@@ -816,15 +1118,6 @@ export default function SwapShift() {
         cancelLabel="Đóng"
         variant="primary"
       />
-
-      {/* Local Toast Stack */}
-      {toasts.length > 0 && (
-        <div className="fixed bottom-20 md:bottom-6 right-4 z-[10090] flex flex-col gap-2 pointer-events-none">
-          {toasts.map((toast) => (
-            <KgToast key={toast.id} message={toast} onClose={dismissToast} />
-          ))}
-        </div>
-      )}
     </div>
   );
 }

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { AnimatePresence, motion } from 'framer-motion';
 import {
   CheckCircle2,
   ChevronDown,
@@ -17,80 +16,23 @@ import {
   APP_RELEASE_DATE,
   APP_VERSION,
   APP_VERSION_TAG,
+  RELEASE_NOTES_EVENT,
+  RELEASE_SEEN_UPDATED_EVENT,
+  SEEN_VERSION_STORAGE_KEY,
+  type ReleaseChangeCategory,
+} from '../config/appVersion';
+import {
   CURRENT_RELEASE_CHANGES,
   RELEASE_STATS,
-  SEEN_VERSION_STORAGE_KEY,
   VERSION_HISTORY,
-  openReleaseNotesModal,
-  type ReleaseChangeCategory,
 } from '../config/releaseNotes';
 import { useAppStore } from '../store/useAppStore';
 import { KgButton } from './KgDesignSystem';
 import { useDialogA11y, useModalQueue } from '../utils/modalQueue';
+export { KgVersionBadge } from './KgVersionBadge';
 
 type MainViewTab = 'overview' | 'details' | 'history';
 type DetailCategoryFilter = 'all' | ReleaseChangeCategory;
-
-export function KgVersionBadge({
-  variant = 'surface',
-  showCodename = false,
-  className = '',
-}: {
-  variant?: 'surface' | 'rail' | 'hero' | 'compact';
-  showCodename?: boolean;
-  className?: string;
-}) {
-  const [hasUnseen, setHasUnseen] = useState(false);
-
-  useEffect(() => {
-    const syncSeen = () => {
-      try {
-        setHasUnseen(localStorage.getItem(SEEN_VERSION_STORAGE_KEY) !== '1');
-      } catch {
-        setHasUnseen(false);
-      }
-    };
-    syncSeen();
-    window.addEventListener('kg:release-seen-updated', syncSeen);
-    return () => window.removeEventListener('kg:release-seen-updated', syncSeen);
-  }, []);
-
-  const pillStyles = {
-    surface:
-      'px-2.5 py-1 rounded-full bg-[var(--kg-accent-soft)] border border-[var(--kg-accent)]/25 text-[var(--kg-accent-ink)] group-hover:brightness-95',
-    rail:
-      'px-2 py-1 rounded-full bg-white/10 border border-white/15 text-amber-200 group-hover:bg-white/15',
-    hero:
-      'px-3 py-1.5 rounded-full bg-white/12 border border-white/20 text-white group-hover:bg-white/18',
-    compact:
-      'px-2 py-0.5 rounded-full bg-[var(--kg-accent-soft)] border border-[var(--kg-accent)]/25 text-[var(--kg-accent-ink)]',
-  }[variant];
-
-  return (
-    <button
-      type="button"
-      onClick={() => openReleaseNotesModal('all')}
-      title={`Thông tin phiên bản ${APP_VERSION_TAG} — Nhấn để xem chi tiết nâng cấp`}
-      className={`group inline-flex items-center justify-center min-h-[40px] min-w-[44px] md:min-h-[36px] transition-transform active:scale-95 touch-manipulation select-none flex-shrink-0 ${className}`}
-    >
-      <span
-        className={`inline-flex items-center gap-1.5 text-[11px] font-bold tracking-tight whitespace-nowrap ${pillStyles}`}
-      >
-        <Sparkles size={12} className="flex-shrink-0" />
-        <span className="font-mono tabular-nums">{APP_VERSION_TAG}</span>
-        {showCodename && (
-          <span className="hidden sm:inline font-semibold opacity-90">• Có gì mới</span>
-        )}
-        {hasUnseen && (
-          <span className="relative flex h-2 w-2 flex-shrink-0" aria-hidden="true">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--kg-accent)] opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--kg-accent)]" />
-          </span>
-        )}
-      </span>
-    </button>
-  );
-}
 
 const CATEGORY_META: Record<
   ReleaseChangeCategory,
@@ -154,7 +96,7 @@ export default function VersionReleaseModal() {
   const handleClose = useCallback(() => {
     try {
       localStorage.setItem(SEEN_VERSION_STORAGE_KEY, '1');
-      window.dispatchEvent(new CustomEvent('kg:release-seen-updated'));
+      window.dispatchEvent(new CustomEvent(RELEASE_SEEN_UPDATED_EVENT));
     } catch {
       /* ignore */
     }
@@ -180,8 +122,8 @@ export default function VersionReleaseModal() {
       setIsManualOpen(true);
       setIsOpen(true);
     };
-    window.addEventListener('kg:open-release-notes', handleOpen);
-    return () => window.removeEventListener('kg:open-release-notes', handleOpen);
+    window.addEventListener(RELEASE_NOTES_EVENT, handleOpen);
+    return () => window.removeEventListener(RELEASE_NOTES_EVENT, handleOpen);
   }, []);
 
   // Auto-open ONCE when user enters the upgraded workspace for the first time (never interrupt active camera check-in!)
@@ -212,7 +154,7 @@ export default function VersionReleaseModal() {
     closeOnEscape: true,
   });
 
-  if (typeof document === 'undefined') return null;
+  if (typeof document === 'undefined' || !effectiveOpen) return null;
 
   const filteredDetailItems =
     detailFilter === 'all'
@@ -220,33 +162,23 @@ export default function VersionReleaseModal() {
       : CURRENT_RELEASE_CHANGES.filter((item) => item.category === detailFilter);
 
   return createPortal(
-    <AnimatePresence>
-      {effectiveOpen && (
-        <div className="fixed inset-0 z-[10070] flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6">
-          {/* Backdrop synchronized with KgBottomSheet */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            onClick={handleClose}
-            className="fixed inset-0 bg-black/55 backdrop-blur-sm pointer-events-auto"
-          />
+    <div className="fixed inset-0 z-[10070] flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6 animate-fade-in">
+      {/* Backdrop synchronized with KgBottomSheet */}
+      <div
+        onClick={handleClose}
+        className="fixed inset-0 bg-black/55 backdrop-blur-sm pointer-events-auto transition-opacity duration-150"
+      />
 
-          {/* Dialog Surface synchronized 100% with KgBottomSheet & Warm Hospitality tokens */}
-          <motion.div
-            ref={dialogRef}
-            tabIndex={-1}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="kg-release-modal-title"
-            initial={{ opacity: 0, y: 18, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 18, scale: 0.98 }}
-            transition={{ duration: 0.18, ease: [0.2, 0, 0, 1] }}
-            onClick={(e) => e.stopPropagation()}
-            className="relative z-10 w-full sm:max-w-xl max-h-[88dvh] sm:max-h-[84vh] mx-auto bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-t-2xl sm:rounded-2xl border border-[var(--kg-border)] shadow-2xl flex flex-col pointer-events-auto overflow-hidden pb-safe focus:outline-none"
-          >
+      {/* Dialog Surface synchronized 100% with KgBottomSheet & Warm Hospitality tokens */}
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="kg-release-modal-title"
+        onClick={(e) => e.stopPropagation()}
+        className="relative z-10 w-full sm:max-w-xl max-h-[88dvh] sm:max-h-[84vh] mx-auto bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-t-2xl sm:rounded-2xl border border-[var(--kg-border)] shadow-2xl flex flex-col pointer-events-auto overflow-hidden pb-safe focus:outline-none transition-all duration-150 ease-out"
+      >
             {/* Subtle Brand Top Accent Line */}
             <div className="h-[3px] w-full bg-[var(--kg-accent)] flex-shrink-0" />
 
@@ -591,10 +523,8 @@ export default function VersionReleaseModal() {
                 Đã hiểu
               </KgButton>
             </div>
-          </motion.div>
-        </div>
-      )}
-    </AnimatePresence>,
+      </div>
+    </div>,
     document.body
   );
 }

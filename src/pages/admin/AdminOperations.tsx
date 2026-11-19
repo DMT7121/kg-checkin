@@ -1,32 +1,31 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
-  Banknote,
-  BarChart3,
+  ArrowRight,
   CalendarPlus,
-  CheckCheck,
   CheckCircle2,
-  ClipboardList,
+  Inbox,
   LoaderCircle,
-  MapPinned,
   Plus,
   RefreshCw,
   Save,
-  Search,
-  ShieldAlert,
-  ShieldCheck,
   Sparkles,
   Star,
   Trash2,
   UsersRound,
-  Wrench,
-  X,
 } from 'lucide-react';
-import Swal from 'sweetalert2';
-import { KgBottomSheet, KgButton, KgInput, KgModuleHero, KgTextarea } from '../../components/KgDesignSystem';
+import {
+  KgBottomSheet,
+  KgButton,
+  KgErrorState,
+  KgInput,
+  KgModuleHero,
+  KgSkeleton,
+  KgTextarea,
+} from '../../components/KgDesignSystem';
 import { callApi } from '../../services/api';
 import { useAppStore } from '../../store/useAppStore';
-import { isAdminUser } from '../../utils/permissions';
+import { kgConfirm, kgToast } from '../../store/useFeedbackStore';
 import type {
   OperationAssignment,
   OperationEvaluation,
@@ -34,7 +33,6 @@ import type {
   OperationTaskLog,
   OperationTeam,
 } from '../../types/operations';
-import { isWorkEligible } from '../../utils/employment';
 import {
   emptyOperationsConfig,
   formatOperationDate,
@@ -42,56 +40,30 @@ import {
   operationScore,
   todayIso,
 } from '../../types/operations';
-import {
-  formatSignedVnd,
-  formatVndCurrency,
-  formatVndInput,
-  INCIDENT_STATUS_STEPS,
-  normalizeIncidentStatus,
-  parseVndAmount,
-  type HandoverLedgerRecord,
-  type IncidentRecord,
-  type IncidentStatus,
-} from '../../utils/operationsReconciliation';
+import { isWorkEligible } from '../../utils/employment';
+import { navigateToHubSubTab } from '../../utils/hubNavigation';
+import { isAdminUser } from '../../utils/permissions';
 
-type Section =
-  | 'overview'
-  | 'cash_audit'
-  | 'incidents'
-  | 'teams'
-  | 'zones'
-  | 'assignments'
-  | 'evaluations';
+type DispatchSection = 'teams' | 'assignments' | 'evaluations';
 
 const teamColors = ['#0e7490', '#7c3aed', '#059669', '#ea580c', '#db2777', '#2563eb'];
 const newId = (prefix: string) => `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 const clampScore = (value: number) => Math.min(5, Math.max(1, Number(value) || 3));
 
-function normalizeHandoverDateToIso(raw: string | undefined): string {
-  const s = String(raw || '').trim();
-  if (!s) return '';
-  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
-  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if (m) {
-    return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
-  }
-  return s;
-}
-
 export default function AdminOperations() {
-  const currentUser = useAppStore(state => state.currentUser);
+  const currentUser = useAppStore((state) => state.currentUser);
   if (!isAdminUser(currentUser)) return null;
   return <AdminOperationsContent />;
 }
 
 function AdminOperationsContent() {
-  const currentUser = useAppStore(state => state.currentUser);
-  const users = useAppStore(state => state.users);
+  const currentUser = useAppStore((state) => state.currentUser);
+  const users = useAppStore((state) => state.users);
+
   const [config, setConfig] = useState<OperationsConfig>(emptyOperationsConfig);
   const [taskLogs, setTaskLogs] = useState<OperationTaskLog[]>([]);
-  const [section, setSection] = useState<Section>('overview');
+  const [section, setSection] = useState<DispatchSection>('teams');
   const [selectedTeamId, setSelectedTeamId] = useState('');
-  const [selectedZoneId, setSelectedZoneId] = useState('');
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
   const [prevSelectedTeamId, setPrevSelectedTeamId] = useState(selectedTeamId);
   if (prevSelectedTeamId !== selectedTeamId) {
@@ -101,8 +73,6 @@ function AdminOperationsContent() {
   const [evalSearchQuery, setEvalSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
-  const [cashAuditError, setCashAuditError] = useState('');
-  const [incidentError, setIncidentError] = useState('');
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [assignmentDraft, setAssignmentDraft] = useState({
@@ -116,99 +86,31 @@ function AdminOperationsContent() {
   const [modalError, setModalError] = useState('');
   const [teamDraft, setTeamDraft] = useState({ name: '', description: '' });
 
-  // Wave 2: 2-Way Cash Audit & 4-State Incident Management Center
-  const [handovers, setHandovers] = useState<HandoverLedgerRecord[]>([]);
-  const [cashFilter, setCashFilter] = useState<'ALL' | 'ATTENTION' | 'CONFIRMED'>('ALL');
-  const [cashSearchQuery, setCashSearchQuery] = useState('');
-  const [cashDateFilter, setCashDateFilter] = useState('');
-  const [cashSort, setCashSort] = useState<'default' | 'discrepancy_desc' | 'severity'>('default');
-  const [bulkConfirmingCash, setBulkConfirmingCash] = useState(false);
-  const [managerNotes, setManagerNotes] = useState<Record<string, string>>({});
-  const [reviewingHandoverId, setReviewingHandoverId] = useState<string | null>(null);
-
-  const [incidents, setIncidents] = useState<IncidentRecord[]>([]);
-  const [incidentFilter, setIncidentFilter] = useState<'ALL' | IncidentStatus>('ALL');
-  const [incidentDrafts, setIncidentDrafts] = useState<
-    Record<string, { assignedTo?: string; resolutionNote?: string; repairCost?: string }>
-  >({});
-  const [updatingIncidentId, setUpdatingIncidentId] = useState<string | null>(null);
-
   const employees = useMemo(
-    () => users.filter(user => user.username && user.role !== 'admin' && isWorkEligible(user)),
+    () => users.filter((user) => user.username && user.role !== 'admin' && isWorkEligible(user)),
     [users],
   );
-
-  const loadHandoversAndIncidents = useCallback(async () => {
-    if (!currentUser) return;
-    setCashAuditError('');
-    setIncidentError('');
-    const [hoRes, incRes] = await Promise.allSettled([
-      callApi('GET_HANDOVERS', { role: currentUser.role, forceRefresh: true }, { background: true, cacheTtlMs: 0 }),
-      callApi(
-        'GET_INCIDENTS',
-        { role: currentUser.role, username: currentUser.username, forceRefresh: true },
-        { background: true, cacheTtlMs: 0 },
-      ),
-    ]);
-
-    if (hoRes.status === 'fulfilled' && hoRes.value?.ok) {
-      const rawHandovers = Array.isArray(hoRes.value.data?.handovers)
-        ? hoRes.value.data.handovers
-        : Array.isArray(hoRes.value.data)
-          ? hoRes.value.data
-          : [];
-      setHandovers(rawHandovers);
-    } else {
-      setCashAuditError(
-        (hoRes.status === 'fulfilled' && hoRes.value?.message) ||
-          'Không thể tải dữ liệu đối soát két từ máy chủ.',
-      );
-    }
-
-    if (incRes.status === 'fulfilled' && incRes.value?.ok) {
-      const rawIncidents = Array.isArray(incRes.value.data?.incidents)
-        ? incRes.value.data.incidents
-        : Array.isArray(incRes.value.data)
-          ? incRes.value.data
-          : [];
-      setIncidents(
-        rawIncidents.map((item: IncidentRecord) => ({
-          ...item,
-          status: normalizeIncidentStatus(item.status),
-        })),
-      );
-    } else {
-      setIncidentError(
-        (incRes.status === 'fulfilled' && incRes.value?.message) ||
-          'Không thể tải danh sách sự cố từ máy chủ.',
-      );
-    }
-  }, [currentUser]);
 
   const loadData = useCallback(async () => {
     if (!currentUser) return;
     setLoading(true);
     setLoadError('');
     try {
-      const [res] = await Promise.all([
-        callApi(
-          'GET_OPERATIONS_CONFIG',
-          {
-            role: currentUser.role,
-            username: currentUser.username,
-            forceRefresh: true,
-          },
-          { background: true, cacheTtlMs: 0, timeoutMs: 35000 },
-        ),
-        loadHandoversAndIncidents(),
-      ]);
+      const res = await callApi(
+        'GET_OPERATIONS_CONFIG',
+        {
+          role: currentUser.role,
+          username: currentUser.username,
+          forceRefresh: true,
+        },
+        { background: true, cacheTtlMs: 0, timeoutMs: 35000 },
+      );
       if (res?.ok) {
         const next = normalizeOperationsConfig(res.data?.config);
         setConfig(next);
         setTaskLogs(Array.isArray(res.data?.taskLogs) ? res.data.taskLogs : []);
-        setSelectedTeamId(current => current || next.teams?.[0]?.id || '');
-        setSelectedZoneId(current => current || next.zones?.[0]?.id || '');
-        setAssignmentDraft(current => ({
+        setSelectedTeamId((current) => current || next.teams?.[0]?.id || '');
+        setAssignmentDraft((current) => ({
           ...current,
           teamId: current.teamId || next.teams?.[0]?.id || '',
           zoneId: current.zoneId || next.zones?.[0]?.id || '',
@@ -222,154 +124,40 @@ function AdminOperationsContent() {
     } finally {
       setLoading(false);
     }
-  }, [currentUser, loadHandoversAndIncidents]);
+  }, [currentUser]);
 
   useEffect(() => {
-    const timer = window.setTimeout(loadData, 0);
+    const timer = window.setTimeout(() => {
+      void loadData();
+    }, 0);
     return () => window.clearTimeout(timer);
   }, [loadData]);
 
-  const handleManagerReviewHandover = async (
-    item: HandoverLedgerRecord,
-    decision: 'CONFIRM' | 'DISPUTE',
-  ) => {
-    if (!currentUser) return;
-    const note = (managerNotes[item.id] ?? item.managerNote ?? '').trim();
-    if (decision === 'DISPUTE' && note.length < 4) {
-      Swal.fire('Cần ghi chú yêu cầu', 'Vui lòng nhập nội dung cần thu ngân giải trình thêm.', 'warning');
-      return;
-    }
-
-    setReviewingHandoverId(item.id);
-    try {
-      const res = await callApi('REVIEW_HANDOVER', {
-        role: currentUser.role,
-        actorUsername: currentUser.username,
-        actorFullname: currentUser.fullname,
-        handoverId: item.id,
-        decision,
-        managerNote: note,
-      });
-      if (!res) return;
-      if (res.ok) {
-        const nextStatus = decision === 'DISPUTE' ? 'Disputed' : 'ManagerConfirmed';
-        setHandovers(prev =>
-          prev.map(h =>
-            h.id === item.id
-              ? {
-                  ...h,
-                  reconcileStatus: nextStatus,
-                  managerBy: currentUser.fullname || currentUser.username,
-                  managerNote: note,
-                }
-              : h,
-          ),
-        );
-        Swal.fire({
-          toast: true,
-          position: 'top-end',
-          icon: 'success',
-          title: decision === 'DISPUTE' ? 'Đã gửi yêu cầu giải trình két' : 'Đã duyệt chốt đối soát két',
-          showConfirmButton: false,
-          timer: 2200,
-        });
-      } else {
-        Swal.fire('Không thể cập nhật', res?.message || 'Vui lòng thử lại.', 'error');
-      }
-    } finally {
-      setReviewingHandoverId(null);
-    }
-  };
-
-  const handleUpdateIncidentState = async (
-    inc: IncidentRecord,
-    targetStatus?: IncidentStatus,
-  ) => {
-    if (!currentUser) return;
-    const draft = incidentDrafts[inc.id] || {};
-    const nextStatus = targetStatus || inc.status;
-    const assignedTo = draft.assignedTo !== undefined ? draft.assignedTo.trim() : inc.assignedTo || '';
-    const resolutionNote =
-      draft.resolutionNote !== undefined ? draft.resolutionNote.trim() : inc.resolutionNote || '';
-    const repairCost =
-      draft.repairCost !== undefined
-        ? Math.max(0, parseVndAmount(draft.repairCost))
-        : Math.max(0, inc.repairCost || 0);
-
-    setUpdatingIncidentId(inc.id);
-    try {
-      const res = await callApi('UPDATE_INCIDENT', {
-        role: currentUser.role,
-        actorUsername: currentUser.username,
-        actorFullname: currentUser.fullname,
-        incidentId: inc.id,
-        status: nextStatus,
-        assignedTo,
-        resolutionNote,
-        repairCost,
-      });
-
-      if (!res) return;
-      if (res.ok) {
-        setIncidents(prev =>
-          prev.map(item =>
-            item.id === inc.id
-              ? {
-                  ...item,
-                  status: nextStatus,
-                  assignedTo,
-                  resolutionNote,
-                  repairCost,
-                }
-              : item,
-          ),
-        );
-        Swal.fire({
-          toast: true,
-          position: 'top-end',
-          icon: 'success',
-          title: 'Đã cập nhật tiến độ xử lý sự cố',
-          showConfirmButton: false,
-          timer: 2000,
-        });
-      } else {
-        Swal.fire('Không thể cập nhật', res?.message || 'Vui lòng thử lại.', 'error');
-      }
-    } finally {
-      setUpdatingIncidentId(null);
-    }
-  };
-
-
-
   const patchConfig = (updater: (current: OperationsConfig) => OperationsConfig) => {
-    setConfig(current => updater(current));
+    setConfig((current) => updater(current));
     setDirty(true);
   };
 
   const saveConfig = async () => {
     if (!currentUser) return;
     setSaving(true);
-    const res = await callApi('UPDATE_OPERATIONS_CONFIG', {
-      role: currentUser.role,
-      username: currentUser.username,
-      config,
-    });
-    setSaving(false);
-    if (!res) return;
-    if (!res.ok) {
-      Swal.fire('Không thể lưu', res.message || 'Vui lòng thử lại.', 'error');
-      return;
+    try {
+      const res = await callApi('UPDATE_OPERATIONS_CONFIG', {
+        role: currentUser.role,
+        username: currentUser.username,
+        config,
+      });
+      if (!res) return;
+      if (!res.ok) {
+        kgToast(res.message || 'Vui lòng thử lại.', 'error', 'Không thể lưu');
+        return;
+      }
+      setConfig(res.data.config);
+      setDirty(false);
+      kgToast('Cấu hình vận hành đã được cập nhật lên Spreadsheet.', 'success', 'Đã lưu phân công');
+    } finally {
+      setSaving(false);
     }
-    setConfig(res.data.config);
-    setDirty(false);
-    Swal.fire({
-      icon: 'success',
-      title: 'Đã lưu phân công',
-      text: 'Cấu hình vận hành đã được cập nhật lên Spreadsheet.',
-      timer: 1700,
-      showConfirmButton: false,
-    });
   };
 
   const createTeam = () => {
@@ -394,25 +182,28 @@ function AdminOperationsContent() {
       leaderUsername: '',
       memberUsernames: [],
     };
-    patchConfig(current => ({ ...current, teams: [...current.teams, team] }));
+    patchConfig((current) => ({ ...current, teams: [...current.teams, team] }));
     setSelectedTeamId(team.id);
-    setAssignmentDraft(current => ({ ...current, teamId: current.teamId || team.id }));
+    setAssignmentDraft((current) => ({ ...current, teamId: current.teamId || team.id }));
     setSection('teams');
     setIsTeamModalOpen(false);
   };
 
   const toggleMember = (teamId: string, username: string) => {
-    patchConfig(current => ({
+    patchConfig((current) => ({
       ...current,
-      teams: current.teams.map(team => {
+      teams: current.teams.map((team) => {
         if (team.id !== teamId) {
-          return { ...team, memberUsernames: team.memberUsernames.filter(value => value !== username) };
+          return {
+            ...team,
+            memberUsernames: team.memberUsernames.filter((value) => value !== username),
+          };
         }
         const exists = team.memberUsernames.includes(username);
         return {
           ...team,
           memberUsernames: exists
-            ? team.memberUsernames.filter(value => value !== username)
+            ? team.memberUsernames.filter((value) => value !== username)
             : [...team.memberUsernames, username],
         };
       }),
@@ -420,54 +211,54 @@ function AdminOperationsContent() {
   };
 
   const setTeamLeader = (teamId: string, username: string) => {
-    patchConfig(current => ({
+    patchConfig((current) => ({
       ...current,
-      teams: current.teams.map(team => (
+      teams: current.teams.map((team) =>
         team.id === teamId
           ? {
               ...team,
               leaderUsername: username,
-              memberUsernames: username && !team.memberUsernames.includes(username)
-                ? [...team.memberUsernames, username]
-                : team.memberUsernames,
+              memberUsernames:
+                username && !team.memberUsernames.includes(username)
+                  ? [...team.memberUsernames, username]
+                  : team.memberUsernames,
             }
-          : team
-      )),
+          : team,
+      ),
     }));
   };
 
   const removeTeam = async (team: OperationTeam) => {
-    const result = await Swal.fire({
-      icon: 'warning',
+    const confirmed = await kgConfirm({
       title: `Xóa ${team.name}?`,
-      text: 'Các phân công liên quan tới nhóm này cũng sẽ bị xóa.',
-      showCancelButton: true,
-      confirmButtonText: 'Xóa nhóm',
-      cancelButtonText: 'Hủy',
-      confirmButtonColor: '#dc2626',
+      message: 'Các phân công liên quan tới nhóm này cũng sẽ bị xóa.',
+      confirmLabel: 'Xóa nhóm',
+      cancelLabel: 'Hủy',
+      tone: 'danger',
     });
-    if (!result.isConfirmed) return;
-    patchConfig(current => ({
+    if (!confirmed) return;
+    patchConfig((current) => ({
       ...current,
-      teams: current.teams.filter(item => item.id !== team.id),
-      assignments: current.assignments.filter(item => item.teamId !== team.id),
+      teams: current.teams.filter((item) => item.id !== team.id),
+      assignments: current.assignments.filter((item) => item.teamId !== team.id),
     }));
-    setSelectedTeamId(config.teams.find(item => item.id !== team.id)?.id || '');
+    setSelectedTeamId(config.teams.find((item) => item.id !== team.id)?.id || '');
   };
 
   const addAssignment = () => {
     if (!assignmentDraft.date || !assignmentDraft.teamId || !assignmentDraft.zoneId) {
-      Swal.fire('Thiếu thông tin', 'Vui lòng chọn ngày, nhóm trực và khu trực.', 'warning');
+      kgToast('Vui lòng chọn ngày, nhóm trực và khu trực.', 'warning', 'Thiếu thông tin');
       return;
     }
-    const duplicate = config.assignments.some(item => (
-      item.date === assignmentDraft.date
-      && item.teamId === assignmentDraft.teamId
-      && item.zoneId === assignmentDraft.zoneId
-      && item.shift === assignmentDraft.shift
-    ));
+    const duplicate = config.assignments.some(
+      (item) =>
+        item.date === assignmentDraft.date &&
+        item.teamId === assignmentDraft.teamId &&
+        item.zoneId === assignmentDraft.zoneId &&
+        item.shift === assignmentDraft.shift,
+    );
     if (duplicate) {
-      Swal.fire('Phân công đã tồn tại', 'Nhóm này đã được xếp vào khu trực trong cùng ca.', 'info');
+      kgToast('Nhóm này đã được xếp vào khu trực trong cùng ca.', 'info', 'Phân công đã tồn tại');
       return;
     }
     const assignment: OperationAssignment = {
@@ -475,13 +266,17 @@ function AdminOperationsContent() {
       ...assignmentDraft,
       note: assignmentDraft.note.trim(),
     };
-    patchConfig(current => ({ ...current, assignments: [...current.assignments, assignment] }));
-    setAssignmentDraft(current => ({ ...current, note: '' }));
+    patchConfig((current) => ({ ...current, assignments: [...current.assignments, assignment] }));
+    setAssignmentDraft((current) => ({ ...current, note: '' }));
   };
 
-  const updateEvaluation = (username: string, field: keyof OperationEvaluation, value: number | string) => {
-    patchConfig(current => {
-      const existing = current.evaluations.find(item => item.username === username);
+  const updateEvaluation = (
+    username: string,
+    field: keyof OperationEvaluation,
+    value: number | string,
+  ) => {
+    patchConfig((current) => {
+      const existing = current.evaluations.find((item) => item.username === username);
       const base: OperationEvaluation = existing || {
         username,
         service: 3,
@@ -500,7 +295,7 @@ function AdminOperationsContent() {
       return {
         ...current,
         evaluations: [
-          ...current.evaluations.filter(item => item.username !== username),
+          ...current.evaluations.filter((item) => item.username !== username),
           next,
         ],
       };
@@ -509,161 +304,149 @@ function AdminOperationsContent() {
 
   const autoBalanceTeams = async () => {
     if (config.teams.length < 2 || !employees.length) {
-      Swal.fire('Chưa đủ dữ liệu', 'Cần ít nhất 2 nhóm và danh sách nhân viên.', 'info');
+      kgToast('Cần ít nhất 2 nhóm và danh sách nhân viên.', 'info', 'Chưa đủ dữ liệu');
       return;
     }
-    const result = await Swal.fire({
-      icon: 'question',
+    const confirmed = await kgConfirm({
       title: 'Tự động cân bằng đội hình?',
-      text: 'Hệ thống sẽ dùng điểm năng lực, quy mô nhóm và giữ nguyên nhóm trưởng.',
-      showCancelButton: true,
-      confirmButtonText: 'Cân bằng ngay',
-      cancelButtonText: 'Hủy',
-      confirmButtonColor: '#0e7490',
+      message: 'Hệ thống sẽ dùng điểm năng lực, quy mô nhóm và giữ nguyên nhóm trưởng.',
+      confirmLabel: 'Cân bằng ngay',
+      cancelLabel: 'Hủy',
+      tone: 'primary',
     });
-    if (!result.isConfirmed) return;
+    if (!confirmed) return;
 
-    const leaders = new Set(config.teams.map(team => team.leaderUsername).filter(Boolean));
+    const leaders = new Set(config.teams.map((team) => team.leaderUsername).filter(Boolean));
     const ranked = employees
-      .filter(employee => !leaders.has(employee.username))
+      .filter((employee) => !leaders.has(employee.username))
       .sort((a, b) => {
-        const evalA = config.evaluations.find(item => item.username === a.username);
-        const evalB = config.evaluations.find(item => item.username === b.username);
+        const evalA = config.evaluations.find((item) => item.username === a.username);
+        const evalB = config.evaluations.find((item) => item.username === b.username);
         return operationScore(evalB) - operationScore(evalA);
       });
-    const buckets = config.teams.map(team => {
-      const leader = employees.find(employee => employee.username === team.leaderUsername);
-      const leaderEvaluation = config.evaluations.find(item => item.username === team.leaderUsername);
+    const buckets = config.teams.map((team) => {
+      const leader = employees.find((employee) => employee.username === team.leaderUsername);
+      const leaderEvaluation = config.evaluations.find(
+        (item) => item.username === team.leaderUsername,
+      );
       return {
         team,
         members: leader ? [leader.username] : [],
         total: leader ? operationScore(leaderEvaluation) : 0,
       };
     });
-    ranked.forEach(employee => {
-      const evaluation = config.evaluations.find(item => item.username === employee.username);
-      const target = [...buckets].sort((a, b) => (
-        a.members.length - b.members.length || a.total - b.total
-      ))[0];
+    ranked.forEach((employee) => {
+      const evaluation = config.evaluations.find((item) => item.username === employee.username);
+      const target = [...buckets].sort(
+        (a, b) => a.members.length - b.members.length || a.total - b.total,
+      )[0];
       target.members.push(employee.username);
       target.total += operationScore(evaluation);
     });
-    patchConfig(current => ({
+    patchConfig((current) => ({
       ...current,
-      teams: current.teams.map(team => ({
+      teams: current.teams.map((team) => ({
         ...team,
-        memberUsernames: buckets.find(bucket => bucket.team.id === team.id)?.members || [],
+        memberUsernames: buckets.find((bucket) => bucket.team.id === team.id)?.members || [],
       })),
     }));
     setSection('teams');
-    Swal.fire('Đã cân bằng tạm thời', 'Hãy kiểm tra đội hình rồi nhấn “Lưu cấu hình”.', 'success');
+    kgToast('Hãy kiểm tra đội hình rồi nhấn “Lưu cấu hình”.', 'success', 'Đã cân bằng tạm thời');
   };
 
-  const selectedTeam = config.teams.find(team => team.id === selectedTeamId);
-  const selectedZone = config.zones.find(zone => zone.id === selectedZoneId);
-  const zoneTasks = config.tasks.filter(task => task.zoneId === selectedZoneId);
+  const selectedTeam = config.teams.find((team) => team.id === selectedTeamId);
   const upcomingAssignments = useMemo(() => {
     const today = todayIso();
     return [...config.assignments]
       .sort((a, b) => a.date.localeCompare(b.date))
-      .filter(item => item.date >= today);
+      .filter((item) => item.date >= today);
   }, [config.assignments]);
 
   const assignedOnOtherTeams = useMemo(() => {
     const set = new Set<string>();
-    config.teams.forEach(team => {
+    config.teams.forEach((team) => {
       if (team.id !== selectedTeamId) {
-        team.memberUsernames.forEach(username => set.add(username));
+        team.memberUsernames.forEach((username) => set.add(username));
       }
     });
     return set;
   }, [config.teams, selectedTeamId]);
 
-  const filteredCurrentTeamEmployees = useMemo(() => {
-    return employees.filter(employee => {
-      const isCurrentTeam = selectedTeam?.memberUsernames.includes(employee.username);
-      if (!isCurrentTeam) return false;
-      
-      if (memberSearchQuery.trim()) {
-        const query = memberSearchQuery.toLowerCase().trim();
-        const nameMatch = employee.fullname.toLowerCase().includes(query);
-        const posMatch = (employee.position || '').toLowerCase().includes(query);
-        const userMatch = employee.username.toLowerCase().includes(query);
-        return nameMatch || posMatch || userMatch;
-      }
-      return true;
-    });
-  }, [employees, selectedTeam?.memberUsernames, memberSearchQuery]);
+  const filterByMemberSearch = useCallback(
+    (employee: (typeof employees)[number]) => {
+      if (!memberSearchQuery.trim()) return true;
+      const query = memberSearchQuery.toLowerCase().trim();
+      return (
+        employee.fullname.toLowerCase().includes(query) ||
+        (employee.position || '').toLowerCase().includes(query) ||
+        employee.username.toLowerCase().includes(query)
+      );
+    },
+    [memberSearchQuery],
+  );
 
-  const filteredUnassignedEmployees = useMemo(() => {
-    return employees.filter(employee => {
-      const isCurrentTeam = selectedTeam?.memberUsernames.includes(employee.username);
-      const inOtherTeam = assignedOnOtherTeams.has(employee.username);
-      if (isCurrentTeam || inOtherTeam) return false;
-      
-      if (memberSearchQuery.trim()) {
-        const query = memberSearchQuery.toLowerCase().trim();
-        const nameMatch = employee.fullname.toLowerCase().includes(query);
-        const posMatch = (employee.position || '').toLowerCase().includes(query);
-        const userMatch = employee.username.toLowerCase().includes(query);
-        return nameMatch || posMatch || userMatch;
-      }
-      return true;
-    });
-  }, [employees, selectedTeam?.memberUsernames, assignedOnOtherTeams, memberSearchQuery]);
+  const filteredCurrentTeamEmployees = useMemo(
+    () =>
+      employees.filter(
+        (employee) =>
+          selectedTeam?.memberUsernames.includes(employee.username) &&
+          filterByMemberSearch(employee),
+      ),
+    [employees, selectedTeam?.memberUsernames, filterByMemberSearch],
+  );
 
-  const filteredOtherTeamEmployees = useMemo(() => {
-    return employees.filter(employee => {
-      const inOtherTeam = assignedOnOtherTeams.has(employee.username);
-      if (!inOtherTeam) return false;
-      
-      if (memberSearchQuery.trim()) {
-        const query = memberSearchQuery.toLowerCase().trim();
-        const nameMatch = employee.fullname.toLowerCase().includes(query);
-        const posMatch = (employee.position || '').toLowerCase().includes(query);
-        const userMatch = employee.username.toLowerCase().includes(query);
-        return nameMatch || posMatch || userMatch;
-      }
-      return true;
-    });
-  }, [employees, assignedOnOtherTeams, memberSearchQuery]);
+  const filteredUnassignedEmployees = useMemo(
+    () =>
+      employees.filter(
+        (employee) =>
+          !selectedTeam?.memberUsernames.includes(employee.username) &&
+          !assignedOnOtherTeams.has(employee.username) &&
+          filterByMemberSearch(employee),
+      ),
+    [employees, selectedTeam?.memberUsernames, assignedOnOtherTeams, filterByMemberSearch],
+  );
+
+  const filteredOtherTeamEmployees = useMemo(
+    () =>
+      employees.filter(
+        (employee) => assignedOnOtherTeams.has(employee.username) && filterByMemberSearch(employee),
+      ),
+    [employees, assignedOnOtherTeams, filterByMemberSearch],
+  );
 
   const filteredEvalEmployees = useMemo(() => {
     if (!evalSearchQuery.trim()) return employees;
     const query = evalSearchQuery.toLowerCase().trim();
-    return employees.filter(employee => {
-      const nameMatch = employee.fullname.toLowerCase().includes(query);
-      const posMatch = (employee.position || '').toLowerCase().includes(query);
-      const userMatch = employee.username.toLowerCase().includes(query);
-      return nameMatch || posMatch || userMatch;
-    });
+    return employees.filter(
+      (employee) =>
+        employee.fullname.toLowerCase().includes(query) ||
+        (employee.position || '').toLowerCase().includes(query) ||
+        employee.username.toLowerCase().includes(query),
+    );
   }, [employees, evalSearchQuery]);
 
-  const getSuggestedZoneId = useCallback((teamId: string, dateStr: string) => {
-    if (!teamId || !dateStr) return '';
-    const prevAssignments = config.assignments
-      .filter(a => a.teamId === teamId && a.date < dateStr)
-      .sort((a, b) => b.date.localeCompare(a.date));
-    
-    if (prevAssignments.length === 0) {
-      return 'A';
-    }
-    
-    const lastZoneId = prevAssignments[0].zoneId;
-    const rotation = ['A', 'B', 'C', 'D&E'];
-    const lastIdx = rotation.indexOf(lastZoneId);
-    if (lastIdx === -1) return 'A';
-    
-    const nextIdx = (lastIdx + 1) % rotation.length;
-    return rotation[nextIdx];
-  }, [config.assignments]);
+  const getSuggestedZoneId = useCallback(
+    (teamId: string, dateStr: string) => {
+      if (!teamId || !dateStr) return '';
+      const prevAssignments = config.assignments
+        .filter((a) => a.teamId === teamId && a.date < dateStr)
+        .sort((a, b) => b.date.localeCompare(a.date));
+      if (prevAssignments.length === 0) return 'A';
+      const lastZoneId = prevAssignments[0].zoneId;
+      const rotation = ['A', 'B', 'C', 'D&E'];
+      const lastIdx = rotation.indexOf(lastZoneId);
+      if (lastIdx === -1) return 'A';
+      return rotation[(lastIdx + 1) % rotation.length];
+    },
+    [config.assignments],
+  );
 
   useEffect(() => {
     if (assignmentDraft.teamId && assignmentDraft.date) {
       const suggested = getSuggestedZoneId(assignmentDraft.teamId, assignmentDraft.date);
       if (suggested && suggested !== assignmentDraft.zoneId) {
         const timer = setTimeout(() => {
-          setAssignmentDraft(current => ({ ...current, zoneId: suggested }));
+          setAssignmentDraft((current) => ({ ...current, zoneId: suggested }));
         }, 0);
         return () => clearTimeout(timer);
       }
@@ -672,19 +455,18 @@ function AdminOperationsContent() {
 
   const autoRotateAllAssignments = () => {
     if (!assignmentDraft.date) {
-      Swal.fire('Chú ý', 'Vui lòng chọn ngày trước.', 'warning');
+      kgToast('Vui lòng chọn ngày trước.', 'warning', 'Chú ý');
       return;
     }
-    
     const newAssignments: OperationAssignment[] = [];
-    config.teams.forEach(team => {
-      const isAssigned = config.assignments.some(a => (
-        a.date === assignmentDraft.date
-        && a.teamId === team.id
-        && a.shift === assignmentDraft.shift
-      ));
+    config.teams.forEach((team) => {
+      const isAssigned = config.assignments.some(
+        (a) =>
+          a.date === assignmentDraft.date &&
+          a.teamId === team.id &&
+          a.shift === assignmentDraft.shift,
+      );
       if (isAssigned) return;
-      
       const suggestedZone = getSuggestedZoneId(team.id, assignmentDraft.date);
       if (suggestedZone) {
         newAssignments.push({
@@ -693,232 +475,121 @@ function AdminOperationsContent() {
           teamId: team.id,
           zoneId: suggestedZone,
           shift: assignmentDraft.shift,
-          note: 'Xoay ca tự động'
+          note: 'Xoay ca tự động',
         });
       }
     });
-    
     if (newAssignments.length === 0) {
-      Swal.fire('Thông báo', 'Tất cả các nhóm đã được phân công trong ca này.', 'info');
+      kgToast('Tất cả các nhóm đã được phân công trong ca này.', 'info', 'Thông báo');
       return;
     }
-    
-    patchConfig(current => ({
+    patchConfig((current) => ({
       ...current,
-      assignments: [...current.assignments, ...newAssignments]
+      assignments: [...current.assignments, ...newAssignments],
     }));
-    
-    Swal.fire('Thành công', `Đã tự động xếp khu trực cho ${newAssignments.length} nhóm theo quy tắc xoay vòng ca.`, 'success');
+    kgToast(
+      `Đã tự động xếp khu trực cho ${newAssignments.length} nhóm theo quy tắc xoay vòng ca.`,
+      'success',
+      'Thành công',
+    );
   };
 
-  const teamMetrics = useMemo(() => {
-    return config.teams.map(team => {
-      const scores = team.memberUsernames.map(username => (
-        operationScore(config.evaluations.find(item => item.username === username))
-      ));
-      return {
-        team,
-        size: team.memberUsernames.length,
-        average: scores.length ? scores.reduce((sum, score) => sum + score, 0) / scores.length : 0,
-      };
-    });
-  }, [config.teams, config.evaluations]);
+  const teamMetrics = useMemo(
+    () =>
+      config.teams.map((team) => {
+        const scores = team.memberUsernames.map((username) =>
+          operationScore(config.evaluations.find((item) => item.username === username)),
+        );
+        return {
+          team,
+          size: team.memberUsernames.length,
+          average: scores.length ? scores.reduce((sum, score) => sum + score, 0) / scores.length : 0,
+        };
+      }),
+    [config.teams, config.evaluations],
+  );
 
   const scoreGap = useMemo(() => {
-    const activeAverages = teamMetrics.filter(item => item.size).map(item => item.average);
-    return activeAverages.length
-      ? Math.max(...activeAverages) - Math.min(...activeAverages)
-      : 0;
+    const activeAverages = teamMetrics.filter((item) => item.size).map((item) => item.average);
+    return activeAverages.length ? Math.max(...activeAverages) - Math.min(...activeAverages) : 0;
   }, [teamMetrics]);
 
-  const cashAttentionCount = handovers.filter(
-    h =>
-      h.reconcileStatus !== 'ManagerConfirmed' &&
-      ((h.discrepancy ?? 0) !== 0 || h.ackStatus === 'Disputed' || h.reconcileStatus === 'Disputed'),
-  ).length;
-  const cashConfirmedCount = handovers.filter(h => h.reconcileStatus === 'ManagerConfirmed').length;
-  const cashMatchedCount = handovers.filter(
-    h => (h.discrepancy ?? 0) === 0 && h.ackStatus !== 'Disputed',
-  ).length;
-
-  const matchedUnconfirmedHandovers = useMemo(
-    () =>
-      handovers.filter(
-        h =>
-          h.reconcileStatus !== 'ManagerConfirmed' &&
-          (h.discrepancy ?? 0) === 0 &&
-          h.ackStatus !== 'Disputed' &&
-          h.reconcileStatus !== 'Disputed',
-      ),
-    [handovers],
-  );
-
-  const handleBulkConfirmMatchedHandovers = async () => {
-    if (!currentUser || matchedUnconfirmedHandovers.length === 0) return;
-    const confirm = await Swal.fire({
-      title: 'Duyệt tất cả ca khớp két?',
-      text: `Xác nhận duyệt ${matchedUnconfirmedHandovers.length} ca bàn giao không có chênh lệch và chưa bị khiếu nại?`,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonColor: '#059669',
-      confirmButtonText: `Duyệt ${matchedUnconfirmedHandovers.length} ca`,
-      cancelButtonText: 'Hủy',
-    });
-    if (!confirm.isConfirmed) return;
-
-    setBulkConfirmingCash(true);
-    try {
-      const confirmedIds = new Set<string>();
-      for (const item of matchedUnconfirmedHandovers) {
-        const note = (managerNotes[item.id] ?? item.managerNote ?? '').trim();
-        const res = await callApi(
-          'REVIEW_HANDOVER',
-          {
-            role: currentUser.role,
-            actorUsername: currentUser.username,
-            actorFullname: currentUser.fullname,
-            handoverId: item.id,
-            decision: 'CONFIRM',
-            managerNote: note,
-          },
-          { background: true },
-        );
-        if (res?.ok) {
-          confirmedIds.add(item.id);
-        }
-      }
-      if (confirmedIds.size > 0) {
-        setHandovers(prev =>
-          prev.map(h =>
-            confirmedIds.has(h.id)
-              ? {
-                  ...h,
-                  reconcileStatus: 'ManagerConfirmed',
-                  managerBy: currentUser.fullname || currentUser.username,
-                }
-              : h,
-          ),
-        );
-      }
-      Swal.fire({
-        toast: true,
-        position: 'top-end',
-        icon: confirmedIds.size === matchedUnconfirmedHandovers.length ? 'success' : 'warning',
-        title: `Đã duyệt ${confirmedIds.size}/${matchedUnconfirmedHandovers.length} ca khớp két`,
-        showConfirmButton: false,
-        timer: 2400,
-      });
-    } finally {
-      setBulkConfirmingCash(false);
-    }
-  };
-
-  const openIncidentCount = incidents.filter(
-    i => i.status === 'Open' || i.status === 'Investigating',
-  ).length;
-  const totalIncidentCost = incidents.reduce(
-    (sum, item) => sum + Math.max(0, Math.round(item.repairCost || 0)),
-    0,
-  );
-
-  const filteredHandovers = useMemo(() => {
-    const q = cashSearchQuery.trim().toLowerCase();
-    const list = handovers.filter(h => {
-      if (cashFilter === 'ATTENTION') {
-        const needsAttention =
-          h.reconcileStatus !== 'ManagerConfirmed' &&
-          ((h.discrepancy ?? 0) !== 0 || h.ackStatus === 'Disputed' || h.reconcileStatus === 'Disputed');
-        if (!needsAttention) return false;
-      } else if (cashFilter === 'CONFIRMED' && h.reconcileStatus !== 'ManagerConfirmed') {
-        return false;
-      }
-
-      if (cashDateFilter && normalizeHandoverDateToIso(h.date) !== cashDateFilter) {
-        return false;
-      }
-
-      if (q) {
-        const hay = `${h.fullname || ''} ${h.username || ''} ${h.shift || ''} ${h.note || ''} ${h.ackBy || ''} ${h.date || ''}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
-    });
-
-    if (cashSort === 'default') return list;
-
-    return [...list].sort((a, b) => {
-      if (cashSort === 'discrepancy_desc') {
-        return Math.abs(b.discrepancy ?? 0) - Math.abs(a.discrepancy ?? 0);
-      }
-      const rank = (item: HandoverLedgerRecord) => {
-        if (item.ackStatus === 'Disputed' || item.reconcileStatus === 'Disputed') return 0;
-        if (item.reconcileStatus !== 'ManagerConfirmed' && (item.discrepancy ?? 0) !== 0) return 1;
-        if (item.reconcileStatus !== 'ManagerConfirmed') return 2;
-        return 3;
-      };
-      const rankDiff = rank(a) - rank(b);
-      if (rankDiff !== 0) return rankDiff;
-      return Math.abs(b.discrepancy ?? 0) - Math.abs(a.discrepancy ?? 0);
-    });
-  }, [handovers, cashFilter, cashDateFilter, cashSearchQuery, cashSort]);
-
-  const filteredIncidents = incidents.filter(i => {
-    if (incidentFilter === 'ALL') return true;
-    return i.status === incidentFilter;
-  });
-
-  const navItems: { id: Section; label: string; icon: typeof BarChart3; badge?: number }[] = [
-    { id: 'overview', label: 'Tổng quan', icon: BarChart3 },
-    { id: 'cash_audit', label: 'Đối soát Két', icon: Banknote, badge: cashAttentionCount },
-    { id: 'incidents', label: 'Sự cố 4 bước', icon: ShieldAlert, badge: openIncidentCount },
-    { id: 'teams', label: 'Nhóm trực', icon: UsersRound },
-    { id: 'zones', label: 'Khu & việc', icon: MapPinned },
-    { id: 'assignments', label: 'Phân công', icon: CalendarPlus },
-    { id: 'evaluations', label: 'Năng lực', icon: Star },
+  const navItems: Array<{ id: DispatchSection; label: string; icon: typeof UsersRound; badge?: number }> = [
+    { id: 'teams', label: 'Nhóm trực', icon: UsersRound, badge: config.teams.length },
+    { id: 'assignments', label: 'Phân công khu', icon: CalendarPlus, badge: upcomingAssignments.length },
+    { id: 'evaluations', label: 'Năng lực NV', icon: Star },
   ];
 
   return (
-    <div className="p-4 space-y-4 animate-slide-up pb-36 md:pb-24">
+    <div className="p-4 space-y-4 animate-fade-in pb-36 md:pb-24 max-w-6xl mx-auto">
       <KgModuleHero
         moduleId="admin-operations"
-        title="Điều Phối Vận Hành, Két & Sự Cố"
-        description="Đối soát két thu ngân 2 chiều, điều phối xử lý sự cố 4 trạng thái và cân bằng đội hình nhà hàng."
-        eyebrow="Quản trị F&B"
-        tipTitle="Hướng dẫn Quản trị Vận hành Nhà hàng"
-        tips={[
-          'Đối soát Két: Rà soát các ca có chênh lệch POS hoặc thu ngân ca sau báo lệch, ghi kết luận và bấm Duyệt chốt.',
-          'Sự cố 4 bước: Phân công người xử lý / thợ sửa chữa và chốt chi phí thực tế cho từng sự cố.',
-          'Nhóm & Phân công: Chia đội ngũ nhân viên thành các nhóm (Nhóm A, B, C) để xoay vòng công bằng giữa các khu.',
-        ]}
+        title="Điều Phối Đội Hình & Khu Trực"
+        description="Chia nhóm trực, xoay vòng khu vực A/B/C/D&E tự động và đánh giá năng lực cân bằng ca."
+        eyebrow="Điều hành"
+        actions={
+          <button
+            type="button"
+            onClick={() => void autoBalanceTeams()}
+            className="min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs font-extrabold inline-flex items-center gap-1.5 shadow-xs"
+          >
+            <Sparkles size={14} /> Tự cân bằng đội
+          </button>
+        }
       />
 
-      <div className="soft3d-card rounded-2xl p-2">
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5">
-          {navItems.map((item, idx) => {
+      {/* Compact 1-Tap Banner to AdminApprovalInbox for Cash Audit & Incidents */}
+      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-xs">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-9 h-9 rounded-xl bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] flex items-center justify-center shrink-0">
+            <Inbox size={17} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs sm:text-sm font-extrabold text-[var(--kg-text)] truncate">
+              Đối soát Két 2 chiều &amp; Trung tâm Sự cố đã chuyển sang Hộp duyệt
+            </p>
+            <p className="text-[11px] text-[var(--kg-text-muted)] truncate">
+              Duyệt chốt két, duyệt ca khớp 1 chạm và cập nhật sự cố 4 bước ngay tại Hộp duyệt.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => navigateToHubSubTab('admin_ops', 'inbox')}
+          className="min-h-[44px] sm:min-h-[36px] px-3.5 py-2 rounded-xl bg-[var(--kg-primary-soft)] hover:opacity-90 text-[var(--kg-primary-ink)] text-xs font-extrabold inline-flex items-center justify-center gap-1.5 shrink-0"
+        >
+          <span>Mở Hộp duyệt</span>
+          <ArrowRight size={14} />
+        </button>
+      </div>
+
+      {/* Clean 3-Tab Dispatch Switcher */}
+      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-1.5 shadow-xs">
+        <div className="grid grid-cols-3 gap-1.5" role="tablist" aria-label="Phân mục điều phối">
+          {navItems.map((item) => {
             const Icon = item.icon;
             const active = section === item.id;
-            const isLastOdd = idx === navItems.length - 1;
             return (
               <button
-                type="button"
                 key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
                 onClick={() => setSection(item.id)}
-                className={`relative flex min-h-[38px] min-w-0 flex-row items-center justify-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-extrabold transition ${
-                  isLastOdd ? 'col-span-2 sm:col-span-2 lg:col-span-1' : ''
-                } ${
+                className={`min-h-[44px] sm:min-h-[38px] flex items-center justify-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-extrabold transition-colors ${
                   active
-                    ? 'bg-cyan-700 text-white shadow-md'
-                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    ? 'bg-[var(--kg-primary)] text-white shadow-xs'
+                    : 'text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)] hover:text-[var(--kg-text)]'
                 }`}
               >
-                <Icon size={15} className="flex-shrink-0" />
+                <Icon size={15} className="shrink-0" />
                 <span className="truncate">{item.label}</span>
                 {typeof item.badge === 'number' && item.badge > 0 && (
                   <span
-                    className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono tabular-nums font-black flex-shrink-0 ${
+                    className={`hidden sm:inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-mono tabular-nums font-black ${
                       active
-                        ? 'bg-white text-cyan-800'
-                        : 'bg-rose-500/15 text-rose-600 dark:text-rose-300'
+                        ? 'bg-white/20 text-white'
+                        : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)]'
                     }`}
                   >
                     {item.badge}
@@ -931,1088 +602,445 @@ function AdminOperationsContent() {
       </div>
 
       {loadError && (
-        <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-rose-700 dark:text-rose-300">
-          <span className="flex items-center gap-2">
-            <AlertTriangle size={15} className="flex-shrink-0" />
-            {loadError}
-          </span>
-          <button
-            type="button"
-            onClick={loadData}
-            disabled={loading}
-            className="min-h-[36px] px-3.5 py-1.5 rounded-xl bg-[var(--kg-primary)] text-white text-xs font-bold inline-flex items-center gap-1.5"
-          >
-            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Thử lại
-          </button>
-        </div>
+        <KgErrorState
+          title="Không thể tải cấu hình điều phối"
+          description={loadError}
+          onRetry={() => void loadData()}
+        />
       )}
 
       {loading ? (
-        <div className="soft3d-card flex items-center justify-center gap-2 rounded-2xl py-16 text-sm font-bold text-slate-500">
-          <LoaderCircle size={22} className="animate-spin" />
-          Đang tải cấu hình vận hành...
+        <div className="space-y-3">
+          <KgSkeleton className="h-24 w-full" />
+          <KgSkeleton className="h-44 w-full" />
         </div>
       ) : (
         <>
-          {section === 'overview' && (
+          {section === 'teams' && (
             <div className="space-y-4">
-              {/* Urgent Operational Action Strip */}
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => setSection('cash_audit')}
-                  className={`flex items-center justify-between rounded-2xl border p-4 text-left transition hover:shadow-sm ${
-                    cashAttentionCount > 0
-                      ? 'border-amber-300 bg-amber-50/80 dark:border-amber-800 dark:bg-amber-950/20'
-                      : 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900'
+              {/* Compact Team Balance Indicator */}
+              {config.teams.length > 0 && (
+                <div
+                  className={`rounded-2xl border p-3.5 flex flex-wrap items-center justify-between gap-2 text-xs ${
+                    scoreGap > 1
+                      ? 'border-amber-500/35 bg-amber-500/10 text-amber-800 dark:text-amber-300'
+                      : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300'
                   }`}
                 >
-                  <div>
-                    <p className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
-                      Đối soát két thu ngân
-                    </p>
-                    <p className="mt-1 text-base font-black text-slate-900 dark:text-white">
-                      {cashAttentionCount > 0
-                        ? `${cashAttentionCount} ca cần Quản lý kiểm tra`
-                        : 'Tất cả ca bàn giao đều khớp'}
-                    </p>
+                  <div className="flex items-center gap-2 font-bold">
+                    {scoreGap > 1 ? <AlertTriangle size={16} /> : <CheckCircle2 size={16} />}
+                    <span>
+                      {scoreGap > 1
+                        ? `Đội hình đang chênh lệch (${scoreGap.toFixed(1)}/5 điểm)`
+                        : `Năng lực các nhóm cân bằng (chênh ${scoreGap.toFixed(1)}/5 điểm)`}
+                    </span>
                   </div>
-                  <Banknote
-                    size={24}
-                    className={cashAttentionCount > 0 ? 'text-amber-600' : 'text-emerald-600'}
-                  />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setSection('incidents')}
-                  className={`flex items-center justify-between rounded-2xl border p-4 text-left transition hover:shadow-sm ${
-                    openIncidentCount > 0
-                      ? 'border-rose-300 bg-rose-50/80 dark:border-rose-800 dark:bg-rose-950/20'
-                      : 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900'
-                  }`}
-                >
-                  <div>
-                    <p className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
-                      Trung tâm sự cố 4 bước
-                    </p>
-                    <p className="mt-1 text-base font-black text-slate-900 dark:text-white">
-                      {openIncidentCount > 0
-                        ? `${openIncidentCount} sự cố đang mở / xử lý`
-                        : 'Không có sự cố tồn đọng'}
-                    </p>
+                  <div className="flex flex-wrap items-center gap-2 font-mono tabular-nums text-[11px]">
+                    {teamMetrics.map((m) => (
+                      <span
+                        key={m.team.id}
+                        className="px-2 py-0.5 rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-border)] text-[var(--kg-text)]"
+                      >
+                        {m.team.name}: {m.size} NV · {m.average.toFixed(1)}★
+                      </span>
+                    ))}
                   </div>
-                  <Wrench
-                    size={24}
-                    className={openIncidentCount > 0 ? 'text-rose-600' : 'text-emerald-600'}
-                  />
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                {[
-                  { label: 'Nhóm trực', value: config.teams.length, icon: UsersRound, iconClass: 'text-cyan-600' },
-                  { label: 'Khu trực', value: config.zones.length, icon: MapPinned, iconClass: 'text-[var(--kg-primary)]' },
-                  { label: 'Công việc', value: config.tasks.length, icon: ClipboardList, iconClass: 'text-emerald-600' },
-                  { label: 'Lịch sắp tới', value: upcomingAssignments.length, icon: CalendarPlus, iconClass: 'text-amber-600' },
-                ].map(card => {
-                  const Icon = card.icon;
-                  return (
-                    <div key={card.label} className="soft3d-card rounded-2xl p-4">
-                      <Icon size={20} className={card.iconClass} />
-                      <p className="mt-3 text-2xl font-black font-mono tabular-nums text-slate-900 dark:text-white">{card.value}</p>
-                      <p className="text-xs font-bold text-slate-500">{card.label}</p>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className={`rounded-2xl border p-4 ${
-                scoreGap > 1
-                  ? 'border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/20'
-                  : 'border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/20'
-              }`}>
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="flex gap-3">
-                    {scoreGap > 1
-                      ? <AlertTriangle className="text-amber-600" size={22} />
-                      : <CheckCircle2 className="text-emerald-600" size={22} />}
-                    <div>
-                      <p className="font-extrabold text-slate-800 dark:text-white">
-                        {scoreGap > 1 ? 'Đội hình đang chênh lệch' : 'Năng lực các nhóm tương đối cân bằng'}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-500">
-                        Chênh lệch điểm trung bình: {scoreGap.toFixed(1)}/5
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={autoBalanceTeams}
-                    className="inline-flex items-center gap-2 rounded-xl bg-[var(--kg-primary)] px-4 py-2.5 text-xs font-extrabold text-white shadow-xs hover:opacity-90 active:scale-95 transition-all"
-                  >
-                    <Sparkles size={15} /> Tự cân bằng đội
-                  </button>
                 </div>
-              </div>
+              )}
 
-              <div className="soft3d-card rounded-2xl p-5">
-                <h3 className="font-extrabold text-slate-800 dark:text-white">Sức mạnh đội hình</h3>
-                <div className="mt-4 space-y-3">
-                  {teamMetrics.map(metric => (
-                    <div key={metric.team.id} className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800/60">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex min-w-0 items-center gap-2">
-                          <span className="h-3 w-3 rounded-full" style={{ backgroundColor: metric.team.color }} />
-                          <span className="truncate text-sm font-extrabold text-slate-700 dark:text-slate-200">
-                            {metric.team.name}
-                          </span>
-                        </div>
-                        <span className="text-xs font-bold text-slate-500">
-                          {metric.size} người · {metric.average.toFixed(1)}/5
-                        </span>
-                      </div>
-                      <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                        <div
-                          className="h-full rounded-full"
-                          style={{ width: `${metric.average * 20}%`, backgroundColor: metric.team.color }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                  {!config.teams.length && (
+              <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
+                <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-extrabold text-[var(--kg-text)] text-sm">Nhóm trực</h3>
                     <button
                       type="button"
                       onClick={createTeam}
-                      className="w-full rounded-xl border border-dashed border-cyan-300 py-8 text-sm font-bold text-cyan-700"
+                      aria-label="Tạo nhóm trực mới"
+                      className="min-h-[40px] min-w-[40px] rounded-xl bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] inline-flex items-center justify-center"
                     >
-                      + Tạo nhóm trực đầu tiên
+                      <Plus size={17} />
                     </button>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    {config.teams.map((team) => (
+                      <button
+                        type="button"
+                        key={team.id}
+                        onClick={() => setSelectedTeamId(team.id)}
+                        className={`w-full rounded-xl border p-3 text-left transition-colors ${
+                          selectedTeamId === team.id
+                            ? 'border-[var(--kg-primary)] bg-[var(--kg-primary-soft)]'
+                            : 'border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="h-3 w-3 rounded-full shrink-0"
+                            style={{ backgroundColor: team.color }}
+                          />
+                          <span className="truncate text-sm font-extrabold text-[var(--kg-text)]">
+                            {team.name}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-[11px] font-mono tabular-nums text-[var(--kg-text-muted)]">
+                          {team.memberUsernames.length} thành viên
+                        </p>
+                      </button>
+                    ))}
+                    {config.teams.length === 0 && (
+                      <button
+                        type="button"
+                        onClick={createTeam}
+                        className="w-full min-h-[44px] rounded-xl border border-dashed border-[var(--kg-border-strong)] py-6 text-xs font-bold text-[var(--kg-primary-ink)]"
+                      >
+                        + Tạo nhóm trực đầu tiên
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-5 shadow-xs">
+                  {selectedTeam ? (
+                    <>
+                      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--kg-border)] pb-4">
+                        <div>
+                          <h3 className="text-lg font-black text-[var(--kg-text)]">
+                            {selectedTeam.name}
+                          </h3>
+                          <p className="mt-0.5 text-xs text-[var(--kg-text-muted)]">
+                            {selectedTeam.description || 'Chưa có mô tả nhóm'}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void removeTeam(selectedTeam)}
+                          aria-label={`Xóa nhóm ${selectedTeam.name}`}
+                          className="min-h-[40px] min-w-[40px] rounded-xl text-rose-500 hover:bg-rose-500/10 inline-flex items-center justify-center"
+                        >
+                          <Trash2 size={17} />
+                        </button>
+                      </div>
+
+                      <label className="mt-4 block">
+                        <span className="mb-1.5 block text-[11px] font-bold uppercase text-[var(--kg-text-muted)]">
+                          Nhóm trưởng / người theo dõi
+                        </span>
+                        <select
+                          value={selectedTeam.leaderUsername}
+                          onChange={(event) => setTeamLeader(selectedTeam.id, event.target.value)}
+                          className="w-full min-h-[44px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-2 text-base sm:text-sm font-bold text-[var(--kg-text)]"
+                        >
+                          <option value="">Chưa chọn nhóm trưởng</option>
+                          {employees
+                            .filter(
+                              (employee) =>
+                                !assignedOnOtherTeams.has(employee.username) ||
+                                employee.username === selectedTeam.leaderUsername,
+                            )
+                            .map((employee) => (
+                              <option key={employee.username} value={employee.username}>
+                                {employee.fullname} · {employee.position || 'Nhân viên'}
+                              </option>
+                            ))}
+                        </select>
+                      </label>
+
+                      <div className="mt-5">
+                        <p className="text-[11px] font-bold uppercase text-[var(--kg-text-muted)] mb-2">
+                          Thành viên nhóm
+                        </p>
+                        <input
+                          type="text"
+                          placeholder="Tìm nhân viên theo tên hoặc bộ phận..."
+                          value={memberSearchQuery}
+                          onChange={(e) => setMemberSearchQuery(e.target.value)}
+                          className="mb-3 w-full min-h-[44px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-2 text-base sm:text-sm text-[var(--kg-text)]"
+                        />
+                        <div className="space-y-4">
+                          <div>
+                            <p className="text-[10px] font-bold uppercase text-emerald-600 dark:text-emerald-400 mb-2">
+                              Thành viên hiện tại ({filteredCurrentTeamEmployees.length})
+                            </p>
+                            {filteredCurrentTeamEmployees.length > 0 ? (
+                              <div className="grid gap-2 sm:grid-cols-2">
+                                {filteredCurrentTeamEmployees.map((employee) => {
+                                  const evaluation = config.evaluations.find(
+                                    (item) => item.username === employee.username,
+                                  );
+                                  return (
+                                    <button
+                                      type="button"
+                                      key={employee.username}
+                                      onClick={() => toggleMember(selectedTeam.id, employee.username)}
+                                      className="min-h-[48px] flex items-center gap-3 rounded-xl border border-[var(--kg-primary)] bg-[var(--kg-primary-soft)] p-3 text-left transition-colors"
+                                    >
+                                      <span className="flex h-5 w-5 items-center justify-center rounded-md bg-[var(--kg-primary)] text-white shrink-0">
+                                        <CheckCircle2 size={14} />
+                                      </span>
+                                      <span className="min-w-0 flex-1">
+                                        <span className="block truncate text-xs font-extrabold text-[var(--kg-text)]">
+                                          {employee.fullname}
+                                        </span>
+                                        <span className="block truncate text-[10px] text-[var(--kg-text-muted)]">
+                                          {employee.position || 'Nhân viên'} ·{' '}
+                                          {operationScore(evaluation).toFixed(1)}/5
+                                        </span>
+                                      </span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-[var(--kg-text-muted)] italic py-1">
+                                Chưa có thành viên nào trong nhóm này
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="border-t border-[var(--kg-border)] pt-4">
+                            <p className="text-[10px] font-bold uppercase text-[var(--kg-text-muted)] mb-2">
+                              Nhân sự chưa phân nhóm ({filteredUnassignedEmployees.length})
+                            </p>
+                            {filteredUnassignedEmployees.length > 0 ? (
+                              <div className="grid gap-2 sm:grid-cols-2">
+                                {filteredUnassignedEmployees.map((employee) => {
+                                  const evaluation = config.evaluations.find(
+                                    (item) => item.username === employee.username,
+                                  );
+                                  return (
+                                    <button
+                                      type="button"
+                                      key={employee.username}
+                                      onClick={() => toggleMember(selectedTeam.id, employee.username)}
+                                      className="min-h-[48px] flex items-center gap-3 rounded-xl border border-[var(--kg-border)] hover:border-[var(--kg-primary)] p-3 text-left transition-colors"
+                                    >
+                                      <span className="h-5 w-5 rounded-md border border-[var(--kg-border-strong)] bg-[var(--kg-surface)] shrink-0" />
+                                      <span className="min-w-0 flex-1">
+                                        <span className="block truncate text-xs font-extrabold text-[var(--kg-text)]">
+                                          {employee.fullname}
+                                        </span>
+                                        <span className="block truncate text-[10px] text-[var(--kg-text-muted)]">
+                                          {employee.position || 'Nhân viên'} ·{' '}
+                                          {operationScore(evaluation).toFixed(1)}/5
+                                        </span>
+                                      </span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-[var(--kg-text-muted)] italic py-1">
+                                Tất cả nhân sự đã được chia nhóm
+                              </p>
+                            )}
+                          </div>
+
+                          {filteredOtherTeamEmployees.length > 0 && (
+                            <div className="border-t border-[var(--kg-border)] pt-4">
+                              <p className="text-[10px] font-bold uppercase text-rose-600 dark:text-rose-400 mb-2">
+                                Thành viên ở nhóm khác ({filteredOtherTeamEmployees.length}) — chạm để chuyển
+                              </p>
+                              <div className="grid gap-2 sm:grid-cols-2">
+                                {filteredOtherTeamEmployees.map((employee) => {
+                                  const evaluation = config.evaluations.find(
+                                    (item) => item.username === employee.username,
+                                  );
+                                  const otherTeam = config.teams.find(
+                                    (t) =>
+                                      t.id !== selectedTeamId &&
+                                      t.memberUsernames.includes(employee.username),
+                                  );
+                                  return (
+                                    <button
+                                      type="button"
+                                      key={employee.username}
+                                      onClick={() => toggleMember(selectedTeam.id, employee.username)}
+                                      className="min-h-[48px] flex items-center gap-3 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)]/50 p-3 text-left opacity-75 hover:opacity-100 hover:border-[var(--kg-primary)] transition-all"
+                                    >
+                                      <span className="h-5 w-5 rounded-md border border-[var(--kg-border-strong)] bg-[var(--kg-surface)] shrink-0" />
+                                      <span className="min-w-0 flex-1">
+                                        <span className="block truncate text-xs font-extrabold text-[var(--kg-text)]">
+                                          {employee.fullname}
+                                        </span>
+                                        <span className="block truncate text-[10px] text-[var(--kg-text-muted)]">
+                                          {employee.position || 'Nhân viên'} ·{' '}
+                                          {operationScore(evaluation).toFixed(1)}/5
+                                        </span>
+                                        <span className="mt-0.5 inline-block text-[9px] font-bold text-[var(--kg-primary-ink)]">
+                                          Đang ở: {otherTeam?.name || 'Nhóm khác'}
+                                        </span>
+                                      </span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="py-16 text-center text-[var(--kg-text-muted)]">
+                      <UsersRound className="mx-auto" size={32} />
+                      <p className="mt-3 text-sm font-bold">Chọn hoặc tạo một nhóm trực</p>
+                    </div>
                   )}
                 </div>
               </div>
             </div>
           )}
 
-          {/* WAVE 2.1: MANAGER 2-WAY CASH RECONCILIATION AUDIT */}
-          {section === 'cash_audit' && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                <div className="soft3d-card rounded-2xl p-4">
-                  <p className="text-xs font-bold text-slate-500">Tổng ca ghi nhận</p>
-                  <p className="mt-2 text-2xl font-black font-mono tabular-nums text-slate-900 dark:text-white">
-                    {handovers.length}
-                  </p>
-                </div>
-                <div className="soft3d-card rounded-2xl p-4">
-                  <p className="text-xs font-bold text-emerald-600">Khớp két lý thuyết</p>
-                  <p className="mt-2 text-2xl font-black font-mono tabular-nums text-emerald-600">
-                    {cashMatchedCount}
-                  </p>
-                </div>
-                <div className="soft3d-card rounded-2xl p-4">
-                  <p className="text-xs font-bold text-rose-600">Lệch / Báo khiếu nại</p>
-                  <p className="mt-2 text-2xl font-black font-mono tabular-nums text-rose-600">
-                    {cashAttentionCount}
-                  </p>
-                </div>
-                <div className="soft3d-card rounded-2xl p-4">
-                  <p className="text-xs font-bold text-cyan-600">Quản lý đã chốt</p>
-                  <p className="mt-2 text-2xl font-black font-mono tabular-nums text-cyan-600">
-                    {cashConfirmedCount}
-                  </p>
-                </div>
-              </div>
-
-              <div className="soft3d-card rounded-2xl p-5 space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3 dark:border-slate-700">
-                  <div>
-                    <h3 className="font-extrabold text-slate-900 dark:text-white">
-                      Đối soát Két Thu ngân 2 chiều
-                    </h3>
-                    <p className="text-xs text-slate-500">
-                      Kiểm tra công thức POS CukCuk, xác nhận ca nhận két và chốt giải trình thu chi
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {(
-                      [
-                        ['ALL', `Tất cả (${handovers.length})`],
-                        ['ATTENTION', `Cần đối soát (${cashAttentionCount})`],
-                        ['CONFIRMED', `Đã chốt (${cashConfirmedCount})`],
-                      ] as const
-                    ).map(([id, label]) => (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() => setCashFilter(id)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-                          cashFilter === id
-                            ? 'bg-cyan-700 text-white'
-                            : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                    {matchedUnconfirmedHandovers.length > 0 && (
-                      <button
-                        type="button"
-                        disabled={bulkConfirmingCash}
-                        onClick={() => void handleBulkConfirmMatchedHandovers()}
-                        className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold inline-flex items-center gap-1.5 shadow-xs disabled:opacity-50"
-                      >
-                        <CheckCheck size={14} />
-                        {bulkConfirmingCash
-                          ? 'Đang duyệt...'
-                          : `Duyệt tất cả ca khớp (${matchedUnconfirmedHandovers.length})`}
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={loadHandoversAndIncidents}
-                      className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-900"
-                      title="Làm mới sổ két"
-                    >
-                      <RefreshCw size={14} />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Cash Audit Search, Date Filter & Discrepancy/Severity Sort */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <div className="relative">
-                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                    <input
-                      type="text"
-                      value={cashSearchQuery}
-                      onChange={e => setCashSearchQuery(e.target.value)}
-                      placeholder="Tìm thu ngân, ca, ghi chú..."
-                      aria-label="Tìm bản ghi đối soát két"
-                      className="w-full min-h-[38px] pl-8 pr-7 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs text-slate-800 dark:text-white"
-                    />
-                    {cashSearchQuery && (
-                      <button
-                        type="button"
-                        onClick={() => setCashSearchQuery('')}
-                        aria-label="Xóa từ khóa tìm kiếm két"
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
-                      >
-                        <X size={13} />
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="date"
-                      value={cashDateFilter}
-                      onChange={e => setCashDateFilter(e.target.value)}
-                      aria-label="Lọc theo ngày bàn giao két"
-                      className="flex-1 min-h-[38px] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-mono tabular-nums text-slate-800 dark:text-white"
-                    />
-                    {cashDateFilter && (
-                      <button
-                        type="button"
-                        onClick={() => setCashDateFilter('')}
-                        className="min-h-[38px] px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-500 hover:text-slate-800"
-                      >
-                        Xóa ngày
-                      </button>
-                    )}
-                  </div>
-
-                  <select
-                    value={cashSort}
-                    onChange={e => setCashSort(e.target.value as 'default' | 'discrepancy_desc' | 'severity')}
-                    aria-label="Sắp xếp đối soát két"
-                    className="min-h-[38px] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white"
-                  >
-                    <option value="default">Sắp xếp: Mới nhất</option>
-                    <option value="severity">Ưu tiên: Mức độ nghiêm trọng</option>
-                    <option value="discrepancy_desc">Ưu tiên: Chênh lệch lớn nhất</option>
-                  </select>
-                </div>
-
-                {cashAuditError && (
-                  <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-rose-700 dark:text-rose-300">
-                    <span>{cashAuditError}</span>
-                    <button
-                      type="button"
-                      onClick={loadHandoversAndIncidents}
-                      className="min-h-[34px] px-3 py-1 rounded-lg bg-[var(--kg-primary)] text-white text-xs font-bold inline-flex items-center gap-1"
-                    >
-                      <RefreshCw size={12} /> Thử lại
-                    </button>
-                  </div>
-                )}
-
-                {filteredHandovers.length === 0 ? (
-                  <div className="py-12 text-center text-xs font-bold text-slate-400">
-                    Không có bản ghi bàn giao két nào trong bộ lọc này.
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {filteredHandovers.map(item => {
-                      const diff = item.discrepancy ?? 0;
-                      const isBusy = reviewingHandoverId === item.id;
-                      const noteValue = managerNotes[item.id] ?? item.managerNote ?? '';
-
-                      return (
-                        <div
-                          key={item.id}
-                          className={`rounded-2xl border p-4 space-y-3 ${
-                            item.reconcileStatus === 'ManagerConfirmed'
-                              ? 'border-emerald-200 bg-emerald-50/30 dark:border-emerald-900/40 dark:bg-emerald-950/10'
-                              : diff !== 0 || item.ackStatus === 'Disputed' || item.reconcileStatus === 'Disputed'
-                                ? 'border-amber-300 bg-amber-50/40 dark:border-amber-800/50 dark:bg-amber-950/15'
-                                : 'border-slate-200 dark:border-slate-700'
-                          }`}
-                        >
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="px-2.5 py-0.5 rounded-lg text-xs font-extrabold bg-cyan-500/10 text-cyan-800 dark:text-cyan-300">
-                                {item.shift || 'Ca trực'} • {item.date}
-                              </span>
-                              <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
-                                Giao bởi: <b>{item.fullname || item.username}</b>
-                              </span>
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              {item.ackStatus === 'Disputed' ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-rose-500/15 text-rose-700 dark:text-rose-300">
-                                  <AlertTriangle size={12} /> Ca nhận báo lệch ({item.ackBy})
-                                </span>
-                              ) : item.ackBy ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
-                                  <CheckCheck size={12} /> Đã nhận đủ: {item.ackBy}
-                                </span>
-                              ) : (
-                                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-200/70 dark:bg-slate-800 text-slate-500">
-                                  Chưa có ca sau xác nhận
-                                </span>
-                              )}
-
-                              {item.reconcileStatus === 'ManagerConfirmed' && (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-cyan-600 text-white">
-                                  <ShieldCheck size={12} /> Đã duyệt chốt
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Tabular-Nums Reconciliation Grid */}
-                          <div className="grid grid-cols-2 gap-2 sm:grid-cols-6 text-right font-mono tabular-nums text-xs">
-                            <div className="rounded-xl bg-white/80 dark:bg-slate-900/70 p-2.5 border border-slate-200/70 dark:border-slate-800">
-                              <span className="block font-sans text-[10px] text-slate-400">Quỹ đầu ca</span>
-                              <span className="font-bold text-slate-800 dark:text-slate-200">
-                                {formatVndCurrency(item.openingCash ?? item.cashAmount)}
-                              </span>
-                            </div>
-                            <div className="rounded-xl bg-white/80 dark:bg-slate-900/70 p-2.5 border border-slate-200/70 dark:border-slate-800">
-                              <span className="block font-sans text-[10px] text-slate-400">+ Thu POS</span>
-                              <span className="font-bold text-emerald-600">
-                                {formatVndCurrency(item.posCashRevenue ?? 0)}
-                              </span>
-                            </div>
-                            <div className="rounded-xl bg-white/80 dark:bg-slate-900/70 p-2.5 border border-slate-200/70 dark:border-slate-800">
-                              <span className="block font-sans text-[10px] text-slate-400">- Chi quầy</span>
-                              <span className="font-bold text-rose-600">
-                                {formatVndCurrency(item.cashExpense ?? 0)}
-                              </span>
-                            </div>
-                            <div className="rounded-xl bg-white/80 dark:bg-slate-900/70 p-2.5 border border-slate-200/70 dark:border-slate-800">
-                              <span className="block font-sans text-[10px] text-slate-400">= Lý thuyết</span>
-                              <span className="font-bold text-slate-800 dark:text-slate-200">
-                                {formatVndCurrency(item.expectedCash ?? item.cashAmount)}
-                              </span>
-                            </div>
-                            <div className="rounded-xl bg-white/80 dark:bg-slate-900/70 p-2.5 border border-slate-200/70 dark:border-slate-800">
-                              <span className="block font-sans text-[10px] text-slate-400">Thực bàn giao</span>
-                              <span className="font-black text-slate-900 dark:text-white">
-                                {formatVndCurrency(item.closingCash ?? item.cashAmount)}
-                              </span>
-                            </div>
-                            <div className="rounded-xl bg-white/80 dark:bg-slate-900/70 p-2.5 border border-slate-200/70 dark:border-slate-800">
-                              <span className="block font-sans text-[10px] text-slate-400">Chênh lệch</span>
-                              <span
-                                className={`font-black ${
-                                  diff === 0
-                                    ? 'text-emerald-600'
-                                    : diff < 0
-                                      ? 'text-rose-600'
-                                      : 'text-amber-600'
-                                }`}
-                              >
-                                {formatSignedVnd(diff)}
-                              </span>
-                            </div>
-                          </div>
-
-                          {(item.note || item.ackNote) && (
-                            <div className="space-y-1 text-xs">
-                              {item.note && (
-                                <p className="text-slate-600 dark:text-slate-300">
-                                  <b>Ghi chú ca giao:</b> {item.note}
-                                </p>
-                              )}
-                              {item.ackNote && (
-                                <p className="text-rose-600 dark:text-rose-400">
-                                  <b>Phản hồi ca nhận{item.countedCash !== undefined ? ` (đếm thực tế ${formatVndCurrency(item.countedCash)})` : ''}:</b>{' '}
-                                  {item.ackNote}
-                                </p>
-                              )}
-                            </div>
-                          )}
-
-                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-2 border-t border-slate-200/70 dark:border-slate-700/70">
-                            <input
-                              type="text"
-                              value={noteValue}
-                              onChange={e =>
-                                setManagerNotes(prev => ({ ...prev, [item.id]: e.target.value }))
-                              }
-                              placeholder="Kết luận đối soát của Quản lý (VD: Đã khớp phiếu chi mua đá / Đã bù quỹ)..."
-                              className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs text-slate-800 dark:text-white"
-                            />
-                            <div className="flex items-center gap-2 shrink-0">
-                              <button
-                                type="button"
-                                disabled={isBusy}
-                                onClick={() => handleManagerReviewHandover(item, 'DISPUTE')}
-                                className="px-3 py-2 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300 text-xs font-bold hover:bg-amber-500/20 disabled:opacity-50"
-                              >
-                                Yêu cầu giải trình
-                              </button>
-                              <button
-                                type="button"
-                                disabled={isBusy}
-                                onClick={() => handleManagerReviewHandover(item, 'CONFIRM')}
-                                className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold disabled:opacity-50"
-                              >
-                                {isBusy ? 'Đang lưu...' : 'Duyệt chốt két'}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* WAVE 2.2: 4-STATE INCIDENT MANAGEMENT CENTER */}
-          {section === 'incidents' && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                <div className="soft3d-card rounded-2xl p-4">
-                  <p className="text-xs font-bold text-rose-600">1. Mới báo</p>
-                  <p className="mt-2 text-2xl font-black font-mono tabular-nums text-rose-600">
-                    {incidents.filter(i => i.status === 'Open').length}
-                  </p>
-                </div>
-                <div className="soft3d-card rounded-2xl p-4">
-                  <p className="text-xs font-bold text-amber-600">2. Đang xử lý</p>
-                  <p className="mt-2 text-2xl font-black font-mono tabular-nums text-amber-600">
-                    {incidents.filter(i => i.status === 'Investigating').length}
-                  </p>
-                </div>
-                <div className="soft3d-card rounded-2xl p-4">
-                  <p className="text-xs font-bold text-cyan-600">3. Đã khắc phục</p>
-                  <p className="mt-2 text-2xl font-black font-mono tabular-nums text-cyan-600">
-                    {incidents.filter(i => i.status === 'Resolved' || i.status === 'CostRecorded').length}
-                  </p>
-                </div>
-                <div className="soft3d-card rounded-2xl p-4">
-                  <p className="text-xs font-bold text-slate-500">Tổng chi phí sửa chữa</p>
-                  <p className="mt-2 text-xl font-black font-mono tabular-nums text-slate-900 dark:text-white">
-                    {formatVndCurrency(totalIncidentCost)}
-                  </p>
-                </div>
-              </div>
-
-              <div className="soft3d-card rounded-2xl p-5 space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3 dark:border-slate-700">
-                  <div>
-                    <h3 className="font-extrabold text-slate-900 dark:text-white">
-                      Trung tâm Quản lý Sự cố Nhà hàng (4 bước)
-                    </h3>
-                    <p className="text-xs text-slate-500">
-                      Mới báo ➔ Đang kiểm tra / xử lý ➔ Đã khắc phục ➔ Đã chốt chi phí bảo trì
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setIncidentFilter('ALL')}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-                        incidentFilter === 'ALL'
-                          ? 'bg-cyan-700 text-white'
-                          : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
-                      }`}
-                    >
-                      Tất cả ({incidents.length})
-                    </button>
-                    {INCIDENT_STATUS_STEPS.map(step => (
-                      <button
-                        key={step.id}
-                        type="button"
-                        onClick={() => setIncidentFilter(step.id)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-                          incidentFilter === step.id
-                            ? 'bg-cyan-700 text-white'
-                            : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
-                        }`}
-                      >
-                        {step.shortLabel}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {incidentError && (
-                  <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-rose-700 dark:text-rose-300">
-                    <span>{incidentError}</span>
-                    <button
-                      type="button"
-                      onClick={loadHandoversAndIncidents}
-                      className="min-h-[34px] px-3 py-1 rounded-lg bg-[var(--kg-primary)] text-white text-xs font-bold inline-flex items-center gap-1"
-                    >
-                      <RefreshCw size={12} /> Thử lại
-                    </button>
-                  </div>
-                )}
-
-                {filteredIncidents.length === 0 ? (
-                  <div className="py-12 text-center text-xs font-bold text-slate-400">
-                    Không có sự cố nào ở trạng thái này.
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {filteredIncidents.map(inc => {
-                      const draft = incidentDrafts[inc.id] || {};
-                      const assignedVal = draft.assignedTo ?? inc.assignedTo ?? '';
-                      const resolutionVal = draft.resolutionNote ?? inc.resolutionNote ?? '';
-                      const costVal =
-                        draft.repairCost !== undefined
-                          ? draft.repairCost
-                          : inc.repairCost && inc.repairCost > 0
-                            ? formatVndInput(inc.repairCost)
-                            : '';
-                      const isBusy = updatingIncidentId === inc.id;
-
-                      return (
-                        <div
-                          key={inc.id}
-                          className="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 space-y-3"
-                        >
-                          <div className="flex flex-wrap items-start justify-between gap-2">
-                            <div className="space-y-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-xs font-black text-slate-800 dark:text-white">
-                                  {inc.area || 'Toàn quán'}
-                                </span>
-                                <span className="text-sm font-black text-slate-900 dark:text-white">
-                                  {inc.category}
-                                </span>
-                                {inc.severity === 'urgent' && (
-                                  <span className="px-2 py-0.5 rounded bg-rose-600 text-white text-[10px] font-black">
-                                    KHẨN CẤP
-                                  </span>
-                                )}
-                                {inc.severity === 'high' && (
-                                  <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 text-[10px] font-black">
-                                    QUAN TRỌNG
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-xs text-slate-500">
-                                Báo bởi <b>{inc.fullname || inc.username}</b> • {inc.shift || 'Ca trực'} •{' '}
-                                {inc.date}
-                              </p>
-                            </div>
-
-                            {inc.photoUrl && (
-                              <a
-                                href={inc.photoUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-xs font-bold text-cyan-700 dark:text-cyan-400 underline"
-                              >
-                                Xem ảnh hiện trường
-                              </a>
-                            )}
-                          </div>
-
-                          <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800/60 rounded-xl p-3">
-                            {inc.description}
-                          </p>
-
-                          {/* 4-Step Interactive Status Selector */}
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                            {INCIDENT_STATUS_STEPS.map(step => {
-                              const active = inc.status === step.id;
-                              return (
-                                <button
-                                  key={step.id}
-                                  type="button"
-                                  disabled={isBusy}
-                                  onClick={() => handleUpdateIncidentState(inc, step.id)}
-                                  className={`py-2 px-2.5 rounded-xl border text-xs font-extrabold transition ${
-                                    active
-                                      ? step.badgeClass
-                                      : 'border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
-                                  }`}
-                                >
-                                  {step.label}
-                                </button>
-                              );
-                            })}
-                          </div>
-
-                          {/* Assignment, Resolution Note & Repair Cost (VNĐ tabular-nums) */}
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
-                            <div>
-                              <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
-                                Người xử lý / Kỹ thuật viên
-                              </label>
-                              <input
-                                type="text"
-                                list="ops-staff-suggestions"
-                                value={assignedVal}
-                                onChange={e =>
-                                  setIncidentDrafts(prev => ({
-                                    ...prev,
-                                    [inc.id]: { ...prev[inc.id], assignedTo: e.target.value },
-                                  }))
-                                }
-                                placeholder="Chọn NV hoặc nhập tên thợ..."
-                                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs text-slate-800 dark:text-white"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
-                                Ghi chú biện pháp khắc phục
-                              </label>
-                              <input
-                                type="text"
-                                value={resolutionVal}
-                                onChange={e =>
-                                  setIncidentDrafts(prev => ({
-                                    ...prev,
-                                    [inc.id]: { ...prev[inc.id], resolutionNote: e.target.value },
-                                  }))
-                                }
-                                placeholder="VD: Đã thay cảm biến nhiệt / Gọi bảo hành..."
-                                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs text-slate-800 dark:text-white"
-                              />
-                            </div>
-
-                            <div className="flex items-end gap-2">
-                              <div className="flex-1">
-                                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
-                                  Chi phí sửa chữa (VNĐ)
-                                </label>
-                                <input
-                                  type="text"
-                                  inputMode="numeric"
-                                  value={costVal}
-                                  onChange={e =>
-                                    setIncidentDrafts(prev => ({
-                                      ...prev,
-                                      [inc.id]: {
-                                        ...prev[inc.id],
-                                        repairCost: formatVndInput(e.target.value),
-                                      },
-                                    }))
-                                  }
-                                  placeholder="0"
-                                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-right font-mono tabular-nums font-bold text-xs text-slate-800 dark:text-white"
-                                />
-                              </div>
-                              <button
-                                type="button"
-                                disabled={isBusy}
-                                onClick={() => handleUpdateIncidentState(inc)}
-                                className="px-3.5 py-2 rounded-xl bg-cyan-700 hover:bg-cyan-800 text-white text-xs font-extrabold shrink-0 min-h-[34px] disabled:opacity-50"
-                              >
-                                {isBusy ? 'Lưu...' : 'Lưu'}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    <datalist id="ops-staff-suggestions">
-                      {employees.map(emp => (
-                        <option key={emp.username} value={emp.fullname} />
-                      ))}
-                    </datalist>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {section === 'teams' && (
-            <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
-              <div className="soft3d-card rounded-2xl p-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-extrabold text-slate-800 dark:text-white">Nhóm trực</h3>
-                  <button type="button" onClick={createTeam} className="rounded-lg bg-cyan-50 p-2 text-cyan-700 dark:bg-cyan-950/30">
-                    <Plus size={17} />
-                  </button>
-                </div>
-                <div className="mt-3 space-y-2">
-                  {config.teams.map(team => (
-                    <button
-                      type="button"
-                      key={team.id}
-                      onClick={() => setSelectedTeamId(team.id)}
-                      className={`w-full rounded-xl border p-3 text-left transition ${
-                        selectedTeamId === team.id
-                          ? 'border-cyan-300 bg-cyan-50 dark:border-cyan-800 dark:bg-cyan-950/25'
-                          : 'border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="h-3 w-3 rounded-full" style={{ backgroundColor: team.color }} />
-                        <span className="truncate text-sm font-extrabold text-slate-700 dark:text-slate-200">{team.name}</span>
-                      </div>
-                      <p className="mt-1 text-[11px] text-slate-400">{team.memberUsernames.length} thành viên</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="soft3d-card rounded-2xl p-5">
-                {selectedTeam ? (
-                  <>
-                    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 pb-4 dark:border-slate-700">
-                      <div>
-                        <h3 className="text-xl font-black text-slate-900 dark:text-white">{selectedTeam.name}</h3>
-                        <p className="mt-1 text-xs text-slate-500">{selectedTeam.description || 'Chưa có mô tả nhóm'}</p>
-                      </div>
-                      <button type="button" onClick={() => removeTeam(selectedTeam)} className="rounded-lg p-2 text-rose-500 hover:bg-rose-50">
-                        <Trash2 size={17} />
-                      </button>
-                    </div>
-
-                    <label className="mt-4 block">
-                      <span className="mb-1.5 block text-[11px] font-bold uppercase text-slate-500">Nhóm trưởng / người theo dõi</span>
-                      <select
-                        value={selectedTeam.leaderUsername}
-                        onChange={event => setTeamLeader(selectedTeam.id, event.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                      >
-                        <option value="">Chưa chọn nhóm trưởng</option>
-                        {employees.filter(employee => !assignedOnOtherTeams.has(employee.username) || employee.username === selectedTeam.leaderUsername).map(employee => (
-                          <option key={employee.username} value={employee.username}>
-                            {employee.fullname} · {employee.position || 'Nhân viên'}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <div className="mt-5">
-                      <p className="text-[11px] font-bold uppercase text-slate-500 mb-2">Thành viên nhóm</p>
-                      <input
-                        type="text"
-                        placeholder="Tìm nhân viên theo tên hoặc bộ phận..."
-                        value={memberSearchQuery}
-                        onChange={e => setMemberSearchQuery(e.target.value)}
-                        className="mb-3 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                      />
-                      <div className="space-y-4">
-                        {/* Section 1: Current Team Members */}
-                        <div>
-                          <p className="text-[10px] font-bold uppercase text-emerald-600 dark:text-emerald-400 mb-2">Thành viên hiện tại của nhóm ({filteredCurrentTeamEmployees.length})</p>
-                          {filteredCurrentTeamEmployees.length > 0 ? (
-                            <div className="grid gap-2 sm:grid-cols-2">
-                              {filteredCurrentTeamEmployees.map(employee => {
-                                const evaluation = config.evaluations.find(item => item.username === employee.username);
-                                return (
-                                  <button
-                                    type="button"
-                                    key={employee.username}
-                                    onClick={() => toggleMember(selectedTeam.id, employee.username)}
-                                    className="flex items-center gap-3 rounded-xl border border-cyan-300 bg-cyan-50 dark:border-cyan-800 dark:bg-cyan-950/25 p-3 text-left transition"
-                                  >
-                                    <span className="flex h-5 w-5 items-center justify-center rounded-md border border-cyan-600 bg-cyan-600 text-white">
-                                      <CheckCircle2 size={14} />
-                                    </span>
-                                    <span className="min-w-0 flex-1">
-                                      <span className="block truncate text-xs font-extrabold text-slate-700 dark:text-slate-200">
-                                        {employee.fullname}
-                                      </span>
-                                      <span className="block truncate text-[10px] text-slate-400">
-                                        {employee.position || 'Nhân viên'} · {operationScore(evaluation).toFixed(1)}/5
-                                      </span>
-                                    </span>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          ) : (
-                            <p className="text-xs text-slate-400 italic py-1">Chưa có thành viên nào trong nhóm này</p>
-                          )}
-                        </div>
-
-                        {/* Section 2: Unassigned Staff */}
-                        <div className="mt-6 border-t border-slate-100 dark:border-slate-800 pt-4">
-                          <p className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-2">Nhân sự chưa phân nhóm ({filteredUnassignedEmployees.length})</p>
-                          {filteredUnassignedEmployees.length > 0 ? (
-                            <div className="grid gap-2 sm:grid-cols-2">
-                              {filteredUnassignedEmployees.map(employee => {
-                                const evaluation = config.evaluations.find(item => item.username === employee.username);
-                                return (
-                                  <button
-                                    type="button"
-                                    key={employee.username}
-                                    onClick={() => toggleMember(selectedTeam.id, employee.username)}
-                                    className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-cyan-300 p-3 text-left transition"
-                                  >
-                                    <span className="flex h-5 w-5 items-center justify-center rounded-md border border-slate-300 bg-white" />
-                                    <span className="min-w-0 flex-1">
-                                      <span className="block truncate text-xs font-extrabold text-slate-700 dark:text-slate-200">
-                                        {employee.fullname}
-                                      </span>
-                                      <span className="block truncate text-[10px] text-slate-400">
-                                        {employee.position || 'Nhân viên'} · {operationScore(evaluation).toFixed(1)}/5
-                                      </span>
-                                    </span>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          ) : (
-                            <p className="text-xs text-slate-400 italic py-1">Tất cả nhân sự đã được chia nhóm</p>
-                          )}
-                        </div>
-
-                        {/* Section 3: Staff in Other Groups */}
-                        {filteredOtherTeamEmployees.length > 0 && (
-                          <div className="mt-6 border-t border-slate-200 dark:border-slate-700 pt-4">
-                            <p className="text-[10px] font-bold uppercase text-rose-500 mb-2">Thành viên đã ở nhóm khác ({filteredOtherTeamEmployees.length}) - Nhấp để chuyển sang nhóm này</p>
-                            <div className="grid gap-2 sm:grid-cols-2">
-                              {filteredOtherTeamEmployees.map(employee => {
-                                const evaluation = config.evaluations.find(item => item.username === employee.username);
-                                const otherTeam = config.teams.find(t => t.id !== selectedTeamId && t.memberUsernames.includes(employee.username));
-                                return (
-                                  <button
-                                    type="button"
-                                    key={employee.username}
-                                    onClick={() => toggleMember(selectedTeam.id, employee.username)}
-                                    className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 p-3 text-left transition opacity-60 hover:opacity-100 hover:border-cyan-300"
-                                  >
-                                    <span className="flex h-5 w-5 items-center justify-center rounded-md border border-slate-300 bg-white" />
-                                    <span className="min-w-0 flex-1">
-                                      <span className="block truncate text-xs font-extrabold text-slate-600 dark:text-slate-300">
-                                        {employee.fullname}
-                                      </span>
-                                      <span className="block truncate text-[10px] text-slate-400">
-                                        {employee.position || 'Nhân viên'} · {operationScore(evaluation).toFixed(1)}/5
-                                      </span>
-                                      <span className="mt-0.5 inline-block text-[9px] font-bold text-cyan-700 dark:text-cyan-400">
-                                        Đang ở: {otherTeam?.name || 'Nhóm khác'}
-                                      </span>
-                                    </span>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <div className="py-16 text-center text-slate-400">
-                    <UsersRound className="mx-auto" size={32} />
-                    <p className="mt-3 text-sm font-bold">Chọn hoặc tạo một nhóm trực</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {section === 'zones' && (
-            <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
-              <div className="soft3d-card rounded-2xl p-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-extrabold text-slate-800 dark:text-white">Khu trực</h3>
-                  <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-full font-black">ĐỒNG BỘ</span>
-                </div>
-                <div className="mt-3 space-y-2">
-                  {config.zones.map(zone => (
-                    <button
-                      type="button"
-                      key={zone.id}
-                      onClick={() => setSelectedZoneId(zone.id)}
-                      className={`w-full rounded-xl border p-3 text-left transition-colors ${
-                        selectedZoneId === zone.id
-                          ? 'border-[var(--kg-primary)] bg-[var(--kg-primary-soft)]'
-                          : 'border-slate-200 dark:border-slate-700'
-                      }`}
-                    >
-                      <p className="text-sm font-extrabold text-slate-700 dark:text-slate-200">{zone.name}</p>
-                      <p className="mt-1 text-[11px] text-slate-400">
-                        {config.tasks.filter(task => task.zoneId === zone.id).length} công việc
-                      </p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="soft3d-card rounded-2xl p-5">
-                {selectedZone ? (
-                  <>
-                    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 pb-4 dark:border-slate-700">
-                      <div>
-                        <h3 className="text-xl font-black text-slate-900 dark:text-white">{selectedZone.name}</h3>
-                        <p className="mt-1 text-xs text-slate-500">Khu trực và checklist công việc được đồng bộ tự động từ danh mục Checklist.</p>
-                      </div>
-                    </div>
-                    <div className="mt-4 space-y-2.5">
-                      {zoneTasks.map(task => (
-                        <div key={task.id} className="flex items-start gap-3 rounded-xl border border-slate-200 p-3.5 dark:border-slate-700">
-                          <span className={`mt-1 h-2.5 w-2.5 rounded-full ${
-                            task.priority === 'critical'
-                              ? 'bg-rose-500'
-                              : task.priority === 'important' ? 'bg-amber-500' : 'bg-emerald-500'
-                          }`} />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-extrabold text-slate-700 dark:text-slate-200">{task.title}</p>
-                            <p className="mt-1 text-xs leading-5 text-slate-500">{task.description || 'Không có mô tả'}</p>
-                            <p className="mt-1 text-[10px] font-bold uppercase text-slate-400">{task.frequency}</p>
-                          </div>
-                          <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-500 px-2.5 py-1 rounded-lg font-bold">
-                            ĐỒNG BỘ
-                          </span>
-                        </div>
-                      ))}
-                      {!zoneTasks.length && (
-                        <div className="py-12 text-center text-xs font-bold text-slate-400">
-                          Khu trực này chưa có checklist công việc trong hệ thống.
-                        </div>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <div className="py-16 text-center text-slate-400">
-                    <MapPinned className="mx-auto" size={32} />
-                    <p className="mt-3 text-sm font-bold">Chọn hoặc tạo một khu trực</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
           {section === 'assignments' && (
             <div className="space-y-4">
-              <div className="soft3d-card rounded-2xl p-5">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
+              <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-5 shadow-xs">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--kg-border)] pb-3 mb-4">
                   <div>
-                    <h3 className="font-extrabold text-slate-800 dark:text-white">Tạo phân công theo ngày</h3>
-                    <p className="text-[10px] text-slate-400 mt-0.5">Xoay vòng khu trực tự động A ➔ B ➔ C ➔ D&E</p>
+                    <h3 className="font-extrabold text-[var(--kg-text)] text-sm sm:text-base">
+                      Tạo phân công theo ngày
+                    </h3>
+                    <p className="text-[11px] text-[var(--kg-text-muted)] mt-0.5">
+                      Xoay vòng khu trực tự động A ➔ B ➔ C ➔ D&amp;E ({config.zones.length} khu,{' '}
+                      {config.tasks.length} công việc đồng bộ từ Checklist)
+                    </p>
                   </div>
                   <button
                     type="button"
                     onClick={autoRotateAllAssignments}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--kg-primary)] hover:opacity-95 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition"
+                    className="min-h-[44px] sm:min-h-[38px] inline-flex items-center gap-1.5 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] px-4 py-2 text-xs font-bold text-white shadow-xs"
                   >
-                    <Sparkles size={14} /> Tự động xoay ca tất cả các nhóm
+                    <Sparkles size={14} /> Tự động xoay ca tất cả nhóm
                   </button>
                 </div>
-                <div className="mt-2 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
                   <input
                     type="date"
                     value={assignmentDraft.date}
-                    onChange={event => setAssignmentDraft(current => ({ ...current, date: event.target.value }))}
-                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-bold dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    onChange={(event) =>
+                      setAssignmentDraft((current) => ({ ...current, date: event.target.value }))
+                    }
+                    className="min-h-[44px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-2 text-base sm:text-sm font-bold font-mono text-[var(--kg-text)]"
                   />
                   <select
                     value={assignmentDraft.teamId}
-                    onChange={event => setAssignmentDraft(current => ({ ...current, teamId: event.target.value }))}
-                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-bold dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    onChange={(event) =>
+                      setAssignmentDraft((current) => ({ ...current, teamId: event.target.value }))
+                    }
+                    className="min-h-[44px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-2 text-base sm:text-sm font-bold text-[var(--kg-text)]"
                   >
                     <option value="">Chọn nhóm trực</option>
-                    {config.teams.map(team => <option key={team.id} value={team.id}>{team.name}</option>)}
+                    {config.teams.map((team) => (
+                      <option key={team.id} value={team.id}>
+                        {team.name}
+                      </option>
+                    ))}
                   </select>
                   <select
                     value={assignmentDraft.zoneId}
-                    onChange={event => setAssignmentDraft(current => ({ ...current, zoneId: event.target.value }))}
-                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-bold dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    onChange={(event) =>
+                      setAssignmentDraft((current) => ({ ...current, zoneId: event.target.value }))
+                    }
+                    className="min-h-[44px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-2 text-base sm:text-sm font-bold text-[var(--kg-text)]"
                   >
                     <option value="">Chọn khu trực</option>
-                    {config.zones.map(zone => <option key={zone.id} value={zone.id}>{zone.name}</option>)}
+                    {config.zones.map((zone) => (
+                      <option key={zone.id} value={zone.id}>
+                        {zone.name}
+                      </option>
+                    ))}
                   </select>
                   <select
                     value={assignmentDraft.shift}
-                    onChange={event => setAssignmentDraft(current => ({ ...current, shift: event.target.value }))}
-                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-bold dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    onChange={(event) =>
+                      setAssignmentDraft((current) => ({ ...current, shift: event.target.value }))
+                    }
+                    className="min-h-[44px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-2 text-base sm:text-sm font-bold text-[var(--kg-text)]"
                   >
                     <option>Cả ngày</option>
                     <option>Ca sáng</option>
                     <option>Ca chiều</option>
                     <option>Ca tối</option>
                   </select>
-                  <button type="button" onClick={addAssignment} className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-700 px-4 py-2.5 text-sm font-extrabold text-white">
+                  <button
+                    type="button"
+                    onClick={addAssignment}
+                    className="min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] px-4 py-2 text-sm font-extrabold text-white shadow-xs"
+                  >
                     <CalendarPlus size={16} /> Phân công
                   </button>
                 </div>
                 <input
                   value={assignmentDraft.note}
-                  onChange={event => setAssignmentDraft(current => ({ ...current, note: event.target.value }))}
+                  onChange={(event) =>
+                    setAssignmentDraft((current) => ({ ...current, note: event.target.value }))
+                  }
                   placeholder="Ghi chú vận hành, yêu cầu đặc biệt..."
-                  className="mt-3 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  className="mt-3 w-full min-h-[44px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-2 text-base sm:text-sm text-[var(--kg-text)]"
                 />
               </div>
 
-              <div className="soft3d-card rounded-2xl p-5">
-                <h3 className="font-extrabold text-slate-800 dark:text-white">Lịch phân công sắp tới</h3>
+              <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-5 shadow-xs">
+                <h3 className="font-extrabold text-[var(--kg-text)] text-sm sm:text-base">
+                  Lịch phân công sắp tới
+                </h3>
                 <div className="mt-4 space-y-3">
-                  {upcomingAssignments.map(assignment => {
-                    const team = config.teams.find(item => item.id === assignment.teamId);
-                    const zone = config.zones.find(item => item.id === assignment.zoneId);
-                    const totalTasks = config.tasks.filter(task => task.zoneId === assignment.zoneId).length;
+                  {upcomingAssignments.map((assignment) => {
+                    const team = config.teams.find((item) => item.id === assignment.teamId);
+                    const zone = config.zones.find((item) => item.id === assignment.zoneId);
+                    const totalTasks = config.tasks.filter(
+                      (task) => task.zoneId === assignment.zoneId,
+                    ).length;
                     const completedTasks = new Set(
                       taskLogs
-                        .filter(log => log.assignmentId === assignment.id)
-                        .map(log => log.taskId),
+                        .filter((log) => log.assignmentId === assignment.id)
+                        .map((log) => log.taskId),
                     ).size;
                     return (
-                      <div key={assignment.id} className="grid gap-3 rounded-2xl border border-slate-200 p-4 md:grid-cols-[130px_1fr_1fr_auto] md:items-center dark:border-slate-700">
+                      <div
+                        key={assignment.id}
+                        className="grid gap-3 rounded-2xl border border-[var(--kg-border)] p-4 md:grid-cols-[130px_1fr_1fr_auto] md:items-center"
+                      >
                         <div>
-                          <p className="text-sm font-black text-slate-800 dark:text-white">{formatOperationDate(assignment.date)}</p>
-                          <p className="mt-1 text-[11px] font-bold text-slate-400">{assignment.shift}</p>
+                          <p className="text-sm font-black font-mono tabular-nums text-[var(--kg-text)]">
+                            {formatOperationDate(assignment.date)}
+                          </p>
+                          <p className="mt-0.5 text-[11px] font-bold text-[var(--kg-text-muted)]">
+                            {assignment.shift}
+                          </p>
                         </div>
                         <div>
-                          <p className="text-[10px] font-bold uppercase text-slate-400">Nhóm trực</p>
-                          <p className="mt-1 text-sm font-extrabold text-cyan-700 dark:text-cyan-300">{team?.name || 'Nhóm đã xóa'}</p>
+                          <p className="text-[10px] font-bold uppercase text-[var(--kg-text-muted)]">
+                            Nhóm trực
+                          </p>
+                          <p className="mt-0.5 text-sm font-extrabold text-[var(--kg-primary-ink)]">
+                            {team?.name || 'Nhóm đã xóa'}
+                          </p>
                         </div>
                         <div>
-                          <p className="text-[10px] font-bold uppercase text-slate-400">Khu & tiến độ</p>
-                          <p className="mt-1 text-sm font-extrabold text-[var(--kg-primary)] font-mono tabular-nums">
-                            <span className="font-sans">{zone?.name || 'Khu đã xóa'}</span> · {completedTasks}/{totalTasks} việc
+                          <p className="text-[10px] font-bold uppercase text-[var(--kg-text-muted)]">
+                            Khu &amp; tiến độ
+                          </p>
+                          <p className="mt-0.5 text-sm font-extrabold text-[var(--kg-text)] font-mono tabular-nums">
+                            <span className="font-sans">{zone?.name || 'Khu đã xóa'}</span> ·{' '}
+                            {completedTasks}/{totalTasks} việc
                           </p>
                         </div>
                         {assignment.isVirtual ? (
-                          <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase text-[var(--kg-primary)] bg-[var(--kg-primary-soft)] px-2.5 py-1 rounded-lg justify-self-end">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-[var(--kg-primary-ink)] bg-[var(--kg-primary-soft)] px-2.5 py-1 rounded-lg justify-self-end">
                             <Sparkles size={11} /> Tự động
                           </span>
                         ) : (
                           <button
                             type="button"
-                            onClick={() => patchConfig(current => ({
-                              ...current,
-                              assignments: current.assignments.filter(item => item.id !== assignment.id),
-                            }))}
-                            className="justify-self-end rounded-lg p-2 text-slate-400 hover:text-rose-500"
+                            aria-label="Xóa phân công"
+                            onClick={() =>
+                              patchConfig((current) => ({
+                                ...current,
+                                assignments: current.assignments.filter(
+                                  (item) => item.id !== assignment.id,
+                                ),
+                              }))
+                            }
+                            className="justify-self-end min-h-[40px] min-w-[40px] rounded-xl text-[var(--kg-text-muted)] hover:text-rose-500 hover:bg-rose-500/10 inline-flex items-center justify-center"
                           >
                             <Trash2 size={16} />
                           </button>
@@ -2021,7 +1049,9 @@ function AdminOperationsContent() {
                     );
                   })}
                   {!upcomingAssignments.length && (
-                    <div className="py-12 text-center text-sm font-bold text-slate-400">Chưa có lịch phân công sắp tới.</div>
+                    <div className="py-10 text-center text-sm font-bold text-[var(--kg-text-muted)]">
+                      Chưa có lịch phân công sắp tới.
+                    </div>
                   )}
                 </div>
               </div>
@@ -2029,34 +1059,48 @@ function AdminOperationsContent() {
           )}
 
           {section === 'evaluations' && (
-            <div className="soft3d-card rounded-2xl p-5">
+            <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-5 shadow-xs">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <h3 className="font-extrabold text-slate-800 dark:text-white">Đánh giá & xếp loại nhân sự</h3>
-                  <p className="mt-1 text-xs text-slate-500">Thang điểm 1–5 được dùng khi tự động cân bằng nhóm.</p>
+                  <h3 className="font-extrabold text-[var(--kg-text)] text-sm sm:text-base">
+                    Đánh giá &amp; xếp loại nhân sự
+                  </h3>
+                  <p className="mt-1 text-xs text-[var(--kg-text-muted)]">
+                    Thang điểm 1–5 được dùng khi tự động cân bằng nhóm.
+                  </p>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                   <input
                     type="text"
                     placeholder="Tìm nhân viên..."
                     value={evalSearchQuery}
-                    onChange={e => setEvalSearchQuery(e.target.value)}
-                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    onChange={(e) => setEvalSearchQuery(e.target.value)}
+                    className="flex-1 sm:flex-none min-h-[44px] sm:min-h-[38px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-2 text-base sm:text-xs text-[var(--kg-text)]"
                   />
-                  <button type="button" onClick={autoBalanceTeams} className="inline-flex items-center gap-2 rounded-xl bg-[var(--kg-primary-soft)] px-3 py-2 text-xs font-bold text-[var(--kg-primary)] hover:opacity-90 transition-opacity">
-                    <Sparkles size={15} /> Xếp đội theo điểm
+                  <button
+                    type="button"
+                    onClick={() => void autoBalanceTeams()}
+                    className="min-h-[44px] sm:min-h-[38px] inline-flex items-center gap-1.5 rounded-xl bg-[var(--kg-primary-soft)] px-3.5 py-2 text-xs font-bold text-[var(--kg-primary-ink)]"
+                  >
+                    <Sparkles size={14} /> Xếp đội theo điểm
                   </button>
                 </div>
               </div>
               <div className="mt-5 space-y-3">
                 {[...filteredEvalEmployees]
                   .sort((a, b) => {
-                    const aScore = operationScore(config.evaluations.find(item => item.username === a.username));
-                    const bScore = operationScore(config.evaluations.find(item => item.username === b.username));
+                    const aScore = operationScore(
+                      config.evaluations.find((item) => item.username === a.username),
+                    );
+                    const bScore = operationScore(
+                      config.evaluations.find((item) => item.username === b.username),
+                    );
                     return bScore - aScore;
                   })
-                  .map(employee => {
-                    const evaluation = config.evaluations.find(item => item.username === employee.username);
+                  .map((employee) => {
+                    const evaluation = config.evaluations.find(
+                      (item) => item.username === employee.username,
+                    );
                     const values = evaluation || {
                       username: employee.username,
                       service: 3,
@@ -2068,45 +1112,67 @@ function AdminOperationsContent() {
                       updatedAt: '',
                     };
                     return (
-                      <div key={employee.username} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+                      <div
+                        key={employee.username}
+                        className="rounded-2xl border border-[var(--kg-border)] p-4"
+                      >
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div>
-                            <p className="font-extrabold text-slate-800 dark:text-white">{employee.fullname}</p>
-                            <p className="text-[11px] text-slate-400">{employee.position || 'Nhân viên'}</p>
+                            <p className="font-extrabold text-[var(--kg-text)]">
+                              {employee.fullname}
+                            </p>
+                            <p className="text-[11px] text-[var(--kg-text-muted)]">
+                              {employee.position || 'Nhân viên'}
+                            </p>
                           </div>
-                          <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-black text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                          <span className="rounded-full bg-amber-500/15 px-3 py-1 text-sm font-black font-mono tabular-nums text-amber-700 dark:text-amber-300">
                             {operationScore(evaluation).toFixed(1)}/5
                           </span>
                         </div>
                         <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
-                          {[
-                            ['service', 'Nghiệp vụ'],
-                            ['speed', 'Tốc độ'],
-                            ['teamwork', 'Phối hợp'],
-                            ['reliability', 'Ổn định'],
-                            ['leadership', 'Dẫn dắt'],
-                          ].map(([field, label]) => (
-                            <label key={field} className="rounded-xl bg-slate-50 p-2.5 dark:bg-slate-800/70">
-                              <span className="block text-[10px] font-bold uppercase text-slate-400">{label}</span>
+                          {(
+                            [
+                              ['service', 'Nghiệp vụ'],
+                              ['speed', 'Tốc độ'],
+                              ['teamwork', 'Phối hợp'],
+                              ['reliability', 'Ổn định'],
+                              ['leadership', 'Dẫn dắt'],
+                            ] as const
+                          ).map(([field, label]) => (
+                            <label
+                              key={field}
+                              className="rounded-xl bg-[var(--kg-surface-soft)] p-2.5 border border-[var(--kg-border)]"
+                            >
+                              <span className="block text-[10px] font-bold uppercase text-[var(--kg-text-muted)]">
+                                {label}
+                              </span>
                               <select
-                                value={values[field as keyof OperationEvaluation] as number}
-                                onChange={event => updateEvaluation(
-                                  employee.username,
-                                  field as keyof OperationEvaluation,
-                                  Number(event.target.value),
-                                )}
-                                className="mt-1 w-full bg-transparent text-sm font-black text-slate-700 outline-none dark:text-white"
+                                value={values[field]}
+                                onChange={(event) =>
+                                  updateEvaluation(
+                                    employee.username,
+                                    field,
+                                    Number(event.target.value),
+                                  )
+                                }
+                                className="mt-1 w-full bg-transparent text-base sm:text-sm font-black font-mono text-[var(--kg-text)] outline-none"
                               >
-                                {[1, 2, 3, 4, 5].map(score => <option key={score}>{score}</option>)}
+                                {[1, 2, 3, 4, 5].map((score) => (
+                                  <option key={score} value={score}>
+                                    {score}
+                                  </option>
+                                ))}
                               </select>
                             </label>
                           ))}
                         </div>
                         <input
                           value={values.note}
-                          onChange={event => updateEvaluation(employee.username, 'note', event.target.value)}
+                          onChange={(event) =>
+                            updateEvaluation(employee.username, 'note', event.target.value)
+                          }
                           placeholder="Nhận xét, điểm mạnh, hạn chế hoặc lưu ý khi xếp nhóm..."
-                          className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                          className="mt-3 w-full min-h-[44px] sm:min-h-[38px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-2 text-base sm:text-xs text-[var(--kg-text)]"
                         />
                       </div>
                     );
@@ -2117,29 +1183,31 @@ function AdminOperationsContent() {
         </>
       )}
 
-      <div className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] md:bottom-5 left-1/2 z-30 flex w-[min(92vw,720px)] -translate-x-1/2 items-center gap-2 rounded-2xl border border-white/70 bg-white/95 p-2 shadow-2xl backdrop-blur-xl dark:border-slate-700 dark:bg-slate-900/95">
+      {/* Sticky Save Bar */}
+      <div className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] md:bottom-5 left-1/2 z-30 flex w-[min(92vw,720px)] -translate-x-1/2 items-center gap-2 rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface)] p-2 shadow-xl">
         <button
           type="button"
-          onClick={loadData}
+          onClick={() => void loadData()}
           disabled={loading}
-          className="inline-flex h-11 w-11 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-xl text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)]"
           title="Tải lại"
+          aria-label="Tải lại cấu hình điều phối"
         >
           <RefreshCw size={17} className={loading ? 'animate-spin' : ''} />
         </button>
         <div className="min-w-0 flex-1 px-2">
-          <p className="truncate text-xs font-extrabold text-slate-700 dark:text-slate-200">
-            {dirty ? 'Có thay đổi chưa lưu' : 'Cấu hình đã đồng bộ'}
+          <p className="truncate text-xs font-extrabold text-[var(--kg-text)]">
+            {dirty ? 'Có thay đổi chưa lưu' : 'Cấu hình điều phối đã đồng bộ'}
           </p>
-          <p className="truncate text-[10px] text-slate-400">
+          <p className="truncate text-[10px] font-mono tabular-nums text-[var(--kg-text-muted)]">
             {config.teams.length} nhóm · {config.zones.length} khu · {config.assignments.length} phân công
           </p>
         </div>
         <button
           type="button"
-          onClick={saveConfig}
+          onClick={() => void saveConfig()}
           disabled={saving || loading || !dirty}
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-cyan-700 px-4 text-xs font-extrabold text-white shadow-md disabled:cursor-not-allowed disabled:opacity-45"
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] px-4 text-xs font-extrabold text-white shadow-xs disabled:cursor-not-allowed disabled:opacity-45"
         >
           {saving ? <LoaderCircle size={16} className="animate-spin" /> : <Save size={16} />}
           {saving ? 'Đang lưu' : 'Lưu cấu hình'}
@@ -2157,8 +1225,8 @@ function AdminOperationsContent() {
             label="Tên nhóm trực *"
             placeholder="Ví dụ: Nhóm A, Tổ Phục vụ Sáng..."
             value={teamDraft.name}
-            onChange={e => {
-              setTeamDraft(prev => ({ ...prev, name: e.target.value }));
+            onChange={(e) => {
+              setTeamDraft((prev) => ({ ...prev, name: e.target.value }));
               if (modalError) setModalError('');
             }}
             error={modalError}
@@ -2168,10 +1236,14 @@ function AdminOperationsContent() {
             label="Mô tả phạm vi hoặc thế mạnh"
             placeholder="Mô tả phạm vi phụ trách hoặc thế mạnh của nhóm..."
             value={teamDraft.description}
-            onChange={e => setTeamDraft(prev => ({ ...prev, description: e.target.value }))}
+            onChange={(e) => setTeamDraft((prev) => ({ ...prev, description: e.target.value }))}
           />
           <div className="flex gap-3 pt-2">
-            <KgButton variant="secondary" className="flex-1" onClick={() => setIsTeamModalOpen(false)}>
+            <KgButton
+              variant="secondary"
+              className="flex-1"
+              onClick={() => setIsTeamModalOpen(false)}
+            >
               Hủy
             </KgButton>
             <KgButton type="submit" variant="primary" className="flex-1" icon={Plus}>

@@ -728,13 +728,15 @@ export default function FaceEnrollmentModal({
 
   const activeAngle = ENROLLMENT_ANGLE_SEQUENCE[Math.min(currentStepIdx, ENROLLMENT_ANGLE_SEQUENCE.length - 1)];
   const minLivePct = Math.round(FACE_LIVENESS_MIN_SCORE * 100);
-  const pillLabelMap: Record<EnrollmentAngleKey, string> = {
-    CENTER: 'Nhìn thẳng',
-    LEFT: 'Quay trái',
-    RIGHT: 'Quay phải',
-    UP: 'Ngẩng lên',
-    DOWN: 'Cúi xuống',
+  const pillLabelMap: Record<EnrollmentAngleKey, { short: string; full: string }> = {
+    CENTER: { short: 'Thẳng', full: 'Nhìn thẳng' },
+    LEFT: { short: 'Trái', full: 'Quay trái' },
+    RIGHT: { short: 'Phải', full: 'Quay phải' },
+    UP: { short: 'Ngẩng', full: 'Ngẩng lên' },
+    DOWN: { short: 'Cúi', full: 'Cúi xuống' },
   };
+  const isLightingLow = telemetry.brightness > 0 && telemetry.brightness < 45;
+  const isFrameReady = telemetry.brightness >= 45 && telemetry.liveScore >= minLivePct;
 
   return createPortal(
     <div
@@ -821,7 +823,8 @@ export default function FaceEnrollmentModal({
                     {isDone ? '✓' : `${idx + 1}/5`}
                   </div>
                   <div className="text-[10px] font-bold truncate">
-                    {pillLabelMap[step.key]}
+                    <span className="sm:hidden">{pillLabelMap[step.key].short}</span>
+                    <span className="hidden sm:inline">{pillLabelMap[step.key].full}</span>
                   </div>
                 </div>
               );
@@ -949,28 +952,33 @@ export default function FaceEnrollmentModal({
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-1.5 pt-1 border-t border-[#2B3240] text-[10px]">
-              <div className="bg-[#0D1015] border border-[#2B3240] rounded-lg px-2 py-1 flex items-center justify-between">
-                <span className="text-[#9FA8B8]">Sáng</span>
-                <span className="font-mono tabular-nums font-bold text-[#F7F4EE] inline-flex items-center gap-0.5">
-                  <SunMedium size={11} className="text-[#FBBF24]" />
-                  {telemetry.brightness}
+            {/* Single-line User-Friendly Readiness Badge */}
+            <div className="pt-1 border-t border-[#2B3240]">
+              <div
+                className={`rounded-xl px-3 py-1.5 border text-[11px] font-bold flex items-center justify-between gap-2 ${
+                  isLightingLow
+                    ? 'bg-[#291F0F] border-[#FBBF24]/50 text-[#FBBF24]'
+                    : isFrameReady
+                    ? 'bg-[#0F291E] border-[#34D399]/50 text-[#34D399]'
+                    : 'bg-[#0D1015] border-[#2B3240] text-[#9FA8B8]'
+                }`}
+              >
+                <span className="inline-flex items-center gap-1.5 min-w-0 truncate">
+                  {isLightingLow ? (
+                    <SunMedium size={13} className="shrink-0 text-[#FBBF24]" />
+                  ) : (
+                    <ShieldCheck size={13} className={`shrink-0 ${isFrameReady ? 'text-[#34D399]' : 'text-[#9FA8B8]'}`} />
+                  )}
+                  <span className="truncate">
+                    {isLightingLow
+                      ? 'Thiếu sáng — hướng mặt về phía nguồn sáng'
+                      : isFrameReady
+                      ? 'Ánh sáng & Khuôn mặt đạt chuẩn'
+                      : 'Đang căn chỉnh ánh sáng & khuôn mặt 3D...'}
+                  </span>
                 </span>
-              </div>
-              <div className="bg-[#0D1015] border border-[#2B3240] rounded-lg px-2 py-1 flex items-center justify-between">
-                <span className="text-[#9FA8B8]">Góc</span>
-                <span className="font-mono tabular-nums font-bold text-[#F7F4EE]">
-                  {telemetry.yawDeg > 0 ? `+${telemetry.yawDeg}` : telemetry.yawDeg}°/{telemetry.pitchDeg > 0 ? `+${telemetry.pitchDeg}` : telemetry.pitchDeg}°
-                </span>
-              </div>
-              <div className="bg-[#0D1015] border border-[#2B3240] rounded-lg px-2 py-1 flex items-center justify-between">
-                <span className="text-[#9FA8B8]">Live</span>
-                <span
-                  className={`font-mono tabular-nums font-bold ${
-                    telemetry.liveScore >= minLivePct ? 'text-[#34D399]' : 'text-[#FBBF24]'
-                  }`}
-                >
-                  {telemetry.liveScore}%
+                <span className="font-mono tabular-nums text-[10px] shrink-0">
+                  {isFrameReady ? 'Sẵn sàng' : 'Đang đo'}
                 </span>
               </div>
             </div>

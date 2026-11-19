@@ -1,20 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AnimatePresence } from 'framer-motion';
 import {
   BadgeCheck,
   Check,
   CircleDollarSign,
   Copy,
+  HandCoins,
   MessageSquareText,
   Plus,
   RefreshCw,
   Save,
+  Search,
   Trash2,
   Users,
   X,
 } from 'lucide-react';
 import { callApi } from '../services/api';
-import type { User } from '../store/useAppStore';
+import { useAppStore, type User } from '../store/useAppStore';
+import { kgToast } from '../store/useFeedbackStore';
 import type { MonthlySalaryItem, SalaryAdjustmentRequest, SalaryPayType } from '../types/salary';
 import {
   currentSalaryMonth,
@@ -22,25 +24,34 @@ import {
   salaryTypeLabel,
 } from '../types/salary';
 import { isWorkEligible } from '../utils/employment';
+import { formatVnd } from '../utils/formatCurrency';
+import { isAdminUser } from '../utils/permissions';
 import {
   KgBottomSheet,
   KgButton,
   KgConfirmSheet,
   KgEmptyState,
   KgErrorState,
+  KgInput,
   KgSkeleton,
   KgStatusBadge,
-  KgToast,
-  type ToastMessage,
 } from './KgDesignSystem';
 
-interface MonthlySalaryManagerProps {
-  currentUser: User;
-  users: User[];
+export interface MonthlySalaryManagerProps {
+  currentUser?: User;
+  users?: User[];
 }
 
-const formatVnd = (amount: number) =>
-  `${Math.round(Number(amount) || 0).toLocaleString('vi-VN')} VNĐ`;
+type AdjustmentFilterStatus = 'Pending' | 'All';
+
+const DEFAULT_BASE_FORMULA = '(HOURS * RATE) + BONUS - PENALTY + ALLOWANCE';
+const DEFAULT_ALLOWANCES = [
+  { id: 'meal', name: 'Tiền ăn ca', description: 'Ca làm > 4 tiếng', amount: 30000 },
+  { id: 'parking', name: 'Gửi xe', description: 'Theo ngày làm việc', amount: 10000 },
+];
+const DEFAULT_DEDUCTIONS = [
+  { id: 'late', name: 'Đi trễ', description: 'Trừ 10,000đ / 15 phút', amount: 10000 },
+];
 
 const newSalaryItem = (user: User): MonthlySalaryItem => ({
   username: user.username,
@@ -50,7 +61,19 @@ const newSalaryItem = (user: User): MonthlySalaryItem => ({
   standardDays: 30,
 });
 
-export default function MonthlySalaryManager({ currentUser, users }: MonthlySalaryManagerProps) {
+export default function MonthlySalaryManager({
+  currentUser: propCurrentUser,
+  users: propUsers,
+}: MonthlySalaryManagerProps = {}) {
+  const storeCurrentUser = useAppStore((s) => s.currentUser);
+  const storeUsers = useAppStore((s) => s.users);
+  const serverPayrollConfig = useAppStore((s) => s.serverPayrollConfig);
+  const setServerPayrollConfig = useAppStore((s) => s.setServerPayrollConfig);
+
+  const currentUser = propCurrentUser ?? storeCurrentUser;
+  const users = propUsers ?? storeUsers;
+  const isAdmin = isAdminUser(currentUser);
+
   const [month, setMonth] = useState(currentSalaryMonth);
   const [items, setItems] = useState<MonthlySalaryItem[]>([]);
   const [availableMonths, setAvailableMonths] = useState<string[]>([]);
@@ -61,7 +84,20 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
 
-  // Sheet states (replacing Swal)
+  // Search & filter state
+  const [staffSearch, setStaffSearch] = useState('');
+  const [requestSearch, setRequestSearch] = useState('');
+  const [requestFilter, setRequestFilter] = useState<AdjustmentFilterStatus>('Pending');
+
+  // Inline Advance Limit (%) config state
+  const [advanceLimit, setAdvanceLimit] = useState(() =>
+    serverPayrollConfig?.maxAdvancePercent !== undefined
+      ? String(serverPayrollConfig.maxAdvancePercent)
+      : '50',
+  );
+  const [savingAdvanceLimit, setSavingAdvanceLimit] = useState(false);
+
+  // Sheet states
   const [copyConfirmOpen, setCopyConfirmOpen] = useState(false);
   const [reviewTarget, setReviewTarget] = useState<{
     request: SalaryAdjustmentRequest;
@@ -69,15 +105,12 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
   } | null>(null);
   const [reviewReply, setReviewReply] = useState('');
   const [reviewBusy, setReviewBusy] = useState(false);
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  const pushToast = useCallback((title: string, type: ToastMessage['type']) => {
-    setToasts((prev) => [...prev.slice(-2), { id: `${Date.now()}_${Math.random()}`, title, type }]);
-  }, []);
-
-  const dismissToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  }, []);
+  useEffect(() => {
+    if (serverPayrollConfig?.maxAdvancePercent !== undefined) {
+      setAdvanceLimit(String(serverPayrollConfig.maxAdvancePercent));
+    }
+  }, [serverPayrollConfig?.maxAdvancePercent]);
 
   const employeeUsers = useMemo(
     () => users.filter((user) => user.role !== 'admin' && user.username && isWorkEligible(user)),
@@ -85,6 +118,7 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
   );
 
   const loadData = useCallback(async () => {
+    if (!currentUser || !isAdmin) return;
     setLoading(true);
     setLoadError('');
     try {
@@ -116,13 +150,13 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
     } finally {
       setLoading(false);
     }
-  }, [currentUser.role, currentUser.username, month]);
+  }, [currentUser, isAdmin, month]);
 
   useEffect(() => {
-    if (currentUser.role !== 'admin') return;
+    if (!isAdmin) return;
     const timer = window.setTimeout(loadData, 0);
     return () => window.clearTimeout(timer);
-  }, [currentUser.role, loadData]);
+  }, [isAdmin, loadData]);
 
   const updateItem = (username: string, patch: Partial<MonthlySalaryItem>) => {
     setItems((current) =>
@@ -135,12 +169,12 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
     const existing = new Set(items.map((item) => item.username));
     const missing = employeeUsers.filter((user) => !existing.has(user.username));
     if (!missing.length) {
-      pushToast('Tất cả nhân viên đã có trong bảng khai báo tháng này.', 'info');
+      kgToast('Tất cả nhân viên đã có trong bảng khai báo tháng này.', 'info');
       return;
     }
     setItems((current) => [...current, ...missing.map(newSalaryItem)]);
     setDirty(true);
-    pushToast(`Đã thêm ${missing.length} nhân viên vào bảng khai báo`, 'success');
+    kgToast(`Đã thêm ${missing.length} nhân viên vào bảng khai báo`, 'success');
   };
 
   const removeItem = (username: string) => {
@@ -149,9 +183,10 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
   };
 
   const save = async () => {
+    if (!currentUser || !isAdmin) return;
     const invalid = items.find((item) => !item.amount || item.amount < 0);
     if (invalid) {
-      pushToast(`Mức lương của ${invalid.fullname} chưa hợp lệ.`, 'warning');
+      kgToast(`Mức lương của ${invalid.fullname} chưa hợp lệ.`, 'warning');
       return;
     }
     setSaving(true);
@@ -163,22 +198,68 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
         items,
       });
       if (!res?.ok) {
-        pushToast(res?.message || 'Máy chủ chưa phản hồi, không thể lưu.', 'error');
+        kgToast(res?.message || 'Máy chủ chưa phản hồi, không thể lưu.', 'error');
         return;
       }
       setItems(res.data.config.items || []);
       setAvailableMonths((current) => Array.from(new Set([month, ...current])).sort().reverse());
       setDirty(false);
-      pushToast(`Đã lưu bảng lương ${salaryMonthLabel(month)}`, 'success');
+      kgToast(`Đã lưu bảng lương ${salaryMonthLabel(month)}`, 'success');
     } catch {
-      pushToast('Lỗi kết nối khi lưu bảng lương.', 'error');
+      kgToast('Lỗi kết nối khi lưu bảng lương.', 'error');
     } finally {
       setSaving(false);
     }
   };
 
+  const handleSaveAdvanceLimit = async () => {
+    if (!currentUser || !isAdmin) return;
+    const numericLimit = Number(advanceLimit);
+    if (!Number.isFinite(numericLimit) || numericLimit < 0 || numericLimit > 100) {
+      kgToast('Tỷ lệ ứng lương tối đa phải nằm trong khoảng 0% đến 100%.', 'warning');
+      return;
+    }
+
+    const baseFormula = serverPayrollConfig?.baseFormula || DEFAULT_BASE_FORMULA;
+    const allowances = serverPayrollConfig?.allowances || DEFAULT_ALLOWANCES;
+    const deductions = serverPayrollConfig?.deductions || DEFAULT_DEDUCTIONS;
+    const preservedMealAllowance =
+      serverPayrollConfig?.mealAllowance ??
+      allowances.find((a) => a.id === 'meal')?.amount ??
+      30000;
+
+    setSavingAdvanceLimit(true);
+    try {
+      const res = await callApi('UPDATE_PAYROLL_CONFIG', {
+        role: currentUser.role,
+        baseFormula,
+        maxAdvancePercent: numericLimit,
+        mealAllowance: String(preservedMealAllowance),
+        allowances,
+        deductions,
+      });
+      if (res?.ok) {
+        const nextPayrollConfig = {
+          baseFormula,
+          maxAdvancePercent: numericLimit,
+          mealAllowance: Number(preservedMealAllowance),
+          allowances,
+          deductions,
+        };
+        setServerPayrollConfig(nextPayrollConfig);
+        kgToast(`Đã lưu hạn mức ứng tối đa ${numericLimit}%`, 'success');
+      } else {
+        kgToast(res?.message || 'Không thể lưu hạn mức ứng lương.', 'error');
+      }
+    } catch {
+      kgToast('Lỗi kết nối khi lưu hạn mức ứng lương.', 'error');
+    } finally {
+      setSavingAdvanceLimit(false);
+    }
+  };
+
   const executeCopyMonth = async () => {
-    if (!copySource) return;
+    if (!currentUser || !isAdmin || !copySource) return;
     setSaving(true);
     try {
       const res = await callApi('COPY_MONTHLY_SALARY_CONFIG', {
@@ -188,23 +269,23 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
         targetMonth: month,
       });
       if (!res?.ok) {
-        pushToast(res?.message || 'Không thể sao chép bảng lương.', 'error');
+        kgToast(res?.message || 'Không thể sao chép bảng lương.', 'error');
         return;
       }
       setItems(res.data.config.items || []);
       setAvailableMonths((current) => Array.from(new Set([month, ...current])).sort().reverse());
       setDirty(false);
       setCopyConfirmOpen(false);
-      pushToast(res.data.message || 'Bảng lương đã sao chép thành công.', 'success');
+      kgToast(res.data.message || 'Bảng lương đã sao chép thành công.', 'success');
     } catch {
-      pushToast('Lỗi kết nối khi sao chép bảng lương.', 'error');
+      kgToast('Lỗi kết nối khi sao chép bảng lương.', 'error');
     } finally {
       setSaving(false);
     }
   };
 
   const executeReviewRequest = async () => {
-    if (!reviewTarget) return;
+    if (!currentUser || !isAdmin || !reviewTarget) return;
     setReviewBusy(true);
     try {
       const res = await callApi('REVIEW_SALARY_ADJUSTMENT', {
@@ -215,29 +296,105 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
         adminReply: reviewReply.trim(),
       });
       if (!res?.ok) {
-        pushToast(res?.message || 'Không thể xử lý đề nghị điều chỉnh.', 'error');
+        kgToast(res?.message || 'Không thể xử lý đề nghị điều chỉnh.', 'error');
         return;
       }
       setReviewTarget(null);
       setReviewReply('');
       await loadData();
-      pushToast(
+      kgToast(
         reviewTarget.status === 'Approved' ? 'Đã duyệt và cập nhật mức lương' : 'Đã gửi phản hồi từ chối',
         'success',
       );
     } catch {
-      pushToast('Lỗi kết nối khi xử lý đề nghị.', 'error');
+      kgToast('Lỗi kết nối khi xử lý đề nghị.', 'error');
     } finally {
       setReviewBusy(false);
     }
   };
 
-  if (currentUser.role !== 'admin') return null;
+  const filteredItems = useMemo(() => {
+    const q = staffSearch.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter(
+      (item) =>
+        item.fullname.toLowerCase().includes(q) || item.username.toLowerCase().includes(q),
+    );
+  }, [items, staffSearch]);
 
-  const pendingRequests = requests.filter((request) => request.status === 'Pending');
+  const pendingRequests = useMemo(
+    () => requests.filter((request) => request.status === 'Pending'),
+    [requests],
+  );
+
+  const filteredRequests = useMemo(() => {
+    const q = requestSearch.trim().toLowerCase();
+    return requests.filter((req) => {
+      if (requestFilter === 'Pending' && req.status !== 'Pending') return false;
+      if (q) {
+        const matchName = (req.fullname || '').toLowerCase().includes(q);
+        const matchUser = (req.username || '').toLowerCase().includes(q);
+        const matchReason = (req.reason || '').toLowerCase().includes(q);
+        if (!matchName && !matchUser && !matchReason) return false;
+      }
+      return true;
+    });
+  }, [requests, requestFilter, requestSearch]);
+
+  if (!currentUser || !isAdmin) return null;
+
+  const advanceLimitChanged =
+    String(serverPayrollConfig?.maxAdvancePercent ?? 50) !== String(advanceLimit).trim();
 
   return (
-    <section className="space-y-4">
+    <section className={`space-y-4 ${dirty ? 'pb-24' : 'pb-8'}`}>
+      {/* Compact Inline Advance Limit (%) Config Card */}
+      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 sm:p-5 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-start gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] flex items-center justify-center flex-shrink-0">
+              <HandCoins size={18} />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-sm font-black text-[var(--kg-text)]">Hạn mức ứng lương (%)</h3>
+              <p className="text-xs text-[var(--kg-text-muted)] mt-0.5 leading-snug">
+                Giới hạn tối đa nhân viên được tạm ứng theo % lương tích lũy thực tế trong tháng.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="relative w-28">
+              <input
+                id="payroll-advance-limit"
+                type="number"
+                min={0}
+                max={100}
+                aria-label="Hạn mức ứng lương tối đa (%)"
+                value={advanceLimit}
+                onChange={(e) => setAdvanceLimit(e.target.value)}
+                className="w-full min-h-[44px] sm:min-h-[40px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] pl-3 pr-8 py-1.5 text-right text-sm font-mono tabular-nums font-black text-[var(--kg-text)] outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono font-bold text-[var(--kg-text-muted)] pointer-events-none">
+                %
+              </span>
+            </div>
+            <KgButton
+              type="button"
+              variant={advanceLimitChanged ? 'primary' : 'secondary'}
+              size="sm"
+              loading={savingAdvanceLimit}
+              disabled={savingAdvanceLimit}
+              icon={Save}
+              onClick={handleSaveAdvanceLimit}
+            >
+              Lưu hạn mức
+            </KgButton>
+          </div>
+        </div>
+      </div>
+
+      {/* Monthly Salary Rates Card */}
       <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl overflow-hidden shadow-xs">
         <div className="p-4 sm:p-5 border-b border-[var(--kg-border)] bg-[var(--kg-surface-soft)]">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -306,7 +463,9 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
             <div className="flex items-center gap-2">
               <Users size={18} className="text-[var(--kg-primary)]" />
               <h3 className="font-extrabold text-[var(--kg-text)] font-mono tabular-nums">
-                {items.length} <span className="font-sans">nhân viên</span>
+                {filteredItems.length}
+                {staffSearch.trim() ? `/${items.length}` : ''}{' '}
+                <span className="font-sans">nhân viên</span>
               </h3>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -332,6 +491,28 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
             </div>
           </div>
 
+          {items.length > 0 && (
+            <KgInput
+              aria-label="Tìm nhân viên trong bảng đơn giá"
+              placeholder="Tìm nhân viên theo tên hoặc @username..."
+              value={staffSearch}
+              onChange={(e) => setStaffSearch(e.target.value)}
+              icon={Search}
+              rightAdornment={
+                staffSearch ? (
+                  <button
+                    type="button"
+                    onClick={() => setStaffSearch('')}
+                    aria-label="Xóa từ khóa tìm nhân viên"
+                    className="w-9 h-9 rounded-lg flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]"
+                  >
+                    <X size={15} />
+                  </button>
+                ) : null
+              }
+            />
+          )}
+
           {loadError ? (
             <KgErrorState title="Không thể tải cấu hình lương" description={loadError} onRetry={loadData} />
           ) : loading ? (
@@ -347,10 +528,17 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
               description="Khởi tạo nhanh danh sách nhân viên với mức đề xuất ban đầu 25.000 VNĐ/giờ."
               action={{ label: 'Tạo bảng lương cho nhân viên', onClick: addMissingEmployees }}
             />
+          ) : !filteredItems.length ? (
+            <KgEmptyState
+              icon={Search}
+              title="Không tìm thấy nhân viên phù hợp"
+              description="Thử nhập từ khóa khác hoặc xóa bộ lọc tìm kiếm."
+              action={{ label: 'Xóa tìm kiếm', onClick: () => setStaffSearch('') }}
+            />
           ) : (
             <>
-              {/* Desktop Sticky-Header Table */}
-              <div className="hidden md:block overflow-auto max-h-[540px] rounded-xl border border-[var(--kg-border)]">
+              {/* Desktop Sticky-Header Table (>= lg) */}
+              <div className="hidden lg:block overflow-auto max-h-[540px] rounded-xl border border-[var(--kg-border)]">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead className="sticky top-0 z-10 bg-[var(--kg-surface-soft)] border-b border-[var(--kg-border)] text-[11px] uppercase tracking-wider text-[var(--kg-text-muted)]">
                     <tr>
@@ -362,7 +550,7 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--kg-border)] bg-[var(--kg-surface)]">
-                    {items.map((item) => (
+                    {filteredItems.map((item) => (
                       <tr key={item.username} className="hover:bg-[var(--kg-surface-soft)]/60 transition-colors">
                         <td className="py-2.5 px-3.5 min-w-[180px]">
                           <p className="text-sm font-extrabold text-[var(--kg-text)] truncate">{item.fullname}</p>
@@ -420,9 +608,9 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
                 </table>
               </div>
 
-              {/* Mobile Card View */}
-              <div className="md:hidden space-y-2.5">
-                {items.map((item) => (
+              {/* Mobile & Tablet Portrait Card View (< lg) */}
+              <div className="lg:hidden grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                {filteredItems.map((item) => (
                   <div
                     key={item.username}
                     className="rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] p-3.5 shadow-xs space-y-3"
@@ -507,8 +695,8 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
         </div>
       </div>
 
-      {/* Adjustment Requests Panel */}
-      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 sm:p-5 shadow-xs">
+      {/* Adjustment Requests Panel with Staff Search & Pending/All Filter */}
+      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h3 className="flex items-center gap-2 font-extrabold text-[var(--kg-text)]">
@@ -522,8 +710,57 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
           {!!pendingRequests.length && <KgStatusBadge variant="warning">{pendingRequests.length} mới</KgStatusBadge>}
         </div>
 
-        <div className="mt-4 space-y-3">
-          {requests.map((request) => (
+        {/* Search & Pending/All Filter Controls */}
+        <div className="flex flex-col sm:flex-row gap-2.5 sm:items-center">
+          <div className="flex-1 min-w-0">
+            <KgInput
+              aria-label="Tìm đề nghị theo nhân viên hoặc lý do"
+              placeholder="Tìm nhân viên, @username hoặc lý do..."
+              value={requestSearch}
+              onChange={(e) => setRequestSearch(e.target.value)}
+              icon={Search}
+              rightAdornment={
+                requestSearch ? (
+                  <button
+                    type="button"
+                    onClick={() => setRequestSearch('')}
+                    aria-label="Xóa từ khóa tìm đề nghị"
+                    className="w-9 h-9 rounded-lg flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]"
+                  >
+                    <X size={15} />
+                  </button>
+                ) : null
+              }
+            />
+          </div>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {(
+              [
+                { id: 'Pending', label: `Chờ duyệt (${pendingRequests.length})` },
+                { id: 'All', label: `Tất cả (${requests.length})` },
+              ] as { id: AdjustmentFilterStatus; label: string }[]
+            ).map((pill) => {
+              const active = requestFilter === pill.id;
+              return (
+                <button
+                  key={pill.id}
+                  type="button"
+                  onClick={() => setRequestFilter(pill.id)}
+                  className={`min-h-[44px] sm:min-h-[38px] px-3.5 py-1.5 rounded-full text-xs font-bold border transition-colors touch-manipulation ${
+                    active
+                      ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)]'
+                      : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)] hover:text-[var(--kg-text)]'
+                  }`}
+                >
+                  {pill.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          {filteredRequests.map((request) => (
             <article
               key={request.id}
               className="rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] p-4"
@@ -603,15 +840,77 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
               )}
             </article>
           ))}
-          {!requests.length && (
+          {!filteredRequests.length && (
             <div className="flex flex-col items-center justify-center py-9 text-center text-[var(--kg-text-muted)]">
               <BadgeCheck size={28} />
-              <p className="mt-2 text-sm font-bold">Chưa có đề nghị điều chỉnh</p>
-              <p className="mt-1 text-xs">Các đề nghị từ nhân viên sẽ xuất hiện tại đây.</p>
+              <p className="mt-2 text-sm font-bold">
+                {requests.length === 0
+                  ? 'Chưa có đề nghị điều chỉnh'
+                  : requestFilter === 'Pending' && !requestSearch.trim()
+                    ? 'Không còn đề nghị nào đang chờ duyệt'
+                    : 'Không tìm thấy đề nghị phù hợp'}
+              </p>
+              <p className="mt-1 text-xs">
+                {requests.length === 0
+                  ? 'Các đề nghị từ nhân viên sẽ xuất hiện tại đây.'
+                  : 'Bạn có thể chuyển sang xem Tất cả hoặc xóa từ khóa tìm kiếm.'}
+              </p>
+              {requests.length > 0 && (requestFilter !== 'All' || requestSearch.trim()) && (
+                <KgButton
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  className="mt-3"
+                  onClick={() => {
+                    setRequestFilter('All');
+                    setRequestSearch('');
+                  }}
+                >
+                  Xem tất cả ({requests.length})
+                </KgButton>
+              )}
             </div>
           )}
         </div>
       </div>
+
+      {/* Sticky Bottom Save Bar when dirty === true */}
+      {dirty && (
+        <div
+          role="region"
+          aria-label="Thanh lưu thay đổi bảng lương"
+          className="sticky bottom-[76px] md:bottom-4 z-30 rounded-2xl border border-[var(--kg-primary)]/35 bg-[var(--kg-surface)] px-4 py-3 shadow-lg flex flex-wrap items-center justify-between gap-3"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <KgStatusBadge variant="warning">Chưa lưu</KgStatusBadge>
+            <span className="text-xs sm:text-sm font-bold text-[var(--kg-text)] truncate">
+              Bảng đơn giá {salaryMonthLabel(month)} có thay đổi mới
+            </span>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <KgButton
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={saving || loading}
+              onClick={loadData}
+            >
+              Hoàn tác
+            </KgButton>
+            <KgButton
+              type="button"
+              variant="primary"
+              size="sm"
+              loading={saving}
+              disabled={saving || loading || !items.length}
+              icon={Save}
+              onClick={save}
+            >
+              {saving ? 'Đang lưu...' : 'Lưu bảng lương'}
+            </KgButton>
+          </div>
+        </div>
+      )}
 
       {/* Copy Month Confirmation Sheet */}
       <KgConfirmSheet
@@ -685,14 +984,6 @@ export default function MonthlySalaryManager({ currentUser, users }: MonthlySala
           </label>
         </div>
       </KgBottomSheet>
-
-      <div className="fixed bottom-20 md:bottom-6 right-4 z-[10100] flex flex-col gap-2 pointer-events-none">
-        <AnimatePresence>
-          {toasts.map((t) => (
-            <KgToast key={t.id} message={t} onClose={dismissToast} />
-          ))}
-        </AnimatePresence>
-      </div>
     </section>
   );
 }

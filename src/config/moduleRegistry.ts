@@ -1,7 +1,6 @@
 import type { ComponentType } from 'react';
 import {
   Activity,
-  Banknote,
   BarChart3,
   BookOpen,
   CalendarDays,
@@ -11,7 +10,6 @@ import {
   Network,
   UserRound,
   UsersRound,
-  Trophy,
   ClipboardCheck,
 } from 'lucide-react';
 import type { TabId } from '../types/navigation';
@@ -28,35 +26,49 @@ export interface NavigationModule {
   adminOnly?: boolean;
 }
 
+export const BOTTOM_STAFF_TABS: TabId[] = ['dashboard', 'checkin', 'work', 'workforce'];
+export const BOTTOM_ADMIN_TABS: TabId[] = ['dashboard', 'checkin', 'admin_ops', 'admin_people_pay'];
+
 export const navigationModules: NavigationModule[] = [
+  // 8 Canonical Staff Modules
   { id: 'dashboard', label: 'Hôm nay', shortLabel: 'Hôm nay', group: 'Cá nhân', icon: LayoutDashboard, bottom: true },
   { id: 'checkin', label: 'Chấm công', shortLabel: 'Chấm công', group: 'Cá nhân', icon: Camera, bottom: true },
-  { id: 'attendance', label: 'Công & Lương', shortLabel: 'Công lương', group: 'Cá nhân', icon: Activity },
-  { id: 'workforce', label: 'Lịch Làm Việc', shortLabel: 'Lịch ca', group: 'Cá nhân', icon: CalendarDays, bottom: true },
-  { id: 'income', label: 'Thi đua & Kỷ luật', shortLabel: 'Thi đua', group: 'Cá nhân', icon: Trophy, bottom: true },
+  { id: 'attendance', label: 'Công & Thu nhập', shortLabel: 'Công lương', group: 'Cá nhân', icon: Activity },
+  { id: 'workforce', label: 'Lịch làm việc', shortLabel: 'Lịch ca', group: 'Cá nhân', icon: CalendarDays, bottom: true },
   { id: 'profile', label: 'Hồ sơ của tôi', shortLabel: 'Hồ sơ', group: 'Cá nhân', icon: UserRound },
-  { id: 'work', label: 'Vận Hành Nhà Hàng', shortLabel: 'Vận hành', group: 'Vận hành', icon: ClipboardCheck },
-  { id: 'communications', label: 'Bảng tin & Góp ý', shortLabel: 'Bảng tin', group: 'Vận hành', icon: MessagesSquare },
-  { id: 'knowledge', label: 'Kiến thức & Đào tạo', shortLabel: 'Đào tạo', group: 'Vận hành', icon: BookOpen },
-  { id: 'admin_people', label: 'Nhân sự & Tổ chức', shortLabel: 'Nhân sự', group: 'Quản lý & Cấu hình', icon: UsersRound, adminOnly: true },
-  { id: 'admin_workforce', label: 'Ca làm & Chấm công', shortLabel: 'Ca làm', group: 'Quản lý & Cấu hình', icon: CalendarDays, adminOnly: true },
-  { id: 'admin_work', label: 'Điều phối & Công việc', shortLabel: 'Điều phối', group: 'Quản lý & Cấu hình', icon: Network, adminOnly: true },
-  { id: 'admin_income', label: 'Lương & Ghi nhận', shortLabel: 'Quỹ lương', group: 'Quản lý & Cấu hình', icon: Banknote, adminOnly: true },
-  { id: 'admin_system', label: 'Hệ thống & Báo cáo', shortLabel: 'Hệ thống', group: 'Quản lý & Cấu hình', icon: BarChart3, adminOnly: true },
+  { id: 'work', label: 'Vận hành Ca', shortLabel: 'Vận hành', group: 'Vận hành', icon: ClipboardCheck, bottom: true },
+  { id: 'communications', label: 'Cộng đồng', shortLabel: 'Cộng đồng', group: 'Vận hành', icon: MessagesSquare },
+  { id: 'knowledge', label: 'Kiến thức & SOP', shortLabel: 'SOP', group: 'Vận hành', icon: BookOpen },
+  // 3 Canonical Admin Modules
+  { id: 'admin_ops', label: 'Điều hành & Duyệt', shortLabel: 'Điều hành', group: 'Quản lý & Cấu hình', icon: Network, adminOnly: true },
+  { id: 'admin_people_pay', label: 'Nhân sự & Lương', shortLabel: 'Nhân sự', group: 'Quản lý & Cấu hình', icon: UsersRound, adminOnly: true },
+  { id: 'admin_system', label: 'Báo cáo & Hệ thống', shortLabel: 'Hệ thống', group: 'Quản lý & Cấu hình', icon: BarChart3, adminOnly: true },
 ];
 
 export const moduleLoaders = {
+  // Canonical Hub Loaders
   attendance: () => import('../pages/ModuleHubs').then(module => ({ default: module.AttendanceHub })),
   workforce: () => import('../pages/ModuleHubs').then(module => ({ default: module.WorkforceHub })),
   work: () => import('../pages/ModuleHubs').then(module => ({ default: module.WorkHub })),
-  income: () => import('../pages/ModuleHubs').then(module => ({ default: module.IncomeHub })),
   communications: () => import('../pages/ModuleHubs').then(module => ({ default: module.CommunicationsHub })),
   knowledge: () => import('../pages/ModuleHubs').then(module => ({ default: module.KnowledgeHub })),
+  admin_ops: () => import('../pages/ModuleHubs').then(module => ({ default: module.AdminOpsHub })),
+  admin_people_pay: () => import('../pages/ModuleHubs').then(module => ({ default: module.AdminPeoplePayHub })),
+  admin_system: () => import('../pages/ModuleHubs').then(module => ({ default: module.AdminSystemHub })),
+  // Backward-compatible Hub Alias Loaders
+  income: () => import('../pages/ModuleHubs').then(module => ({ default: module.IncomeHub })),
   admin_people: () => import('../pages/ModuleHubs').then(module => ({ default: module.AdminPeopleHub })),
   admin_workforce: () => import('../pages/ModuleHubs').then(module => ({ default: module.AdminWorkforceHub })),
   admin_work: () => import('../pages/ModuleHubs').then(module => ({ default: module.AdminWorkHub })),
   admin_income: () => import('../pages/ModuleHubs').then(module => ({ default: module.AdminIncomeHub })),
-  admin_system: () => import('../pages/ModuleHubs').then(module => ({ default: module.AdminSystemHub })),
+  // Wave 4–6 Dedicated Leaf Page Loaders
+  ledger: () => import('../pages/AttendanceLedger'),
+  incidents: () => import('../pages/IncidentTracker'),
+  admin_inbox: () => import('../pages/admin/AdminApprovalInbox'),
+  salary_rates: () => import('../components/MonthlySalaryManager'),
+  admin_settings: () => import('../pages/admin/AdminSettingsUnified'),
+  admin_audit: () => import('../pages/admin/AdminAuditLog'),
+  // Leaf Page Loaders (preserved for backward compatibility)
   checkin: () => import('../pages/CheckIn'),
   schedule: () => import('../pages/Schedule'),
   history: () => import('../pages/ActivityHistory'),

@@ -1,5 +1,5 @@
 import { useAppStore } from '../store/useAppStore';
-import { KgLoadingOverlay } from './KgDesignSystem';
+import { KgLoadingOverlay } from './KgLoadingOverlay';
 
 export default function LoadingScreen() {
   const loading = useAppStore((s) => s.loading);

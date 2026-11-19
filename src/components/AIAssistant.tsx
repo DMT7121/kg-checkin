@@ -4,8 +4,9 @@ import { useAppStore } from '../store/useAppStore';
 import { fetchWithRetry } from '../utils/helpers';
 import { escapeHtml } from '../utils/security';
 import { callApi } from '../services/api';
-import { sopData } from '../pages/sopData';
 import { plainSopText, searchSops } from '../utils/sopSearch';
+import { useDialogA11y } from '../utils/modalQueue';
+import type { SopSection } from '../pages/sopData';
 
 const ASSISTIVE_POS_KEY = 'kg_ai_assistive_pos_v4';
 
@@ -39,7 +40,20 @@ export default function AIAssistant() {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatDialogRef = useRef<HTMLDivElement | null>(null);
   const historyLoaded = useRef(false);
+
+  const handleCloseChat = useCallback(() => {
+    setAiOpen(false);
+    setIsTucked(true);
+  }, [setAiOpen]);
+
+  useDialogA11y({
+    isOpen: isAiOpen,
+    containerRef: chatDialogRef,
+    onClose: handleCloseChat,
+    closeOnEscape: true,
+  });
 
   // Check if a lightbox/guideline is open without observing every subtree mutation
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
@@ -202,9 +216,15 @@ export default function AIAssistant() {
     }
   }, [messages, isTyping]);
 
-  const findRelevantSopContext = (query: string) => {
+  const sopDataCacheRef = useRef<SopSection[] | null>(null);
+
+  const findRelevantSopContext = async (query: string) => {
     if (!query || !query.trim()) return '';
-    const matches = searchSops(sopData, query, 'all', currentUser?.position).slice(0, 3);
+    if (!sopDataCacheRef.current) {
+      const mod = await import('../pages/sopData');
+      sopDataCacheRef.current = mod.sopData;
+    }
+    const matches = searchSops(sopDataCacheRef.current, query, 'all', currentUser?.position).slice(0, 3);
     if (matches.length === 0) return '';
     return matches
       .map(
@@ -214,7 +234,7 @@ export default function AIAssistant() {
       .join('');
   };
 
-  const generateSystemPrompt = (userQuery?: string) => {
+  const generateSystemPrompt = async (userQuery?: string) => {
     const {
       logs,
       shiftData,
@@ -318,7 +338,7 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
 
     // Add SOP Context if query is about operations
     if (userQuery) {
-      const sopContext = findRelevantSopContext(userQuery);
+      const sopContext = await findRelevantSopContext(userQuery);
       if (sopContext) {
         prompt += `\n\n[BỐI CẢNH QUY TRÌNH/SOP TỪ SỔ TAY VẬN HÀNH]\n${sopContext}\n`;
       }
@@ -343,7 +363,7 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
     setInput('');
     setIsTyping(true);
 
-    const systemPrompt = generateSystemPrompt(userMessage.content);
+    const systemPrompt = await generateSystemPrompt(userMessage.content);
 
     try {
       let aiText = '';
@@ -526,16 +546,14 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
                     transition: 'top 220ms cubic-bezier(0.22, 1, 0.36, 1), left 180ms ease, right 180ms ease',
                   }
             }
-            className={`fixed ${
-              isTucked && !isActivelyMoved ? 'w-9 sm:w-10 h-11' : 'w-11 h-11'
-            } pointer-events-auto touch-none select-none flex items-center justify-center focus-visible:outline-none cursor-grab active:cursor-grabbing group`}
+            className="fixed w-11 h-11 min-w-[44px] min-h-[44px] pointer-events-auto touch-none select-none flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--kg-primary-ink)] rounded-2xl cursor-grab active:cursor-grabbing group"
             title="Trợ lý AI King's Grill (Giữ & kéo như nút Home ảo, thả tay tự ẩn vào mép)"
             aria-label="Mở Trợ lý AI King's Grill (có thể giữ kéo di chuyển)"
           >
             <span
-              className={`bg-[#0B253C]/95 dark:bg-[#1B2230]/95 backdrop-blur-md shadow-lg flex items-center justify-center relative transition-all duration-200 ${
+              className={`bg-[var(--kg-rail-bg)]/95 backdrop-blur-md shadow-lg flex items-center justify-center relative transition-all duration-200 ${
                 isActivelyMoved
-                  ? 'w-11 h-11 rounded-[15px] border border-white/25 scale-110 ring-2 ring-[#C8432B]/70 opacity-100'
+                  ? 'w-11 h-11 rounded-[15px] border border-white/25 scale-110 ring-2 ring-[var(--kg-accent)]/70 opacity-100'
                   : isTucked
                     ? pos.side === 'right'
                       ? 'w-8 group-hover:w-10 h-11 ml-auto rounded-l-2xl border-y border-l border-white/25 opacity-85 group-hover:opacity-100'
@@ -569,7 +587,7 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
                 aria-hidden="true"
                 className={`absolute top-0.5 ${
                   pos.side === 'right' ? 'left-1' : 'right-1'
-                } w-2 h-2 rounded-full bg-[#C8432B] border border-white`}
+                } w-2 h-2 rounded-full bg-[var(--kg-accent)] border border-white`}
               />
             </span>
           </button>
@@ -579,26 +597,31 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
       {/* Chat Window (Mobile Bottom-Sheet + Desktop Floating Atelier Panel) */}
       {isAiOpen && (
         <div
+          ref={chatDialogRef}
+          tabIndex={-1}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Trợ lý AI King's Grill"
           className={`fixed inset-x-0 md:inset-x-auto bottom-0 md:bottom-6 ${
             pos.side === 'left' ? 'md:left-24' : 'md:right-6'
           } bg-[var(--kg-surface)] text-[var(--kg-text)] shadow-2xl ${
-            isLightboxOpen ? 'z-40' : 'z-[10060]'
-          } flex flex-col transition-all duration-200 ease-out border border-[var(--kg-border)] ${
+            isLightboxOpen ? 'z-40' : 'z-[10055]'
+          } flex flex-col transition-all duration-200 ease-out border border-[var(--kg-border)] focus:outline-none ${
             isExpanded
-              ? 'w-full md:w-[600px] h-[92dvh] md:h-[80vh] rounded-t-3xl md:rounded-2xl'
+              ? 'w-full md:w-[600px] h-[92dvh] md:h-[80dvh] rounded-t-3xl md:rounded-2xl'
               : 'w-full md:w-[390px] h-[78dvh] md:h-[560px] rounded-t-3xl md:rounded-2xl'
           }`}
         >
           {/* Header */}
-          <div className="bg-[#0B253C] dark:bg-[#151B26] px-4 py-3.5 flex items-center justify-between text-white rounded-t-3xl md:rounded-t-2xl border-b border-white/10 shadow-xs z-10 flex-shrink-0">
+          <div className="bg-[var(--kg-rail-bg)] px-4 py-3.5 flex items-center justify-between text-[var(--kg-rail-text)] rounded-t-3xl md:rounded-t-2xl border-b border-[var(--kg-rail-border)] shadow-xs z-10 flex-shrink-0">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 bg-[#C8432B] rounded-xl flex items-center justify-center shadow-xs flex-shrink-0">
+              <div className="w-10 h-10 bg-[var(--kg-accent)] text-white dark:text-[#0D1015] rounded-xl flex items-center justify-center shadow-xs flex-shrink-0">
                 <Bot size={20} />
               </div>
               <div className="min-w-0">
-                <h3 className="font-extrabold text-sm truncate">King&apos;s Grill AI Assistant</h3>
-                <p className="text-[10.5px] text-white/80 flex items-center gap-1.5 truncate">
-                  <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse flex-shrink-0" />
+                <h3 className="font-extrabold text-sm truncate text-white">King&apos;s Grill AI Assistant</h3>
+                <p className="text-[10.5px] text-[var(--kg-rail-muted)] flex items-center gap-1.5 truncate">
+                  <span className="w-1.5 h-1.5 bg-[var(--kg-success)] rounded-full animate-pulse flex-shrink-0" />
                   <span className="truncate">
                     {useGeminiFallback ? 'Gemini Flash • Nút Home ảo tự ẩn' : `Groq LPU (${groqKeys.length} keys) • Nút Home ảo`}
                   </span>
@@ -617,11 +640,8 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setAiOpen(false);
-                  setIsTucked(true);
-                }}
-                className="w-10 h-10 hover:bg-white/15 rounded-xl transition flex items-center justify-center"
+                onClick={handleCloseChat}
+                className="w-11 h-11 sm:w-10 sm:h-10 hover:bg-white/15 rounded-xl transition flex items-center justify-center touch-manipulation"
                 title="Đóng & ẩn gọn vào mép màn hình"
                 aria-label="Đóng khung chat AI"
               >
@@ -683,7 +703,7 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
                   }
                 }}
                 placeholder="Hỏi AI về lịch làm, checklist, quy trình SOP..."
-                className="flex-1 max-h-32 min-h-[44px] bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] focus:border-[var(--kg-primary)] focus:bg-[var(--kg-surface)] rounded-xl px-3.5 py-2.5 text-sm resize-none transition-all text-[var(--kg-text)]"
+                className="flex-1 max-h-32 min-h-[44px] bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] focus:border-[var(--kg-primary)] focus:bg-[var(--kg-surface)] rounded-xl px-3.5 py-2.5 text-base sm:text-sm resize-none transition-all text-[var(--kg-text)]"
                 rows={1}
                 disabled={isTyping}
               />
@@ -692,7 +712,7 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
                 onClick={handleSend}
                 disabled={!input.trim() || isTyping}
                 aria-label="Gửi tin nhắn"
-                className="w-11 h-11 bg-[var(--kg-accent)] text-white rounded-xl flex items-center justify-center hover:brightness-95 transition disabled:opacity-50 flex-shrink-0 shadow-xs"
+                className="w-11 h-11 bg-[var(--kg-accent)] text-white dark:text-[#0D1015] rounded-xl flex items-center justify-center hover:brightness-95 transition disabled:opacity-50 flex-shrink-0 shadow-xs"
               >
                 <Send size={18} className="ml-0.5" />
               </button>

@@ -15,7 +15,7 @@ import {
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
 import { normalizeEmploymentStatus } from '../utils/employment';
-import type { RawFaceProfileDto } from '../services/faceRecognitionV2';
+import type { RawFaceProfileDto } from '../utils/faceProfileCache';
 
 export interface StaffFacePickerCandidate {
   username: string;
@@ -85,7 +85,7 @@ export default function AdminStaffFacePickerModal({
         );
         if (res?.ok) {
           if (Array.isArray(res.data?.profiles)) {
-            const { setCachedFaceProfiles } = await import('../services/faceRecognitionV2');
+            const { setCachedFaceProfiles } = await import('../utils/faceProfileCache');
             setCachedFaceProfiles(res.data.profiles);
             setProfiles(res.data.profiles);
           }
@@ -109,7 +109,7 @@ export default function AdminStaffFacePickerModal({
     setSearchQuery('');
     window.setTimeout(() => searchInputRef.current?.focus(), 0);
     if (!Array.isArray(initialProfiles) || initialProfiles.length === 0) {
-      import('../services/faceRecognitionV2')
+      import('../utils/faceProfileCache')
         .then(({ getCachedFaceProfiles }) => {
           const cached = getCachedFaceProfiles();
           if (cached.length > 0) setProfiles((prev) => (prev.length > 0 ? prev : cached));
@@ -223,7 +223,7 @@ export default function AdminStaffFacePickerModal({
       className="fixed inset-0 m-0 z-[10075] h-[100dvh] w-screen bg-[#0D1015] text-[#F7F4EE] flex flex-col overflow-hidden select-none font-sans"
     >
       {/* Solid Top Header */}
-      <header className="w-full max-w-2xl mx-auto px-4 pt-3 pb-2.5 flex items-center justify-between gap-3 border-b border-[#2B3240] bg-[#0D1015] shrink-0">
+      <header className="w-full max-w-2xl lg:max-w-4xl mx-auto px-4 pt-3 pb-2.5 flex items-center justify-between gap-3 border-b border-[#2B3240] bg-[#0D1015] shrink-0">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="w-10 h-10 rounded-xl bg-[#0B253C] border border-[#2B3240] flex items-center justify-center text-[#34D399] shrink-0">
             <Users size={20} />
@@ -266,7 +266,7 @@ export default function AdminStaffFacePickerModal({
       </header>
 
       {/* Search & Filter Controls */}
-      <div className="w-full max-w-2xl mx-auto px-4 py-3 space-y-2.5 border-b border-[#2B3240] bg-[#161A22] shrink-0">
+      <div className="w-full max-w-2xl lg:max-w-4xl mx-auto px-4 py-3 space-y-2.5 border-b border-[#2B3240] bg-[#161A22] shrink-0">
         <div className="relative">
           <Search
             size={16}
@@ -335,7 +335,7 @@ export default function AdminStaffFacePickerModal({
       </div>
 
       {/* Scrollable Staff Roster */}
-      <div className="flex-1 w-full max-w-2xl mx-auto px-4 py-3 overflow-y-auto space-y-2">
+      <div className="flex-1 w-full max-w-2xl lg:max-w-4xl mx-auto px-4 py-3 overflow-y-auto space-y-2.5">
         {loadError && (
           <div className="bg-[#161A22] border border-[#DC2626] rounded-xl p-3 flex items-center justify-between gap-2 text-xs text-[#F87171]">
             <div className="flex items-center gap-2 min-w-0">
@@ -366,78 +366,80 @@ export default function AdminStaffFacePickerModal({
             </p>
           </div>
         ) : (
-          filteredEmployees.map((emp) => {
-            const initial = (emp.fullname || emp.username || '?').trim().charAt(0).toUpperCase();
-            return (
-              <div
-                key={emp.username}
-                className="bg-[#161A22] hover:bg-[#1F2530] border border-[#2B3240] rounded-2xl p-3 flex items-center justify-between gap-3 transition-colors motion-reduce:transition-none"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  {emp.avatarUrl ? (
-                    <img
-                      src={emp.avatarUrl}
-                      alt={emp.fullname}
-                      className="w-11 h-11 rounded-xl object-cover border border-[#2B3240] shrink-0"
-                    />
-                  ) : (
-                    <div className="w-11 h-11 rounded-xl bg-[#0B253C] border border-[#2B3240] text-[#F7F4EE] font-extrabold text-sm flex items-center justify-center shrink-0">
-                      {initial}
-                    </div>
-                  )}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
+            {filteredEmployees.map((emp) => {
+              const initial = (emp.fullname || emp.username || '?').trim().charAt(0).toUpperCase();
+              return (
+                <div
+                  key={emp.username}
+                  className="bg-[#161A22] hover:bg-[#1F2530] border border-[#2B3240] rounded-2xl p-3 flex items-center justify-between gap-3 transition-colors motion-reduce:transition-none"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    {emp.avatarUrl ? (
+                      <img
+                        src={emp.avatarUrl}
+                        alt={emp.fullname}
+                        className="w-11 h-11 rounded-xl object-cover border border-[#2B3240] shrink-0"
+                      />
+                    ) : (
+                      <div className="w-11 h-11 rounded-xl bg-[#0B253C] border border-[#2B3240] text-[#F7F4EE] font-extrabold text-sm flex items-center justify-center shrink-0">
+                        {initial}
+                      </div>
+                    )}
 
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <h3 className="text-sm font-extrabold text-[#F7F4EE] truncate">
-                        {emp.fullname}
-                      </h3>
-                      <span className="text-[11px] font-mono text-[#B5AFA6]">@{emp.username}</span>
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap mt-1">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#0D1015] border border-[#2B3240] text-[10px] font-bold text-[#F7F4EE]">
-                        <Briefcase size={10} className="text-[#B5AFA6]" />
-                        {emp.position || 'Phục vụ'}
-                      </span>
-                      {emp.hasFaceProfile ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#15803D]/25 border border-[#34D399]/50 text-[10px] font-bold text-[#34D399]">
-                          <ShieldCheck size={10} />
-                          Đã có 5 góc
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h3 className="text-sm font-extrabold text-[#F7F4EE] truncate">
+                          {emp.fullname}
+                        </h3>
+                        <span className="text-[11px] font-mono text-[#B5AFA6]">@{emp.username}</span>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap mt-1">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#0D1015] border border-[#2B3240] text-[10px] font-bold text-[#F7F4EE]">
+                          <Briefcase size={10} className="text-[#B5AFA6]" />
+                          {emp.position || 'Phục vụ'}
                         </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#B45309]/25 border border-[#FBBF24]/50 text-[10px] font-bold text-[#FBBF24]">
-                          <ScanFace size={10} />
-                          Chưa đăng ký
-                        </span>
-                      )}
+                        {emp.hasFaceProfile ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#15803D]/25 border border-[#34D399]/50 text-[10px] font-bold text-[#34D399]">
+                            <ShieldCheck size={10} />
+                            Đã có 5 góc
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#B45309]/25 border border-[#FBBF24]/50 text-[10px] font-bold text-[#FBBF24]">
+                            <ScanFace size={10} />
+                            Chưa đăng ký
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <button
-                  type="button"
-                  data-testid={`pick-enroll-staff-${emp.username}`}
-                  onClick={() => onSelectEmployee(emp, profiles)}
-                  className={`min-h-[44px] px-3.5 py-2 rounded-xl text-xs font-extrabold inline-flex items-center gap-1.5 shrink-0 transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#34D399] ${
-                    emp.hasFaceProfile
-                      ? 'bg-[#0D1015] hover:bg-[#0B253C] border border-[#2B3240] text-[#F7F4EE]'
-                      : 'bg-[#C8432B] hover:bg-[#B83821] text-white'
-                  }`}
-                >
-                  {emp.hasFaceProfile ? (
-                    <>
-                      <RotateCcw size={13} className="text-[#FBBF24]" />
-                      <span>Quét lại</span>
-                    </>
-                  ) : (
-                    <>
-                      <UserPlus size={14} />
-                      <span>Quét đăng ký</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            );
-          })
+                  <button
+                    type="button"
+                    data-testid={`pick-enroll-staff-${emp.username}`}
+                    onClick={() => onSelectEmployee(emp, profiles)}
+                    className={`min-h-[44px] px-3.5 py-2 rounded-xl text-xs font-extrabold inline-flex items-center gap-1.5 shrink-0 transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#34D399] ${
+                      emp.hasFaceProfile
+                        ? 'bg-[#0D1015] hover:bg-[#0B253C] border border-[#2B3240] text-[#F7F4EE]'
+                        : 'bg-[#C8432B] hover:bg-[#B83821] text-white'
+                    }`}
+                  >
+                    {emp.hasFaceProfile ? (
+                      <>
+                        <RotateCcw size={13} className="text-[#FBBF24]" />
+                        <span>Quét lại</span>
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus size={14} />
+                        <span>Quét đăng ký</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
     </div>,

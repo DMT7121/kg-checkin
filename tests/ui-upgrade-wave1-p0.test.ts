@@ -86,19 +86,17 @@ after(async () => {
 });
 
 describe('Wave 1 (P0) UI/UX Upgrade Regression Suite', () => {
-  test('[P0-1] SweetAlert2 toast container never applies full-height dark blur backdrop', () => {
+  test('[P0-1] SweetAlert2 & .swal2-* CSS are removed and global KgFeedbackHost is mounted at root', () => {
     const cssPath = path.resolve(process.cwd(), 'src/index.css');
     const css = fs.readFileSync(cssPath, 'utf8');
+    const appPath = path.resolve(process.cwd(), 'src/App.tsx');
+    const appSrc = fs.readFileSync(appPath, 'utf8');
+    const apiPath = path.resolve(process.cwd(), 'src/services/api.ts');
+    const apiSrc = fs.readFileSync(apiPath, 'utf8');
 
-    // Unconditional .swal2-container { backdrop-filter: blur(...) !important } must not exist
-    const unconditionalMatch = css.match(/(^|\n)\s*\.swal2-container\s*\{[^}]*backdrop-filter\s*:\s*blur/i);
-    assert.equal(
-      unconditionalMatch,
-      null,
-      'Expected .swal2-container blur backdrop to exclude .swal2-backdrop-hidden / toast containers',
-    );
-    assert.match(css, /\.swal2-backdrop-hidden/);
-    assert.match(css, /\.swal2-toast/);
+    assert.equal(/\.swal2-/i.test(css), false, 'Expected legacy .swal2-* styles to be removed from src/index.css');
+    assert.equal(/sweetalert2/i.test(apiSrc), false, 'Expected sweetalert2 dynamic import to be removed from src/services/api.ts');
+    assert.match(appSrc, /<KgFeedbackHost\s*\/>/);
   });
 
   test('[P0-2] setCurrentTab preserves ?sub=... on initial load / reload and syncs sessionStorage', async () => {

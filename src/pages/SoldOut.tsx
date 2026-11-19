@@ -1,15 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore, type SoldOutItem } from '../store/useAppStore';
+import { kgToast, type FeedbackTone } from '../store/useFeedbackStore';
 import { callApi } from '../services/api';
-import { Plus, Search, Clock, CheckCircle2, RotateCcw, Sparkles, X } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Plus, Search, Clock, CheckCircle2, RotateCcw, Sparkles, X, Zap } from 'lucide-react';
 import {
   KgEmptyState,
   KgErrorState,
   KgModuleHero,
   KgSkeleton,
-  KgToast,
-  type ToastMessage,
 } from '../components/KgDesignSystem';
 
 const RECENT_86_STORAGE_KEY = 'kg_recent_soldout_items_v1';
@@ -59,8 +57,8 @@ export default function SoldOut() {
   const [searchTerm, setSearchTerm] = useState('');
   const [newItemName, setNewItemName] = useState('');
   const [isAdding, setIsAdding] = useState(false);
+  const [oneTapChipSubmit, setOneTapChipSubmit] = useState(false);
   const [recent86, setRecent86] = useState<string[]>(() => readRecent86());
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   // Undoable 1-tap restore state
   const [undoBanner, setUndoBanner] = useState<{
@@ -70,12 +68,8 @@ export default function SoldOut() {
   const pendingRestoreTimerRef = useRef<number | null>(null);
   const pendingRestoreTaskRef = useRef<(() => Promise<void>) | null>(null);
 
-  const pushToast = useCallback((title: string, type: ToastMessage['type']) => {
-    setToasts((prev) => [...prev.slice(-2), { id: `${Date.now()}_${Math.random()}`, title, type }]);
-  }, []);
-
-  const dismissToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+  const pushToast = useCallback((message: string, tone: FeedbackTone) => {
+    kgToast(message, tone);
   }, []);
 
   const fetchSoldOut = useCallback(
@@ -101,7 +95,7 @@ export default function SoldOut() {
   );
 
   useEffect(() => {
-    fetchSoldOut(soldOutItems.length > 0);
+    void fetchSoldOut(soldOutItems.length > 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -150,7 +144,7 @@ export default function SoldOut() {
       );
 
       if (res?.ok) {
-        fetchSoldOut(true);
+        void fetchSoldOut(true);
         pushToast(`Đã báo hết "${itemName}"`, 'success');
       } else {
         setSoldOutItems(previousItems);
@@ -172,7 +166,7 @@ export default function SoldOut() {
       try {
         const res = await callApi('REMOVE_SOLDOUT', { id: targetItem.id }, { background: true });
         if (res?.ok) {
-          fetchSoldOut(true);
+          void fetchSoldOut(true);
         } else {
           setSoldOutItems(fallbackItems);
           pushToast(res?.message || 'Không thể mở bán lại món', 'error');
@@ -260,7 +254,7 @@ export default function SoldOut() {
         tips={[
           'Bếp hoặc Bar báo hết nguyên liệu / món ăn ngay khi lượng tồn kho dưới ngưỡng an toàn.',
           'Thu ngân và Nhân viên phục vụ lập tức cập nhật để không nhận order món đã hết của khách hàng.',
-          "Khi có đợt nhập hàng hoặc sơ chế bổ sung, bấm nút 'Mở bán lại' (1 chạm) — có thể hoàn tác trong 4 giây nếu bấm nhầm.",
+          "Khi có đợt nhập hàng hoặc sơ chế bổ sung, bấm nút 'Mở lại' (1 chạm) — có thể hoàn tác trong 4.5 giây nếu bấm nhầm.",
         ]}
       />
 
@@ -274,14 +268,14 @@ export default function SoldOut() {
             placeholder="Tìm kiếm món đang hết..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl py-2.5 pl-10 pr-10 text-xs sm:text-sm text-[var(--kg-text)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 focus:border-[var(--kg-primary)] transition-colors outline-none shadow-xs min-h-[44px]"
+            className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl py-2.5 pl-10 pr-11 text-xs sm:text-sm text-[var(--kg-text)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 focus:border-[var(--kg-primary)] transition-colors outline-none shadow-xs min-h-[44px]"
           />
           {searchTerm && (
             <button
               type="button"
               onClick={() => setSearchTerm('')}
               aria-label="Xóa từ khóa tìm kiếm"
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 w-9 h-9 rounded-lg flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]"
+              className="absolute right-1 top-1/2 -translate-y-1/2 w-10 h-10 rounded-lg flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] touch-manipulation"
             >
               <X size={15} />
             </button>
@@ -297,76 +291,94 @@ export default function SoldOut() {
         </button>
       </div>
 
-      {/* Add Form + Quick-Pick Chips */}
-      <AnimatePresence>
-        {isAdding && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-card p-4 space-y-3"
-          >
-            <form onSubmit={handleAdd} className="space-y-3">
-              <label htmlFor="soldout-item-name" className="block text-xs font-semibold text-[var(--kg-text)]">
-                Nhập hoặc chọn nhanh món ăn / thức uống vừa hết nguyên liệu:
-              </label>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <input
-                  id="soldout-item-name"
-                  type="text"
-                  autoFocus
-                  placeholder="VD: Trà đào cam sả, Bò nướng tảng..."
-                  value={newItemName}
-                  onChange={(e) => setNewItemName(e.target.value)}
-                  className="flex-1 bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 text-[var(--kg-text)] min-h-[44px]"
-                />
-                <div className="flex items-center gap-2">
-                  <button
-                    type="submit"
-                    disabled={!newItemName.trim() || isUpdating}
-                    className="flex-1 sm:flex-initial bg-[var(--kg-danger)] hover:brightness-95 disabled:opacity-50 text-white dark:text-[#0D1015] px-4 py-2.5 rounded-xl text-xs font-bold transition-colors active:scale-95 shadow-xs min-h-[44px] touch-manipulation"
-                  >
-                    Xác nhận báo hết
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsAdding(false)}
-                    className="px-3.5 py-2.5 rounded-xl border border-[var(--kg-border)] text-xs font-semibold text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)] min-h-[44px] touch-manipulation"
-                  >
-                    Huỷ
-                  </button>
-                </div>
+      {/* Add Form + Quick-Pick Chips (44px mobile touch targets + optional 1-tap submit ergonomics) */}
+      {isAdding && (
+        <div className="kg-scale-in overflow-hidden bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-card p-4 space-y-3">
+          <form onSubmit={handleAdd} className="space-y-3">
+            <label htmlFor="soldout-item-name" className="block text-xs font-semibold text-[var(--kg-text)]">
+              Nhập hoặc chọn nhanh món ăn / thức uống vừa hết nguyên liệu:
+            </label>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                id="soldout-item-name"
+                type="text"
+                autoFocus
+                placeholder="VD: Trà đào cam sả, Bò nướng tảng..."
+                value={newItemName}
+                onChange={(e) => setNewItemName(e.target.value)}
+                className="flex-1 bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 text-[var(--kg-text)] min-h-[44px]"
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  type="submit"
+                  disabled={!newItemName.trim() || isUpdating}
+                  className="flex-1 sm:flex-initial bg-[var(--kg-danger)] hover:brightness-95 disabled:opacity-50 text-white dark:text-[#0D1015] px-4 py-2.5 rounded-xl text-xs font-bold transition-colors active:scale-95 shadow-xs min-h-[44px] touch-manipulation"
+                >
+                  Xác nhận báo hết
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAdding(false)}
+                  className="px-3.5 py-2.5 rounded-xl border border-[var(--kg-border)] text-xs font-semibold text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)] min-h-[44px] touch-manipulation"
+                >
+                  Huỷ
+                </button>
               </div>
+            </div>
 
-              {quickPickSuggestions.length > 0 && (
-                <div className="pt-1 space-y-1.5">
+            {quickPickSuggestions.length > 0 && (
+              <div className="pt-1 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[var(--kg-text-muted)]">
                     <Sparkles size={12} className="text-[var(--kg-accent-ink)]" />
-                    {newItemName.trim() ? 'Gợi ý khớp tên món (chạm để điền):' : 'Chọn nhanh món hay hết / thực đơn:'}
+                    {newItemName.trim()
+                      ? 'Gợi ý khớp tên món:'
+                      : 'Chọn nhanh món hay hết / thực đơn:'}
                   </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {quickPickSuggestions.map((chip) => (
-                      <button
-                        key={chip}
-                        type="button"
-                        onClick={() => setNewItemName(chip)}
-                        className="min-h-[36px] px-3 py-1.5 rounded-full border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] hover:border-[var(--kg-primary)] text-xs font-semibold text-[var(--kg-text)] transition-colors touch-manipulation"
-                      >
-                        + {chip}
-                      </button>
-                    ))}
-                  </div>
+                  <label className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--kg-text-muted)] cursor-pointer select-none min-h-[36px]">
+                    <input
+                      type="checkbox"
+                      checked={oneTapChipSubmit}
+                      onChange={(e) => setOneTapChipSubmit(e.target.checked)}
+                      className="h-4 w-4 rounded border-[var(--kg-border-strong)] text-[var(--kg-danger)] focus:ring-[var(--kg-danger)]/20"
+                    />
+                    <Zap size={12} className="text-[var(--kg-warning)]" />
+                    <span>Báo hết ngay khi chạm thẻ</span>
+                  </label>
                 </div>
-              )}
-            </form>
-          </motion.div>
-        )}
-      </AnimatePresence>
+                <div className="flex flex-wrap gap-2">
+                  {quickPickSuggestions.map((chip) => (
+                    <button
+                      key={chip}
+                      type="button"
+                      disabled={isUpdating}
+                      onClick={() => {
+                        if (oneTapChipSubmit) {
+                          void commitAddItem(chip);
+                        } else {
+                          setNewItemName(chip);
+                        }
+                      }}
+                      className="min-h-[44px] sm:min-h-[36px] px-3.5 py-2 rounded-full border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] hover:border-[var(--kg-primary)] text-xs font-semibold text-[var(--kg-text)] transition-colors active:scale-95 touch-manipulation"
+                    >
+                      + {chip}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </form>
+        </div>
+      )}
 
       {/* List */}
       <div className="flex-1 min-h-[250px]">
         {loadError ? (
-          <KgErrorState title="Không thể tải danh sách món hết" description={loadError} onRetry={() => fetchSoldOut(false)} />
+          <KgErrorState
+            title="Không thể tải danh sách món hết"
+            description={loadError}
+            onRetry={() => fetchSoldOut(false)}
+          />
         ) : loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <KgSkeleton className="h-24 w-full" />
@@ -376,7 +388,11 @@ export default function SoldOut() {
         ) : filteredItems.length === 0 ? (
           <KgEmptyState
             icon={CheckCircle2}
-            title={soldOutItems.length === 0 ? 'Hiện tại không có món nào báo hết' : 'Không tìm thấy món khớp từ khóa'}
+            title={
+              soldOutItems.length === 0
+                ? 'Hiện tại không có món nào báo hết'
+                : 'Không tìm thấy món khớp từ khóa'
+            }
             description={
               soldOutItems.length === 0
                 ? 'Tất cả nguyên liệu thực đơn sẵn sàng phục vụ khách hàng.'
@@ -385,84 +401,70 @@ export default function SoldOut() {
           />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            <AnimatePresence>
-              {filteredItems.map((item) => (
-                <motion.div
-                  key={item.id}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.96 }}
-                  className="bg-[var(--kg-surface)] border border-[var(--kg-border)] hover:border-[var(--kg-danger)]/40 rounded-2xl p-3.5 flex flex-col justify-between shadow-card transition-colors group"
-                >
-                  <div className="flex justify-between items-start gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-[var(--kg-danger)] flex-shrink-0 animate-pulse" />
-                        <h3 className="font-bold text-[var(--kg-text)] text-sm leading-tight truncate">
-                          {item.itemName}
-                        </h3>
-                      </div>
-                      <div className="flex flex-wrap items-center text-[11px] text-[var(--kg-text-muted)] mt-2 gap-2 font-medium">
-                        <span className="flex items-center gap-1 font-mono tabular-nums">
-                          <Clock size={11} /> {item.reportedAt}
-                        </span>
-                        <span>•</span>
-                        <span className="bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] px-2 py-0.5 rounded-lg text-[10px] font-semibold text-[var(--kg-text)]">
-                          {item.reportedBy}
-                        </span>
-                      </div>
+            {filteredItems.map((item) => (
+              <div
+                key={item.id}
+                className="kg-fade-in bg-[var(--kg-surface)] border border-[var(--kg-border)] hover:border-[var(--kg-danger)]/40 rounded-2xl p-3.5 flex flex-col justify-between shadow-card transition-colors group"
+              >
+                <div className="flex justify-between items-start gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[var(--kg-danger)] flex-shrink-0 animate-pulse" />
+                      <h3 className="font-bold text-[var(--kg-text)] text-sm leading-tight truncate">
+                        {item.itemName}
+                      </h3>
                     </div>
-
-                    <button
-                      type="button"
-                      onClick={() => handleOneTapRestore(item)}
-                      aria-label={`Khôi phục món ${item.itemName}`}
-                      className="min-w-[44px] min-h-[44px] px-2.5 rounded-xl bg-[var(--kg-success-soft)] hover:brightness-95 text-[var(--kg-success)] inline-flex items-center justify-center gap-1 transition-all active:scale-95 flex-shrink-0 border border-[var(--kg-success)]/20 text-xs font-bold touch-manipulation"
-                      title="Mở bán lại (1 chạm)"
-                    >
-                      <CheckCircle2 size={16} />
-                      <span className="hidden sm:inline">Mở lại</span>
-                    </button>
+                    <div className="flex flex-wrap items-center text-[11px] text-[var(--kg-text-muted)] mt-2 gap-2 font-medium">
+                      <span className="flex items-center gap-1 font-mono tabular-nums">
+                        <Clock size={11} /> {item.reportedAt}
+                      </span>
+                      <span>•</span>
+                      <span className="bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] px-2 py-0.5 rounded-lg text-[10px] font-semibold text-[var(--kg-text)]">
+                        {item.reportedBy}
+                      </span>
+                    </div>
                   </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
+
+                  <button
+                    type="button"
+                    onClick={() => handleOneTapRestore(item)}
+                    aria-label={`Khôi phục món ${item.itemName}`}
+                    className="min-w-[44px] min-h-[44px] px-2.5 rounded-xl bg-[var(--kg-success-soft)] hover:brightness-95 text-[var(--kg-success)] inline-flex items-center justify-center gap-1 transition-all active:scale-95 flex-shrink-0 border border-[var(--kg-success)]/20 text-xs font-bold touch-manipulation"
+                    title="Mở bán lại (1 chạm)"
+                  >
+                    <CheckCircle2 size={16} />
+                    <span className="hidden sm:inline">Mở lại</span>
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
 
-      {/* Undo Toast + Standard KgToast Stack */}
-      <div className="fixed bottom-20 md:bottom-6 right-4 left-4 sm:left-auto z-[10100] flex flex-col items-end gap-2 pointer-events-none">
-        <AnimatePresence>
-          {undoBanner && (
-            <motion.div
-              key={`undo-${undoBanner.item.id}`}
-              initial={{ opacity: 0, y: 20, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 12, scale: 0.98 }}
-              transition={{ duration: 0.15 }}
-              role="status"
-              aria-live="polite"
-              className="flex items-center gap-3 p-3.5 rounded-xl border border-[var(--kg-success)]/30 bg-[var(--kg-surface)] text-[var(--kg-text)] shadow-lg max-w-sm w-full sm:w-auto pointer-events-auto"
+      {/* Undo Toast Banner */}
+      {undoBanner && (
+        <div className="fixed bottom-20 md:bottom-6 right-4 left-4 sm:left-auto z-[10140] flex flex-col items-end gap-2 pointer-events-none">
+          <div
+            key={`undo-${undoBanner.item.id}`}
+            role="status"
+            aria-live="polite"
+            className="kg-toast-in flex items-center gap-3 p-3.5 rounded-xl border border-[var(--kg-success)]/30 bg-[var(--kg-surface)] text-[var(--kg-text)] shadow-lg max-w-sm w-full sm:w-auto pointer-events-auto"
+          >
+            <CheckCircle2 size={18} className="text-[var(--kg-success)] flex-shrink-0" />
+            <span className="text-xs font-semibold flex-1">
+              Đã mở bán lại <b>{undoBanner.item.itemName}</b>
+            </span>
+            <button
+              type="button"
+              onClick={handleUndoRestore}
+              className="min-h-[44px] sm:min-h-[36px] px-3 py-1 rounded-lg bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] text-xs font-extrabold inline-flex items-center gap-1 hover:brightness-95 touch-manipulation"
             >
-              <CheckCircle2 size={18} className="text-[var(--kg-success)] flex-shrink-0" />
-              <span className="text-xs font-semibold flex-1">
-                Đã mở bán lại <b>{undoBanner.item.itemName}</b>
-              </span>
-              <button
-                type="button"
-                onClick={handleUndoRestore}
-                className="min-h-[36px] px-2.5 py-1 rounded-lg bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] text-xs font-extrabold inline-flex items-center gap-1 hover:brightness-95 touch-manipulation"
-              >
-                <RotateCcw size={13} /> Hoàn tác
-              </button>
-            </motion.div>
-          )}
-          {toasts.map((t) => (
-            <KgToast key={t.id} message={t} onClose={dismissToast} />
-          ))}
-        </AnimatePresence>
-      </div>
+              <RotateCcw size={13} /> Hoàn tác
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

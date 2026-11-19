@@ -1,10 +1,13 @@
-export const APP_VERSION = '4.0.1';
-export const APP_VERSION_TAG = 'v4.0.1';
-export const APP_CODENAME = 'Warm Hospitality Super-App';
-export const APP_RELEASE_DATE = '02/11/2026';
-export const SEEN_VERSION_STORAGE_KEY = 'kg_seen_release_v4_0_1';
-
-export type ReleaseChangeCategory = 'added' | 'redesigned' | 'updated';
+export {
+  APP_VERSION,
+  APP_VERSION_TAG,
+  APP_CODENAME,
+  APP_RELEASE_DATE,
+  SEEN_VERSION_STORAGE_KEY,
+  openReleaseNotesModal,
+  type ReleaseChangeCategory,
+} from './appVersion';
+import type { ReleaseChangeCategory } from './appVersion';
 
 export interface ReleaseChangeItem {
   id: string;
@@ -25,158 +28,137 @@ export interface VersionHistoryEntry {
 }
 
 export const RELEASE_STATS = [
-  { label: 'Giao diện', value: '100% Mới', note: 'Warm Hospitality' },
-  { label: 'Lịch sử công', value: '100% Đủ lượt', note: 'Đa sheet • Không sót' },
-  { label: 'Chuẩn Mobile', value: '360px+', note: 'Khít mọi điện thoại' },
-  { label: 'Phân hệ', value: '26+ Màn', note: 'Đồng bộ Sáng & Tối' },
+  { label: 'Kiến trúc IA', value: '14 → 11 Hub', note: '8 Nhân sự • 3 Quản trị' },
+  { label: 'Tinh gọn gói', value: '-21.9 MB', note: '0 thư viện thừa • Siêu nhẹ 4G' },
+  { label: 'Duyệt Admin', value: '1-Tap Inbox', note: 'Gom 6 hàng chờ quản lý' },
+  { label: 'Đa thiết bị', value: 'Mobile–PC', note: 'Tablet Rail • Chuẩn 44px' },
 ] as const;
 
 export const CURRENT_RELEASE_CHANGES: ReleaseChangeItem[] = [
-  // 1. CẬP NHẬT & SỬA LỖI TRIỆT ĐỂ MỚI NHẤT (v4.0.1)
+  // 1. TÍNH NĂNG MỚI ĐỘT PHÁ (ADDED)
   {
-    id: 'fix-full-checkin-history',
-    category: 'updated',
-    badge: 'Mới nhất v4.0.1',
-    title: 'Tải đầy đủ 100% lượt chấm công trong mục "Lịch sử" (không giới hạn số lượt)',
-    summary: 'Gỡ bỏ giới hạn 60 lượt/1.200 dòng cũ, đồng bộ đa sheet & chuẩn hóa dấu tiếng Việt.',
+    id: 'v5-admin-approval-inbox',
+    category: 'added',
+    badge: 'Mới ở v5.0',
+    title: 'Hộp duyệt 1 chạm (Admin Approval Inbox) gom 6 hàng chờ quản lý',
+    summary: 'Gom Bổ sung công, Đổi ca/Nghỉ, Đối soát két, Sự cố mở, Ứng lương và Đề nghị lương vào 1 màn hình.',
     description:
-      'Quét trọn vẹn toàn bộ sổ chấm công chính, sổ Bếp - Tạp vụ và các sheet lưu trữ theo tháng kết hợp bộ đệm Edge D1; nhóm theo từng ngày kèm bộ lọc Tháng, Loại ca và Tìm nhanh ngày chấm.',
-    impact: 'Nhân viên & Quản lý kiểm tra không sót bất kỳ lượt vào/ra ca nào',
+      'Quản lý xử lý mọi yêu cầu phát sinh ngay tại 1 trung tâm duy nhất kèm nút "Duyệt tất cả ca khớp" cho sổ quỹ bàn giao và thanh tiến trình xử lý hàng loạt trực tiếp.',
+    impact: 'Giảm 70% số bước chuyển tab duyệt hồ sơ mỗi ngày',
   },
   {
-    id: 'ui-synced-release-modal',
-    category: 'redesigned',
-    badge: 'Tinh chỉnh v4.0.1',
-    title: 'Đồng bộ Hộp thoại Thông tin Phiên bản theo chuẩn KgDesignSystem',
-    summary: 'Thu gọn đầu trang, chia 3 tab không tràn chữ, đọc nhanh toàn bộ điểm mới trong 5 giây.',
+    id: 'v5-unified-attendance-ledger',
+    category: 'added',
+    badge: 'Hợp nhất công',
+    title: 'Sổ Công & Nhật ký hợp nhất (Unified Attendance Ledger)',
+    summary: 'Gộp Bảng công (Timesheet) + Lịch sử chấm công (History) với 3 góc nhìn: Theo ngày, Lịch tháng, Nhật ký đủ 100%.',
     description:
-      'Loại bỏ mảng màu tối chiếm diện tích trên điện thoại, đồng bộ nền kem ấm Ivory/Alabaster với toàn bộ ngăn kéo hệ thống (KgBottomSheet) và trình bày tóm tắt phân nhóm cực dễ theo dõi.',
-    impact: 'Hiển thị thoáng, đồng nhất 100% với ngôn ngữ thiết kế ứng dụng',
+      'Nhân viên tra cứu tổng giờ công, ca đêm 06:00–05:59, lịch tháng và chi tiết từng lượt vào/ra đa sheet trong cùng một phân hệ Công & Thu nhập mà không cần nhảy qua lại hai trang.',
+    impact: 'Đối soát công tháng & từng lượt quẹt mặt chỉ trong 1 nơi',
+  },
+  {
+    id: 'v5-first-class-incident-tracker',
+    category: 'added',
+    badge: 'Vận hành ca',
+    title: 'Phân hệ Sự cố ca độc lập (Incident Tracker) 4 trạng thái',
+    summary: 'Theo dõi sự cố riêng trong Vận hành ca: Mới mở → Đang xử lý → Đã khắc phục → Đã hạch toán chi phí.',
+    description:
+      'Tách quản lý sự cố ca thành tab chuyên biệt cho nhân viên và trung tâm xử lý riêng cho Quản lý, đồng bộ live strip cảnh báo Món hết & Sự cố mở ngay đầu phân hệ Vận hành.',
+    impact: 'Không bỏ sót sự cố hỏng hóc, vỡ đồ hay phát sinh trong ca',
+  },
+  {
+    id: 'v5-unified-settings-audit',
+    category: 'added',
+    badge: 'Quản trị hệ thống',
+    title: 'Hợp nhất Cài đặt hệ thống & Tách Nhật ký Kiểm toán (Audit Log)',
+    summary: 'Gom Doanh nghiệp, GPS, Edge D1, AI Keys (Master PIN) vào 1 màn; Nhật ký Audit có lọc ngày & xuất CSV an toàn.',
+    description:
+      'Chuẩn hóa trung tâm cài đặt gọn gàng theo nhóm chức năng và tách riêng phân hệ Nhật ký Kiểm toán chuyên biệt với ngăn kéo xem chi tiết bản ghi và chống công thức độc hại khi xuất CSV.',
+    impact: 'Quản trị cấu hình minh bạch, truy vết thao tác tức thì',
   },
 
-  // 2. NÂNG CẤP THÊM MỚI (ADDED)
+  // 2. ĐỔI MỚI KIẾN TRÚC GIAO DIỆN & ĐA THIẾT BỊ (REDESIGNED)
   {
-    id: 'add-assistive-ai',
-    category: 'added',
-    badge: 'Đột phá thao tác',
-    title: 'Nút Trợ lý AI kiểu Home ảo thông minh (AssistiveTouch)',
-    summary: 'Nhấn giữ kéo thả tự do, hút nam châm sát mép và tự thu gọn sau 3 giây.',
+    id: 'v5-11-hub-ia',
+    category: 'redesigned',
+    badge: '14 → 11 Hub',
+    title: 'Tái cấu trúc 14 → 11 Phân hệ hợp nhất (8 Nhân sự + 3 Quản trị)',
+    summary: 'Thu gọn điều hướng thừa, giữ 100% đường dẫn tương thích ngược (?tab=&sub= và TAB_ALIAS_MAP).',
     description:
-      'Cho phép di chuyển nút AI đến vị trí thuận tay nhất trên màn hình và tự ẩn gọn vào cạnh trái/phải khi đang thao tác bảng công, bảng lương.',
-    impact: 'Không bao giờ che khuất số liệu & nút bấm',
+      'Hợp nhất các màn hình rời rạc thành 11 Hub rõ ràng theo luồng công việc thực tế của nhà hàng, giảm độ sâu menu và giúp nhân viên mới làm quen trong dưới 1 phút.',
+    impact: 'Điều hướng trực quan hơn 40%, không gãy bookmark hay thông báo cũ',
   },
   {
-    id: 'add-superapp-dock',
-    category: 'added',
-    badge: 'Điều hướng mới',
-    title: 'Floating Pill Dock trên Di động & Slim Rail 76px trên Máy tính',
-    summary: 'Thanh điều hướng đáy nổi bo tròn cho điện thoại và cột điều hướng gọn cho Desktop.',
+    id: 'v5-tablet-rail-mobile-header',
+    category: 'redesigned',
+    badge: 'Đa thiết bị',
+    title: 'Tablet Compact Rail & Thanh đầu trang Di động 1 hàng gọn gàng',
+    summary: 'Bổ sung cột điều hướng gọn cho iPad/Tablet, thu gọn Header điện thoại còn đúng 1 hàng với vùng chạm ≥ 44×44px.',
     description:
-      'Tối ưu vùng chạm ngón cái trên di động và mở rộng tối đa diện tích bảng biểu trên màn hình máy tính kèm ngăn kéo mở rộng nhanh.',
-    impact: 'Thao tác 1 tay mượt mà, rộng không gian làm việc',
+      'Chuẩn hóa breakpoint lg (1024px) cho bảng/thẻ nhân sự & quản trị, khóa chiều cao an toàn h-dvh, gắn duy nhất 1 Chuông thông báo đồng bộ và làm sạch thứ tự lớp phủ (z-index).',
+    impact: 'Hiển thị sắc nét trên mọi màn hình từ điện thoại 360px, iPad đến Desktop',
   },
   {
-    id: 'add-quick-launcher',
-    category: 'added',
-    badge: 'Tăng tốc ca trực',
-    title: 'Bảng Khởi chạy Nhanh (Quick Launcher) ngay tại Trang chủ',
-    summary: 'Truy cập 1 chạm: Chấm công AI, Checklist, Bàn giao ca, Lịch ca, Phiếu lương, SOP.',
+    id: 'v5-kg-feedback-host',
+    category: 'redesigned',
+    badge: '0 Swal.fire',
+    title: 'Hệ thống Phản hồi toàn cục KgFeedbackHost thay thế 100% SweetAlert2',
+    summary: 'Toàn bộ thông báo, xác nhận và trạng thái tải dùng kgToast / kgConfirm / kgLoading chuẩn Design System.',
     description:
-      'Gom các nghiệp vụ dùng hàng ngày trong ca trực vào lưới phím tắt trực quan ngay đầu Trang chủ.',
-    impact: 'Rút gọn từ 3 bước chuyển trang xuống 1 chạm',
-  },
-  {
-    id: 'add-release-center',
-    category: 'added',
-    badge: 'Minh bạch cập nhật',
-    title: 'Huy hiệu Phiên bản & Lịch sử Nâng cấp toàn hệ thống',
-    summary: 'Tra cứu nhanh bản cập nhật tại Đăng nhập, Thanh đầu trang, Trang chủ và Hồ sơ.',
-    description:
-      'Theo dõi rõ ràng từng tính năng thêm mới, cải tiến giao diện và sửa lỗi kỹ thuật qua các đời phiên bản.',
-    impact: 'Nắm bắt ngay thay đổi mới khi vào ca',
+      'Loại bỏ hoàn toàn hộp thoại SweetAlert2 rời rạc và hiệu ứng nặng framer-motion, thay bằng lớp chuyển động CSS mượt ≤ 200ms đồng bộ Light/Dark WCAG AA và hỗ trợ đóng bằng phím Escape.',
+    impact: 'Phản hồi tức thì, đồng bộ 100% giao diện & không giật trên máy tầm trung',
   },
 
-  // 3. ĐỔI MỚI GIAO DIỆN 100% & TỐI ƯU DI ĐỘNG (REDESIGNED)
+  // 3. TỐI ƯU HIỆU NĂNG & KỸ THUẬT (UPDATED)
   {
-    id: 'ui-warm-hospitality',
-    category: 'redesigned',
-    badge: 'Đổi mới 100% UI',
-    title: 'Hệ màu Warm Hospitality (Alabaster × Grill Ember × Midnight Navy)',
-    summary: 'Nền đá ấm Alabaster, thẻ sứ Ivory, điểm nhấn Đỏ lửa nướng & Xanh Midnight.',
-    description:
-      'Thay thế hoàn toàn tông trắng xám cũ bằng bảng màu đặc trưng F&B cao cấp của King’s Grill, tự động thích ứng chế độ Sáng & Tối đạt chuẩn tương phản WCAG AA.',
-    impact: 'Sang trọng, dịu mắt khi xem lâu trong ca tối',
-  },
-  {
-    id: 'ui-mobile-fit-engine',
-    category: 'redesigned',
-    badge: 'Tối ưu Di động',
-    title: 'Chuẩn hóa Mobile-First Fit (360px – 430px) trên toàn bộ 26+ màn hình',
-    summary: 'Gỡ bỏ đệm lồng kép, thu hồi +32px chiều rộng thực tế, chống rớt chữ/cắt chữ.',
-    description:
-      'Tinh chỉnh khoảng cách, cỡ chữ tiếng Việt và bố cục lưới tự động co giãn vừa vặn trên mọi dòng iPhone và Android phổ thông.',
-    impact: 'Hiển thị gọn đẹp trên mọi kích cỡ màn hình',
-  },
-  {
-    id: 'ui-login-atelier',
-    category: 'redesigned',
-    badge: 'Trải nghiệm đầu',
-    title: 'Màn hình Đăng nhập Editorial Split Atelier mới',
-    summary: 'Thiết kế gọn trên 1 khung hình điện thoại, đổi nhanh Sáng/Tối ngay góc trên.',
-    description:
-      'Kết hợp thẻ nhận diện thương hiệu giàu chiều sâu trên máy tính và biểu mẫu xác thực tinh gọn trên di động.',
-    impact: 'Đăng nhập vào ca nhanh, không cần cuộn trang',
-  },
-  {
-    id: 'ui-capsule-hubs',
-    category: 'redesigned',
-    badge: 'Đồng bộ 14 Hub',
-    title: 'Đầu trang tinh gọn & Thanh chuyển tab con dạng Capsule trượt ngang',
-    summary: 'Thu gọn phần tiêu đề để ưu tiên hiển thị dữ liệu nghiệp vụ ngay màn hình đầu.',
-    description:
-      'Đồng bộ cấu trúc điều hướng con mượt mà trên tất cả phân hệ: Lương & Công, Lịch làm, Vận hành ca, Truyền thông và Quản trị.',
-    impact: 'Tăng thêm ~160px vùng hiển thị dữ liệu thực tế',
-  },
-
-  // 4. CHỈNH SỬA & TỐI ƯU KỸ THUẬT (UPDATED)
-  {
-    id: 'fix-tabular-currency',
+    id: 'v5-deploy-slimming',
     category: 'updated',
-    badge: 'Chuẩn hóa số liệu',
-    title: 'Đồng bộ font số học JetBrains Mono (tabular-nums) cho Tiền tệ & Giờ công',
-    summary: 'Căn thẳng hàng đơn vị tiền VNĐ và thời gian trên Phiếu lương, Bảng công, Tạm ứng.',
+    badge: '-21.9 MB Deploy',
+    title: 'Tinh gọn -21.9 MB gói triển khai & Gỡ bỏ hoàn toàn thư viện nặng cũ',
+    summary: 'Gỡ 0 Swal.fire, 0 framer-motion, 0 face-api.js, 0 canvas-confetti và dọn sạch tệp mô hình cũ dư thừa.',
     description:
-      'Áp dụng định dạng chữ số độ rộng cố định trên toàn bộ bảng đối soát tài chính, thưởng/phạt và quỹ bàn giao ca.',
-    impact: 'Đối soát lương & quỹ két nhanh, không nhầm hàng số',
+      'Chuyển hoàn toàn chấm công sinh trắc học sang Face ID V2 thuần ONNX/MediaPipe nạp lười (lazy-loaded), tách cache vector zero-WASM và dọn sạch tài nguyên ảnh/model cũ trong gói deploy.',
+    impact: 'Tải ứng dụng trên mạng 4G nhanh vượt trội, tiết kiệm dung lượng & pin thiết bị',
   },
   {
-    id: 'fix-sheet-drawers',
+    id: 'v5-workforce-payroll-polish',
     category: 'updated',
-    badge: 'Tối ưu nhập liệu',
-    title: 'Đồng bộ biểu mẫu nhập liệu sang Ngăn kéo trượt chuẩn (KgBottomSheet)',
-    summary: 'Thân thiện với bàn phím ảo trên điện thoại, vùng chạm đạt chuẩn >= 44×44px.',
+    badge: 'Tối ưu nghiệp vụ',
+    title: 'Tối ưu Ma trận lịch tháng, Hạn mức ứng lương & Tách mô-đun Quản trị',
+    summary: 'Memo hóa ShiftMonthMatrix chống lag, đưa cài đặt hạn mức ứng lương vào Bảng giá lương tháng.',
     description:
-      'Nâng cấp các hộp thoại cấu hình lương, sơ đồ tổ chức và xác nhận bù công giúp thao tác mượt trên di động.',
-    impact: 'Không bị bàn phím che khuất ô nhập',
+      'Chia nhỏ các màn hình lớn (AdminOperations, HrList, Payroll, Dashboard) thành các mô-đun độc lập dễ bảo trì, đồng nhất hàm định dạng tiền tệ VNĐ và điều hướng sub-tab toàn hệ thống.',
+    impact: 'Cuộn lịch tháng & danh sách nhân sự mượt mà, đối soát số liệu chính xác',
   },
   {
-    id: 'fix-sop-offline-icons',
+    id: 'v5-pwa-cache-refresh',
     category: 'updated',
-    badge: 'Tối ưu tốc độ',
-    title: 'Biểu tượng vector nội bộ & Sửa bố cục Biểu đồ Thống kê Tablet',
-    summary: 'Loại bỏ phụ thuộc icon CDN ngoài trong Sổ tay SOP; chuẩn hóa lưới KPI trên iPad.',
+    badge: 'PWA & An toàn',
+    title: 'Làm mới bộ đệm PWA v5.0 & Giữ vững 100% cổng Edge D1 + Offline Vault',
+    summary: 'Nâng cấp Service Worker cache v16 để tự nhận bản v5.0 ngay lập tức, bỏ qua hoàn toàn /api.',
     description:
-      'Tải tức thì ngay cả khi mạng 4G chập chờn và hiển thị chuẩn xác biểu đồ chuyên cần 14 ngày trên máy tính bảng.',
-    impact: 'Tốc độ mở trang tức thì, ổn định đa thiết bị',
+      'Đảm bảo mọi thiết bị đã cài ứng dụng ra màn hình chính tự động dọn cache cũ và nhận mã nguồn v5.0 mới nhất trong khi vẫn bảo toàn tuyệt đối hàng đợi chấm công ngoại tuyến (Offline Vault).',
+    impact: 'Cập nhật tức thì trên mọi thiết bị mà không mất dữ liệu chấm công',
   },
 ];
 
 export const VERSION_HISTORY: VersionHistoryEntry[] = [
   {
+    version: '5.0',
+    date: '19/11/2026',
+    codename: 'Unified Staff OS 5.0',
+    isCurrent: true,
+    highlights: [
+      'Hợp nhất kiến trúc từ 14 → 11 Hub (8 Nhân sự + 3 Quản trị), giữ 100% tương thích đường dẫn cũ qua TAB_ALIAS_MAP và deep-link ?tab=&sub=.',
+      'Ra mắt Hộp duyệt 1 chạm (Admin Approval Inbox) gom 6 hàng chờ quản lý, Sổ Công & Nhật ký hợp nhất (Timesheet + History) và phân hệ Sự cố ca độc lập (Incident Tracker).',
+      'Nâng cấp đa thiết bị: Tablet Compact Rail, Header di động 1 hàng chuẩn 44×44px, Hệ thống phản hồi KgFeedbackHost (0 Swal.fire / 0 framer-motion / 0 face-api.js) và tinh gọn -21.9 MB gói triển khai.',
+    ],
+  },
+  {
     version: 'v4.0.1',
     date: '02/11/2026',
     codename: 'Full History & Harmonized Release UI',
-    isCurrent: true,
+    isCurrent: false,
     highlights: [
       'Nâng cấp triệt để mục "Lịch sử" chấm công: tải đủ 100% lượt chấm không giới hạn 60 lượt/1.200 dòng, đồng bộ đa sheet (Chính, Bếp - Tạp vụ, Lưu trữ tháng), nhóm theo ngày và lọc nhanh theo tháng.',
       'Thiết kế lại Hộp thoại Thông tin Phiên bản đồng bộ 100% với KgDesignSystem (nền kem ấm Ivory/Alabaster, gọn gàng, dễ đọc nhanh trên di động).',
@@ -207,7 +189,7 @@ export const VERSION_HISTORY: VersionHistoryEntry[] = [
     date: '08/2026',
     codename: 'Biometric & Resilient Sync',
     highlights: [
-      'Tích hợp chấm công nhận diện khuôn mặt AI (face-api.js) kèm đóng dấu ảnh chụp thực tế.',
+      'Tích hợp chấm công nhận diện khuôn mặt AI kèm đóng dấu ảnh chụp thực tế.',
       'Bổ sung bộ lọc nhiễu vị trí GPS Kalman và hàng đợi Offline tự đồng bộ khi có mạng.',
       'Ra mắt Sổ tay Đào tạo SOP, hướng dẫn CUKCUK và tích điểm thi đua King Coins.',
     ],
@@ -221,15 +203,3 @@ export const VERSION_HISTORY: VersionHistoryEntry[] = [
     ],
   },
 ];
-
-export function openReleaseNotesModal(
-  initialFilter: 'all' | ReleaseChangeCategory | 'history' = 'all'
-): void {
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(
-      new CustomEvent('kg:open-release-notes', {
-        detail: { filter: initialFilter },
-      })
-    );
-  }
-}
