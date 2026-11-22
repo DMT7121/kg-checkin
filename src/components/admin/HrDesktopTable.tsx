@@ -1,5 +1,6 @@
 import {
   ArrowUpDown,
+  Calendar,
   Camera,
   KeyRound,
   Loader2,
@@ -78,7 +79,7 @@ export default function HrDesktopTable({
         </div>
       ) : (
         <div className="overflow-x-auto max-h-[68vh] overflow-y-auto">
-          <table className="w-full text-left border-collapse min-w-[900px]">
+          <table className="w-full text-left border-collapse min-w-[960px]">
             <thead className="sticky top-0 z-10 bg-[var(--kg-surface-soft)] border-b border-[var(--kg-border)] text-[11px] font-black uppercase tracking-wider text-[var(--kg-text-muted)]">
               <tr>
                 <th className="py-3 px-2 w-10 text-center">
@@ -90,7 +91,7 @@ export default function HrDesktopTable({
                     className="w-4 h-4 rounded accent-[var(--kg-primary)] cursor-pointer"
                   />
                 </th>
-                <th className="py-3 px-2 min-w-[165px]">
+                <th className="py-3 px-2 min-w-[185px]">
                   <button
                     type="button"
                     onClick={() => onToggleSort('fullname')}
@@ -100,7 +101,7 @@ export default function HrDesktopTable({
                     <ArrowUpDown size={12} className="shrink-0" />
                   </button>
                 </th>
-                <th className="py-3 px-2 min-w-[144px] w-[144px]">
+                <th className="py-3 px-2 min-w-[140px] w-[140px]">
                   <button
                     type="button"
                     onClick={() => onToggleSort('position')}
@@ -110,7 +111,7 @@ export default function HrDesktopTable({
                     <ArrowUpDown size={12} className="shrink-0" />
                   </button>
                 </th>
-                <th className="py-3 px-2 min-w-[136px] w-[136px]">
+                <th className="py-3 px-2 min-w-[132px] w-[132px]">
                   <button
                     type="button"
                     onClick={() => onToggleSort('role')}
@@ -120,7 +121,7 @@ export default function HrDesktopTable({
                     <ArrowUpDown size={12} className="shrink-0" />
                   </button>
                 </th>
-                <th className="py-3 px-2 w-[132px]">
+                <th className="py-3 px-2 min-w-[175px]">
                   <button
                     type="button"
                     onClick={() => onToggleSort('employmentStatus')}
@@ -130,7 +131,7 @@ export default function HrDesktopTable({
                     <ArrowUpDown size={12} className="shrink-0" />
                   </button>
                 </th>
-                <th className="py-3 px-2 w-[198px]">
+                <th className="py-3 px-2 w-[202px]">
                   <button
                     type="button"
                     onClick={() => onToggleSort('faceId')}
@@ -159,7 +160,7 @@ export default function HrDesktopTable({
                     className={`transition-colors ${
                       isSelected
                         ? 'bg-[var(--kg-primary-soft)]/50'
-                        : 'hover:bg-[var(--kg-surface-soft)]/40'
+                        : 'hover:bg-[var(--kg-surface-2)]'
                     } ${isProcessing ? 'opacity-50 pointer-events-none' : ''}`}
                   >
                     <td className="py-2.5 px-2 text-center">
@@ -206,7 +207,7 @@ export default function HrDesktopTable({
                             )}
                           </div>
                         </button>
-                        <div className="min-w-0 max-w-[190px] xl:max-w-[260px]">
+                        <div className="min-w-0 max-w-[210px] xl:max-w-[270px]">
                           <p className="font-extrabold text-[var(--kg-text)] text-sm truncate">
                             {user.fullname}
                           </p>
@@ -214,6 +215,12 @@ export default function HrDesktopTable({
                             @{user.username}
                             {user.email ? ` · ${user.email}` : ''}
                           </p>
+                          {user.dob && (
+                            <p className="text-[10.5px] font-mono tabular-nums text-[var(--kg-text-soft)] inline-flex items-center gap-1 mt-0.5">
+                              <Calendar size={10} className="shrink-0" />
+                              <span>SN: {user.dob}</span>
+                            </p>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -224,7 +231,7 @@ export default function HrDesktopTable({
                         onChange={(e) =>
                           actions.onUpdatePosition(user.username, user.fullname, e.target.value)
                         }
-                        className="w-full min-w-[126px] !min-h-[36px] h-9 bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-text)] rounded-lg px-2 py-1 text-xs font-semibold cursor-pointer"
+                        className="w-full min-w-[126px] !min-h-[36px] h-9 bg-[var(--kg-surface-2)] border border-[var(--kg-border)] text-[var(--kg-text)] rounded-lg px-2 py-1 text-xs font-semibold cursor-pointer"
                       >
                         {actions.positions.map((p) => (
                           <option key={p} value={p}>
@@ -240,7 +247,7 @@ export default function HrDesktopTable({
                         onChange={(e) =>
                           actions.onUpdateRole(user.username, user.fullname, e.target.value)
                         }
-                        className={`w-full min-w-[118px] !min-h-[36px] h-9 bg-[var(--kg-surface-soft)] text-[var(--kg-text)] rounded-lg px-2 py-1 text-xs font-bold cursor-pointer border ${badge.cls}`}
+                        className={`w-full min-w-[118px] !min-h-[36px] h-9 bg-[var(--kg-surface-2)] text-[var(--kg-text)] rounded-lg px-2 py-1 text-xs font-bold cursor-pointer border ${badge.cls}`}
                       >
                         {actions.roles.map((r) => (
                           <option key={r.value} value={r.value}>
@@ -250,19 +257,35 @@ export default function HrDesktopTable({
                       </select>
                     </td>
                     <td className="py-2.5 px-2">
-                      <div className="flex items-center gap-1.5 whitespace-nowrap">
-                        <span
-                          className={`text-[10px] font-black uppercase px-2 py-1 rounded-md border whitespace-nowrap ${statusMeta.badgeClass}`}
-                        >
-                          {statusMeta.shortLabel}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => actions.onUpdateEmploymentStatus(user)}
-                          className="min-h-[36px] px-2.5 py-1 rounded-lg border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-border)]/40 text-[11px] font-bold text-[var(--kg-text)] whitespace-nowrap shrink-0 transition-colors"
-                        >
-                          Đổi
-                        </button>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5 whitespace-nowrap">
+                          <span
+                            className={`text-[10px] font-black uppercase px-2 py-1 rounded-md border whitespace-nowrap ${statusMeta.badgeClass}`}
+                          >
+                            {statusMeta.shortLabel}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => actions.onUpdateEmploymentStatus(user)}
+                            className="min-h-[36px] px-2.5 py-1 rounded-lg border border-[var(--kg-border)] bg-[var(--kg-surface-2)] hover:bg-[var(--kg-surface-soft)] text-[11px] font-bold text-[var(--kg-text)] whitespace-nowrap shrink-0 transition-colors"
+                          >
+                            Đổi
+                          </button>
+                        </div>
+                        {(user.statusUntil || user.statusReason) && (
+                          <div className="text-[10.5px] leading-snug text-[var(--kg-text-muted)] max-w-[195px]">
+                            {user.statusUntil && (
+                              <span className="block font-mono tabular-nums font-bold text-[var(--kg-text)]">
+                                Đến: {user.statusUntil}
+                              </span>
+                            )}
+                            {user.statusReason && (
+                              <span className="block italic line-clamp-2" title={user.statusReason}>
+                                {user.statusReason}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td className="py-2.5 px-2">
@@ -274,7 +297,7 @@ export default function HrDesktopTable({
                             data-testid={`enroll-face-id-${user.username}`}
                             className={`min-h-[36px] px-2 py-1 rounded-lg border text-[11px] font-bold inline-flex items-center gap-1 whitespace-nowrap shrink-0 transition-colors ${
                               faceProfile
-                                ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+                                ? 'bg-[var(--kg-success-soft)] hover:brightness-95 text-[var(--kg-success)] border-[var(--kg-success)]/30'
                                 : 'bg-[var(--kg-primary-soft)] hover:opacity-90 text-[var(--kg-primary-ink)] border-[var(--kg-primary)]/30'
                             }`}
                           >
@@ -290,22 +313,24 @@ export default function HrDesktopTable({
                             <ScanFace size={12} className="shrink-0" /> {faceProfile ? 'Đã có' : 'Chưa ĐK'}
                           </span>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => actions.onResetFaceProfile(user.username, user.fullname)}
-                          data-testid={`reset-face-id-${user.username}`}
-                          title="Mở khóa / Đặt lại Face ID"
-                          className="min-h-[36px] px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-[11px] font-bold inline-flex items-center gap-1 whitespace-nowrap shrink-0 transition-colors"
-                        >
-                          <Unlock size={12} className="shrink-0" /> Mở khóa
-                        </button>
+                        {faceProfile && (
+                          <button
+                            type="button"
+                            onClick={() => actions.onResetFaceProfile(user.username, user.fullname)}
+                            data-testid={`reset-face-id-${user.username}`}
+                            title="Mở khóa / Đặt lại Face ID"
+                            className="min-h-[36px] px-2 py-1 rounded-lg bg-[var(--kg-warning-soft)] hover:brightness-95 text-[var(--kg-warning)] border border-[var(--kg-warning)]/30 text-[11px] font-bold inline-flex items-center gap-1 whitespace-nowrap shrink-0 transition-colors"
+                          >
+                            <Unlock size={12} className="shrink-0" /> Mở khóa
+                          </button>
+                        )}
                       </div>
                     </td>
                     <td className="py-2.5 px-2 text-right">
                       <button
                         type="button"
                         onClick={() => actions.onForceResetPassword(user.username, user.fullname)}
-                        className="min-h-[36px] px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 text-[11px] font-bold inline-flex items-center gap-1 whitespace-nowrap transition-colors"
+                        className="min-h-[36px] px-2.5 py-1 rounded-lg bg-[var(--kg-danger-soft)] hover:brightness-95 text-[var(--kg-danger)] border border-[var(--kg-danger)]/20 text-[11px] font-bold inline-flex items-center gap-1 whitespace-nowrap transition-colors"
                       >
                         <KeyRound size={12} className="shrink-0" /> Reset MK
                       </button>

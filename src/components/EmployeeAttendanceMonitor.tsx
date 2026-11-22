@@ -152,20 +152,20 @@ export default function EmployeeAttendanceMonitor({
       title="Theo dõi ca làm nhân viên hôm nay"
     >
       <div className="space-y-4 py-2">
-        {/* 4 Interactive KPI Filter Cards */}
+        {/* 4 Interactive KPI Filter Cards (Terracotta active ring) */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <button
             type="button"
             aria-pressed={filterTab === 'IN_SHIFT'}
             onClick={() => setFilterTab(filterTab === 'IN_SHIFT' ? 'ALL' : 'IN_SHIFT')}
-            className={`min-h-[44px] p-3 rounded-2xl border text-left transition-all active:scale-95 touch-manipulation ${
+            className={`min-h-[44px] p-3 rounded-2xl border text-left transition-colors active:scale-95 touch-manipulation ${
               filterTab === 'IN_SHIFT'
-                ? 'bg-[var(--kg-success-soft)] border-[var(--kg-success)] text-[var(--kg-success)] ring-2 ring-[var(--kg-success)]/25'
+                ? 'bg-[var(--kg-success-soft)] border-2 border-[var(--kg-primary)] ring-2 ring-[var(--kg-primary)]/20'
                 : 'bg-[var(--kg-surface)] border-[var(--kg-border)] hover:border-[var(--kg-border-strong)]'
             }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase tracking-wider text-[var(--kg-text-muted)]">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--kg-text-muted)]">
                 Đang làm việc
               </span>
               <span className="w-2 h-2 rounded-full bg-[var(--kg-success)] animate-pulse" />
@@ -180,14 +180,14 @@ export default function EmployeeAttendanceMonitor({
             type="button"
             aria-pressed={filterTab === 'NOT_IN_YET'}
             onClick={() => setFilterTab(filterTab === 'NOT_IN_YET' ? 'ALL' : 'NOT_IN_YET')}
-            className={`min-h-[44px] p-3 rounded-2xl border text-left transition-all active:scale-95 touch-manipulation ${
+            className={`min-h-[44px] p-3 rounded-2xl border text-left transition-colors active:scale-95 touch-manipulation ${
               filterTab === 'NOT_IN_YET'
-                ? 'bg-[var(--kg-warning-soft)] border-[var(--kg-warning)] text-[var(--kg-warning)] ring-2 ring-[var(--kg-warning)]/25'
+                ? 'bg-[var(--kg-warning-soft)] border-2 border-[var(--kg-primary)] ring-2 ring-[var(--kg-primary)]/20'
                 : 'bg-[var(--kg-surface)] border-[var(--kg-border)] hover:border-[var(--kg-border-strong)]'
             }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase tracking-wider text-[var(--kg-text-muted)]">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--kg-text-muted)]">
                 Chưa vào ca
               </span>
               <AlertTriangle size={13} className="text-[var(--kg-warning)]" />
@@ -202,14 +202,14 @@ export default function EmployeeAttendanceMonitor({
             type="button"
             aria-pressed={filterTab === 'COMPLETED'}
             onClick={() => setFilterTab(filterTab === 'COMPLETED' ? 'ALL' : 'COMPLETED')}
-            className={`min-h-[44px] p-3 rounded-2xl border text-left transition-all active:scale-95 touch-manipulation ${
+            className={`min-h-[44px] p-3 rounded-2xl border text-left transition-colors active:scale-95 touch-manipulation ${
               filterTab === 'COMPLETED'
-                ? 'bg-[var(--kg-info-soft)] border-[var(--kg-info)] text-[var(--kg-info)] ring-2 ring-[var(--kg-info)]/25'
+                ? 'bg-[var(--kg-info-soft)] border-2 border-[var(--kg-primary)] ring-2 ring-[var(--kg-primary)]/20'
                 : 'bg-[var(--kg-surface)] border-[var(--kg-border)] hover:border-[var(--kg-border-strong)]'
             }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase tracking-wider text-[var(--kg-text-muted)]">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--kg-text-muted)]">
                 Đã xong ca
               </span>
               <CheckCircle2 size={13} className="text-[var(--kg-info)]" />
@@ -224,14 +224,14 @@ export default function EmployeeAttendanceMonitor({
             type="button"
             aria-pressed={filterTab === 'OFF'}
             onClick={() => setFilterTab(filterTab === 'OFF' ? 'ALL' : 'OFF')}
-            className={`min-h-[44px] p-3 rounded-2xl border text-left transition-all active:scale-95 touch-manipulation ${
+            className={`min-h-[44px] p-3 rounded-2xl border text-left transition-colors active:scale-95 touch-manipulation ${
               filterTab === 'OFF'
-                ? 'bg-[var(--kg-surface-soft)] border-[var(--kg-text-muted)] text-[var(--kg-text)] ring-2 ring-[var(--kg-border-strong)]'
+                ? 'bg-[var(--kg-surface-soft)] border-2 border-[var(--kg-primary)] ring-2 ring-[var(--kg-primary)]/20'
                 : 'bg-[var(--kg-surface)] border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]'
             }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase tracking-wider text-[var(--kg-text-muted)]">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--kg-text-muted)]">
                 Nghỉ ca (OFF)
               </span>
               <Coffee size={13} className="text-[var(--kg-text-soft)]" />
@@ -243,7 +243,7 @@ export default function EmployeeAttendanceMonitor({
           </button>
         </div>
 
-        {/* Search + Single "Tất cả" Reset Pill + Real Backend Refresh */}
+        {/* Search + Conditional "Xóa lọc" Chip + Real Backend Refresh */}
         <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
           <div className="relative flex-1 min-w-[160px]">
             <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--kg-text-muted)]" />
@@ -253,7 +253,7 @@ export default function EmployeeAttendanceMonitor({
               placeholder="Tìm theo tên nhân viên, vị trí..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full min-h-[44px] sm:min-h-[40px] pl-9 pr-11 py-2.5 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-base sm:text-xs text-[var(--kg-text)] placeholder-[var(--kg-text-muted)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15"
+              className="w-full min-h-[44px] sm:min-h-[40px] pl-9 pr-11 py-2.5 rounded-xl bg-[var(--kg-surface-2)] border border-[var(--kg-border-strong)] text-base sm:text-xs text-[var(--kg-text)] placeholder-[var(--kg-text-muted)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15"
             />
             {searchQuery && (
               <button
@@ -267,17 +267,16 @@ export default function EmployeeAttendanceMonitor({
             )}
           </div>
 
-          <button
-            type="button"
-            onClick={() => setFilterTab('ALL')}
-            className={`min-h-[44px] sm:min-h-[40px] px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap border transition-colors touch-manipulation ${
-              filterTab === 'ALL'
-                ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)] shadow-xs'
-                : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)] hover:text-[var(--kg-text)]'
-            }`}
-          >
-            Tất cả (<span className="font-mono tabular-nums">{counts.total}</span>)
-          </button>
+          {filterTab !== 'ALL' && (
+            <button
+              type="button"
+              onClick={() => setFilterTab('ALL')}
+              className="min-h-[44px] sm:min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap border border-[var(--kg-primary)]/35 bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] hover:brightness-95 transition-colors inline-flex items-center gap-1 touch-manipulation"
+            >
+              <X size={13} />
+              <span>Xóa lọc</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -287,7 +286,7 @@ export default function EmployeeAttendanceMonitor({
             title="Làm mới dữ liệu từ máy chủ"
             className="min-w-[44px] min-h-[44px] sm:min-w-[40px] sm:min-h-[40px] rounded-xl bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-surface)] border border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] flex items-center justify-center transition active:scale-95 touch-manipulation"
           >
-            <RefreshCw size={15} className={isRefreshing ? 'animate-spin text-[var(--kg-primary)]' : ''} />
+            <RefreshCw size={15} className={isRefreshing ? 'animate-spin text-[var(--kg-primary-ink)]' : ''} />
           </button>
         </div>
 
@@ -297,7 +296,7 @@ export default function EmployeeAttendanceMonitor({
             <div className="p-8 text-center bg-[var(--kg-surface-soft)] rounded-2xl border border-[var(--kg-border)] text-[var(--kg-text-muted)] text-xs">
               <Users size={32} className="mx-auto mb-2 opacity-40" />
               <p className="font-bold">Không tìm thấy nhân viên nào phù hợp</p>
-              <p className="text-[11px] mt-0.5">Thử chọn &ldquo;Tất cả&rdquo; hoặc xoá ô tìm kiếm</p>
+              <p className="text-[11px] mt-0.5">Thử bấm &ldquo;Xóa lọc&rdquo; hoặc xoá ô tìm kiếm</p>
             </div>
           ) : (
             filteredList.map((item) => {

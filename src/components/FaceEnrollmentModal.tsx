@@ -744,22 +744,22 @@ export default function FaceEnrollmentModal({
       aria-modal="true"
       data-testid="face-enrollment-modal"
       aria-label="Đăng ký khuôn mặt 5 góc King's Grill"
-      className="fixed inset-0 m-0 z-[10080] h-[100dvh] w-screen bg-[#0D1015] text-[#F7F4EE] flex flex-col overflow-y-auto select-none font-sans"
+      className="fixed inset-0 m-0 z-[10080] h-[100dvh] w-screen bg-[#101B15] text-[#F4F6F0] flex flex-col overflow-y-auto select-none font-sans"
     >
-      {/* Top Architectural Solid Header */}
-      <header className="w-full max-w-2xl mx-auto px-3.5 py-2 flex items-center justify-between gap-2.5 border-b border-[#242B38] bg-[#0D1015] shrink-0">
+      {/* Top Architectural Solid Header (Toast Touch Forest Charcoal) */}
+      <header className="w-full max-w-2xl mx-auto px-3.5 py-2 flex items-center justify-between gap-2.5 border-b border-[#2F4137] bg-[#101B15] shrink-0">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-9 h-9 rounded-xl bg-[#0B253C] border border-[#242B38] flex items-center justify-center text-[#34D399] shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-[#1B2821] border border-[#334539] flex items-center justify-center text-[#7EDBA8] shrink-0">
             <ScanFace size={18} />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#9FA8B8]">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#8DA396]">
                 {enrolledByAdmin ? 'ĐĂNG KÝ CHO NHÂN VIÊN' : 'ĐĂNG KÝ FACE ID 5 GÓC'}
               </span>
             </div>
-            <h2 className="text-xs sm:text-sm font-extrabold text-[#F7F4EE] truncate">
-              {user.fullname} <span className="text-[11px] font-mono text-[#9FA8B8]">(@{user.username})</span>
+            <h2 className="text-xs sm:text-sm font-extrabold text-[#F4F6F0] truncate">
+              {user.fullname} <span className="text-[11px] font-mono text-[#8DA396]">(@{user.username})</span>
             </h2>
           </div>
         </div>
@@ -772,9 +772,9 @@ export default function FaceEnrollmentModal({
             disabled={phase === 'SUBMITTING'}
             title="Chuyển đổi Camera Trước / Camera Sau"
             aria-label="Đổi camera trước hoặc sau"
-            className="min-h-[44px] px-2.5 sm:px-3 rounded-xl bg-[#161A22] hover:bg-[#1F2530] border border-[#2B3240] text-xs font-extrabold text-[#F7F4EE] inline-flex items-center gap-1.5 disabled:opacity-50 transition-colors motion-reduce:transition-none"
+            className="min-h-[44px] px-2.5 sm:px-3 rounded-xl bg-[#1B2821] hover:bg-[#24322A] border border-[#334539] text-xs font-extrabold text-[#F4F6F0] inline-flex items-center gap-1.5 disabled:opacity-50 transition-colors motion-reduce:transition-none"
           >
-            <SwitchCamera size={15} className="text-[#34D399] shrink-0" />
+            <SwitchCamera size={15} className="text-[#7EDBA8] shrink-0" />
             <span>{cameraFacing === 'user' ? 'Cam sau' : 'Cam trước'}</span>
           </button>
 
@@ -785,7 +785,7 @@ export default function FaceEnrollmentModal({
               onCloseRef.current();
             }}
             aria-label="Đóng cửa sổ đăng ký khuôn mặt"
-            className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl bg-[#C8432B] hover:bg-[#B83821] text-white inline-flex items-center justify-center transition-colors motion-reduce:transition-none shrink-0"
+            className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl bg-[#C0522A] hover:bg-[#AA4622] text-white inline-flex items-center justify-center transition-colors motion-reduce:transition-none shrink-0"
           >
             <X size={18} />
           </button>
@@ -813,10 +813,10 @@ export default function FaceEnrollmentModal({
                   key={step.key}
                   className={`rounded-xl px-1 py-1.5 border text-center transition-colors duration-150 motion-reduce:transition-none ${
                     isDone
-                      ? 'bg-[#15803D] border-[#34D399] text-white'
+                      ? 'bg-[#1E7550] border-[#7EDBA8] text-white'
                       : isActive
-                      ? 'bg-[#C8432B] border-[#F7F4EE] text-white'
-                      : 'bg-[#161A22] border-[#2B3240] text-[#9FA8B8]'
+                      ? 'bg-[#C0522A] border-[#F4F6F0] text-white'
+                      : 'bg-[#1B2821] border-[#334539] text-[#8DA396]'
                   }`}
                 >
                   <div className="text-[10px] font-mono tabular-nums font-extrabold">
@@ -847,12 +847,12 @@ export default function FaceEnrollmentModal({
                 const isDone = idx < currentStepIdx;
                 const isActive = idx === currentStepIdx;
                 const strokeColor = isDone
-                  ? '#34D399'
+                  ? '#7EDBA8'
                   : isActive
                   ? angleProgressPct >= 95
-                    ? '#34D399'
-                    : '#C8432B'
-                  : '#2B3240';
+                    ? '#7EDBA8'
+                    : '#F29055'
+                  : '#334539';
                 return (
                   <circle
                     key={step.key}
@@ -870,7 +870,12 @@ export default function FaceEnrollmentModal({
               })}
             </svg>
 
-            <div className="w-[calc(100%-26px)] h-[calc(100%-26px)] rounded-full overflow-hidden bg-[#161A22] border-2 border-[#2B3240] relative z-10">
+            <div
+              style={{
+                background: 'radial-gradient(circle at 50% 37%, #3B5547 0%, #1D3126 50%, #111E18 100%)',
+              }}
+              className="w-[calc(100%-26px)] h-[calc(100%-26px)] rounded-full overflow-hidden border-2 border-[#334539] relative z-10"
+            >
               <video
                 ref={videoRef}
                 autoPlay
@@ -886,43 +891,43 @@ export default function FaceEnrollmentModal({
         {phase === 'BOOTING' && (
           <div
             data-testid="enroll-booting-card"
-            className="my-auto bg-[#161A22] border border-[#2B3240] rounded-2xl p-6 text-center space-y-4"
+            className="my-auto bg-[#1B2821] border border-[#334539] rounded-2xl p-6 text-center space-y-4"
           >
-            <div className="w-12 h-12 rounded-2xl bg-[#0B253C] border border-[#2B3240] flex items-center justify-center mx-auto text-[#34D399]">
+            <div className="w-12 h-12 rounded-2xl bg-[#24322A] border border-[#334539] flex items-center justify-center mx-auto text-[#7EDBA8]">
               <Loader2 size={24} className="animate-spin motion-reduce:animate-none" />
             </div>
             <div className="space-y-1">
-              <h3 className="text-base font-extrabold text-[#F7F4EE]">Khởi tạo Trạm Sinh Trắc Học</h3>
-              <p className="text-xs text-[#9FA8B8]">{bootMessage}</p>
+              <h3 className="text-base font-extrabold text-[#F4F6F0]">Khởi tạo Trạm Sinh Trắc Học</h3>
+              <p className="text-xs text-[#B7C4B9]">{bootMessage}</p>
             </div>
-            <div className="w-full bg-[#0D1015] border border-[#2B3240] rounded-full h-2.5 overflow-hidden">
+            <div className="w-full bg-[#101B15] border border-[#334539] rounded-full h-2.5 overflow-hidden">
               <div
-                className="bg-[#C8432B] h-full transition-all duration-150 motion-reduce:transition-none"
+                className="bg-[#F29055] h-full transition-all duration-150 motion-reduce:transition-none"
                 style={{ width: `${Math.max(10, Math.min(100, bootPercent))}%` }}
               />
             </div>
-            <p className="text-[11px] font-mono tabular-nums text-[#9FA8B8]">{bootPercent}%</p>
+            <p className="text-[11px] font-mono tabular-nums text-[#8DA396]">{bootPercent}%</p>
           </div>
         )}
 
         {phase === 'SCANNING' && (
-          <div className="bg-[#161A22] border border-[#2B3240] rounded-2xl p-3.5 space-y-2.5">
+          <div className="bg-[#1B2821] border border-[#334539] rounded-2xl p-3.5 space-y-2.5">
             <div className="flex items-center justify-between gap-2">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0B253C] border border-[#2B3240] text-[11px] font-extrabold text-[#F7F4EE]">
-                <Sparkles size={13} className="text-[#FBBF24]" />
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#24322A] border border-[#334539] text-[11px] font-extrabold text-[#F4F6F0]">
+                <Sparkles size={13} className="text-[#F59B62]" />
                 <span>
                   Góc {Math.min(currentStepIdx + 1, 5)}/5: {activeAngle.label}
                 </span>
               </span>
               <div className="flex items-center gap-2">
-                <span className="text-[11px] font-mono tabular-nums font-bold text-[#34D399]">
+                <span className="text-[11px] font-mono tabular-nums font-bold text-[#7EDBA8]">
                   Giữ nét: {holdStreak}/{STABLE_FRAMES_PER_ANGLE}
                 </span>
                 {currentStepIdx > 0 && (
                   <button
                     type="button"
                     onClick={resetCaptureProgressOnly}
-                    className="min-h-[44px] sm:min-h-[34px] px-3 py-1.5 rounded-lg bg-[#0D1015] hover:bg-[#1F2530] border border-[#2B3240] text-[11px] font-bold text-[#9FA8B8] hover:text-[#F7F4EE] inline-flex items-center gap-1 transition-colors touch-manipulation"
+                    className="min-h-[44px] sm:min-h-[34px] px-3 py-1.5 rounded-lg bg-[#101B15] hover:bg-[#24322A] border border-[#334539] text-[11px] font-bold text-[#B7C4B9] hover:text-[#F4F6F0] inline-flex items-center gap-1 transition-colors touch-manipulation"
                     title="Quét lại từ góc 1/5"
                   >
                     <RotateCcw size={11} />
@@ -932,20 +937,20 @@ export default function FaceEnrollmentModal({
               </div>
             </div>
 
-            <p className="text-xs sm:text-sm font-bold text-[#F7F4EE] leading-snug">{guidanceText}</p>
+            <p className="text-xs sm:text-sm font-bold text-[#F4F6F0] leading-snug">{guidanceText}</p>
 
             {/* Real-Time Angle Alignment Bar */}
             <div className="space-y-1">
-              <div className="flex items-center justify-between text-[10px] font-mono tabular-nums text-[#9FA8B8]">
+              <div className="flex items-center justify-between text-[10px] font-mono tabular-nums text-[#8DA396]">
                 <span>Độ khớp góc {activeAngle.label.toLowerCase()}</span>
-                <span className={angleProgressPct >= 95 ? 'text-[#34D399] font-bold' : 'text-[#F7F4EE]'}>
+                <span className={angleProgressPct >= 95 ? 'text-[#7EDBA8] font-bold' : 'text-[#F4F6F0]'}>
                   {angleProgressPct}%
                 </span>
               </div>
-              <div className="w-full h-2 rounded-full bg-[#0D1015] border border-[#2B3240] overflow-hidden">
+              <div className="w-full h-2 rounded-full bg-[#101B15] border border-[#334539] overflow-hidden">
                 <div
                   className={`h-full transition-all duration-100 motion-reduce:transition-none ${
-                    angleProgressPct >= 95 ? 'bg-[#34D399]' : 'bg-[#C8432B]'
+                    angleProgressPct >= 95 ? 'bg-[#7EDBA8]' : 'bg-[#F29055]'
                   }`}
                   style={{ width: `${Math.max(0, Math.min(100, angleProgressPct))}%` }}
                 />
@@ -953,21 +958,21 @@ export default function FaceEnrollmentModal({
             </div>
 
             {/* Single-line User-Friendly Readiness Badge */}
-            <div className="pt-1 border-t border-[#2B3240]">
+            <div className="pt-1 border-t border-[#2F4137]">
               <div
                 className={`rounded-xl px-3 py-1.5 border text-[11px] font-bold flex items-center justify-between gap-2 ${
                   isLightingLow
-                    ? 'bg-[#291F0F] border-[#FBBF24]/50 text-[#FBBF24]'
+                    ? 'bg-[#362614] border-[#FBBF24]/50 text-[#FBBF24]'
                     : isFrameReady
-                    ? 'bg-[#0F291E] border-[#34D399]/50 text-[#34D399]'
-                    : 'bg-[#0D1015] border-[#2B3240] text-[#9FA8B8]'
+                    ? 'bg-[#163626] border-[#7EDBA8]/50 text-[#7EDBA8]'
+                    : 'bg-[#101B15] border-[#334539] text-[#B7C4B9]'
                 }`}
               >
                 <span className="inline-flex items-center gap-1.5 min-w-0 truncate">
                   {isLightingLow ? (
                     <SunMedium size={13} className="shrink-0 text-[#FBBF24]" />
                   ) : (
-                    <ShieldCheck size={13} className={`shrink-0 ${isFrameReady ? 'text-[#34D399]' : 'text-[#9FA8B8]'}`} />
+                    <ShieldCheck size={13} className={`shrink-0 ${isFrameReady ? 'text-[#7EDBA8]' : 'text-[#8DA396]'}`} />
                   )}
                   <span className="truncate">
                     {isLightingLow
@@ -983,8 +988,8 @@ export default function FaceEnrollmentModal({
               </div>
             </div>
 
-            <div className="flex items-center gap-1.5 text-[10px] text-[#9FA8B8] pt-0.5">
-              <Lock size={11} className="text-[#FBBF24] shrink-0" />
+            <div className="flex items-center gap-1.5 text-[10px] text-[#8DA396] pt-0.5">
+              <Lock size={11} className="text-[#F59B62] shrink-0" />
               <span className="truncate">
                 Đủ 5 góc sẽ tự khóa &amp; đồng bộ lên mọi điện thoại.
               </span>
@@ -993,44 +998,44 @@ export default function FaceEnrollmentModal({
         )}
 
         {phase === 'SUBMITTING' && (
-          <div className="my-auto bg-[#161A22] border border-[#2B3240] rounded-2xl p-6 text-center space-y-4">
-            <div className="w-14 h-14 rounded-2xl bg-[#15803D] text-white flex items-center justify-center mx-auto">
+          <div className="my-auto bg-[#1B2821] border border-[#334539] rounded-2xl p-6 text-center space-y-4">
+            <div className="w-14 h-14 rounded-2xl bg-[#1E7550] text-white flex items-center justify-center mx-auto">
               <Loader2 size={26} className="animate-spin motion-reduce:animate-none" />
             </div>
-            <h3 className="text-base font-extrabold text-[#F7F4EE]">Đang lưu &amp; khóa hồ sơ Face ID</h3>
-            <p className="text-xs text-[#9FA8B8]">{guidanceText}</p>
+            <h3 className="text-base font-extrabold text-[#F4F6F0]">Đang lưu &amp; khóa hồ sơ Face ID</h3>
+            <p className="text-xs text-[#B7C4B9]">{guidanceText}</p>
           </div>
         )}
 
         {phase === 'COMPLETED' && (
-          <div className="my-auto bg-[#161A22] border border-[#34D399] rounded-2xl p-6 text-center space-y-4">
-            <div className="w-16 h-16 rounded-2xl bg-[#15803D] text-white flex items-center justify-center mx-auto">
+          <div className="my-auto bg-[#1B2821] border border-[#7EDBA8] rounded-2xl p-6 text-center space-y-4">
+            <div className="w-16 h-16 rounded-2xl bg-[#1E7550] text-white flex items-center justify-center mx-auto">
               <CheckCircle2 size={32} />
             </div>
             <div className="space-y-1.5">
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#0D1015] border border-[#34D399] text-[11px] font-extrabold text-[#34D399]">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#101B15] border border-[#7EDBA8] text-[11px] font-extrabold text-[#7EDBA8]">
                 <ShieldCheck size={13} /> ĐÃ KHÓA BẢO VỆ HỒ SƠ 5 GÓC
               </span>
-              <h3 className="text-lg font-extrabold text-[#F7F4EE]">Đăng ký khuôn mặt hoàn tất!</h3>
-              <p className="text-xs text-[#9FA8B8] leading-relaxed">
-                Hồ sơ sinh trắc của <b className="text-[#F7F4EE]">{user.fullname}</b> đã đồng bộ đám mây — từ bây giờ nhân sự có thể{' '}
-                <b className="text-[#34D399]">chấm công trên bất kỳ điện thoại nào</b> tại quán (tự động ghi nhận{' '}
-                <b className="text-[#F7F4EE]">Vào ca / Ra ca</b> trong dưới 1 giây).
+              <h3 className="text-lg font-extrabold text-[#F4F6F0]">Đăng ký khuôn mặt hoàn tất!</h3>
+              <p className="text-xs text-[#B7C4B9] leading-relaxed">
+                Hồ sơ sinh trắc của <b className="text-[#F4F6F0]">{user.fullname}</b> đã đồng bộ đám mây — từ bây giờ nhân sự có thể{' '}
+                <b className="text-[#7EDBA8]">chấm công trên bất kỳ điện thoại nào</b> tại quán (tự động ghi nhận{' '}
+                <b className="text-[#F4F6F0]">Vào ca / Ra ca</b> trong dưới 1 giây).
               </p>
             </div>
             {enrolledProfileDto && (
-              <div className="bg-[#0D1015] border border-[#2B3240] rounded-xl p-3 text-left text-xs space-y-1">
+              <div className="bg-[#101B15] border border-[#334539] rounded-xl p-3 text-left text-xs space-y-1">
                 <div className="flex justify-between">
-                  <span className="text-[#9FA8B8]">Nhân sự:</span>
-                  <span className="font-bold text-[#F7F4EE]">{user.fullname} (@{user.username})</span>
+                  <span className="text-[#8DA396]">Nhân sự:</span>
+                  <span className="font-bold text-[#F4F6F0]">{user.fullname} (@{user.username})</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#9FA8B8]">Số góc chuẩn:</span>
-                  <span className="font-mono tabular-nums font-bold text-[#34D399]">5/5 góc (ArcFace 512-D)</span>
+                  <span className="text-[#8DA396]">Số góc chuẩn:</span>
+                  <span className="font-mono tabular-nums font-bold text-[#7EDBA8]">5/5 góc (ArcFace 512-D)</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#9FA8B8]">Phạm vi sử dụng:</span>
-                  <span className="font-bold text-[#34D399]">Mọi điện thoại tại quán</span>
+                  <span className="text-[#8DA396]">Phạm vi sử dụng:</span>
+                  <span className="font-bold text-[#7EDBA8]">Mọi điện thoại tại quán</span>
                 </div>
               </div>
             )}
@@ -1042,7 +1047,7 @@ export default function FaceEnrollmentModal({
                     stopHardwareAndLoop();
                     onPickAnotherStaffRef.current?.();
                   }}
-                  className="w-full min-h-[48px] py-3 px-4 rounded-xl bg-[#C8432B] hover:bg-[#B83821] text-white font-extrabold text-sm inline-flex items-center justify-center gap-2 transition-colors motion-reduce:transition-none"
+                  className="w-full min-h-[48px] py-3 px-4 rounded-xl bg-[#C0522A] hover:bg-[#AA4622] text-white font-extrabold text-sm inline-flex items-center justify-center gap-2 transition-colors motion-reduce:transition-none"
                 >
                   <Users size={16} />
                   <span>Đăng ký tiếp cho nhân viên khác</span>
@@ -1059,7 +1064,7 @@ export default function FaceEnrollmentModal({
                     onCloseRef.current();
                   }
                 }}
-                className="w-full min-h-[48px] py-3 px-4 rounded-xl bg-[#15803D] hover:bg-[#166534] text-white font-extrabold text-sm inline-flex items-center justify-center gap-2 transition-colors motion-reduce:transition-none"
+                className="w-full min-h-[48px] py-3 px-4 rounded-xl bg-[#1E7550] hover:bg-[#175B3E] text-white font-extrabold text-sm inline-flex items-center justify-center gap-2 transition-colors motion-reduce:transition-none"
               >
                 <span>Bắt đầu quét chấm công ngay</span>
                 <ArrowRight size={16} />
@@ -1069,21 +1074,21 @@ export default function FaceEnrollmentModal({
         )}
 
         {phase === 'ALREADY_LOCKED' && (
-          <div className="my-auto bg-[#161A22] border border-[#2B3240] rounded-2xl p-6 text-center space-y-4">
-            <div className="w-14 h-14 rounded-2xl bg-[#0B253C] border border-[#2B3240] text-[#FBBF24] flex items-center justify-center mx-auto">
+          <div className="my-auto bg-[#1B2821] border border-[#334539] rounded-2xl p-6 text-center space-y-4">
+            <div className="w-14 h-14 rounded-2xl bg-[#24322A] border border-[#334539] text-[#F59B62] flex items-center justify-center mx-auto">
               <Lock size={26} />
             </div>
             <div className="space-y-1.5">
-              <h3 className="text-base font-extrabold text-[#F7F4EE]">Hồ sơ Face ID đang được khóa bảo vệ</h3>
-              <p className="text-xs text-[#9FA8B8] leading-relaxed">
-                Tài khoản <b className="text-[#F7F4EE]">@{user.username}</b> đã đăng ký khuôn mặt trước đó. Để chống người khác tự ý ghi đè khuôn mặt, chỉ Quản lý (Admin) mới có quyền mở khóa / đặt lại trong mục{' '}
-                <b className="text-[#F7F4EE]">Hồ Sơ Nhân Sự</b>.
+              <h3 className="text-base font-extrabold text-[#F4F6F0]">Hồ sơ Face ID đang được khóa bảo vệ</h3>
+              <p className="text-xs text-[#B7C4B9] leading-relaxed">
+                Tài khoản <b className="text-[#F4F6F0]">@{user.username}</b> đã đăng ký khuôn mặt trước đó. Để chống người khác tự ý ghi đè khuôn mặt, chỉ Quản lý (Admin) mới có quyền mở khóa / đặt lại trong mục{' '}
+                <b className="text-[#F4F6F0]">Hồ Sơ Nhân Sự</b>.
               </p>
             </div>
             <button
               type="button"
               onClick={() => onCloseRef.current()}
-              className="w-full min-h-[48px] py-3 px-4 rounded-xl bg-[#C8432B] hover:bg-[#B83821] text-white font-extrabold text-sm inline-flex items-center justify-center gap-2 transition-colors"
+              className="w-full min-h-[48px] py-3 px-4 rounded-xl bg-[#C0522A] hover:bg-[#AA4622] text-white font-extrabold text-sm inline-flex items-center justify-center gap-2 transition-colors"
             >
               <span>Đã hiểu • Quay lại màn hình quét</span>
             </button>
@@ -1091,28 +1096,28 @@ export default function FaceEnrollmentModal({
         )}
 
         {phase === 'ERROR' && (
-          <div className="my-auto bg-[#161A22] border border-[#DC2626] rounded-2xl p-6 text-center space-y-4">
-            <div className="w-14 h-14 rounded-2xl bg-[#DC2626]/20 border border-[#DC2626] text-[#F87171] flex items-center justify-center mx-auto">
+          <div className="my-auto bg-[#1B2821] border border-[#FF968E] rounded-2xl p-6 text-center space-y-4">
+            <div className="w-14 h-14 rounded-2xl bg-[#3A1412] border border-[#FF968E] text-[#FF968E] flex items-center justify-center mx-auto">
               {cameraError ? <CameraOff size={26} /> : <AlertTriangle size={26} />}
             </div>
             <div className="space-y-1.5">
-              <h3 className="text-base font-extrabold text-[#F7F4EE]">
+              <h3 className="text-base font-extrabold text-[#F4F6F0]">
                 {cameraError ? 'Không thể truy cập Camera' : 'Chưa thể hoàn tất đăng ký'}
               </h3>
-              <p className="text-xs text-[#9FA8B8] leading-relaxed">{cameraError || errorMessage}</p>
+              <p className="text-xs text-[#B7C4B9] leading-relaxed">{cameraError || errorMessage}</p>
             </div>
             <div className="grid grid-cols-2 gap-2.5">
               <button
                 type="button"
                 onClick={() => onCloseRef.current()}
-                className="min-h-[46px] py-2.5 px-3 rounded-xl bg-[#0D1015] border border-[#2B3240] text-[#F7F4EE] font-bold text-xs"
+                className="min-h-[46px] py-2.5 px-3 rounded-xl bg-[#101B15] border border-[#334539] text-[#F4F6F0] font-bold text-xs"
               >
                 Đóng
               </button>
               <button
                 type="button"
                 onClick={() => void bootEnrollmentSession()}
-                className="min-h-[46px] py-2.5 px-3 rounded-xl bg-[#C8432B] hover:bg-[#B83821] text-white font-extrabold text-xs inline-flex items-center justify-center gap-1.5"
+                className="min-h-[46px] py-2.5 px-3 rounded-xl bg-[#C0522A] hover:bg-[#AA4622] text-white font-extrabold text-xs inline-flex items-center justify-center gap-1.5"
               >
                 <RotateCcw size={14} />
                 <span>Quét lại 5 góc</span>

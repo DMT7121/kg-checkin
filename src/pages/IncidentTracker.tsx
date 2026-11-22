@@ -60,6 +60,13 @@ const SEVERITY_OPTIONS: { id: IncidentSeverity; label: string; activeClass: stri
   },
 ];
 
+const INCIDENT_STATUS_BADGE_MAP: Record<string, string> = {
+  Open: 'bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] border-[var(--kg-danger)]/25',
+  Investigating: 'bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] border-[var(--kg-warning)]/25',
+  Resolved: 'bg-[var(--kg-info-soft)] text-[var(--kg-info)] border-[var(--kg-info)]/25',
+  CostRecorded: 'bg-[var(--kg-success-soft)] text-[var(--kg-success)] border-[var(--kg-success)]/25',
+};
+
 const formatVnd = (amount: number | undefined | null) => formatVndBase(Number(amount) || 0);
 
 function readLocalIncidents(): IncidentRecord[] {
@@ -285,17 +292,17 @@ export default function IncidentTracker() {
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-        {/* Report Incident Form */}
-        <section className="lg:col-span-5 lg:sticky lg:top-[128px] bg-[var(--kg-surface)] border border-[var(--kg-danger)]/25 rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
+        {/* Report Incident Form (Left 5 cols) */}
+        <section className="lg:col-span-5 lg:sticky lg:top-[128px] bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
           <div className="flex items-center gap-3 pb-3 border-b border-[var(--kg-border)]">
             <div className="w-10 h-10 rounded-xl bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] flex items-center justify-center shrink-0">
               <AlertTriangle size={20} />
             </div>
             <div>
-              <h3 className="font-black text-sm sm:text-base text-[var(--kg-text)]">
-                Báo cáo sự cố vận hành
+              <h3 className="font-extrabold text-sm sm:text-base text-[var(--kg-text)]">
+                Báo cáo sự cố mới
               </h3>
-              <p className="text-xs text-[var(--kg-danger)] font-medium">
+              <p className="text-xs text-[var(--kg-text-muted)] font-medium">
                 Ghi nhận vị trí, mức độ khẩn cấp &amp; gửi thẳng Quản lý
               </p>
             </div>
@@ -306,7 +313,7 @@ export default function IncidentTracker() {
               <fieldset>
                 <legend
                   id="incident-area-label"
-                  className="block text-xs font-black text-[var(--kg-text)] mb-1.5"
+                  className="block text-xs font-bold text-[var(--kg-text)] mb-1.5"
                 >
                   Khu vực xảy ra sự cố
                 </legend>
@@ -317,10 +324,10 @@ export default function IncidentTracker() {
                       key={area}
                       onClick={() => setIncidentArea(area)}
                       aria-pressed={incidentArea === area}
-                      className={`min-h-[44px] sm:min-h-[38px] py-2 px-2 rounded-lg border text-[11px] font-bold transition-all touch-manipulation ${
+                      className={`min-h-[44px] sm:min-h-[38px] py-2 px-2 rounded-xl border text-[11px] font-bold transition-colors touch-manipulation ${
                         incidentArea === area
                           ? 'border-[var(--kg-primary)] bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)]'
-                          : 'border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
+                          : 'border-[var(--kg-border)] bg-[var(--kg-surface-2)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
                       }`}
                     >
                       {area}
@@ -332,7 +339,7 @@ export default function IncidentTracker() {
               <fieldset>
                 <legend
                   id="incident-severity-label"
-                  className="block text-xs font-black text-[var(--kg-text)] mb-1.5"
+                  className="block text-xs font-bold text-[var(--kg-text)] mb-1.5"
                 >
                   Mức độ ưu tiên
                 </legend>
@@ -343,10 +350,10 @@ export default function IncidentTracker() {
                       key={sev.id}
                       onClick={() => setIncidentSeverity(sev.id)}
                       aria-pressed={incidentSeverity === sev.id}
-                      className={`min-h-[44px] sm:min-h-[38px] py-2 px-2 rounded-lg border text-[11px] font-bold transition-all touch-manipulation ${
+                      className={`min-h-[44px] sm:min-h-[38px] py-2 px-2 rounded-xl border text-[11px] font-bold transition-colors touch-manipulation ${
                         incidentSeverity === sev.id
                           ? sev.activeClass
-                          : 'border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
+                          : 'border-[var(--kg-border)] bg-[var(--kg-surface-2)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
                       }`}
                     >
                       {sev.label}
@@ -359,7 +366,7 @@ export default function IncidentTracker() {
             <fieldset>
               <legend
                 id="incident-category-label"
-                className="block text-xs font-black text-[var(--kg-text)] mb-1.5"
+                className="block text-xs font-bold text-[var(--kg-text)] mb-1.5"
               >
                 Phân loại sự cố <span className="text-[var(--kg-danger)]">*</span>
               </legend>
@@ -377,10 +384,10 @@ export default function IncidentTracker() {
                       if (incidentFormError) setIncidentFormError('');
                     }}
                     aria-pressed={incidentCategory === cat}
-                    className={`min-h-[44px] sm:min-h-[40px] p-2.5 rounded-xl border text-center transition-all text-xs font-black active:scale-95 touch-manipulation ${
+                    className={`min-h-[44px] sm:min-h-[40px] p-2.5 rounded-xl border text-center transition-colors text-xs font-bold active:scale-[0.985] touch-manipulation ${
                       incidentCategory === cat
                         ? 'border-[var(--kg-danger)] bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] shadow-xs'
-                        : 'border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
+                        : 'border-[var(--kg-border)] bg-[var(--kg-surface-2)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
                     }`}
                   >
                     {cat}
@@ -405,13 +412,13 @@ export default function IncidentTracker() {
                 }}
                 placeholder="Mô tả cụ thể sự cố (VD: Tủ đông số 2 Khu C báo lỗi E2, máy in bill thu ngân kẹt dao cắt...)"
                 rows={3}
-                className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl p-3 focus:outline-none focus:border-[var(--kg-danger)] focus:ring-2 focus:ring-[var(--kg-danger)]/15 text-[var(--kg-text)] text-xs sm:text-sm"
+                className="w-full bg-[var(--kg-surface-2)] border border-[var(--kg-border)] rounded-xl p-3 focus:outline-none focus:border-[var(--kg-danger)] focus:ring-2 focus:ring-[var(--kg-danger)]/15 text-[var(--kg-text)] text-xs sm:text-sm"
               />
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <label className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-dashed border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-xs font-bold text-[var(--kg-text)] cursor-pointer hover:border-[var(--kg-primary)] transition-colors min-h-[44px] touch-manipulation">
-                <Camera size={15} className="text-[var(--kg-primary)]" />
+              <label className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-dashed border-[var(--kg-border-strong)] bg-[var(--kg-surface-2)] text-xs font-bold text-[var(--kg-text)] cursor-pointer hover:border-[var(--kg-primary)] transition-colors min-h-[44px] touch-manipulation">
+                <Camera size={15} className="text-[var(--kg-primary-ink)]" />
                 <span>
                   {uploadingPhoto
                     ? 'Đang nén & tải ảnh...'
@@ -429,7 +436,7 @@ export default function IncidentTracker() {
               </label>
 
               {incidentPhotoPreview && (
-                <div className="relative inline-flex items-center gap-2 p-1.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)]">
+                <div className="relative inline-flex items-center gap-2 p-1.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)]">
                   <img src={incidentPhotoPreview} alt="Ảnh sự cố" className="w-12 h-12 rounded-lg object-cover" />
                   <button
                     type="button"
@@ -469,27 +476,28 @@ export default function IncidentTracker() {
           </form>
         </section>
 
-        {/* Live 4-Step Incident Status Tracker */}
-        <section className="lg:col-span-7 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 sm:p-5 shadow-xs space-y-3">
+        {/* Live 4-Step Incident Status Tracker (Right 7 cols) */}
+        <section className="lg:col-span-7 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 sm:p-5 shadow-xs space-y-3.5">
           <div className="flex items-center justify-between pb-3 border-b border-[var(--kg-border)]">
             <div className="flex items-center gap-2">
               <Wrench size={17} className="text-[var(--kg-warning)]" />
-              <h4 className="font-black text-sm text-[var(--kg-text)]">
-                Tiến độ xử lý sự cố (4 bước)
+              <h4 className="font-extrabold text-sm sm:text-base text-[var(--kg-text)]">
+                Sự cố cần theo dõi
                 <span className="ml-1.5 font-mono tabular-nums text-xs text-[var(--kg-text-muted)]">
                   ({filteredIncidents.length})
                 </span>
               </h4>
             </div>
-            <button
+            <KgButton
               type="button"
+              variant="secondary"
+              size="sm"
+              loading={loadingIncidents}
+              icon={RefreshCw}
               onClick={loadIncidents}
-              disabled={loadingIncidents}
-              aria-label="Làm mới danh sách sự cố"
-              className="min-w-[44px] min-h-[44px] sm:min-w-[36px] sm:min-h-[36px] rounded-xl border border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] flex items-center justify-center touch-manipulation"
             >
-              <RefreshCw size={14} className={loadingIncidents ? 'animate-spin' : ''} />
-            </button>
+              Làm mới
+            </KgButton>
           </div>
 
           <div className="space-y-2.5">
@@ -515,25 +523,33 @@ export default function IncidentTracker() {
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
               {(
                 [
-                  { id: 'ALL', label: `Tất cả (${incidents.length})` },
-                  { id: 'ACTIVE', label: `Đang xử lý (${openIncidentCount})` },
-                  { id: 'URGENT', label: `Khẩn cấp (${urgentIncidentCount})` },
-                  { id: 'RESOLVED', label: `Đã xử lý (${resolvedIncidentCount})` },
+                  { id: 'ALL', label: 'Tất cả', count: incidents.length },
+                  { id: 'ACTIVE', label: 'Đang xử lý', count: openIncidentCount },
+                  { id: 'URGENT', label: 'Khẩn cấp', count: urgentIncidentCount },
+                  { id: 'RESOLVED', label: 'Đã xử lý', count: resolvedIncidentCount },
                 ] as const
-              ).map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setIncidentFilter(tab.id)}
-                  className={`shrink-0 whitespace-nowrap min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-full text-xs font-bold border transition-colors touch-manipulation ${
-                    incidentFilter === tab.id
-                      ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)]'
-                      : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)] hover:text-[var(--kg-text)]'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
+              ).map((tab) => {
+                const isActive = incidentFilter === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setIncidentFilter(tab.id)}
+                    className={`kg-filter-pill shrink-0 ${isActive ? 'kg-filter-pill--active' : ''}`}
+                  >
+                    <span>{tab.label}</span>
+                    <span
+                      className={`font-mono tabular-nums text-[11px] px-1.5 py-0.2 rounded-md ${
+                        isActive
+                          ? 'bg-white/15 text-current'
+                          : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)]'
+                      }`}
+                    >
+                      {tab.count}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -567,26 +583,28 @@ export default function IncidentTracker() {
                 const statusObj =
                   INCIDENT_STATUS_STEPS.find((s) => s.id === inc.status) || INCIDENT_STATUS_STEPS[0];
                 const currentStepIdx = INCIDENT_STATUS_STEPS.findIndex((s) => s.id === statusObj.id);
+                const statusBadgeStyle =
+                  INCIDENT_STATUS_BADGE_MAP[statusObj.id] || statusObj.badgeClass;
 
                 return (
                   <article
                     key={inc.id}
-                    className="p-3.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] space-y-2.5"
+                    className="p-3.5 sm:p-4 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)] space-y-2.5"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-black bg-[var(--kg-surface)] border border-[var(--kg-border)] text-[var(--kg-text)]">
+                        <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-[var(--kg-surface)] border border-[var(--kg-border)] text-[var(--kg-text)]">
                           {inc.area || 'Toàn quán'}
                         </span>
-                        <span className="text-xs font-black text-[var(--kg-text)]">{inc.category}</span>
+                        <span className="text-xs font-extrabold text-[var(--kg-text)]">{inc.category}</span>
                         {inc.severity === 'urgent' && (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-[var(--kg-danger)] text-white dark:text-[#0D1015]">
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-[var(--kg-danger)] text-white dark:text-[#0D1015]">
                             KHẨN CẤP
                           </span>
                         )}
                       </div>
                       <span
-                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${statusObj.badgeClass}`}
+                        className={`px-2.5 py-0.5 rounded-lg text-[11px] font-extrabold border ${statusBadgeStyle}`}
                       >
                         {statusObj.shortLabel}
                       </span>
@@ -605,22 +623,24 @@ export default function IncidentTracker() {
                       </a>
                     )}
 
+                    {/* 4-State Status Pills */}
                     <div className="grid grid-cols-4 gap-1.5 pt-1">
                       {INCIDENT_STATUS_STEPS.map((step, sIdx) => {
-                        const active = sIdx <= currentStepIdx;
+                        const isDoneOrCurrent = sIdx <= currentStepIdx;
+                        const isCurrent = sIdx === currentStepIdx;
                         return (
-                          <div key={step.id} className="space-y-1">
-                            <div
-                              className={`h-1.5 rounded-full ${active ? 'bg-[var(--kg-success)]' : 'bg-[var(--kg-border)]'}`}
-                            />
-                            <span
-                              title={step.shortLabel}
-                              className={`block text-[10px] truncate ${
-                                active ? 'font-bold text-[var(--kg-text)]' : 'text-[var(--kg-text-muted)]'
-                              }`}
-                            >
-                              {step.shortLabel}
-                            </span>
+                          <div
+                            key={step.id}
+                            title={step.label}
+                            className={`rounded-lg px-2 py-1 text-center text-[10px] font-bold border truncate transition-colors ${
+                              isCurrent
+                                ? INCIDENT_STATUS_BADGE_MAP[step.id] || step.badgeClass
+                                : isDoneOrCurrent
+                                  ? 'bg-[var(--kg-success-soft)] text-[var(--kg-success)] border-[var(--kg-success)]/25'
+                                  : 'bg-[var(--kg-surface)] text-[var(--kg-text-muted)] border-[var(--kg-border)]'
+                            }`}
+                          >
+                            {step.shortLabel}
                           </div>
                         );
                       })}

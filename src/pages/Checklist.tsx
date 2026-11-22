@@ -9,7 +9,6 @@ import {
   ChevronDown,
   Circle,
   ClipboardCheck,
-  CheckCircle2,
   CheckSquare,
   CheckSquare2,
   LoaderCircle,
@@ -119,6 +118,24 @@ const clearAreaChecklistDraft = (key: string, area: AreaCode) => {
     // ignore storage errors
   }
 };
+
+const VN_TIME_FORMATTER = new Intl.DateTimeFormat('vi-VN', {
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+  timeZone: 'Asia/Ho_Chi_Minh',
+});
+
+function formatChecklistVnTime(value?: string): string {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (!Number.isNaN(parsed.getTime())) {
+    const formatted = VN_TIME_FORMATTER.format(parsed);
+    return formatted.startsWith('24:') ? `00:${formatted.slice(3)}` : formatted;
+  }
+  const match = String(value).match(/\b(\d{2}:\d{2})\b/);
+  return match ? match[1] : String(value);
+}
 
 function matchZoneToAreaCode(zoneName?: string): AreaCode | null {
   if (!zoneName) return null;
@@ -547,14 +564,39 @@ export default function Checklist() {
     [areaData.items, pending],
   );
 
-  const isItemCompleteForArea = (area: AreaCode, item: ChecklistItem): boolean => {
-    const raw = states[area]?.items?.[item.id] || { checked: false, subchecks: {} };
-    const hasSubtasks = Array.isArray(item.subitems) && item.subitems.length > 0;
-    if (hasSubtasks) {
-      return item.subitems.every((sub) => !!raw.subchecks?.[sub.id]);
-    }
-    return !!raw.checked;
-  };
+  const savedDraftsMap = useMemo(() => {
+    void pending;
+    void removedParticipantKeys;
+    void pendingSupply;
+    void pendingSignatures;
+    void selectedArea;
+    return readChecklistDrafts(draftStorageKey);
+  }, [draftStorageKey, selectedArea, pending, removedParticipantKeys, pendingSupply, pendingSignatures]);
+
+  const getAreaPendingItems = useCallback(
+    (area: AreaCode): Record<string, Partial<SavedItemState>> => {
+      if (area === selectedArea) return pending;
+      return savedDraftsMap[area]?.pending || {};
+    },
+    [selectedArea, pending, savedDraftsMap],
+  );
+
+  const isItemCompleteForArea = useCallback(
+    (area: AreaCode, item: ChecklistItem): boolean => {
+      const saved = states[area]?.items?.[item.id] || { checked: false, subchecks: {} };
+      const areaPending = getAreaPendingItems(area)[item.id] || {};
+      const mergedSubchecks = {
+        ...(saved.subchecks || {}),
+        ...(areaPending.subchecks || {}),
+      };
+      const hasSubtasks = Array.isArray(item.subitems) && item.subitems.length > 0;
+      if (hasSubtasks) {
+        return item.subitems.every((sub) => !!mergedSubchecks[sub.id]);
+      }
+      return areaPending.checked !== undefined ? !!areaPending.checked : !!saved.checked;
+    },
+    [states, getAreaPendingItems],
+  );
 
   // Sync state to Google Sheets with concurrent-safe delta merging
   const syncToServer = async (
@@ -860,6 +902,63 @@ export default function Checklist() {
     }
   };
 
+  const eligibleDirectoryUsers = useMemo(() => {
+    const teamSet = new Set(myTeam?.memberUsernames || []);
+    return directoryUsers
+      .filter((u) => isWorkEligible(u))
+      .sort((a, b) => {
+        const aInTeam = teamSet.has(a.username) ? 0 : 1;
+        const bInTeam = teamSet.has(b.username) ? 0 : 1;
+        if (aInTeam !== bInTeam) return aInTeam - bInTeam;
+        return (a.fullname || a.username).localeCompare(b.fullname || b.username, 'vi');
+      });
+  }, [directoryUsers, myTeam]);
+
+  const handleToggleDirectoryParticipant = async (user: User) => {
+    if (!selectedArea) return;
+    const displayName = (user.fullname || user.username).trim();
+    const rawState = states[selectedArea] || { participants: [], items: {}, supply: {}, signatures: {} };
+    const currentParticipants = rawState.participants || [];
+    const existing = currentParticipants.find(
+      (p) => p.key === user.username || p.name.trim().toLowerCase() === displayName.toLowerCase(),
+    );
+    if (existing) {
+      await handleRemoveParticipant(existing.key);
+      return;
+    }
+
+    const participants = [
+      ...currentParticipants,
+      {
+        key: user.username,
+        name: displayName,
+        joinedAt: new Date().toISOString(),
+      },
+    ];
+    setStates((prev) => ({
+      ...prev,
+      [selectedArea]: {
+        ...rawState,
+        participants,
+      },
+    }));
+
+    const ok = await syncToServer(
+      selectedArea,
+      participants,
+      rawState.items,
+      rawState.supply,
+      rawState.signatures,
+      {},
+      [],
+      undefined,
+      true,
+    );
+    if (!ok) {
+      setPending((p) => ({ ...p, _participants_trigger: {} }));
+    }
+  };
+
   const handleRemoveParticipant = async (key: string) => {
     if (!selectedArea) return;
     const rawState = states[selectedArea] || { participants: [], items: {}, supply: {}, signatures: {} };
@@ -1054,13 +1153,17 @@ export default function Checklist() {
     return <EmploymentStatusNotice user={currentUser} actionLabel="thực hiện checklist công việc" />;
   }
 
+  const donutRadius = 40;
+  const donutCircumference = 2 * Math.PI * donutRadius;
+  const donutOffset = donutCircumference * (1 - activeMetrics.pct / 100);
+
   return (
     <div className="p-4 space-y-4 sm:space-y-5 max-w-7xl mx-auto pb-28">
       <KgModuleHero
         moduleId="checklist"
-        title="Checklist Vận Hành Theo Khu Vực"
-        description="Tự động lưu từng mục theo thời gian thực cho 4 khu vực, kèm thông tin nhóm trực và khu phân công hôm nay."
-        eyebrow="Vận hành"
+        title="Checklist vận hành"
+        description="Chạm vào công việc để cập nhật nhanh · Có 4 khu trong ca, tự đồng bộ & lưu nháp ngoại tuyến."
+        eyebrow="Vận hành ca • Phân khu"
         features={['Lưu tự động tức thì', 'Nháp ngoại tuyến']}
         tipTitle="Tiêu chuẩn & Ghi chú Vận hành"
         tips={[
@@ -1069,6 +1172,18 @@ export default function Checklist() {
           'Khu A (Sảnh & Bàn ăn) · Khu B (Quầy Bar & Thu ngân) · Khu C (Bếp & Kho) · Khu D&E (Sảnh sau & WC).',
           'Chạm vào từng đầu mục để lưu ngay lên máy chủ; nếu mất mạng sẽ tự lưu nháp trên máy để đồng bộ lại.',
         ]}
+        actions={
+          <KgButton
+            type="button"
+            variant="secondary"
+            size="sm"
+            icon={RefreshCw}
+            loading={refreshingTeammates}
+            onClick={() => void refreshTeammatesProgress()}
+          >
+            Làm mới
+          </KgButton>
+        }
       />
 
       {/* Merged Operations Banner: Nhóm trực & Khu phân công hôm nay + Compact Date Bar */}
@@ -1137,7 +1252,7 @@ export default function Checklist() {
                         ? 'border-[var(--kg-warning)]/35 bg-[var(--kg-warning-soft)] text-[var(--kg-warning)]'
                         : isMe
                           ? 'border-[var(--kg-primary)]/35 bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)]'
-                          : 'border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text)]'
+                          : 'border-[var(--kg-border)] bg-[var(--kg-surface-2)] text-[var(--kg-text)]'
                     }`}
                   >
                     <span>{employee?.fullname || username}</span>
@@ -1181,80 +1296,72 @@ export default function Checklist() {
               setPendingSignatures(null);
               setNoteDrafts({});
             }}
-            className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)] font-bold min-h-[44px]"
+            className="w-full bg-[var(--kg-surface-2)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)] font-bold min-h-[44px]"
           />
         </div>
       </div>
 
-      {/* 4 Area Completeness Board */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+      {/* 4 Compact Zone Cards (Khu A / B / C / D&E) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
         {AREA_CODES.map((area) => {
           const doneCount = flatItems.filter((item) => isItemCompleteForArea(area, item)).length;
           const totalCount = flatItems.length;
           const pct = totalCount ? Math.round((doneCount / totalCount) * 100) : 0;
           const isSelected = selectedArea === area;
           const isAssigned = assignedAreaCode === area;
-          const participants = states[area]?.participants || [];
+          const rawParticipants = states[area]?.participants || [];
+          const removedSet = new Set(
+            area === selectedArea
+              ? removedParticipantKeys
+              : savedDraftsMap[area]?.removedParticipantKeys || [],
+          );
+          const participants = rawParticipants.filter((p) => !removedSet.has(p.key));
 
           return (
             <button
               type="button"
               key={area}
               onClick={() => handleJoinArea(area)}
-              className={`p-3 sm:p-4 rounded-2xl border-2 text-left transition-all cursor-pointer select-none flex flex-col justify-between shadow-xs min-w-0 touch-manipulation ${
+              aria-pressed={isSelected}
+              className={`p-3.5 sm:p-4 rounded-2xl text-left transition-all cursor-pointer select-none flex flex-col justify-between min-w-0 touch-manipulation ${
                 isSelected
-                  ? 'border-[var(--kg-accent)] bg-[var(--kg-surface)] shadow-md ring-2 ring-[var(--kg-accent)]/20'
-                  : 'border-[var(--kg-border)] bg-[var(--kg-surface)] hover:border-[var(--kg-accent)]/40'
+                  ? 'border-2 border-[var(--kg-primary)] bg-[var(--kg-primary-soft)]/45 shadow-sm'
+                  : 'border border-[var(--kg-border)] bg-[var(--kg-surface)] hover:border-[var(--kg-primary)]/45 shadow-xs'
               }`}
             >
-              <div className="mb-2 w-full min-w-0">
+              <div className="w-full min-w-0 space-y-1">
                 <div className="flex items-center justify-between gap-1.5">
-                  <span className="font-bold text-[13px] sm:text-base text-[var(--kg-text)] truncate">
+                  <span className="font-extrabold text-sm sm:text-base text-[var(--kg-text)] truncate">
                     Khu {area}
                   </span>
-                  <span className="text-[11px] sm:text-xs font-mono tabular-nums font-bold px-2 py-0.5 rounded-full bg-[var(--kg-surface-soft)] text-[var(--kg-primary)] border border-[var(--kg-border)] shrink-0">
-                    {pct}%
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
                   {isAssigned && (
-                    <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full bg-[var(--kg-info-soft)] text-[var(--kg-info)] shrink-0">
+                    <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded-md bg-[var(--kg-info-soft)] text-[var(--kg-info)] shrink-0">
                       Của bạn
                     </span>
                   )}
-                  <span className="block text-[11px] font-medium text-[var(--kg-text-muted)] truncate">
-                    {AREA_STATION_LABELS[area]}
-                  </span>
                 </div>
-              </div>
-              <div className="h-2 w-full bg-[var(--kg-surface-soft)] rounded-full overflow-hidden mb-2.5 border border-[var(--kg-border)]/50">
-                <div
-                  className="h-full bg-[var(--kg-accent)] rounded-full transition-all duration-200"
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
-              <div className="text-[11px] font-semibold text-[var(--kg-text-muted)] mb-2">
-                <span className="font-mono tabular-nums">{participants.length}</span> nhân viên ·{' '}
-                <span className="font-mono tabular-nums">
-                  {doneCount}/{totalCount}
-                </span>{' '}
-                mục
+                <span className="block text-[11px] font-medium text-[var(--kg-text-muted)] truncate">
+                  {AREA_STATION_LABELS[area]}
+                </span>
               </div>
 
-              <div className="flex flex-wrap gap-1 mt-auto pt-2 border-t border-dashed border-[var(--kg-border)] w-full">
-                {participants.length > 0 ? (
-                  participants.map((p) => (
-                    <span
-                      key={p.key}
-                      className="inline-flex items-center gap-1 text-[10px] font-semibold bg-[var(--kg-surface-soft)] text-[var(--kg-text)] border border-[var(--kg-border)] px-2 py-0.5 rounded-full"
-                    >
-                      <Users size={10} className="text-[var(--kg-text-muted)]" />{' '}
-                      {p.name.split(' ').pop()}
-                    </span>
-                  ))
-                ) : (
-                  <span className="text-[10px] text-[var(--kg-text-muted)]">Chưa có ai</span>
-                )}
+              <div className="w-full mt-3 space-y-2">
+                <div className="h-2 w-full bg-[var(--kg-surface-soft)] rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-200 ${
+                      pct === 100 ? 'bg-[var(--kg-success)]' : 'bg-[var(--kg-primary)]'
+                    }`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-1 text-[11px] font-semibold text-[var(--kg-text-muted)]">
+                  <span className="font-mono tabular-nums">
+                    {doneCount}/{totalCount} việc · {pct}%
+                  </span>
+                  <span className="inline-flex items-center gap-1 font-mono tabular-nums">
+                    <Users size={11} /> {participants.length}
+                  </span>
+                </div>
               </div>
             </button>
           );
@@ -1268,7 +1375,7 @@ export default function Checklist() {
             type="button"
             onClick={() => setShowExtraOpsTasks((v) => !v)}
             aria-expanded={showExtraOpsTasks}
-            className="w-full min-h-[44px] px-4 py-3 flex items-center justify-between gap-3 text-left hover:bg-[var(--kg-surface-soft)]/50 transition-colors touch-manipulation"
+            className="w-full min-h-[44px] px-4 py-3 flex items-center justify-between gap-3 text-left hover:bg-[var(--kg-surface-2)] transition-colors touch-manipulation"
           >
             <div className="flex items-center gap-2.5 min-w-0">
               <span className="w-8 h-8 rounded-xl bg-[var(--kg-info-soft)] text-[var(--kg-info)] flex items-center justify-center flex-shrink-0">
@@ -1302,14 +1409,14 @@ export default function Checklist() {
                     disabled={updating}
                     className={`flex w-full min-h-[44px] items-start gap-3 rounded-xl border p-3 text-left transition touch-manipulation ${
                       completed
-                        ? 'border-[var(--kg-success)]/40 bg-[var(--kg-success-soft)]'
-                        : 'border-[var(--kg-border)] bg-[var(--kg-surface-soft)]/50 hover:border-[var(--kg-primary)]'
+                        ? 'border-[var(--kg-success)]/35 bg-[var(--kg-success-soft)]'
+                        : 'border-[var(--kg-border)] bg-[var(--kg-surface-2)] hover:border-[var(--kg-primary)]'
                     }`}
                   >
                     <span
                       className={`mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg ${
                         completed
-                          ? 'bg-[var(--kg-success)] text-white'
+                          ? 'bg-[var(--kg-success)] text-white dark:text-[#101B15]'
                           : 'bg-[var(--kg-surface)] text-[var(--kg-text-muted)] border border-[var(--kg-border)]'
                       }`}
                     >
@@ -1324,7 +1431,7 @@ export default function Checklist() {
                     <span className="min-w-0 flex-1">
                       <span
                         className={`block text-xs sm:text-sm font-extrabold ${
-                          completed ? 'text-[var(--kg-success)] line-through' : 'text-[var(--kg-text)]'
+                          completed ? 'text-[var(--kg-success)]' : 'text-[var(--kg-text)]'
                         }`}
                       >
                         {task.title}
@@ -1348,10 +1455,10 @@ export default function Checklist() {
         </section>
       )}
 
-      {/* Main Panel Layout */}
+      {/* Main Panel Layout: 2-Column Toast Touch Split */}
       {!selectedArea ? (
         <div className="text-center py-12 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-card max-w-lg mx-auto px-6">
-          <div className="w-12 h-12 rounded-2xl bg-[var(--kg-primary-soft)] text-[var(--kg-primary)] flex items-center justify-center mx-auto mb-3">
+          <div className="w-12 h-12 rounded-2xl bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] flex items-center justify-center mx-auto mb-3">
             <ClipboardCheck size={24} />
           </div>
           <h3 className="font-bold text-base sm:text-lg text-[var(--kg-text)]">
@@ -1362,93 +1469,84 @@ export default function Checklist() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
-          {/* Left Column: Checklist & Steps */}
-          <div className="lg:col-span-2 space-y-4">
-            {/* Header & Tabs */}
-            <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-card p-4 space-y-3.5">
-              <div className="flex justify-between items-center flex-wrap gap-3 border-b border-[var(--kg-border)] pb-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-bold text-base text-[var(--kg-text)]">
-                      Khu {selectedArea} · {AREA_STATION_LABELS[selectedArea]}
-                    </h3>
-                    <KgFeatureTip
-                      title="Ghi chú vận hành theo ca"
-                      tips={[
-                        'Đầu ca (15h & 17h): Vệ sinh khu vực trực, lau bàn ghế, setup đầy đủ chén đũa. Đọc thông tin bàn đặt trước và các món ngừng bán.',
-                        'Cuối ca (Hạ ca & Kết ca): Hỗ trợ ca sau thu gọn đồ. Ca sau cùng vệ sinh menu, xô đá, quạt trang trí, đổ rác, tắt hết nguồn điện/thiết bị chiếu sáng và dọn dẹp nhà vệ sinh.',
-                      ]}
-                      variant="badge"
-                      triggerText="Ghi chú ca"
-                    />
-                  </div>
-                  <p className="text-xs font-mono tabular-nums text-[var(--kg-text-muted)] mt-0.5">
-                    Ngày {workDate.split('-').reverse().join('/')}
-                  </p>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 items-start">
+          {/* Left Column (8 cols): Checklist Rows & Phase Filter Pills */}
+          <div className="lg:col-span-8 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-xs p-4 sm:p-5 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2.5 pb-3 border-b border-[var(--kg-border)]">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-extrabold text-sm sm:text-base text-[var(--kg-text)]">
+                    Đầu việc · Khu {selectedArea}
+                  </h3>
+                  <span className="text-xs font-medium text-[var(--kg-text-muted)]">
+                    {AREA_STATION_LABELS[selectedArea]}
+                  </span>
+                  <KgFeatureTip
+                    title="Ghi chú vận hành theo ca"
+                    tips={[
+                      'Đầu ca (15h & 17h): Vệ sinh khu vực trực, lau bàn ghế, setup đầy đủ chén đũa. Đọc thông tin bàn đặt trước và các món ngừng bán.',
+                      'Cuối ca (Hạ ca & Kết ca): Hỗ trợ ca sau thu gọn đồ. Ca sau cùng vệ sinh menu, xô đá, quạt trang trí, đổ rác, tắt hết nguồn điện/thiết bị chiếu sáng và dọn dẹp nhà vệ sinh.',
+                    ]}
+                    variant="badge"
+                    triggerText="Quy chuẩn"
+                  />
                 </div>
-                <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
-                  <button
-                    type="button"
-                    onClick={refreshTeammatesProgress}
-                    disabled={refreshingTeammates}
-                    className="min-h-[44px] min-w-[44px] sm:min-h-[36px] inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-xs font-bold text-[var(--kg-text)] hover:border-[var(--kg-primary)] transition-colors whitespace-nowrap touch-manipulation"
-                    title="Cập nhật các mục đồng đội vừa tick mà không mất thay đổi của bạn"
-                  >
-                    <RefreshCw
-                      size={13}
-                      className={refreshingTeammates ? 'animate-spin text-[var(--kg-primary)]' : ''}
-                    />
-                    <span>Đồng đội</span>
-                  </button>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <span className="block text-[11px] font-semibold text-[var(--kg-text-muted)]">
-                        Hoàn thành
-                      </span>
-                      <span className="text-sm font-bold font-mono tabular-nums text-[var(--kg-success)] whitespace-nowrap">
-                        {activeMetrics.pct}% ({activeMetrics.done}/{activeMetrics.total})
-                      </span>
-                    </div>
-                    <div className="h-9 w-px bg-[var(--kg-border)]" />
-                    <div className="text-right">
-                      <span className="block text-[11px] font-semibold text-[var(--kg-text-muted)]">
-                        Việc con
-                      </span>
-                      <span className="text-sm font-bold font-mono tabular-nums text-[var(--kg-primary)] whitespace-nowrap">
-                        {activeMetrics.subDone}/{activeMetrics.subTotal}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+                <p className="text-[11px] font-mono tabular-nums text-[var(--kg-text-muted)] mt-0.5">
+                  Ngày {workDate.split('-').reverse().join('/')}
+                  {activeMetrics.subTotal > 0 && ` · Việc con ${activeMetrics.subDone}/${activeMetrics.subTotal}`}
+                </p>
               </div>
 
-              {/* Phase Tabs */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-                {tabs.map((t) => (
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={refreshTeammatesProgress}
+                  disabled={refreshingTeammates}
+                  className="min-h-[44px] sm:min-h-[36px] inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)] text-xs font-bold text-[var(--kg-text)] hover:border-[var(--kg-primary)] transition-colors whitespace-nowrap touch-manipulation"
+                  title="Cập nhật các mục đồng đội vừa tick mà không mất thay đổi của bạn"
+                >
+                  <RefreshCw
+                    size={13}
+                    className={refreshingTeammates ? 'animate-spin text-[var(--kg-primary-ink)]' : ''}
+                  />
+                  <span>Đồng đội</span>
+                </button>
+                <span
+                  className={`px-2.5 py-1 rounded-lg text-xs font-mono tabular-nums font-extrabold ${
+                    activeMetrics.pct === 100
+                      ? 'bg-[var(--kg-success-soft)] text-[var(--kg-success)]'
+                      : 'bg-[var(--kg-warning-soft)] text-[var(--kg-warning)]'
+                  }`}
+                >
+                  {activeMetrics.pct}% hoàn thành
+                </span>
+              </div>
+            </div>
+
+            {/* Phase Filter Pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+              {tabs.map((t) => {
+                const isActive = activePhase === t.key;
+                return (
                   <button
                     key={t.key}
                     type="button"
                     onClick={() => setActivePhase(t.key)}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors border min-h-[44px] sm:min-h-[36px] touch-manipulation ${
-                      activePhase === t.key
-                        ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)] shadow-xs'
-                        : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)] hover:text-[var(--kg-text)]'
-                    }`}
+                    className={`kg-filter-pill shrink-0 ${isActive ? 'kg-filter-pill--active' : ''}`}
                   >
                     {t.label}
                   </button>
-                ))}
-              </div>
+                );
+              })}
             </div>
 
             {/* Checklist Items List */}
             {loading ? (
               <div className="flex justify-center p-12">
-                <RefreshCw className="animate-spin text-[var(--kg-primary)]" size={28} />
+                <RefreshCw className="animate-spin text-[var(--kg-primary-ink)]" size={28} />
               </div>
             ) : flatItems.filter((item) => isGroupVisible(item.group)).length === 0 ? (
-              <div className="text-center py-12 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-card">
+              <div className="text-center py-12 bg-[var(--kg-surface-2)] border border-[var(--kg-border)] rounded-2xl">
                 <CheckSquare size={40} className="mx-auto text-[var(--kg-text-soft)] mb-3" />
                 <p className="text-[var(--kg-text-muted)] text-xs sm:text-sm font-medium">
                   Không có hạng mục nào cho bộ lọc này.
@@ -1457,9 +1555,9 @@ export default function Checklist() {
             ) : (
               <div className="space-y-4">
                 {checklist.filter(isGroupVisible).map((group) => (
-                  <div key={`${group.phase}-${group.shift}-${group.section}`} className="space-y-3">
-                    <div className="flex flex-wrap items-center gap-2 pt-2">
-                      <span className="text-[10px] font-bold uppercase bg-[var(--kg-primary-soft)] text-[var(--kg-primary)] border border-[var(--kg-primary)]/15 px-2.5 py-0.5 rounded-full">
+                  <div key={`${group.phase}-${group.shift}-${group.section}`} className="space-y-2.5">
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <span className="text-[10px] font-bold uppercase bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] border border-[var(--kg-primary)]/15 px-2.5 py-0.5 rounded-full">
                         {group.phase}
                       </span>
                       <span
@@ -1476,127 +1574,144 @@ export default function Checklist() {
                       const hasPending = Object.prototype.hasOwnProperty.call(pending, item.id);
                       const subDone = (item.subitems || []).filter((sub) => !!itemState.subchecks?.[sub.id]).length;
                       const subTotal = item.subitems?.length || 0;
+                      const vnDoneTime = formatChecklistVnTime(itemState.at);
 
                       return (
                         <div
                           key={item.id}
-                          className={`p-4 rounded-2xl border shadow-card transition-colors ${
+                          className={`rounded-2xl border transition-colors overflow-hidden ${
                             itemState.checked
-                              ? 'border-[var(--kg-success)]/35 bg-[var(--kg-success-soft)]/30'
-                              : 'border-[var(--kg-border)] bg-[var(--kg-surface)]'
+                              ? 'border-[var(--kg-success)]/35 bg-[var(--kg-success-soft)]'
+                              : 'border-[var(--kg-border)] bg-[var(--kg-surface)] hover:border-[var(--kg-border-strong)]'
                           }`}
                         >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex items-start space-x-3 min-w-0">
-                              <span className="flex-shrink-0 w-6 h-6 rounded-lg bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-xs font-mono tabular-nums font-bold text-[var(--kg-text-muted)] flex items-center justify-center mt-0.5">
-                                {item.no}
-                              </span>
-                              <div className="min-w-0 flex-1">
-                                <h4
-                                  className={`text-sm font-bold break-words ${
-                                    itemState.checked
-                                      ? 'text-[var(--kg-success)] line-through opacity-85'
-                                      : 'text-[var(--kg-text)]'
-                                  }`}
-                                >
-                                  {item.title}
-                                </h4>
-                                <p className="text-xs text-[var(--kg-text-muted)] mt-1 whitespace-pre-wrap break-words leading-relaxed">
-                                  {item.text}
-                                </p>
-                              </div>
-                            </div>
-
-                            <button
-                              type="button"
-                              aria-label={`Đánh dấu hạng mục ${item.title}`}
-                              onClick={() => handleToggleItem(item, !itemState.checked)}
-                              className={`flex-shrink-0 w-11 h-11 sm:w-10 sm:h-10 rounded-xl border-2 flex items-center justify-center transition-colors touch-manipulation ${
+                          {/* Large Full-Row Touchable Checklist Button */}
+                          <button
+                            type="button"
+                            aria-pressed={itemState.checked}
+                            aria-label={`${itemState.checked ? 'Bỏ hoàn thành' : 'Hoàn thành'}: ${item.title}`}
+                            onClick={() => handleToggleItem(item, !itemState.checked)}
+                            className="w-full min-h-[72px] p-3.5 sm:p-4 flex items-start sm:items-center gap-3 text-left transition-colors active:scale-[0.995] touch-manipulation"
+                          >
+                            <span
+                              aria-hidden="true"
+                              className={`flex-shrink-0 w-11 h-11 rounded-xl border-2 flex items-center justify-center transition-colors ${
                                 itemState.checked
-                                  ? 'bg-[var(--kg-success)] border-[var(--kg-success)] text-white'
-                                  : 'border-[var(--kg-border-strong)] bg-[var(--kg-surface-soft)] text-transparent hover:border-[var(--kg-primary)]'
+                                  ? 'bg-[var(--kg-success)] border-[var(--kg-success)] text-white dark:text-[#101B15]'
+                                  : 'border-[var(--kg-border-strong)] bg-[var(--kg-surface)] text-[var(--kg-text-soft)]/50'
                               }`}
                             >
-                              <CheckCircle2 size={18} />
-                            </button>
-                          </div>
+                              <Check size={20} strokeWidth={2.5} />
+                            </span>
 
-                          {hasSubtasks && (
-                            <div className="mt-3.5 p-3 bg-[var(--kg-surface-soft)] rounded-xl border border-[var(--kg-border)]">
-                              <div className="flex justify-between items-center text-[10px] font-bold text-[var(--kg-text-muted)] uppercase tracking-wider mb-2 border-b border-[var(--kg-border)] pb-1.5">
-                                <span>Danh sách việc con</span>
-                                <span className="font-mono tabular-nums text-[var(--kg-primary)]">
-                                  {subDone}/{subTotal} hoàn thành
+                            <div className="min-w-0 flex-1 space-y-0.5">
+                              <div className="flex items-baseline gap-1.5 flex-wrap">
+                                <span className="font-mono tabular-nums text-[11px] font-bold text-[var(--kg-text-muted)]">
+                                  #{item.no}
                                 </span>
+                                <h4 className="text-sm font-bold text-[var(--kg-text)] break-words">
+                                  {item.title}
+                                </h4>
                               </div>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                {item.subitems.map((sub) => {
-                                  const isSubChecked = !!itemState.subchecks?.[sub.id];
-                                  return (
-                                    <label
-                                      key={sub.id}
-                                      className="flex items-center space-x-2.5 text-xs text-[var(--kg-text)] cursor-pointer select-none min-h-[44px] sm:min-h-[34px] px-2 py-1 rounded-lg hover:bg-[var(--kg-surface)] transition-colors touch-manipulation"
-                                    >
-                                      <input
-                                        type="checkbox"
-                                        checked={isSubChecked}
-                                        onChange={(e) => handleToggleSubtask(item, sub.id, e.target.checked)}
-                                        className="h-5 w-5 sm:h-4.5 sm:w-4.5 rounded border-[var(--kg-border-strong)] text-[var(--kg-primary)] focus:ring-[var(--kg-primary)]/20 bg-[var(--kg-surface)]"
-                                      />
-                                      <span className={isSubChecked ? 'line-through text-[var(--kg-text-muted)]' : ''}>
-                                        {sub.text}
-                                      </span>
-                                    </label>
-                                  );
-                                })}
+                              {item.text && (
+                                <p className="text-xs text-[var(--kg-text-muted)] whitespace-pre-wrap break-words leading-relaxed">
+                                  {item.text}
+                                </p>
+                              )}
+                              <div className="flex flex-wrap items-center gap-2 pt-0.5 text-[11px] font-semibold">
+                                {itemState.checked ? (
+                                  <span className="text-[var(--kg-success)] font-mono tabular-nums">
+                                    Hoàn thành · Chạm để bỏ chọn
+                                    {itemState.by ? ` · ${itemState.by.split(' ').pop()}` : ''}
+                                    {vnDoneTime ? ` lúc ${vnDoneTime}` : ''}
+                                  </span>
+                                ) : (
+                                  <span className="text-[var(--kg-text-muted)]">
+                                    Cần thực hiện · Chạm để đánh dấu
+                                  </span>
+                                )}
+                                {hasPending && (
+                                  <span className="bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] px-2 py-0.5 rounded-full text-[10px]">
+                                    Lưu nháp ngoại tuyến
+                                  </span>
+                                )}
                               </div>
                             </div>
-                          )}
 
-                          <div className="mt-3 flex items-center justify-between border-t border-[var(--kg-border)] pt-3 flex-wrap gap-2 text-[10px] font-semibold text-[var(--kg-text-muted)]">
-                            <div className="flex items-center space-x-2">
-                              {itemState.checked ? (
-                                <span className="text-[var(--kg-success)] bg-[var(--kg-success-soft)] px-2 py-0.5 rounded-full">
-                                  ✓ Xong {itemState.by ? `bởi ${itemState.by.split(' ').pop()}` : ''}{' '}
-                                  {itemState.at ? `lúc ${itemState.at.substring(11, 16)}` : ''}
-                                </span>
-                              ) : (
-                                <span>Chưa hoàn thành</span>
-                              )}
-                              {hasPending && (
-                                <span className="bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] px-2 py-0.5 rounded-full">
-                                  Lưu nháp ngoại tuyến
-                                </span>
-                              )}
-                            </div>
+                            <span
+                              className={`shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-extrabold ${
+                                itemState.checked
+                                  ? 'bg-[var(--kg-surface)]/80 text-[var(--kg-success)] border border-[var(--kg-success)]/25'
+                                  : 'bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] border border-[var(--kg-warning)]/25'
+                              }`}
+                            >
+                              {itemState.checked ? 'Xong' : 'Chờ'}
+                            </span>
+                          </button>
 
-                            <div className="w-full flex items-center space-x-2 mt-1">
-                              <textarea
-                                value={
-                                  noteDrafts[item.id] !== undefined
-                                    ? noteDrafts[item.id]
-                                    : itemState.note || ''
-                                }
-                                onChange={(e) => {
-                                  const nextNote = e.target.value;
-                                  setNoteDrafts((prev) => ({ ...prev, [item.id]: nextNote }));
-                                }}
-                                onBlur={(e) => {
-                                  const nextNote = e.target.value;
-                                  setNoteDrafts((prev) => {
-                                    if (!(item.id in prev)) return prev;
-                                    const copy = { ...prev };
-                                    delete copy[item.id];
-                                    return copy;
-                                  });
-                                  void handleSaveNote(item.id, nextNote);
-                                }}
-                                aria-label={`Ghi chú cho ${item.title}`}
-                                placeholder="Ghi chú kết quả công việc/hỏng hóc nếu có..."
-                                className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-3 py-2 text-xs text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] placeholder-[var(--kg-text-soft)] resize-none min-h-[44px] sm:min-h-[38px]"
-                                rows={1}
-                              />
-                            </div>
+                          {/* Subtasks & Per-item Note (separate from row toggle button) */}
+                          <div
+                            className={`px-3.5 sm:px-4 pb-3.5 space-y-2.5 ${
+                              hasSubtasks ? 'pt-2.5 border-t border-[var(--kg-border)]/70' : 'pt-0'
+                            }`}
+                          >
+                            {hasSubtasks && (
+                              <div className="p-3 bg-[var(--kg-surface)]/90 rounded-xl border border-[var(--kg-border)]">
+                                <div className="flex justify-between items-center text-[10px] font-bold text-[var(--kg-text-muted)] uppercase tracking-wider mb-2 border-b border-[var(--kg-border)] pb-1.5">
+                                  <span>Danh sách việc con</span>
+                                  <span className="font-mono tabular-nums text-[var(--kg-primary-ink)]">
+                                    {subDone}/{subTotal} hoàn thành
+                                  </span>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                                  {item.subitems.map((sub) => {
+                                    const isSubChecked = !!itemState.subchecks?.[sub.id];
+                                    return (
+                                      <label
+                                        key={sub.id}
+                                        className="flex items-center space-x-2.5 text-xs text-[var(--kg-text)] cursor-pointer select-none min-h-[44px] sm:min-h-[34px] px-2 py-1 rounded-lg hover:bg-[var(--kg-surface-soft)] transition-colors touch-manipulation"
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={isSubChecked}
+                                          onChange={(e) => handleToggleSubtask(item, sub.id, e.target.checked)}
+                                          className="h-5 w-5 sm:h-4.5 sm:w-4.5 rounded border-[var(--kg-border-strong)] text-[var(--kg-primary)] focus:ring-[var(--kg-primary)]/20 bg-[var(--kg-surface)]"
+                                        />
+                                        <span className={isSubChecked ? 'line-through text-[var(--kg-text-muted)]' : ''}>
+                                          {sub.text}
+                                        </span>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            <textarea
+                              value={
+                                noteDrafts[item.id] !== undefined
+                                  ? noteDrafts[item.id]
+                                  : itemState.note || ''
+                              }
+                              onChange={(e) => {
+                                const nextNote = e.target.value;
+                                setNoteDrafts((prev) => ({ ...prev, [item.id]: nextNote }));
+                              }}
+                              onBlur={(e) => {
+                                const nextNote = e.target.value;
+                                setNoteDrafts((prev) => {
+                                  if (!(item.id in prev)) return prev;
+                                  const copy = { ...prev };
+                                  delete copy[item.id];
+                                  return copy;
+                                });
+                                void handleSaveNote(item.id, nextNote);
+                              }}
+                              aria-label={`Ghi chú cho ${item.title}`}
+                              placeholder="Ghi chú kết quả công việc/hỏng hóc nếu có..."
+                              className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-3 py-2 text-xs text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] placeholder-[var(--kg-text-soft)] resize-none min-h-[44px] sm:min-h-[38px]"
+                              rows={1}
+                            />
                           </div>
                         </div>
                       );
@@ -1607,21 +1722,190 @@ export default function Checklist() {
             )}
           </div>
 
-          {/* Right Column: Sidebar (Participants & Supplies) */}
-          <div className="space-y-4">
-            {/* Participants manager */}
-            <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-card p-4 sm:p-5">
-              <h3 className="font-bold text-sm text-[var(--kg-text)] flex items-center mb-3.5">
-                <Users size={16} className="mr-2 text-[var(--kg-primary)]" />
-                <span>Nhân viên trực Khu {selectedArea}</span>
+          {/* Right Column (4 cols): Donut Progress Ring + Ghi chú ca / Vật tư + Nhân viên trực */}
+          <div className="lg:col-span-4 space-y-4">
+            {/* Circular Donut Progress Ring Card */}
+            <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-xs p-4 sm:p-5 space-y-3">
+              <h3 className="font-extrabold text-sm text-[var(--kg-text)]">
+                Tổng tiến độ khu vực
+              </h3>
+              <div className="flex items-center gap-4">
+                <div className="relative w-[96px] h-[96px] shrink-0 flex items-center justify-center">
+                  <svg
+                    className="w-[96px] h-[96px] -rotate-90"
+                    viewBox="0 0 100 100"
+                    aria-hidden="true"
+                  >
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r={donutRadius}
+                      fill="none"
+                      stroke="var(--kg-surface-soft)"
+                      strokeWidth="11"
+                    />
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r={donutRadius}
+                      fill="none"
+                      stroke={activeMetrics.pct === 100 ? 'var(--kg-success)' : 'var(--kg-primary)'}
+                      strokeWidth="11"
+                      strokeLinecap="round"
+                      strokeDasharray={donutCircumference}
+                      strokeDashoffset={donutOffset}
+                      className="transition-all duration-200"
+                    />
+                  </svg>
+                  <span className="absolute inset-0 flex items-center justify-center font-mono tabular-nums font-black text-xl text-[var(--kg-text)]">
+                    {activeMetrics.pct}%
+                  </span>
+                </div>
+
+                <div className="min-w-0 space-y-1.5">
+                  <p className="text-base font-extrabold text-[var(--kg-text)]">
+                    Khu {selectedArea}
+                  </p>
+                  <p className="text-xs font-mono tabular-nums text-[var(--kg-text-muted)]">
+                    {activeMetrics.done}/{activeMetrics.total} công việc hoàn thành
+                  </p>
+                  <span
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-[11px] font-bold ${
+                      activeMetrics.pct === 100
+                        ? 'bg-[var(--kg-success-soft)] text-[var(--kg-success)]'
+                        : 'bg-[var(--kg-warning-soft)] text-[var(--kg-warning)]'
+                    }`}
+                  >
+                    {activeMetrics.pct === 100 ? 'Sẵn sàng bàn giao' : 'Đang thực hiện'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Ghi chú ca & Đề xuất cấp vật tư */}
+            <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-xs p-4 sm:p-5 space-y-3.5">
+              <h3 className="font-extrabold text-sm text-[var(--kg-text)] flex items-center gap-2">
+                <CheckSquare2 size={16} className="text-[var(--kg-success)] shrink-0" />
+                <span>Ghi chú ca &amp; Vật tư</span>
               </h3>
 
-              <div className="space-y-2 mb-4 max-h-[180px] overflow-y-auto pr-1">
+              <div className="grid grid-cols-2 gap-1.5 text-xs font-medium text-[var(--kg-text)]">
+                {[
+                  { k: 'du_dung', l: 'Đủ dùng' },
+                  { k: 'khan_giay', l: 'Khăn giấy' },
+                  { k: 'ong_hut', l: 'Ống hút' },
+                  { k: 'diem', l: 'Diêm' },
+                  { k: 'tam', l: 'Tăm' },
+                  { k: 'xien_tre', l: 'Xiên tre' },
+                  { k: 'bao_tay', l: 'Bao tay' },
+                  { k: 'bao_rac', l: 'Bao rác' },
+                ].map((s) => {
+                  const isChecked = pendingSupply ? !!pendingSupply[s.k] : !!areaData.supply?.[s.k];
+
+                  return (
+                    <label
+                      key={s.k}
+                      className="flex items-center space-x-2 cursor-pointer min-h-[44px] sm:min-h-[32px] px-1.5 rounded-lg hover:bg-[var(--kg-surface-2)] touch-manipulation"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => handleSupplyChange(s.k, e.target.checked)}
+                        className="h-5 w-5 sm:h-4.5 sm:w-4.5 rounded border-[var(--kg-border-strong)] text-[var(--kg-primary)] focus:ring-[var(--kg-primary)]/20 bg-[var(--kg-surface)]"
+                      />
+                      <span>{s.l}</span>
+                    </label>
+                  );
+                })}
+              </div>
+
+              <div className="space-y-2">
+                <label
+                  htmlFor="checklist-shift-supply-note"
+                  className="block text-xs font-semibold text-[var(--kg-text-muted)]"
+                >
+                  Ghi chú cho đồng đội
+                </label>
+                <textarea
+                  id="checklist-shift-supply-note"
+                  value={pendingSupply ? pendingSupply.note || '' : areaData.supply?.note || ''}
+                  onChange={(e) => handleSupplyChange('note', e.target.value)}
+                  placeholder="Vật tư, bàn ghế, thiết bị cần lưu ý..."
+                  className="w-full bg-[var(--kg-surface-2)] border border-[var(--kg-border)] rounded-xl px-3 py-2 text-xs text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] placeholder-[var(--kg-text-soft)] min-h-[76px]"
+                />
+
+                <div className="flex justify-between items-center gap-2 text-[11px] text-[var(--kg-text-muted)]">
+                  <span className="font-mono tabular-nums">
+                    {areaData.supply?.savedAt
+                      ? `Lưu: ${areaData.supply.by?.split(' ').pop() || ''} lúc ${formatChecklistVnTime(areaData.supply.savedAt)}`
+                      : 'Lưu đề xuất sau cùng của ca'}
+                  </span>
+
+                  {pendingSupply && (
+                    <button
+                      type="button"
+                      onClick={() => void handleSaveSupply()}
+                      className="min-h-[44px] sm:min-h-[36px] bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] border border-[var(--kg-primary)]/25 px-3.5 py-1.5 rounded-xl font-bold transition-colors text-xs whitespace-nowrap shrink-0 touch-manipulation hover:brightness-95"
+                    >
+                      Lưu ghi chú ca
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Shift Teammates Picker (Tappable directory pills + custom text input) */}
+            <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-xs p-4 sm:p-5 space-y-3.5">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="font-extrabold text-sm text-[var(--kg-text)] flex items-center gap-2">
+                  <Users size={16} className="text-[var(--kg-primary-ink)] shrink-0" />
+                  <span>Nhân viên trực Khu {selectedArea}</span>
+                </h3>
+                <span className="text-[11px] font-mono tabular-nums font-bold px-2 py-0.5 rounded-full bg-[var(--kg-surface-2)] border border-[var(--kg-border)] text-[var(--kg-text-muted)]">
+                  {areaData.participants.length}
+                </span>
+              </div>
+
+              {eligibleDirectoryUsers.length > 0 && (
+                <div className="space-y-1.5">
+                  <span className="block text-[11px] font-semibold text-[var(--kg-text-muted)]">
+                    Chạm nhanh đồng đội trong ca:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5 max-h-[144px] overflow-y-auto pr-0.5">
+                    {eligibleDirectoryUsers.map((emp) => {
+                      const empName = (emp.fullname || emp.username).trim();
+                      const isJoined = areaData.participants.some(
+                        (p) =>
+                          p.key === emp.username ||
+                          p.name.trim().toLowerCase() === empName.toLowerCase(),
+                      );
+                      return (
+                        <button
+                          key={emp.username}
+                          type="button"
+                          onClick={() => void handleToggleDirectoryParticipant(emp)}
+                          aria-pressed={isJoined}
+                          className={`min-h-[44px] sm:min-h-[32px] px-2.5 py-1 rounded-xl text-[11px] font-bold border inline-flex items-center gap-1 transition-colors touch-manipulation ${
+                            isJoined
+                              ? 'bg-[var(--kg-success-soft)] text-[var(--kg-success)] border-[var(--kg-success)]/35'
+                              : 'bg-[var(--kg-surface-2)] text-[var(--kg-text)] border-[var(--kg-border)] hover:border-[var(--kg-primary)]'
+                          }`}
+                        >
+                          {isJoined && <Check size={12} className="shrink-0" />}
+                          <span className="truncate max-w-[140px]">{empName}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-1">
                 {areaData.participants.length > 0 ? (
                   areaData.participants.map((p) => (
                     <div
                       key={p.key}
-                      className="flex justify-between items-center bg-[var(--kg-surface-soft)] p-2.5 rounded-xl border border-[var(--kg-border)] text-xs font-semibold text-[var(--kg-text)]"
+                      className="flex justify-between items-center bg-[var(--kg-surface-2)] px-2.5 py-2 rounded-xl border border-[var(--kg-border)] text-xs font-semibold text-[var(--kg-text)]"
                     >
                       <span className="inline-flex items-center gap-1.5 truncate">
                         <Users size={13} className="text-[var(--kg-text-muted)] shrink-0" /> {p.name}
@@ -1629,7 +1913,7 @@ export default function Checklist() {
                       <button
                         type="button"
                         onClick={() => void handleRemoveParticipant(p.key)}
-                        className="min-h-[44px] min-w-[44px] sm:min-h-[36px] sm:min-w-0 inline-flex items-center justify-center text-[var(--kg-danger)] hover:bg-[var(--kg-danger-soft)] rounded-lg active:scale-95 transition-all text-xs font-semibold px-2.5 shrink-0 touch-manipulation"
+                        className="min-h-[44px] min-w-[44px] sm:min-h-[32px] sm:min-w-0 inline-flex items-center justify-center text-[var(--kg-danger)] hover:bg-[var(--kg-danger-soft)] rounded-lg active:scale-95 transition-all text-xs font-semibold px-2.5 shrink-0 touch-manipulation"
                       >
                         Bỏ
                       </button>
@@ -1654,82 +1938,16 @@ export default function Checklist() {
                     }
                   }}
                   aria-label="Thêm tên nhân viên trực"
-                  placeholder="Thêm tên nhân viên trực..."
-                  className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3 py-2 text-xs text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] placeholder-[var(--kg-text-soft)] min-h-[44px] sm:min-h-[40px]"
+                  placeholder="Nhập tên nhân viên khác..."
+                  className="w-full bg-[var(--kg-surface-2)] border border-[var(--kg-border)] rounded-xl px-3 py-2 text-xs text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] placeholder-[var(--kg-text-soft)] min-h-[44px] sm:min-h-[40px]"
                 />
                 <button
                   type="button"
                   onClick={() => void handleAddParticipant()}
-                  className="bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-semibold px-4 py-2 rounded-xl text-xs flex items-center justify-center min-h-[44px] sm:min-h-[40px] flex-shrink-0 touch-manipulation"
+                  className="bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] font-semibold px-4 py-2 rounded-xl text-xs flex items-center justify-center min-h-[44px] sm:min-h-[40px] flex-shrink-0 touch-manipulation"
                 >
                   Thêm
                 </button>
-              </div>
-            </div>
-
-            {/* Supplies Proposal */}
-            <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-card p-4 sm:p-5 space-y-4">
-              <h3 className="font-bold text-sm text-[var(--kg-text)] flex items-center">
-                <CheckSquare2 size={16} className="mr-2 text-[var(--kg-success)]" />
-                <span>Đề xuất cấp vật tư</span>
-              </h3>
-
-              <div className="grid grid-cols-2 gap-2 text-xs font-medium text-[var(--kg-text)]">
-                {[
-                  { k: 'du_dung', l: 'Đủ dùng' },
-                  { k: 'khan_giay', l: 'Khăn giấy' },
-                  { k: 'ong_hut', l: 'Ống hút' },
-                  { k: 'diem', l: 'Diêm' },
-                  { k: 'tam', l: 'Tăm' },
-                  { k: 'xien_tre', l: 'Xiên tre' },
-                  { k: 'bao_tay', l: 'Bao tay' },
-                  { k: 'bao_rac', l: 'Bao rác' },
-                ].map((s) => {
-                  const isChecked = pendingSupply ? !!pendingSupply[s.k] : !!areaData.supply?.[s.k];
-
-                  return (
-                    <label
-                      key={s.k}
-                      className="flex items-center space-x-2 cursor-pointer min-h-[44px] sm:min-h-[30px] touch-manipulation"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={(e) => handleSupplyChange(s.k, e.target.checked)}
-                        className="h-5 w-5 sm:h-4.5 sm:w-4.5 rounded border-[var(--kg-border-strong)] text-[var(--kg-primary)] focus:ring-[var(--kg-primary)]/20 bg-[var(--kg-surface)]"
-                      />
-                      <span>{s.l}</span>
-                    </label>
-                  );
-                })}
-              </div>
-
-              <div className="space-y-2">
-                <textarea
-                  value={pendingSupply ? pendingSupply.note || '' : areaData.supply?.note || ''}
-                  onChange={(e) => handleSupplyChange('note', e.target.value)}
-                  aria-label="Ghi chú số lượng vật tư cần cấp"
-                  placeholder="Ghi chú số lượng cần cấp..."
-                  className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3 py-2 text-xs text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] placeholder-[var(--kg-text-soft)] min-h-[60px]"
-                />
-
-                <div className="flex justify-between items-center text-[10px] text-[var(--kg-text-muted)]">
-                  <span>
-                    {areaData.supply?.savedAt
-                      ? `Lưu: ${areaData.supply.by?.split(' ').pop()} lúc ${areaData.supply.savedAt.substring(11, 16)}`
-                      : 'Lưu đề xuất sau cùng của ca'}
-                  </span>
-
-                  {pendingSupply && (
-                    <button
-                      type="button"
-                      onClick={() => void handleSaveSupply()}
-                      className="min-h-[44px] sm:min-h-[36px] bg-[var(--kg-success-soft)] text-[var(--kg-success)] border border-[var(--kg-success)]/25 px-3.5 py-1.5 rounded-xl font-bold transition-colors text-xs whitespace-nowrap shrink-0 touch-manipulation"
-                    >
-                      Lưu đề xuất
-                    </button>
-                  )}
-                </div>
               </div>
             </div>
           </div>
@@ -1749,7 +1967,7 @@ export default function Checklist() {
             type="button"
             onClick={() => void handleSyncAllPending()}
             disabled={isSaving}
-            className="w-full sm:w-auto bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-bold px-4 sm:px-5 py-2.5 rounded-xl text-xs transition-colors active:scale-95 shadow-xs flex items-center justify-center space-x-1.5 flex-shrink-0 min-h-[44px] sm:min-h-[40px] whitespace-nowrap touch-manipulation"
+            className="w-full sm:w-auto bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] font-bold px-4 sm:px-5 py-2.5 rounded-xl text-xs transition-colors active:scale-95 shadow-xs flex items-center justify-center space-x-1.5 flex-shrink-0 min-h-[44px] sm:min-h-[40px] whitespace-nowrap touch-manipulation"
           >
             <RefreshCw size={14} className={isSaving ? 'animate-spin' : ''} />
             <span>Đồng bộ ngay</span>

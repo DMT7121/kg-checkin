@@ -1847,33 +1847,33 @@ export default function FastFaceScannerV2({
         aria-modal="true"
         data-testid="fast-face-scanner-v2"
         aria-label="Trạm quét khuôn mặt tự động King's Grill"
-        className="fixed inset-0 m-0 z-[10070] h-[100dvh] w-screen bg-[#0D1015] text-[#F7F4EE] flex flex-col overflow-hidden select-none font-sans"
+        className="fixed inset-0 m-0 z-[10070] h-[100dvh] w-screen bg-[#101B15] text-[#F4F6F0] flex flex-col overflow-hidden select-none font-sans"
       >
-        {/* SINGLE COMPACT TOP HEADER (56px, zero glassmorphism, high-contrast legibility) */}
-        <header className="relative z-30 w-full bg-[#0D1015] border-b border-[#242B38] px-3 sm:px-5 py-2 flex items-center justify-between gap-2 shrink-0">
+        {/* SINGLE COMPACT TOP HEADER (Toast Touch Forest Charcoal, zero glassmorphism) */}
+        <header className="relative z-30 w-full bg-[#101B15] border-b border-[#2F4137] px-3 sm:px-5 py-2 flex items-center justify-between gap-2 shrink-0">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-[#0B253C] border border-[#242B38] flex items-center justify-center text-[#34D399] shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-[#1B2821] border border-[#334539] flex items-center justify-center text-[#7EDBA8] shrink-0">
               <ScanFace size={18} />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] font-extrabold tracking-tight text-[#F7F4EE] truncate">
+                <span className="text-[11px] font-extrabold tracking-tight text-[#F4F6F0] truncate">
                   {isKioskMode ? 'Trạm Face ID' : 'Face ID Siêu Tốc'}
                 </span>
                 <span
                   role="status"
                   className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-mono tabular-nums font-bold shrink-0 ${
                     hydratedProfiles.length > 0
-                      ? 'bg-[#0F291E] border-[#34D399]/60 text-[#34D399]'
+                      ? 'bg-[#163626] border-[#7EDBA8]/60 text-[#7EDBA8]'
                       : loadingProfiles
-                      ? 'bg-[#0B253C] border-[#60A5FA]/60 text-[#93C5FD]'
-                      : 'bg-[#291F0F] border-[#FBBF24]/60 text-[#FBBF24]'
+                      ? 'bg-[#172C3D] border-[#60A5FA]/60 text-[#93C5FD]'
+                      : 'bg-[#362614] border-[#FBBF24]/60 text-[#FBBF24]'
                   }`}
                 >
                   <span
                     className={`w-1.5 h-1.5 rounded-full ${
                       hydratedProfiles.length > 0
-                        ? 'bg-[#34D399]'
+                        ? 'bg-[#7EDBA8]'
                         : loadingProfiles
                         ? 'bg-[#60A5FA]'
                         : 'bg-[#FBBF24]'
@@ -1889,10 +1889,10 @@ export default function FastFaceScannerV2({
                 </span>
               </div>
               <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="text-xs sm:text-sm font-mono tabular-nums font-extrabold text-[#F7F4EE]">
+                <span className="text-xs sm:text-sm font-mono tabular-nums font-extrabold text-[#F4F6F0]">
                   {clockState.clock}
                 </span>
-                <span className="text-[11px] font-mono tabular-nums text-[#9CA3AF]">
+                <span className="text-[11px] font-mono tabular-nums text-[#8DA396]">
                   • {clockState.dateStr}
                 </span>
               </div>
@@ -1905,12 +1905,12 @@ export default function FastFaceScannerV2({
               onClick={() => setMutedAudio((m) => !m)}
               title={mutedAudio ? 'Bật âm thanh đọc tên' : 'Tắt âm thanh'}
               aria-label={mutedAudio ? 'Bật âm thanh' : 'Tắt âm thanh'}
-              className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl bg-[#161A22] hover:bg-[#1F2530] border border-[#2B3240] text-[#F7F4EE] inline-flex items-center justify-center transition-colors motion-reduce:transition-none"
+              className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl bg-[#1B2821] hover:bg-[#24322A] border border-[#334539] text-[#F4F6F0] inline-flex items-center justify-center transition-colors motion-reduce:transition-none"
             >
               {mutedAudio ? (
-                <VolumeX size={16} className="text-[#F87171]" />
+                <VolumeX size={16} className="text-[#FF968E]" />
               ) : (
-                <Volume2 size={16} className="text-[#34D399]" />
+                <Volume2 size={16} className="text-[#7EDBA8]" />
               )}
             </button>
 
@@ -1920,7 +1920,7 @@ export default function FastFaceScannerV2({
               disabled={loadingProfiles}
               title="Đồng bộ danh sách khuôn mặt mới nhất"
               aria-label="Đồng bộ hồ sơ khuôn mặt"
-              className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl bg-[#161A22] hover:bg-[#1F2530] border border-[#2B3240] text-[#F7F4EE] inline-flex items-center justify-center disabled:opacity-50 transition-colors motion-reduce:transition-none"
+              className="lg:hidden w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl bg-[#1B2821] hover:bg-[#24322A] border border-[#334539] text-[#F4F6F0] inline-flex items-center justify-center disabled:opacity-50 transition-colors motion-reduce:transition-none"
             >
               <RefreshCw
                 size={16}
@@ -1935,7 +1935,7 @@ export default function FastFaceScannerV2({
                 onClose();
               }}
               aria-label="Đóng màn hình quét khuôn mặt"
-              className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl bg-[#C8432B] hover:bg-[#B83821] text-white inline-flex items-center justify-center transition-colors motion-reduce:transition-none"
+              className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl bg-[#C0522A] hover:bg-[#AA4622] text-white inline-flex items-center justify-center transition-colors motion-reduce:transition-none"
             >
               <X size={18} />
             </button>
@@ -1943,9 +1943,14 @@ export default function FastFaceScannerV2({
         </header>
 
         {/* MAIN BODY: Mobile Full-Screen Viewport | Desktop/Tablet Command View (lg:grid-cols-[1fr_360px]) */}
-        <div className="relative flex-1 min-h-0 w-full flex flex-col lg:grid lg:grid-cols-[1fr_360px] overflow-hidden bg-[#0D1015]">
+        <div className="relative flex-1 min-h-0 w-full flex flex-col lg:grid lg:grid-cols-[1fr_360px] overflow-hidden bg-[#101B15]">
         {/* LIVE CAMERA VIEWPORT (Left col on lg:, Fullscreen on mobile) */}
-        <div className="relative flex-1 min-h-0 w-full bg-[#0D1015] overflow-hidden flex flex-col justify-between">
+        <div
+          style={{
+            background: 'radial-gradient(circle at 50% 37%, #3B5547 0%, #1D3126 46%, #111E18 100%)',
+          }}
+          className="relative flex-1 min-h-0 w-full overflow-hidden flex flex-col justify-between"
+        >
           <video
             ref={videoRef}
             autoPlay
@@ -1964,8 +1969,8 @@ export default function FastFaceScannerV2({
               title="Chạm để làm mới định vị GPS"
               className={`pointer-events-auto min-h-[44px] sm:min-h-[40px] inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[11px] font-bold border shadow-md transition-colors cursor-pointer touch-manipulation ${
                 isGpsReady
-                  ? 'bg-[#0D1015] border-[#34D399]/80 text-[#34D399]'
-                  : 'bg-[#0D1015] border-[#F87171]/80 text-[#FCA5A5]'
+                  ? 'bg-[#101B15] border-[#7EDBA8]/75 text-[#7EDBA8]'
+                  : 'bg-[#101B15] border-[#FF968E]/75 text-[#FECACA]'
               }`}
             >
               <MapPin size={12} className="shrink-0" />
@@ -1975,7 +1980,7 @@ export default function FastFaceScannerV2({
             </button>
 
             {clockState.isBefore06 && (
-              <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[#0B253C] border border-[#60A5FA] text-[11px] font-bold text-[#93C5FD]">
+              <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[#172C3D] border border-[#60A5FA] text-[11px] font-bold text-[#93C5FD]">
                 Ca đêm &lt;06:00
               </span>
             )}
@@ -1983,28 +1988,28 @@ export default function FastFaceScannerV2({
 
           {/* Booting / Camera Permission Loading Overlay */}
           {(!engineReady || !cameraReady) && !cameraError && (
-            <div className="relative z-20 my-auto mx-auto max-w-sm w-[90%] bg-[#161A22] border border-[#2B3240] rounded-2xl p-5 text-center space-y-3.5 shadow-xl">
-              <div className="w-11 h-11 rounded-2xl bg-[#0B253C] border border-[#2B3240] flex items-center justify-center mx-auto text-[#34D399]">
+            <div className="relative z-20 my-auto mx-auto max-w-sm w-[90%] bg-[#1B2821] border border-[#334539] rounded-2xl p-5 text-center space-y-3.5 shadow-xl">
+              <div className="w-11 h-11 rounded-2xl bg-[#24322A] border border-[#334539] flex items-center justify-center mx-auto text-[#7EDBA8]">
                 <Loader2 size={22} className="animate-spin motion-reduce:animate-none" />
               </div>
               <div className="space-y-1">
-                <h3 className="text-sm font-extrabold text-[#F7F4EE]">
+                <h3 className="text-sm font-extrabold text-[#F4F6F0]">
                   {engineReady ? 'Đang kết nối ống kính Camera' : 'Đang nạp bộ nhận diện khuôn mặt'}
                 </h3>
-                <p className="text-xs text-[#B5AFA6] leading-relaxed">
+                <p className="text-xs text-[#B7C4B9] leading-relaxed">
                   {engineReady
                     ? 'Nhấn "Cho phép" quyền máy ảnh & vị trí trên trình duyệt để bắt đầu.'
                     : bootText}
                 </p>
               </div>
               <div className="space-y-1">
-                <div className="w-full bg-[#0D1015] border border-[#2B3240] rounded-full h-2 overflow-hidden">
+                <div className="w-full bg-[#101B15] border border-[#334539] rounded-full h-2 overflow-hidden">
                   <div
-                    className="bg-[#C8432B] h-full transition-all duration-150"
+                    className="bg-[#F29055] h-full transition-all duration-150"
                     style={{ width: `${engineReady ? 94 : Math.max(15, bootPct)}%` }}
                   />
                 </div>
-                <div className="flex items-center justify-between text-[10px] font-mono tabular-nums text-[#9CA3AF]">
+                <div className="flex items-center justify-between text-[10px] font-mono tabular-nums text-[#8DA396]">
                   <span>{hydratedProfiles.length > 0 ? `Đã đồng bộ ${hydratedProfiles.length} hồ sơ` : 'Đang kết nối D1...'}</span>
                   <span>{engineReady ? '94%' : `${Math.max(15, bootPct)}%`}</span>
                 </div>
@@ -2014,19 +2019,19 @@ export default function FastFaceScannerV2({
 
           {/* Camera Error State */}
           {cameraError && (
-            <div className="relative z-20 my-auto mx-auto max-w-sm w-[90%] bg-[#161A22] border border-[#DC2626] rounded-2xl p-5 text-center space-y-3.5 shadow-xl">
-              <div className="w-11 h-11 rounded-2xl bg-[#2A1416] border border-[#DC2626] flex items-center justify-center mx-auto text-[#F87171]">
+            <div className="relative z-20 my-auto mx-auto max-w-sm w-[90%] bg-[#1B2821] border border-[#F87171] rounded-2xl p-5 text-center space-y-3.5 shadow-xl">
+              <div className="w-11 h-11 rounded-2xl bg-[#3A1412] border border-[#F87171] flex items-center justify-center mx-auto text-[#FF968E]">
                 <CameraOff size={22} />
               </div>
               <div className="space-y-1">
-                <h3 className="text-base font-extrabold text-[#F7F4EE]">Chưa mở được máy ảnh</h3>
-                <p className="text-xs text-[#B5AFA6] leading-relaxed">{cameraError}</p>
+                <h3 className="text-base font-extrabold text-[#F4F6F0]">Chưa mở được máy ảnh</h3>
+                <p className="text-xs text-[#B7C4B9] leading-relaxed">{cameraError}</p>
               </div>
               <div className="flex flex-col sm:flex-row gap-2">
                 <button
                   type="button"
                   onClick={bootScannerHardware}
-                  className="flex-1 min-h-[46px] py-2.5 px-4 rounded-xl bg-[#C8432B] hover:bg-[#B83821] text-white font-extrabold text-xs inline-flex items-center justify-center gap-1.5"
+                  className="flex-1 min-h-[46px] py-2.5 px-4 rounded-xl bg-[#C0522A] hover:bg-[#AA4622] text-white font-extrabold text-xs inline-flex items-center justify-center gap-1.5"
                 >
                   <RefreshCw size={14} />
                   <span>Thử mở lại Camera</span>
@@ -2038,7 +2043,7 @@ export default function FastFaceScannerV2({
                       stopCameraAndGps();
                       onSwitchToV1();
                     }}
-                    className="flex-1 min-h-[46px] py-2.5 px-4 rounded-xl bg-[#0D1015] border border-[#2B3240] text-[#F7F4EE] font-bold text-xs"
+                    className="flex-1 min-h-[46px] py-2.5 px-4 rounded-xl bg-[#101B15] border border-[#334539] text-[#F4F6F0] font-bold text-xs"
                   >
                     Dùng bản Chụp (v1)
                   </button>
@@ -2055,41 +2060,41 @@ export default function FastFaceScannerV2({
                   data-testid="v2-punch-confirmed-card"
                   role="status"
                   aria-live="assertive"
-                  className="pointer-events-auto w-full max-w-sm max-h-[70dvh] overflow-y-auto bg-[#0D1015] border-2 border-[#34D399] rounded-2xl p-4 sm:p-5 shadow-2xl space-y-3 text-center"
+                  className="pointer-events-auto w-full max-w-sm max-h-[70dvh] overflow-y-auto bg-[#101B15] border-2 border-[#7EDBA8] rounded-2xl p-4 sm:p-5 shadow-2xl space-y-3 text-center"
                 >
                   <div className="flex items-center justify-center gap-2.5">
-                    <div className="w-11 h-11 rounded-2xl bg-[#15803D] border border-[#34D399] text-white flex items-center justify-center shrink-0">
+                    <div className="w-11 h-11 rounded-2xl bg-[#1E7550] border border-[#7EDBA8] text-white flex items-center justify-center shrink-0">
                       <CheckCircle2 size={24} />
                     </div>
                     <div className="text-left min-w-0">
-                      <span className="inline-block text-[10px] font-extrabold uppercase tracking-wider text-[#34D399]">
+                      <span className="inline-block text-[10px] font-extrabold uppercase tracking-wider text-[#7EDBA8]">
                         ĐÃ GHI NHẬN LƯỢT SỚM NHẤT
                       </span>
-                      <h3 className="text-base sm:text-lg font-extrabold text-[#F7F4EE] leading-tight truncate">
+                      <h3 className="text-base sm:text-lg font-extrabold text-[#F4F6F0] leading-tight truncate">
                         {trayNotice.fullname}
                       </h3>
-                      <p className="text-[11px] font-mono text-[#9CA3AF]">@{trayNotice.username}</p>
+                      <p className="text-[11px] font-mono text-[#8DA396]">@{trayNotice.username}</p>
                     </div>
                   </div>
 
-                  <div className="bg-[#161A22] border border-[#2B3240] rounded-xl p-3 flex items-center justify-between gap-2 text-left">
+                  <div className="bg-[#1B2821] border border-[#334539] rounded-xl p-3 flex items-center justify-between gap-2 text-left">
                     <div>
-                      <span className="block text-[10px] font-bold uppercase text-[#9CA3AF]">
+                      <span className="block text-[10px] font-bold uppercase text-[#8DA396]">
                         Lượt chấm
                       </span>
                       <span
                         className={`inline-block mt-0.5 px-2.5 py-0.5 rounded-lg text-white text-sm font-extrabold ${
-                          isCheckInLabel(trayNotice.punchType) ? 'bg-[#15803D]' : 'bg-[#2563EB]'
+                          isCheckInLabel(trayNotice.punchType) ? 'bg-[#1E7550]' : 'bg-[#C0522A]'
                         }`}
                       >
                         {trayNotice.punchType}
                       </span>
                     </div>
                     <div className="text-right">
-                      <span className="block text-[10px] font-bold uppercase text-[#9CA3AF]">
+                      <span className="block text-[10px] font-bold uppercase text-[#8DA396]">
                         Giờ ghi Sheet
                       </span>
-                      <span className="block mt-0.5 text-sm font-mono tabular-nums font-extrabold text-[#F7F4EE]">
+                      <span className="block mt-0.5 text-sm font-mono tabular-nums font-extrabold text-[#F4F6F0]">
                         {trayNotice.timeStr}
                       </span>
                       {trayNotice.syncState && (
@@ -2099,7 +2104,7 @@ export default function FastFaceScannerV2({
                               ? 'text-[#60A5FA]'
                               : trayNotice.syncState === 'QUEUED_OFFLINE'
                               ? 'text-[#FBBF24]'
-                              : 'text-[#34D399]'
+                              : 'text-[#7EDBA8]'
                           }`}
                         >
                           <CloudUpload size={11} />
@@ -2115,16 +2120,16 @@ export default function FastFaceScannerV2({
                     </div>
                   </div>
 
-                  <div className="bg-[#0B253C] border border-[#60A5FA]/40 rounded-xl px-3 py-2 text-left flex items-start gap-2">
-                    <ShieldCheck size={15} className="text-[#34D399] shrink-0 mt-0.5" />
-                    <p className="text-[11px] font-bold text-[#F7F4EE] leading-snug">
-                      <span className="text-[#34D399]">Bạn không cần quét lại!</span> Hệ thống tự khóa chấm lặp trong{' '}
+                  <div className="bg-[#172C3D] border border-[#60A5FA]/40 rounded-xl px-3 py-2 text-left flex items-start gap-2">
+                    <ShieldCheck size={15} className="text-[#7EDBA8] shrink-0 mt-0.5" />
+                    <p className="text-[11px] font-bold text-[#F4F6F0] leading-snug">
+                      <span className="text-[#7EDBA8]">Bạn không cần quét lại!</span> Hệ thống tự khóa chấm lặp trong{' '}
                       <span className="text-[#FBBF24]">15 phút</span>.
                     </p>
                   </div>
 
                   {trayNotice.scheduleWarningText && (
-                    <div className="rounded-xl bg-[#291F0F] border border-[#FBBF24]/50 px-3 py-2 flex items-center gap-2 text-[11px] font-bold text-[#FBBF24] text-left">
+                    <div className="rounded-xl bg-[#362614] border border-[#FBBF24]/50 px-3 py-2 flex items-center gap-2 text-[11px] font-bold text-[#FBBF24] text-left">
                       <Sparkles size={13} className="shrink-0" />
                       <span>{trayNotice.scheduleWarningText}</span>
                     </div>
@@ -2138,21 +2143,21 @@ export default function FastFaceScannerV2({
                       setVoterStreak(0);
                       setTrayNotice(null);
                     }}
-                    className="w-full min-h-[44px] py-2.5 px-4 rounded-xl bg-[#161A22] hover:bg-[#1F2530] border border-[#2B3240] text-xs font-extrabold text-[#F7F4EE] transition-colors"
+                    className="w-full min-h-[44px] py-2.5 px-4 rounded-xl bg-[#1B2821] hover:bg-[#24322A] border border-[#334539] text-xs font-extrabold text-[#F4F6F0] transition-colors"
                   >
                     Đã rõ • Quét người tiếp theo
                   </button>
                 </div>
               ) : trayNotice?.kind === 'SUBMITTING' ? (
-                <div className="pointer-events-auto w-full max-w-sm bg-[#0D1015] border-2 border-[#60A5FA] rounded-2xl p-5 text-center space-y-3 shadow-2xl">
-                  <div className="w-11 h-11 rounded-2xl bg-[#0B253C] border border-[#60A5FA] text-[#60A5FA] flex items-center justify-center mx-auto">
+                <div className="pointer-events-auto w-full max-w-sm bg-[#101B15] border-2 border-[#60A5FA] rounded-2xl p-5 text-center space-y-3 shadow-2xl">
+                  <div className="w-11 h-11 rounded-2xl bg-[#172C3D] border border-[#60A5FA] text-[#60A5FA] flex items-center justify-center mx-auto">
                     <Loader2 size={22} className="animate-spin motion-reduce:animate-none" />
                   </div>
                   <div className="space-y-1">
-                    <h3 className="text-sm sm:text-base font-extrabold text-[#F7F4EE]">
+                    <h3 className="text-sm sm:text-base font-extrabold text-[#F4F6F0]">
                       Đang ghi {trayNotice.punchType} • {trayNotice.fullname}
                     </h3>
-                    <p className="text-xs text-[#B5AFA6]">
+                    <p className="text-xs text-[#B7C4B9]">
                       Đồng bộ trực tiếp vào Google Sheet ✔️CHẤM CÔNG...
                     </p>
                   </div>
@@ -2162,10 +2167,10 @@ export default function FastFaceScannerV2({
                   data-testid="v2-smart-disambiguation-card"
                   role="alertdialog"
                   aria-labelledby="v2-disambiguation-title"
-                  className="pointer-events-auto w-full max-w-sm max-h-[70dvh] overflow-y-auto bg-[#0D1015] border-2 border-[#FBBF24] rounded-2xl p-4 sm:p-5 shadow-2xl space-y-3 text-left"
+                  className="pointer-events-auto w-full max-w-sm max-h-[70dvh] overflow-y-auto bg-[#101B15] border-2 border-[#FBBF24] rounded-2xl p-4 sm:p-5 shadow-2xl space-y-3 text-left"
                 >
                   <div className="flex items-start gap-2.5">
-                    <div className="w-10 h-10 rounded-xl bg-[#291F0F] border border-[#FBBF24] text-[#FBBF24] flex items-center justify-center shrink-0">
+                    <div className="w-10 h-10 rounded-xl bg-[#362614] border border-[#FBBF24] text-[#FBBF24] flex items-center justify-center shrink-0">
                       <AlertTriangle size={20} />
                     </div>
                     <div className="min-w-0 flex-1">
@@ -2174,7 +2179,7 @@ export default function FastFaceScannerV2({
                       </span>
                       <h3
                         id="v2-disambiguation-title"
-                        className="text-sm sm:text-base font-extrabold text-[#F7F4EE] leading-snug"
+                        className="text-sm sm:text-base font-extrabold text-[#F4F6F0] leading-snug"
                       >
                         {pendingDisambiguation.profile.fullname}
                       </h3>
@@ -2184,7 +2189,7 @@ export default function FastFaceScannerV2({
                     </div>
                   </div>
 
-                  <p className="text-xs text-[#D1D5DB] leading-relaxed bg-[#161A22] border border-[#2B3240] rounded-xl p-2.5">
+                  <p className="text-xs text-[#D3DDD5] leading-relaxed bg-[#1B2821] border border-[#334539] rounded-xl p-2.5">
                     {pendingDisambiguation.intent.guidanceDetail}
                   </p>
 
@@ -2194,7 +2199,7 @@ export default function FastFaceScannerV2({
                         type="button"
                         data-testid="v2-combo-out-and-supplement-btn"
                         onClick={() => handleResolvePendingDisambiguation('Ra ca', true)}
-                        className="w-full min-h-[48px] py-2.5 px-3.5 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-extrabold text-xs flex items-center justify-center gap-2 transition-colors"
+                        className="w-full min-h-[48px] py-2.5 px-3.5 rounded-xl bg-[#C0522A] hover:bg-[#AA4622] text-white font-extrabold text-xs flex items-center justify-center gap-2 transition-colors"
                       >
                         <LogOut size={16} className="shrink-0" />
                         <span>Chấm RA CA ngay + Báo quên Vào ca</span>
@@ -2203,7 +2208,7 @@ export default function FastFaceScannerV2({
                         type="button"
                         data-testid="v2-confirm-late-in-btn"
                         onClick={() => handleResolvePendingDisambiguation('Vào ca', false)}
-                        className="w-full min-h-[48px] py-2.5 px-3.5 rounded-xl bg-[#15803D] hover:bg-[#166534] text-white font-extrabold text-xs flex items-center justify-center gap-2 transition-colors"
+                        className="w-full min-h-[48px] py-2.5 px-3.5 rounded-xl bg-[#1E7550] hover:bg-[#175B3E] text-white font-extrabold text-xs flex items-center justify-center gap-2 transition-colors"
                       >
                         <LogIn size={16} className="shrink-0" />
                         <span>Tôi mới bắt đầu VÀO CA lúc này</span>
@@ -2215,7 +2220,7 @@ export default function FastFaceScannerV2({
                         type="button"
                         data-testid="v2-confirm-out-btn"
                         onClick={() => handleResolvePendingDisambiguation('Ra ca', false)}
-                        className="w-full min-h-[48px] py-2.5 px-3.5 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-extrabold text-xs flex items-center justify-center gap-2 transition-colors"
+                        className="w-full min-h-[48px] py-2.5 px-3.5 rounded-xl bg-[#C0522A] hover:bg-[#AA4622] text-white font-extrabold text-xs flex items-center justify-center gap-2 transition-colors"
                       >
                         <LogOut size={16} className="shrink-0" />
                         <span>Tôi đang RA CA (Kết thúc ca trước)</span>
@@ -2224,7 +2229,7 @@ export default function FastFaceScannerV2({
                         type="button"
                         data-testid="v2-confirm-in-btn"
                         onClick={() => handleResolvePendingDisambiguation('Vào ca', false)}
-                        className="w-full min-h-[48px] py-2.5 px-3.5 rounded-xl bg-[#15803D] hover:bg-[#166534] text-white font-extrabold text-xs flex items-center justify-center gap-2 transition-colors"
+                        className="w-full min-h-[48px] py-2.5 px-3.5 rounded-xl bg-[#1E7550] hover:bg-[#175B3E] text-white font-extrabold text-xs flex items-center justify-center gap-2 transition-colors"
                       >
                         <LogIn size={16} className="shrink-0" />
                         <span>Tôi đang VÀO CA mới</span>
@@ -2235,7 +2240,7 @@ export default function FastFaceScannerV2({
                   <button
                     type="button"
                     onClick={() => setPendingDisambiguation(null)}
-                    className="w-full min-h-[44px] py-2 px-3 rounded-xl bg-[#161A22] hover:bg-[#1F2530] border border-[#2B3240] text-xs font-bold text-[#9CA3AF] transition-colors"
+                    className="w-full min-h-[44px] py-2 px-3 rounded-xl bg-[#1B2821] hover:bg-[#24322A] border border-[#334539] text-xs font-bold text-[#B7C4B9] transition-colors"
                   >
                     Hủy / Quét lại khuôn mặt
                   </button>
@@ -2243,18 +2248,20 @@ export default function FastFaceScannerV2({
               ) : (
                 <>
                   <div
-                    className={`relative w-[min(220px,56vw)] h-[min(268px,36dvh)] sm:w-[256px] sm:h-[312px] rounded-[44px] sm:rounded-[48px] border-[3px] transition-colors duration-150 motion-reduce:transition-none ${reticleBorderColor}`}
+                    className={`relative w-[min(220px,56vw)] h-[min(268px,36dvh)] sm:w-[256px] sm:h-[312px] rounded-[44px] sm:rounded-[48px] border-[3px] border-dashed transition-colors duration-150 motion-reduce:transition-none ${
+                      hasFaceInView ? reticleBorderColor : 'border-[#FFE1BA]/85'
+                    }`}
                   >
-                    <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-[#0D1015] border border-[#2B3240] rounded-full px-3 py-0.5 flex items-center gap-1.5 whitespace-nowrap">
+                    <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-[#101B15] border border-[#334539] rounded-full px-3 py-0.5 flex items-center gap-1.5 whitespace-nowrap">
                       {[1, 2, 3].map((step) => (
                         <span
                           key={step}
                           className={`w-2 h-2 rounded-full ${
-                            voterStreak >= step ? 'bg-[#34D399]' : 'bg-[#2B3240]'
+                            voterStreak >= step ? 'bg-[#7EDBA8]' : 'bg-[#334539]'
                           }`}
                         />
                       ))}
-                      <span className="text-[10px] font-mono tabular-nums font-bold text-[#F7F4EE] ml-0.5">
+                      <span className="text-[10px] font-mono tabular-nums font-bold text-[#F4F6F0] ml-0.5">
                         {!isGpsReady
                           ? hasFaceInView
                             ? 'CHỜ GPS ≤25M'
@@ -2267,8 +2274,8 @@ export default function FastFaceScannerV2({
                   </div>
 
                   {/* Single Clean Solid Guidance Capsule */}
-                  <div className="mt-3.5 bg-[#0D1015] border border-[#2B3240] rounded-xl px-3.5 py-2 max-w-[340px] sm:max-w-md text-center shadow-lg">
-                    <p className="text-xs sm:text-sm font-bold text-[#F7F4EE] leading-snug">
+                  <div className="mt-3.5 bg-[#101B15]/95 border border-[#334539] rounded-xl px-3.5 py-2 max-w-[340px] sm:max-w-md text-center shadow-lg">
+                    <p className="text-xs sm:text-sm font-bold text-[#F4F6F0] leading-snug">
                       {liveGuidance}
                     </p>
                   </div>
@@ -2277,81 +2284,83 @@ export default function FastFaceScannerV2({
             </div>
           )}
 
-          {/* ERGONOMIC ONE-HANDED BOTTOM THUMB DOCK (Mobile & Tablet < lg) */}
-          <footer className="relative z-30 w-full bg-[#0D1015] border-t border-[#242B38] px-3 sm:px-5 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] shrink-0 lg:hidden">
+          {/* UNIFIED ERGONOMIC CONTROL BAR (Single set of camera/enroll/v1 actions across mobile & desktop) */}
+          <footer className="relative z-30 w-full bg-[#101B15] border-t border-[#2F4137] px-3 sm:px-5 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] shrink-0">
             <div className="max-w-xl mx-auto space-y-2">
-              {/* Contextual Status Banner (Cooldown / Max Punches / Error) OR Recent Chips */}
-              {trayNotice &&
-              trayNotice.kind !== 'SUCCESS' &&
-              trayNotice.kind !== 'SUBMITTING' ? (
-                <div
-                  className={`rounded-xl border px-3 py-2.5 bg-[#161A22] flex items-center justify-between gap-2.5 ${
-                    trayNotice.kind === 'COOLDOWN' ? 'border-[#FBBF24]' : 'border-[#F87171]'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div
-                      className={`w-9 h-9 rounded-lg flex items-center justify-center text-white shrink-0 ${
-                        trayNotice.kind === 'COOLDOWN' ? 'bg-[#B45309]' : 'bg-[#DC2626]'
-                      }`}
-                    >
-                      {trayNotice.kind === 'COOLDOWN' ? (
-                        <Clock size={18} />
-                      ) : (
-                        <AlertTriangle size={18} />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-xs sm:text-sm font-extrabold text-[#F7F4EE] truncate">
-                          {trayNotice.fullname}
-                        </span>
-                        {trayNotice.punchType && (
-                          <span className="px-1.5 py-0.5 rounded bg-[#0D1015] border border-[#2B3240] text-[10px] font-bold text-[#FBBF24]">
-                            {trayNotice.punchType}
-                          </span>
+              {/* Mobile-only Contextual Status / Recent Chips (Desktop shows these in Command Rail) */}
+              <div className="lg:hidden">
+                {trayNotice &&
+                trayNotice.kind !== 'SUCCESS' &&
+                trayNotice.kind !== 'SUBMITTING' ? (
+                  <div
+                    className={`rounded-xl border px-3 py-2.5 bg-[#1B2821] flex items-center justify-between gap-2.5 ${
+                      trayNotice.kind === 'COOLDOWN' ? 'border-[#FBBF24]' : 'border-[#FF968E]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div
+                        className={`w-9 h-9 rounded-lg flex items-center justify-center text-white shrink-0 ${
+                          trayNotice.kind === 'COOLDOWN' ? 'bg-[#B45309]' : 'bg-[#B93F36]'
+                        }`}
+                      >
+                        {trayNotice.kind === 'COOLDOWN' ? (
+                          <Clock size={18} />
+                        ) : (
+                          <AlertTriangle size={18} />
                         )}
                       </div>
-                      <p className="text-[11px] text-[#D1CEC7] leading-snug mt-0.5">
-                        {trayNotice.subMessage}
-                      </p>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs sm:text-sm font-extrabold text-[#F4F6F0] truncate">
+                            {trayNotice.fullname}
+                          </span>
+                          {trayNotice.punchType && (
+                            <span className="px-1.5 py-0.5 rounded bg-[#101B15] border border-[#334539] text-[10px] font-bold text-[#FBBF24]">
+                              {trayNotice.punchType}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-[#B7C4B9] leading-snug mt-0.5">
+                          {trayNotice.subMessage}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setTrayNotice(null)}
-                    className="min-h-[44px] sm:min-h-[36px] px-3 rounded-lg bg-[#0D1015] border border-[#2B3240] text-[11px] font-bold text-[#B5AFA6] shrink-0 touch-manipulation"
-                  >
-                    Đóng
-                  </button>
-                </div>
-              ) : recentPunches.length > 0 ? (
-                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#9CA3AF] shrink-0 mr-1">
-                    Vừa chấm:
-                  </span>
-                  {recentPunches.slice(0, 3).map((rp) => (
-                    <span
-                      key={rp.id}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#161A22] border border-[#2B3240] text-[11px] font-mono tabular-nums text-[#F7F4EE] shrink-0"
+                    <button
+                      type="button"
+                      onClick={() => setTrayNotice(null)}
+                      className="min-h-[44px] sm:min-h-[36px] px-3 rounded-lg bg-[#101B15] border border-[#334539] text-[11px] font-bold text-[#B7C4B9] shrink-0 touch-manipulation"
                     >
-                      <CheckCircle2 size={11} className="text-[#34D399]" />
-                      <span>
-                        {rp.fullname.split(' ').slice(-2).join(' ')} • {formatUnifiedPunchLabel(rp.punchType)} ({rp.timeShort})
-                      </span>
+                      Đóng
+                    </button>
+                  </div>
+                ) : recentPunches.length > 0 ? (
+                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#8DA396] shrink-0 mr-1">
+                      Vừa chấm:
                     </span>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex items-center justify-center gap-1.5 text-[11px] text-[#9CA3AF] text-center px-1">
-                  <ShieldCheck size={13} className="text-[#34D399] shrink-0" />
-                  <span className="truncate">
-                    Tự động luân phiên Vào ca ⇄ Ra ca • Giãn cách 15 phút/NV
-                  </span>
-                </div>
-              )}
+                    {recentPunches.slice(0, 3).map((rp) => (
+                      <span
+                        key={rp.id}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#1B2821] border border-[#334539] text-[11px] font-mono tabular-nums text-[#F4F6F0] shrink-0"
+                      >
+                        <CheckCircle2 size={11} className="text-[#7EDBA8]" />
+                        <span>
+                          {rp.fullname.split(' ').slice(-2).join(' ')} • {formatUnifiedPunchLabel(rp.punchType)} ({rp.timeShort})
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center gap-1.5 text-[11px] text-[#8DA396] text-center px-1">
+                    <ShieldCheck size={13} className="text-[#7EDBA8] shrink-0" />
+                    <span className="truncate">
+                      Tự động luân phiên Vào ca ⇄ Ra ca • Giãn cách 15 phút/NV
+                    </span>
+                  </div>
+                )}
+              </div>
 
-              {/* One-Handed Thumb Action Row (>=44px touch targets) */}
+              {/* Single Deduplicated Action Row (>=44px touch targets) */}
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <button
                   type="button"
@@ -2359,9 +2368,9 @@ export default function FastFaceScannerV2({
                   onClick={handleToggleCameraFacing}
                   title="Chuyển đổi Camera Trước / Camera Sau"
                   aria-label="Đổi camera trước hoặc sau"
-                  className="flex-1 min-w-0 min-h-[46px] px-2 sm:px-3 py-2 rounded-xl bg-[#161A22] hover:bg-[#1F2530] border border-[#2B3240] text-[11px] sm:text-xs font-extrabold text-[#F7F4EE] inline-flex items-center justify-center gap-1 sm:gap-1.5 transition-colors motion-reduce:transition-none touch-manipulation"
+                  className="flex-1 min-w-0 min-h-[46px] px-2 sm:px-3 py-2 rounded-xl bg-[#1B2821] hover:bg-[#24322A] border border-[#334539] text-[11px] sm:text-xs font-extrabold text-[#F4F6F0] inline-flex items-center justify-center gap-1 sm:gap-1.5 transition-colors motion-reduce:transition-none touch-manipulation"
                 >
-                  <SwitchCamera size={15} className="text-[#34D399] shrink-0" />
+                  <SwitchCamera size={15} className="text-[#7EDBA8] shrink-0" />
                   <span className="truncate">{cameraFacing === 'user' ? 'Cam sau' : 'Cam trước'}</span>
                 </button>
 
@@ -2374,7 +2383,7 @@ export default function FastFaceScannerV2({
                       setAdminPickerOpen(true);
                     }}
                     title="Chọn nhân viên để đăng ký khuôn mặt 5 góc"
-                    className="flex-1 min-w-0 min-h-[46px] px-2 sm:px-3 py-2 rounded-xl bg-[#0B253C] hover:bg-[#163654] border border-[#34D399]/60 text-[11px] sm:text-xs font-extrabold text-[#34D399] inline-flex items-center justify-center gap-1 sm:gap-1.5 transition-colors motion-reduce:transition-none touch-manipulation"
+                    className="flex-1 min-w-0 min-h-[46px] px-2 sm:px-3 py-2 rounded-xl bg-[#163626] hover:bg-[#1E4733] border border-[#7EDBA8]/55 text-[11px] sm:text-xs font-extrabold text-[#7EDBA8] inline-flex items-center justify-center gap-1 sm:gap-1.5 transition-colors motion-reduce:transition-none touch-manipulation"
                   >
                     <Users size={15} className="shrink-0" />
                     <span className="sm:hidden truncate">ĐK NV</span>
@@ -2390,7 +2399,7 @@ export default function FastFaceScannerV2({
                       setAdminSelectedStaff(null);
                       setEnrollModalOpen(true);
                     }}
-                    className="flex-1 min-w-0 min-h-[46px] px-2 sm:px-3 py-2 rounded-xl bg-[#C8432B] hover:bg-[#B83821] text-white text-[11px] sm:text-xs font-extrabold inline-flex items-center justify-center gap-1 sm:gap-1.5 transition-colors motion-reduce:transition-none touch-manipulation"
+                    className="flex-1 min-w-0 min-h-[46px] px-2 sm:px-3 py-2 rounded-xl bg-[#C0522A] hover:bg-[#AA4622] text-white text-[11px] sm:text-xs font-extrabold inline-flex items-center justify-center gap-1 sm:gap-1.5 transition-colors motion-reduce:transition-none touch-manipulation"
                   >
                     <UserPlus size={15} className="shrink-0" />
                     <span className="truncate">Đăng ký 5 góc</span>
@@ -2404,7 +2413,7 @@ export default function FastFaceScannerV2({
                       stopCameraAndGps();
                       onSwitchToV1();
                     }}
-                    className="flex-1 min-w-0 min-h-[46px] px-2 sm:px-3 py-2 rounded-xl bg-[#161A22] hover:bg-[#1F2530] border border-[#2B3240] text-[11px] sm:text-xs font-extrabold text-[#FBBF24] inline-flex items-center justify-center gap-1 sm:gap-1.5 transition-colors motion-reduce:transition-none touch-manipulation"
+                    className="flex-1 min-w-0 min-h-[46px] px-2 sm:px-3 py-2 rounded-xl bg-[#1B2821] hover:bg-[#24322A] border border-[#334539] text-[11px] sm:text-xs font-extrabold text-[#F59B62] inline-flex items-center justify-center gap-1 sm:gap-1.5 transition-colors motion-reduce:transition-none touch-manipulation"
                   >
                     <Camera size={14} className="shrink-0" />
                     <span className="sm:hidden truncate">Bản v1</span>
@@ -2416,44 +2425,44 @@ export default function FastFaceScannerV2({
           </footer>
         </div>
 
-        {/* DESKTOP / TABLET COMMAND RAIL (lg:grid-cols-[1fr_360px] Right Column) */}
-        <aside className="hidden lg:flex flex-col w-[360px] bg-[#0D1015] border-l border-[#242B38] p-4 gap-3.5 overflow-y-auto shrink-0">
+        {/* DESKTOP / TABLET COMMAND RAIL (lg:grid-cols-[1fr_360px] Right Column: Telemetry + Live Log only, no duplicate footer buttons) */}
+        <aside className="hidden lg:flex flex-col w-[360px] bg-[#101B15] border-l border-[#2F4137] p-4 gap-3.5 overflow-y-auto shrink-0">
           {/* Station Telemetry & GPS Status */}
-          <div className="rounded-2xl bg-[#161A22] border border-[#2B3240] p-3.5 space-y-2.5">
+          <div className="rounded-2xl bg-[#1B2821] border border-[#334539] p-3.5 space-y-2.5">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#9CA3AF]">
+              <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#8DA396]">
                 Trạng thái trạm Kiosk
               </span>
               <span
                 className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono tabular-nums font-bold border ${
                   isGpsReady
-                    ? 'bg-[#0F291E] border-[#34D399]/60 text-[#34D399]'
-                    : 'bg-[#2A1416] border-[#F87171]/60 text-[#FCA5A5]'
+                    ? 'bg-[#163626] border-[#7EDBA8]/60 text-[#7EDBA8]'
+                    : 'bg-[#3A1412] border-[#FF968E]/60 text-[#FECACA]'
                 }`}
               >
                 <MapPin size={10} />
                 {isGpsReady ? 'GPS Hợp lệ' : 'Chờ GPS'}
               </span>
             </div>
-            <p className="text-xs font-mono tabular-nums font-bold text-[#F7F4EE]">
+            <p className="text-xs font-mono tabular-nums font-bold text-[#F4F6F0]">
               {localGps.statusText}
             </p>
             <div className="grid grid-cols-2 gap-2 pt-1">
               <button
                 type="button"
                 onClick={startStationGpsWatch}
-                className="min-h-[40px] px-2.5 py-1.5 rounded-xl bg-[#0D1015] hover:bg-[#1F2530] border border-[#2B3240] text-[11px] font-bold text-[#F7F4EE] inline-flex items-center justify-center gap-1.5 transition-colors"
+                className="min-h-[40px] px-2.5 py-1.5 rounded-xl bg-[#101B15] hover:bg-[#24322A] border border-[#334539] text-[11px] font-bold text-[#F4F6F0] inline-flex items-center justify-center gap-1.5 transition-colors"
               >
-                <MapPin size={13} className="text-[#34D399]" />
+                <MapPin size={13} className="text-[#7EDBA8]" />
                 <span>Làm mới GPS</span>
               </button>
               <button
                 type="button"
                 onClick={() => void syncProfilesAndAttendanceState(true)}
                 disabled={loadingProfiles}
-                className="min-h-[40px] px-2.5 py-1.5 rounded-xl bg-[#0D1015] hover:bg-[#1F2530] border border-[#2B3240] text-[11px] font-bold text-[#F7F4EE] inline-flex items-center justify-center gap-1.5 disabled:opacity-50 transition-colors"
+                className="min-h-[40px] px-2.5 py-1.5 rounded-xl bg-[#101B15] hover:bg-[#24322A] border border-[#334539] text-[11px] font-bold text-[#F4F6F0] inline-flex items-center justify-center gap-1.5 disabled:opacity-50 transition-colors"
               >
-                <RefreshCw size={13} className={loadingProfiles ? 'animate-spin' : 'text-[#60A5FA]'} />
+                <RefreshCw size={13} className={loadingProfiles ? 'animate-spin' : 'text-[#F59B62]'} />
                 <span>Đồng bộ ({hydratedProfiles.length})</span>
               </button>
             </div>
@@ -2462,21 +2471,21 @@ export default function FastFaceScannerV2({
           {/* Contextual Alert (Cooldown / Max Punches / Error) */}
           {trayNotice && trayNotice.kind !== 'SUCCESS' && trayNotice.kind !== 'SUBMITTING' && (
             <div
-              className={`rounded-2xl border p-3 bg-[#161A22] space-y-2 ${
-                trayNotice.kind === 'COOLDOWN' ? 'border-[#FBBF24]' : 'border-[#F87171]'
+              className={`rounded-2xl border p-3 bg-[#1B2821] space-y-2 ${
+                trayNotice.kind === 'COOLDOWN' ? 'border-[#FBBF24]' : 'border-[#FF968E]'
               }`}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <div
                     className={`w-8 h-8 rounded-lg flex items-center justify-center text-white shrink-0 ${
-                      trayNotice.kind === 'COOLDOWN' ? 'bg-[#B45309]' : 'bg-[#DC2626]'
+                      trayNotice.kind === 'COOLDOWN' ? 'bg-[#B45309]' : 'bg-[#B93F36]'
                     }`}
                   >
                     {trayNotice.kind === 'COOLDOWN' ? <Clock size={16} /> : <AlertTriangle size={16} />}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-extrabold text-[#F7F4EE] truncate">{trayNotice.fullname}</p>
+                    <p className="text-xs font-extrabold text-[#F4F6F0] truncate">{trayNotice.fullname}</p>
                     {trayNotice.punchType && (
                       <span className="text-[10px] font-bold text-[#FBBF24]">{trayNotice.punchType}</span>
                     )}
@@ -2485,22 +2494,22 @@ export default function FastFaceScannerV2({
                 <button
                   type="button"
                   onClick={() => setTrayNotice(null)}
-                  className="px-2.5 py-1 rounded-lg bg-[#0D1015] border border-[#2B3240] text-[10px] font-bold text-[#B5AFA6] hover:text-[#F7F4EE]"
+                  className="px-2.5 py-1 rounded-lg bg-[#101B15] border border-[#334539] text-[10px] font-bold text-[#B7C4B9] hover:text-[#F4F6F0]"
                 >
                   Đóng
                 </button>
               </div>
-              <p className="text-[11px] text-[#D1CEC7] leading-snug">{trayNotice.subMessage}</p>
+              <p className="text-[11px] text-[#D3DDD5] leading-snug">{trayNotice.subMessage}</p>
             </div>
           )}
 
           {/* Live Station Log Rail */}
-          <div className="flex-1 min-h-[160px] rounded-2xl bg-[#161A22] border border-[#2B3240] p-3.5 flex flex-col gap-2.5 overflow-hidden">
-            <div className="flex items-center justify-between gap-2 border-b border-[#242B38] pb-2">
-              <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#9CA3AF]">
+          <div className="flex-1 min-h-[160px] rounded-2xl bg-[#1B2821] border border-[#334539] p-3.5 flex flex-col gap-2.5 overflow-hidden">
+            <div className="flex items-center justify-between gap-2 border-b border-[#2F4137] pb-2">
+              <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#8DA396]">
                 Nhật ký trạm trực tiếp
               </span>
-              <span className="px-2 py-0.5 rounded-full bg-[#0D1015] border border-[#2B3240] text-[10px] font-mono tabular-nums font-bold text-[#34D399]">
+              <span className="px-2 py-0.5 rounded-full bg-[#101B15] border border-[#334539] text-[10px] font-mono tabular-nums font-bold text-[#7EDBA8]">
                 {recentPunches.length} lượt
               </span>
             </div>
@@ -2510,15 +2519,15 @@ export default function FastFaceScannerV2({
                 {recentPunches.map((rp) => (
                   <div
                     key={rp.id}
-                    className="rounded-xl bg-[#0D1015] border border-[#2B3240] px-3 py-2 flex items-center justify-between gap-2"
+                    className="rounded-xl bg-[#101B15] border border-[#334539] px-3 py-2 flex items-center justify-between gap-2"
                   >
                     <div className="min-w-0">
-                      <p className="text-xs font-extrabold text-[#F7F4EE] truncate">{rp.fullname}</p>
-                      <p className="text-[10.5px] font-mono tabular-nums text-[#9CA3AF] mt-0.5">
+                      <p className="text-xs font-extrabold text-[#F4F6F0] truncate">{rp.fullname}</p>
+                      <p className="text-[10.5px] font-mono tabular-nums text-[#8DA396] mt-0.5">
                         {formatUnifiedPunchLabel(rp.punchType)} • {rp.timeShort}
                       </p>
                     </div>
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#0F291E] border border-[#34D399]/50 text-[10px] font-bold text-[#34D399] shrink-0">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#163626] border border-[#7EDBA8]/50 text-[10px] font-bold text-[#7EDBA8] shrink-0">
                       <CheckCircle2 size={11} />
                       {rp.photoUploaded ? 'Đã lưu' : 'Ghi Sheet'}
                     </span>
@@ -2526,68 +2535,13 @@ export default function FastFaceScannerV2({
                 ))}
               </div>
             ) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-center px-3 py-6 text-[#9CA3AF] space-y-1.5">
-                <ShieldCheck size={22} className="text-[#34D399]" />
-                <p className="text-xs font-bold text-[#F7F4EE]">Sẵn sàng quét tự động</p>
+              <div className="flex-1 flex flex-col items-center justify-center text-center px-3 py-6 text-[#8DA396] space-y-1.5">
+                <ShieldCheck size={22} className="text-[#7EDBA8]" />
+                <p className="text-xs font-bold text-[#F4F6F0]">Sẵn sàng quét tự động</p>
                 <p className="text-[11px] leading-snug">
                   Tự động luân phiên Vào ca ⇄ Ra ca • Giãn cách 15 phút/NV
                 </p>
               </div>
-            )}
-          </div>
-
-          {/* Desktop Quick Controls: Camera Facing, Admin Enroll, Self Enroll, Switch V1 */}
-          <div className="space-y-2 shrink-0">
-            <button
-              type="button"
-              onClick={handleToggleCameraFacing}
-              className="w-full min-h-[44px] px-3 py-2 rounded-xl bg-[#161A22] hover:bg-[#1F2530] border border-[#2B3240] text-xs font-extrabold text-[#F7F4EE] inline-flex items-center justify-center gap-1.5 transition-colors"
-            >
-              <SwitchCamera size={15} className="text-[#34D399] shrink-0" />
-              <span>Chuyển sang {cameraFacing === 'user' ? 'Camera sau' : 'Camera trước'}</span>
-            </button>
-
-            {isAdminAccount && (
-              <button
-                type="button"
-                onClick={() => {
-                  stopCameraAndGps();
-                  setAdminPickerOpen(true);
-                }}
-                className="w-full min-h-[44px] px-3 py-2 rounded-xl bg-[#0B253C] hover:bg-[#163654] border border-[#34D399]/60 text-xs font-extrabold text-[#34D399] inline-flex items-center justify-center gap-1.5 transition-colors"
-              >
-                <Users size={15} className="shrink-0" />
-                <span>Đăng ký khuôn mặt nhân viên</span>
-              </button>
-            )}
-
-            {!isAdminAccount && showSelfEnrollPrompt && (
-              <button
-                type="button"
-                onClick={() => {
-                  stopCameraAndGps();
-                  setAdminSelectedStaff(null);
-                  setEnrollModalOpen(true);
-                }}
-                className="w-full min-h-[44px] px-3 py-2 rounded-xl bg-[#C8432B] hover:bg-[#B83821] text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition-colors"
-              >
-                <UserPlus size={15} className="shrink-0" />
-                <span>Đăng ký khuôn mặt 5 góc</span>
-              </button>
-            )}
-
-            {onSwitchToV1 && (
-              <button
-                type="button"
-                onClick={() => {
-                  stopCameraAndGps();
-                  onSwitchToV1();
-                }}
-                className="w-full min-h-[44px] px-3 py-2 rounded-xl bg-[#161A22] hover:bg-[#1F2530] border border-[#2B3240] text-xs font-extrabold text-[#FBBF24] inline-flex items-center justify-center gap-1.5 transition-colors"
-              >
-                <Camera size={14} className="shrink-0" />
-                <span>Chuyển sang Chụp ảnh (v1)</span>
-              </button>
             )}
           </div>
         </aside>

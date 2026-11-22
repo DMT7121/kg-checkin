@@ -15,7 +15,7 @@ import {
   salaryMonthLabel,
   salaryTypeLabel,
 } from '../types/salary';
-import { formatVnd } from '../utils/formatCurrency';
+import { formatMoneyInput, formatVnd } from '../utils/formatCurrency';
 import { KgButton, KgStatusBadge } from './KgDesignSystem';
 
 export interface EmployeeSalaryCardProps {
@@ -46,7 +46,7 @@ export default function EmployeeSalaryCard({
   );
   const [proposedAmount, setProposedAmount] = useState(() => {
     const val = payrollRecord?.salaryAmount ?? payrollRecord?.baseSalaryPerHour ?? 0;
-    return val > 0 ? String(val) : '';
+    return val > 0 ? formatMoneyInput(String(val)) : '';
   });
   const [reason, setReason] = useState('');
   const [formError, setFormError] = useState('');
@@ -61,7 +61,7 @@ export default function EmployeeSalaryCard({
       }
       const amt = payrollRecord.salaryAmount ?? payrollRecord.baseSalaryPerHour ?? 0;
       if (amt > 0) {
-        setProposedAmount(String(amt));
+        setProposedAmount(formatMoneyInput(String(amt)));
       }
       prefetchedFromRecordRef.current = true;
     }
@@ -108,7 +108,8 @@ export default function EmployeeSalaryCard({
 
   const submit = async () => {
     setFormError('');
-    if (!Number(proposedAmount) || Number(proposedAmount) <= 0) {
+    const numericProposedAmount = Number(String(proposedAmount).replace(/\D/g, '')) || 0;
+    if (!numericProposedAmount || numericProposedAmount <= 0) {
       setFormError('Vui lòng nhập mức lương đề xuất hợp lệ.');
       return;
     }
@@ -124,7 +125,7 @@ export default function EmployeeSalaryCard({
         fullname: currentUser.fullname,
         month,
         proposedType,
-        proposedAmount: Number(proposedAmount),
+        proposedAmount: numericProposedAmount,
         reason: reason.trim(),
       });
       if (!res?.ok) {
@@ -202,12 +203,12 @@ export default function EmployeeSalaryCard({
                 Mức lương đề xuất (VNĐ)
               </span>
               <input
-                type="number"
-                min="0"
+                type="text"
+                inputMode="numeric"
                 value={proposedAmount}
-                onChange={(event) => setProposedAmount(event.target.value)}
-                placeholder={proposedType === 'hourly' ? 'Ví dụ: 26000' : 'Ví dụ: 8000000'}
-                className="w-full rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface)] px-3 py-2.5 text-right text-sm font-mono tabular-nums font-black text-[var(--kg-text)] outline-none focus:ring-2 focus:ring-[var(--kg-primary)] min-h-[44px]"
+                onChange={(event) => setProposedAmount(formatMoneyInput(event.target.value))}
+                placeholder={proposedType === 'hourly' ? 'Ví dụ: 26.000' : 'Ví dụ: 8.000.000'}
+                className="w-full rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface)] px-3 py-2.5 text-right text-base sm:text-sm font-mono tabular-nums font-black text-[var(--kg-text)] outline-none focus:ring-2 focus:ring-[var(--kg-primary)] min-h-[44px]"
               />
             </label>
           </div>

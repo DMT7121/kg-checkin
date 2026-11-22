@@ -165,10 +165,10 @@ export default function SyncVaultDrawer({
     >
       <div className="space-y-4">
         {/* Connection & Sync Summary */}
-        <div className="p-3.5 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+        <div className="p-3.5 rounded-2xl bg-[var(--kg-surface-2)] border border-[var(--kg-border)] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <div className="flex items-center gap-3 min-w-0">
             <div
-              className={`w-10 h-10 rounded-xl border flex items-center justify-center flex-shrink-0 ${
+              className={`w-10 h-10 rounded-[11px] border flex items-center justify-center flex-shrink-0 ${
                 !isOnline
                   ? 'bg-[var(--kg-danger-soft)] border-[var(--kg-danger)]/25 text-[var(--kg-danger)]'
                   : isSyncing
@@ -237,7 +237,7 @@ export default function SyncVaultDrawer({
                 return (
                   <div
                     key={entry.checkinId}
-                    className="p-3.5 rounded-xl bg-[var(--kg-danger-soft)]/60 border border-[var(--kg-danger)]/25 space-y-2.5"
+                    className="p-3.5 rounded-2xl bg-[var(--kg-danger-soft)]/70 border border-[var(--kg-danger)]/25 space-y-2.5"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">

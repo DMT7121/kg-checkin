@@ -47,6 +47,20 @@ const DEFAULT_SHIFTS = [
   'XUỐNG CA SAU CÙNG',
 ];
 
+function shortPhaseLabel(phase: string): string {
+  if (phase.includes('ĐẦU CA')) return 'Đầu ca';
+  if (phase.includes('CUỐI CA')) return 'Cuối ca';
+  return phase;
+}
+
+function shortShiftLabel(shift: string): string {
+  if (shift.startsWith('CA 15H')) return 'Ca 15h';
+  if (shift.startsWith('CA 17H')) return 'Ca 17h';
+  if (shift.includes('LẦN 1')) return 'Xuống ca 1';
+  if (shift.includes('SAU CÙNG')) return 'Xuống ca cuối';
+  return shift;
+}
+
 export default function AdminChecklistConfig() {
   const currentUser = useAppStore((s) => s.currentUser);
   if (!isAdminUser(currentUser)) return null;
@@ -326,7 +340,7 @@ function AdminChecklistConfigContent() {
         moduleId="checklist"
         title="Cấu hình Checklist Phân Khu"
         description="Thiết lập danh mục công việc, phân loại theo ca trực và định cấu hình các công việc con."
-        eyebrow="Cấu hình vận hành"
+        eyebrow="Điều hành · Checklist"
         tipTitle="Hướng dẫn Cấu hình Checklist"
         tips={[
           'Phân loại theo khu vực: Khu A (Sảnh/Bàn), B (Bar/Thu ngân), C (Bếp/Kho), D & E (Vệ sinh).',
@@ -336,8 +350,8 @@ function AdminChecklistConfigContent() {
       />
 
       {isDirty && (
-        <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
-          <div className="flex items-start sm:items-center gap-2 text-amber-800 dark:text-amber-300 font-bold">
+        <div className="rounded-2xl border border-[var(--kg-warning)]/40 bg-[var(--kg-warning-soft)] px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+          <div className="flex items-start sm:items-center gap-2 text-[var(--kg-warning)] font-bold">
             <AlertTriangle size={15} className="flex-shrink-0 mt-0.5 sm:mt-0" />
             <span>Bạn có thay đổi danh mục checklist chưa lưu lên Google Sheets.</span>
           </div>
@@ -345,7 +359,7 @@ function AdminChecklistConfigContent() {
             type="button"
             onClick={() => void handleSaveAll()}
             disabled={isSaving}
-            className="w-full sm:w-auto min-h-[44px] sm:min-h-[36px] px-4 py-1.5 rounded-xl bg-[var(--kg-primary)] text-white font-extrabold inline-flex items-center justify-center gap-1.5 shadow-xs whitespace-nowrap shrink-0"
+            className="w-full sm:w-auto min-h-[44px] sm:min-h-[36px] px-4 py-1.5 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] font-extrabold inline-flex items-center justify-center gap-1.5 shadow-xs whitespace-nowrap shrink-0"
           >
             {isSaving ? <Loader2 size={13} className="animate-spin shrink-0" /> : <Save size={13} className="shrink-0" />}
             <span>Lưu ngay</span>
@@ -370,7 +384,7 @@ function AdminChecklistConfigContent() {
             <button
               type="button"
               onClick={() => void fetchConfig(false)}
-              className="min-h-[44px] sm:min-h-[38px] flex items-center justify-center bg-[var(--kg-surface-soft)] text-[var(--kg-text)] hover:bg-[var(--kg-border)]/40 border border-[var(--kg-border)] px-3.5 py-2 rounded-xl font-bold text-xs transition-colors whitespace-nowrap"
+              className="min-h-[44px] sm:min-h-[38px] flex items-center justify-center bg-[var(--kg-surface-2)] text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] px-3.5 py-2 rounded-xl font-bold text-xs transition-colors whitespace-nowrap"
             >
               <RefreshCw size={14} className="mr-1.5 flex-shrink-0" />
               <span>Tải lại</span>
@@ -389,7 +403,7 @@ function AdminChecklistConfigContent() {
               type="button"
               onClick={() => void handleSaveAll()}
               disabled={isSaving}
-              className="col-span-2 sm:col-span-1 min-h-[44px] sm:min-h-[38px] flex items-center justify-center bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white px-4 py-2 rounded-xl font-bold text-xs transition-all disabled:opacity-50 shadow-xs whitespace-nowrap"
+              className="col-span-2 sm:col-span-1 min-h-[44px] sm:min-h-[38px] flex items-center justify-center bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] px-4 py-2 rounded-xl font-bold text-xs transition-all disabled:opacity-50 shadow-xs whitespace-nowrap"
             >
               {isSaving ? (
                 <Loader2 size={14} className="mr-1.5 animate-spin flex-shrink-0" />
@@ -401,79 +415,177 @@ function AdminChecklistConfigContent() {
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-          <div className="relative">
-            <Search
-              size={14}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--kg-text-muted)] pointer-events-none"
-            />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm tiêu đề, mô tả, mã..."
-              aria-label="Tìm hạng mục checklist"
-              className="w-full min-h-[44px] sm:min-h-[38px] pl-9 pr-10 py-2 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-base sm:text-xs font-semibold text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
-            />
-            {searchQuery && (
+        {/* Toast Touch Phase & Shift Pill Selectors */}
+        <div className="space-y-2.5">
+          <div
+            className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar pb-0.5 sm:flex-wrap sm:overflow-visible"
+            role="group"
+            aria-label="Chọn phân loại ca"
+          >
+            <button
+              type="button"
+              onClick={() => setFilterPhase('ALL')}
+              className={`kg-filter-pill min-h-[44px] sm:min-h-[36px] shrink-0 px-3 py-1.5 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${
+                filterPhase === 'ALL'
+                  ? 'kg-filter-pill--active bg-[var(--kg-nav-active)] border-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)]'
+                  : 'bg-[var(--kg-surface-2)] border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
+              }`}
+            >
+              <span>Tất cả giai đoạn</span>
+              <span
+                className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono tabular-nums font-extrabold ${
+                  filterPhase === 'ALL'
+                    ? 'bg-[var(--kg-nav-active-fg)]/15 text-[var(--kg-nav-active-fg)]'
+                    : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)]'
+                }`}
+              >
+                {items.length}
+              </span>
+            </button>
+            {availablePhases.map((p) => {
+              const active = filterPhase === p;
+              const count = items.filter((i) => i.phase === p).length;
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setFilterPhase(active ? 'ALL' : p)}
+                  className={`kg-filter-pill min-h-[44px] sm:min-h-[36px] shrink-0 px-3 py-1.5 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${
+                    active
+                      ? 'kg-filter-pill--active bg-[var(--kg-nav-active)] border-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)]'
+                      : 'bg-[var(--kg-surface-2)] border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
+                  }`}
+                >
+                  <span>{shortPhaseLabel(p)}</span>
+                  <span
+                    className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono tabular-nums font-extrabold ${
+                      active
+                        ? 'bg-[var(--kg-nav-active-fg)]/15 text-[var(--kg-nav-active-fg)]'
+                        : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)]'
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div
+            className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar pb-0.5 sm:flex-wrap sm:overflow-visible"
+            role="group"
+            aria-label="Chọn ca trực hoặc khu checklist"
+          >
+            <button
+              type="button"
+              onClick={() => setFilterShift('ALL')}
+              className={`kg-filter-pill min-h-[44px] sm:min-h-[36px] shrink-0 px-3 py-1.5 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${
+                filterShift === 'ALL'
+                  ? 'kg-filter-pill--active bg-[var(--kg-nav-active)] border-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)]'
+                  : 'bg-[var(--kg-surface-2)] border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
+              }`}
+            >
+              <span>Tất cả ca</span>
+            </button>
+            {availableShifts.map((s) => {
+              const active = filterShift === s;
+              const count = items.filter((i) => i.shift === s).length;
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setFilterShift(active ? 'ALL' : s)}
+                  className={`kg-filter-pill min-h-[44px] sm:min-h-[36px] shrink-0 px-3 py-1.5 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${
+                    active
+                      ? 'kg-filter-pill--active bg-[var(--kg-nav-active)] border-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)]'
+                      : 'bg-[var(--kg-surface-2)] border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
+                  }`}
+                >
+                  <span>{shortShiftLabel(s)}</span>
+                  <span
+                    className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono tabular-nums font-extrabold ${
+                      active
+                        ? 'bg-[var(--kg-nav-active-fg)]/15 text-[var(--kg-nav-active-fg)]'
+                        : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)]'
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {availableSections.length > 0 && (
+            <div
+              className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar pb-0.5 sm:flex-wrap sm:overflow-visible"
+              role="group"
+              aria-label="Chọn phần khu trực"
+            >
               <button
                 type="button"
-                aria-label="Xóa từ khóa tìm kiếm"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 inline-flex items-center justify-center rounded-lg text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface)]"
+                onClick={() => setFilterSection('ALL')}
+                className={`kg-filter-pill min-h-[44px] sm:min-h-[36px] shrink-0 px-3 py-1.5 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${
+                  filterSection === 'ALL'
+                    ? 'kg-filter-pill--active bg-[var(--kg-nav-active)] border-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)]'
+                    : 'bg-[var(--kg-surface-2)] border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
+                }`}
               >
-                <X size={13} />
+                <span>Tất cả phần</span>
               </button>
-            )}
-          </div>
-          <select
-            value={filterPhase}
-            onChange={(e) => setFilterPhase(e.target.value)}
-            aria-label="Lọc phân loại checklist"
-            className="min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-base sm:text-xs font-bold text-[var(--kg-text)]"
-          >
-            <option value="ALL">Tất cả phân loại (Phase)</option>
-            {availablePhases.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
-          <select
-            value={filterShift}
-            onChange={(e) => setFilterShift(e.target.value)}
-            aria-label="Lọc ca làm việc checklist"
-            className="min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-base sm:text-xs font-bold text-[var(--kg-text)]"
-          >
-            <option value="ALL">Tất cả ca trực (Shift)</option>
-            {availableShifts.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-          <div className="flex gap-2">
-            <select
-              value={filterSection}
-              onChange={(e) => setFilterSection(e.target.value)}
-              aria-label="Lọc phần checklist"
-              className="flex-1 min-w-0 min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-base sm:text-xs font-bold text-[var(--kg-text)]"
-            >
-              <option value="ALL">Tất cả phần (Section)</option>
-              {availableSections.map((sec) => (
-                <option key={sec} value={sec}>
-                  {sec}
-                </option>
-              ))}
-            </select>
+              {availableSections.map((sec) => {
+                const active = filterSection === sec;
+                return (
+                  <button
+                    key={sec}
+                    type="button"
+                    onClick={() => setFilterSection(active ? 'ALL' : sec)}
+                    className={`kg-filter-pill min-h-[44px] sm:min-h-[36px] shrink-0 px-3 py-1.5 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${
+                      active
+                        ? 'kg-filter-pill--active bg-[var(--kg-nav-active)] border-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)]'
+                        : 'bg-[var(--kg-surface-2)] border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
+                    }`}
+                  >
+                    <span>{sec}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Search + Reset Row */}
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="relative flex-1 min-w-0">
+              <Search
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--kg-text-muted)] pointer-events-none"
+              />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Tìm tiêu đề, mô tả, mã hạng mục..."
+                aria-label="Tìm hạng mục checklist"
+                className="w-full min-h-[44px] sm:min-h-[38px] pl-9 pr-10 py-2 rounded-xl bg-[var(--kg-surface-2)] border border-[var(--kg-border)] text-base sm:text-xs font-semibold text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  aria-label="Xóa từ khóa tìm kiếm"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-8 sm:h-8 inline-flex items-center justify-center rounded-lg text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface)]"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
             {hasActiveFilter && (
               <button
                 type="button"
                 onClick={resetFilters}
-                className="min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface)] text-xs font-bold text-[var(--kg-accent-ink)] shrink-0 whitespace-nowrap"
+                className="min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)] text-xs font-bold text-[var(--kg-primary-ink)] shrink-0 whitespace-nowrap"
               >
-                Xóa lọc
+                Xóa bộ lọc
               </button>
             )}
           </div>
@@ -508,7 +620,7 @@ function AdminChecklistConfigContent() {
           />
         ) : (
           <>
-            {/* Mobile & Tablet Card List (< lg) — zero horizontal overflow */}
+            {/* Mobile & Tablet Card List (< lg) — >= 44px touch targets */}
             <div className="lg:hidden space-y-2.5">
               {filteredItems.map((item) => {
                 const subtaskCount = item.subtasksText
@@ -517,17 +629,17 @@ function AdminChecklistConfigContent() {
                 return (
                   <article
                     key={item.id}
-                    className="rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)]/60 p-3.5 space-y-2.5"
+                    className="rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)] p-3.5 space-y-2.5"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex flex-wrap items-center gap-1.5 min-w-0">
                         <span className="px-2 py-0.5 rounded-md bg-[var(--kg-surface)] border border-[var(--kg-border)] font-mono tabular-nums text-[11px] font-black text-[var(--kg-text)]">
                           #{item.no}
                         </span>
-                        <span className="px-2 py-0.5 rounded-md bg-blue-500/15 text-blue-700 dark:text-blue-300 text-[10px] font-black uppercase truncate max-w-[180px]">
+                        <span className="px-2 py-0.5 rounded-md bg-[var(--kg-info-soft)] text-[var(--kg-info)] text-[10px] font-black uppercase truncate max-w-[180px]">
                           {item.phase}
                         </span>
-                        <span className="px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-800 dark:text-amber-300 text-[10px] font-black uppercase truncate max-w-[200px]">
+                        <span className="px-2 py-0.5 rounded-md bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] text-[10px] font-black uppercase truncate max-w-[200px]">
                           {item.shift}
                         </span>
                       </div>
@@ -560,7 +672,7 @@ function AdminChecklistConfigContent() {
                       <button
                         type="button"
                         onClick={() => void handleEdit(item)}
-                        className="flex-1 sm:flex-none min-h-[44px] sm:min-h-[38px] px-4 inline-flex items-center justify-center gap-1.5 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] text-xs font-bold text-[var(--kg-primary-ink)] hover:border-[var(--kg-primary)] whitespace-nowrap"
+                        className="flex-1 sm:flex-none min-h-[44px] px-4 inline-flex items-center justify-center gap-1.5 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] text-xs font-bold text-[var(--kg-primary-ink)] hover:border-[var(--kg-primary)] whitespace-nowrap"
                       >
                         <Edit2 size={14} className="shrink-0" /> Sửa hạng mục
                       </button>
@@ -568,7 +680,7 @@ function AdminChecklistConfigContent() {
                         type="button"
                         onClick={() => void handleDelete(item.id)}
                         aria-label={`Xóa ${item.title}`}
-                        className="min-h-[44px] sm:min-h-[38px] min-w-[44px] px-3.5 inline-flex items-center justify-center gap-1.5 rounded-xl bg-rose-500/10 border border-rose-500/25 text-xs font-bold text-rose-600 dark:text-rose-400 whitespace-nowrap shrink-0"
+                        className="min-h-[44px] min-w-[44px] px-3.5 inline-flex items-center justify-center gap-1.5 rounded-xl bg-[var(--kg-danger-soft)] border border-[var(--kg-danger)]/25 text-xs font-bold text-[var(--kg-danger)] whitespace-nowrap shrink-0"
                       >
                         <Trash2 size={14} className="shrink-0" /> Xóa
                       </button>
@@ -598,16 +710,16 @@ function AdminChecklistConfigContent() {
                     return (
                       <tr
                         key={item.id}
-                        className="hover:bg-[var(--kg-surface-soft)]/50 transition-colors"
+                        className="hover:bg-[var(--kg-surface-2)] transition-colors"
                       >
                         <td className="py-3.5 px-4 text-center font-bold font-mono tabular-nums text-[var(--kg-text-muted)]">
                           {item.no}
                         </td>
                         <td className="py-3.5 px-4 space-y-1">
-                          <span className="block text-[9px] bg-blue-500/15 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded font-black uppercase truncate max-w-[180px]">
+                          <span className="block text-[9px] bg-[var(--kg-info-soft)] text-[var(--kg-info)] px-1.5 py-0.5 rounded font-black uppercase truncate max-w-[180px]">
                             {item.phase}
                           </span>
-                          <span className="block text-[9px] bg-amber-500/15 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded font-black uppercase truncate max-w-[180px]">
+                          <span className="block text-[9px] bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] px-1.5 py-0.5 rounded font-black uppercase truncate max-w-[180px]">
                             {item.shift}
                           </span>
                         </td>
@@ -635,7 +747,7 @@ function AdminChecklistConfigContent() {
                               title="Sửa hạng mục"
                               aria-label="Sửa hạng mục"
                               onClick={() => void handleEdit(item)}
-                              className="w-9 h-9 inline-flex items-center justify-center text-[var(--kg-primary-ink)] hover:bg-[var(--kg-primary-soft)] border border-transparent hover:border-[var(--kg-primary)]/20 rounded-xl transition-colors"
+                              className="w-10 h-10 inline-flex items-center justify-center text-[var(--kg-primary-ink)] hover:bg-[var(--kg-primary-soft)] border border-transparent hover:border-[var(--kg-primary)]/20 rounded-xl transition-colors"
                             >
                               <Edit2 size={15} />
                             </button>
@@ -644,7 +756,7 @@ function AdminChecklistConfigContent() {
                               title="Xóa hạng mục"
                               aria-label="Xóa hạng mục"
                               onClick={() => void handleDelete(item.id)}
-                              className="w-9 h-9 inline-flex items-center justify-center text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 rounded-xl transition-colors"
+                              className="w-10 h-10 inline-flex items-center justify-center text-[var(--kg-danger)] hover:bg-[var(--kg-danger-soft)] border border-transparent hover:border-[var(--kg-danger)]/20 rounded-xl transition-colors"
                             >
                               <Trash2 size={15} />
                             </button>

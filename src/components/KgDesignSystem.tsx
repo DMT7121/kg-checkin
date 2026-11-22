@@ -182,24 +182,24 @@ export function KgButton({
   title?: string;
 } & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'type' | 'disabled' | 'onClick' | 'className' | 'title'>) {
   const baseStyles =
-    'inline-flex items-center justify-center font-semibold transition-colors duration-150 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--kg-primary-ink)] focus-visible:ring-offset-1 disabled:bg-[var(--kg-surface-soft)] disabled:text-[var(--kg-text-soft)] disabled:border-[var(--kg-border)] disabled:shadow-none disabled:pointer-events-none touch-manipulation select-none whitespace-nowrap max-w-full';
+    'inline-flex items-center justify-center font-bold transition-colors duration-150 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--kg-primary-ink)] focus-visible:ring-offset-1 disabled:bg-[var(--kg-surface-soft)] disabled:text-[var(--kg-text-soft)] disabled:border-[var(--kg-border)] disabled:shadow-none disabled:pointer-events-none touch-manipulation select-none whitespace-nowrap max-w-full';
 
   const sizeStyles = {
-    sm: 'px-3 py-1.5 text-xs rounded-lg gap-1.5 min-h-[44px] sm:min-h-[36px]',
-    md: 'px-4 py-2 text-sm rounded-xl gap-2 min-h-[44px] sm:min-h-[40px]',
+    sm: 'px-3 py-1.5 text-xs rounded-[10px] gap-1.5 min-h-[44px] sm:min-h-[36px]',
+    md: 'px-4 py-2 text-xs sm:text-sm rounded-[11px] gap-2 min-h-[44px] sm:min-h-[40px]',
     lg: 'px-5 py-2.5 text-sm sm:text-base rounded-xl gap-2.5 min-h-[48px] sm:min-h-[44px]'
   };
 
   const variantStyles = {
     primary:
-      'bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white border border-[var(--kg-primary)] shadow-soft',
+      'bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] border border-[var(--kg-primary)] shadow-soft',
     secondary: selected
-      ? 'bg-[var(--kg-surface-soft)] text-[var(--kg-primary-ink)] border border-[var(--kg-primary)]'
-      : 'bg-[var(--kg-surface)] text-[var(--kg-text)] border border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)] hover:border-[var(--kg-border-strong)]',
+      ? 'bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] border border-[var(--kg-primary)]'
+      : 'bg-[var(--kg-surface)] text-[var(--kg-text)] border border-[var(--kg-border-strong)] hover:bg-[var(--kg-surface-soft)] hover:border-[var(--kg-border-strong)]',
     danger:
-      'bg-[var(--kg-danger)] hover:brightness-95 text-white dark:text-[#0D1015] border border-[var(--kg-danger)] shadow-soft',
+      'bg-[var(--kg-danger)] hover:brightness-95 text-white dark:text-[#23170F] border border-[var(--kg-danger)] shadow-soft',
     warning:
-      'bg-[var(--kg-warning)] hover:brightness-95 text-white dark:text-[#1A1613] border border-[var(--kg-warning)] shadow-soft',
+      'bg-[var(--kg-warning)] hover:brightness-95 text-white dark:text-[#23170F] border border-[var(--kg-warning)] shadow-soft',
     ghost:
       'bg-transparent border border-transparent text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)]'
   };
@@ -245,7 +245,7 @@ export function KgIconButton({
   ariaLabel?: string;
 }) {
   const variantStyles = {
-    primary: 'bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white border border-[var(--kg-primary)] shadow-soft',
+    primary: 'bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] border border-[var(--kg-primary)] shadow-soft',
     secondary:
       'bg-[var(--kg-surface)] text-[var(--kg-text)] border border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)] hover:border-[var(--kg-border-strong)]',
     danger:
@@ -260,7 +260,7 @@ export function KgIconButton({
       onClick={onClick}
       title={title}
       aria-label={ariaLabel || title || 'Thao tác'}
-      className={`w-11 h-11 sm:w-10 sm:h-10 min-w-[44px] min-h-[44px] sm:min-w-[40px] sm:min-h-[40px] rounded-lg flex items-center justify-center active:translate-y-px transition-colors duration-150 disabled:opacity-50 disabled:pointer-events-none touch-manipulation flex-shrink-0 ${variantStyles[variant]} ${className}`}
+      className={`w-11 h-11 sm:w-10 sm:h-10 min-w-[44px] min-h-[44px] sm:min-w-[40px] sm:min-h-[40px] rounded-[11px] flex items-center justify-center active:scale-[0.98] transition-colors duration-150 disabled:opacity-50 disabled:pointer-events-none touch-manipulation flex-shrink-0 ${variantStyles[variant]} ${className}`}
     >
       <Icon size={18} strokeWidth={1.75} />
     </button>
@@ -313,8 +313,8 @@ export function KgInput({
           } ${
             rightAdornment ? 'pr-11' : ''
           } text-base sm:text-sm bg-[var(--kg-surface)] border ${
-            error ? 'border-[var(--kg-danger)]' : 'border-[var(--kg-border)] hover:border-[var(--kg-border-strong)]'
-          } rounded-lg focus:border-[var(--kg-primary)] focus:outline-none transition-colors placeholder-[var(--kg-text-soft)] text-[var(--kg-text)] disabled:bg-[var(--kg-surface-soft)] disabled:text-[var(--kg-text-muted)] ${inputClassName}`}
+            error ? 'border-[var(--kg-danger)]' : 'border-[var(--kg-border-strong)] hover:border-[var(--kg-primary)]'
+          } rounded-xl focus:border-[var(--kg-primary)] focus:outline-none transition-colors placeholder-[var(--kg-text-soft)] text-[var(--kg-text)] disabled:bg-[var(--kg-surface-soft)] disabled:text-[var(--kg-text-muted)] ${inputClassName}`}
           {...props}
         />
         {rightAdornment && (
@@ -364,8 +364,8 @@ export function KgSelect({
         required={required}
         aria-invalid={Boolean(error) || undefined}
         className={`w-full min-h-[44px] sm:min-h-[42px] px-3.5 py-2 text-base sm:text-sm bg-[var(--kg-surface)] border ${
-          error ? 'border-[var(--kg-danger)]' : 'border-[var(--kg-border)] hover:border-[var(--kg-border-strong)]'
-        } rounded-lg focus:border-[var(--kg-primary)] focus:outline-none transition-colors text-[var(--kg-text)] disabled:bg-[var(--kg-surface-soft)] disabled:text-[var(--kg-text-muted)]`}
+          error ? 'border-[var(--kg-danger)]' : 'border-[var(--kg-border-strong)] hover:border-[var(--kg-primary)]'
+        } rounded-xl focus:border-[var(--kg-primary)] focus:outline-none transition-colors text-[var(--kg-text)] disabled:bg-[var(--kg-surface-soft)] disabled:text-[var(--kg-text-muted)]`}
         {...props}
       >
         {options
@@ -409,8 +409,8 @@ export function KgTextarea({
         required={required}
         aria-invalid={Boolean(error) || undefined}
         className={`w-full px-3.5 py-2.5 text-base sm:text-sm bg-[var(--kg-surface)] border ${
-          error ? 'border-[var(--kg-danger)]' : 'border-[var(--kg-border)] hover:border-[var(--kg-border-strong)]'
-        } rounded-lg focus:border-[var(--kg-primary)] focus:outline-none transition-colors placeholder-[var(--kg-text-soft)] text-[var(--kg-text)] min-h-[96px] disabled:bg-[var(--kg-surface-soft)]`}
+          error ? 'border-[var(--kg-danger)]' : 'border-[var(--kg-border-strong)] hover:border-[var(--kg-primary)]'
+        } rounded-xl focus:border-[var(--kg-primary)] focus:outline-none transition-colors placeholder-[var(--kg-text-soft)] text-[var(--kg-text)] min-h-[96px] disabled:bg-[var(--kg-surface-soft)]`}
         {...props}
       />
       {error && <p className="text-xs text-[var(--kg-danger)] font-medium">{error}</p>}
@@ -467,32 +467,32 @@ export function KgMetricCard({
   onClick?: () => void;
 }) {
   const iconStyles = {
-    success: 'bg-[var(--kg-success-soft)] text-[var(--kg-success)] border-[var(--kg-success)]/20',
-    warning: 'bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] border-[var(--kg-warning)]/20',
-    error: 'bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] border-[var(--kg-danger)]/20',
-    info: 'bg-[var(--kg-surface-soft)] text-[var(--kg-primary)] border-[var(--kg-border)]'
+    success: 'bg-[var(--kg-success-soft)] text-[var(--kg-success)] border-transparent',
+    warning: 'bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] border-transparent',
+    error: 'bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] border-transparent',
+    info: 'bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] border-transparent'
   };
 
   return (
     <KgCard
       onClick={onClick}
-      className={`kg-metric-card flex flex-col justify-between gap-2.5 p-3.5 sm:p-4 ${className}`}
+      className={`kg-metric-card flex flex-col justify-between gap-2.5 p-3.5 sm:p-[18px] min-h-[106px] sm:min-h-[118px] ${className}`}
       hoverable={Boolean(onClick)}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[11.5px] sm:text-xs text-[var(--kg-text-muted)] font-semibold leading-snug">
+        <span className="text-[11.5px] sm:text-xs text-[var(--kg-text-muted)] font-bold leading-snug">
           {title}
         </span>
-        <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border flex items-center justify-center flex-shrink-0 ${iconStyles[variant]}`}>
-          <Icon size={16} strokeWidth={1.8} />
+        <div className={`w-[34px] h-[34px] rounded-[11px] border flex items-center justify-center flex-shrink-0 ${iconStyles[variant]}`}>
+          <Icon size={16} strokeWidth={1.85} />
         </div>
       </div>
       <div className="min-w-0">
-        <p className="text-xl sm:text-2xl font-extrabold text-[var(--kg-text)] tracking-tight tabular-nums font-mono leading-none">
+        <p className="text-[23px] sm:text-[28px] font-black text-[var(--kg-text)] tracking-tight tabular-nums font-mono leading-none">
           {value}
         </p>
         {subtext && (
-          <p className="text-[11px] text-[var(--kg-text-soft)] font-medium mt-1 leading-snug line-clamp-1">
+          <p className="text-[11px] text-[var(--kg-text-muted)] font-medium mt-1.5 leading-snug line-clamp-1">
             {subtext}
           </p>
         )}
@@ -618,17 +618,17 @@ export function KgToast({
   }, [message, onClose]);
 
   const typeStyles = {
-    success: 'border-[var(--kg-success)]/25 bg-[var(--kg-surface)] text-[var(--kg-text)]',
-    error: 'border-[var(--kg-danger)]/25 bg-[var(--kg-surface)] text-[var(--kg-text)]',
-    warning: 'border-[var(--kg-warning)]/25 bg-[var(--kg-surface)] text-[var(--kg-text)]',
-    info: 'border-[var(--kg-border)] bg-[var(--kg-surface)] text-[var(--kg-text)]'
+    success: 'border-[var(--kg-border-strong)] bg-[var(--kg-rail-bg)] text-[var(--kg-rail-text)]',
+    error: 'border-[var(--kg-danger)]/50 bg-[var(--kg-rail-bg)] text-[var(--kg-rail-text)]',
+    warning: 'border-[var(--kg-warning)]/50 bg-[var(--kg-rail-bg)] text-[var(--kg-rail-text)]',
+    info: 'border-[var(--kg-rail-border)] bg-[var(--kg-rail-bg)] text-[var(--kg-rail-text)]'
   };
 
   const iconColors = {
-    success: 'text-[var(--kg-success)]',
-    error: 'text-[var(--kg-danger)]',
-    warning: 'text-[var(--kg-warning)]',
-    info: 'text-[var(--kg-primary)]'
+    success: 'text-[#7EDBA8]',
+    error: 'text-[#FF968E]',
+    warning: 'text-[#FFD285]',
+    info: 'text-[#F59B62]'
   };
 
   const icons = {
@@ -644,13 +644,13 @@ export function KgToast({
     <div
       className={`kg-toast-in flex items-center gap-3 p-3.5 rounded-xl border shadow-lg max-w-sm pointer-events-auto ${typeStyles[message.type]}`}
     >
-      <Icon size={18} strokeWidth={1.75} className={`flex-shrink-0 ${iconColors[message.type]}`} />
+      <Icon size={18} strokeWidth={1.85} className={`flex-shrink-0 ${iconColors[message.type]}`} />
       <span className="text-xs font-semibold leading-normal flex-1">{message.title}</span>
       <button
         type="button"
         onClick={() => onClose(message.id)}
         aria-label="Đóng thông báo"
-        className="w-10 h-10 sm:w-8 sm:h-8 -mr-1.5 rounded-lg flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)] transition-colors flex-shrink-0 touch-manipulation"
+        className="w-10 h-10 sm:w-8 sm:h-8 -mr-1.5 rounded-lg flex items-center justify-center text-[var(--kg-rail-muted)] hover:text-white hover:bg-white/10 transition-colors flex-shrink-0 touch-manipulation"
       >
         <X size={15} />
       </button>
@@ -692,7 +692,7 @@ export function KgBottomSheet({
     <div className="fixed inset-0 z-[10050] flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6">
       <div
         onClick={onClose}
-        className="kg-fade-in fixed inset-0 bg-black/55 backdrop-blur-sm pointer-events-auto"
+        className="kg-fade-in fixed inset-0 bg-black/60 pointer-events-auto"
       />
       <div
         ref={dialogRef}
@@ -701,11 +701,11 @@ export function KgBottomSheet({
         aria-modal="true"
         aria-labelledby={titleId}
         onClick={(e) => e.stopPropagation()}
-        className="kg-sheet-up sm:kg-scale-in relative z-10 w-full max-w-lg max-h-[90dvh] sm:max-h-[86dvh] mx-auto bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-t-2xl sm:rounded-2xl border border-[var(--kg-border)] shadow-2xl flex flex-col pointer-events-auto overflow-hidden focus:outline-none"
+        className="kg-sheet-up sm:kg-scale-in relative z-10 w-full max-w-lg max-h-[90dvh] sm:max-h-[86dvh] mx-auto bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-t-[22px] sm:rounded-[20px] border border-[var(--kg-border)] shadow-2xl flex flex-col pointer-events-auto overflow-hidden focus:outline-none"
       >
-        <div className="px-4 sm:px-5 py-3.5 border-b border-[var(--kg-border)] bg-[var(--kg-surface-soft)]/70 flex items-center justify-between gap-3 flex-shrink-0">
+        <div className="px-4 sm:px-5 py-3.5 border-b border-[var(--kg-border)] bg-[var(--kg-surface-2)] flex items-center justify-between gap-3 flex-shrink-0">
           <div className="min-w-0 flex-1">
-            <h3 id={titleId} className="text-sm font-semibold text-[var(--kg-text)] truncate">
+            <h3 id={titleId} className="text-sm font-extrabold tracking-tight text-[var(--kg-text)] truncate">
               {title}
             </h3>
             {subtitle && (
@@ -718,7 +718,7 @@ export function KgBottomSheet({
             type="button"
             onClick={onClose}
             aria-label="Đóng hộp thoại"
-            className="w-11 h-11 sm:w-9 sm:h-9 rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] active:scale-95 transition-colors flex-shrink-0 touch-manipulation"
+            className="w-11 h-11 sm:w-9 sm:h-9 rounded-[11px] bg-[var(--kg-surface)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:border-[var(--kg-border-strong)] active:scale-95 transition-colors flex-shrink-0 touch-manipulation"
           >
             <X size={16} />
           </button>
@@ -729,7 +729,7 @@ export function KgBottomSheet({
         </div>
 
         {footer && (
-          <div className="px-4 sm:px-5 py-3 pb-safe sm:pb-3 border-t border-[var(--kg-border)] bg-[var(--kg-surface-soft)]/50 flex-shrink-0">
+          <div className="px-4 sm:px-5 py-3 pb-safe sm:pb-3 border-t border-[var(--kg-border)] bg-[var(--kg-surface-2)] flex-shrink-0">
             {footer}
           </div>
         )}
@@ -810,21 +810,27 @@ export function KgSyncStatus({
     };
   }, []);
 
+  const pillStyle = !isOnline
+    ? 'bg-[var(--kg-danger-soft)] border-[var(--kg-danger)]/25 text-[var(--kg-danger)]'
+    : pendingCount > 0
+      ? 'bg-[var(--kg-warning-soft)] border-[var(--kg-warning)]/25 text-[var(--kg-warning)]'
+      : 'bg-[var(--kg-success-soft)] border-[var(--kg-success)]/20 text-[var(--kg-success)]';
+
   return (
-    <div className="inline-flex items-center gap-1.5 min-h-[40px] lg:min-h-[38px] pl-2.5 pr-0.5 py-0.5 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-xs font-medium text-[var(--kg-text-muted)] select-none whitespace-nowrap">
+    <div className={`inline-flex items-center gap-1.5 min-h-[40px] lg:min-h-[38px] pl-2.5 pr-1 py-0.5 rounded-[11px] border text-xs font-bold select-none whitespace-nowrap transition-colors ${pillStyle}`}>
       {isOnline ? (
-        <Wifi size={13} className="text-[var(--kg-success)] flex-shrink-0" />
+        <Wifi size={13} className="flex-shrink-0" />
       ) : (
-        <WifiOff size={13} className="text-[var(--kg-danger)] animate-pulse flex-shrink-0" />
+        <WifiOff size={13} className="animate-pulse flex-shrink-0" />
       )}
       <span className="truncate min-w-0 font-mono tabular-nums">
         {pendingCount > 0 ? (
-          <span className="text-[var(--kg-warning)] font-semibold font-sans">Chờ ({pendingCount})</span>
+          <span className="font-bold font-sans">Chờ ({pendingCount})</span>
         ) : isSyncing ? (
           <span className="font-sans">Đang đồng bộ...</span>
         ) : lastSyncTime ? (
           <>
-            <span className="hidden 2xl:inline font-sans">Cập nhật </span>
+            <span className="hidden 2xl:inline font-sans">Đồng bộ </span>
             {new Date(lastSyncTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false })}
           </>
         ) : (
@@ -837,7 +843,7 @@ export function KgSyncStatus({
           onClick={onRefresh}
           disabled={isSyncing}
           aria-label="Làm mới dữ liệu"
-          className="w-9 h-9 min-w-[36px] min-h-[36px] rounded-lg flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface)] transition-colors flex-shrink-0 touch-manipulation"
+          className="w-8 h-8 min-w-[32px] min-h-[32px] rounded-lg flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10 transition-colors flex-shrink-0 touch-manipulation"
         >
           <RefreshCw size={13} className={isSyncing ? 'animate-spin' : ''} />
         </button>
@@ -934,7 +940,7 @@ export function KgActionSheet({
                   aria-current={act.active ? 'page' : undefined}
                   className={`kg-action-tile flex flex-col items-center justify-center p-2.5 rounded-xl active:scale-95 transition-colors gap-2 min-h-[84px] ${
                     act.active
-                      ? 'kg-action-tile--active text-white'
+                      ? 'kg-action-tile--active text-[var(--kg-primary-fg)]'
                       : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
                   }`}
                 >
@@ -1018,7 +1024,7 @@ export function Kg3dIllustration({ moduleId }: { moduleId: string }) {
 }
 
 export function KgModuleHero({
-  moduleId,
+  moduleId: _moduleId,
   title,
   description,
   eyebrow = 'Phân hệ',
@@ -1038,57 +1044,46 @@ export function KgModuleHero({
   tips?: string[];
   actions?: React.ReactNode;
 }) {
-  const normId = moduleId.toLowerCase().replace(/[-_]/g, '');
-  const Icon = MODULE_ICON_MAP[normId as keyof typeof MODULE_ICON_MAP] || Sparkles;
+  void _moduleId;
   const hasTip = Boolean(tipContent || tips || (description && description.length > 24));
 
   return (
-    <section className="kg-module-hero relative overflow-hidden bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl px-3.5 py-2.5 sm:px-5 sm:py-4 shadow-card mb-2.5 sm:mb-4">
-      <span
-        aria-hidden="true"
-        className="absolute left-0 top-2.5 bottom-2.5 sm:top-3 sm:bottom-3 w-1 rounded-r-full bg-[var(--kg-accent)]"
-      />
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 pl-1.5">
-        <div className="flex items-center justify-between gap-2.5 min-w-0 flex-1">
-          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-[var(--kg-accent-soft)] border border-[var(--kg-accent)]/20 text-[var(--kg-accent-ink)] flex items-center justify-center flex-shrink-0">
-              <Icon size={17} strokeWidth={1.85} className="sm:w-[19px] sm:h-[19px]" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="hidden sm:flex items-center gap-2 flex-wrap">
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[var(--kg-accent-ink)]">
-                  {eyebrow}
+    <section className="kg-module-hero mb-3 sm:mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2.5 sm:gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 flex-wrap min-w-0">
+              <span className="inline-flex items-center text-[10.5px] sm:text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--kg-primary-ink)]">
+                {eyebrow}
+              </span>
+              {features.slice(0, 2).map((feat, idx) => (
+                <span
+                  key={idx}
+                  className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[10.5px] font-semibold text-[var(--kg-text-muted)]"
+                >
+                  {feat}
                 </span>
-                {features.slice(0, 2).map((feat, idx) => (
-                  <span
-                    key={idx}
-                    className="inline-flex items-center px-2 py-0.5 rounded-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[11px] font-semibold text-[var(--kg-text-muted)]"
-                  >
-                    {feat}
-                  </span>
-                ))}
+              ))}
+            </div>
+            {hasTip && (
+              <div className="sm:hidden flex-shrink-0">
+                <KgFeatureTip
+                  title={tipTitle || `Hướng dẫn: ${title}`}
+                  content={tipContent || description}
+                  tips={tips}
+                  variant="subtle"
+                  iconType="help"
+                />
               </div>
-              <h1 className="text-[15px] sm:text-lg md:text-xl font-extrabold text-[var(--kg-text)] leading-snug tracking-tight truncate sm:mt-0.5">
-                {title}
-              </h1>
-              {description && (
-                <p className="hidden sm:block text-xs text-[var(--kg-text-muted)] mt-0.5 line-clamp-1 leading-relaxed">
-                  {description}
-                </p>
-              )}
-            </div>
+            )}
           </div>
-
-          {hasTip && (
-            <div className="sm:hidden flex-shrink-0">
-              <KgFeatureTip
-                title={tipTitle || `Hướng dẫn: ${title}`}
-                content={tipContent || description}
-                tips={tips}
-                variant="subtle"
-                iconType="help"
-              />
-            </div>
+          <h1 className="text-xl sm:text-[26px] font-extrabold text-[var(--kg-text)] leading-tight tracking-tight mt-0.5">
+            {title}
+          </h1>
+          {description && (
+            <p className="text-xs sm:text-[13px] text-[var(--kg-text-muted)] mt-1 leading-relaxed max-w-2xl line-clamp-2">
+              {description}
+            </p>
           )}
         </div>
 

@@ -1091,7 +1091,7 @@ export default function AttendanceLedger({
                 onClick={() => setMatrixDisplayMode('HOURS')}
                 className={`min-h-[34px] px-3 py-1 rounded-lg text-xs font-bold inline-flex items-center gap-1 transition ${
                   matrixDisplayMode === 'HOURS'
-                    ? 'bg-[var(--kg-primary)] text-white shadow-2xs'
+                    ? 'bg-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)] shadow-2xs'
                     : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
                 }`}
               >
@@ -1102,7 +1102,7 @@ export default function AttendanceLedger({
                 onClick={() => setMatrixDisplayMode('TIMESTAMPS')}
                 className={`min-h-[34px] px-3 py-1 rounded-lg text-xs font-bold inline-flex items-center gap-1 transition ${
                   matrixDisplayMode === 'TIMESTAMPS'
-                    ? 'bg-[var(--kg-primary)] text-white shadow-2xs'
+                    ? 'bg-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)] shadow-2xs'
                     : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
                 }`}
               >
@@ -1114,12 +1114,12 @@ export default function AttendanceLedger({
 
         <div className="overflow-auto max-h-[65vh] w-full rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface)] custom-scrollbar">
           <table className="w-full text-xs text-left border-collapse">
-            <thead className="sticky top-0 z-20 bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] uppercase text-[10px]">
+            <thead className="sticky top-0 z-20 bg-[var(--kg-surface-2)] text-[var(--kg-text-muted)] uppercase text-[10px]">
               <tr>
-                <th className="px-3 py-3 font-black sticky left-0 top-0 bg-[var(--kg-surface-soft)] z-30 border-b border-r border-[var(--kg-border)] w-[160px] min-w-[160px] max-w-[160px] truncate">
+                <th className="px-3 py-3 font-black sticky left-0 top-0 bg-[var(--kg-surface-2)] z-30 border-b border-r border-[var(--kg-border)] w-[160px] min-w-[160px] max-w-[160px] truncate">
                   Nhân viên
                 </th>
-                <th className="px-3 py-3 font-black sticky left-[160px] top-0 bg-[var(--kg-surface)] text-[var(--kg-primary)] dark:text-cyan-300 z-30 border-b border-r border-[var(--kg-border)] w-[96px] min-w-[96px] max-w-[96px] text-center font-mono shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]">
+                <th className="px-3 py-3 font-black sticky left-[160px] top-0 bg-[var(--kg-surface)] text-[var(--kg-primary-ink)] z-30 border-b border-r border-[var(--kg-border)] w-[96px] min-w-[96px] max-w-[96px] text-right font-mono shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]">
                   Tổng giờ
                 </th>
                 {days.map((d) => {
@@ -1176,10 +1176,10 @@ export default function AttendanceLedger({
                           {name}
                         </button>
                       </td>
-                      <td className="px-2 py-2.5 font-black text-center font-mono tabular-nums text-[var(--kg-primary)] dark:text-cyan-300 sticky left-[160px] bg-[var(--kg-surface-soft)] border-r border-[var(--kg-border)] z-10 w-[96px] min-w-[96px] max-w-[96px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]">
+                      <td className="px-2.5 py-2.5 font-black text-right font-mono tabular-nums text-[var(--kg-primary-ink)] sticky left-[160px] bg-[var(--kg-surface-2)] border-r border-[var(--kg-border)] z-10 w-[96px] min-w-[96px] max-w-[96px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]">
                         {totalMonthHours.toFixed(2)}h
                         {summary?.totalOvertimeHours > 0 && (
-                          <span className="block text-[10px] font-mono tabular-nums text-amber-600 dark:text-amber-400 font-bold">
+                          <span className="block text-[10px] font-mono tabular-nums text-[var(--kg-warning)] font-bold">
                             +{summary.totalOvertimeHours.toFixed(1)}h TC
                           </span>
                         )}
@@ -1199,8 +1199,8 @@ export default function AttendanceLedger({
                               <div
                                 className={`py-1 px-1.5 rounded-lg text-[11px] font-mono tabular-nums font-bold mx-auto w-fit whitespace-pre-line border ${
                                   hasOvertime
-                                    ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30'
-                                    : 'bg-[var(--kg-primary)]/10 text-[var(--kg-primary)] dark:bg-[var(--kg-primary)]/30 dark:text-cyan-200 border-[var(--kg-primary)]/20'
+                                    ? 'bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] border-[var(--kg-warning)]/30'
+                                    : 'bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] border-[var(--kg-primary)]/20'
                                 }`}
                               >
                                 {matrixDisplayMode === 'HOURS'
@@ -1234,11 +1234,11 @@ export default function AttendanceLedger({
   const isSyncingAny = isUpdating || isLoadingFullLogs || isRefreshingTimesheet;
 
   return (
-    <div className="p-4 space-y-4 animate-slide-up pb-10">
+    <div className="p-3 sm:p-4 space-y-3 sm:space-y-4 animate-slide-up pb-16 max-w-[1440px] mx-auto w-full">
       <KgModuleHero
         moduleId={activeView === 'log' ? 'history' : 'timesheet'}
         title="Sổ Công & Nhật Ký"
-        description={`Tổng hợp giờ làm, tăng ca và đối chiếu 100% lượt chấm công tháng ${String(month).padStart(2, '0')}/${year}.`}
+        description={`Tổng hợp giờ làm, tăng ca và đối chiếu lượt chấm công tháng ${String(month).padStart(2, '0')}/${year}.`}
         eyebrow="Chấm công"
         tipTitle="Hướng dẫn Sổ Công & Nhật Ký"
         tips={[
@@ -1253,9 +1253,9 @@ export default function AttendanceLedger({
               onClick={() => void analyzeMyProductivity()}
               aria-label="AI đánh giá năng suất"
               title="AI đánh giá năng suất"
-              className="min-h-[44px] min-w-[44px] sm:min-h-[36px] sm:min-w-[36px] px-2.5 rounded-xl bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-accent-soft)] border border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:text-[var(--kg-accent-ink)] inline-flex items-center justify-center gap-1.5 text-xs font-bold transition touch-manipulation"
+              className="min-h-[44px] min-w-[44px] sm:min-h-[38px] sm:min-w-[38px] px-2.5 sm:px-3 rounded-xl bg-[var(--kg-surface)] hover:bg-[var(--kg-primary-soft)] border border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:text-[var(--kg-primary-ink)] inline-flex items-center justify-center gap-1.5 text-xs font-bold transition touch-manipulation"
             >
-              <Sparkles size={15} className="text-[var(--kg-accent-ink)]" />
+              <Sparkles size={15} className="text-[var(--kg-primary-ink)]" />
               <span className="hidden sm:inline">AI Nhận xét</span>
             </button>
             <button
@@ -1263,7 +1263,7 @@ export default function AttendanceLedger({
               onClick={handleManualRefresh}
               aria-label="Làm mới dữ liệu"
               title="Làm mới dữ liệu chấm công"
-              className="min-h-[44px] min-w-[44px] sm:min-h-[36px] sm:min-w-[36px] px-2.5 rounded-xl bg-[var(--kg-surface-soft)] hover:border-[var(--kg-border-strong)] border border-[var(--kg-border)] text-[var(--kg-text)] inline-flex items-center justify-center gap-1.5 text-xs font-bold transition touch-manipulation"
+              className="min-h-[44px] min-w-[44px] sm:min-h-[38px] sm:min-w-[38px] px-2.5 sm:px-3 rounded-xl bg-[var(--kg-surface)] hover:border-[var(--kg-border-strong)] border border-[var(--kg-border)] text-[var(--kg-text)] inline-flex items-center justify-center gap-1.5 text-xs font-bold transition touch-manipulation"
             >
               <RefreshCw size={14} className={isSyncingAny ? 'animate-spin' : ''} />
               <span className="hidden sm:inline">Làm mới</span>
@@ -1294,60 +1294,66 @@ export default function AttendanceLedger({
         </KgAlertCard>
       )}
 
-      {/* 4-Stat KPI Strip (font-mono tabular-nums) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
-        <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-3 sm:p-4 rounded-2xl min-w-0">
-          <div className="flex items-center gap-1.5 mb-1">
-            <span className="p-1 bg-[var(--kg-primary-soft)] rounded-lg text-[var(--kg-primary-ink)]">
-              <Clock size={13} />
-            </span>
-            <span className="text-[10.5px] sm:text-xs font-bold uppercase text-[var(--kg-text-muted)] truncate">
+      {/* 4-Stat Compact Toast Touch KPI Strip (font-mono tabular-nums) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+        <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-2.5 sm:p-4 rounded-2xl min-w-0 shadow-xs flex flex-col justify-between gap-1.5">
+          <div className="flex items-center justify-between gap-1.5">
+            <span className="text-[11px] sm:text-xs font-bold text-[var(--kg-text-muted)] truncate">
               Tổng giờ
             </span>
+            <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] flex items-center justify-center shrink-0">
+              <Clock size={14} />
+            </span>
           </div>
-          <div className="text-lg sm:text-2xl font-black font-mono tabular-nums text-[var(--kg-text)]">
-            {kpiMetrics.totalHours.toFixed(2)}h
+          <div className="flex items-baseline justify-between gap-1">
+            <span className="text-lg sm:text-2xl font-black font-mono tabular-nums text-[var(--kg-text)]">
+              {kpiMetrics.totalHours.toFixed(2)}h
+            </span>
+            <span className="text-[10px] text-[var(--kg-text-soft)] font-mono tabular-nums truncate">
+              T{String(month).padStart(2, '0')}/{year}
+            </span>
           </div>
-          <p className="text-[10.5px] text-[var(--kg-text-muted)] font-mono tabular-nums truncate mt-0.5">
-            Tháng {String(month).padStart(2, '0')}/{year}
-          </p>
         </div>
 
-        <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-3 sm:p-4 rounded-2xl min-w-0">
-          <div className="flex items-center gap-1.5 mb-1">
-            <span className="p-1 bg-amber-500/15 rounded-lg text-amber-600 dark:text-amber-400">
-              <Zap size={13} />
-            </span>
-            <span className="text-[10.5px] sm:text-xs font-bold uppercase text-[var(--kg-text-muted)] truncate">
+        <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-2.5 sm:p-4 rounded-2xl min-w-0 shadow-xs flex flex-col justify-between gap-1.5">
+          <div className="flex items-center justify-between gap-1.5">
+            <span className="text-[11px] sm:text-xs font-bold text-[var(--kg-text-muted)] truncate">
               Tăng ca
             </span>
+            <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] flex items-center justify-center shrink-0">
+              <Zap size={14} />
+            </span>
           </div>
-          <div className="text-lg sm:text-2xl font-black font-mono tabular-nums text-amber-600 dark:text-amber-400">
-            +{kpiMetrics.overtimeHours.toFixed(2)}h
+          <div className="flex items-baseline justify-between gap-1">
+            <span className="text-lg sm:text-2xl font-black font-mono tabular-nums text-[var(--kg-warning)]">
+              +{kpiMetrics.overtimeHours.toFixed(2)}h
+            </span>
+            <span className="text-[10px] text-[var(--kg-text-soft)] truncate hidden sm:inline">
+              Sau 00:15
+            </span>
           </div>
-          <p className="text-[10.5px] text-[var(--kg-text-muted)] truncate mt-0.5">
-            Sau 00:15 qua đêm
-          </p>
         </div>
 
-        <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-3 sm:p-4 rounded-2xl min-w-0">
-          <div className="flex items-center gap-1.5 mb-1">
-            <span className="p-1 bg-[var(--kg-accent-soft)] rounded-lg text-[var(--kg-accent-ink)]">
-              <CalendarDays size={13} />
-            </span>
-            <span className="text-[10.5px] sm:text-xs font-bold uppercase text-[var(--kg-text-muted)] truncate">
+        <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-2.5 sm:p-4 rounded-2xl min-w-0 shadow-xs flex flex-col justify-between gap-1.5">
+          <div className="flex items-center justify-between gap-1.5">
+            <span className="text-[11px] sm:text-xs font-bold text-[var(--kg-text-muted)] truncate">
               Ngày công
             </span>
-          </div>
-          <div className="text-lg sm:text-2xl font-black font-mono tabular-nums text-[var(--kg-text)]">
-            {kpiMetrics.workedDays}
-            <span className="text-xs font-sans font-bold text-[var(--kg-text-muted)] ml-1">
-              ngày
+            <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[var(--kg-success-soft)] text-[var(--kg-success)] flex items-center justify-center shrink-0">
+              <CalendarDays size={14} />
             </span>
           </div>
-          <p className="text-[10.5px] text-[var(--kg-text-muted)] font-mono tabular-nums truncate mt-0.5">
-            {countsByType.checkIn} vào • {countsByType.checkOut} ra
-          </p>
+          <div className="flex items-baseline justify-between gap-1">
+            <span className="text-lg sm:text-2xl font-black font-mono tabular-nums text-[var(--kg-text)]">
+              {kpiMetrics.workedDays}
+              <span className="text-[11px] font-sans font-bold text-[var(--kg-text-muted)] ml-1">
+                ngày
+              </span>
+            </span>
+            <span className="text-[10px] text-[var(--kg-text-soft)] font-mono tabular-nums truncate">
+              {countsByType.checkIn}V/{countsByType.checkOut}R
+            </span>
+          </div>
         </div>
 
         <button
@@ -1358,45 +1364,47 @@ export default function AttendanceLedger({
               setTypeFilter('ANOMALY');
             }
           }}
-          className={`text-left bg-[var(--kg-surface)] border p-3 sm:p-4 rounded-2xl min-w-0 transition ${
+          className={`text-left bg-[var(--kg-surface)] border p-2.5 sm:p-4 rounded-2xl min-w-0 shadow-xs flex flex-col justify-between gap-1.5 transition ${
             countsByType.anomaly > 0
               ? 'border-[var(--kg-danger)]/40 hover:bg-[var(--kg-danger-soft)]/30 cursor-pointer'
               : 'border-[var(--kg-border)] cursor-default'
           }`}
         >
-          <div className="flex items-center gap-1.5 mb-1">
+          <div className="flex items-center justify-between gap-1.5">
+            <span className="text-[11px] sm:text-xs font-bold text-[var(--kg-text-muted)] truncate">
+              Hợp lệ / Lỗi
+            </span>
             <span
-              className={`p-1 rounded-lg ${
+              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shrink-0 ${
                 countsByType.anomaly > 0
                   ? 'bg-[var(--kg-danger-soft)] text-[var(--kg-danger)]'
                   : 'bg-[var(--kg-success-soft)] text-[var(--kg-success)]'
               }`}
             >
-              {countsByType.anomaly > 0 ? <AlertTriangle size={13} /> : <ShieldCheck size={13} />}
-            </span>
-            <span className="text-[10.5px] sm:text-xs font-bold uppercase text-[var(--kg-text-muted)] truncate">
-              Hợp lệ / Cảnh báo
+              {countsByType.anomaly > 0 ? <AlertTriangle size={14} /> : <ShieldCheck size={14} />}
             </span>
           </div>
-          <div className="text-lg sm:text-2xl font-black font-mono tabular-nums flex items-baseline gap-1">
-            <span className="text-[var(--kg-success)]">{countsByType.valid}</span>
-            <span className="text-[var(--kg-text-soft)] text-sm">/</span>
-            <span
-              className={
-                countsByType.anomaly > 0 ? 'text-[var(--kg-danger)]' : 'text-[var(--kg-text-muted)]'
-              }
-            >
-              {countsByType.anomaly}
+          <div className="flex items-baseline justify-between gap-1">
+            <span className="text-lg sm:text-2xl font-black font-mono tabular-nums flex items-baseline gap-1">
+              <span className="text-[var(--kg-success)]">{countsByType.valid}</span>
+              <span className="text-[var(--kg-text-soft)] text-xs">/</span>
+              <span
+                className={
+                  countsByType.anomaly > 0 ? 'text-[var(--kg-danger)]' : 'text-[var(--kg-text-muted)]'
+                }
+              >
+                {countsByType.anomaly}
+              </span>
+            </span>
+            <span className="text-[10px] text-[var(--kg-text-soft)] truncate">
+              {countsByType.anomaly > 0 ? 'Lọc lỗi →' : 'Chuẩn GPS'}
             </span>
           </div>
-          <p className="text-[10.5px] text-[var(--kg-text-muted)] truncate mt-0.5">
-            {countsByType.anomaly > 0 ? 'Chạm để lọc ca lỗi →' : 'Đạt chuẩn GPS'}
-          </p>
         </button>
       </div>
 
       {/* Single Compact Filter Toolbar + Segmented View Switcher */}
-      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-3 sm:p-4 space-y-3 shadow-xs">
+      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-2.5 sm:p-4 space-y-2 sm:space-y-3 shadow-xs">
         {/* Segmented View Switcher: Full-width 3-col on Mobile, crisp proportional segmented control on Tablet/Desktop */}
         <div className="grid grid-cols-3 sm:inline-grid sm:w-auto sm:min-w-[390px] bg-[var(--kg-surface-soft)] p-1 rounded-xl border border-[var(--kg-border)] gap-1">
           {(
@@ -1415,7 +1423,7 @@ export default function AttendanceLedger({
                 onClick={() => setActiveView(tab.id)}
                 className={`min-w-0 min-h-[44px] sm:min-h-[38px] px-1.5 sm:px-3.5 py-2 rounded-lg text-[11.5px] sm:text-xs font-black inline-flex items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap transition-all touch-manipulation ${
                   active
-                    ? 'bg-[var(--kg-primary)] text-white shadow-xs'
+                    ? 'bg-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)] shadow-xs'
                     : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
                 }`}
               >
@@ -1427,21 +1435,21 @@ export default function AttendanceLedger({
           })}
         </div>
 
-        {/* Compact Month + (Admin) Employee + Search Row */}
+        {/* Compact Month + (Admin) Employee + Search Row (compressed single/two-row grid on mobile) */}
         <div
-          className={`grid gap-2 ${
-            isAdmin ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'
+          className={`grid gap-1.5 sm:gap-2 ${
+            isAdmin ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-[minmax(122px,auto)_1fr] sm:grid-cols-2'
           }`}
         >
           {/* Month Selector */}
-          <div className="flex items-center gap-2 px-3 min-h-[44px] sm:min-h-[40px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)]">
-            <Calendar size={14} className="text-[var(--kg-primary)] flex-shrink-0" />
+          <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 min-h-[44px] sm:min-h-[40px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)]">
+            <Calendar size={14} className="text-[var(--kg-primary-ink)] flex-shrink-0" />
             <select
               value={selectedMonth}
               onChange={(e) => handleMonthChange(e.target.value)}
               aria-label="Chọn tháng bảng công và lịch sử"
               style={{ backgroundColor: 'transparent', border: 'none', boxShadow: 'none' }}
-              className="!bg-transparent !border-0 !shadow-none !p-0 text-base sm:text-sm font-bold font-mono tabular-nums focus:outline-none text-[var(--kg-text)] w-full py-1.5"
+              className="!bg-transparent !border-0 !shadow-none !p-0 text-base sm:text-sm font-bold font-mono tabular-nums focus:outline-none text-[var(--kg-text)] w-full py-1"
             >
               {activeView === 'log' && <option value="ALL">Tất cả các tháng</option>}
               {monthOptions.map((ym) => (
@@ -1454,7 +1462,7 @@ export default function AttendanceLedger({
 
           {/* Admin Employee Selector */}
           {isAdmin && (
-            <div className="flex items-center gap-2 px-3 min-h-[44px] sm:min-h-[40px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)]">
+            <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 min-h-[44px] sm:min-h-[40px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)]">
               <Users size={14} className="text-[var(--kg-text-muted)] flex-shrink-0" />
               <select
                 value={selectedUser}
@@ -1464,7 +1472,7 @@ export default function AttendanceLedger({
                 }}
                 aria-label="Chọn nhân sự"
                 style={{ backgroundColor: 'transparent', border: 'none', boxShadow: 'none' }}
-                className="!bg-transparent !border-0 !shadow-none !p-0 text-base sm:text-sm font-bold focus:outline-none text-[var(--kg-text)] w-full py-1.5"
+                className="!bg-transparent !border-0 !shadow-none !p-0 text-base sm:text-sm font-bold focus:outline-none text-[var(--kg-text)] w-full py-1"
               >
                 <option value="ALL">Tất cả nhân sự</option>
                 {users.map((u) => (
@@ -1477,7 +1485,11 @@ export default function AttendanceLedger({
           )}
 
           {/* Search Input (text-base sm:text-sm for iOS no-zoom) */}
-          <div className="flex items-center gap-2 px-3 min-h-[44px] sm:min-h-[40px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)]">
+          <div
+            className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 min-h-[44px] sm:min-h-[40px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)] ${
+              isAdmin ? 'col-span-2 sm:col-span-1' : ''
+            }`}
+          >
             <Search size={14} className="text-[var(--kg-text-muted)] flex-shrink-0" />
             <input
               type="text"
@@ -1486,10 +1498,10 @@ export default function AttendanceLedger({
               placeholder={
                 isAdmin && selectedUser === 'ALL'
                   ? 'Tìm tên nhân viên, ngày, ghi chú...'
-                  : 'Tìm ngày (VD: 15/10), ca, ghi chú...'
+                  : 'Tìm ngày, ca, ghi chú...'
               }
               style={{ backgroundColor: 'transparent', border: 'none', boxShadow: 'none' }}
-              className="!bg-transparent !border-0 !shadow-none !p-0 text-base sm:text-sm text-[var(--kg-text)] placeholder:text-[var(--kg-text-soft)] focus:outline-none w-full py-1.5"
+              className="!bg-transparent !border-0 !shadow-none !p-0 text-base sm:text-sm text-[var(--kg-text)] placeholder:text-[var(--kg-text-soft)] focus:outline-none w-full py-1"
             />
             {searchQuery && (
               <button
@@ -1506,10 +1518,10 @@ export default function AttendanceLedger({
 
         {/* Anomaly Alert Strip (shown across views when anomalies exist) */}
         {anomalies.length > 0 && (
-          <div className="bg-[var(--kg-danger-soft)] border border-[var(--kg-danger)]/35 rounded-xl p-3 text-[var(--kg-text)]">
-            <div className="flex items-center justify-between gap-2.5 flex-wrap">
+          <div className="bg-[var(--kg-danger-soft)] border border-[var(--kg-danger)]/35 rounded-xl p-2.5 sm:p-3 text-[var(--kg-text)]">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
               <div className="flex items-center gap-2 min-w-0 flex-1">
-                <AlertTriangle size={16} className="text-[var(--kg-danger)] flex-shrink-0" />
+                <AlertTriangle size={15} className="text-[var(--kg-danger)] flex-shrink-0" />
                 <div className="min-w-0 text-xs">
                   <span className="font-black text-[var(--kg-danger)]">
                     Cần kiểm tra ({anomalies.length}):
@@ -1524,7 +1536,7 @@ export default function AttendanceLedger({
                   setActiveView('log');
                   setTypeFilter(typeFilter === 'ANOMALY' && activeView === 'log' ? 'ALL' : 'ANOMALY');
                 }}
-                className="min-h-[44px] sm:min-h-[32px] px-3 py-1 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-danger)]/30 text-xs font-bold text-[var(--kg-danger)] whitespace-nowrap touch-manipulation"
+                className="min-h-[40px] sm:min-h-[32px] px-3 py-1 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-danger)]/30 text-xs font-bold text-[var(--kg-danger)] whitespace-nowrap touch-manipulation"
               >
                 {activeView === 'log' && typeFilter === 'ANOMALY' ? 'Xem tất cả' : 'Lọc ca lỗi'}
               </button>
@@ -1535,9 +1547,9 @@ export default function AttendanceLedger({
 
       {/* ==================== VIEW 1: THEO NGÀY (LEDGER) ==================== */}
       {activeView === 'ledger' && (
-        <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-4 sm:p-5 rounded-2xl shadow-xs space-y-4 animate-fade-in">
+        <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-3 sm:p-5 rounded-2xl shadow-xs space-y-3 sm:space-y-4 animate-fade-in">
           {/* Top Sub-bar with #timesheet-only-workdays preserved */}
-          <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-[var(--kg-border)]">
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-[var(--kg-border)]">
             <div className="flex items-center gap-2 min-w-0">
               {isAdmin && selectedUser !== 'ALL' && (
                 <KgButton
@@ -1558,7 +1570,7 @@ export default function AttendanceLedger({
 
             <label
               htmlFor="timesheet-only-workdays"
-              className="flex items-center gap-2 cursor-pointer select-none min-h-[44px] sm:min-h-[32px]"
+              className="flex items-center gap-2 cursor-pointer select-none min-h-[36px] sm:min-h-[32px]"
             >
               <input
                 id="timesheet-only-workdays"
@@ -1614,7 +1626,7 @@ export default function AttendanceLedger({
                           className="flex items-center justify-between gap-2 p-3.5 border border-[var(--kg-border)] bg-[var(--kg-surface)]"
                         >
                           <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-10 h-10 rounded-xl bg-[var(--kg-primary)] text-white flex items-center justify-center text-xs font-black flex-shrink-0">
+                            <div className="w-10 h-10 rounded-xl bg-[var(--kg-primary)] text-[var(--kg-primary-fg)] flex items-center justify-center text-xs font-black flex-shrink-0">
                               {initials}
                             </div>
                             <div className="min-w-0">
@@ -1629,11 +1641,11 @@ export default function AttendanceLedger({
 
                           <div className="flex items-center gap-2.5 flex-shrink-0">
                             <div className="text-right">
-                              <span className="text-sm font-mono tabular-nums font-black text-[var(--kg-primary)] dark:text-cyan-300 block">
+                              <span className="text-sm font-mono tabular-nums font-black text-[var(--kg-primary-ink)] block">
                                 {totalMonthHours.toFixed(2)}h
                               </span>
                               {summary?.totalOvertimeHours > 0 && (
-                                <span className="text-[10px] font-mono tabular-nums text-amber-600 dark:text-amber-400 block font-bold">
+                                <span className="text-[10px] font-mono tabular-nums text-[var(--kg-warning)] block font-bold">
                                   +{summary.totalOvertimeHours.toFixed(1)}h TC
                                 </span>
                               )}
@@ -1667,13 +1679,13 @@ export default function AttendanceLedger({
                   let dayBg =
                     'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)]';
                   if (item.isToday) {
-                    dayBg = 'bg-[var(--kg-primary)] text-white shadow-xs';
+                    dayBg = 'bg-[var(--kg-primary)] text-[var(--kg-primary-fg)] shadow-xs';
                   } else if (item.isWeekend) {
                     dayBg =
                       'bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20';
                   } else if (item.hasData) {
                     dayBg =
-                      'bg-[var(--kg-surface-soft)] text-[var(--kg-primary)] dark:text-cyan-300 border border-[var(--kg-border)]';
+                      'bg-[var(--kg-surface-soft)] text-[var(--kg-primary-ink)] border border-[var(--kg-border)]';
                   }
 
                   return (
@@ -1757,7 +1769,7 @@ export default function AttendanceLedger({
                           <div className="text-right">
                             {item.hasData ? (
                               <>
-                                <span className="text-sm font-mono tabular-nums font-black text-[var(--kg-primary)] dark:text-cyan-300 block">
+                                <span className="text-sm font-mono tabular-nums font-black text-[var(--kg-primary-ink)] block">
                                   {item.hours > 0 ? item.hours.toFixed(2) : '?'}
                                 </span>
                                 <span className="text-[10px] text-[var(--kg-text-muted)] block font-medium">
@@ -1858,8 +1870,8 @@ export default function AttendanceLedger({
                     <span
                       className={`px-1.5 py-0.5 rounded-md text-[10px] sm:text-xs font-mono tabular-nums font-black w-full text-center truncate ${
                         item?.hasOvertime
-                          ? 'bg-amber-500 text-white'
-                          : 'bg-[var(--kg-primary)] text-white'
+                          ? 'bg-amber-500 text-[#1A1613]'
+                          : 'bg-[var(--kg-primary)] text-[var(--kg-primary-fg)]'
                       }`}
                     >
                       {hours > 0 ? `${hours.toFixed(1)}h` : `${item?.dayLogs.length || 1} lượt`}
@@ -1897,18 +1909,14 @@ export default function AttendanceLedger({
                       key={pill.id}
                       type="button"
                       onClick={() => setTypeFilter(pill.id)}
-                      className={`min-h-[44px] sm:min-h-[36px] px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap inline-flex items-center gap-1.5 transition-all touch-manipulation ${
-                        active
-                          ? 'bg-[var(--kg-primary)] text-white shadow-2xs'
-                          : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] hover:text-[var(--kg-text)]'
-                      }`}
+                      className={`kg-filter-pill ${active ? 'kg-filter-pill--active' : ''} min-h-[44px] sm:min-h-[36px] shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 touch-manipulation`}
                     >
                       <span>{pill.label}</span>
                       <span
-                        className={`px-1.5 py-0.2 rounded-full text-[10.5px] font-mono tabular-nums ${
+                        className={`px-1.5 py-0.5 rounded-md text-[10.5px] font-mono tabular-nums ${
                           active
-                            ? 'bg-white/20 text-white'
-                            : 'bg-[var(--kg-surface)] text-[var(--kg-text-muted)]'
+                            ? 'bg-white/20 text-[var(--kg-primary-fg)]'
+                            : 'bg-[var(--kg-surface-2)] text-[var(--kg-text-muted)]'
                         }`}
                       >
                         {pill.count}
@@ -2118,13 +2126,6 @@ export default function AttendanceLedger({
               </>
             )}
           </div>
-
-          {/* Admin All-Staff Matrix on Desktop in Log view as well */}
-          {isAdmin && selectedUser === 'ALL' && activeTimesheet?.timesheet && (
-            <div className="hidden lg:block bg-[var(--kg-surface)] border border-[var(--kg-border)] p-4 sm:p-5 rounded-2xl shadow-xs">
-              {renderAdminDesktopMatrix()}
-            </div>
-          )}
         </div>
       )}
 
@@ -2296,11 +2297,7 @@ export default function AttendanceLedger({
                     key={reasonText}
                     type="button"
                     onClick={() => setEditReason(reasonText)}
-                    className={`min-h-[44px] sm:min-h-[34px] px-2.5 py-1 rounded-xl text-xs font-bold border transition touch-manipulation ${
-                      editReason === reasonText
-                        ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)]'
-                        : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)] hover:text-[var(--kg-text)]'
-                    }`}
+                    className={`kg-filter-pill ${editReason === reasonText ? 'kg-filter-pill--active' : ''} min-h-[44px] sm:min-h-[34px] touch-manipulation`}
                   >
                     {reasonText}
                   </button>

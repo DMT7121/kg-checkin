@@ -269,6 +269,7 @@ interface AppState {
 
   // Admin
   isAdminUnlocked: boolean;
+  adminPendingQueueCount: number;
   groqKeysInput: string;
   groqKeys: GroqKey[];
   aiPrompts: AIPrompt[];
@@ -337,6 +338,7 @@ interface AppState {
   updateShiftData: (key: string, value: string) => void;
   setOffReason: (v: string) => void;
   setAdminUnlocked: (v: boolean) => void;
+  setAdminPendingQueueCount: (count: number) => void;
   setGroqKeysInput: (v: string) => void;
   setAiPrompts: (prompts: AIPrompt[]) => void;
   setGroqKeys: (keys: GroqKey[]) => void;
@@ -522,6 +524,7 @@ export const useAppStore = create<AppState>((set) => ({
 
   // Admin
   isAdminUnlocked: false,
+  adminPendingQueueCount: 0,
   groqKeysInput: '',
   groqKeys: [],
   aiPrompts: [],
@@ -823,6 +826,7 @@ export const useAppStore = create<AppState>((set) => ({
     set((s) => ({ shiftData: { ...s.shiftData, [key]: value } })),
   setOffReason: (offReason) => set({ offReason }),
   setAdminUnlocked: (isAdminUnlocked) => set({ isAdminUnlocked }),
+  setAdminPendingQueueCount: (adminPendingQueueCount) => set({ adminPendingQueueCount }),
   setGroqKeysInput: (groqKeysInput) => set({ groqKeysInput }),
   setAiPrompts: (aiPrompts) => set({ aiPrompts }),
   setGroqKeys: (groqKeys) => set({ groqKeys }),
@@ -924,6 +928,7 @@ export const useAppStore = create<AppState>((set) => ({
       capturedImage: null,
       capturedTime: null,
       isAdminUnlocked: false,
+      adminPendingQueueCount: 0,
       groqKeys: [],
       groqKeysInput: '',
       isScheduleRegistered: false,

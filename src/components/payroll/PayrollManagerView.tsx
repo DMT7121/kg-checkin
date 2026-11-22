@@ -151,6 +151,29 @@ export default function PayrollManagerView({
         description="Theo dõi công, thưởng, phạt và thực nhận của toàn bộ nhân viên."
         eyebrow="Tài chính"
         features={['Tổng hợp tự động', 'Chi tiết giờ công', 'Minh bạch thu nhập']}
+        actions={
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <label className="flex-1 sm:flex-initial inline-flex items-center gap-2 rounded-xl bg-[var(--kg-surface-soft)] px-3 py-1.5 border border-[var(--kg-border)] min-h-[44px] sm:min-h-[38px] min-w-0">
+              <Calendar size={14} className="text-[var(--kg-primary)] shrink-0" />
+              <input
+                type="month"
+                aria-label="Chọn tháng bảng lương"
+                value={selectedMonth}
+                onChange={(e) => onMonthChange(e.target.value)}
+                className="!border-0 !bg-transparent !min-h-0 !shadow-none !p-0 flex-1 sm:flex-initial min-w-0 text-xs sm:text-sm font-bold font-mono tabular-nums text-[var(--kg-text)] outline-none"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              aria-label="Tải lại bảng lương"
+              className="min-w-[44px] min-h-[44px] sm:min-w-[38px] sm:min-h-[38px] rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition-colors shrink-0 touch-manipulation disabled:opacity-50"
+            >
+              <RefreshCw size={15} className={isRefreshing ? 'animate-spin' : ''} />
+            </button>
+          </div>
+        }
       />
 
       {isAdminUser(currentUser) && (
@@ -285,7 +308,7 @@ export default function PayrollManagerView({
 
       {/* Employee Payroll List (Desktop Table >= lg | Cards < lg for iPad Portrait fit) */}
       <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] p-4 sm:p-5 rounded-2xl shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-3 border-b border-[var(--kg-border)] pb-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--kg-border)] pb-3">
           <h3 className="font-black flex items-center text-[var(--kg-text)] text-sm sm:text-base min-w-0">
             <FileSpreadsheet size={18} className="mr-2 text-emerald-600 dark:text-emerald-400 shrink-0" />
             <span className="truncate">Danh sách nhân viên ({salaryMonthLabel(selectedMonth)})</span>
@@ -293,27 +316,6 @@ export default function PayrollManagerView({
               ({filteredSortedList.length}/{payrollList.length})
             </span>
           </h3>
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <label className="flex-1 sm:flex-initial inline-flex items-center gap-2 rounded-xl bg-[var(--kg-surface-soft)] px-3 py-1.5 border border-[var(--kg-border)] min-h-[44px] sm:min-h-[38px] min-w-0">
-              <Calendar size={14} className="text-[var(--kg-primary)] shrink-0" />
-              <input
-                type="month"
-                aria-label="Chọn tháng bảng lương"
-                value={selectedMonth}
-                onChange={(e) => onMonthChange(e.target.value)}
-                className="!border-0 !bg-transparent !min-h-0 !shadow-none !p-0 flex-1 sm:flex-initial min-w-0 text-xs sm:text-sm font-bold font-mono tabular-nums text-[var(--kg-text)] outline-none"
-              />
-            </label>
-            <button
-              type="button"
-              onClick={onRefresh}
-              disabled={isRefreshing}
-              aria-label="Tải lại bảng lương"
-              className="min-w-[44px] min-h-[44px] sm:min-w-[38px] sm:min-h-[38px] rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition-colors shrink-0 touch-manipulation"
-            >
-              <RefreshCw size={15} className={isRefreshing ? 'animate-spin' : ''} />
-            </button>
-          </div>
         </div>
 
         {/* Search, Status Filter Pills & Sort Controls */}
@@ -372,10 +374,8 @@ export default function PayrollManagerView({
                   key={pill.id}
                   type="button"
                   onClick={() => setStatusFilter(pill.id)}
-                  className={`shrink-0 whitespace-nowrap min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-full text-xs font-bold border transition-colors touch-manipulation ${
-                    active
-                      ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)]'
-                      : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)] hover:text-[var(--kg-text)]'
+                  className={`kg-filter-pill shrink-0 whitespace-nowrap touch-manipulation ${
+                    active ? 'kg-filter-pill--active' : ''
                   }`}
                 >
                   {pill.label}
@@ -473,9 +473,14 @@ export default function PayrollManagerView({
                           ) : staffConf?.status === 'CONFIRMED' ? (
                             <KgStatusBadge variant="success">Đã xác nhận</KgStatusBadge>
                           ) : staffConf?.status === 'DISPUTED' ? (
-                            <span title={staffConf.note}>
+                            <div className="space-y-1 max-w-[240px]">
                               <KgStatusBadge variant="error">Khiếu nại</KgStatusBadge>
-                            </span>
+                              {staffConf.note && (
+                                <p className="text-[11px] font-medium text-rose-700 dark:text-rose-300 leading-snug whitespace-normal break-words">
+                                  {staffConf.note}
+                                </p>
+                              )}
+                            </div>
                           ) : (
                             <KgStatusBadge variant="neutral">Chờ đối chiếu</KgStatusBadge>
                           )}

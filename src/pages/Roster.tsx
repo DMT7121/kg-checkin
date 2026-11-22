@@ -266,96 +266,211 @@ export default function Roster() {
   const renderWeekView = () => {
     const { dailyWaitstaffCounts, rosterToRender } = weekViewModel;
     return (
-      <div className="relative w-full rounded-2xl overflow-hidden border border-[var(--kg-border)] bg-[var(--kg-surface)]">
-        <div className="overflow-x-auto max-h-[70vh] w-full custom-scrollbar">
-          <table className="w-full text-xs sm:text-sm text-left whitespace-nowrap border-collapse">
-            <thead className="sticky top-0 z-20 text-[10px] text-[var(--kg-text-muted)] uppercase bg-[var(--kg-surface-soft)] border-b border-[var(--kg-border)]">
-              <tr>
-                <th className="px-2.5 sm:px-3 py-3 sticky left-0 top-0 bg-[var(--kg-surface-soft)] z-30 font-black border-r border-[var(--kg-border)] shadow-[2px_0_5px_rgba(0,0,0,0.05)] w-[116px] min-w-[116px] max-w-[116px] sm:w-[152px] sm:min-w-[152px] sm:max-w-[152px]">
-                  Nhân Viên
-                </th>
-                {SHORT_DAY_NAMES.map((d, idx) => {
-                  const isUnderstaffed = dailyWaitstaffCounts[idx] < 3;
-                  return (
-                    <th
-                      key={d}
-                      className={`px-1 py-2 text-center border-r border-[var(--kg-border)] last:border-r-0 min-w-[64px] ${weekDayMeta[idx].className}`}
-                      title={weekDayMeta[idx].label || undefined}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => handleWeekDayClick(idx)}
-                        className="w-full flex flex-col items-center justify-center rounded-lg py-0.5 hover:bg-[var(--kg-primary-soft)]/60 transition-colors touch-manipulation"
-                        aria-label={`Xem lịch ngày ${weekInfo.weekDates[idx]} (${d})`}
-                      >
-                        <span className="font-black text-xs sm:text-[13px] font-mono tabular-nums text-[var(--kg-text)]">
-                          {weekInfo.weekDates[idx]}
-                        </span>
-                        <span className="text-[9px] font-bold opacity-75 mt-0.5">{d}</span>
-                        {isUnderstaffed && (
-                          <span
-                            className="mt-1 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] border border-[var(--kg-danger)]/30 text-[9px] font-black font-mono tabular-nums leading-none"
-                            aria-label={`Thiếu nhân sự phục vụ: ${dailyWaitstaffCounts[idx]}/3`}
-                          >
-                            <ShieldAlert size={9} />
-                            {dailyWaitstaffCounts[idx]}/3
-                          </span>
-                        )}
-                      </button>
-                    </th>
-                  );
-                })}
-              </tr>
-            </thead>
-            <tbody>
-              {rosterToRender.map((emp, empIdx) => {
-                const isSelf = emp.username === currentUser?.username;
+      <div className="space-y-3">
+        {/* Mobile & Tablet (< 1024px): Toast Touch weekstrip staffing bar + employee cards */}
+        <div className="lg:hidden space-y-3">
+          {/* Quick 7-day staffing summary chips */}
+          <div className="rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)] p-2.5 space-y-2">
+            <div className="flex items-center justify-between gap-2 px-1">
+              <span className="text-[11px] font-black uppercase tracking-wider text-[var(--kg-text-muted)]">
+                Nhân sự phục vụ theo ngày
+              </span>
+              <span className="text-[10.5px] font-bold text-[var(--kg-text-soft)]">
+                Chạm ngày để xem chi tiết
+              </span>
+            </div>
+            <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
+              {SHORT_DAY_NAMES.map((d, idx) => {
+                const isUnderstaffed = dailyWaitstaffCounts[idx] < 3;
                 return (
-                  <tr
-                    key={emp.username || empIdx}
-                    className={`border-b border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]/60 transition-colors ${
-                      isSelf ? 'bg-[var(--kg-primary-soft)]/50' : ''
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => handleWeekDayClick(idx)}
+                    className={`min-h-[46px] rounded-xl border px-1.5 py-1.5 flex flex-col items-center justify-center gap-0.5 text-center transition-colors touch-manipulation ${
+                      isUnderstaffed
+                        ? 'bg-[var(--kg-danger-soft)] border-[var(--kg-danger)]/35 text-[var(--kg-danger)]'
+                        : 'bg-[var(--kg-surface)] border-[var(--kg-border)] text-[var(--kg-text)] hover:border-[var(--kg-primary)]/40'
                     }`}
+                    aria-label={`Xem lịch ngày ${weekInfo.weekDates[idx]} (${d}) - ${dailyWaitstaffCounts[idx]} phục vụ`}
                   >
-                    <td
-                      className={`px-2.5 sm:px-3 py-2 sticky left-0 z-10 shadow-[2px_0_5px_rgba(0,0,0,0.05)] border-r border-[var(--kg-border)] w-[116px] min-w-[116px] max-w-[116px] sm:w-[152px] sm:min-w-[152px] sm:max-w-[152px] ${
-                        isSelf ? 'bg-[var(--kg-primary-soft)]' : 'bg-[var(--kg-surface)]'
+                    <span className="text-[10px] font-black leading-none">
+                      {d} · <span className="font-mono tabular-nums">{weekInfo.weekDates[idx]}</span>
+                    </span>
+                    <span
+                      className={`inline-flex items-center gap-0.5 text-[10px] font-black font-mono tabular-nums leading-none ${
+                        isUnderstaffed ? 'text-[var(--kg-danger)]' : 'text-[var(--kg-text-muted)]'
                       }`}
                     >
-                      <SmartPersonName
-                        fullname={emp.fullname}
-                        className="max-w-[96px] sm:max-w-[128px] text-xs font-black text-[var(--kg-text)] truncate block"
-                      />
-                      {isSelf && (
-                        <div className="text-[9px] font-black text-[var(--kg-primary-ink)] uppercase tracking-wider mt-0.5">
-                          Bạn
-                        </div>
-                      )}
-                    </td>
-                    {emp.shifts.map((shift: string, dayIdx: number) => {
-                      const isOff = shift === 'OFF' || !shift;
-                      return (
-                        <td
-                          key={dayIdx}
-                          className={`px-1 py-1 border-r border-[var(--kg-border)]/50 last:border-r-0 text-center ${weekDayMeta[dayIdx].className}`}
-                          title={weekDayMeta[dayIdx].label || undefined}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => handleWeekDayClick(dayIdx, emp)}
-                            aria-label={`Xem chi tiết ca ${weekInfo.weekDates[dayIdx]} - ${emp.fullname}`}
-                            className={`inline-flex items-center justify-center text-[10px] font-black w-full max-w-[68px] min-h-[40px] sm:min-h-[36px] py-1.5 px-1 rounded-lg shadow-2xs transition-all active:scale-95 hover:ring-1 hover:ring-[var(--kg-primary)]/40 touch-manipulation ${getAdminShiftClass(shift)}`}
-                          >
-                            {isOff ? 'OFF' : <ResponsiveShift shift={shift} />}
-                          </button>
-                        </td>
-                      );
-                    })}
-                  </tr>
+                      {isUnderstaffed && <ShieldAlert size={10} />}
+                      {dailyWaitstaffCounts[idx]}/3 PV
+                    </span>
+                  </button>
                 );
               })}
-            </tbody>
-          </table>
+            </div>
+          </div>
+
+          {/* Employee Weekstrip Day-Chip Cards */}
+          <div className="space-y-2.5">
+            {rosterToRender.map((emp, empIdx) => {
+              const isSelf = emp.username === currentUser?.username;
+              const workDays = emp.shifts.filter(
+                (shift: string) => shift && !shift.toUpperCase().startsWith('OFF')
+              ).length;
+              return (
+                <div
+                  key={emp.username || empIdx}
+                  className={`rounded-2xl border p-3 space-y-2.5 transition-colors ${
+                    isSelf
+                      ? 'border-[var(--kg-primary)]/45 bg-[var(--kg-primary-soft)]/35'
+                      : 'border-[var(--kg-border)] bg-[var(--kg-surface)]'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <SmartPersonName
+                        fullname={emp.fullname}
+                        className="text-sm font-extrabold text-[var(--kg-text)] truncate"
+                      />
+                      {isSelf && (
+                        <span className="px-2 py-0.5 rounded-full bg-[var(--kg-primary)] text-[var(--kg-primary-fg)] text-[10px] font-black uppercase tracking-wider shrink-0">
+                          Bạn
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[11px] font-black font-mono tabular-nums px-2 py-0.5 rounded-lg bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-text-muted)] shrink-0">
+                      {workDays}/7 ca
+                    </span>
+                  </div>
+
+                  <div className="weekstrip grid grid-cols-4 sm:grid-cols-7 gap-1.5">
+                    {emp.shifts.map((shift: string, dayIdx: number) => {
+                      const isOff = shift === 'OFF' || !shift;
+                      const isHighlightedDay = weekDayMeta[dayIdx].isWeekend || weekDayMeta[dayIdx].isHoliday;
+                      return (
+                        <button
+                          key={dayIdx}
+                          type="button"
+                          onClick={() => handleWeekDayClick(dayIdx, emp)}
+                          title={weekDayMeta[dayIdx].label || undefined}
+                          aria-label={`Xem chi tiết ca ${weekInfo.weekDates[dayIdx]} - ${emp.fullname}`}
+                          className={`daychip min-h-[54px] rounded-xl border p-1.5 flex flex-col items-center justify-between gap-1 transition-all active:scale-95 touch-manipulation ${
+                            isHighlightedDay
+                              ? 'border-[var(--kg-warning)]/40 bg-[var(--kg-surface-2)]'
+                              : 'border-[var(--kg-border)] bg-[var(--kg-surface-2)]'
+                          }`}
+                        >
+                          <span className="text-[10px] font-extrabold text-[var(--kg-text-muted)] leading-none font-mono tabular-nums">
+                            {SHORT_DAY_NAMES[dayIdx]} {weekInfo.weekDates[dayIdx]}
+                          </span>
+                          <span
+                            className={`w-full rounded-md px-1 py-0.5 text-[10px] font-black font-mono tabular-nums text-center leading-tight truncate ${getAdminShiftClass(shift)}`}
+                          >
+                            {isOff ? 'OFF' : <ResponsiveShift shift={shift} />}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Desktop (>= 1024px): Full Weekly Matrix Table */}
+        <div className="hidden lg:block relative w-full rounded-2xl overflow-hidden border border-[var(--kg-border)] bg-[var(--kg-surface)]">
+          <div className="overflow-x-auto max-h-[70vh] w-full custom-scrollbar">
+            <table className="w-full text-xs sm:text-sm text-left whitespace-nowrap border-collapse">
+              <thead className="sticky top-0 z-20 text-[10px] text-[var(--kg-text-muted)] uppercase bg-[var(--kg-surface-2)] border-b border-[var(--kg-border)]">
+                <tr>
+                  <th className="px-3 py-3 sticky left-0 top-0 bg-[var(--kg-surface-2)] z-30 font-black border-r border-[var(--kg-border)] shadow-[2px_0_5px_rgba(0,0,0,0.04)] w-[160px] min-w-[160px] max-w-[160px]">
+                    Nhân Viên
+                  </th>
+                  {SHORT_DAY_NAMES.map((d, idx) => {
+                    const isUnderstaffed = dailyWaitstaffCounts[idx] < 3;
+                    return (
+                      <th
+                        key={d}
+                        className={`px-1 py-2 text-center border-r border-[var(--kg-border)] last:border-r-0 min-w-[78px] ${weekDayMeta[idx].className}`}
+                        title={weekDayMeta[idx].label || undefined}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => handleWeekDayClick(idx)}
+                          className="w-full flex flex-col items-center justify-center rounded-lg py-0.5 hover:bg-[var(--kg-primary-soft)]/60 transition-colors touch-manipulation"
+                          aria-label={`Xem lịch ngày ${weekInfo.weekDates[idx]} (${d})`}
+                        >
+                          <span className="font-black text-[13px] font-mono tabular-nums text-[var(--kg-text)]">
+                            {weekInfo.weekDates[idx]}
+                          </span>
+                          <span className="text-[9px] font-bold opacity-75 mt-0.5">{d}</span>
+                          {isUnderstaffed && (
+                            <span
+                              className="mt-1 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] border border-[var(--kg-danger)]/30 text-[9px] font-black font-mono tabular-nums leading-none"
+                              aria-label={`Thiếu nhân sự phục vụ: ${dailyWaitstaffCounts[idx]}/3`}
+                            >
+                              <ShieldAlert size={9} />
+                              {dailyWaitstaffCounts[idx]}/3
+                            </span>
+                          )}
+                        </button>
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {rosterToRender.map((emp, empIdx) => {
+                  const isSelf = emp.username === currentUser?.username;
+                  return (
+                    <tr
+                      key={emp.username || empIdx}
+                      className={`border-b border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]/60 transition-colors ${
+                        isSelf ? 'bg-[var(--kg-primary-soft)]/50' : ''
+                      }`}
+                    >
+                      <td
+                        className={`px-3 py-2 sticky left-0 z-10 shadow-[2px_0_5px_rgba(0,0,0,0.04)] border-r border-[var(--kg-border)] w-[160px] min-w-[160px] max-w-[160px] ${
+                          isSelf ? 'bg-[var(--kg-primary-soft)]' : 'bg-[var(--kg-surface)]'
+                        }`}
+                      >
+                        <SmartPersonName
+                          fullname={emp.fullname}
+                          className="max-w-[136px] text-xs font-black text-[var(--kg-text)] truncate block"
+                        />
+                        {isSelf && (
+                          <div className="text-[9px] font-black text-[var(--kg-primary-ink)] uppercase tracking-wider mt-0.5">
+                            Bạn
+                          </div>
+                        )}
+                      </td>
+                      {emp.shifts.map((shift: string, dayIdx: number) => {
+                        const isOff = shift === 'OFF' || !shift;
+                        return (
+                          <td
+                            key={dayIdx}
+                            className={`px-1 py-1 border-r border-[var(--kg-border)]/50 last:border-r-0 text-center ${weekDayMeta[dayIdx].className}`}
+                            title={weekDayMeta[dayIdx].label || undefined}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => handleWeekDayClick(dayIdx, emp)}
+                              aria-label={`Xem chi tiết ca ${weekInfo.weekDates[dayIdx]} - ${emp.fullname}`}
+                              className={`inline-flex items-center justify-center text-[10.5px] font-black font-mono tabular-nums w-full max-w-[82px] min-h-[38px] py-1.5 px-1.5 rounded-lg shadow-2xs transition-all active:scale-95 hover:ring-1 hover:ring-[var(--kg-primary)]/40 touch-manipulation ${getAdminShiftClass(shift)}`}
+                            >
+                              {isOff ? 'OFF' : <ResponsiveShift shift={shift} />}
+                            </button>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     );
@@ -373,7 +488,7 @@ export default function Roster() {
         eyebrow="Phân ca"
         tipTitle="Hướng dẫn Đọc Ma trận Xoay ca"
         tips={[
-          'Màu sắc theo vị trí: Phục vụ (Xanh lam), Pha chế (Hổ phách), Bếp (Tím), Thu ngân (Ngọc lục bảo).',
+          'Màu sắc theo giờ bắt đầu ca: 15:00 (Xanh dương), 16:00 (Xanh ngọc), 17:00 (Xanh đậm), 18:00 (Hổ phách), 19:00 (Xám than), OFF# (Nghỉ phép vàng), OFF! (Nghỉ không phép đỏ).',
           'Chạm hoặc click vào bất kỳ ô ca hoặc tiêu đề ngày nào để xem chi tiết danh sách nhân sự làm cùng ngày.',
           'Nhãn đỏ (<3) báo hiệu số nhân sự Phục vụ thấp hơn định biên tối thiểu 3 người.',
         ]}
@@ -401,7 +516,7 @@ export default function Roster() {
                 onClick={() => setViewMode('week')}
                 className={`flex-1 sm:flex-initial flex items-center justify-center min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-lg text-xs sm:text-sm font-black transition-all touch-manipulation ${
                   viewMode === 'week'
-                    ? 'bg-[var(--kg-primary)] text-white shadow-xs'
+                    ? 'bg-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)] shadow-xs'
                     : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
                 }`}
               >
@@ -412,7 +527,7 @@ export default function Roster() {
                 onClick={() => setViewMode('month')}
                 className={`flex-1 sm:flex-initial flex items-center justify-center min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-lg text-xs sm:text-sm font-black transition-all touch-manipulation ${
                   viewMode === 'month'
-                    ? 'bg-[var(--kg-primary)] text-white shadow-xs'
+                    ? 'bg-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)] shadow-xs'
                     : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
                 }`}
               >

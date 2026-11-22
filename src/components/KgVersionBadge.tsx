@@ -29,13 +29,13 @@ export function KgVersionBadge({
 
   const pillStyles = {
     surface:
-      'px-2.5 py-1 rounded-full bg-[var(--kg-accent-soft)] border border-[var(--kg-accent)]/25 text-[var(--kg-accent-ink)] group-hover:brightness-95',
+      'px-2.5 py-1 rounded-full bg-[var(--kg-primary-soft)] border border-[var(--kg-primary)]/25 text-[var(--kg-primary-ink)] group-hover:brightness-95',
     rail:
-      'px-2 py-1 rounded-full bg-white/10 border border-white/15 text-amber-200 group-hover:bg-white/15',
+      'px-2 py-1 rounded-full bg-white/10 border border-white/15 text-[#FFB581] group-hover:bg-white/15',
     hero:
       'px-3 py-1.5 rounded-full bg-white/12 border border-white/20 text-white group-hover:bg-white/18',
     compact:
-      'px-2 py-0.5 rounded-full bg-[var(--kg-accent-soft)] border border-[var(--kg-accent)]/25 text-[var(--kg-accent-ink)]',
+      'px-2 py-0.5 rounded-full bg-[var(--kg-primary-soft)] border border-[var(--kg-primary)]/25 text-[var(--kg-primary-ink)]',
   }[variant];
 
   return (
@@ -55,8 +55,8 @@ export function KgVersionBadge({
         )}
         {hasUnseen && (
           <span className="relative flex h-2 w-2 flex-shrink-0" aria-hidden="true">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--kg-accent)] opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--kg-accent)]" />
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--kg-primary)] opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--kg-primary)]" />
           </span>
         )}
       </span>

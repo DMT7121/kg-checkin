@@ -5,7 +5,9 @@ import {
   Ban,
   BriefcaseBusiness,
   CalendarClock,
+  CalendarDays,
   ChevronRight,
+  Clock,
   KeyRound,
   LoaderCircle,
   Lock,
@@ -16,6 +18,7 @@ import {
   ShieldCheck,
   Sparkles,
   UserX,
+  Wallet,
 } from 'lucide-react';
 import { KgModuleHero, KgAlertCard, KgButton, KgCard } from '../components/KgDesignSystem';
 import {
@@ -26,6 +29,7 @@ import {
 import { callApi } from '../services/api';
 import { useAppStore, type User } from '../store/useAppStore';
 import { getEmploymentStatusMeta } from '../utils/employment';
+import { navigateToHubSubTab } from '../utils/hubNavigation';
 import {
   getCachedFaceProfiles,
   subscribeCachedFaceProfiles,
@@ -185,7 +189,7 @@ export default function Profile() {
                     className="h-16 w-16 rounded-2xl border border-[var(--kg-border)] object-cover shadow-xs flex-shrink-0"
                   />
                 ) : (
-                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--kg-primary)] text-white text-2xl font-black shadow-xs flex-shrink-0">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--kg-primary)] text-[var(--kg-primary-fg)] text-2xl font-black shadow-xs flex-shrink-0">
                     {profile.fullname.charAt(0).toUpperCase()}
                   </div>
                 )}
@@ -243,9 +247,9 @@ export default function Profile() {
                   <div
                     className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
                       isFaceReady
-                        ? 'bg-[var(--kg-success)] text-white'
+                        ? 'bg-[var(--kg-success)] text-white dark:text-[#101B15]'
                         : isFacePartial
-                          ? 'bg-[var(--kg-warning)] text-white'
+                          ? 'bg-[var(--kg-warning)] text-white dark:text-[#101B15]'
                           : 'bg-[var(--kg-surface)] border border-[var(--kg-border)] text-[var(--kg-text-muted)]'
                     }`}
                   >
@@ -315,8 +319,72 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Permissions + Compact 1-row Version Link + Refresh */}
+        {/* RIGHT COLUMN: Essential Shortcuts + Permissions + Compact 1-row Version Link + Refresh */}
         <div className="lg:col-span-5 space-y-4">
+          <KgCard>
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h3 className="flex items-center gap-2 font-extrabold text-sm sm:text-base text-[var(--kg-text)]">
+                <Sparkles size={16} className="text-[var(--kg-primary-ink)]" />
+                Lối tắt thiết yếu
+              </h3>
+              <span className="text-[10.5px] font-bold uppercase tracking-wider text-[var(--kg-text-soft)]">
+                1 chạm
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2.5">
+              {(
+                [
+                  {
+                    label: 'Chấm công / Face ID',
+                    hint: 'Check-in nhanh',
+                    icon: ScanFace,
+                    onClick: () => navigateToHubSubTab('checkin'),
+                  },
+                  {
+                    label: 'Bảng công',
+                    hint: 'Giờ làm thực tế',
+                    icon: Clock,
+                    onClick: () => navigateToHubSubTab('attendance', 'ledger'),
+                  },
+                  {
+                    label: 'Phiếu lương',
+                    hint: 'Đối chiếu thu nhập',
+                    icon: Wallet,
+                    onClick: () => navigateToHubSubTab('attendance', 'payroll'),
+                  },
+                  {
+                    label: 'Lịch làm việc',
+                    hint: 'Đăng ký ca tuần',
+                    icon: CalendarDays,
+                    onClick: () => navigateToHubSubTab('workforce', 'schedule'),
+                  },
+                ] as const
+              ).map((shortcut) => {
+                const ShortcutIcon = shortcut.icon;
+                return (
+                  <button
+                    key={shortcut.label}
+                    type="button"
+                    onClick={shortcut.onClick}
+                    className="kg-touch-tile min-h-[72px] rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)] hover:border-[var(--kg-primary)]/45 p-3 flex flex-col items-start justify-between gap-2 text-left transition-colors active:scale-[0.98] touch-manipulation"
+                  >
+                    <span className="w-8 h-8 rounded-xl bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] flex items-center justify-center shrink-0">
+                      <ShortcutIcon size={16} />
+                    </span>
+                    <div className="min-w-0 w-full">
+                      <p className="text-xs font-extrabold text-[var(--kg-text)] leading-tight truncate">
+                        {shortcut.label}
+                      </p>
+                      <p className="text-[10.5px] text-[var(--kg-text-muted)] truncate mt-0.5">
+                        {shortcut.hint}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </KgCard>
+
           <KgCard>
             <h3 className="flex items-center gap-2 font-extrabold text-sm sm:text-base text-[var(--kg-text)]">
               <KeyRound size={17} className="text-[var(--kg-primary-ink)]" />

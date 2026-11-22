@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /* ==========================================================================
-   KING'S GRILL STAFF OS v4.0.0 — WARM HOSPITALITY SUPER-APP DESIGN SYSTEM
+   KING'S GRILL STAFF OS v5.0 — TOAST TOUCH OPERATIONS DESIGN SYSTEM
    Locked DNA: .design-dna/dna.json & DESIGN.md
    ========================================================================== */
 
@@ -11,32 +11,33 @@
   :root,
   [data-theme="light"],
   [data-mode="light"] {
-    /* 1. Warm Hospitality Semantic Slots (Light — Alabaster × Grill Ember × Midnight Navy) */
-    --bg: #f4f0e8;
-    --surface: #fffdf9;
-    --surface-warm: #eae3d7;
-    --fg: #1a1613;
-    --muted: #5c5349;
-    --meta: #6e6459;
-    --border: #ddd4c5;
+    /* 1. Toast Touch Operations Semantic Slots (Light — Warm Paper × Forest Charcoal × Terracotta) */
+    --bg: #F7F7F4;
+    --surface: #FFFFFF;
+    --surface-warm: #F4EFE7;
+    --fg: #202A25;
+    --muted: #55655D;
+    --meta: #63726B;
+    --border: #E4E8E2;
 
-    /* King's Grill Brand Action & Ember Signal Roles (WCAG 2.2 AA >= 5.1:1) */
-    --accent: #0b253c;
-    --accent-hover: #123656;
-    --brand-coral: #c8432b;
-    --brand-coral-ink: #b33620;
+    /* King's Grill Toast Touch Action & Brand Signals (WCAG 2.2 AA) */
+    --accent: #C0522A;
+    --accent-hover: #A64420;
+    --brand-coral: #F29055;
+    --brand-coral-ink: #A64420;
 
-    /* Architectural Rail & Floating Dock Contrast Tokens */
-    --kg-rail-bg: #0b1f33;
-    --kg-rail-surface: rgba(255, 253, 249, 0.08);
-    --kg-rail-border: rgba(255, 253, 249, 0.14);
-    --kg-rail-text: #f4f0e8;
-    --kg-rail-muted: #9fb2c7;
+    /* Architectural Forest Rail & Floating Dock Contrast Tokens */
+    --kg-rail-bg: #202C27;
+    --kg-rail-bg-alt: #24372C;
+    --kg-rail-surface: rgba(255, 255, 255, 0.09);
+    --kg-rail-border: rgba(255, 255, 255, 0.14);
+    --kg-rail-text: #F6F8F4;
+    --kg-rail-muted: #B7C8BC;
 
-    --success: #15803d;
-    --warn: #b45309;
-    --danger: #dc2626;
-    --info: #0369a1;
+    --success: #1E7550;
+    --warn: #9A6018;
+    --danger: #B93F36;
+    --info: #1E6091;
 
     /* 2. Project Token Bridge (--kg-*) */
     --kg-font-sans: 'Be Vietnam Pro', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -45,41 +46,47 @@
     --kg-bg: var(--bg);
     --kg-surface: var(--surface);
     --kg-surface-soft: var(--surface-warm);
+    --kg-surface-2: #FAFAF8;
     --kg-border: var(--border);
-    --kg-border-strong: #c4b8a5;
+    --kg-border-strong: #CCD5CE;
 
     --kg-text: var(--fg);
     --kg-text-muted: var(--muted);
     --kg-text-soft: var(--meta);
 
     --kg-primary: var(--accent);
-    --kg-primary-ink: #0b253c;
+    --kg-primary-fg: #FFFFFF;
+    --kg-primary-ink: #A64420;
     --kg-primary-hover: var(--accent-hover);
-    --kg-primary-soft: rgba(11, 37, 60, 0.09);
+    --kg-primary-soft: #FFF1E8;
     --kg-accent: var(--brand-coral);
+    --kg-accent-fg: #241C17;
     --kg-accent-ink: var(--brand-coral-ink);
-    --kg-accent-soft: #fdede8;
+    --kg-accent-soft: #FFF3E8;
+
+    --kg-nav-active: #202C27;
+    --kg-nav-active-fg: #FFFFFF;
 
     --kg-success: var(--success);
-    --kg-success-soft: #ecfdf3;
+    --kg-success-soft: #E8F6ED;
     --kg-warning: var(--warn);
-    --kg-warning-soft: #fef7e6;
+    --kg-warning-soft: #FFF4E4;
     --kg-danger: var(--danger);
-    --kg-danger-soft: #fef1f1;
+    --kg-danger-soft: #FFF0ED;
     --kg-info: var(--info);
-    --kg-info-soft: #edf7fe;
+    --kg-info-soft: #EDF6FD;
 
-    /* Tactile Super-App Radii & Operational Sizing */
+    /* Tactile Toast Touch Radii & Operational Sizing */
     --radius-md: 12px;
     --radius-lg: 16px;
-    --kg-control-height: 42px;
+    --kg-control-height: 44px;
     --kg-card-radius: var(--radius-lg);
     --kg-control-radius: var(--radius-md);
     --kg-focus-ring: 0 0 0 2px var(--kg-surface), 0 0 0 4px var(--kg-primary-ink);
 
-    --shadow-card: 0 1px 3px 0 rgba(26, 22, 19, 0.05), 0 4px 12px -4px rgba(26, 22, 19, 0.04);
-    --shadow-soft: 0 1px 2px 0 rgba(26, 22, 19, 0.04);
-    --shadow-hero: 0 12px 30px -8px rgba(11, 37, 60, 0.22);
+    --shadow-card: 0 2px 8px rgba(37, 54, 41, 0.04);
+    --shadow-soft: 0 1px 2px rgba(32, 44, 39, 0.05);
+    --shadow-hero: 0 12px 28px -8px rgba(32, 44, 39, 0.22);
 
     /* Motion (strictly <= 180ms) */
     --motion-fast: 140ms;
@@ -90,62 +97,69 @@
   .dark,
   [data-theme="dark"],
   [data-mode="dark"] {
-    --bg: #0d1015;
-    --surface: #161a22;
-    --surface-warm: #1f2530;
-    --fg: #f7f4ee;
-    --muted: #b5afa6;
-    --meta: #969087;
-    --border: rgba(245, 240, 232, 0.12);
+    --bg: #121B17;
+    --surface: #1B2821;
+    --surface-warm: #24322A;
+    --fg: #F4F7F0;
+    --muted: #B2C5B7;
+    --meta: #98AE9E;
+    --border: #334539;
 
-    --accent: #2563eb;
-    --accent-hover: #3b82f6;
-    --brand-coral: #e05238;
-    --brand-coral-ink: #ff8a73;
+    --accent: #F59B62;
+    --accent-hover: #FFAE7A;
+    --brand-coral: #F59B62;
+    --brand-coral-ink: #FFC29A;
 
-    --kg-rail-bg: #10141c;
-    --kg-rail-surface: rgba(247, 244, 238, 0.06);
-    --kg-rail-border: rgba(247, 244, 238, 0.11);
-    --kg-rail-text: #f7f4ee;
-    --kg-rail-muted: #9da6b5;
+    --kg-rail-bg: #101B15;
+    --kg-rail-bg-alt: #1C2E24;
+    --kg-rail-surface: rgba(255, 255, 255, 0.08);
+    --kg-rail-border: rgba(255, 255, 255, 0.12);
+    --kg-rail-text: #F4F7F2;
+    --kg-rail-muted: #ACBDAD;
 
-    --success: #34d399;
-    --warn: #fbbf24;
-    --danger: #f87171;
-    --info: #38bdf8;
+    --success: #7EDBA8;
+    --warn: #FFD285;
+    --danger: #FF968E;
+    --info: #7AC4FF;
 
     --kg-bg: var(--bg);
     --kg-surface: var(--surface);
     --kg-surface-soft: var(--surface-warm);
+    --kg-surface-2: #202E27;
     --kg-border: var(--border);
-    --kg-border-strong: rgba(245, 240, 232, 0.22);
+    --kg-border-strong: #53695B;
 
     --kg-text: var(--fg);
     --kg-text-muted: var(--muted);
     --kg-text-soft: var(--meta);
 
     --kg-primary: var(--accent);
-    --kg-primary-ink: #7fb3ff;
+    --kg-primary-fg: #23170F;
+    --kg-primary-ink: #FFB27F;
     --kg-primary-hover: var(--accent-hover);
-    --kg-primary-soft: rgba(59, 130, 246, 0.16);
+    --kg-primary-soft: #463024;
     --kg-accent: var(--brand-coral);
+    --kg-accent-fg: #23170F;
     --kg-accent-ink: var(--brand-coral-ink);
-    --kg-accent-soft: rgba(224, 82, 56, 0.16);
+    --kg-accent-soft: #463024;
+
+    --kg-nav-active: #F59B62;
+    --kg-nav-active-fg: #23170F;
 
     --kg-success: var(--success);
-    --kg-success-soft: rgba(52, 211, 153, 0.14);
+    --kg-success-soft: #1A3B2B;
     --kg-warning: var(--warn);
-    --kg-warning-soft: rgba(251, 191, 36, 0.14);
+    --kg-warning-soft: #423620;
     --kg-danger: var(--danger);
-    --kg-danger-soft: rgba(248, 113, 113, 0.14);
+    --kg-danger-soft: #462927;
     --kg-info: var(--info);
-    --kg-info-soft: rgba(56, 189, 248, 0.14);
+    --kg-info-soft: #1B3548;
 
     --kg-focus-ring: 0 0 0 2px var(--kg-surface), 0 0 0 4px var(--kg-primary-ink);
 
-    --shadow-card: 0 2px 8px -2px rgba(0, 0, 0, 0.42);
-    --shadow-soft: 0 1px 3px 0 rgba(0, 0, 0, 0.28);
-    --shadow-hero: 0 14px 32px -6px rgba(0, 0, 0, 0.55);
+    --shadow-card: 0 3px 12px rgba(0, 0, 0, 0.25);
+    --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.22);
+    --shadow-hero: 0 14px 32px -6px rgba(0, 0, 0, 0.45);
   }
 
   html {
@@ -192,7 +206,7 @@
 }
 
 /* ==========================================================================
-   KUMO LAYERCARD & SHARED SURFACE PRIMITIVES
+   TOAST TOUCH OPERATIONS — SHARED SURFACE, HERO & INTERACTIVE PRIMITIVES
    ========================================================================== */
 
 @layer components {
@@ -229,10 +243,10 @@
 
   .login-primary {
     background-color: var(--kg-primary);
-    color: #ffffff;
+    color: var(--kg-primary-fg);
     border: 1px solid var(--kg-primary);
     border-radius: var(--kg-control-radius);
-    font-weight: 600;
+    font-weight: 700;
     box-shadow: var(--shadow-soft);
     transition: background-color var(--motion-fast) var(--ease-standard),
                 transform 100ms ease;
@@ -247,13 +261,215 @@
     transform: translateY(1px);
   }
 
-  /* Kumo Metric Card — clean 1px ring, zero thick side/top stripes */
+  /* Toast Touch Service Board Hero */
+  .kg-service-board {
+    position: relative;
+    overflow: hidden;
+    background-color: var(--kg-rail-bg-alt);
+    border: 1px solid var(--kg-rail-border);
+    border-radius: 18px;
+    color: #FCFFF9;
+    padding: 1.25rem 1.15rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+    box-shadow: var(--shadow-hero);
+  }
+
+  @media (min-width: 768px) {
+    .kg-service-board {
+      border-radius: 22px;
+      padding: 1.5rem 1.75rem;
+      grid-template-columns: minmax(0, 1.25fr) minmax(230px, 0.75fr);
+      gap: 1.125rem;
+      min-height: 196px;
+    }
+  }
+
+  .kg-service-board::before {
+    content: "";
+    position: absolute;
+    right: -70px;
+    top: -122px;
+    width: 275px;
+    height: 275px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+
+  .kg-service-board::after {
+    content: "";
+    position: absolute;
+    right: -120px;
+    top: -185px;
+    width: 410px;
+    height: 410px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+
+  .kg-board-mini {
+    background-color: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    padding: 0.75rem 0.9375rem;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    color: #FCFFF9;
+  }
+
+  /* Toast Touch 1-Tap Touch Tile */
+  .kg-touch-tile {
+    min-height: 98px;
+    padding: 0.875rem 1rem;
+    text-align: left;
+    border: 1px solid var(--kg-border);
+    background-color: var(--kg-surface);
+    border-radius: 15px;
+    color: var(--kg-text);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.625rem;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: transform var(--motion-fast) var(--ease-standard),
+                background-color var(--motion-fast) var(--ease-standard),
+                border-color var(--motion-fast) var(--ease-standard);
+  }
+
+  .kg-touch-tile:hover {
+    border-color: var(--kg-primary);
+    background-color: var(--kg-primary-soft);
+  }
+
+  .kg-touch-tile:active {
+    transform: scale(0.985);
+  }
+
+  /* Toast Touch Filter Pills */
+  .kg-filter-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    min-height: 44px;
+    padding: 0.5rem 0.875rem;
+    border-radius: 11px;
+    border: 1px solid var(--kg-border);
+    background-color: var(--kg-surface);
+    color: var(--kg-text-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: background-color var(--motion-fast) var(--ease-standard),
+                border-color var(--motion-fast) var(--ease-standard),
+                color var(--motion-fast) var(--ease-standard),
+                transform var(--motion-fast) var(--ease-standard);
+  }
+
+  @media (min-width: 640px) {
+    .kg-filter-pill {
+      min-height: 40px;
+    }
+  }
+
+  .kg-filter-pill:hover:not(:disabled):not(.kg-filter-pill--active) {
+    background-color: var(--kg-surface-soft);
+    border-color: var(--kg-border-strong);
+    color: var(--kg-text);
+  }
+
+  .kg-filter-pill:active:not(:disabled) {
+    transform: scale(0.985);
+  }
+
+  .kg-filter-pill--active {
+    background-color: var(--kg-nav-active);
+    border-color: var(--kg-nav-active);
+    color: var(--kg-nav-active-fg);
+    font-weight: 700;
+  }
+
+  .kg-filter-pill--active:hover:not(:disabled) {
+    background-color: var(--kg-nav-active);
+    border-color: var(--kg-nav-active);
+    color: var(--kg-nav-active-fg);
+  }
+
+  /* Toast Touch 1-Tap Shift Chips */
+  .kg-shift-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    min-height: 44px;
+    min-width: 58px;
+    padding: 0.5rem 0.75rem;
+    border-radius: 11px;
+    border: 1px solid var(--kg-border-strong);
+    background-color: var(--kg-surface);
+    color: var(--kg-text-muted);
+    font-size: 0.75rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: background-color var(--motion-fast) var(--ease-standard),
+                border-color var(--motion-fast) var(--ease-standard),
+                color var(--motion-fast) var(--ease-standard),
+                transform var(--motion-fast) var(--ease-standard);
+  }
+
+  .kg-shift-chip:hover:not(:disabled):not(.kg-shift-chip--active):not(.kg-shift-chip--off) {
+    border-color: var(--kg-primary);
+    background-color: var(--kg-surface-2);
+    color: var(--kg-text);
+  }
+
+  .kg-shift-chip:active:not(:disabled) {
+    transform: scale(0.985);
+  }
+
+  .kg-shift-chip--active {
+    background-color: var(--kg-nav-active);
+    border-color: var(--kg-nav-active);
+    color: var(--kg-nav-active-fg);
+  }
+
+  .kg-shift-chip--active:hover:not(:disabled) {
+    background-color: var(--kg-nav-active);
+    border-color: var(--kg-nav-active);
+    color: var(--kg-nav-active-fg);
+  }
+
+  .kg-shift-chip--off,
+  .kg-shift-chip--off.kg-shift-chip--active {
+    background-color: var(--kg-danger);
+    border-color: var(--kg-danger);
+    color: #FFFFFF;
+  }
+
+  .dark .kg-shift-chip--off,
+  .dark .kg-shift-chip--off.kg-shift-chip--active {
+    color: #23170F;
+  }
+
+  /* Metric Card — clean 1px ring, zero thick side/top stripes */
   .kg-metric-card {
     overflow: hidden;
   }
 
   .kg-section-icon {
-    color: var(--kg-primary);
+    color: var(--kg-primary-ink);
     background-color: var(--kg-surface-soft);
     border: 1px solid var(--kg-border);
   }
@@ -262,7 +478,7 @@
   .kg-action-group {
     padding: 0.625rem;
     border-radius: var(--radius-lg);
-    background-color: var(--kg-surface-soft);
+    background-color: var(--kg-surface-2);
     border: 1px solid var(--kg-border);
   }
 
@@ -278,32 +494,43 @@
   }
 
   .kg-action-tile--active {
-    color: #ffffff;
+    color: var(--kg-primary-fg);
     background-color: var(--kg-primary);
     border-color: var(--kg-primary);
   }
 
   .kg-action-tile--active span,
   .kg-action-tile--active svg {
-    color: #ffffff;
-    stroke: #ffffff;
+    color: var(--kg-primary-fg);
+    stroke: var(--kg-primary-fg);
   }
 
   .kg-action-icon--active {
-    color: #ffffff;
+    color: var(--kg-primary-fg);
     background-color: rgba(255, 255, 255, 0.16);
     border-color: rgba(255, 255, 255, 0.24);
   }
 
+  .dark .kg-action-icon--active {
+    background-color: rgba(35, 23, 15, 0.14);
+    border-color: rgba(35, 23, 15, 0.24);
+  }
+
   /* Module Sub-tab Bar */
   .kg-module-tabs {
-    border: 1px solid var(--kg-border);
-    background-color: var(--kg-surface);
-    box-shadow: var(--shadow-soft);
+    border: none;
+    background-color: transparent;
+    box-shadow: none;
   }
 
   .kg-module-tab {
-    min-height: 36px;
+    min-height: 44px;
+  }
+
+  @media (min-width: 640px) {
+    .kg-module-tab {
+      min-height: 40px;
+    }
   }
 
   /* Kumo Operational Form & Table Baseline inside Workspace */
@@ -673,18 +900,21 @@ th.calendar-day--holiday { color: #b91c1c !important; }
   color: var(--kg-accent-ink);
 }
 
+.dark .bg-\[var\(--kg-primary\)\].text-white,
+.dark .hover\:bg-\[var\(--kg-primary\)\]:hover.hover\:text-white:hover {
+  color: var(--kg-primary-fg);
+}
+
+.dark .bg-\[var\(--kg-accent\)\].text-white {
+  color: var(--kg-accent-fg);
+}
+
 /* ==========================================================================
-   v4.0 MOBILE-FIRST FIT ENGINE & SUPER-APP FLOATING DOCK GEOMETRY
+   v5.0 TOAST TOUCH MOBILE-FIRST FIT ENGINE & FLOATING DOCK GEOMETRY
    ========================================================================== */
 
 .kg-app-main {
-  background-image: radial-gradient(900px 420px at 100% 0%, rgba(200, 67, 43, 0.045), transparent 70%),
-                    radial-gradient(700px 380px at 0% 0%, rgba(11, 37, 60, 0.04), transparent 65%);
-}
-
-.dark .kg-app-main {
-  background-image: radial-gradient(900px 420px at 100% 0%, rgba(224, 82, 56, 0.07), transparent 70%),
-                    radial-gradient(700px 380px at 0% 0%, rgba(37, 99, 235, 0.06), transparent 65%);
+  background-color: var(--kg-bg);
 }
 
 .kg-floating-dock {

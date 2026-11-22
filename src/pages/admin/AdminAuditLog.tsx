@@ -32,6 +32,8 @@ export interface AuditLogEntry {
   metadata?: Record<string, unknown>;
 }
 
+type AuditGroup = 'ALL' | 'PAYROLL' | 'OPS' | 'HR' | 'SECURITY';
+
 const AUDIT_ACTION_LABELS: Record<string, string> = {
   ALL: 'Tất cả thao tác nhạy cảm',
   SET_PAYROLL_WORKFLOW_STATUS: 'Đổi trạng thái chốt lương',
@@ -51,6 +53,31 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   FORCE_RESET_PASSWORD: 'Đặt lại mật khẩu nhân viên',
   SYNC_KEYS: 'Đồng bộ khóa API AI (đã ẩn khóa)',
 };
+
+const AUDIT_GROUP_ACTIONS: Record<Exclude<AuditGroup, 'ALL'>, Set<string>> = {
+  PAYROLL: new Set([
+    'SET_PAYROLL_WORKFLOW_STATUS',
+    'UPDATE_MONTHLY_SALARY_CONFIG',
+    'COPY_MONTHLY_SALARY_CONFIG',
+    'REVIEW_SALARY_ADJUSTMENT',
+    'ADD_BONUS_PENALTY',
+    'APPROVE_ADVANCE',
+    'APPROVE_MISSED_CHECKIN',
+    'REJECT_MISSED_CHECKIN',
+    'UPDATE_CHECKIN_TYPE',
+  ]),
+  OPS: new Set(['REVIEW_HANDOVER', 'UPDATE_INCIDENT', 'APPROVE_SWAP']),
+  HR: new Set(['UPDATE_USER_ROLE', 'UPDATE_EMPLOYMENT_STATUS', 'FORCE_RESET_PASSWORD']),
+  SECURITY: new Set(['SYNC_KEYS']),
+};
+
+const AUDIT_GROUP_PILLS: Array<{ id: AuditGroup; label: string }> = [
+  { id: 'ALL', label: 'Tất cả' },
+  { id: 'PAYROLL', label: 'Công & Lương' },
+  { id: 'OPS', label: 'Vận hành & Két' },
+  { id: 'HR', label: 'Nhân sự & Quyền' },
+  { id: 'SECURITY', label: 'Bảo mật AI' },
+];
 
 const PAGE_SIZE = 25;
 
@@ -90,6 +117,7 @@ function AdminAuditLogContent() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [limit, setLimit] = useState<number>(100);
+  const [groupFilter, setGroupFilter] = useState<AuditGroup>('ALL');
   const [actionFilter, setActionFilter] = useState<string>('ALL');
   const [dateFilter, setDateFilter] = useState<string>('');
   const [query, setQuery] = useState<string>('');
@@ -125,9 +153,29 @@ function AdminAuditLogContent() {
     void fetchLogs(limit, false);
   }, [fetchLogs, limit]);
 
+  const groupCounts = useMemo(() => {
+    const counts: Record<AuditGroup, number> = {
+      ALL: auditLogs.length,
+      PAYROLL: 0,
+      OPS: 0,
+      HR: 0,
+      SECURITY: 0,
+    };
+    for (const entry of auditLogs) {
+      if (AUDIT_GROUP_ACTIONS.PAYROLL.has(entry.action)) counts.PAYROLL += 1;
+      else if (AUDIT_GROUP_ACTIONS.OPS.has(entry.action)) counts.OPS += 1;
+      else if (AUDIT_GROUP_ACTIONS.HR.has(entry.action)) counts.HR += 1;
+      else if (AUDIT_GROUP_ACTIONS.SECURITY.has(entry.action)) counts.SECURITY += 1;
+    }
+    return counts;
+  }, [auditLogs]);
+
   const filteredLogs = useMemo(() => {
     const q = query.trim().toLowerCase();
     return auditLogs.filter((entry) => {
+      if (groupFilter !== 'ALL' && !AUDIT_GROUP_ACTIONS[groupFilter].has(entry.action)) {
+        return false;
+      }
       if (actionFilter !== 'ALL' && entry.action !== actionFilter) return false;
       if (dateFilter) {
         const entryDate = extractIsoDate(entry.timestamp || entry.createdAt);
@@ -142,7 +190,7 @@ function AdminAuditLogContent() {
         actor.includes(q) || target.includes(q) || summary.includes(q) || actionText.includes(q)
       );
     });
-  }, [auditLogs, actionFilter, dateFilter, query]);
+  }, [auditLogs, groupFilter, actionFilter, dateFilter, query]);
 
   const totalPages = Math.max(1, Math.ceil(filteredLogs.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -151,9 +199,11 @@ function AdminAuditLogContent() {
     return filteredLogs.slice(start, start + PAGE_SIZE);
   }, [filteredLogs, safePage]);
 
-  const hasActiveFilter = actionFilter !== 'ALL' || Boolean(dateFilter) || Boolean(query.trim());
+  const hasActiveFilter =
+    groupFilter !== 'ALL' || actionFilter !== 'ALL' || Boolean(dateFilter) || Boolean(query.trim());
 
   const resetFilters = () => {
+    setGroupFilter('ALL');
     setActionFilter('ALL');
     setDateFilter('');
     setQuery('');
@@ -189,8 +239,8 @@ function AdminAuditLogContent() {
     <div className="p-4 md:px-0 md:pt-1 space-y-4 animate-fade-in pb-24 md:pb-12 max-w-7xl mx-auto">
       <KgModuleHero
         moduleId="admin"
-        title="Nhật Ký Kiểm Toán Bảo Mật"
-        description="Truy vết bất biến thao tác chốt lương, sửa công, duyệt két, thưởng/phạt và phân quyền (tự động ẩn khóa bí mật & mật khẩu)."
+        title="Nhật ký kiểm toán"
+        description="Theo dõi dấu vết bất biến mọi thao tác chốt lương, sửa công, duyệt két, thưởng/phạt và phân quyền."
         eyebrow="Hệ thống · Audit"
         actions={
           <div className="grid grid-cols-2 sm:flex items-center gap-2 w-full sm:w-auto">
@@ -207,7 +257,7 @@ function AdminAuditLogContent() {
               type="button"
               onClick={handleExportCsv}
               disabled={filteredLogs.length === 0}
-              className="min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs font-bold inline-flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-45 whitespace-nowrap"
+              className="min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] text-xs font-bold inline-flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-45 whitespace-nowrap"
             >
               <Download size={14} className="shrink-0" />
               <span>Xuất CSV</span>
@@ -216,8 +266,47 @@ function AdminAuditLogContent() {
         }
       />
 
-      {/* Filter Bar */}
-      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-3.5 space-y-2.5 shadow-xs">
+      {/* Toast Touch Filter Pills + Granular Controls */}
+      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-3.5 space-y-3 shadow-xs">
+        <div
+          className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar pb-0.5 sm:flex-wrap sm:overflow-visible"
+          role="tablist"
+          aria-label="Nhóm thao tác kiểm toán"
+        >
+          {AUDIT_GROUP_PILLS.map((pill) => {
+            const active = groupFilter === pill.id && actionFilter === 'ALL';
+            return (
+              <button
+                key={pill.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => {
+                  setGroupFilter(pill.id);
+                  setActionFilter('ALL');
+                  setPage(1);
+                }}
+                className={`kg-filter-pill min-h-[44px] sm:min-h-[36px] shrink-0 px-3 py-1.5 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${
+                  active
+                    ? 'kg-filter-pill--active bg-[var(--kg-nav-active)] border-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)]'
+                    : 'bg-[var(--kg-surface-2)] border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
+                }`}
+              >
+                <span>{pill.label}</span>
+                <span
+                  className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono tabular-nums font-extrabold ${
+                    active
+                      ? 'bg-[var(--kg-nav-active-fg)]/15 text-[var(--kg-nav-active-fg)]'
+                      : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)]'
+                  }`}
+                >
+                  {groupCounts[pill.id]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_170px_140px] gap-2.5">
           <div className="relative">
             <Search
@@ -233,7 +322,7 @@ function AdminAuditLogContent() {
               }}
               placeholder="Tìm người thực hiện, đối tượng, tháng lương..."
               aria-label="Tìm nhật ký kiểm toán"
-              className="w-full min-h-[44px] sm:min-h-[38px] pl-9 pr-10 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-base sm:text-xs font-medium text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
+              className="w-full min-h-[44px] sm:min-h-[38px] pl-9 pr-10 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)] text-base sm:text-xs font-medium text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
             />
             {query && (
               <button
@@ -243,7 +332,7 @@ function AdminAuditLogContent() {
                   setPage(1);
                 }}
                 aria-label="Xóa từ khóa"
-                className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 inline-flex items-center justify-center rounded-lg text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface)]"
+                className="absolute right-1 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-9 sm:h-9 inline-flex items-center justify-center rounded-lg text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface)]"
               >
                 <X size={13} />
               </button>
@@ -254,10 +343,11 @@ function AdminAuditLogContent() {
             value={actionFilter}
             onChange={(e) => {
               setActionFilter(e.target.value);
+              setGroupFilter('ALL');
               setPage(1);
             }}
             aria-label="Lọc loại thao tác kiểm toán"
-            className="min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-base sm:text-xs font-bold text-[var(--kg-text)]"
+            className="min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)] text-base sm:text-xs font-bold text-[var(--kg-text)]"
           >
             {Object.entries(AUDIT_ACTION_LABELS).map(([key, label]) => (
               <option key={key} value={key}>
@@ -274,14 +364,14 @@ function AdminAuditLogContent() {
               setPage(1);
             }}
             aria-label="Lọc theo ngày kiểm toán"
-            className="min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-base sm:text-xs font-mono tabular-nums text-[var(--kg-text)]"
+            className="min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)] text-base sm:text-xs font-mono tabular-nums text-[var(--kg-text)]"
           />
 
           <select
             value={limit}
             onChange={(e) => setLimit(Number(e.target.value) || 100)}
             aria-label="Số bản ghi tối đa tải về"
-            className="min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-base sm:text-xs font-bold font-mono tabular-nums text-[var(--kg-text)]"
+            className="min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)] text-base sm:text-xs font-bold font-mono tabular-nums text-[var(--kg-text)]"
           >
             <option value={50}>Tải 50 dòng</option>
             <option value={100}>Tải 100 dòng</option>
@@ -298,7 +388,7 @@ function AdminAuditLogContent() {
             <button
               type="button"
               onClick={resetFilters}
-              className="min-h-[36px] sm:min-h-[30px] px-2.5 py-1 rounded-lg bg-[var(--kg-accent-soft)] text-[var(--kg-accent-ink)] hover:brightness-95 font-bold whitespace-nowrap"
+              className="min-h-[36px] sm:min-h-[30px] px-2.5 py-1 rounded-lg bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] hover:brightness-95 font-bold whitespace-nowrap"
             >
               Xóa bộ lọc
             </button>
@@ -335,7 +425,7 @@ function AdminAuditLogContent() {
               <table className="w-full text-left border-collapse text-xs">
                 <thead className="sticky top-0 z-10 bg-[var(--kg-surface-soft)] border-b border-[var(--kg-border)] text-[11px] font-black uppercase tracking-wider text-[var(--kg-text-muted)]">
                   <tr>
-                    <th className="py-3 px-3.5 w-36 whitespace-nowrap">Thời gian</th>
+                    <th className="py-3 px-3.5 w-40 whitespace-nowrap">Thời gian</th>
                     <th className="py-3 px-3.5 w-48 whitespace-nowrap">Thao tác</th>
                     <th className="py-3 px-3.5 w-32 whitespace-nowrap">Người thực hiện</th>
                     <th className="py-3 px-3.5 w-32 whitespace-nowrap">Đối tượng</th>
@@ -352,7 +442,7 @@ function AdminAuditLogContent() {
                       <tr
                         key={entry.id || `${entry.action}-${idx}`}
                         onClick={() => setSelectedEntry(entry)}
-                        className="hover:bg-[var(--kg-surface-soft)]/60 cursor-pointer transition-colors"
+                        className="hover:bg-[var(--kg-surface-2)] cursor-pointer transition-colors"
                       >
                         <td className="py-3 px-3.5 font-mono tabular-nums text-[var(--kg-text-muted)] whitespace-nowrap">
                           {timeStr}
@@ -380,7 +470,7 @@ function AdminAuditLogContent() {
                             }}
                             title="Xem chi tiết"
                             aria-label="Xem chi tiết bản ghi kiểm toán"
-                            className="min-h-[36px] min-w-[36px] px-2.5 py-1 rounded-lg bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-border)]/50 text-[var(--kg-primary-ink)] font-bold inline-flex items-center justify-center gap-1"
+                            className="min-h-[36px] min-w-[36px] px-2.5 py-1 rounded-lg bg-[var(--kg-surface-2)] border border-[var(--kg-border)] hover:border-[var(--kg-border-strong)] text-[var(--kg-primary-ink)] font-bold inline-flex items-center justify-center gap-1"
                           >
                             <Eye size={14} />
                           </button>
@@ -393,7 +483,7 @@ function AdminAuditLogContent() {
             </div>
           </div>
 
-          {/* Mobile & Tablet Card List (< lg) */}
+          {/* Mobile & Tablet Card List (< 1024px) */}
           <div className="lg:hidden space-y-2.5">
             {pagedLogs.map((entry, idx) => {
               const actorName = entry.actor || entry.actorUsername || 'admin';
@@ -404,7 +494,7 @@ function AdminAuditLogContent() {
                   key={entry.id || `${entry.action}-${idx}`}
                   type="button"
                   onClick={() => setSelectedEntry(entry)}
-                  className="w-full text-left bg-[var(--kg-surface)] border border-[var(--kg-border)] hover:border-[var(--kg-border-strong)] rounded-2xl p-3.5 shadow-xs space-y-2 transition-colors"
+                  className="w-full min-h-[44px] text-left bg-[var(--kg-surface)] border border-[var(--kg-border)] hover:border-[var(--kg-border-strong)] rounded-2xl p-3.5 shadow-xs space-y-2 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <span className="px-2 py-0.5 rounded-md bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] font-bold text-[11px]">
@@ -415,15 +505,22 @@ function AdminAuditLogContent() {
                     </span>
                   </div>
                   {entry.summary && (
-                    <p className="text-xs text-[var(--kg-text)] line-clamp-2">{entry.summary}</p>
+                    <p className="text-xs text-[var(--kg-text)] line-clamp-2 leading-relaxed">
+                      {entry.summary}
+                    </p>
                   )}
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-[var(--kg-text-muted)] pt-1 border-t border-[var(--kg-border)]">
-                    <span>@{actorName}</span>
-                    {entry.target && (
-                      <span className="px-2 py-0.5 rounded bg-[var(--kg-surface-soft)] text-[var(--kg-text)] truncate max-w-[180px]">
-                        {entry.target}
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono tabular-nums text-[var(--kg-text-muted)] pt-1.5 border-t border-[var(--kg-border)]">
+                    <span className="font-bold text-[var(--kg-text)]">@{actorName}</span>
+                    <div className="flex items-center gap-1.5">
+                      {entry.target && (
+                        <span className="px-2 py-0.5 rounded bg-[var(--kg-surface-2)] border border-[var(--kg-border)] text-[var(--kg-text)] truncate max-w-[160px]">
+                          {entry.target}
+                        </span>
+                      )}
+                      <span className="inline-flex items-center gap-1 text-[var(--kg-primary-ink)] font-sans font-bold">
+                        <Eye size={12} /> Chi tiết
                       </span>
-                    )}
+                    </div>
                   </div>
                 </button>
               );
@@ -437,7 +534,7 @@ function AdminAuditLogContent() {
                 type="button"
                 disabled={safePage <= 1}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="min-h-[44px] sm:min-h-[36px] px-3.5 py-1.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-xs font-bold text-[var(--kg-text)] inline-flex items-center gap-1 disabled:opacity-45 whitespace-nowrap"
+                className="min-h-[44px] sm:min-h-[36px] px-3.5 py-1.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)] text-xs font-bold text-[var(--kg-text)] inline-flex items-center gap-1 disabled:opacity-45 whitespace-nowrap"
               >
                 <ChevronLeft size={14} /> Trước
               </button>
@@ -448,7 +545,7 @@ function AdminAuditLogContent() {
                 type="button"
                 disabled={safePage >= totalPages}
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className="min-h-[44px] sm:min-h-[36px] px-3.5 py-1.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-xs font-bold text-[var(--kg-text)] inline-flex items-center gap-1 disabled:opacity-45 whitespace-nowrap"
+                className="min-h-[44px] sm:min-h-[36px] px-3.5 py-1.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)] text-xs font-bold text-[var(--kg-text)] inline-flex items-center gap-1 disabled:opacity-45 whitespace-nowrap"
               >
                 Sau <ChevronRight size={14} />
               </button>
@@ -471,7 +568,15 @@ function AdminAuditLogContent() {
         {selectedEntry && (
           <div className="space-y-3 text-xs">
             <div className="grid grid-cols-2 gap-2.5">
-              <div className="rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] p-3">
+              <div className="rounded-xl bg-[var(--kg-surface-2)] border border-[var(--kg-border)] p-3">
+                <p className="text-[10px] font-bold uppercase text-[var(--kg-text-muted)]">
+                  Thời gian
+                </p>
+                <p className="mt-1 font-mono tabular-nums font-bold text-[var(--kg-text)]">
+                  {selectedEntry.timestamp || selectedEntry.createdAt || '—'}
+                </p>
+              </div>
+              <div className="rounded-xl bg-[var(--kg-surface-2)] border border-[var(--kg-border)] p-3">
                 <p className="text-[10px] font-bold uppercase text-[var(--kg-text-muted)]">
                   Người thực hiện
                 </p>
@@ -479,7 +584,7 @@ function AdminAuditLogContent() {
                   @{selectedEntry.actor || selectedEntry.actorUsername || 'admin'}
                 </p>
               </div>
-              <div className="rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] p-3">
+              <div className="rounded-xl bg-[var(--kg-surface-2)] border border-[var(--kg-border)] p-3">
                 <p className="text-[10px] font-bold uppercase text-[var(--kg-text-muted)]">
                   Đối tượng
                 </p>
@@ -487,19 +592,18 @@ function AdminAuditLogContent() {
                   {selectedEntry.target || '—'}
                 </p>
               </div>
-            </div>
-
-            <div className="rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] p-3">
-              <p className="text-[10px] font-bold uppercase text-[var(--kg-text-muted)]">
-                Mã hành động
-              </p>
-              <p className="mt-1 font-mono font-bold text-[var(--kg-primary-ink)]">
-                {selectedEntry.action}
-              </p>
+              <div className="rounded-xl bg-[var(--kg-surface-2)] border border-[var(--kg-border)] p-3">
+                <p className="text-[10px] font-bold uppercase text-[var(--kg-text-muted)]">
+                  Mã hành động
+                </p>
+                <p className="mt-1 font-mono font-bold text-[var(--kg-primary-ink)] break-all">
+                  {selectedEntry.action}
+                </p>
+              </div>
             </div>
 
             {selectedEntry.summary && (
-              <div className="rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] p-3">
+              <div className="rounded-xl bg-[var(--kg-surface-2)] border border-[var(--kg-border)] p-3">
                 <p className="text-[10px] font-bold uppercase text-[var(--kg-text-muted)]">
                   Nội dung tóm tắt
                 </p>
@@ -510,11 +614,11 @@ function AdminAuditLogContent() {
             )}
 
             {selectedEntry.metadata && Object.keys(selectedEntry.metadata).length > 0 && (
-              <div className="rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] p-3">
+              <div className="rounded-xl bg-[var(--kg-surface-2)] border border-[var(--kg-border)] p-3">
                 <p className="text-[10px] font-bold uppercase text-[var(--kg-text-muted)] mb-1.5">
                   Dữ liệu chi tiết (Metadata)
                 </p>
-                <pre className="text-[11px] font-mono text-[var(--kg-text)] overflow-x-auto whitespace-pre-wrap break-words bg-[var(--kg-surface)] p-2.5 rounded-lg border border-[var(--kg-border)]">
+                <pre className="text-[11px] font-mono tabular-nums text-[var(--kg-text)] overflow-x-auto whitespace-pre-wrap break-words bg-[var(--kg-surface)] p-2.5 rounded-lg border border-[var(--kg-border)]">
                   {JSON.stringify(selectedEntry.metadata, null, 2)}
                 </pre>
               </div>

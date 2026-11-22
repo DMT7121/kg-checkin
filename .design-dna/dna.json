@@ -1,55 +1,55 @@
 {
   "schemaVersion": "1.0.0",
   "isolatedProjectLock": true,
-  "createdAt": "2026-11-02T08:58:00.000Z",
-  "version": "4.0.0",
+  "createdAt": "2026-11-22T00:00:00.000Z",
+  "version": "5.0.0",
   "productIdentity": {
-    "name": "King's Grill Staff OS v4.0",
-    "slug": "kg-checkin-warm-hospitality-v4",
-    "domain": "restaurant-staff-operations-mobile-superapp",
+    "name": "King's Grill Staff OS v5.0 — Toast Touch Operations",
+    "slug": "kg-checkin-toast-touch-operations-v5",
+    "domain": "restaurant-staff-operations-touch-first-os",
     "surfaceMode": "Operate",
     "locale": "vi-VN",
-    "codename": "Warm Hospitality Super-App"
+    "codename": "Toast Touch Operations"
   },
   "designDirection": {
-    "archetypeId": "editorial-atelier-ops",
-    "archetypeName": "Warm Hospitality Super-App (Slim Architectural Rail + Mobile Floating Pill Dock)",
+    "archetypeId": "toast-touch-operations",
+    "archetypeName": "Toast Touch Operations (Forest Charcoal Rail + Terracotta Action + Mobile Floating Pill Dock)",
     "axes": {
-      "layoutComposition": "slim-76px-midnight-rail-plus-asymmetric-bento-stage-and-floating-mobile-dock",
-      "informationArchitecture": "editorial-masthead-version-pill-capsule-subtabs-bento-cards",
-      "navigationModel": "76px-icon-rail-expandable-drawer-desktop-plus-floating-pill-dock-mobile",
-      "typographySystem": "be-vietnam-pro-editorial-hierarchy-plus-jetbrains-mono-tabular-nums",
-      "visualHierarchy": "warm-alabaster-canvas-ivory-cards-midnight-navy-spine-grill-ember-signals",
-      "contentDensity": "mobile-ergonomic-44px-to-48px-targets-desktop-40px-operational-rows",
-      "colorArchitecture": "alabaster-F4F0E8-ivory-FFFDF9-midnight-0B253C-grill-ember-C8432B",
-      "componentAnatomy": "tactile-16px-cards-warm-hairline-border-zero-double-padding",
-      "interactionModel": "one-tap-superapp-actions-assistive-touch-ai-edge-snap-sheet-drawers",
-      "surfaceIdentity": "warm-hospitality-porcelain-and-basalt-layers"
+      "layoutComposition": "248px-forest-charcoal-rail-plus-64px-topbar-and-floating-mobile-pill-dock",
+      "informationArchitecture": "editorial-page-header-capsule-subtabs-service-board-hero-touch-tiles",
+      "navigationModel": "248px-expandable-78px-tablet-forest-rail-desktop-plus-5-slot-floating-dock-mobile",
+      "typographySystem": "be-vietnam-pro-400-500-600-700-800-plus-jetbrains-mono-tabular-nums",
+      "visualHierarchy": "warm-paper-F7F7F4-white-cards-forest-charcoal-202C27-terracotta-C0522A",
+      "contentDensity": "mobile-ergonomic-44px-to-52px-touch-targets-desktop-40px-to-44px-operational-rows",
+      "colorArchitecture": "warm-paper-F7F7F4-surface-FFFFFF-forest-202C27-terracotta-C0522A-peach-F29055",
+      "componentAnatomy": "tactile-16px-cards-1px-hairline-border-11px-pill-tabs-zero-backdrop-blur",
+      "interactionModel": "one-tap-touch-tiles-shift-chips-command-palette-quick-actions-sheet",
+      "surfaceIdentity": "toast-touch-warm-paper-and-deep-forest-basalt-layers"
     },
-    "grayscaleSilhouette": "Dark 76px architectural icon spine on far left (Desktop) with crisp 60px top masthead and version pill; asymmetric Bento hero & launcher grid on warm alabaster canvas; floating rounded pill dock hovering above bottom safe area on Mobile with draggable edge-tucked AssistiveTouch AI tab."
+    "grayscaleSilhouette": "Deep Forest Charcoal 248px sidebar on left (78px compact spine on tablet) with warm peach flame crest, clean 64px topbar with breadcrumb and quick-actions launcher, streamlined editorial page header over crisp 1px-bordered white cards and forest service board hero, plus 5-item floating pill dock with warm peach active highlight on mobile."
   },
   "typographyScale": {
     "display": {
-      "size": "1.5rem",
-      "lineHeight": 1.24,
+      "size": "1.625rem",
+      "lineHeight": 1.2,
       "weight": 800,
-      "tracking": "-0.02em"
+      "tracking": "-0.025em"
     },
     "h1": {
       "size": "1.25rem",
-      "lineHeight": 1.28,
-      "weight": 700,
-      "tracking": "-0.015em"
+      "lineHeight": 1.25,
+      "weight": 800,
+      "tracking": "-0.02em"
     },
     "h2": {
       "size": "1rem",
-      "lineHeight": 1.36,
+      "lineHeight": 1.35,
       "weight": 700,
-      "tracking": "-0.005em"
+      "tracking": "-0.01em"
     },
     "body": {
       "size": "0.875rem",
-      "lineHeight": 1.5,
+      "lineHeight": 1.55,
       "weight": 400,
       "tracking": "0"
     },
@@ -60,9 +60,9 @@
       "tracking": "0"
     },
     "numericMetric": {
-      "size": "1.375rem",
-      "lineHeight": 1.2,
-      "weight": 700,
+      "size": "1.75rem",
+      "lineHeight": 1.1,
+      "weight": 800,
       "fontVariantNumeric": "tabular-nums"
     }
   },
@@ -70,73 +70,104 @@
     "heading": "'Be Vietnam Pro', system-ui, -apple-system, sans-serif",
     "body": "'Be Vietnam Pro', system-ui, -apple-system, sans-serif",
     "mono": "'JetBrains Mono', ui-monospace, SFMono-Regular, Consolas, monospace",
+    "weightsLoaded": [400, 500, 600, 700, 800],
     "vietnameseDiacriticsVerified": true
   },
   "colorPalette": {
     "light": {
-      "canvas": "#F4F0E8",
-      "surface": "#FFFDF9",
-      "subtle": "#EAE3D7",
-      "inkPrimary": "#1A1613",
-      "inkSecondary": "#5C5349",
-      "border": "#DDD4C5",
-      "accent": "#0B253C",
-      "accentContrast": "#FFFFFF",
-      "brandSignal": "#C8432B",
-      "success": "#15803D",
-      "warning": "#B45309",
-      "danger": "#DC2626"
+      "canvas": "#F7F7F4",
+      "surface": "#FFFFFF",
+      "surface2": "#FAFAF8",
+      "subtle": "#F4EFE7",
+      "inkPrimary": "#202A25",
+      "inkSecondary": "#55655D",
+      "inkSoft": "#63726B",
+      "border": "#E4E8E2",
+      "borderStrong": "#CCD5CE",
+      "railBg": "#202C27",
+      "railBgAlt": "#24372C",
+      "primary": "#C0522A",
+      "primaryFg": "#FFFFFF",
+      "primaryHover": "#A64420",
+      "primarySoft": "#FFF1E8",
+      "accent": "#F29055",
+      "accentFg": "#241C17",
+      "navActive": "#202C27",
+      "navActiveFg": "#FFFFFF",
+      "success": "#1E7550",
+      "successSoft": "#E8F6ED",
+      "warning": "#9A6018",
+      "warningSoft": "#FFF4E4",
+      "danger": "#B93F36",
+      "dangerSoft": "#FFF0ED",
+      "info": "#1E6091",
+      "infoSoft": "#EDF6FD"
     },
     "dark": {
-      "canvas": "#0D1015",
-      "surface": "#161A22",
-      "subtle": "#1F2530",
-      "inkPrimary": "#F7F4EE",
-      "inkSecondary": "#B5AFA6",
-      "border": "#2B3240",
-      "accent": "#2563EB",
-      "accentContrast": "#FFFFFF",
-      "brandSignal": "#E05238",
-      "success": "#34D399",
-      "warning": "#FBBF24",
-      "danger": "#F87171"
+      "canvas": "#121B17",
+      "surface": "#1B2821",
+      "surface2": "#202E27",
+      "subtle": "#24322A",
+      "inkPrimary": "#F4F7F0",
+      "inkSecondary": "#B2C5B7",
+      "inkSoft": "#98AE9E",
+      "border": "#334539",
+      "borderStrong": "#53695B",
+      "railBg": "#101B15",
+      "railBgAlt": "#1C2E24",
+      "primary": "#F59B62",
+      "primaryFg": "#23170F",
+      "primaryHover": "#FFAE7A",
+      "primarySoft": "#463024",
+      "accent": "#F59B62",
+      "accentFg": "#23170F",
+      "navActive": "#F59B62",
+      "navActiveFg": "#23170F",
+      "success": "#7EDBA8",
+      "successSoft": "#1A3B2B",
+      "warning": "#FFD285",
+      "warningSoft": "#423620",
+      "danger": "#FF968E",
+      "dangerSoft": "#462927",
+      "info": "#7AC4FF",
+      "infoSoft": "#1B3548"
     }
   },
   "spacingSystem": {
     "baseUnitPx": 4,
     "scalePx": [4, 8, 12, 16, 20, 24, 32, 48, 64],
-    "rowHeight": "40px"
+    "rowHeight": "44px"
   },
   "layoutGrid": {
-    "composition": "slim-76px-midnight-rail-plus-adaptive-1520px-bento-stage",
+    "composition": "248px-forest-rail-plus-adaptive-1520px-workspace-stage",
     "maxContentWidth": "1520px",
-    "focusedContentWidth": "1240px",
+    "focusedContentWidth": "1260px",
     "containerQueriesEnabled": true
   },
   "borderRadius": {
-    "sm": "6px",
-    "md": "10px",
+    "sm": "8px",
+    "md": "12px",
     "lg": "16px",
     "xl": "22px",
     "pill": "9999px"
   },
   "surfaceTreatment": {
-    "style": "warm-porcelain-tactile-cards-with-midnight-architectural-rail",
+    "style": "toast-touch-tactile-cards-with-forest-charcoal-rail",
     "glassmorphismAllowed": false
   },
   "shadowAndElevation": {
     "level0": "none",
-    "level1": "0 1px 3px 0 rgba(26, 22, 19, 0.05), 0 1px 2px -1px rgba(26, 22, 19, 0.04)",
-    "level2": "0 10px 28px -6px rgba(11, 37, 60, 0.14)"
+    "level1": "0 2px 8px rgba(37, 54, 41, 0.04)",
+    "level2": "0 12px 28px -8px rgba(32, 44, 39, 0.22)"
   },
   "iconography": {
     "primaryFamily": "lucide",
-    "strokeWidth": 1.8,
+    "strokeWidth": 1.85,
     "sizesPx": [16, 18, 20],
     "banMixedFamiliesAndDecorativeEmoji": true
   },
   "componentAnatomy": {
-    "density": "mobile-44px-to-48px-superapp-touch-desktop-40px-operational",
+    "density": "mobile-44px-to-52px-touch-first-desktop-40px-to-44px-operational",
     "requiredInteractiveStates": [
       "default",
       "hover",
@@ -151,11 +182,11 @@
     "singlePrimaryActionPerZone": true
   },
   "navigationPatterns": {
-    "desktop": "slim-76px-midnight-icon-rail-expandable-drawer-plus-top-masthead-version-pill",
-    "mobile": "compact-superapp-topbar-version-chip-plus-floating-bottom-pill-dock-and-edge-tucked-assistive-ai"
+    "desktop": "248px-forest-charcoal-rail-78px-tablet-spine-plus-64px-breadcrumb-topbar-quick-actions-sheet",
+    "mobile": "solid-58px-header-plus-floating-forest-pill-dock-peach-active-tile"
   },
   "interactionPrinciples": {
-    "model": "mobile-first-superapp-zero-double-padding-assistive-touch-ai-release-notes-center",
+    "model": "toast-touch-operations-one-tap-chips-tiles-zero-double-padding-zero-backdrop-blur",
     "tabularCurrencyAlignment": "right-aligned JetBrains Mono tabular-nums for all VND and hours"
   },
   "responsiveBehaviors": {
@@ -169,13 +200,13 @@
     "keyboardNavigation": true
   },
   "motionPolicy": {
-    "durationFastMs": 150,
-    "durationBaseMs": 220,
+    "durationFastMs": 140,
+    "durationBaseMs": 180,
     "easing": "cubic-bezier(0.22, 1, 0.36, 1)",
     "propertiesAllowed": ["opacity", "transform"],
     "respectPrefersReducedMotion": true
   },
   "decisionsAndRationale": {
-    "selectedReason": "User requested a 100% UI renewal optimized for mobile devices, featuring Warm Hospitality Super-App architecture (Alabaster + Grill Ember + Midnight Navy), an interactive Version & Changelog Center (v4.0.0), and an AssistiveTouch-style draggable edge-docking AI button."
+    "selectedReason": "Toast Touch Operations (King's Grill v5.0) optimizes touch ergonomics during live restaurant shifts with Forest Charcoal (#202C27) rail/dock contrast, Terracotta (#C0522A) and Warm Peach (#F29055 / #F59B62) interactive focus, streamlined editorial headers, and zero glassmorphism/backdrop-blur across all surfaces."
   }
 }

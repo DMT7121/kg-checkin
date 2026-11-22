@@ -1,10 +1,14 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  CheckCircle2,
   CheckSquare,
   KeyRound,
   Loader2,
+  PauseCircle,
   Search,
   Unlock,
+  Users,
+  UserX,
   X,
 } from 'lucide-react';
 import HrDesktopTable, {
@@ -16,6 +20,7 @@ import {
   KgBottomSheet,
   KgButton,
   KgInput,
+  KgMetricCard,
   KgModuleHero,
   KgSelect,
   KgTextarea,
@@ -57,17 +62,17 @@ function getHrRoleBadge(role: string) {
     case 'admin':
       return {
         label: 'Admin',
-        cls: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800/50',
+        cls: 'bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] border-[var(--kg-danger)]/25',
       };
     case 'tester':
       return {
         label: 'Tester',
-        cls: 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-200 dark:border-sky-800/50',
+        cls: 'bg-[var(--kg-info-soft)] text-[var(--kg-info)] border-[var(--kg-info)]/25',
       };
     default:
       return {
         label: 'Nhân viên',
-        cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50',
+        cls: 'bg-[var(--kg-success-soft)] text-[var(--kg-success)] border-[var(--kg-success)]/25',
       };
   }
 }
@@ -647,58 +652,71 @@ function HrListContent() {
 
       <KgModuleHero
         moduleId="hr-list"
-        title="Hồ Sơ Nhân Sự"
+        title="Hồ sơ nhân sự"
         description="Quản lý trạng thái hoạt động, chức vụ, phân quyền và toàn bộ vòng đời hồ sơ nhân sự."
         eyebrow="Nhân sự"
         tipTitle="Hướng dẫn Quản trị Nhân sự"
         tips={[
-          'Trạng thái nhân sự: Đang làm việc (đủ điều kiện vào ca), Tạm nghỉ (tạm khóa chấm công), Đình chỉ / Thôi việc.',
+          'Nhấn vào 4 thẻ KPI trên đầu trang để lọc nhanh theo trạng thái hồ sơ.',
           'Cấp tài khoản & Mật khẩu: Có thể đặt lại mật khẩu hoặc mở khóa Face ID hàng loạt.',
           'Chức danh & Vị trí: Gán đúng vai trò Phục vụ, Pha chế, Bếp, Thu ngân để hệ thống phân công checklist chuẩn.',
         ]}
       />
 
-      {/* Stat Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[
-          {
-            label: 'Đang làm việc',
-            value: stats.active,
-            bg: 'bg-emerald-500/10 border-emerald-500/20',
-            dotCls: 'text-emerald-600 dark:text-emerald-400',
-          },
-          {
-            label: 'Tạm nghỉ',
-            value: stats.leave,
-            bg: 'bg-amber-500/10 border-amber-500/20',
-            dotCls: 'text-amber-600 dark:text-amber-400',
-          },
-          {
-            label: 'Đình chỉ',
-            value: stats.suspended,
-            bg: 'bg-rose-500/10 border-rose-500/20',
-            dotCls: 'text-rose-600 dark:text-rose-400',
-          },
-          {
-            label: 'Đã nghỉ việc',
-            value: stats.resigned,
-            bg: 'bg-[var(--kg-surface-soft)] border-[var(--kg-border)]',
-            dotCls: 'text-[var(--kg-text-muted)]',
-          },
-        ].map((s, i) => (
-          <div
-            key={i}
-            className={`bg-[var(--kg-surface)] border rounded-2xl p-3.5 shadow-xs ${s.bg}`}
-          >
-            <span className={`text-base ${s.dotCls}`}>●</span>
-            <p className="text-xl sm:text-2xl font-mono tabular-nums font-black text-[var(--kg-text)] mt-1">
-              {s.value}
-            </p>
-            <p className="text-[10px] font-black text-[var(--kg-text-muted)] uppercase tracking-wider">
-              {s.label}
-            </p>
-          </div>
-        ))}
+      {/* Clickable 4 Status KPI Cards with Active Terracotta Ring */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3" role="group" aria-label="Lọc theo trạng thái nhân sự">
+        <KgMetricCard
+          title="Tổng hồ sơ"
+          value={stats.total}
+          icon={Users}
+          variant="info"
+          subtext="Tất cả nhân viên"
+          onClick={() => setFilterStatus('all')}
+          className={
+            filterStatus === 'all'
+              ? 'ring-2 ring-[var(--kg-primary)] !border-[var(--kg-primary)] bg-[var(--kg-primary-soft)]/25'
+              : ''
+          }
+        />
+        <KgMetricCard
+          title="Đang làm"
+          value={stats.active}
+          icon={CheckCircle2}
+          variant="success"
+          subtext="Trạng thái active"
+          onClick={() => setFilterStatus((prev) => (prev === 'active' ? 'all' : 'active'))}
+          className={
+            filterStatus === 'active'
+              ? 'ring-2 ring-[var(--kg-primary)] !border-[var(--kg-primary)] bg-[var(--kg-primary-soft)]/25'
+              : ''
+          }
+        />
+        <KgMetricCard
+          title="Tạm nghỉ"
+          value={stats.leave}
+          icon={PauseCircle}
+          variant="warning"
+          subtext={stats.suspended > 0 ? `+ ${stats.suspended} đình chỉ` : 'Trạng thái leave'}
+          onClick={() => setFilterStatus((prev) => (prev === 'leave' ? 'all' : 'leave'))}
+          className={
+            filterStatus === 'leave'
+              ? 'ring-2 ring-[var(--kg-primary)] !border-[var(--kg-primary)] bg-[var(--kg-primary-soft)]/25'
+              : ''
+          }
+        />
+        <KgMetricCard
+          title="Đã nghỉ"
+          value={stats.resigned}
+          icon={UserX}
+          variant="error"
+          subtext="Trạng thái resigned"
+          onClick={() => setFilterStatus((prev) => (prev === 'resigned' ? 'all' : 'resigned'))}
+          className={
+            filterStatus === 'resigned'
+              ? 'ring-2 ring-[var(--kg-primary)] !border-[var(--kg-primary)] bg-[var(--kg-primary-soft)]/25'
+              : ''
+          }
+        />
       </div>
 
       {/* Search & Filter */}
@@ -714,14 +732,14 @@ function HrListContent() {
               placeholder="Tìm tên, username, email..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-10 py-2.5 bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl text-base sm:text-sm font-bold text-[var(--kg-text)] focus:ring-2 focus:ring-[var(--kg-primary)] outline-none min-h-[44px] sm:min-h-[40px]"
+              className="w-full pl-10 pr-10 py-2.5 bg-[var(--kg-surface-2)] border border-[var(--kg-border)] rounded-xl text-base sm:text-sm font-bold text-[var(--kg-text)] focus:ring-2 focus:ring-[var(--kg-primary)] outline-none min-h-[44px] sm:min-h-[40px]"
             />
             {searchQuery && (
               <button
                 type="button"
                 aria-label="Xóa tìm kiếm nhân sự"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 inline-flex items-center justify-center rounded-lg text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface)]"
+                className="absolute right-1 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-9 sm:h-9 inline-flex items-center justify-center rounded-lg text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface)]"
               >
                 <X size={14} />
               </button>
@@ -732,7 +750,7 @@ function HrListContent() {
               value={filterPosition}
               onChange={(e) => setFilterPosition(e.target.value)}
               aria-label="Lọc bộ phận"
-              className="bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-text)] rounded-xl px-3 py-2 text-base sm:text-xs font-bold outline-none cursor-pointer w-full xl:w-auto min-h-[44px] sm:min-h-[40px]"
+              className="bg-[var(--kg-surface-2)] border border-[var(--kg-border)] text-[var(--kg-text)] rounded-xl px-3 py-2 text-base sm:text-xs font-bold outline-none cursor-pointer w-full xl:w-auto min-h-[44px] sm:min-h-[40px]"
             >
               <option value="all">Tất cả bộ phận</option>
               {HR_POSITIONS.map((p) => (
@@ -745,7 +763,7 @@ function HrListContent() {
               value={filterRole}
               onChange={(e) => setFilterRole(e.target.value)}
               aria-label="Lọc phân quyền"
-              className="bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-text)] rounded-xl px-3 py-2 text-base sm:text-xs font-bold outline-none cursor-pointer w-full xl:w-auto min-h-[44px] sm:min-h-[40px]"
+              className="bg-[var(--kg-surface-2)] border border-[var(--kg-border)] text-[var(--kg-text)] rounded-xl px-3 py-2 text-base sm:text-xs font-bold outline-none cursor-pointer w-full xl:w-auto min-h-[44px] sm:min-h-[40px]"
             >
               <option value="all">Tất cả quyền</option>
               {HR_ROLES.map((r) => (
@@ -758,7 +776,7 @@ function HrListContent() {
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
               aria-label="Lọc trạng thái"
-              className="bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-text)] rounded-xl px-3 py-2 text-base sm:text-xs font-bold outline-none cursor-pointer w-full xl:w-auto min-h-[44px] sm:min-h-[40px]"
+              className="bg-[var(--kg-surface-2)] border border-[var(--kg-border)] text-[var(--kg-text)] rounded-xl px-3 py-2 text-base sm:text-xs font-bold outline-none cursor-pointer w-full xl:w-auto min-h-[44px] sm:min-h-[40px]"
             >
               <option value="all">Tất cả trạng thái</option>
               {employmentStatuses.map((status) => (
@@ -773,7 +791,7 @@ function HrListContent() {
                 setFilterFaceId(e.target.value as 'all' | 'enrolled' | 'unenrolled')
               }
               aria-label="Lọc trạng thái Face ID"
-              className="bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-text)] rounded-xl px-3 py-2 text-base sm:text-xs font-bold outline-none cursor-pointer w-full xl:w-auto min-h-[44px] sm:min-h-[40px]"
+              className="bg-[var(--kg-surface-2)] border border-[var(--kg-border)] text-[var(--kg-text)] rounded-xl px-3 py-2 text-base sm:text-xs font-bold outline-none cursor-pointer w-full xl:w-auto min-h-[44px] sm:min-h-[40px]"
             >
               <option value="all">Tất cả Face ID</option>
               <option value="enrolled">Đã đăng ký</option>
@@ -786,11 +804,26 @@ function HrListContent() {
             <p className="text-[11px] text-[var(--kg-text-muted)] font-bold font-mono tabular-nums">
               Hiển thị {filteredUsers.length} / {users.length} nhân viên
             </p>
+            {stats.suspended > 0 && (
+              <button
+                type="button"
+                onClick={() =>
+                  setFilterStatus((prev) => (prev === 'suspended' ? 'all' : 'suspended'))
+                }
+                className={`min-h-[32px] px-2.5 py-0.5 rounded-lg text-[11px] font-bold font-mono tabular-nums border transition-colors ${
+                  filterStatus === 'suspended'
+                    ? 'bg-[var(--kg-danger)] text-white dark:text-[#0D1015] border-[var(--kg-danger)]'
+                    : 'bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] border-[var(--kg-danger)]/25'
+                }`}
+              >
+                Đình chỉ: {stats.suspended}
+              </button>
+            )}
             {hasActiveFilter && (
               <button
                 type="button"
                 onClick={resetFilters}
-                className="min-h-[36px] sm:min-h-[30px] px-2.5 py-1 rounded-lg bg-[var(--kg-accent-soft)] text-xs font-sans text-[var(--kg-accent-ink)] hover:brightness-95 font-bold whitespace-nowrap"
+                className="min-h-[36px] sm:min-h-[30px] px-2.5 py-1 rounded-lg bg-[var(--kg-primary-soft)] text-xs font-sans text-[var(--kg-primary-ink)] hover:brightness-95 font-bold whitespace-nowrap"
               >
                 Xóa lọc
               </button>
@@ -800,7 +833,7 @@ function HrListContent() {
             <button
               type="button"
               onClick={toggleSelectAllFiltered}
-              className="min-h-[36px] px-2.5 py-1 rounded-lg bg-[var(--kg-primary-soft)] text-xs font-bold text-[var(--kg-primary-ink)] hover:opacity-90 inline-flex items-center gap-1.5 whitespace-nowrap"
+              className="min-h-[40px] px-2.5 py-1 rounded-lg bg-[var(--kg-primary-soft)] text-xs font-bold text-[var(--kg-primary-ink)] hover:opacity-90 inline-flex items-center gap-1.5 whitespace-nowrap"
             >
               <CheckSquare size={13} />
               <span>{allFilteredSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả đang lọc'}</span>
@@ -813,7 +846,7 @@ function HrListContent() {
       {selectedUsernames.size > 0 && (
         <div className="sticky top-2 md:top-[124px] z-20 bg-[var(--kg-surface)] border border-[var(--kg-primary)]/40 rounded-2xl p-3 shadow-md flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-2.5">
           <div className="flex items-center justify-between sm:justify-start gap-2">
-            <span className="px-2.5 py-1 rounded-lg bg-[var(--kg-primary)] text-white text-xs font-black font-mono tabular-nums whitespace-nowrap">
+            <span className="px-2.5 py-1 rounded-lg bg-[var(--kg-primary)] text-[var(--kg-primary-fg)] text-xs font-black font-mono tabular-nums whitespace-nowrap">
               Đã chọn {selectedUsernames.size}
             </span>
             {bulkProgress ? (
@@ -841,7 +874,7 @@ function HrListContent() {
                 onChange={(e) => setBulkPosition(e.target.value)}
                 disabled={bulkBusy}
                 aria-label="Chọn bộ phận áp dụng hàng loạt"
-                className="flex-1 sm:flex-none min-w-0 !min-h-[40px] sm:!min-h-[36px] px-2.5 py-1 rounded-lg bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-base sm:text-xs font-bold text-[var(--kg-text)]"
+                className="flex-1 sm:flex-none min-w-0 !min-h-[44px] sm:!min-h-[36px] px-2.5 py-1 rounded-lg bg-[var(--kg-surface-2)] border border-[var(--kg-border)] text-base sm:text-xs font-bold text-[var(--kg-text)]"
               >
                 {HR_POSITIONS.map((p) => (
                   <option key={p} value={p}>
@@ -853,7 +886,7 @@ function HrListContent() {
                 type="button"
                 disabled={bulkBusy}
                 onClick={() => void handleBulkPosition()}
-                className="min-h-[40px] sm:min-h-[36px] px-3 py-1 rounded-lg bg-[var(--kg-primary)] text-white text-xs font-bold disabled:opacity-50 whitespace-nowrap shrink-0"
+                className="min-h-[44px] sm:min-h-[36px] px-3 py-1 rounded-lg bg-[var(--kg-primary)] text-[var(--kg-primary-fg)] text-xs font-bold disabled:opacity-50 whitespace-nowrap shrink-0"
               >
                 Đổi bộ phận
               </button>
@@ -862,7 +895,7 @@ function HrListContent() {
               type="button"
               disabled={bulkBusy}
               onClick={() => void handleBulkResetFace()}
-              className="flex-1 sm:flex-none min-h-[40px] sm:min-h-[36px] px-3 py-1 rounded-lg bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-50 whitespace-nowrap"
+              className="flex-1 sm:flex-none min-h-[44px] sm:min-h-[36px] px-3 py-1 rounded-lg bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] border border-[var(--kg-warning)]/30 text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-50 whitespace-nowrap"
             >
               <Unlock size={13} className="shrink-0" /> Mở khóa Face ID
             </button>
@@ -870,7 +903,7 @@ function HrListContent() {
               type="button"
               disabled={bulkBusy}
               onClick={() => void handleBulkResetPassword()}
-              className="flex-1 sm:flex-none min-h-[40px] sm:min-h-[36px] px-3 py-1 rounded-lg bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30 text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-50 whitespace-nowrap"
+              className="flex-1 sm:flex-none min-h-[44px] sm:min-h-[36px] px-3 py-1 rounded-lg bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] border border-[var(--kg-danger)]/30 text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-50 whitespace-nowrap"
             >
               <KeyRound size={13} className="shrink-0" /> Đặt lại MK
             </button>
@@ -901,6 +934,12 @@ function HrListContent() {
           updatingUser={updatingUser}
           uploadingAvatar={uploadingAvatar}
           faceProfilesMap={faceProfilesMap}
+          sortBy={sortBy}
+          sortDir={sortDir}
+          onSortChange={(nextField, nextDir) => {
+            setSortBy(nextField);
+            setSortDir(nextDir);
+          }}
           onToggleExpand={(username) =>
             setExpandedUser((prev) => (prev === username ? null : username))
           }
@@ -911,7 +950,7 @@ function HrListContent() {
 
       {/* Loading overlay */}
       {(updatingUser || uploadingAvatar) && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-[var(--kg-primary)] text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 text-sm font-bold">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-[var(--kg-primary)] text-[var(--kg-primary-fg)] px-4 py-2 rounded-full shadow-lg flex items-center gap-2 text-sm font-bold">
           <Loader2 size={14} className="animate-spin" />{' '}
           {uploadingAvatar ? 'Đang upload ảnh...' : 'Đang cập nhật...'}
         </div>

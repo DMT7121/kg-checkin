@@ -148,7 +148,7 @@ const ShiftMonthMatrix = React.memo(function ShiftMonthMatrix({
       />
 
       {showSearchBar && (
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 bg-[var(--kg-surface-soft)] p-2.5 rounded-xl border border-[var(--kg-border)]">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 bg-[var(--kg-surface-2)] p-2.5 rounded-xl border border-[var(--kg-border)]">
           <div className="relative flex-1 max-w-sm">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--kg-text-muted)]" />
             <input
@@ -182,9 +182,9 @@ const ShiftMonthMatrix = React.memo(function ShiftMonthMatrix({
 
       <div className="overflow-x-auto max-h-[70vh] w-full bg-[var(--kg-surface)] rounded-2xl border border-[var(--kg-border)] custom-scrollbar shadow-xs">
         <table className="w-full text-sm text-left whitespace-nowrap border-collapse">
-          <thead className="sticky top-0 z-20 text-[10px] text-[var(--kg-text-muted)] uppercase bg-[var(--kg-surface-soft)] border-b border-[var(--kg-border)]">
+          <thead className="sticky top-0 z-20 text-[10px] text-[var(--kg-text-muted)] uppercase bg-[var(--kg-surface-2)] border-b border-[var(--kg-border)]">
             <tr>
-              <th className="px-2.5 sm:px-3 py-3 sticky left-0 top-0 bg-[var(--kg-surface-soft)] z-30 font-black border-r border-[var(--kg-border)] shadow-[2px_0_5px_rgba(0,0,0,0.06)] w-[116px] min-w-[116px] max-w-[116px] sm:w-[160px] sm:min-w-[160px] sm:max-w-[160px]">
+              <th className="px-2.5 sm:px-3 py-3 sticky left-0 top-0 bg-[var(--kg-surface-2)] z-30 font-black border-r border-[var(--kg-border)] shadow-[2px_0_5px_rgba(0,0,0,0.06)] w-[116px] min-w-[116px] max-w-[116px] sm:w-[160px] sm:min-w-[160px] sm:max-w-[160px]">
                 Nhân Viên
               </th>
               {visibleDates.map((mDate) => {

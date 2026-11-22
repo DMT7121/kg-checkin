@@ -2219,17 +2219,30 @@ export default function CheckIn() {
             "Đăng ký khuôn mặt đủ 5 góc để quét tự động siêu nhanh không cần bấm xác nhận.",
             "Mỗi nhân viên sau khi chấm công thành công sẽ giãn cách 15 phút trước lượt tiếp theo (tối đa 4 lượt/ngày theo 2 cặp Vào ca – Ra ca)."
           ]}
+          actions={
+            <KgButton
+              variant="secondary"
+              size="sm"
+              icon={Clock}
+              onClick={() => {
+                setSelectedMissingAlert(null);
+                setMissedModalOpen(true);
+              }}
+            >
+              Bổ sung công
+            </KgButton>
+          }
         />
       </div>
 
-      {/* Parallel Check-In Mode Switcher (v1 <-> v2) + Blocking Banners */}
+      {/* Parallel Check-In Mode Switcher (v1 <-> v2) + Unified Status Strip */}
       <div className="max-w-md lg:max-w-5xl mx-auto space-y-2.5">
         <div className="max-w-md mx-auto lg:mx-0">
           <div
             data-testid="checkin-mode-toggle"
             role="tablist"
             aria-label="Chuyển đổi phiên bản chấm công"
-            className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] shadow-xs"
+            className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-[var(--kg-surface-2)] border border-[var(--kg-border)] shadow-xs"
           >
             <button
               type="button"
@@ -2237,9 +2250,9 @@ export default function CheckIn() {
               aria-selected={checkinMode === 'v1'}
               data-testid="mode-v1-btn"
               onClick={() => switchCheckinMode('v1')}
-              className={`min-h-[44px] px-3 py-2 rounded-lg text-xs font-black tracking-tight flex items-center justify-center gap-1.5 transition-colors touch-manipulation ${
+              className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-extrabold tracking-tight flex items-center justify-center gap-1.5 transition-colors touch-manipulation ${
                 checkinMode === 'v1'
-                  ? 'bg-[var(--kg-surface-soft)] text-[var(--kg-text)] border border-[var(--kg-border)] shadow-xs'
+                  ? 'bg-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)] shadow-xs'
                   : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
               }`}
             >
@@ -2253,9 +2266,9 @@ export default function CheckIn() {
               aria-selected={checkinMode === 'v2'}
               data-testid="mode-v2-btn"
               onClick={handleSelectV2Mode}
-              className={`min-h-[44px] px-3 py-2 rounded-lg text-xs font-black tracking-tight flex items-center justify-center gap-1.5 transition-colors touch-manipulation ${
+              className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-extrabold tracking-tight flex items-center justify-center gap-1.5 transition-colors touch-manipulation ${
                 checkinMode === 'v2'
-                  ? 'bg-[var(--kg-primary)] text-white shadow-xs'
+                  ? 'bg-[var(--kg-primary)] text-[var(--kg-primary-fg)] shadow-xs'
                   : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
               }`}
             >
@@ -2264,8 +2277,8 @@ export default function CheckIn() {
               <span
                 className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded font-mono tabular-nums ${
                   checkinMode === 'v2'
-                    ? 'bg-white/20 text-white'
-                    : 'bg-[var(--kg-primary-soft)] text-[var(--kg-primary)]'
+                    ? 'bg-black/15 text-[var(--kg-primary-fg)]'
+                    : 'bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)]'
                 }`}
               >
                 V2
@@ -2276,17 +2289,17 @@ export default function CheckIn() {
 
         {/* Blocking State 1: 15-Minute Anti-Spam Per-Employee Cooldown Banner */}
         {cooldown.isBlocked && currentUser?.role !== 'admin' && (
-          <div className="bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 border border-amber-500/30 rounded-2xl p-3.5 text-[var(--kg-text)] shadow-xs animate-fade-in">
+          <div className="bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/35 rounded-2xl p-3.5 text-[var(--kg-text)] shadow-xs animate-fade-in">
             <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0 shadow-xs mt-0.5">
+              <div className="w-9 h-9 rounded-xl bg-[var(--kg-warning)] text-white dark:text-[#23170F] flex items-center justify-center flex-shrink-0 shadow-xs mt-0.5">
                 <Clock size={18} className="animate-spin" style={{ animationDuration: '8s' }} />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+                  <span className="text-[11px] font-black text-[var(--kg-warning)] uppercase tracking-wider">
                     Chống trùng lặp: Giãn cách 15 phút
                   </span>
-                  <span className="font-mono tabular-nums text-xs font-black text-amber-600 dark:text-amber-400 bg-amber-500/20 px-2 py-0.5 rounded-lg border border-amber-500/30">
+                  <span className="font-mono tabular-nums text-xs font-black text-[var(--kg-warning)] bg-[var(--kg-surface)] px-2 py-0.5 rounded-lg border border-[var(--kg-warning)]/30">
                     {cooldown.remainingMinutesFormatted}
                   </span>
                 </div>
@@ -2300,9 +2313,9 @@ export default function CheckIn() {
 
         {/* Blocking State 2: Mandatory Schedule Pre-Check-In Gate Card (Thu 00:00 -> Sat 17:00 VN) */}
         {isScheduleGateBlocked && (
-          <div className="bg-[var(--kg-warning-soft)] border-2 border-amber-500/45 rounded-2xl p-3.5 text-[var(--kg-text)] shadow-sm animate-fade-in space-y-2.5">
+          <div className="bg-[var(--kg-warning-soft)] border-2 border-[var(--kg-warning)]/45 rounded-2xl p-3.5 text-[var(--kg-text)] shadow-sm animate-fade-in space-y-2.5">
             <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center justify-center flex-shrink-0">
+              <div className="w-9 h-9 rounded-xl bg-[var(--kg-surface)] text-[var(--kg-warning)] flex items-center justify-center flex-shrink-0 border border-[var(--kg-warning)]/30">
                 <CalendarClock size={18} />
               </div>
               <div className="min-w-0 flex-1">
@@ -2317,7 +2330,7 @@ export default function CheckIn() {
             <button
               type="button"
               onClick={goToMandatorySchedule}
-              className="w-full py-2.5 px-4 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-black text-xs sm:text-sm tracking-wide shadow-xs transition-all active:scale-[0.98] touch-manipulation flex items-center justify-center gap-1.5 min-h-[44px]"
+              className="w-full py-2.5 px-4 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] font-black text-xs sm:text-sm tracking-wide shadow-xs transition-all active:scale-[0.98] touch-manipulation flex items-center justify-center gap-1.5 min-h-[44px]"
             >
               <span>ĐĂNG KÝ LỊCH LÀM TUẦN {upcomingWeekInfo.weekDisplay} NGAY</span>
               <ChevronRight size={16} />
@@ -2325,35 +2338,39 @@ export default function CheckIn() {
           </div>
         )}
 
-        {/* Mobile Compact Expandable Pre-Capture Status Strip (hidden on lg: where full right rail is always visible) */}
+        {/* Unified 3-Item Station Status Strip (Ca / GPS / Geofence <=25m) */}
         <div
           data-testid="checkin-status-strip"
-          className="lg:hidden bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl px-2.5 py-1.5 shadow-xs space-y-1.5"
+          className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-2 sm:p-2.5 shadow-xs space-y-2"
         >
-          <div className="flex items-center justify-between gap-1.5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {/* Item 1: Shift Status */}
             <button
               type="button"
               onClick={() => setStatusStripExpanded((v) => !v)}
               aria-expanded={statusStripExpanded}
-              className="min-h-[44px] sm:min-h-[36px] flex-1 min-w-0 flex flex-wrap items-center gap-1.5 text-left rounded-xl px-1 py-1 hover:bg-[var(--kg-surface-soft)] transition-colors touch-manipulation"
+              className="min-h-[44px] sm:min-h-[40px] rounded-xl bg-[var(--kg-surface-2)] hover:border-[var(--kg-border-strong)] border border-[var(--kg-border)] px-2.5 py-1.5 text-left transition-colors touch-manipulation flex flex-col justify-center min-w-0 overflow-hidden"
             >
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--kg-text-muted)] leading-none truncate">
+                Trạng thái ca
+              </span>
               <span
-                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-bold border whitespace-nowrap max-w-full ${
+                className={`mt-1 inline-flex items-center gap-1 text-[11px] sm:text-xs font-extrabold leading-tight truncate max-w-full ${
                   recommendation.isOpenShift
-                    ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/25'
+                    ? 'text-[var(--kg-success)]'
                     : recommendation.isOvernightShift
-                    ? 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/25'
+                    ? 'text-[var(--kg-info)]'
                     : recommendation.hasInToday
-                    ? 'bg-[var(--kg-primary-soft)] text-[var(--kg-primary)] border-[var(--kg-primary)]/20'
-                    : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)]'
+                    ? 'text-[var(--kg-primary-ink)]'
+                    : 'text-[var(--kg-text)]'
                 }`}
               >
                 {recommendation.isOpenShift && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--kg-success)] animate-pulse shrink-0" />
                 )}
-                <span>
+                <span className="truncate">
                   {recommendation.isOvernightShift
-                    ? `Ca đêm ${recommendation.openShiftTime}`
+                    ? `Đêm ${recommendation.openShiftTime}`
                     : recommendation.isOpenShift
                     ? `Trong ca${smartIntent.openShiftDurationFormatted ? ` • ${smartIntent.openShiftDurationFormatted}` : ''}`
                     : recommendation.hasInToday
@@ -2361,73 +2378,103 @@ export default function CheckIn() {
                     : 'Chưa vào ca'}
                 </span>
               </span>
-
-              <span
-                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-bold font-mono tabular-nums border whitespace-nowrap shrink-0 ${
-                  gps.isValid
-                    ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/25'
-                    : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/25'
-                }`}
-              >
-                <MapPin size={11} className="shrink-0" />
-                <span>
-                  {gps.isValid
-                    ? `≤${targetRadius}m ✓`
-                    : currentDist !== null
-                    ? `${currentDist}m`
-                    : 'GPS...'}
-                </span>
-              </span>
-
-              {(anomalies.length > 0 || missingAlerts.length > 0) && (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-[10px] font-black bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/35 shrink-0 font-mono tabular-nums">
-                  <AlertTriangle size={10} />
-                  <span>{anomalies.length + missingAlerts.length}</span>
-                </span>
-              )}
             </button>
 
-            <div className="flex items-center gap-1 shrink-0">
+            {/* Item 2: GPS Signal + Refresh */}
+            <div className="min-h-[44px] sm:min-h-[40px] rounded-xl bg-[var(--kg-surface-2)] border border-[var(--kg-border)] pl-2.5 pr-1 py-1 flex items-center justify-between gap-1 min-w-0 overflow-hidden">
+              <div className="min-w-0 flex-1 overflow-hidden">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--kg-text-muted)] leading-none truncate">
+                  Tín hiệu GPS
+                </span>
+                <span
+                  className={`mt-1 block text-[11px] sm:text-xs font-extrabold font-mono tabular-nums leading-tight truncate ${
+                    gps.isValid ? 'text-[var(--kg-success)]' : 'text-[var(--kg-warning)]'
+                  }`}
+                >
+                  {gps.isValid
+                    ? gps.accuracy
+                      ? `Tốt ±${gps.accuracy}m`
+                      : 'Tín hiệu tốt'
+                    : gps.lat === null
+                    ? 'Đang dò...'
+                    : `Cách ${currentDist ?? '?'}m`}
+                </span>
+              </div>
               <button
                 type="button"
                 onClick={restartGps}
                 disabled={isPrecisionScanning}
                 aria-label="Làm mới định vị GPS"
                 title="Làm mới định vị GPS"
-                className="w-11 h-11 sm:w-9 sm:h-9 min-w-[44px] min-h-[44px] sm:min-w-[36px] sm:min-h-[36px] rounded-xl bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-border)] border border-[var(--kg-border)] text-[var(--kg-primary)] flex items-center justify-center transition-colors disabled:opacity-60 touch-manipulation"
+                className="w-10 h-10 sm:w-8 sm:h-8 min-w-[40px] min-h-[40px] sm:min-w-[32px] sm:min-h-[32px] rounded-lg bg-[var(--kg-surface)] hover:bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-primary-ink)] flex items-center justify-center transition-colors disabled:opacity-60 shrink-0 touch-manipulation"
               >
                 <RefreshCw
-                  size={15}
+                  size={14}
                   className={isPrecisionScanning || gps.status.includes('Đang') ? 'animate-spin' : ''}
                 />
               </button>
+            </div>
 
-              <button
-                type="button"
-                onClick={() => setStatusStripExpanded((v) => !v)}
-                aria-expanded={statusStripExpanded}
-                aria-label={statusStripExpanded ? 'Thu gọn chi tiết trạng thái' : 'Mở rộng chi tiết trạng thái'}
-                title={statusStripExpanded ? 'Thu gọn' : 'Chi tiết ca & GPS'}
-                className="w-11 h-11 sm:w-9 sm:h-9 min-w-[44px] min-h-[44px] sm:min-w-[36px] sm:min-h-[36px] rounded-xl bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-border)] border border-[var(--kg-border)] text-[var(--kg-text-muted)] flex items-center justify-center transition-colors touch-manipulation"
-              >
-                <ChevronDown
-                  size={16}
-                  className={`transition-transform duration-150 ${statusStripExpanded ? 'rotate-180' : ''}`}
-                />
-              </button>
+            {/* Item 3: Geofence <= 25m + Mobile Details Toggle */}
+            <div className="col-span-2 sm:col-span-1 min-h-[44px] sm:min-h-[40px] rounded-xl bg-[var(--kg-surface-2)] border border-[var(--kg-border)] pl-2.5 pr-1 py-1 flex items-center justify-between gap-1.5 min-w-0 overflow-hidden">
+              <div className="min-w-0 flex-1 overflow-hidden">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--kg-text-muted)] leading-none truncate">
+                  Geofence
+                </span>
+                <span
+                  className={`mt-1 inline-flex items-center gap-1 text-[11px] sm:text-xs font-extrabold font-mono tabular-nums leading-tight truncate max-w-full ${
+                    gps.isValid ? 'text-[var(--kg-success)]' : 'text-[var(--kg-danger)]'
+                  }`}
+                >
+                  <MapPin size={11} className="shrink-0" />
+                  <span className="truncate">
+                    {gps.isValid
+                      ? `≤${targetRadius}m ✓`
+                      : currentDist !== null
+                      ? `${currentDist}/${targetRadius}m`
+                      : `≤${targetRadius}m`}
+                  </span>
+                </span>
+              </div>
+              {(anomalies.length > 0 || missingAlerts.length > 0) ? (
+                <button
+                  type="button"
+                  onClick={() => setStatusStripExpanded((v) => !v)}
+                  aria-expanded={statusStripExpanded}
+                  aria-label="Mở cảnh báo ca"
+                  className="lg:hidden min-w-[40px] min-h-[40px] px-1.5 rounded-lg bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/35 text-[var(--kg-warning)] flex items-center justify-center gap-0.5 text-[11px] font-black font-mono tabular-nums shrink-0 touch-manipulation"
+                >
+                  <AlertTriangle size={12} />
+                  <span>{anomalies.length + missingAlerts.length}</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setStatusStripExpanded((v) => !v)}
+                  aria-expanded={statusStripExpanded}
+                  aria-label={statusStripExpanded ? 'Thu gọn chi tiết trạng thái' : 'Mở rộng chi tiết trạng thái'}
+                  title={statusStripExpanded ? 'Thu gọn' : 'Chi tiết ca & GPS'}
+                  className="lg:hidden w-10 h-10 min-w-[40px] min-h-[40px] rounded-lg bg-[var(--kg-surface)] hover:bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-text-muted)] flex items-center justify-center transition-colors shrink-0 touch-manipulation"
+                >
+                  <ChevronDown
+                    size={15}
+                    className={`transition-transform duration-150 ${statusStripExpanded ? 'rotate-180' : ''}`}
+                  />
+                </button>
+              )}
             </div>
           </div>
 
           {!selfFaceProfile && (
             <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-[var(--kg-border)]/70">
               <span className="text-[11px] font-semibold text-[var(--kg-text-muted)] truncate pl-1">
-                Chưa có hồ sơ Face ID 5 góc
+                Chưa có hồ sơ Face ID 5 góc để quét siêu tốc
               </span>
               <button
                 type="button"
                 data-testid="open-face-enroll-btn"
                 onClick={openFaceEnrollmentModal}
-                className="min-h-[40px] sm:min-h-[34px] px-3 py-1 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-extrabold whitespace-nowrap inline-flex items-center gap-1 transition-colors shrink-0 touch-manipulation"
+                className="min-h-[44px] sm:min-h-[34px] px-3 py-1.5 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] text-[11px] font-extrabold whitespace-nowrap inline-flex items-center gap-1 transition-colors shrink-0 touch-manipulation"
                 title="Đăng ký Face ID 5 góc"
               >
                 <UserPlus size={13} />
@@ -2437,8 +2484,8 @@ export default function CheckIn() {
           )}
 
           {isPrecisionScanning && (
-            <div className="mt-1.5 px-1.5 pb-1 space-y-1">
-              <div className="flex items-center justify-between text-[10px] font-bold text-blue-700 dark:text-blue-300">
+            <div className="px-1 pb-0.5 space-y-1">
+              <div className="flex items-center justify-between text-[10px] font-bold text-[var(--kg-info)]">
                 <span className="inline-flex items-center gap-1">
                   <Radio size={11} className="animate-pulse" />
                   Đang dò vệ tinh ({scanProgress.current}/{scanProgress.total})...
@@ -2447,9 +2494,9 @@ export default function CheckIn() {
                   <span className="font-mono tabular-nums">±{scanProgress.bestAcc}m</span>
                 )}
               </div>
-              <div className="w-full bg-blue-200/50 dark:bg-blue-950/60 rounded-full h-1 overflow-hidden">
+              <div className="w-full bg-[var(--kg-info-soft)] rounded-full h-1.5 overflow-hidden">
                 <div
-                  className="bg-blue-600 dark:bg-blue-400 h-1 rounded-full transition-all duration-300"
+                  className="bg-[var(--kg-info)] h-1.5 rounded-full transition-all duration-300"
                   style={{ width: `${Math.min(100, Math.max(15, (scanProgress.current / scanProgress.total) * 100))}%` }}
                 />
               </div>
@@ -2457,12 +2504,19 @@ export default function CheckIn() {
           )}
         </div>
 
-        {/* RESPONSIVE WORKSPACE GRID: Mobile stacked | Desktop/Tablet 2-Column (lg:grid-cols-12) */}
+        {/* RESPONSIVE WORKSPACE GRID: Camera first on mobile unless details expanded; Desktop 7/5 rail */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 items-start">
-          {/* LEFT 7 COLS (Desktop): Camera Viewport (max-w-lg) + Primary Capture CTA */}
-          <div className="order-2 lg:order-1 lg:col-span-7 space-y-3">
-            {/* Camera Viewport: dvh-aware ergonomic height so Camera + Primary CTA stay above the fold across Mobile, Tablet, Laptop & Desktop */}
-            <div className={`relative bg-slate-950 rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm w-full max-w-[360px] sm:max-w-[400px] lg:max-w-[440px] xl:max-w-[480px] h-[clamp(270px,43dvh,370px)] sm:h-[clamp(370px,46dvh,450px)] lg:h-[clamp(380px,50dvh,470px)] xl:h-[clamp(440px,54dvh,540px)] group border-[4px] sm:border-[5px] mx-auto transition-all ${isWithinRadius ? 'border-blue-600' : 'border-red-500'}`}>
+          {/* LEFT 7 COLS (Desktop): Deep Forest Emerald Camera Viewport + Primary Capture CTA */}
+          <div className={`${statusStripExpanded ? 'order-2' : 'order-1'} lg:order-1 lg:col-span-7 space-y-3`}>
+            {/* Camera Viewport: Deep forest emerald Toast Touch station */}
+            <div
+              style={{
+                background: 'radial-gradient(circle at 50% 37%, #3B5547 0%, #1D3126 46%, #111E18 100%)',
+              }}
+              className={`relative rounded-2xl sm:rounded-3xl overflow-hidden shadow-md w-full max-w-[360px] sm:max-w-[400px] lg:max-w-[440px] xl:max-w-[480px] h-[clamp(270px,43dvh,370px)] sm:h-[clamp(370px,46dvh,450px)] lg:h-[clamp(380px,50dvh,470px)] xl:h-[clamp(440px,54dvh,540px)] group border-[4px] sm:border-[5px] mx-auto transition-all ${
+                isWithinRadius ? 'border-[#769E82]' : 'border-[var(--kg-danger)]'
+              }`}
+            >
               <video ref={videoRef} autoPlay muted playsInline {...{ 'webkit-playsinline': 'true' }} className={`w-full h-full object-cover mirror-cam ${(cameraError || capturedImage) ? 'hidden' : ''}`} />
               <canvas ref={canvasRef} className="hidden" />
               <input
@@ -2477,52 +2531,66 @@ export default function CheckIn() {
 
               {/* Camera Error / No Video */}
               {cameraError && !capturedImage && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 text-white p-6 text-center z-50">
-                  <CameraOff size={44} className="mb-4 text-slate-500" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#111E18] text-[#F4F6F0] p-6 text-center z-50">
+                  <CameraOff size={44} className="mb-4 text-[#8DA396]" />
                   <p className="mb-2 text-sm font-black">Chưa thể mở camera trực tiếp</p>
-                  <p className="mb-6 text-xs text-slate-300 leading-normal max-w-[240px]">{cameraErrorMessage || 'Hãy dùng máy ảnh hệ thống điện thoại để chụp ảnh chấm công.'}</p>
+                  <p className="mb-6 text-xs text-[#C4D1C8] leading-normal max-w-[240px]">
+                    {cameraErrorMessage || 'Hãy dùng máy ảnh hệ thống điện thoại để chụp ảnh chấm công.'}
+                  </p>
                   <KgButton onClick={handleCaptureTrigger} variant="primary" size="md" icon={Camera} className="w-full max-w-[220px]">
                     {recommendation.baseAction === 'Ra ca' ? 'Chụp ảnh Ra ca' : 'Chụp ảnh Vào ca'}
                   </KgButton>
-                  <button type="button" onClick={() => void startCamera()} className="text-xs text-slate-400 hover:text-white underline flex items-center mt-5 min-h-[44px] p-2">
+                  <button type="button" onClick={() => void startCamera()} className="text-xs text-[#C4D1C8] hover:text-white underline flex items-center mt-5 min-h-[44px] p-2">
                     <RotateCcw className="mr-1.5" size={13} /> Thử lại Camera trực tiếp
                   </button>
                 </div>
               )}
 
-              {/* Floating timer (solid high-contrast pill) */}
-              <div className="absolute top-3.5 left-3.5 right-3.5 flex justify-between items-center pointer-events-none z-20">
-                <div className="bg-slate-950/90 text-white text-[11px] font-bold px-3 py-1.5 rounded-full font-mono tabular-nums border border-white/15 shadow-md">
+              {/* Crisp Uncluttered Top HUD */}
+              <div className="absolute top-3.5 left-3.5 right-3.5 flex justify-between items-center gap-2 pointer-events-none z-20">
+                <div className="bg-[#101B15]/92 text-[#F4F6F0] text-[11px] font-bold px-3 py-1.5 rounded-full font-mono tabular-nums border border-white/15 shadow-sm inline-flex items-center gap-1.5">
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      isWithinRadius ? 'bg-[#34D399]' : 'bg-[#F87171] animate-pulse'
+                    }`}
+                  />
                   <span>{currentTime}</span>
                 </div>
-                <div className="bg-red-500 w-2.5 h-2.5 rounded-full animate-pulse shadow-[0_0_8px_red]" />
+
+                {!capturedImage && !cameraError && (
+                  <span
+                    className={`text-[11px] px-3 py-1 rounded-full inline-flex items-center gap-1 font-bold shadow-sm border ${
+                      !isWithinRadius
+                        ? 'bg-[#B93F36] text-white border-white/20'
+                        : cameraActive
+                        ? 'bg-[#1E7550] text-white border-[#7EDBA8]/35'
+                        : 'bg-[#101B15]/90 text-[#F4F6F0] border-white/15'
+                    }`}
+                  >
+                    {!isWithinRadius ? (
+                      <>
+                        <Lock size={11} />
+                        <span>
+                          Ngoài {targetRadius}m{currentDist !== null ? ` (${currentDist}m)` : ''}
+                        </span>
+                      </>
+                    ) : cameraActive ? (
+                      <span>✓ Căn khung • Sẵn sàng</span>
+                    ) : (
+                      <span>Đang mở camera...</span>
+                    )}
+                  </span>
+                )}
               </div>
 
-              {/* Floating Locked Notice if Out of Radius */}
-              {!isWithinRadius && !capturedImage && (
-                <div className="absolute inset-x-4 top-14 z-30 pointer-events-none flex justify-center">
-                  <span className="bg-rose-600 text-white text-xs px-3.5 py-1.5 rounded-full flex items-center shadow-lg font-bold gap-1.5 border border-rose-400/50 animate-pulse">
-                    <Lock size={13} className="text-white" />
-                    Ngoài bán kính {targetRadius}m {currentDist !== null ? `(${currentDist}m)` : ''} • Đã khóa camera
-                  </span>
-                </div>
-              )}
-
-              {/* Static CSS Oval Framing Guide */}
+              {/* Static Warm-Cream Oval Framing Guide */}
               {isWithinRadius && !cameraError && !capturedImage && cameraActive && (
-                <>
-                  <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-10 pb-8">
-                    <div
-                      aria-hidden="true"
-                      className="w-[58%] max-w-[210px] aspect-[3/4] rounded-[9999px] border-2 border-dashed border-emerald-400/75 shadow-[0_0_0_9999px_rgba(2,6,23,0.18)]"
-                    />
-                  </div>
-                  <div className="absolute inset-x-4 top-14 z-30 pointer-events-none flex justify-center">
-                    <span className="bg-emerald-700 text-white text-xs px-3.5 py-1.5 rounded-full flex items-center shadow-md font-bold gap-1.5 border border-emerald-400/40">
-                      ✓ Căn khuôn mặt vào khung • Sẵn sàng chụp ảnh
-                    </span>
-                  </div>
-                </>
+                <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-10 pb-8">
+                  <div
+                    aria-hidden="true"
+                    className="w-[58%] max-w-[210px] aspect-[3/4] rounded-[9999px] border-2 border-dashed border-[#FFE1BA]/85 shadow-[0_0_0_9999px_rgba(12,22,17,0.28)]"
+                  />
+                </div>
               )}
 
               {/* Controls inside camera viewport — always interactive so shutter is NEVER dead */}
@@ -2531,7 +2599,7 @@ export default function CheckIn() {
                   <button
                     type="button"
                     onClick={() => { stopCamera(); setTimeout(() => void startCamera(), 250); }}
-                    className="w-12 h-12 bg-slate-950/85 hover:bg-slate-900 text-white rounded-full flex items-center justify-center shadow-lg border border-white/20 active:scale-90 transition-all touch-manipulation"
+                    className="w-12 h-12 bg-[#101B15]/90 hover:bg-[#1B2821] text-[#F4F6F0] rounded-full flex items-center justify-center shadow-lg border border-white/20 active:scale-90 transition-all touch-manipulation"
                     title="Khởi động lại camera"
                   >
                     <RotateCcw size={18} />
@@ -2541,12 +2609,12 @@ export default function CheckIn() {
                     {!isWithinRadius ? (
                       <div
                         aria-hidden="true"
-                        className="pointer-events-none absolute inset-0 bg-rose-600 rounded-full opacity-30 scale-110 animate-ping"
+                        className="pointer-events-none absolute inset-0 bg-[#B93F36] rounded-full opacity-30 scale-110 animate-ping"
                       />
                     ) : (
                       <div
                         aria-hidden="true"
-                        className="pointer-events-none absolute inset-0 bg-white rounded-full opacity-35 scale-110"
+                        className="pointer-events-none absolute inset-0 bg-[#FFE1BA] rounded-full opacity-35 scale-110"
                       />
                     )}
                     <button
@@ -2564,17 +2632,17 @@ export default function CheckIn() {
                       className="group relative w-16 h-16 rounded-full overflow-hidden flex items-center justify-center touch-manipulation transition-transform duration-150 active:scale-95"
                     >
                       {!isWithinRadius ? (
-                        <div className="w-16 h-16 bg-rose-950/90 border-4 border-rose-500 rounded-full flex items-center justify-center shadow-lg">
-                          <Lock size={22} className="text-rose-400" />
+                        <div className="w-16 h-16 bg-[#3A1412]/90 border-4 border-[#F87171] rounded-full flex items-center justify-center shadow-lg">
+                          <Lock size={22} className="text-[#FECACA]" />
                         </div>
                       ) : (
-                        <div className="w-16 h-16 bg-transparent border-4 border-white rounded-full flex items-center justify-center shadow-lg">
+                        <div className="w-16 h-16 bg-transparent border-4 border-[#F4F6F0] rounded-full flex items-center justify-center shadow-lg">
                           <div
                             className={`w-11 h-11 rounded-full transition-all flex items-center justify-center ${
-                              cameraActive ? 'bg-green-500' : 'bg-white'
+                              cameraActive ? 'bg-[#34D399]' : 'bg-[#F4F6F0]'
                             } group-hover:scale-105`}
                           >
-                            {!cameraActive && <Camera size={18} className="text-slate-900" />}
+                            {!cameraActive && <Camera size={18} className="text-[#111E18]" />}
                           </div>
                         </div>
                       )}
@@ -2585,7 +2653,7 @@ export default function CheckIn() {
 
               {/* Captured image display with crisp solid action dock */}
               {capturedImage && (
-                <div className="absolute inset-0 bg-slate-950 z-30 flex flex-col items-center justify-center animate-fade-in">
+                <div className="absolute inset-0 bg-[#111E18] z-30 flex flex-col items-center justify-center animate-fade-in">
                   <img
                     src={capturedImage}
                     className="w-full h-full object-cover rounded-2xl"
@@ -2593,18 +2661,18 @@ export default function CheckIn() {
                   />
 
                   <div className="absolute top-2 inset-x-2 z-40 pointer-events-auto">
-                    <div className="bg-slate-950/95 border border-white/20 rounded-xl px-2 py-1 flex flex-wrap items-center justify-between gap-1.5 shadow-2xl shadow-black/70">
-                      <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-950 border border-emerald-400/50 text-emerald-300 text-[10.5px] font-bold shadow-sm whitespace-nowrap shrink-0">
-                        <CheckCircle2 size={11} className="text-emerald-400 shrink-0" />
+                    <div className="bg-[#101B15]/95 border border-white/20 rounded-xl px-2 py-1 flex flex-wrap items-center justify-between gap-1.5 shadow-2xl shadow-black/70">
+                      <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-[#163626] border border-[#7EDBA8]/40 text-[#A7F3D0] text-[10.5px] font-bold shadow-sm whitespace-nowrap shrink-0">
+                        <CheckCircle2 size={11} className="text-[#34D399] shrink-0" />
                         <span>Đã đóng dấu</span>
-                        <span className="text-emerald-400/50 font-normal">•</span>
+                        <span className="text-[#7EDBA8]/50 font-normal">•</span>
                         <span
                           className={`font-mono tabular-nums ${
                             photoTimeLeftSeconds <= 15
-                              ? 'text-rose-400 animate-pulse font-black'
+                              ? 'text-[#FCA5A5] animate-pulse font-black'
                               : photoTimeLeftSeconds <= 30
-                              ? 'text-amber-300'
-                              : 'text-slate-200'
+                              ? 'text-[#FDE68A]'
+                              : 'text-[#F4F6F0]'
                           }`}
                           title="Thời hạn ảnh chụp có hiệu lực"
                         >
@@ -2619,7 +2687,7 @@ export default function CheckIn() {
                             store.setPreviewImageUrl(capturedImage);
                             store.setPreviewOpen(true);
                           }}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 min-h-[40px] sm:min-h-[32px] bg-slate-800 hover:bg-slate-700 active:scale-95 text-white rounded-lg border border-white/20 transition-all text-[11px] font-semibold whitespace-nowrap shrink-0 touch-manipulation"
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 min-h-[40px] sm:min-h-[32px] bg-[#24322A] hover:bg-[#334539] active:scale-95 text-[#F4F6F0] rounded-lg border border-white/20 transition-all text-[11px] font-semibold whitespace-nowrap shrink-0 touch-manipulation"
                           title="Xem toàn màn hình"
                         >
                           <Maximize2 size={12} className="shrink-0" />
@@ -2635,7 +2703,7 @@ export default function CheckIn() {
                             setPhotoTimeLeftSeconds(PHOTO_EXPIRATION_SECONDS);
                             setUserResolvedDisambiguation(null);
                           }}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 min-h-[40px] sm:min-h-[32px] bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-lg border border-rose-400/40 shadow-md transition-all text-[11px] font-bold whitespace-nowrap shrink-0 touch-manipulation"
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 min-h-[40px] sm:min-h-[32px] bg-[#B93F36] hover:bg-[#992F27] active:scale-95 text-white rounded-lg border border-white/20 shadow-md transition-all text-[11px] font-bold whitespace-nowrap shrink-0 touch-manipulation"
                           title="Chụp lại ảnh"
                         >
                           <RotateCcw size={12} className="shrink-0" />
@@ -2650,10 +2718,10 @@ export default function CheckIn() {
                     <div
                       className={`h-full transition-all duration-500 ${
                         photoTimeLeftSeconds <= 15
-                          ? 'bg-rose-500'
+                          ? 'bg-[#EF4444]'
                           : photoTimeLeftSeconds <= 30
-                          ? 'bg-amber-500'
-                          : 'bg-emerald-500'
+                          ? 'bg-[#F59E0B]'
+                          : 'bg-[#34D399]'
                       }`}
                       style={{ width: `${(photoTimeLeftSeconds / PHOTO_EXPIRATION_SECONDS) * 100}%` }}
                     />
@@ -2699,22 +2767,22 @@ export default function CheckIn() {
                   setHasAcknowledgedEarlyOut(false);
                   setConfirmCheckInModalOpen(true);
                 }}
-                className={`w-full h-14 min-h-[52px] shadow-lg rounded-2xl text-[15px] font-black tracking-wide border-none active:scale-[0.97] transition-all touch-manipulation flex items-center justify-center gap-2.5 ${
+                className={`w-full h-14 min-h-[52px] shadow-md rounded-2xl text-[15px] font-black tracking-wide border-none active:scale-[0.97] transition-all touch-manipulation flex items-center justify-center gap-2.5 ${
                   isCooldownBlocked
-                    ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                    ? 'bg-[#B45309] hover:bg-[#92400E] text-white'
                     : recommendation.isMaxPunchesReached
-                    ? 'bg-slate-600 hover:bg-slate-700 text-white'
+                    ? 'bg-[var(--kg-surface-2)] hover:opacity-90 text-[var(--kg-text-muted)] border border-[var(--kg-border)]'
                     : capturedImage
                     ? !canSubmit || isSubmittingPunch
-                      ? 'opacity-60 cursor-not-allowed bg-slate-400 text-white'
+                      ? 'opacity-60 cursor-not-allowed bg-[var(--kg-surface-2)] text-[var(--kg-text-muted)]'
                       : (userResolvedDisambiguation || smartIntent.smartSuggestedAction) === 'Ra ca'
-                      ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-md'
-                      : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md'
+                      ? 'bg-[#B93F36] hover:bg-[#992F27] text-white shadow-md'
+                      : 'bg-[#1E7550] hover:bg-[#175B3E] text-white shadow-md'
                     : smartIntent.requiresDisambiguation
-                    ? 'bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-md'
+                    ? 'bg-[#B45309] hover:bg-[#92400E] text-white shadow-md'
                     : smartIntent.smartSuggestedAction === 'Ra ca'
-                    ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-md'
-                    : 'bg-[var(--kg-primary)] hover:opacity-95 text-white shadow-md'
+                    ? 'bg-[#B93F36] hover:bg-[#992F27] text-white shadow-md'
+                    : 'bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] shadow-md'
                 }`}
                 icon={
                   isSubmittingPunch
@@ -2761,8 +2829,8 @@ export default function CheckIn() {
             </div>
           </div>
 
-          {/* RIGHT 5 COLS (Desktop always open with zero accordion clicks; Mobile expands via Status Strip) */}
-          <div className="order-1 lg:order-2 lg:col-span-5 space-y-3">
+          {/* RIGHT 5 COLS (Desktop always open; Mobile expands details on demand + single Missed Check-In helper card) */}
+          <div className={`${statusStripExpanded ? 'order-1' : 'order-2'} lg:order-2 lg:col-span-5 space-y-3`}>
             <div className={`${statusStripExpanded ? 'block' : 'hidden lg:block'} space-y-3 animate-fade-in`}>
               {/* Live Shift Details + Team Attendance */}
               <div className="rounded-2xl bg-[var(--kg-surface)] border border-[var(--kg-border)] p-3.5 shadow-xs space-y-2.5">
@@ -2772,16 +2840,16 @@ export default function CheckIn() {
                       <span
                         className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10.5px] font-bold border ${
                           recommendation.isOpenShift
-                            ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/25'
+                            ? 'bg-[var(--kg-success-soft)] text-[var(--kg-success)] border-[var(--kg-success)]/25'
                             : recommendation.isOvernightShift
-                            ? 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/25'
+                            ? 'bg-[var(--kg-info-soft)] text-[var(--kg-info)] border-[var(--kg-info)]/25'
                             : recommendation.hasInToday
-                            ? 'bg-[var(--kg-primary-soft)] text-[var(--kg-primary)] border-[var(--kg-primary)]/20'
-                            : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)]'
+                            ? 'bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] border-[var(--kg-primary)]/20'
+                            : 'bg-[var(--kg-surface-2)] text-[var(--kg-text-muted)] border-[var(--kg-border)]'
                         }`}
                       >
                         {recommendation.isOpenShift && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-[var(--kg-success)] animate-pulse shrink-0" />
                         )}
                         <span>
                           {recommendation.isOvernightShift
@@ -2804,7 +2872,7 @@ export default function CheckIn() {
                   <button
                     type="button"
                     onClick={() => setEmployeeAttendanceModalOpen(true)}
-                    className="min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-bold text-xs flex items-center gap-1.5 whitespace-nowrap transition active:scale-95 flex-shrink-0 touch-manipulation"
+                    className="min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-xl bg-[var(--kg-info-soft)] hover:opacity-90 border border-[var(--kg-info)]/25 text-[var(--kg-info)] font-bold text-xs flex items-center gap-1.5 whitespace-nowrap transition active:scale-95 flex-shrink-0 touch-manipulation"
                     title="Xem danh sách ca toàn đội hôm nay"
                   >
                     <Users size={13} />
@@ -2813,10 +2881,10 @@ export default function CheckIn() {
                 </div>
 
                 {smartIntent.requiresDisambiguation && (
-                  <div className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/35 flex items-start gap-2 text-[11px]">
-                    <AlertTriangle size={14} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                  <div className="p-2.5 rounded-xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/35 flex items-start gap-2 text-[11px]">
+                    <AlertTriangle size={14} className="text-[var(--kg-warning)] shrink-0 mt-0.5" />
                     <div className="min-w-0">
-                      <p className="font-black text-amber-800 dark:text-amber-300 leading-snug">
+                      <p className="font-black text-[var(--kg-warning)] leading-snug">
                         {smartIntent.guidanceTitle}
                       </p>
                     </div>
@@ -2833,7 +2901,7 @@ export default function CheckIn() {
                         Định vị GPS (≤{targetRadius}m)
                       </span>
                       {gps.accuracy && (
-                        <span className="text-[10px] font-extrabold font-mono tabular-nums px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                        <span className="text-[10px] font-extrabold font-mono tabular-nums px-1.5 py-0.5 rounded bg-[var(--kg-info-soft)] text-[var(--kg-info)] border border-[var(--kg-info)]/20">
                           ±{gps.accuracy}m
                         </span>
                       )}
@@ -2851,7 +2919,13 @@ export default function CheckIn() {
                     <p className="font-bold text-xs mt-1 leading-snug break-words text-[var(--kg-text)]">
                       {gps.address ? gps.address : gps.status}
                     </p>
-                    <span className={`mt-1.5 inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-bold border ${gps.isValid ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'}`}>
+                    <span
+                      className={`mt-1.5 inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-bold border ${
+                        gps.isValid
+                          ? 'bg-[var(--kg-success-soft)] text-[var(--kg-success)] border-[var(--kg-success)]/25'
+                          : 'bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] border-[var(--kg-danger)]/25'
+                      }`}
+                    >
                       {gps.message}
                     </span>
                   </div>
@@ -2861,7 +2935,7 @@ export default function CheckIn() {
                     disabled={isPrecisionScanning}
                     aria-label="Quét lại định vị GPS"
                     title="Làm mới định vị GPS"
-                    className="hidden lg:inline-flex w-10 h-10 rounded-xl bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-border)] border border-[var(--kg-border)] text-[var(--kg-primary)] items-center justify-center transition-colors disabled:opacity-60 shrink-0"
+                    className="hidden lg:inline-flex w-10 h-10 rounded-xl bg-[var(--kg-surface-2)] hover:bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-primary-ink)] items-center justify-center transition-colors disabled:opacity-60 shrink-0"
                   >
                     <RefreshCw
                       size={15}
@@ -2872,7 +2946,7 @@ export default function CheckIn() {
 
                 {isPrecisionScanning && (
                   <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] font-bold text-blue-700 dark:text-blue-300">
+                    <div className="flex items-center justify-between text-[10px] font-bold text-[var(--kg-info)]">
                       <span className="inline-flex items-center gap-1">
                         <Radio size={11} className="animate-pulse" />
                         Đang dò vệ tinh ({scanProgress.current}/{scanProgress.total})...
@@ -2881,9 +2955,9 @@ export default function CheckIn() {
                         <span className="font-mono tabular-nums">±{scanProgress.bestAcc}m</span>
                       )}
                     </div>
-                    <div className="w-full bg-blue-200/50 dark:bg-blue-950/60 rounded-full h-1.5 overflow-hidden">
+                    <div className="w-full bg-[var(--kg-info-soft)] rounded-full h-1.5 overflow-hidden">
                       <div
-                        className="bg-blue-600 dark:bg-blue-400 h-1.5 rounded-full transition-all duration-300"
+                        className="bg-[var(--kg-info)] h-1.5 rounded-full transition-all duration-300"
                         style={{ width: `${Math.min(100, Math.max(15, (scanProgress.current / scanProgress.total) * 100))}%` }}
                       />
                     </div>
@@ -2895,7 +2969,7 @@ export default function CheckIn() {
                     <button
                       type="button"
                       onClick={handlePrecisionRescan}
-                      className="flex-1 px-3 py-2 bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-bold text-xs rounded-xl min-h-[44px] touch-manipulation flex items-center justify-center gap-1.5 active:scale-95 transition whitespace-nowrap"
+                      className="flex-1 px-3 py-2 bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] font-bold text-xs rounded-xl min-h-[44px] touch-manipulation flex items-center justify-center gap-1.5 active:scale-95 transition whitespace-nowrap"
                     >
                       <Radio size={14} />
                       Quét lại vị trí (GPS Vệ Tinh)
@@ -2903,7 +2977,7 @@ export default function CheckIn() {
                     <button
                       type="button"
                       onClick={() => setMissedModalOpen(true)}
-                      className="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-xl min-h-[44px] touch-manipulation flex-shrink-0 active:scale-95 transition whitespace-nowrap"
+                      className="px-3 py-2 bg-[var(--kg-warning-soft)] hover:bg-[var(--kg-warning)]/20 border border-[var(--kg-warning)]/35 text-[var(--kg-warning)] font-black text-xs rounded-xl min-h-[44px] touch-manipulation flex-shrink-0 active:scale-95 transition whitespace-nowrap"
                     >
                       Báo công →
                     </button>
@@ -2914,7 +2988,7 @@ export default function CheckIn() {
                   <button
                     type="button"
                     onClick={handleAdminCalibrateGps}
-                    className="w-full px-3.5 py-2 bg-[var(--kg-primary)] text-white hover:opacity-90 rounded-xl text-xs font-black shadow-xs transition active:scale-95 min-h-[44px] touch-manipulation flex items-center justify-center gap-1.5"
+                    className="w-full px-3.5 py-2 bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] rounded-xl text-xs font-black shadow-xs transition active:scale-95 min-h-[44px] touch-manipulation flex items-center justify-center gap-1.5"
                   >
                     <Crosshair size={13} />
                     <span>Đặt vị trí hiện tại làm gốc (25m)</span>
@@ -2929,8 +3003,8 @@ export default function CheckIn() {
                     <div
                       className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
                         selfFaceProfile
-                          ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-600 dark:text-emerald-400'
-                          : 'bg-amber-500/10 border-amber-500/25 text-amber-600 dark:text-amber-400'
+                          ? 'bg-[var(--kg-success-soft)] border-[var(--kg-success)]/25 text-[var(--kg-success)]'
+                          : 'bg-[var(--kg-warning-soft)] border-[var(--kg-warning)]/25 text-[var(--kg-warning)]'
                       }`}
                     >
                       <ScanFace size={17} />
@@ -2941,12 +3015,12 @@ export default function CheckIn() {
                           {selfFaceProfile ? 'Face ID 5 góc: Sẵn sàng' : 'Chưa đăng ký Face ID'}
                         </span>
                         {selfFaceProfile && (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25">
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-[var(--kg-success-soft)] text-[var(--kg-success)] border border-[var(--kg-success)]/25">
                             <Lock size={9} /> Khóa bảo mật
                           </span>
                         )}
                         {allFaceProfiles.length > 0 && (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono tabular-nums font-bold bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-text-muted)]">
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono tabular-nums font-bold bg-[var(--kg-surface-2)] border border-[var(--kg-border)] text-[var(--kg-text-muted)]">
                             {allFaceProfiles.length} hồ sơ
                           </span>
                         )}
@@ -2959,26 +3033,15 @@ export default function CheckIn() {
                     </div>
                   </div>
 
-                  {currentUser?.role !== 'admin' && (
-                    selfFaceProfile ? (
-                      <button
-                        type="button"
-                        onClick={() => switchCheckinMode('v2')}
-                        className="min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs font-extrabold whitespace-nowrap inline-flex items-center gap-1.5 transition-colors shrink-0 touch-manipulation"
-                      >
-                        <ScanFace size={14} />
-                        <span>Mở Quét v2</span>
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={openFaceEnrollmentModal}
-                        className="min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-extrabold whitespace-nowrap inline-flex items-center gap-1.5 transition-colors shrink-0 touch-manipulation"
-                      >
-                        <UserPlus size={14} />
-                        <span>ĐK 5 góc</span>
-                      </button>
-                    )
+                  {currentUser?.role !== 'admin' && selfFaceProfile && (
+                    <button
+                      type="button"
+                      onClick={() => switchCheckinMode('v2')}
+                      className="min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] text-xs font-extrabold whitespace-nowrap inline-flex items-center gap-1.5 transition-colors shrink-0 touch-manipulation"
+                    >
+                      <ScanFace size={14} />
+                      <span>Mở Quét v2</span>
+                    </button>
                   )}
                 </div>
 
@@ -2988,7 +3051,7 @@ export default function CheckIn() {
                       <button
                         type="button"
                         onClick={() => switchCheckinMode('v2')}
-                        className="min-h-[44px] px-3 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition-colors touch-manipulation"
+                        className="min-h-[44px] px-3 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition-colors touch-manipulation"
                       >
                         <ScanFace size={14} />
                         <span>Mở Trạm Quét v2</span>
@@ -2997,7 +3060,7 @@ export default function CheckIn() {
                       <button
                         type="button"
                         onClick={openFaceEnrollmentModal}
-                        className="min-h-[44px] px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition-colors touch-manipulation"
+                        className="min-h-[44px] px-3 py-2 rounded-xl bg-[var(--kg-warning-soft)] hover:bg-[var(--kg-warning)]/20 border border-[var(--kg-warning)]/35 text-[var(--kg-warning)] text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition-colors touch-manipulation"
                       >
                         <UserPlus size={14} />
                         <span>ĐK cho tôi</span>
@@ -3008,7 +3071,7 @@ export default function CheckIn() {
                       type="button"
                       data-testid="admin-enroll-staff-btn"
                       onClick={openAdminStaffFacePicker}
-                      className="min-h-[44px] px-3 py-2 rounded-xl bg-[var(--kg-rail-bg)] hover:opacity-90 text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition-colors touch-manipulation"
+                      className="min-h-[44px] px-3 py-2 rounded-xl bg-[#202C27] dark:bg-[#24322A] hover:opacity-90 text-[#F4F6F0] border border-[#334539] text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition-colors touch-manipulation"
                     >
                       <Users size={14} />
                       <span>ĐK cho nhân viên</span>
@@ -3019,11 +3082,11 @@ export default function CheckIn() {
 
               {/* Check-In Anomaly Alert Banner */}
               {anomalies.length > 0 && (
-                <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-3 text-[var(--kg-text)]">
+                <div className="bg-[var(--kg-danger-soft)] border border-[var(--kg-danger)]/30 rounded-2xl p-3 text-[var(--kg-text)]">
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-wider bg-rose-500/20 px-1.5 py-0.5 rounded">
+                        <span className="text-[10px] font-black text-[var(--kg-danger)] uppercase tracking-wider bg-[var(--kg-surface)] px-1.5 py-0.5 rounded border border-[var(--kg-danger)]/25">
                           Cần kiểm tra
                         </span>
                         <span className="text-xs font-bold font-mono tabular-nums">{anomalies[0].logTime}</span>
@@ -3035,7 +3098,7 @@ export default function CheckIn() {
                     <button
                       type="button"
                       onClick={() => store.setCurrentTab('history')}
-                      className="min-h-[44px] sm:min-h-[36px] px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black whitespace-nowrap active:scale-95 transition-all flex-shrink-0 touch-manipulation"
+                      className="min-h-[44px] sm:min-h-[36px] px-3 py-2 bg-[#B93F36] hover:bg-[#992F27] text-white rounded-xl text-xs font-black whitespace-nowrap active:scale-95 transition-all flex-shrink-0 touch-manipulation"
                     >
                       Sửa loại →
                     </button>
@@ -3045,11 +3108,11 @@ export default function CheckIn() {
 
               {/* Missing Check-in Alerts Banner */}
               {missingAlerts.length > 0 && (
-                <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 text-[var(--kg-text)]">
+                <div className="bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/30 rounded-2xl p-3 text-[var(--kg-text)]">
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider bg-amber-500/20 px-1.5 py-0.5 rounded">
+                        <span className="text-[10px] font-black text-[var(--kg-warning)] uppercase tracking-wider bg-[var(--kg-surface)] px-1.5 py-0.5 rounded border border-[var(--kg-warning)]/25">
                           Thiếu lượt &quot;{missingAlerts[0].missingType}&quot;
                         </span>
                         <span className="text-xs font-bold font-mono tabular-nums">
@@ -3063,7 +3126,7 @@ export default function CheckIn() {
                         setSelectedMissingAlert(missingAlerts[0]);
                         setMissedModalOpen(true);
                       }}
-                      className="min-h-[44px] sm:min-h-[36px] px-3 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl text-xs whitespace-nowrap active:scale-95 transition-all flex-shrink-0 touch-manipulation"
+                      className="min-h-[44px] sm:min-h-[36px] px-3 py-2 bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] font-black rounded-xl text-xs whitespace-nowrap active:scale-95 transition-all flex-shrink-0 touch-manipulation"
                     >
                       Báo ngay →
                     </button>
@@ -3072,75 +3135,39 @@ export default function CheckIn() {
               )}
             </div>
 
-            {/* Desktop Missed-Punch Action Card (always visible in right rail on lg:) */}
-            <div className="hidden lg:block">
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedMissingAlert(null);
-                  setMissedModalOpen(true);
-                }}
-                className="w-full p-3.5 min-h-[54px] rounded-2xl bg-[var(--kg-surface)] hover:bg-[var(--kg-surface-soft)] text-[var(--kg-text)] border border-amber-500/35 text-left shadow-xs transition active:scale-[0.98] touch-manipulation flex items-center justify-between gap-3 group"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition">
-                    <Clock size={20} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-black text-[var(--kg-text)] leading-tight flex items-center gap-1.5 flex-wrap">
-                      <span>Bổ sung chấm công</span>
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300">
-                        Chờ Admin duyệt
-                      </span>
-                    </p>
-                    <p className="text-[11px] text-[var(--kg-text-muted)] mt-0.5 leading-snug font-medium">
-                      {recommendation.baseAction === 'Vào ca'
-                        ? 'Quên bấm Vào ca đầu giờ? Bổ sung ngay →'
-                        : 'Quên bấm lượt trước hoặc lỗi mạng? Bổ sung →'}
-                    </p>
-                  </div>
+            {/* Single Right-Rail Missed-Punch Action Card (deduplicated across mobile & desktop) */}
+            <button
+              type="button"
+              data-testid="open-missed-checkin-helper-btn"
+              onClick={() => {
+                setSelectedMissingAlert(null);
+                setMissedModalOpen(true);
+              }}
+              className="w-full p-3.5 min-h-[54px] rounded-2xl bg-[var(--kg-surface)] hover:bg-[var(--kg-surface-2)] text-[var(--kg-text)] border border-[var(--kg-border)] hover:border-[var(--kg-warning)]/45 text-left shadow-xs transition active:scale-[0.98] touch-manipulation flex items-center justify-between gap-3 group"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition">
+                  <Clock size={20} />
                 </div>
-                <div className="w-8 h-8 rounded-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex items-center justify-center flex-shrink-0 text-[var(--kg-text-muted)] group-hover:text-amber-500 group-hover:border-amber-500/30 transition">
-                  <ChevronRight size={16} />
+                <div className="min-w-0">
+                  <p className="text-xs font-black text-[var(--kg-text)] leading-tight flex items-center gap-1.5 flex-wrap">
+                    <span>Bổ sung chấm công</span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] border border-[var(--kg-warning)]/25">
+                      Chờ Admin duyệt
+                    </span>
+                  </p>
+                  <p className="text-[11px] text-[var(--kg-text-muted)] mt-0.5 leading-snug font-medium">
+                    {recommendation.baseAction === 'Vào ca'
+                      ? 'Quên bấm Vào ca đầu giờ? Bổ sung ngay →'
+                      : 'Quên bấm lượt trước hoặc lỗi mạng? Bổ sung →'}
+                  </p>
                 </div>
-              </button>
-            </div>
+              </div>
+              <div className="w-8 h-8 rounded-full bg-[var(--kg-surface-2)] border border-[var(--kg-border)] flex items-center justify-center flex-shrink-0 text-[var(--kg-text-muted)] group-hover:text-[var(--kg-warning)] group-hover:border-[var(--kg-warning)]/35 transition">
+                <ChevronRight size={16} />
+              </div>
+            </button>
           </div>
-        </div>
-
-        {/* Mobile Missed Checkin Helper Card (below Camera & Primary CTA on < lg) */}
-        <div className="lg:hidden max-w-sm mx-auto pt-1 pb-6">
-          <button
-            type="button"
-            data-testid="open-missed-checkin-helper-btn"
-            onClick={() => {
-              setSelectedMissingAlert(null);
-              setMissedModalOpen(true);
-            }}
-            className="w-full p-3.5 min-h-[54px] rounded-2xl bg-[var(--kg-surface)] hover:bg-[var(--kg-surface-soft)] text-[var(--kg-text)] border border-amber-500/35 text-left shadow-xs transition active:scale-[0.98] touch-manipulation flex items-center justify-between gap-3 group"
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition">
-                <Clock size={20} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-black text-[var(--kg-text)] leading-tight flex items-center gap-1.5 flex-wrap">
-                  <span>Bổ sung chấm công</span>
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300">
-                    Chờ Admin duyệt
-                  </span>
-                </p>
-                <p className="text-[11px] text-[var(--kg-text-muted)] mt-0.5 leading-snug font-medium">
-                  {recommendation.baseAction === 'Vào ca'
-                    ? 'Quên bấm Vào ca đầu giờ? Bổ sung ngay để chuyển sang Ra ca →'
-                    : 'Quên bấm lượt trước hoặc lỗi mạng? Chọn ngày để bổ sung →'}
-                </p>
-              </div>
-            </div>
-            <div className="w-8 h-8 rounded-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex items-center justify-center flex-shrink-0 text-[var(--kg-text-muted)] group-hover:text-amber-500 group-hover:border-amber-500/30 transition">
-              <ChevronRight size={16} />
-            </div>
-          </button>
         </div>
       </div>
 
@@ -3160,15 +3187,15 @@ export default function CheckIn() {
       >
         <div className="space-y-3.5 py-1">
           {/* Summary Proof Pill Card */}
-          <div className="p-3 bg-[var(--kg-surface-soft)] rounded-2xl border border-[var(--kg-border)] flex items-center gap-3">
+          <div className="p-3 bg-[var(--kg-surface-2)] rounded-2xl border border-[var(--kg-border)] flex items-center gap-3">
             {capturedImage && (
-              <div className="w-14 h-16 rounded-xl overflow-hidden bg-slate-900 border border-white/20 flex-shrink-0">
+              <div className="w-14 h-16 rounded-xl overflow-hidden bg-[#111E18] border border-[var(--kg-border)] flex-shrink-0">
                 <img src={capturedImage} alt="Preview" className="w-full h-full object-cover" />
               </div>
             )}
             <div className="min-w-0 flex-1 space-y-0.5">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-[var(--kg-primary)] inline-flex items-center gap-1">
+                <span className="text-[11px] font-bold text-[var(--kg-primary-ink)] inline-flex items-center gap-1">
                   <ShieldCheck size={12} /> KING&apos;S GRILL
                 </span>
                 <span className="text-[10px] font-mono tabular-nums font-bold text-[var(--kg-text-muted)]">
@@ -3179,7 +3206,7 @@ export default function CheckIn() {
                 {currentUser?.fullname} ({currentUser?.username})
               </p>
               <p className="text-[10px] text-[var(--kg-text-muted)] truncate flex items-center gap-1">
-                <MapPin size={11} className="text-emerald-500 flex-shrink-0" />
+                <MapPin size={11} className="text-[var(--kg-success)] flex-shrink-0" />
                 <span className="truncate">{gps.address || 'Đúng bán kính nhà hàng'}</span>
               </p>
             </div>
@@ -3188,14 +3215,14 @@ export default function CheckIn() {
           {smartIntent.requiresDisambiguation && userResolvedDisambiguation === null ? (
             <div
               data-testid="smart-disambiguation-card"
-              className="p-3.5 rounded-2xl border-2 border-amber-500/45 bg-amber-500/10 space-y-3 text-[var(--kg-text)]"
+              className="p-3.5 rounded-2xl border-2 border-[var(--kg-warning)]/40 bg-[var(--kg-warning-soft)] space-y-3 text-[var(--kg-text)]"
             >
               <div className="flex items-start gap-2.5">
-                <div className="w-10 h-10 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center shrink-0 shadow-xs">
+                <div className="w-10 h-10 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-warning)]/30 text-[var(--kg-warning)] flex items-center justify-center shrink-0 shadow-xs">
                   <AlertTriangle size={20} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs sm:text-sm font-black text-amber-800 dark:text-amber-300 leading-snug">
+                  <p className="text-xs sm:text-sm font-black text-[var(--kg-warning)] leading-snug">
                     {smartIntent.guidanceTitle}
                   </p>
                   <p className="text-[11px] text-[var(--kg-text-muted)] font-medium leading-relaxed mt-1">
@@ -3219,7 +3246,7 @@ export default function CheckIn() {
                         type="time"
                         value={comboSupplementTime}
                         onChange={(e) => setComboSupplementTime(e.target.value)}
-                        className="px-2.5 py-1.5 min-h-[38px] rounded-lg border border-[var(--kg-border-strong)] bg-[var(--kg-surface-soft)] text-base sm:text-xs font-mono tabular-nums font-black text-[var(--kg-text)]"
+                        className="px-2.5 py-1.5 min-h-[44px] sm:min-h-[38px] rounded-lg border border-[var(--kg-border-strong)] bg-[var(--kg-surface-2)] text-base sm:text-xs font-mono tabular-nums font-black text-[var(--kg-text)]"
                       />
                     </div>
                     <div className="flex flex-wrap gap-1.5">
@@ -3234,8 +3261,8 @@ export default function CheckIn() {
                           onClick={() => setComboSupplementReason(rText)}
                           className={`px-2.5 py-1.5 min-h-[44px] sm:min-h-[34px] rounded-lg text-[11px] font-bold border transition touch-manipulation ${
                             comboSupplementReason === rText
-                              ? 'bg-amber-500 text-slate-950 border-amber-600 font-black'
-                              : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)]'
+                              ? 'bg-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)] border-transparent font-black'
+                              : 'bg-[var(--kg-surface-2)] text-[var(--kg-text-muted)] border-[var(--kg-border)]'
                           }`}
                         >
                           {rText}
@@ -3249,7 +3276,7 @@ export default function CheckIn() {
                     data-testid="smart-combo-out-and-supplement-btn"
                     disabled={isSubmittingPunch || !isWithinRadius || photoTimeLeftSeconds <= 0}
                     onClick={() => void handleComboOutAndSupplementIn()}
-                    className="w-full min-h-[52px] px-4 py-2.5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white text-xs sm:text-sm font-black shadow-md active:scale-[0.98] transition flex items-center justify-center gap-2 disabled:opacity-55 disabled:pointer-events-none touch-manipulation"
+                    className="w-full min-h-[52px] px-4 py-2.5 rounded-2xl bg-[#B93F36] hover:bg-[#992F27] text-white text-xs sm:text-sm font-black shadow-md active:scale-[0.98] transition flex items-center justify-center gap-2 disabled:opacity-55 disabled:pointer-events-none touch-manipulation"
                   >
                     {isSubmittingPunch ? (
                       <Loader2 size={18} className="animate-spin shrink-0" />
@@ -3271,7 +3298,7 @@ export default function CheckIn() {
                       setUserResolvedDisambiguation('Vào ca');
                       handleTypeChangeInModal('Vào ca');
                     }}
-                    className="w-full min-h-[48px] px-4 py-2 rounded-2xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-800 dark:text-emerald-300 text-xs font-black active:scale-[0.98] transition flex items-center justify-center gap-1.5 touch-manipulation"
+                    className="w-full min-h-[48px] px-4 py-2 rounded-2xl bg-[var(--kg-success-soft)] hover:opacity-90 border border-[var(--kg-success)]/40 text-[var(--kg-success)] text-xs font-black active:scale-[0.98] transition flex items-center justify-center gap-1.5 touch-manipulation"
                   >
                     <LogIn size={16} className="shrink-0" />
                     <span>Không, tôi mới bắt đầu VÀO CA lúc này</span>
@@ -3286,7 +3313,7 @@ export default function CheckIn() {
                       setUserResolvedDisambiguation('Ra ca');
                       handleTypeChangeInModal('Ra ca');
                     }}
-                    className="w-full min-h-[48px] px-4 py-2.5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white text-xs sm:text-sm font-black shadow-xs active:scale-[0.98] transition flex items-center justify-center gap-2 touch-manipulation"
+                    className="w-full min-h-[48px] px-4 py-2.5 rounded-2xl bg-[#B93F36] hover:bg-[#992F27] text-white text-xs sm:text-sm font-black shadow-xs active:scale-[0.98] transition flex items-center justify-center gap-2 touch-manipulation"
                   >
                     <LogOut size={17} className="shrink-0" />
                     <span>Tôi đang RA CA (Kết thúc ca trước)</span>
@@ -3299,7 +3326,7 @@ export default function CheckIn() {
                       setUserResolvedDisambiguation('Vào ca');
                       handleTypeChangeInModal('Vào ca');
                     }}
-                    className="w-full min-h-[48px] px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-black shadow-xs active:scale-[0.98] transition flex items-center justify-center gap-2 touch-manipulation"
+                    className="w-full min-h-[48px] px-4 py-2.5 rounded-2xl bg-[#1E7550] hover:bg-[#175B3E] text-white text-xs sm:text-sm font-black shadow-xs active:scale-[0.98] transition flex items-center justify-center gap-2 touch-manipulation"
                   >
                     <LogIn size={17} className="shrink-0" />
                     <span>Tôi đang VÀO CA mới</span>
@@ -3327,7 +3354,7 @@ export default function CheckIn() {
                         );
                         setMissedModalOpen(true);
                       }}
-                      className="w-full min-h-[44px] sm:min-h-[40px] px-3 py-1.5 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-800 dark:text-amber-300 text-[11px] font-black inline-flex items-center justify-center gap-1.5 touch-manipulation"
+                      className="w-full min-h-[44px] sm:min-h-[40px] px-3 py-1.5 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-warning)]/40 text-[var(--kg-warning)] text-[11px] font-black inline-flex items-center justify-center gap-1.5 touch-manipulation"
                     >
                       <Clock size={13} />
                       <span>Bổ sung lượt Ra ca bị quên trước đó →</span>
@@ -3365,13 +3392,13 @@ export default function CheckIn() {
                     data-testid="smart-locked-action-card"
                     className={`p-3.5 rounded-2xl border-2 flex items-start gap-3 ${
                       isSmartOut
-                        ? 'bg-rose-500/10 border-rose-500/35 text-[var(--kg-text)]'
-                        : 'bg-emerald-500/10 border-emerald-500/35 text-[var(--kg-text)]'
+                        ? 'bg-[var(--kg-danger-soft)] border-[var(--kg-danger)]/35 text-[var(--kg-text)]'
+                        : 'bg-[var(--kg-success-soft)] border-[var(--kg-success)]/35 text-[var(--kg-text)]'
                     }`}
                   >
                     <div
                       className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 text-white shadow-xs ${
-                        isSmartOut ? 'bg-rose-600' : 'bg-emerald-600'
+                        isSmartOut ? 'bg-[#B93F36]' : 'bg-[#1E7550]'
                       }`}
                     >
                       {isSmartOut ? <LogOut size={20} /> : <LogIn size={20} />}
@@ -3381,18 +3408,18 @@ export default function CheckIn() {
                         <span
                           className={`text-sm font-black tracking-tight inline-flex items-center gap-1.5 ${
                             isSmartOut
-                              ? 'text-rose-700 dark:text-rose-300'
-                              : 'text-emerald-700 dark:text-emerald-300'
+                              ? 'text-[var(--kg-danger)]'
+                              : 'text-[var(--kg-success)]'
                           }`}
                         >
                           <Check size={15} />
                           <span>Lượt chấm công: {smartActionTitle}</span>
                         </span>
                         <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 ${
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-[var(--kg-surface)] border border-[var(--kg-border)] ${
                             isSmartOut
-                              ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300'
-                              : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                              ? 'text-[var(--kg-danger)]'
+                              : 'text-[var(--kg-success)]'
                           }`}
                         >
                           {recommendation.isOvernightShift && <Moon size={10} />}
@@ -3402,7 +3429,7 @@ export default function CheckIn() {
 
                       {isSmartOut && smartIntent.openShiftDurationFormatted && (
                         <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-border)] text-[11px] font-mono tabular-nums font-black text-[var(--kg-text)]">
-                          <Clock size={12} className="text-rose-500 shrink-0" />
+                          <Clock size={12} className="text-[var(--kg-danger)] shrink-0" />
                           <span>
                             Đã làm việc: {smartIntent.openShiftDurationFormatted} (từ {smartIntent.openShiftStartTime})
                           </span>
@@ -3422,7 +3449,7 @@ export default function CheckIn() {
                             setUserResolvedDisambiguation(nextChoice);
                             handleTypeChangeInModal(nextChoice);
                           }}
-                          className="text-[11px] font-bold text-[var(--kg-primary)] hover:underline inline-flex items-center gap-1 min-h-[44px] sm:min-h-[32px] touch-manipulation"
+                          className="text-[11px] font-bold text-[var(--kg-primary-ink)] hover:underline inline-flex items-center gap-1 min-h-[44px] sm:min-h-[32px] touch-manipulation"
                         >
                           <RefreshCw size={11} />
                           <span>{isSmartOut ? 'Đổi sang Vào ca' : 'Đổi sang Ra ca'}</span>
@@ -3435,9 +3462,9 @@ export default function CheckIn() {
 
               {/* Forgotten Earlier Vào Ca Escape Hatch -> Direct to "Bổ sung chấm công" */}
               {(userResolvedDisambiguation || smartIntent.smartSuggestedAction) === 'Vào ca' ? (
-                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className="p-3 bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/30 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-black text-amber-800 dark:text-amber-300 leading-tight">
+                    <p className="text-xs font-black text-[var(--kg-warning)] leading-tight">
                       Quên bấm Vào ca lúc đầu giờ?
                     </p>
                     <p className="text-[11px] text-[var(--kg-text-muted)] mt-0.5 leading-snug">
@@ -3452,7 +3479,7 @@ export default function CheckIn() {
                       setSelectedMissingAlert(null);
                       setMissedModalOpen(true);
                     }}
-                    className="w-full sm:w-auto justify-center px-3 py-2 min-h-[44px] sm:min-h-[38px] bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition active:scale-95 flex-shrink-0 whitespace-nowrap touch-manipulation"
+                    className="w-full sm:w-auto justify-center px-3 py-2 min-h-[44px] sm:min-h-[38px] bg-[var(--kg-surface)] hover:bg-[var(--kg-surface-2)] border border-[var(--kg-warning)]/35 text-[var(--kg-warning)] font-black text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition active:scale-95 flex-shrink-0 whitespace-nowrap touch-manipulation"
                   >
                     <Clock size={14} />
                     <span>Bổ sung chấm công →</span>
@@ -3467,7 +3494,7 @@ export default function CheckIn() {
                       setSelectedMissingAlert(null);
                       setMissedModalOpen(true);
                     }}
-                    className="text-[11px] font-bold text-amber-700 dark:text-amber-400 hover:underline inline-flex items-center gap-1 min-h-[44px] sm:min-h-[36px] touch-manipulation"
+                    className="text-[11px] font-bold text-[var(--kg-warning)] hover:underline inline-flex items-center gap-1 min-h-[44px] sm:min-h-[36px] touch-manipulation"
                   >
                     <Clock size={12} />
                     <span>Thiếu lượt chấm công ngày trước? Bổ sung chấm công →</span>
@@ -3479,8 +3506,8 @@ export default function CheckIn() {
               {(userResolvedDisambiguation || smartIntent.smartSuggestedAction) === 'Ra ca' &&
                 recommendation.isOpenShift &&
                 !recommendation.canCheckOutNow && (
-                  <div className="p-3.5 bg-amber-500/10 dark:bg-amber-950/30 border-2 border-amber-500/30 rounded-2xl space-y-2.5 animate-fade-in">
-                    <div className="flex items-start gap-2 text-amber-600 dark:text-amber-400 font-bold text-xs">
+                  <div className="p-3.5 bg-[var(--kg-warning-soft)] border-2 border-[var(--kg-warning)]/35 rounded-2xl space-y-2.5 animate-fade-in">
+                    <div className="flex items-start gap-2 text-[var(--kg-warning)] font-bold text-xs">
                       <Clock size={18} className="flex-shrink-0 mt-0.5" />
                       <span>Cảnh báo: Quy định giãn cách tối thiểu 15 phút!</span>
                     </div>
@@ -3492,9 +3519,9 @@ export default function CheckIn() {
                         type="checkbox"
                         checked={hasAcknowledgedEarlyOut}
                         onChange={(e) => setHasAcknowledgedEarlyOut(e.target.checked)}
-                        className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
+                        className="w-4 h-4 rounded text-[var(--kg-primary)] focus:ring-[var(--kg-primary)] cursor-pointer"
                       />
-                      <span className="text-xs font-black text-amber-700 dark:text-amber-300">
+                      <span className="text-xs font-black text-[var(--kg-warning)]">
                         Tôi xác nhận có việc đột xuất và vẫn muốn Ra ca sớm
                       </span>
                     </label>
@@ -3529,10 +3556,10 @@ export default function CheckIn() {
                     <div
                       className={`p-2.5 rounded-xl border flex items-center justify-between text-xs font-bold transition-all ${
                         photoTimeLeftSeconds <= 15
-                          ? 'bg-rose-500/15 border-rose-500/40 text-rose-600 dark:text-rose-400 animate-pulse'
+                          ? 'bg-[var(--kg-danger-soft)] border-[var(--kg-danger)]/40 text-[var(--kg-danger)] animate-pulse'
                           : photoTimeLeftSeconds <= 30
-                          ? 'bg-amber-500/15 border-amber-500/40 text-amber-600 dark:text-amber-400'
-                          : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                          ? 'bg-[var(--kg-warning-soft)] border-[var(--kg-warning)]/40 text-[var(--kg-warning)]'
+                          : 'bg-[var(--kg-success-soft)] border-[var(--kg-success)]/30 text-[var(--kg-success)]'
                       }`}
                     >
                       <div className="flex items-center gap-1.5">
@@ -3545,7 +3572,7 @@ export default function CheckIn() {
                     </div>
 
                     {!isWithinRadius && (
-                      <div className="p-3 bg-rose-500/10 border-2 border-rose-500/30 rounded-2xl flex items-center gap-2 text-rose-600 dark:text-rose-400 font-bold text-xs">
+                      <div className="p-3 bg-[var(--kg-danger-soft)] border-2 border-[var(--kg-danger)]/35 rounded-2xl flex items-center gap-2 text-[var(--kg-danger)] font-bold text-xs">
                         <Lock size={16} className="flex-shrink-0" />
                         <span>
                           Bạn đang cách nhà hàng {currentDist ?? 'quá'}m (quy định ≤ {targetRadius}m). Đã khóa gửi chấm công.
@@ -3562,8 +3589,8 @@ export default function CheckIn() {
                       }}
                       className={`w-full h-13 min-h-[52px] px-5 py-2.5 shadow-md rounded-2xl text-[15px] font-black tracking-wide active:scale-[0.97] transition-all touch-manipulation flex items-center justify-center gap-2 disabled:opacity-55 disabled:pointer-events-none ${
                         isOutSelection
-                          ? 'bg-rose-600 hover:bg-rose-700 text-white'
-                          : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                          ? 'bg-[#B93F36] hover:bg-[#992F27] text-white'
+                          : 'bg-[#1E7550] hover:bg-[#175B3E] text-white'
                       }`}
                     >
                       {isSubmittingPunch ? (
@@ -3654,10 +3681,10 @@ export default function CheckIn() {
       {/* Spam Warning bottom sheet */}
       <KgBottomSheet isOpen={spamWarningOpen} onClose={() => setSpamWarningOpen(false)} title="Cảnh báo Spam">
         <div className="space-y-4 text-center py-2">
-          <div className="w-12 h-12 bg-amber-50 dark:bg-amber-950/40 rounded-full flex items-center justify-center text-amber-500 mx-auto">
+          <div className="w-12 h-12 bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/25 rounded-2xl flex items-center justify-center text-[var(--kg-warning)] mx-auto">
             <AlertTriangle size={24} />
           </div>
-          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+          <p className="text-sm font-semibold text-[var(--kg-text)] leading-relaxed">
             {spamWarningText}
           </p>
           <KgButton variant="secondary" size="md" className="w-full" onClick={() => setSpamWarningOpen(false)}>

@@ -15,7 +15,6 @@ import {
   Calculator,
   ChevronDown,
   Coins,
-  ArrowRight,
 } from 'lucide-react';
 import {
   KgButton,
@@ -421,19 +420,19 @@ export default function Handover() {
       />
 
       <div className="relative z-20 flex-1 flex flex-col space-y-4">
-        {/* Focused 2-Tab Navigation + 1-Tap Incident Shortcut */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div className="grid grid-cols-2 sm:inline-flex bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] p-1 rounded-xl gap-1">
+        {/* Focused 2-Tab Navigation */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="grid grid-cols-2 sm:inline-flex w-full sm:w-auto bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] p-1 rounded-xl gap-1">
             <button
               type="button"
               onClick={() => setActiveTab('handover')}
               className={`min-h-[44px] sm:min-h-[38px] sm:px-4 flex items-center justify-center py-2 px-2.5 rounded-lg text-xs sm:text-sm transition-colors whitespace-nowrap select-none touch-manipulation ${
                 activeTab === 'handover'
-                  ? 'bg-[var(--kg-surface)] text-[var(--kg-text)] font-bold shadow-soft border border-[var(--kg-border)]'
+                  ? 'bg-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)] font-bold shadow-xs'
                   : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-medium'
               }`}
             >
-              <Banknote size={15} className="mr-1.5 text-[var(--kg-primary)] shrink-0" /> Bàn giao quỹ
+              <Banknote size={15} className="mr-1.5 shrink-0" /> Bàn giao quỹ
             </button>
 
             <button
@@ -441,27 +440,17 @@ export default function Handover() {
               onClick={() => setActiveTab('history')}
               className={`min-h-[44px] sm:min-h-[38px] sm:px-4 flex items-center justify-center py-2 px-2.5 rounded-lg text-xs sm:text-sm transition-colors whitespace-nowrap select-none touch-manipulation ${
                 activeTab === 'history'
-                  ? 'bg-[var(--kg-surface)] text-[var(--kg-text)] font-bold shadow-soft border border-[var(--kg-border)]'
+                  ? 'bg-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)] font-bold shadow-xs'
                   : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-medium'
               }`}
             >
-              <History size={15} className="mr-1.5 text-[var(--kg-info)] shrink-0" /> Sổ cái két ({handovers.length})
+              <History size={15} className="mr-1.5 shrink-0" /> Sổ cái két ({handovers.length})
             </button>
           </div>
-
-          <button
-            type="button"
-            onClick={() => navigateToHubSubTab('work', 'incidents')}
-            className="min-h-[44px] sm:min-h-[40px] px-3.5 py-2 rounded-xl border border-[var(--kg-danger)]/25 bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] text-xs font-bold inline-flex items-center justify-center gap-1.5 hover:brightness-95 transition-all whitespace-nowrap touch-manipulation shrink-0"
-          >
-            <ShieldAlert size={14} className="shrink-0" />
-            <span>Có thiết bị hỏng / sự cố?</span>
-            <ArrowRight size={13} className="shrink-0" />
-          </button>
         </div>
 
         <div className="flex-1 space-y-4">
-          {/* TAB 1: 2-WAY CASH HANDOVER & RECONCILIATION — Desktop 2-col split (7/5), Mobile stacks Incoming first */}
+          {/* TAB 1: 2-WAY CASH HANDOVER & RECONCILIATION — Toast Touch 2-column split (Nhận két đầu ca + Công thức đối soát cuối ca) */}
           {activeTab === 'handover' && (
             <div key="handover" className="kg-fade-in space-y-4">
               {handoversError && (
@@ -473,44 +462,58 @@ export default function Handover() {
               )}
 
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-              {/* Incoming Shift 2-Way Verification Card */}
-              <div className="order-first lg:order-2 lg:col-span-5 lg:sticky lg:top-[128px] min-w-0">
+              {/* Left Column (5 cols): Nhận két đầu ca (2-Way Verification Card) */}
+              <div className="order-first lg:order-1 lg:col-span-5 lg:sticky lg:top-[128px] min-w-0">
               {latestHandover ? (
                 <div
-                  className={`bg-[var(--kg-surface)] border-2 rounded-2xl p-4 shadow-sm space-y-3 ${
+                  className={`bg-[var(--kg-surface)] border rounded-2xl p-4 sm:p-5 shadow-xs space-y-3.5 ${
                     latestAckStatus === 'Disputed' || latestHandover.reconcileStatus === 'Disputed'
-                      ? 'border-[var(--kg-warning)]/40'
-                      : 'border-[var(--kg-success)]/30'
+                      ? 'border-[var(--kg-warning)]/50'
+                      : !latestAckStatus
+                        ? 'border-[var(--kg-primary)]/45'
+                        : 'border-[var(--kg-border)]'
                   }`}
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-[var(--kg-border)]">
-                    <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-[var(--kg-border)]">
+                    <div className="flex items-center gap-2 min-w-0">
                       <span
-                        className={`w-2.5 h-2.5 rounded-full ${
-                          latestAckStatus === 'Disputed' ? 'bg-[var(--kg-warning)]' : 'bg-[var(--kg-success)] animate-pulse'
+                        className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                          latestAckStatus === 'Disputed'
+                            ? 'bg-[var(--kg-warning)]'
+                            : latestAckStatus === 'Accepted'
+                              ? 'bg-[var(--kg-success)]'
+                              : 'bg-[var(--kg-warning)] animate-pulse'
                         }`}
                       />
-                      <h4 className="font-black text-xs uppercase tracking-wider text-[var(--kg-text)]">
-                        Két bàn giao từ {latestHandover.shift || 'Ca trước'}
-                      </h4>
+                      <div className="min-w-0">
+                        <h3 className="font-extrabold text-sm text-[var(--kg-text)] truncate">
+                          Nhận két đầu ca
+                        </h3>
+                        <p className="text-[11px] text-[var(--kg-text-muted)] truncate">
+                          Từ {latestHandover.shift || 'Ca trước'} ·{' '}
+                          <span className="font-mono tabular-nums">{latestHandover.date}</span>
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {latestHandover.reconcileStatus === 'ManagerConfirmed' && (
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {latestHandover.reconcileStatus === 'ManagerConfirmed' ? (
                         <KgStatusBadge variant="success">
                           <ShieldCheck size={12} /> Quản lý đã chốt
                         </KgStatusBadge>
-                      )}
-                      <span className="text-[11px] font-mono tabular-nums font-bold text-[var(--kg-text-muted)]">
-                        {latestHandover.date}
-                      </span>
+                      ) : !latestAckStatus ? (
+                        <KgStatusBadge variant="warning">Cần kiểm tra</KgStatusBadge>
+                      ) : null}
                     </div>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap items-baseline gap-2">
-                        <span className="text-2xl font-black font-mono tabular-nums tracking-tight text-[var(--kg-success)]">
-                          {latestHandover.cashAmount} VNĐ
+                  <div className="space-y-3">
+                    <div className="p-3.5 rounded-xl bg-[var(--kg-surface-2)] border border-[var(--kg-border)] space-y-1">
+                      <span className="block text-[11px] font-semibold text-[var(--kg-text-muted)]">
+                        Số tiền ca trước bàn giao
+                      </span>
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <span className="text-2xl sm:text-[26px] font-black font-mono tabular-nums tracking-tight text-[var(--kg-text)]">
+                          {latestHandover.cashAmount} đ
                         </span>
                         {typeof latestHandover.discrepancy === 'number' && latestHandover.discrepancy !== 0 && (
                           <span className="px-2 py-0.5 rounded-md text-[11px] font-mono tabular-nums font-bold bg-[var(--kg-danger-soft)] text-[var(--kg-danger)]">
@@ -518,7 +521,7 @@ export default function Handover() {
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-[var(--kg-text-muted)] font-medium">
+                      <p className="text-xs text-[var(--kg-text-muted)] font-medium pt-1">
                         Người giao:{' '}
                         <b className="text-[var(--kg-text)]">{latestHandover.fullname || latestHandover.username}</b>
                         {latestHandover.note ? ` • "${latestHandover.note}"` : ''}
@@ -527,7 +530,7 @@ export default function Handover() {
 
                     {latestAckStatus ? (
                       <div
-                        className={`inline-flex flex-col sm:items-end gap-0.5 px-3.5 py-2 rounded-xl border ${
+                        className={`w-full flex flex-col gap-0.5 px-3.5 py-2.5 rounded-xl border ${
                           latestAckStatus === 'Disputed'
                             ? 'bg-[var(--kg-warning-soft)] border-[var(--kg-warning)]/30 text-[var(--kg-warning)]'
                             : 'bg-[var(--kg-success-soft)] border-[var(--kg-success)]/30 text-[var(--kg-success)]'
@@ -545,7 +548,7 @@ export default function Handover() {
                           )}
                         </span>
                         {latestAckBy && (
-                          <span className="text-[10px] font-semibold opacity-90">
+                          <span className="text-[11px] font-semibold opacity-90">
                             Ca nhận: {latestAckBy}
                             {latestAckAt ? ` (${latestAckAt})` : ''}
                           </span>
@@ -553,7 +556,7 @@ export default function Handover() {
                         {latestAckStatus === 'Disputed' &&
                           (latestHandover.countedCash !== undefined ||
                             localMeta[latestHandover.id]?.countedCash !== undefined) && (
-                            <span className="text-[11px] font-mono tabular-nums font-bold">
+                            <span className="text-xs font-mono tabular-nums font-bold">
                               Đếm thực tế:{' '}
                               {formatVnd(
                                 latestHandover.countedCash ?? localMeta[latestHandover.id]?.countedCash,
@@ -562,23 +565,23 @@ export default function Handover() {
                           )}
                       </div>
                     ) : (
-                      <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full sm:w-auto">
+                      <div className="grid grid-cols-2 gap-2.5 w-full">
                         <KgButton
                           type="button"
                           variant="primary"
-                          size="sm"
+                          size="md"
                           loading={isAckingId === latestHandover.id}
                           disabled={Boolean(isAckingId)}
                           icon={CheckCircle2}
                           onClick={() => handleAcknowledgeCash(latestHandover, 'Accepted')}
-                          className="w-full sm:w-auto"
+                          className="w-full"
                         >
                           Nhận đủ két
                         </KgButton>
                         <KgButton
                           type="button"
                           variant="warning"
-                          size="sm"
+                          size="md"
                           disabled={Boolean(isAckingId)}
                           icon={AlertTriangle}
                           onClick={() => {
@@ -587,7 +590,7 @@ export default function Handover() {
                             setDisputeReason('');
                             setDisputeError('');
                           }}
-                          className="w-full sm:w-auto"
+                          className="w-full"
                         >
                           Báo lệch két
                         </KgButton>
@@ -597,22 +600,22 @@ export default function Handover() {
 
                   {/* Extended Breakdown Strip */}
                   {typeof latestHandover.posCashRevenue === 'number' && (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3 gap-2 pt-2 border-t border-[var(--kg-border)] text-[11px]">
-                      <div className="bg-[var(--kg-surface-soft)] rounded-lg px-2.5 py-1.5 flex sm:block lg:flex xl:block items-center justify-between gap-2">
-                        <span className="text-[var(--kg-text-muted)] block">Đầu ca trước</span>
-                        <span className="font-mono tabular-nums font-bold text-[var(--kg-text)] text-right whitespace-nowrap">
+                    <div className="grid grid-cols-3 gap-2 pt-2.5 border-t border-[var(--kg-border)] text-[11px]">
+                      <div className="bg-[var(--kg-surface-2)] border border-[var(--kg-border)] rounded-xl px-2.5 py-2">
+                        <span className="text-[var(--kg-text-muted)] block">Đầu ca</span>
+                        <span className="font-mono tabular-nums font-bold text-[var(--kg-text)] block text-right whitespace-nowrap mt-0.5">
                           {formatVnd(latestHandover.openingCash)}
                         </span>
                       </div>
-                      <div className="bg-[var(--kg-surface-soft)] rounded-lg px-2.5 py-1.5 flex sm:block lg:flex xl:block items-center justify-between gap-2">
-                        <span className="text-[var(--kg-text-muted)] block">+ Thu POS</span>
-                        <span className="font-mono tabular-nums font-bold text-[var(--kg-success)] text-right whitespace-nowrap">
+                      <div className="bg-[var(--kg-surface-2)] border border-[var(--kg-border)] rounded-xl px-2.5 py-2">
+                        <span className="text-[var(--kg-text-muted)] block">+ POS</span>
+                        <span className="font-mono tabular-nums font-bold text-[var(--kg-success)] block text-right whitespace-nowrap mt-0.5">
                           {formatVnd(latestHandover.posCashRevenue)}
                         </span>
                       </div>
-                      <div className="bg-[var(--kg-surface-soft)] rounded-lg px-2.5 py-1.5 flex sm:block lg:flex xl:block items-center justify-between gap-2">
-                        <span className="text-[var(--kg-text-muted)] block">- Chi tại quầy</span>
-                        <span className="font-mono tabular-nums font-bold text-[var(--kg-danger)] text-right whitespace-nowrap">
+                      <div className="bg-[var(--kg-surface-2)] border border-[var(--kg-border)] rounded-xl px-2.5 py-2">
+                        <span className="text-[var(--kg-text-muted)] block">- Chi quầy</span>
+                        <span className="font-mono tabular-nums font-bold text-[var(--kg-danger)] block text-right whitespace-nowrap mt-0.5">
                           {formatVnd(latestHandover.cashExpense)}
                         </span>
                       </div>
@@ -621,7 +624,7 @@ export default function Handover() {
 
                   {/* Inline Dispute Form */}
                   {disputeOpenForId === latestHandover.id && !latestAckStatus && (
-                    <div className="p-3 rounded-xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/30 space-y-2.5">
+                    <div className="p-3.5 rounded-xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/30 space-y-2.5">
                       <div className="text-xs font-extrabold text-[var(--kg-warning)]">
                         Khai báo số tiền mặt đếm thực tế khi nhận két
                       </div>
@@ -685,7 +688,7 @@ export default function Handover() {
                   )}
                 </div>
               ) : (
-                <div className="p-3.5 rounded-2xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex items-center justify-between gap-2 text-xs text-[var(--kg-text-muted)]">
+                <div className="p-4 rounded-2xl bg-[var(--kg-surface)] border border-[var(--kg-border)] flex items-center justify-between gap-2 text-xs text-[var(--kg-text-muted)]">
                   <span>Chưa có dữ liệu bàn giao ca trước trong ngày.</span>
                   <KgButton
                     type="button"
@@ -701,16 +704,16 @@ export default function Handover() {
               )}
               </div>
 
-              {/* Outgoing Shift Cash Reconciliation Form */}
-              <div className="order-2 lg:order-1 lg:col-span-7 min-w-0 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
+              {/* Right Column (7 cols): Công thức đối soát cuối ca */}
+              <div className="order-2 lg:order-2 lg:col-span-7 min-w-0 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
                 <div className="flex items-center justify-between pb-3 border-b border-[var(--kg-border)]">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-[var(--kg-info-soft)] text-[var(--kg-info)] flex items-center justify-center shrink-0">
+                    <div className="w-10 h-10 rounded-xl bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] flex items-center justify-center shrink-0">
                       <Calculator size={20} />
                     </div>
                     <div>
-                      <h3 className="font-black text-sm sm:text-base text-[var(--kg-text)]">
-                        Đối soát &amp; Bàn giao két cuối ca
+                      <h3 className="font-extrabold text-sm sm:text-base text-[var(--kg-text)]">
+                        Công thức đối soát cuối ca
                       </h3>
                       <p className="text-xs text-[var(--kg-text-muted)] font-medium">
                         Ca hiện tại: <b className="text-[var(--kg-text)]">{shiftName}</b>
@@ -720,9 +723,9 @@ export default function Handover() {
                 </div>
 
                 <form onSubmit={submitHandover} className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center justify-between mb-1 min-h-[24px]">
                         <label
                           htmlFor="handover-opening-cash"
                           className="text-xs font-semibold text-[var(--kg-text)]"
@@ -733,7 +736,7 @@ export default function Handover() {
                           <button
                             type="button"
                             onClick={() => setOpeningCashOverride(null)}
-                            className="inline-flex items-center gap-1 text-[11px] font-bold text-[var(--kg-primary-ink)] bg-[var(--kg-primary-soft)] px-2.5 py-1 rounded-lg hover:brightness-95 min-h-[40px] sm:min-h-[36px] touch-manipulation"
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-[var(--kg-primary-ink)] bg-[var(--kg-primary-soft)] px-2 py-0.5 rounded-lg hover:brightness-95 min-h-[28px] touch-manipulation"
                             title="Khôi phục số dư cuối ca trước"
                           >
                             <RotateCcw size={11} /> Ca trước
@@ -747,22 +750,24 @@ export default function Handover() {
                         value={effectiveOpeningCash}
                         onChange={(e) => setOpeningCashOverride(formatVndInput(e.target.value))}
                         placeholder="0"
-                        className="w-full min-h-[44px] bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3 py-2.5 text-right font-mono tabular-nums font-bold text-sm text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)]"
+                        className="w-full min-h-[44px] bg-[var(--kg-surface-2)] border border-[var(--kg-border)] rounded-xl px-3 py-2.5 text-right font-mono tabular-nums font-bold text-sm text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)]"
                       />
                       {recon.openingMismatch !== 0 && (
-                        <p className="text-[10px] font-mono tabular-nums text-[var(--kg-warning)] mt-1">
+                        <p className="text-[11px] font-mono tabular-nums text-[var(--kg-warning)] mt-1">
                           Lệch so với ca trước: {formatSignedVnd(recon.openingMismatch)}
                         </p>
                       )}
                     </div>
 
                     <div>
-                      <label
-                        htmlFor="handover-pos-revenue"
-                        className="block text-xs font-semibold text-[var(--kg-text)] mb-1"
-                      >
-                        2. + Thu tiền mặt POS (VNĐ)
-                      </label>
+                      <div className="flex items-center justify-between mb-1 min-h-[24px]">
+                        <label
+                          htmlFor="handover-pos-revenue"
+                          className="text-xs font-semibold text-[var(--kg-text)]"
+                        >
+                          2. + Thu tiền mặt POS (VNĐ)
+                        </label>
+                      </div>
                       <input
                         id="handover-pos-revenue"
                         type="text"
@@ -770,17 +775,19 @@ export default function Handover() {
                         value={posCashRevenue}
                         onChange={(e) => setPosCashRevenue(formatVndInput(e.target.value))}
                         placeholder="Doanh thu TM CukCuk"
-                        className="w-full min-h-[44px] bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3 py-2.5 text-right font-mono tabular-nums font-bold text-sm text-[var(--kg-success)] focus:outline-none focus:border-[var(--kg-primary)]"
+                        className="w-full min-h-[44px] bg-[var(--kg-surface-2)] border border-[var(--kg-border)] rounded-xl px-3 py-2.5 text-right font-mono tabular-nums font-bold text-sm text-[var(--kg-success)] focus:outline-none focus:border-[var(--kg-primary)]"
                       />
                     </div>
 
                     <div>
-                      <label
-                        htmlFor="handover-cash-expense"
-                        className="block text-xs font-semibold text-[var(--kg-text)] mb-1"
-                      >
-                        3. - Chi tiền mặt tại quầy (VNĐ)
-                      </label>
+                      <div className="flex items-center justify-between mb-1 min-h-[24px]">
+                        <label
+                          htmlFor="handover-cash-expense"
+                          className="text-xs font-semibold text-[var(--kg-text)]"
+                        >
+                          3. - Chi tiền mặt tại quầy (VNĐ)
+                        </label>
+                      </div>
                       <input
                         id="handover-cash-expense"
                         type="text"
@@ -788,61 +795,27 @@ export default function Handover() {
                         value={cashExpense}
                         onChange={(e) => setCashExpense(formatVndInput(e.target.value))}
                         placeholder="Mua đá, hàng gấp..."
-                        className="w-full min-h-[44px] bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3 py-2.5 text-right font-mono tabular-nums font-bold text-sm text-[var(--kg-danger)] focus:outline-none focus:border-[var(--kg-primary)]"
+                        className="w-full min-h-[44px] bg-[var(--kg-surface-2)] border border-[var(--kg-border)] rounded-xl px-3 py-2.5 text-right font-mono tabular-nums font-bold text-sm text-[var(--kg-danger)] focus:outline-none focus:border-[var(--kg-primary)]"
                       />
                     </div>
-                  </div>
 
-                  {/* Expected Theoretical Cash Strip */}
-                  <div className="p-3 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex flex-wrap items-center justify-between gap-2">
                     <div>
-                      <span className="text-xs font-bold text-[var(--kg-text)] block">
-                        Số dư lý thuyết phải có trong két
-                      </span>
-                      <span className="text-[11px] text-[var(--kg-text-muted)]">
-                        = Đầu ca + Thu tiền mặt POS - Chi tại quầy
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono tabular-nums font-black text-base text-[var(--kg-text)]">
-                        {formatVnd(recon.expectedCash)}
-                      </span>
-                      {recon.expectedCash > 0 && (
+                      <div className="flex items-center justify-between gap-2 mb-1 min-h-[24px]">
+                        <label
+                          htmlFor="handover-cash"
+                          className="text-xs font-semibold text-[var(--kg-text)]"
+                        >
+                          4. Thực bàn giao (VNĐ) <span className="text-[var(--kg-danger)]">*</span>
+                        </label>
                         <button
                           type="button"
-                          onClick={() => setCashAmount(formatVndInput(recon.expectedCash))}
-                          className="min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-xl bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] border border-[var(--kg-primary)]/20 text-xs font-bold hover:brightness-95 transition-colors touch-manipulation"
+                          onClick={() => setShowDenomHelper((v) => !v)}
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-[var(--kg-primary-ink)] hover:underline touch-manipulation"
                         >
-                          Điền khớp
+                          <Coins size={12} />
+                          <span>Đếm tờ</span>
+                          <ChevronDown size={12} className={`transition-transform ${showDenomHelper ? 'rotate-180' : ''}`} />
                         </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Actual Counted Cash (Preserves id="handover-cash") */}
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <label
-                        htmlFor="handover-cash"
-                        className="block text-xs font-semibold text-[var(--kg-text)]"
-                      >
-                        4. Số tiền mặt kiểm đếm thực tế bàn giao (VNĐ){' '}
-                        <span className="text-[var(--kg-danger)]">*</span>
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => setShowDenomHelper((v) => !v)}
-                        className="inline-flex items-center gap-1.5 text-xs font-bold text-[var(--kg-primary-ink)] hover:underline min-h-[44px] sm:min-h-[36px] touch-manipulation"
-                      >
-                        <Coins size={14} />
-                        <span>Đếm theo mệnh giá</span>
-                        <ChevronDown size={13} className={`transition-transform ${showDenomHelper ? 'rotate-180' : ''}`} />
-                      </button>
-                    </div>
-
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[var(--kg-text-muted)] font-mono font-bold text-xs">
-                        VNĐ
                       </div>
                       <input
                         id="handover-cash"
@@ -854,97 +827,129 @@ export default function Handover() {
                           if (handoverFormError) setHandoverFormError('');
                         }}
                         placeholder="VD: 1.500.000"
-                        className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl pl-14 pr-4 py-3 focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 text-[var(--kg-text)] font-mono tabular-nums font-bold text-sm sm:text-base text-right tracking-wide min-h-[44px]"
+                        className="w-full min-h-[44px] bg-[var(--kg-surface-2)] border border-[var(--kg-border)] rounded-xl px-3 py-2.5 text-right font-mono tabular-nums font-bold text-sm text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)]"
                       />
                     </div>
-
-                    {/* Optional Cash Denomination Counter (min-h-[44px] mobile touch targets) */}
-                    {showDenomHelper && (
-                      <div className="p-3.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] space-y-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-bold text-[var(--kg-text)]">
-                            Bảng kê mệnh giá tiền mặt (tùy chọn)
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setDenomCounts({})}
-                            className="min-h-[44px] sm:min-h-[32px] px-2 text-[11px] font-semibold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] underline touch-manipulation"
-                          >
-                            Xóa bảng kê
-                          </button>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                          {CASH_DENOMINATIONS.map((bill) => (
-                            <label
-                              key={bill}
-                              className="flex items-center justify-between gap-2 rounded-lg border border-[var(--kg-border)] bg-[var(--kg-surface)] px-2.5 py-1.5"
-                            >
-                              <span className="text-xs font-mono tabular-nums font-bold text-[var(--kg-text)]">
-                                {bill.toLocaleString('vi-VN')}
-                              </span>
-                              <input
-                                type="number"
-                                min="0"
-                                inputMode="numeric"
-                                aria-label={`Số tờ mệnh giá ${bill.toLocaleString('vi-VN')} đồng`}
-                                value={denomCounts[bill] || ''}
-                                onChange={(e) => {
-                                  const qty = Math.max(0, parseInt(e.target.value || '0', 10) || 0);
-                                  setDenomCounts((prev) => ({ ...prev, [bill]: qty }));
-                                }}
-                                placeholder="0"
-                                className="w-20 min-h-[44px] text-right font-mono tabular-nums text-xs font-bold bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-lg px-2.5 py-1.5 text-[var(--kg-text)] outline-none focus:border-[var(--kg-primary)]"
-                              />
-                            </label>
-                          ))}
-                        </div>
-                        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[var(--kg-border)]">
-                          <span className="text-xs font-bold text-[var(--kg-text-muted)]">
-                            Tổng tiền đếm:{' '}
-                            <span className="font-mono tabular-nums font-black text-[var(--kg-text)]">
-                              {formatVnd(denomTotal)}
-                            </span>
-                          </span>
-                          <KgButton
-                            type="button"
-                            size="sm"
-                            variant="primary"
-                            disabled={denomTotal <= 0}
-                            onClick={() => {
-                              setCashAmount(formatVndInput(denomTotal));
-                              if (handoverFormError) setHandoverFormError('');
-                            }}
-                          >
-                            Áp dụng tổng này
-                          </KgButton>
-                        </div>
-                      </div>
-                    )}
                   </div>
 
-                  {/* Live Reconciliation Status Banner */}
-                  {cashAmount.trim() !== '' && (
-                    <div
-                      className={`p-3 rounded-xl border flex flex-wrap items-center justify-between gap-2 text-xs font-bold ${
-                        recon.discrepancy === 0
-                          ? 'bg-[var(--kg-success-soft)] border-[var(--kg-success)]/30 text-[var(--kg-success)]'
-                          : recon.discrepancy < 0
-                            ? 'bg-[var(--kg-danger-soft)] border-[var(--kg-danger)]/30 text-[var(--kg-danger)]'
-                            : 'bg-[var(--kg-warning-soft)] border-[var(--kg-warning)]/30 text-[var(--kg-warning)]'
-                      }`}
-                    >
-                      <span className="min-w-0 flex-1">
-                        {recon.discrepancy === 0
-                          ? 'Khớp 100% với số dư két lý thuyết'
-                          : recon.discrepancy < 0
-                            ? 'Cảnh báo lệch thiếu két — Bắt buộc giải trình bên dưới'
-                            : 'Két đang dư tiền mặt — Vui lòng ghi chú nguồn tiền lẻ / tip'}
-                      </span>
-                      <span className="font-mono tabular-nums font-black text-sm shrink-0 ml-auto whitespace-nowrap">
-                        {formatSignedVnd(recon.discrepancy)}
-                      </span>
+                  {/* Optional Cash Denomination Counter (min-h-[44px] mobile touch targets) */}
+                  {showDenomHelper && (
+                    <div className="p-3.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)] space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-bold text-[var(--kg-text)]">
+                          Bảng kê mệnh giá tiền mặt (tùy chọn)
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setDenomCounts({})}
+                          className="min-h-[44px] sm:min-h-[32px] px-2 text-[11px] font-semibold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] underline touch-manipulation"
+                        >
+                          Xóa bảng kê
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                        {CASH_DENOMINATIONS.map((bill) => (
+                          <label
+                            key={bill}
+                            className="flex items-center justify-between gap-2 rounded-lg border border-[var(--kg-border)] bg-[var(--kg-surface)] px-2.5 py-1.5"
+                          >
+                            <span className="text-xs font-mono tabular-nums font-bold text-[var(--kg-text)]">
+                              {bill.toLocaleString('vi-VN')}
+                            </span>
+                            <input
+                              type="number"
+                              min="0"
+                              inputMode="numeric"
+                              aria-label={`Số tờ mệnh giá ${bill.toLocaleString('vi-VN')} đồng`}
+                              value={denomCounts[bill] || ''}
+                              onChange={(e) => {
+                                const qty = Math.max(0, parseInt(e.target.value || '0', 10) || 0);
+                                setDenomCounts((prev) => ({ ...prev, [bill]: qty }));
+                              }}
+                              placeholder="0"
+                              className="w-20 min-h-[44px] text-right font-mono tabular-nums text-xs font-bold bg-[var(--kg-surface-2)] border border-[var(--kg-border)] rounded-lg px-2.5 py-1.5 text-[var(--kg-text)] outline-none focus:border-[var(--kg-primary)]"
+                            />
+                          </label>
+                        ))}
+                      </div>
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[var(--kg-border)]">
+                        <span className="text-xs font-bold text-[var(--kg-text-muted)]">
+                          Tổng tiền đếm:{' '}
+                          <span className="font-mono tabular-nums font-black text-[var(--kg-text)]">
+                            {formatVnd(denomTotal)}
+                          </span>
+                        </span>
+                        <KgButton
+                          type="button"
+                          size="sm"
+                          variant="primary"
+                          disabled={denomTotal <= 0}
+                          onClick={() => {
+                            setCashAmount(formatVndInput(denomTotal));
+                            if (handoverFormError) setHandoverFormError('');
+                          }}
+                        >
+                          Áp dụng tổng này
+                        </KgButton>
+                      </div>
                     </div>
                   )}
+
+                  {/* Live Reconciliation Summary Box: Số dư lý thuyết & Chênh lệch */}
+                  <div className="p-3.5 rounded-xl bg-[var(--kg-surface-2)] border border-[var(--kg-border)] space-y-2.5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold text-[var(--kg-text)] block">
+                          Số dư lý thuyết
+                        </span>
+                        <span className="text-[11px] text-[var(--kg-text-muted)]">
+                          = Đầu ca + Thu POS - Chi tại quầy
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="font-mono tabular-nums font-black text-base text-[var(--kg-text)] text-right">
+                          {formatVnd(recon.expectedCash)}
+                        </span>
+                        {recon.expectedCash > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setCashAmount(formatVndInput(recon.expectedCash))}
+                            className="min-h-[44px] sm:min-h-[34px] px-2.5 py-1 rounded-lg bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] border border-[var(--kg-primary)]/20 text-[11px] font-bold hover:brightness-95 transition-colors touch-manipulation"
+                          >
+                            Điền khớp
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 pt-2 border-t border-[var(--kg-border)]">
+                      <span className="text-xs font-bold text-[var(--kg-text)]">
+                        Chênh lệch
+                        {cashAmount.trim() !== '' && (
+                          <span className="ml-2 text-[11px] font-medium text-[var(--kg-text-muted)]">
+                            {recon.discrepancy === 0
+                              ? '(Khớp 100%)'
+                              : recon.discrepancy < 0
+                                ? '(Thiếu két — cần giải trình)'
+                                : '(Dư két — ghi chú nguồn)'}
+                          </span>
+                        )}
+                      </span>
+                      <span
+                        className={`font-mono tabular-nums font-black text-base text-right shrink-0 ${
+                          cashAmount.trim() === ''
+                            ? 'text-[var(--kg-text-muted)]'
+                            : recon.discrepancy === 0
+                              ? 'text-[var(--kg-success)]'
+                              : recon.discrepancy < 0
+                                ? 'text-[var(--kg-danger)]'
+                                : 'text-[var(--kg-warning)]'
+                        }`}
+                      >
+                        {cashAmount.trim() !== '' ? formatSignedVnd(recon.discrepancy) : '—'}
+                      </span>
+                    </div>
+                  </div>
 
                   {/* Note / Explanation (Preserves id="handover-note") */}
                   <div>
@@ -972,7 +977,7 @@ export default function Handover() {
                         }}
                         placeholder="Ghi rõ hóa đơn chi mua đá/nguyên liệu, bill hủy POS hoặc lý do lệch tiền..."
                         rows={3}
-                        className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl pl-9 pr-4 py-2.5 focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 text-[var(--kg-text)] text-xs sm:text-sm"
+                        className="w-full bg-[var(--kg-surface-2)] border border-[var(--kg-border)] rounded-xl pl-9 pr-4 py-2.5 focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 text-[var(--kg-text)] text-xs sm:text-sm"
                       />
                     </div>
                   </div>

@@ -87,6 +87,8 @@ interface HubTab {
   shortLabel?: string;
   icon: ComponentType<{ size?: number; className?: string }>;
   component: ComponentType;
+  badge?: number;
+  badgeTone?: 'danger' | 'warning' | 'neutral';
 }
 
 function HubFallback() {
@@ -113,7 +115,7 @@ function SubmoduleErrorFallback({ label, onRetry }: { label: string; onRetry: ()
         <button
           type="button"
           onClick={onRetry}
-          className="px-4 py-2 min-h-[44px] sm:min-h-[38px] text-xs sm:text-sm font-bold rounded-xl bg-[var(--kg-primary)] text-white hover:brightness-105 active:scale-98 transition inline-flex items-center justify-center gap-2 shadow-xs"
+          className="px-4 py-2 min-h-[44px] sm:min-h-[38px] text-xs sm:text-sm font-bold rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] active:scale-[0.985] transition inline-flex items-center justify-center gap-2 shadow-xs"
         >
           <RefreshCw size={15} /> Thử lại
         </button>
@@ -232,11 +234,19 @@ function ModuleHub({
 
   return (
     <div className="kg-module-hub min-h-full">
-      <div className="kg-module-tabs-wrap relative md:sticky md:top-[60px] z-20 bg-[var(--kg-bg)]/95 pb-2.5 pt-1 md:backdrop-blur-sm transition-colors">
-        <div className="kg-module-tabs mx-auto max-w-[1520px] flex overflow-x-auto hide-scrollbar no-scrollbar gap-1 sm:gap-1.5 rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface)] p-1 sm:p-1.5 shadow-xs">
+      <div className="kg-module-tabs-wrap relative md:sticky md:top-[64px] z-20 bg-[var(--kg-bg)] pb-3 pt-1 transition-colors">
+        <div className="kg-module-tabs mx-auto max-w-[1520px] flex overflow-x-auto hide-scrollbar no-scrollbar gap-2">
           {allowedTabs.map((tab) => {
             const Icon = tab.icon;
             const selected = tab.id === active.id;
+            const hasBadge = typeof tab.badge === 'number' && tab.badge > 0;
+            const badgeStyle = selected
+              ? 'bg-white/20 dark:bg-black/20 text-current'
+              : tab.badgeTone === 'danger'
+                ? 'bg-[var(--kg-danger-soft)] text-[var(--kg-danger)]'
+                : tab.badgeTone === 'warning'
+                  ? 'bg-[var(--kg-warning-soft)] text-[var(--kg-warning)]'
+                  : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)]';
             return (
               <button
                 type="button"
@@ -250,22 +260,26 @@ function ModuleHub({
                   });
                 }}
                 aria-current={selected ? 'page' : undefined}
-                className={`kg-module-tab relative inline-flex flex-1 min-w-0 items-center justify-center flex-col sm:flex-row gap-0.5 sm:gap-2 px-1.5 sm:px-3.5 py-1.5 sm:py-2 text-[11px] sm:text-xs min-h-[48px] sm:min-h-[40px] rounded-xl transition-all duration-150 select-none touch-manipulation whitespace-nowrap ${
+                className={`kg-module-tab relative inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3.5 sm:px-4 py-2 text-xs min-h-[44px] sm:min-h-[40px] rounded-[11px] border transition-colors duration-150 select-none touch-manipulation whitespace-nowrap flex-shrink-0 active:scale-[0.985] ${
                   selected
-                    ? 'bg-[var(--kg-primary)] text-white font-bold shadow-xs'
-                    : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)] font-semibold'
+                    ? 'bg-[var(--kg-nav-active)] border-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)] font-bold shadow-xs'
+                    : 'bg-[var(--kg-surface)] border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:border-[var(--kg-border-strong)] hover:text-[var(--kg-text)] font-bold'
                 }`}
               >
                 <Icon
                   size={15}
-                  className={`flex-shrink-0 ${selected ? 'text-white' : 'text-[var(--kg-text-muted)]'}`}
+                  className={`flex-shrink-0 ${selected ? 'text-current' : 'text-[var(--kg-text-muted)]'}`}
                 />
-                <span className="hidden lg:inline tracking-tight whitespace-nowrap truncate">{tab.label}</span>
-                <span className="inline lg:hidden tracking-tight whitespace-nowrap truncate max-w-full">
+                <span className="hidden lg:inline tracking-tight whitespace-nowrap">{tab.label}</span>
+                <span className="inline lg:hidden tracking-tight whitespace-nowrap">
                   {tab.shortLabel || tab.label}
                 </span>
-                {selected && (
-                  <span className="hidden sm:inline-block w-1.5 h-1.5 rounded-full bg-[var(--kg-accent-ink)] flex-shrink-0" />
+                {hasBadge && (
+                  <span
+                    className={`px-1.5 py-0.5 rounded-[7px] text-[10.5px] font-extrabold font-mono tabular-nums leading-none flex-shrink-0 ${badgeStyle}`}
+                  >
+                    {tab.badge! > 99 ? '99+' : tab.badge}
+                  </span>
                 )}
               </button>
             );
@@ -344,7 +358,6 @@ export function WorkHub() {
   const soldOutItems = useAppStore((state) => state.soldOutItems);
   const [openIncidentCount, setOpenIncidentCount] = useState<number>(0);
 
-  const canViewSoldOut = hasTabPermission('soldout', currentUser);
   const canViewHandover = hasTabPermission('handover', currentUser);
 
   useEffect(() => {
@@ -374,80 +387,31 @@ export function WorkHub() {
     };
   }, [currentUser?.username, currentUser?.role, canViewHandover]);
 
-  const jumpToWorkSubTab = (subTab: 'soldout' | 'incidents') => {
-    try {
-      sessionStorage.setItem('kg_hub_subtab_work', subTab);
-      const url = new URL(window.location.href);
-      url.searchParams.set('tab', 'work');
-      url.searchParams.set('sub', subTab);
-      window.history.replaceState({ tab: 'work', sub: subTab }, '', url.toString());
-    } catch {
-      /* ignore */
-    }
-    window.dispatchEvent(new CustomEvent('kg:subtab-select', { detail: { hub: 'work', subTab } }));
-  };
-
-  const summaryStrip =
-    canViewSoldOut || canViewHandover ? (
-      <div className="mb-2.5 rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface)] px-3 py-1.5 flex flex-wrap items-center justify-between gap-2 shadow-xs">
-        <div className="flex flex-wrap items-center gap-1.5 min-w-0">
-          {canViewSoldOut && (
-            <button
-              type="button"
-              onClick={() => jumpToWorkSubTab('soldout')}
-              className={`min-h-[44px] sm:min-h-[36px] px-3 py-1 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 transition-colors active:scale-95 whitespace-nowrap ${
-                soldOutItems.length > 0
-                  ? 'bg-[var(--kg-warning-soft)] border-[var(--kg-warning)]/30 text-[var(--kg-warning)]'
-                  : 'bg-[var(--kg-surface-soft)] border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
-              }`}
-            >
-              <UtensilsCrossed size={14} className="flex-shrink-0" />
-              <span>
-                Món hết:{' '}
-                <span className="font-mono tabular-nums font-extrabold">{soldOutItems.length}</span>
-              </span>
-              {soldOutItems.length > 0 && (
-                <span className="hidden md:inline text-[11px] font-medium opacity-90 truncate max-w-[200px]">
-                  ({soldOutItems.slice(0, 2).map((i) => i.itemName).join(', ')}
-                  {soldOutItems.length > 2 ? '…' : ''})
-                </span>
-              )}
-            </button>
-          )}
-          {canViewHandover && (
-            <button
-              type="button"
-              onClick={() => jumpToWorkSubTab('incidents')}
-              className={`min-h-[44px] sm:min-h-[36px] px-3 py-1 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 transition-colors active:scale-95 whitespace-nowrap ${
-                openIncidentCount > 0
-                  ? 'bg-[var(--kg-danger-soft)] border-[var(--kg-danger)]/30 text-[var(--kg-danger)]'
-                  : 'bg-[var(--kg-surface-soft)] border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
-              }`}
-            >
-              <AlertTriangle size={14} className="flex-shrink-0" />
-              <span>
-                Sự cố mở:{' '}
-                <span className="font-mono tabular-nums font-extrabold">{openIncidentCount}</span>
-              </span>
-            </button>
-          )}
-        </div>
-        <span className="hidden sm:inline text-[11px] font-medium text-[var(--kg-text-soft)]">
-          Chạm để mở nhanh mục xử lý
-        </span>
-      </div>
-    ) : null;
-
   return (
     <ModuleHub
       hubId="work"
-      summaryStrip={summaryStrip}
       subTabAliases={{ operations: 'checklist' }}
       tabs={[
         { id: 'checklist', label: 'Checklist phân khu', shortLabel: 'Checklist', icon: ClipboardCheck, component: Checklist },
         { id: 'handover', label: 'Bàn giao ca', shortLabel: 'Bàn giao', icon: Repeat2, component: Handover },
-        { id: 'incidents', label: 'Sự cố ca', shortLabel: 'Sự cố', icon: AlertTriangle, component: IncidentTracker },
-        { id: 'soldout', label: 'Món hết', shortLabel: 'Món hết', icon: UtensilsCrossed, component: SoldOut },
+        {
+          id: 'incidents',
+          label: 'Sự cố ca',
+          shortLabel: 'Sự cố',
+          icon: AlertTriangle,
+          component: IncidentTracker,
+          badge: openIncidentCount,
+          badgeTone: 'danger',
+        },
+        {
+          id: 'soldout',
+          label: 'Món hết',
+          shortLabel: 'Món hết',
+          icon: UtensilsCrossed,
+          component: SoldOut,
+          badge: soldOutItems.length,
+          badgeTone: 'warning',
+        },
       ]}
     />
   );
@@ -486,12 +450,21 @@ export function KnowledgeHub() {
 }
 
 export function AdminOpsHub() {
+  const adminPendingQueueCount = useAppStore((state) => state.adminPendingQueueCount);
   return (
     <ModuleHub
       hubId="admin_ops"
       subTabAliases={{ operations: 'dispatch', settings: 'inbox' }}
       tabs={[
-        { id: 'inbox', label: 'Hộp duyệt', shortLabel: 'Hộp duyệt', icon: Inbox, component: AdminApprovalInbox },
+        {
+          id: 'inbox',
+          label: 'Hộp duyệt',
+          shortLabel: 'Hộp duyệt',
+          icon: Inbox,
+          component: AdminApprovalInbox,
+          badge: adminPendingQueueCount,
+          badgeTone: 'warning',
+        },
         { id: 'schedule', label: 'Xếp lịch', shortLabel: 'Xếp lịch', icon: CalendarRange, component: AdminSchedule },
         { id: 'dispatch', label: 'Điều phối', shortLabel: 'Điều phối', icon: Network, component: AdminOperations },
         { id: 'checklist', label: 'Checklist', shortLabel: 'Checklist', icon: ClipboardCheck, component: AdminChecklist },

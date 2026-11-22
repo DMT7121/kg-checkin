@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Clock,
   ExternalLink,
+  Lock,
   Printer,
   RefreshCw,
   Zap,
@@ -25,7 +26,7 @@ import type { PayrollRecord, User } from '../../store/useAppStore';
 import { formatVnd } from '../../utils/formatCurrency';
 import { navigateToHubSubTab } from '../../utils/hubNavigation';
 import { salaryMonthLabel } from '../../types/salary';
-import type { PayrollWorkflowState } from '../../utils/payrollWorkflow';
+import { PAYROLL_WORKFLOW_STEPS, type PayrollWorkflowState } from '../../utils/payrollWorkflow';
 
 const formatHours = (hours: number) => `${Number(hours || 0).toFixed(2)} giờ`;
 
@@ -123,16 +124,27 @@ export default function PayrollSlipView({
           'Các khoản phụ cấp, trách nhiệm, thưởng doanh số hoặc tiền tip được cộng dồn theo ca.',
         ]}
         actions={
-          <label className="inline-flex items-center gap-2 rounded-xl bg-[var(--kg-surface-soft)] px-3 py-1.5 border border-[var(--kg-border)] min-h-[44px] sm:min-h-[38px] w-full sm:w-auto min-w-0">
-            <Calendar size={14} className="text-[var(--kg-primary)] shrink-0" />
-            <span className="sr-only">Chọn tháng xem phiếu lương</span>
-            <input
-              type="month"
-              value={selectedMonth}
-              onChange={(e) => onMonthChange(e.target.value)}
-              className="!border-0 !bg-transparent !min-h-0 !shadow-none !p-0 flex-1 sm:flex-initial min-w-0 text-xs sm:text-sm font-bold font-mono tabular-nums text-[var(--kg-text)] outline-none"
-            />
-          </label>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <label className="flex-1 sm:flex-initial inline-flex items-center gap-2 rounded-xl bg-[var(--kg-surface-soft)] px-3 py-1.5 border border-[var(--kg-border)] min-h-[44px] sm:min-h-[38px] min-w-0">
+              <Calendar size={14} className="text-[var(--kg-primary)] shrink-0" />
+              <span className="sr-only">Chọn tháng xem phiếu lương</span>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => onMonthChange(e.target.value)}
+                className="!border-0 !bg-transparent !min-h-0 !shadow-none !p-0 flex-1 sm:flex-initial min-w-0 text-xs sm:text-sm font-bold font-mono tabular-nums text-[var(--kg-text)] outline-none"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              aria-label="Tải lại phiếu lương"
+              className="min-w-[44px] min-h-[44px] sm:min-w-[38px] sm:min-h-[38px] rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition-colors shrink-0 touch-manipulation disabled:opacity-50"
+            >
+              <RefreshCw size={15} className={isRefreshing ? 'animate-spin' : ''} />
+            </button>
+          </div>
         }
       />
 
@@ -329,31 +341,25 @@ export default function PayrollSlipView({
 
                 <div className="w-full h-px bg-[var(--kg-border)] border-dashed border-t" />
 
-                {/* Net pay row */}
-                <div
-                  className={`flex flex-wrap justify-between items-center gap-2 p-4 rounded-2xl border ${
-                    isConfigured
-                      ? 'bg-[var(--kg-success-soft)] border-[var(--kg-success)]/25'
-                      : 'bg-[var(--kg-warning-soft)] border-[var(--kg-warning)]/25'
-                  }`}
-                >
+                {/* Net pay row — Toast Touch forest charcoal card */}
+                <div className="flex flex-wrap justify-between items-center gap-3 p-4 sm:p-5 rounded-2xl bg-[#202C27] dark:bg-[#101B15] text-white border border-white/10 shadow-sm">
                   <div className="min-w-0">
-                    <span
-                      className={`font-black text-sm sm:text-base uppercase tracking-wider block ${
-                        isConfigured ? 'text-[var(--kg-success)]' : 'text-[var(--kg-warning)]'
-                      }`}
-                    >
+                    <span className="text-[11px] font-black uppercase tracking-[0.14em] text-[#B7C8BC] block">
                       THỰC LĨNH
                     </span>
-                    {!isConfigured && (
-                      <span className="text-[11px] font-medium text-[var(--kg-text-muted)] font-mono tabular-nums">
+                    {isConfigured ? (
+                      <span className="text-[11px] font-medium text-[#D6E2D9] font-mono tabular-nums">
+                        Kỳ lương {salaryMonthLabel(selectedMonth)}
+                      </span>
+                    ) : (
+                      <span className="text-[11px] font-medium text-[#FFD285] font-mono tabular-nums">
                         Đã tích lũy {totalHours.toFixed(1)}h công thực tế
                       </span>
                     )}
                   </div>
                   <span
-                    className={`font-mono tabular-nums font-black text-lg sm:text-2xl text-right ml-auto whitespace-nowrap ${
-                      isConfigured ? 'text-[var(--kg-success)]' : 'text-[var(--kg-warning)]'
+                    className={`font-mono tabular-nums font-black text-xl sm:text-2xl text-right ml-auto whitespace-nowrap ${
+                      isConfigured ? 'text-[#7EDBA8]' : 'text-[#FFD285]'
                     }`}
                   >
                     {isConfigured ? formatVnd(payroll.netPay) : 'Chờ cấu hình'}
@@ -414,6 +420,37 @@ export default function PayrollSlipView({
                   )}
                 </div>
 
+                {/* Compact workflow progress indicator */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                  {PAYROLL_WORKFLOW_STEPS.map((step, idx) => {
+                    const currentIdx = PAYROLL_WORKFLOW_STEPS.findIndex((s) => s.key === workflow.status);
+                    const isCurrent = step.key === workflow.status;
+                    const isDone = currentIdx > idx;
+                    return (
+                      <div
+                        key={step.key}
+                        className={`rounded-xl px-2.5 py-2 border text-[11px] font-bold transition-colors ${
+                          isCurrent
+                            ? 'bg-[var(--kg-primary-soft)] border-[var(--kg-primary)]/40 text-[var(--kg-primary-ink)]'
+                            : isDone
+                              ? 'bg-[var(--kg-success-soft)] border-[var(--kg-success)]/25 text-[var(--kg-success)]'
+                              : 'bg-[var(--kg-surface-soft)] border-[var(--kg-border)] text-[var(--kg-text-muted)]'
+                        }`}
+                      >
+                        <div className="text-[9.5px] font-mono tabular-nums opacity-80">0{idx + 1}</div>
+                        <div className="truncate font-extrabold">{step.label}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {workflow.status === 'Draft' && !isManagerView && (
+                  <p className="text-xs font-semibold text-[var(--kg-warning)] bg-[var(--kg-warning-soft)] px-3 py-2.5 rounded-xl border border-[var(--kg-warning)]/25 flex items-start gap-2">
+                    <Lock size={14} className="shrink-0 mt-0.5" />
+                    <span>Phiếu lương đang ở bản nháp — chờ quản lý gửi đối chiếu</span>
+                  </p>
+                )}
+
                 {workflow.note && (
                   <p className="text-xs text-[var(--kg-text-muted)] bg-[var(--kg-surface-soft)] px-3 py-2 rounded-xl border border-[var(--kg-border)]">
                     <strong>Ghi chú từ Quản lý:</strong> {workflow.note}
@@ -435,7 +472,7 @@ export default function PayrollSlipView({
                       type="button"
                       variant="primary"
                       size="md"
-                      disabled={isWorkflowBusy}
+                      disabled={isWorkflowBusy || workflow.status === 'Draft'}
                       icon={CheckCircle2}
                       onClick={() => setConfirmSlipSheetOpen(true)}
                       className="w-full"

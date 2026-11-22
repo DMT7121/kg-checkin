@@ -74,8 +74,8 @@ export default function CheckInReceiptSheet({
             <div
               className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-xs ${
                 isCheckInLabel(lastSubmittedPunch.type)
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-[var(--kg-primary)] text-white'
+                  ? 'bg-[#1E7550] dark:bg-[var(--kg-success)] text-white dark:text-[#0F2419]'
+                  : 'bg-[var(--kg-primary)] text-[var(--kg-primary-fg)]'
               }`}
             >
               {isCheckInLabel(lastSubmittedPunch.type) ? (
@@ -94,7 +94,7 @@ export default function CheckInReceiptSheet({
             >
               <span
                 className={`w-2 h-2 rounded-full ${
-                  isCheckInLabel(lastSubmittedPunch.type) ? 'bg-emerald-500' : 'bg-[var(--kg-primary)]'
+                  isCheckInLabel(lastSubmittedPunch.type) ? 'bg-[var(--kg-success)]' : 'bg-[var(--kg-primary)]'
                 }`}
               />
               {`${formatUnifiedPunchLabel(lastSubmittedPunch.type).toUpperCase()} THÀNH CÔNG`}
@@ -112,20 +112,20 @@ export default function CheckInReceiptSheet({
           </div>
 
           {/* Synchronized Detail Metrics Card */}
-          <div className="bg-[var(--kg-surface-soft)] rounded-2xl p-3.5 border border-[var(--kg-border)] space-y-2 text-xs">
+          <div className="bg-[var(--kg-surface-2)] rounded-2xl p-3.5 border border-[var(--kg-border)] space-y-2 text-xs">
             {/* Honest Google Sheet / Cloud Ledger Confirmation Badge */}
             <div
               className={`flex flex-wrap items-center justify-between gap-1.5 pb-2 border-b -mx-3.5 -mt-3.5 p-3 rounded-t-2xl ${
                 lastSubmittedPunch.sheetSaved
-                  ? 'border-[var(--kg-success)]/20 bg-[var(--kg-success-soft)]'
-                  : 'border-sky-500/25 bg-sky-500/10'
+                  ? 'border-[var(--kg-success)]/25 bg-[var(--kg-success-soft)]'
+                  : 'border-[var(--kg-info)]/25 bg-[var(--kg-info-soft)]'
               }`}
             >
               <span
                 className={`font-bold uppercase tracking-wider text-[11px] flex items-center gap-1.5 shrink-0 ${
                   lastSubmittedPunch.sheetSaved
                     ? 'text-[var(--kg-success)]'
-                    : 'text-sky-700 dark:text-sky-300'
+                    : 'text-[var(--kg-info)]'
                 }`}
               >
                 {lastSubmittedPunch.sheetSaved ? <CheckCircle2 size={15} /> : <CloudUpload size={15} />}
@@ -133,7 +133,9 @@ export default function CheckInReceiptSheet({
               </span>
               <span
                 className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                  lastSubmittedPunch.sheetSaved ? 'bg-emerald-600 text-white' : 'bg-sky-600 text-white'
+                  lastSubmittedPunch.sheetSaved
+                    ? 'bg-[#1E7550] dark:bg-[var(--kg-success)] text-white dark:text-[#0F2419]'
+                    : 'bg-[#1D5B94] dark:bg-[var(--kg-info)] text-white dark:text-[#0E2033]'
                 }`}
               >
                 {lastSubmittedPunch.sheetSaved
@@ -143,14 +145,14 @@ export default function CheckInReceiptSheet({
             </div>
 
             {!lastSubmittedPunch.sheetSaved && lastSubmittedPunch.edgeBuffered && (
-              <div className="p-2 rounded-xl bg-sky-500/10 border border-sky-500/25 text-[11px] text-sky-800 dark:text-sky-300 font-semibold leading-snug">
+              <div className="p-2.5 rounded-xl bg-[var(--kg-info-soft)] border border-[var(--kg-info)]/25 text-[11px] text-[var(--kg-info)] font-semibold leading-snug">
                 Lượt chấm đã được khóa an toàn trên Đám mây Cloudflare D1 và tự động ghi vào Google Sheets kể cả khi bạn đóng ứng dụng.
               </div>
             )}
 
             {Boolean(lastSubmittedPunch.supplementSubmittedText) && (
-              <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-[11px] text-emerald-800 dark:text-emerald-300 font-bold flex items-center gap-1.5 leading-snug">
-                <CheckCircle2 size={14} className="shrink-0 text-emerald-600 dark:text-emerald-400" />
+              <div className="p-2.5 rounded-xl bg-[var(--kg-success-soft)] border border-[var(--kg-success)]/25 text-[11px] text-[var(--kg-success)] font-bold flex items-center gap-1.5 leading-snug">
+                <CheckCircle2 size={14} className="shrink-0" />
                 <span>{lastSubmittedPunch.supplementSubmittedText}</span>
               </div>
             )}
@@ -202,8 +204,8 @@ export default function CheckInReceiptSheet({
             </div>
 
             {Boolean(lastSubmittedPunch.lateMins && lastSubmittedPunch.lateMins > 0) && (
-              <div className="mt-2 p-2.5 rounded-xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/25 text-amber-800 dark:text-amber-300 flex items-center gap-2">
-                <AlertTriangle size={15} className="shrink-0 text-amber-600" />
+              <div className="mt-2 p-2.5 rounded-xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/25 text-[var(--kg-warning)] flex items-center gap-2">
+                <AlertTriangle size={15} className="shrink-0" />
                 <span className="text-[11px] font-bold">
                   Đi trễ <span className="font-mono tabular-nums">{lastSubmittedPunch.lateMins}</span> phút • Khấu trừ tạm tính:{' '}
                   <span className="font-mono tabular-nums">
@@ -226,10 +228,10 @@ export default function CheckInReceiptSheet({
           <button
             type="button"
             onClick={onCompleteSuccess}
-            className={`w-full py-3.5 rounded-xl font-bold text-sm text-white shadow-xs active:scale-[0.98] transition-colors flex items-center justify-center gap-2 min-h-[44px] ${
+            className={`w-full py-3.5 rounded-xl font-bold text-sm shadow-xs active:scale-[0.98] transition-colors flex items-center justify-center gap-2 min-h-[44px] ${
               isCheckInLabel(lastSubmittedPunch.type)
-                ? 'bg-emerald-600 hover:bg-emerald-700'
-                : 'bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)]'
+                ? 'bg-[#1E7550] hover:bg-[#186042] dark:bg-[var(--kg-success)] dark:hover:opacity-90 text-white dark:text-[#0F2419]'
+                : 'bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)]'
             }`}
           >
             <CheckCircle2 size={18} />
@@ -259,7 +261,7 @@ export default function CheckInReceiptSheet({
                   onClose();
                   onPrecisionRescan();
                 }}
-                className="min-h-[44px] px-3 py-2 rounded-xl bg-[var(--kg-primary)] hover:opacity-90 text-white text-xs font-black inline-flex items-center justify-center gap-1.5 active:scale-95 transition touch-manipulation"
+                className="min-h-[44px] px-3 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] text-xs font-black inline-flex items-center justify-center gap-1.5 active:scale-95 transition touch-manipulation"
               >
                 <Radio size={14} />
                 <span>Quét lại GPS</span>
@@ -270,7 +272,7 @@ export default function CheckInReceiptSheet({
                   onClose();
                   onOpenMissedModal();
                 }}
-                className="min-h-[44px] px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black inline-flex items-center justify-center gap-1.5 active:scale-95 transition touch-manipulation"
+                className="min-h-[44px] px-3 py-2 rounded-xl bg-[var(--kg-warning-soft)] hover:bg-[var(--kg-warning)]/20 border border-[var(--kg-warning)]/35 text-[var(--kg-warning)] text-xs font-black inline-flex items-center justify-center gap-1.5 active:scale-95 transition touch-manipulation"
               >
                 <Clock size={14} />
                 <span>Bổ sung công</span>

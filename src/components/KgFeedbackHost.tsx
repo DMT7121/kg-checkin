@@ -24,17 +24,17 @@ const TONE_ICON_MAP: Record<FeedbackTone, typeof Info> = {
 };
 
 const TOAST_BORDER_MAP: Record<FeedbackTone, string> = {
-  success: 'border-[var(--kg-success)]/30',
-  error: 'border-[var(--kg-danger)]/30',
-  warning: 'border-[var(--kg-warning)]/30',
-  info: 'border-[var(--kg-border)]',
+  success: 'border-[var(--kg-border-strong)]',
+  error: 'border-[var(--kg-danger)]/50',
+  warning: 'border-[var(--kg-warning)]/50',
+  info: 'border-[var(--kg-rail-border)]',
 };
 
 const TOAST_ICON_COLOR_MAP: Record<FeedbackTone, string> = {
-  success: 'text-[var(--kg-success)]',
-  error: 'text-[var(--kg-danger)]',
-  warning: 'text-[var(--kg-warning)]',
-  info: 'text-[var(--kg-primary-ink)]',
+  success: 'text-[#7EDBA8]',
+  error: 'text-[#FF968E]',
+  warning: 'text-[#FFD285]',
+  info: 'text-[#F59B62]',
 };
 
 function FeedbackToastCard({
@@ -55,7 +55,7 @@ function FeedbackToastCard({
   return (
     <div
       role={toast.tone === 'error' ? 'alert' : 'status'}
-      className={`kg-toast-in flex items-start gap-2.5 p-3.5 rounded-xl border bg-[var(--kg-surface)] text-[var(--kg-text)] shadow-lg max-w-sm w-full pointer-events-auto ${TOAST_BORDER_MAP[toast.tone]}`}
+      className={`kg-toast-in flex items-start gap-2.5 p-3.5 rounded-xl border bg-[var(--kg-rail-bg)] text-[var(--kg-rail-text)] shadow-lg max-w-sm w-full pointer-events-auto ${TOAST_BORDER_MAP[toast.tone]}`}
     >
       <Icon
         size={18}
@@ -64,11 +64,11 @@ function FeedbackToastCard({
       />
       <div className="min-w-0 flex-1 space-y-0.5">
         {toast.title && (
-          <p className="text-xs font-bold leading-snug text-[var(--kg-text)]">
+          <p className="text-xs font-bold leading-snug text-white">
             {toast.title}
           </p>
         )}
-        <p className="text-xs font-medium leading-relaxed text-[var(--kg-text-muted)] break-words">
+        <p className="text-xs font-medium leading-relaxed text-[var(--kg-rail-muted)] break-words">
           {toast.message}
         </p>
       </div>
@@ -76,7 +76,7 @@ function FeedbackToastCard({
         type="button"
         onClick={() => onClose(toast.id)}
         aria-label="Đóng thông báo"
-        className="w-10 h-10 sm:w-8 sm:h-8 -mr-1.5 -mt-1 rounded-lg text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)] transition-colors flex items-center justify-center flex-shrink-0 touch-manipulation"
+        className="w-10 h-10 sm:w-8 sm:h-8 -mr-1.5 -mt-1 rounded-lg text-[var(--kg-rail-muted)] hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center flex-shrink-0 touch-manipulation"
       >
         <X size={15} />
       </button>
@@ -159,7 +159,7 @@ export default function KgFeedbackHost() {
         <div className="fixed inset-0 z-[10180] flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6">
           <div
             onClick={() => resolveActiveDialog(false)}
-            className="kg-fade-in fixed inset-0 bg-black/55 backdrop-blur-sm pointer-events-auto"
+            className="kg-fade-in fixed inset-0 bg-black/60 pointer-events-auto"
           />
           <div
             ref={dialogRef}
@@ -168,9 +168,9 @@ export default function KgFeedbackHost() {
             aria-modal="true"
             aria-labelledby="kg-feedback-dialog-title"
             onClick={(e) => e.stopPropagation()}
-            className="kg-sheet-up sm:kg-scale-in relative z-10 w-full max-w-md max-h-[90dvh] sm:max-h-[85dvh] mx-auto bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-t-2xl sm:rounded-2xl border border-[var(--kg-border)] shadow-2xl flex flex-col pointer-events-auto overflow-hidden focus:outline-none"
+            className="kg-sheet-up sm:kg-scale-in relative z-10 w-full max-w-md max-h-[90dvh] sm:max-h-[85dvh] mx-auto bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-t-[22px] sm:rounded-[20px] border border-[var(--kg-border)] shadow-2xl flex flex-col pointer-events-auto overflow-hidden focus:outline-none"
           >
-            <div className="px-4 sm:px-5 py-3.5 border-b border-[var(--kg-border)] bg-[var(--kg-surface-soft)]/70 flex items-center justify-between gap-3 flex-shrink-0">
+            <div className="px-4 sm:px-5 py-3.5 border-b border-[var(--kg-border)] bg-[var(--kg-surface-2)] flex items-center justify-between gap-3 flex-shrink-0">
               <div className="flex items-center gap-2.5 min-w-0 flex-1">
                 <div
                   className={`w-8 h-8 rounded-xl border flex items-center justify-center flex-shrink-0 ${dialogToneBadgeStyle}`}
@@ -179,7 +179,7 @@ export default function KgFeedbackHost() {
                 </div>
                 <h3
                   id="kg-feedback-dialog-title"
-                  className="text-sm font-bold text-[var(--kg-text)] leading-snug break-words"
+                  className="text-sm font-extrabold tracking-tight text-[var(--kg-text)] leading-snug break-words"
                 >
                   {activeDialog.title}
                 </h3>
@@ -188,7 +188,7 @@ export default function KgFeedbackHost() {
                 type="button"
                 onClick={() => resolveActiveDialog(false)}
                 aria-label="Đóng hộp thoại"
-                className="w-11 h-11 sm:w-9 sm:h-9 rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] active:scale-95 transition-colors flex-shrink-0 touch-manipulation"
+                className="w-11 h-11 sm:w-9 sm:h-9 rounded-[11px] bg-[var(--kg-surface)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:border-[var(--kg-border-strong)] active:scale-95 transition-colors flex-shrink-0 touch-manipulation"
               >
                 <X size={16} />
               </button>
@@ -202,7 +202,7 @@ export default function KgFeedbackHost() {
               )}
             </div>
 
-            <div className="px-4 sm:px-5 py-3 pb-safe sm:pb-3 border-t border-[var(--kg-border)] bg-[var(--kg-surface-soft)]/50 flex gap-2.5 flex-shrink-0">
+            <div className="px-4 sm:px-5 py-3 pb-safe sm:pb-3 border-t border-[var(--kg-border)] bg-[var(--kg-surface-2)] flex gap-2.5 flex-shrink-0">
               {activeDialog.kind === 'confirm' && (
                 <KgButton
                   variant="secondary"
@@ -231,9 +231,9 @@ export default function KgFeedbackHost() {
         <div
           role="status"
           aria-live="polite"
-          className="kg-fade-in fixed inset-0 bg-black/55 backdrop-blur-sm z-[10210] flex items-center justify-center p-4"
+          className="kg-fade-in fixed inset-0 bg-black/60 z-[10210] flex items-center justify-center p-4"
         >
-          <div className="kg-scale-in bg-[var(--kg-surface)] border border-[var(--kg-border)] p-4 sm:p-5 rounded-xl flex items-center gap-3.5 max-w-xs w-full mx-auto shadow-xl">
+          <div className="kg-scale-in bg-[var(--kg-surface)] border border-[var(--kg-border)] p-4 sm:p-5 rounded-2xl flex items-center gap-3.5 max-w-xs w-full mx-auto shadow-xl">
             <RefreshCw className="w-5 h-5 text-[var(--kg-primary)] animate-spin flex-shrink-0" />
             <span className="text-sm font-semibold text-[var(--kg-text)] leading-snug">
               {loadingMessage}

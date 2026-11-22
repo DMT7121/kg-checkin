@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore, type SoldOutItem } from '../store/useAppStore';
 import { kgToast, type FeedbackTone } from '../store/useFeedbackStore';
 import { callApi } from '../services/api';
-import { Plus, Search, Clock, CheckCircle2, RotateCcw, Sparkles, X, Zap } from 'lucide-react';
+import { Plus, Search, Clock, CheckCircle2, RefreshCw, RotateCcw, Sparkles, X, Zap } from 'lucide-react';
 import {
+  KgButton,
   KgEmptyState,
   KgErrorState,
   KgModuleHero,
@@ -52,7 +53,9 @@ export default function SoldOut() {
   const isUpdating = useAppStore((s) => s.isUpdating);
   const setSoldOutItems = useAppStore((s) => s.setSoldOutItems);
 
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const [loading, setLoading] = useState(() => soldOutItems.length === 0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [newItemName, setNewItemName] = useState('');
@@ -73,9 +76,24 @@ export default function SoldOut() {
   }, []);
 
   const fetchSoldOut = useCallback(
-    async (silent = false) => {
-      if (!silent) setLoading(true);
-      setLoadError('');
+    async (silent = false, isBackgroundPoll = false) => {
+      if (isBackgroundPoll) {
+        const isDocumentVisible =
+          typeof document === 'undefined' || document.visibilityState === 'visible';
+        const isContainerVisible =
+          !containerRef.current || containerRef.current.offsetParent !== null;
+        if (!isDocumentVisible || !isContainerVisible) {
+          return;
+        }
+      }
+      if (!silent) {
+        setLoading(true);
+      } else if (!isBackgroundPoll) {
+        setIsRefreshing(true);
+      }
+      if (!isBackgroundPoll) {
+        setLoadError('');
+      }
       try {
         const res = await callApi('GET_SOLDOUT', {}, { background: true });
         if (res?.ok && Array.isArray(res.data)) {
@@ -89,13 +107,18 @@ export default function SoldOut() {
         }
       } finally {
         setLoading(false);
+        setIsRefreshing(false);
       }
     },
     [setSoldOutItems],
   );
 
   useEffect(() => {
-    void fetchSoldOut(soldOutItems.length > 0);
+    void fetchSoldOut(soldOutItems.length > 0, false);
+    const interval = window.setInterval(() => {
+      void fetchSoldOut(true, true);
+    }, 60000);
+    return () => window.clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -243,19 +266,31 @@ export default function SoldOut() {
   );
 
   return (
-    <div className="flex flex-col h-full space-y-4 pb-16 animate-fade-in max-w-[1440px] mx-auto w-full">
+    <div ref={containerRef} className="flex flex-col h-full space-y-4 pb-16 animate-fade-in max-w-[1440px] mx-auto w-full">
       <KgModuleHero
         moduleId="soldout"
         title="Món Hết & Nguyên Liệu (86)"
         description="Cập nhật nhanh tình trạng món ăn, thức uống tạm hết để phục vụ order chuẩn xác."
         eyebrow="Vận hành"
-        features={['Đồng bộ tức thì', 'Chọn nhanh món 86', 'Khôi phục 1 chạm']}
+        features={['Đồng bộ mỗi 60s', 'Chọn nhanh món 86', 'Khôi phục 1 chạm']}
         tipTitle="Quy chuẩn Báo hết món (Item 86)"
         tips={[
           'Bếp hoặc Bar báo hết nguyên liệu / món ăn ngay khi lượng tồn kho dưới ngưỡng an toàn.',
           'Thu ngân và Nhân viên phục vụ lập tức cập nhật để không nhận order món đã hết của khách hàng.',
           "Khi có đợt nhập hàng hoặc sơ chế bổ sung, bấm nút 'Mở lại' (1 chạm) — có thể hoàn tác trong 4.5 giây nếu bấm nhầm.",
         ]}
+        actions={
+          <KgButton
+            type="button"
+            variant="secondary"
+            size="sm"
+            icon={RefreshCw}
+            loading={isRefreshing}
+            onClick={() => void fetchSoldOut(soldOutItems.length > 0, false)}
+          >
+            Làm mới
+          </KgButton>
+        }
       />
 
       {/* Toolbar */}
@@ -284,7 +319,7 @@ export default function SoldOut() {
         <button
           type="button"
           onClick={() => setIsAdding(!isAdding)}
-          className="inline-flex items-center justify-center gap-1.5 bg-[var(--kg-accent)] hover:brightness-95 text-white dark:text-[#0D1015] px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-xs active:scale-95 transition-colors min-h-[44px] sm:min-h-[42px] whitespace-nowrap shrink-0 touch-manipulation"
+          className="inline-flex items-center justify-center gap-1.5 bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-xs active:scale-95 transition-colors min-h-[44px] sm:min-h-[42px] whitespace-nowrap shrink-0 touch-manipulation"
         >
           <Plus size={16} />
           <span>Báo món hết</span>
@@ -306,7 +341,7 @@ export default function SoldOut() {
                 placeholder="VD: Trà đào cam sả, Bò nướng tảng..."
                 value={newItemName}
                 onChange={(e) => setNewItemName(e.target.value)}
-                className="flex-1 bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 text-[var(--kg-text)] min-h-[44px]"
+                className="flex-1 bg-[var(--kg-surface-2)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 text-[var(--kg-text)] min-h-[44px]"
               />
               <div className="flex items-center gap-2 shrink-0">
                 <button
@@ -319,7 +354,7 @@ export default function SoldOut() {
                 <button
                   type="button"
                   onClick={() => setIsAdding(false)}
-                  className="px-3.5 py-2.5 rounded-xl border border-[var(--kg-border)] text-xs font-semibold text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)] min-h-[44px] sm:min-h-[42px] whitespace-nowrap touch-manipulation"
+                  className="px-3.5 py-2.5 rounded-xl border border-[var(--kg-border)] text-xs font-semibold text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-2)] min-h-[44px] sm:min-h-[42px] whitespace-nowrap touch-manipulation"
                 >
                   Huỷ
                 </button>
@@ -359,7 +394,7 @@ export default function SoldOut() {
                           setNewItemName(chip);
                         }
                       }}
-                      className="min-h-[44px] sm:min-h-[36px] px-3.5 py-2 rounded-full border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] hover:border-[var(--kg-primary)] text-xs font-semibold text-[var(--kg-text)] transition-colors active:scale-95 touch-manipulation"
+                      className="min-h-[44px] sm:min-h-[36px] px-3.5 py-2 rounded-full border border-[var(--kg-border)] bg-[var(--kg-surface-2)] hover:border-[var(--kg-primary)] text-xs font-semibold text-[var(--kg-text)] transition-colors active:scale-95 touch-manipulation"
                     >
                       + {chip}
                     </button>
@@ -371,19 +406,19 @@ export default function SoldOut() {
         </div>
       )}
 
-      {/* List */}
+      {/* List (Toast Touch 3-col responsive grid) */}
       <div className="flex-1 min-h-[250px]">
         {loadError ? (
           <KgErrorState
             title="Không thể tải danh sách món hết"
             description={loadError}
-            onRetry={() => fetchSoldOut(false)}
+            onRetry={() => fetchSoldOut(false, false)}
           />
         ) : loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            <KgSkeleton className="h-24 w-full" />
-            <KgSkeleton className="h-24 w-full" />
-            <KgSkeleton className="h-24 w-full" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            <KgSkeleton className="h-32 w-full" />
+            <KgSkeleton className="h-32 w-full" />
+            <KgSkeleton className="h-32 w-full" />
           </div>
         ) : filteredItems.length === 0 ? (
           <KgEmptyState
@@ -400,42 +435,39 @@ export default function SoldOut() {
             }
           />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
             {filteredItems.map((item) => (
               <div
                 key={item.id}
-                className="kg-fade-in bg-[var(--kg-surface)] border border-[var(--kg-border)] hover:border-[var(--kg-danger)]/40 rounded-2xl p-3.5 flex flex-col justify-between shadow-card transition-colors group"
+                className="kg-fade-in bg-[var(--kg-surface)] border border-[var(--kg-border)] hover:border-[var(--kg-danger)]/40 rounded-2xl p-4 flex flex-col justify-between gap-3.5 shadow-xs transition-colors"
               >
-                <div className="flex justify-between items-start gap-2.5">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-[var(--kg-danger)] flex-shrink-0 animate-pulse" />
-                      <h3 className="font-bold text-[var(--kg-text)] text-sm leading-tight truncate">
-                        {item.itemName}
-                      </h3>
-                    </div>
-                    <div className="flex flex-wrap items-center text-[11px] text-[var(--kg-text-muted)] mt-2 gap-2 font-medium">
-                      <span className="flex items-center gap-1 font-mono tabular-nums">
-                        <Clock size={11} /> {item.reportedAt}
-                      </span>
-                      <span>•</span>
-                      <span className="bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] px-2 py-0.5 rounded-lg text-[10px] font-semibold text-[var(--kg-text)] truncate max-w-[140px]">
-                        {item.reportedBy}
-                      </span>
-                    </div>
+                <div className="space-y-2 min-w-0">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[11px] font-bold bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] border border-[var(--kg-danger)]/20">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--kg-danger)] animate-pulse" />
+                    Đang báo hết
+                  </span>
+                  <h3 className="font-extrabold text-[var(--kg-text)] text-sm sm:text-base leading-snug break-words">
+                    {item.itemName}
+                  </h3>
+                  <div className="flex flex-wrap items-center text-[11px] text-[var(--kg-text-muted)] gap-1.5 font-medium">
+                    <span className="inline-flex items-center gap-1 font-mono tabular-nums">
+                      <Clock size={11} /> {item.reportedAt}
+                    </span>
+                    <span>•</span>
+                    <span className="truncate">{item.reportedBy}</span>
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleOneTapRestore(item)}
-                    aria-label={`Khôi phục món ${item.itemName}`}
-                    className="min-w-[44px] min-h-[44px] sm:min-h-[38px] px-3 rounded-xl bg-[var(--kg-success-soft)] hover:brightness-95 text-[var(--kg-success)] inline-flex items-center justify-center gap-1.5 transition-all active:scale-95 flex-shrink-0 border border-[var(--kg-success)]/20 text-xs font-bold whitespace-nowrap touch-manipulation"
-                    title="Mở bán lại (1 chạm)"
-                  >
-                    <CheckCircle2 size={15} className="shrink-0" />
-                    <span>Mở lại</span>
-                  </button>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleOneTapRestore(item)}
+                  aria-label={`Khôi phục món ${item.itemName}`}
+                  className="w-full min-h-[44px] sm:min-h-[40px] px-3.5 py-2 rounded-xl bg-[var(--kg-success-soft)] hover:brightness-95 text-[var(--kg-success)] inline-flex items-center justify-center gap-1.5 transition-all active:scale-[0.985] border border-[var(--kg-success)]/25 text-xs font-extrabold whitespace-nowrap touch-manipulation"
+                  title="Mở bán lại (1 chạm)"
+                >
+                  <CheckCircle2 size={15} className="shrink-0" />
+                  <span>Mở lại</span>
+                </button>
               </div>
             ))}
           </div>

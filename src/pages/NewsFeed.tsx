@@ -14,6 +14,7 @@ import {
 
 export default function NewsFeed() {
   const currentUser = useAppStore((s) => s.currentUser);
+  const users = useAppStore((s) => s.users);
   const posts = useAppStore((s) => s.news);
   const setPosts = useAppStore((s) => s.setNews);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -215,13 +216,21 @@ export default function NewsFeed() {
     }
   };
 
+  const resolveDisplayName = useCallback(
+    (usernameOrName: string) => {
+      const matched = users.find((u) => u.username === usernameOrName);
+      return matched?.fullname || usernameOrName;
+    },
+    [users],
+  );
+
   return (
     <div ref={containerRef} className="p-4 animate-slide-up pb-24 md:pb-10 space-y-5 max-w-5xl mx-auto w-full">
       <KgModuleHero
         moduleId="news"
         title="Bảng tin Nội bộ"
         description="Thông báo và tin tức quan trọng từ nhà hàng."
-        eyebrow="Thông tin"
+        eyebrow="Cộng đồng · Thông tin"
         tipTitle="Quy chế Bảng tin Nội bộ"
         tips={[
           'Mọi nhân viên cần theo dõi bảng tin hàng ngày để cập nhật các thông báo điều hành và sự kiện quan trọng.',
@@ -229,15 +238,16 @@ export default function NewsFeed() {
           "Thả tim và bình luận tích cực để xây dựng tinh thần đồng đội tại King's Grill.",
         ]}
         actions={
-          <button
+          <KgButton
             type="button"
+            variant="secondary"
+            size="sm"
+            icon={RefreshCw}
+            loading={loading}
             onClick={() => void fetchPosts(false)}
-            disabled={loading}
-            aria-label="Làm mới bảng tin"
-            className="min-w-[44px] min-h-[44px] sm:min-w-[36px] sm:min-h-[36px] rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition-colors touch-manipulation"
           >
-            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
-          </button>
+            Làm mới
+          </KgButton>
         }
       />
 
@@ -248,9 +258,9 @@ export default function NewsFeed() {
           <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl overflow-hidden p-4 sm:p-5 shadow-xs space-y-3">
             <label
               htmlFor="newsfeed-post-input"
-              className="font-black text-[var(--kg-text)] flex items-center text-xs sm:text-sm cursor-pointer"
+              className="font-extrabold text-[var(--kg-text)] flex items-center text-xs sm:text-sm cursor-pointer"
             >
-              <Edit3 size={16} className="mr-2 text-[var(--kg-primary)]" /> Tạo thông báo mới cho toàn quán
+              <Edit3 size={16} className="mr-2 text-[var(--kg-primary-ink)]" /> Tạo thông báo mới cho toàn quán
             </label>
             <textarea
               id="newsfeed-post-input"
@@ -258,7 +268,7 @@ export default function NewsFeed() {
               onChange={(e) => setNewPostContent(e.target.value)}
               rows={3}
               placeholder="Bạn muốn thông báo điều gì cho toàn bộ nhân sự?"
-              className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)] resize-none"
+              className="w-full bg-[var(--kg-surface-2)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)] resize-none"
             />
 
             {newPostImagePreview && (
@@ -267,13 +277,13 @@ export default function NewsFeed() {
                 <button
                   type="button"
                   onClick={() => setNewPostImagePreview(null)}
-                  className="absolute top-1 right-1 min-w-[40px] min-h-[40px] sm:min-w-[32px] sm:min-h-[32px] bg-black/65 text-white rounded-full flex items-center justify-center hover:bg-black/80 transition touch-manipulation"
+                  className="absolute top-1 right-1 min-w-[40px] min-h-[40px] sm:min-w-[32px] sm:min-h-[32px] bg-black/75 text-white rounded-full flex items-center justify-center hover:bg-black/90 transition touch-manipulation"
                   aria-label="Xóa ảnh đính kèm"
                 >
                   <X size={14} />
                 </button>
                 {uploadingImage && (
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                     <Loader2 size={20} className="animate-spin text-white" />
                   </div>
                 )}
@@ -283,7 +293,7 @@ export default function NewsFeed() {
             <div className="flex justify-between items-center gap-2 pt-1">
               <label
                 aria-label="Đính kèm hình ảnh"
-                className="min-w-[44px] min-h-[44px] sm:min-h-[38px] px-2.5 sm:px-3 inline-flex items-center justify-center gap-1.5 cursor-pointer text-[var(--kg-primary-ink)] hover:bg-[var(--kg-surface-soft)] border border-transparent hover:border-[var(--kg-border)] rounded-xl transition text-xs font-bold touch-manipulation"
+                className="min-w-[44px] min-h-[44px] sm:min-h-[38px] px-2.5 sm:px-3 inline-flex items-center justify-center gap-1.5 cursor-pointer text-[var(--kg-primary-ink)] hover:bg-[var(--kg-surface-2)] border border-[var(--kg-border)] rounded-xl transition text-xs font-bold touch-manipulation"
               >
                 <input
                   type="file"
@@ -292,8 +302,8 @@ export default function NewsFeed() {
                   onChange={handleImageSelect}
                   disabled={uploadingImage}
                 />
-                <ImageIcon size={18} />
-                <span className="hidden sm:inline">Thêm ảnh</span>
+                <ImageIcon size={17} />
+                <span>Thêm ảnh</span>
               </label>
               <KgButton
                 type="button"
@@ -332,6 +342,7 @@ export default function NewsFeed() {
               const hasLiked = post.likes.includes(currentUser?.username || 'Guest');
               const isCommentsOpen = activeCommentPostId === post.id;
               const commentValue = commentInputs[post.id] || '';
+              const firstLikeName = post.likes.length > 0 ? resolveDisplayName(post.likes[0]) : '';
 
               return (
                 <article
@@ -339,26 +350,26 @@ export default function NewsFeed() {
                   className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl overflow-hidden shadow-xs animate-fade-in"
                 >
                   {/* Author */}
-                  <div className="p-3.5 sm:p-4 flex items-center justify-between">
-                    <div className="flex items-center">
-                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] flex items-center justify-center font-black text-sm sm:text-base mr-3 border border-[var(--kg-border)] shrink-0">
+                  <div className="p-4 flex items-center justify-between">
+                    <div className="flex items-center min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] flex items-center justify-center font-black text-sm sm:text-base mr-3 border border-[var(--kg-primary)]/20 shrink-0">
                         {post.author.charAt(0)}
                       </div>
-                      <div>
-                        <h4 className="font-black text-[var(--kg-text)] text-xs sm:text-sm flex items-center">
-                          {post.author}
+                      <div className="min-w-0">
+                        <h4 className="font-extrabold text-[var(--kg-text)] text-xs sm:text-sm flex items-center flex-wrap gap-1.5">
+                          <span className="truncate">{post.author}</span>
                           {(post.author === 'Admin' || post.role === 'Admin') && (
-                            <span className="ml-2 bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] text-[9px] px-2 py-0.5 rounded-full font-black border border-[var(--kg-danger)]/20">
-                              ADMIN
+                            <span className="bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] text-[10px] px-2 py-0.5 rounded-md font-extrabold border border-[var(--kg-danger)]/20">
+                              Quản lý
                             </span>
                           )}
                           {post.role === 'System' && (
-                            <span className="ml-2 bg-[var(--kg-info-soft)] text-[var(--kg-info)] text-[9px] px-2 py-0.5 rounded-full font-black border border-[var(--kg-info)]/20">
-                              SYSTEM
+                            <span className="bg-[var(--kg-info-soft)] text-[var(--kg-info)] text-[10px] px-2 py-0.5 rounded-md font-extrabold border border-[var(--kg-info)]/20">
+                              Hệ thống
                             </span>
                           )}
                         </h4>
-                        <p className="text-[10px] text-[var(--kg-text-muted)] font-medium mt-0.5 font-mono tabular-nums">
+                        <p className="text-[11px] text-[var(--kg-text-muted)] font-medium mt-0.5 font-mono tabular-nums">
                           {post.time || 'Gần đây'}
                         </p>
                       </div>
@@ -366,7 +377,7 @@ export default function NewsFeed() {
                   </div>
 
                   {/* Content */}
-                  <div className="px-3.5 sm:px-4 pb-3">
+                  <div className="px-4 pb-3.5">
                     <p className="text-xs sm:text-sm text-[var(--kg-text)] leading-relaxed whitespace-pre-line font-medium">
                       {post.content}
                     </p>
@@ -374,23 +385,23 @@ export default function NewsFeed() {
 
                   {/* Image */}
                   {post.image && (
-                    <div className="w-full max-h-[420px] bg-[var(--kg-surface-soft)] overflow-hidden flex items-center justify-center">
+                    <div className="w-full max-h-[420px] bg-[var(--kg-surface-2)] overflow-hidden flex items-center justify-center border-t border-[var(--kg-border)]">
                       <img src={post.image} alt="Post cover" className="w-full max-h-[420px] object-cover" />
                     </div>
                   )}
 
                   {/* Stats */}
-                  <div className="px-3.5 sm:px-4 py-2 flex justify-between items-center text-[11px] text-[var(--kg-text-muted)] font-medium border-t border-[var(--kg-border)]/50">
+                  <div className="px-4 py-2.5 flex justify-between items-center text-[11px] text-[var(--kg-text-muted)] font-medium border-t border-[var(--kg-border)]/70">
                     <div className="flex items-center space-x-3 w-full">
                       <div className="flex items-center">
                         <Heart size={13} className="mr-1 text-[var(--kg-danger)] fill-current" />
                         <span className="mr-1 font-bold font-mono tabular-nums">{post.likes.length}</span>
                         {post.likes.length > 0 && (
-                          <span className="text-[10px] opacity-75 truncate max-w-[140px]">
+                          <span className="text-[11px] opacity-85 truncate max-w-[180px]">
                             (
                             {post.likes.length <= 2
-                              ? post.likes.join(', ')
-                              : `${post.likes[0]} và ${post.likes.length - 1} người khác`}
+                              ? post.likes.map(resolveDisplayName).join(', ')
+                              : `${firstLikeName} và ${post.likes.length - 1} người khác`}
                             )
                           </span>
                         )}
@@ -408,15 +419,15 @@ export default function NewsFeed() {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex gap-1.5 px-2 py-1.5 border-t border-[var(--kg-border)]">
+                  <div className="flex gap-1.5 px-2.5 py-2 border-t border-[var(--kg-border)] bg-[var(--kg-surface-2)]/50">
                     <button
                       type="button"
                       onClick={() => void toggleLike(post.id)}
                       aria-pressed={hasLiked}
-                      className={`flex-1 min-h-[44px] sm:min-h-[40px] flex justify-center items-center py-2 text-xs font-black rounded-xl transition-all active:scale-95 touch-manipulation ${
+                      className={`flex-1 min-h-[44px] sm:min-h-[40px] flex justify-center items-center py-2 text-xs font-extrabold rounded-xl transition-all active:scale-[0.985] touch-manipulation ${
                         hasLiked
-                          ? 'text-[var(--kg-danger)] bg-[var(--kg-danger-soft)]'
-                          : 'text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)]'
+                          ? 'text-[var(--kg-danger)] bg-[var(--kg-danger-soft)] border border-[var(--kg-danger)]/20'
+                          : 'text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface)] hover:text-[var(--kg-text)]'
                       }`}
                     >
                       <Heart size={15} className={`mr-1.5 flex-shrink-0 ${hasLiked ? 'fill-current' : ''}`} />{' '}
@@ -426,10 +437,10 @@ export default function NewsFeed() {
                       type="button"
                       onClick={() => setActiveCommentPostId(isCommentsOpen ? null : post.id)}
                       aria-expanded={isCommentsOpen}
-                      className={`flex-1 min-h-[44px] sm:min-h-[40px] flex justify-center items-center py-2 text-xs font-black rounded-xl transition-all active:scale-95 touch-manipulation ${
+                      className={`flex-1 min-h-[44px] sm:min-h-[40px] flex justify-center items-center py-2 text-xs font-extrabold rounded-xl transition-all active:scale-[0.985] touch-manipulation ${
                         isCommentsOpen
-                          ? 'text-[var(--kg-info)] bg-[var(--kg-info-soft)]'
-                          : 'text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)]'
+                          ? 'text-[var(--kg-info)] bg-[var(--kg-info-soft)] border border-[var(--kg-info)]/20'
+                          : 'text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface)] hover:text-[var(--kg-text)]'
                       }`}
                     >
                       <MessageSquare size={15} className="mr-1.5 flex-shrink-0" /> Bình luận
@@ -441,7 +452,7 @@ export default function NewsFeed() {
                     <button
                       type="button"
                       onClick={() => setActiveCommentPostId(post.id)}
-                      className="w-full min-h-[44px] text-left px-3.5 sm:px-4 py-2.5 bg-[var(--kg-surface-soft)]/50 hover:bg-[var(--kg-surface-soft)] transition-colors border-t border-[var(--kg-border)] touch-manipulation"
+                      className="w-full min-h-[44px] text-left px-4 py-2.5 bg-[var(--kg-surface-2)] hover:bg-[var(--kg-surface-soft)] transition-colors border-t border-[var(--kg-border)] touch-manipulation"
                     >
                       <div className="flex items-center space-x-2">
                         <div className="w-5 h-5 rounded-full bg-[var(--kg-border)] flex-shrink-0 flex items-center justify-center text-[9px] font-black text-[var(--kg-text)]">
@@ -461,21 +472,21 @@ export default function NewsFeed() {
 
                   {/* Comments Section */}
                   {isCommentsOpen && (
-                    <div className="bg-[var(--kg-surface-soft)]/40 p-3.5 sm:p-4 border-t border-[var(--kg-border)] space-y-3 animate-fade-in">
-                      <div className="space-y-3 max-h-[250px] overflow-y-auto hide-scrollbar pr-1">
+                    <div className="bg-[var(--kg-surface-2)] p-4 border-t border-[var(--kg-border)] space-y-3 animate-fade-in">
+                      <div className="space-y-2.5 max-h-[250px] overflow-y-auto hide-scrollbar pr-1">
                         {post.comments.map((comment) => (
                           <div key={comment.id} className="flex space-x-2">
                             <div className="w-7 h-7 rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-border)] flex-shrink-0 flex items-center justify-center text-xs font-black text-[var(--kg-text)]">
                               {comment.author.charAt(0)}
                             </div>
                             <div className="flex-1 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl rounded-tl-none p-2.5 shadow-2xs">
-                              <h5 className="text-[11px] font-black text-[var(--kg-text)] mb-0.5">
+                              <h5 className="text-[11px] font-extrabold text-[var(--kg-text)] mb-0.5">
                                 {comment.author}
                               </h5>
                               <p className="text-xs text-[var(--kg-text)] font-medium leading-relaxed">
                                 {comment.content}
                               </p>
-                              <p className="text-[9px] text-[var(--kg-text-muted)] mt-1 font-mono tabular-nums">
+                              <p className="text-[10px] text-[var(--kg-text-muted)] mt-1 font-mono tabular-nums">
                                 {comment.time}
                               </p>
                             </div>
@@ -509,7 +520,7 @@ export default function NewsFeed() {
                             aria-label="Gửi bình luận"
                             onClick={() => void handleAddComment(post.id)}
                             disabled={!commentValue.trim()}
-                            className="absolute right-1 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center bg-[var(--kg-primary)] text-white rounded-full hover:opacity-90 transition-opacity disabled:opacity-50 touch-manipulation"
+                            className="absolute right-1 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center bg-[var(--kg-primary)] text-[var(--kg-primary-fg)] rounded-full hover:opacity-90 transition-opacity disabled:opacity-50 touch-manipulation"
                           >
                             <Send size={14} className="ml-0.5" />
                           </button>

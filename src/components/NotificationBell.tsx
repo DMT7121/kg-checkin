@@ -153,13 +153,13 @@ export default function NotificationBell() {
         }}
         aria-expanded={isOpen}
         aria-haspopup="dialog"
-        className="relative w-11 h-11 min-w-[44px] min-h-[44px] lg:min-w-0 lg:min-h-0 lg:w-9 lg:h-9 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:border-[var(--kg-border-strong)] active:scale-95 transition-all shadow-xs touch-manipulation"
+        className="relative w-11 h-11 min-w-[44px] min-h-[44px] lg:min-w-0 lg:min-h-0 lg:w-10 lg:h-10 rounded-[11px] border border-[var(--kg-border)] bg-[var(--kg-surface)] flex items-center justify-center text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)] hover:border-[var(--kg-border-strong)] active:scale-95 transition-colors shadow-xs touch-manipulation"
         aria-label="Thông báo"
         title="Thông báo hệ thống"
       >
         <Bell size={17} />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[19px] h-[19px] flex items-center justify-center bg-[var(--kg-danger)] text-white dark:text-[#0D1015] text-[10px] font-black font-mono tabular-nums rounded-full px-1 shadow-md border-2 border-[var(--kg-surface)] animate-pulse">
+          <span className="absolute -top-1 -right-1 min-w-[19px] h-[19px] flex items-center justify-center bg-[var(--kg-danger)] text-white dark:text-[#23170F] text-[10px] font-black font-mono tabular-nums rounded-full px-1 shadow-md border-2 border-[var(--kg-surface)] animate-pulse">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
@@ -255,8 +255,8 @@ export default function NotificationBell() {
                   }}
                   className={`w-full text-left flex items-start gap-3 px-4 sm:px-5 py-3.5 min-h-[44px] cursor-pointer transition-colors ${
                     n.isRead
-                      ? 'opacity-70 hover:opacity-100 hover:bg-[var(--kg-surface-soft)]'
-                      : 'bg-[var(--kg-primary-soft)] hover:bg-[var(--kg-surface-soft)]'
+                      ? 'opacity-75 hover:opacity-100 hover:bg-[var(--kg-surface-soft)]'
+                      : 'bg-[var(--kg-primary-soft)]/70 hover:bg-[var(--kg-surface-soft)]'
                   }`}
                 >
                   <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 border ${config.bg} ${config.border}`}>

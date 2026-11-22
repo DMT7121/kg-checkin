@@ -357,6 +357,7 @@ export default function Training() {
   const [sopViewMode, setSopViewMode] = useState<'quick' | 'full'>('quick');
   const [openAccordions, setOpenAccordions] = useState<Record<string, boolean>>({});
   const [isMobileCategoryOpen, setIsMobileCategoryOpen] = useState(false);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   // CUKCUK State (loaded dynamically on demand)
   const [cukcukData, setCukcukData] = useState<CukcukStep[]>([]);
@@ -576,7 +577,7 @@ export default function Training() {
   };
 
   return (
-    <div className="p-4 animate-slide-up pb-12 space-y-4 max-w-7xl mx-auto w-full">
+    <div className="p-4 animate-slide-up pb-12 space-y-3 sm:space-y-4 max-w-7xl mx-auto w-full">
       {/* Flat KnowledgeCenter Hero */}
       <KgModuleHero
         moduleId="training"
@@ -609,107 +610,32 @@ export default function Training() {
         }
       />
 
-      {/* Unified Reading & Role-Readiness Progress Tracker */}
-      <KgCard className="p-4 sm:p-5 border border-[var(--kg-border)] shadow-xs space-y-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-1 min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)]">
-                <GraduationCap size={13} />
-                {currentUser?.position || 'Nhân sự Vận hành'}
-              </span>
-              <span
-                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold border ${
-                  roleReadiness.isRoleCertified
-                    ? 'bg-[var(--kg-success-soft)] text-[var(--kg-success)] border-[var(--kg-success)]/30'
-                    : 'bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] border-[var(--kg-warning)]/30'
-                }`}
-              >
-                {roleReadiness.isRoleCertified ? <ShieldCheck size={13} /> : <Zap size={13} />}
-                {roleReadiness.isRoleCertified
-                  ? `Đã mở khóa: ${roleReadiness.badgeLabel}`
-                  : 'Đang mở khóa chuẩn vị trí'}
-              </span>
-            </div>
-            <h3 className="text-sm sm:text-base font-extrabold text-[var(--kg-text)]">
-              {roleReadiness.trackTitle}
-            </h3>
-            <p className="text-xs text-[var(--kg-text-muted)]">
-              {roleReadiness.unlockedPermissionsSummary}
-            </p>
-          </div>
-
-          <div className="text-right shrink-0">
-            <p className="text-lg sm:text-xl font-black font-mono tabular-nums text-[var(--kg-primary-ink)]">
-              {roleReadiness.completionPct}%
-            </p>
-            <p className="text-[11px] font-mono tabular-nums text-[var(--kg-text-muted)] font-semibold">
-              {roleReadiness.completedMilestones}/{roleReadiness.totalMilestones} mốc chuẩn
-              {totalLessons > 0 ? ` · ${completedCount}/${totalLessons} bài` : ''}
-            </p>
-          </div>
-        </div>
-
-        <div className="w-full bg-[var(--kg-surface-soft)] rounded-full h-2.5 overflow-hidden border border-[var(--kg-border)]">
-          <div
-            className={`h-full rounded-full transition-all duration-300 ${
-              roleReadiness.isRoleCertified ? 'bg-[var(--kg-success)]' : 'bg-[var(--kg-primary)]'
-            }`}
-            style={{ width: `${roleReadiness.completionPct}%` }}
-          />
-        </div>
-
-        {roleReadiness.nextAction && (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1">
-            <p className="text-xs font-semibold text-[var(--kg-text-muted)]">
-              Bước tiếp theo:{' '}
-              <span className="text-[var(--kg-text)] font-bold">{roleReadiness.nextAction.label}</span>
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                if (!roleReadiness.nextAction) return;
-                if (roleReadiness.nextAction.kind === 'sop') {
-                  setActiveTab('sop');
-                  setSopScope('all');
-                  setSelectedSection(roleReadiness.nextAction.targetId);
-                } else {
-                  setActiveTab('quiz');
-                  setActiveLesson(roleReadiness.nextAction.targetId);
-                }
-              }}
-              className="w-full sm:w-auto min-h-[44px] sm:min-h-[36px] px-3.5 py-2 rounded-xl bg-[var(--kg-primary)] text-white text-xs font-black inline-flex items-center justify-center gap-1.5 hover:opacity-95 active:scale-95 transition-all shrink-0 whitespace-nowrap touch-manipulation"
-            >
-              <span>Tiếp tục lộ trình</span>
-              <ChevronRight size={14} />
-            </button>
-          </div>
-        )}
-      </KgCard>
-
       {/* Flat 3-Tab KnowledgeCenter Switcher: Tra cứu SOP | Kiểm tra | CUKCUK */}
-      <div className="flex gap-1.5 overflow-x-auto hide-scrollbar no-scrollbar p-1.5 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl shadow-xs">
+      <div className="grid grid-cols-3 sm:inline-flex gap-1 p-1 bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl">
         <button
           type="button"
           onClick={() => setActiveTab('sop')}
-          className={`flex-1 sm:flex-initial min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap transition-all active:scale-95 flex-shrink-0 select-none touch-manipulation ${
+          className={`min-h-[44px] sm:min-h-[38px] flex items-center justify-center gap-1.5 px-2.5 sm:px-4 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors select-none touch-manipulation ${
             activeTab === 'sop'
-              ? 'bg-[var(--kg-primary)] text-white shadow-xs'
-              : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
+              ? 'bg-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)] shadow-xs'
+              : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
           }`}
         >
-          <BookMarked size={15} className="shrink-0" /> Tra cứu SOP
+          <BookMarked size={15} className="shrink-0" />
+          <span className="hidden sm:inline">Tra cứu SOP</span>
+          <span className="sm:hidden">SOP</span>
         </button>
         <button
           type="button"
           onClick={() => setActiveTab('quiz')}
-          className={`flex-1 sm:flex-initial min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap transition-all active:scale-95 relative flex-shrink-0 select-none touch-manipulation ${
+          className={`min-h-[44px] sm:min-h-[38px] flex items-center justify-center gap-1.5 px-2.5 sm:px-4 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors relative select-none touch-manipulation ${
             activeTab === 'quiz'
-              ? 'bg-[var(--kg-primary)] text-white shadow-xs'
-              : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
+              ? 'bg-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)] shadow-xs'
+              : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
           }`}
         >
-          <UserCheck size={15} className="shrink-0" /> Kiểm tra
+          <UserCheck size={15} className="shrink-0" />
+          <span>Kiểm tra</span>
           {totalLessons > 0 && completedCount < totalLessons && activeTab !== 'quiz' && (
             <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono tabular-nums bg-[var(--kg-danger-soft)] text-[var(--kg-danger)]">
               {totalLessons - completedCount}
@@ -719,23 +645,108 @@ export default function Training() {
         <button
           type="button"
           onClick={() => setActiveTab('cukcuk')}
-          className={`flex-1 sm:flex-initial min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap transition-all active:scale-95 flex-shrink-0 select-none touch-manipulation ${
+          className={`min-h-[44px] sm:min-h-[38px] flex items-center justify-center gap-1.5 px-2.5 sm:px-4 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors select-none touch-manipulation ${
             activeTab === 'cukcuk'
-              ? 'bg-[var(--kg-primary)] text-white shadow-xs'
-              : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
+              ? 'bg-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)] shadow-xs'
+              : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
           }`}
         >
-          <Tablet size={15} className="shrink-0" /> CUKCUK
+          <Tablet size={15} className="shrink-0" />
+          <span>CUKCUK</span>
         </button>
       </div>
 
+      {/* Unified Reading & Role-Readiness Progress Tracker — Ultra-compact bar on Mobile */}
+      <KgCard className="p-3 sm:p-4 border border-[var(--kg-border)] shadow-xs space-y-2 sm:space-y-2.5">
+        <div className="flex items-center justify-between gap-2.5">
+          <div className="min-w-0 flex-1 space-y-1">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)]">
+                <GraduationCap size={12} />
+                {currentUser?.position || 'Nhân sự Vận hành'}
+              </span>
+              <span
+                className={`hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold border ${
+                  roleReadiness.isRoleCertified
+                    ? 'bg-[var(--kg-success-soft)] text-[var(--kg-success)] border-[var(--kg-success)]/30'
+                    : 'bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] border-[var(--kg-warning)]/30'
+                }`}
+              >
+                {roleReadiness.isRoleCertified ? <ShieldCheck size={12} /> : <Zap size={12} />}
+                {roleReadiness.isRoleCertified
+                  ? `Đã mở khóa: ${roleReadiness.badgeLabel}`
+                  : 'Đang mở khóa chuẩn vị trí'}
+              </span>
+              <span className="sm:hidden text-xs font-mono tabular-nums font-black text-[var(--kg-primary-ink)]">
+                {roleReadiness.completionPct}%
+              </span>
+            </div>
+            <h3 className="hidden sm:block text-sm font-extrabold text-[var(--kg-text)] truncate">
+              {roleReadiness.trackTitle}
+            </h3>
+            <p className="hidden md:block text-xs text-[var(--kg-text-muted)]">
+              {roleReadiness.unlockedPermissionsSummary}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2.5 shrink-0">
+            <div className="hidden sm:block text-right">
+              <p className="text-lg font-black font-mono tabular-nums text-[var(--kg-primary-ink)] leading-none">
+                {roleReadiness.completionPct}%
+              </p>
+              <p className="text-[11px] font-mono tabular-nums text-[var(--kg-text-muted)] font-semibold mt-0.5">
+                {roleReadiness.completedMilestones}/{roleReadiness.totalMilestones} mốc
+                {totalLessons > 0 ? ` · ${completedCount}/${totalLessons} bài` : ''}
+              </p>
+            </div>
+            {roleReadiness.nextAction && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!roleReadiness.nextAction) return;
+                  if (roleReadiness.nextAction.kind === 'sop') {
+                    setActiveTab('sop');
+                    setSopScope('all');
+                    setSelectedSection(roleReadiness.nextAction.targetId);
+                  } else {
+                    setActiveTab('quiz');
+                    setActiveLesson(roleReadiness.nextAction.targetId);
+                  }
+                }}
+                className="min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-xl bg-[var(--kg-primary)] text-[var(--kg-primary-fg)] text-xs font-bold inline-flex items-center justify-center gap-1 hover:bg-[var(--kg-primary-hover)] active:scale-95 transition-colors whitespace-nowrap touch-manipulation"
+              >
+                <span className="sm:hidden">Tiếp tục</span>
+                <span className="hidden sm:inline">Tiếp tục lộ trình</span>
+                <ChevronRight size={14} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="w-full bg-[var(--kg-surface-soft)] rounded-full h-2 overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-200 ${
+              roleReadiness.isRoleCertified ? 'bg-[var(--kg-success)]' : 'bg-[var(--kg-primary)]'
+            }`}
+            style={{ width: `${roleReadiness.completionPct}%` }}
+          />
+        </div>
+
+        {roleReadiness.nextAction && (
+          <p className="hidden sm:block text-xs font-semibold text-[var(--kg-text-muted)] truncate">
+            Bước tiếp theo:{' '}
+            <span className="text-[var(--kg-text)] font-bold">{roleReadiness.nextAction.label}</span>
+          </p>
+        )}
+      </KgCard>
+
       {/* Tab 1: Tra cứu SOP */}
       {activeTab === 'sop' && (
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-3 w-full items-stretch sm:items-center">
+        <div className="space-y-3 sm:space-y-4">
+          <div className="flex items-center gap-2 w-full">
             <div className="flex-1 min-w-0">
               <KgInput
-                placeholder="Tìm tình huống, quy trình hoặc nhiệm vụ..."
+                placeholder="Tìm tình huống, quy trình..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 icon={Search}
@@ -754,27 +765,44 @@ export default function Training() {
                 }
               />
             </div>
+            <button
+              type="button"
+              onClick={() => setShowMobileFilters((v) => !v)}
+              aria-expanded={showMobileFilters}
+              aria-label="Mở bộ lọc SOP"
+              className={`md:hidden min-h-[44px] px-3 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 shrink-0 touch-manipulation ${
+                showMobileFilters || sopScope !== 'all' || sopViewMode !== 'quick'
+                  ? 'border-[var(--kg-primary)] bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)]'
+                  : 'border-[var(--kg-border)] bg-[var(--kg-surface)] text-[var(--kg-text)]'
+              }`}
+            >
+              <ListFilter size={15} />
+              <span>Lọc</span>
+            </button>
             <KgButton
               variant="primary"
               onClick={() => setAiOpen(true)}
               icon={Sparkles}
-              className="w-full sm:w-auto min-h-[44px] sm:min-h-[42px] shadow-xs"
+              className="min-h-[44px] sm:min-h-[42px] px-3 sm:px-4 shadow-xs shrink-0"
             >
-              King&apos;s Grill AI Assistant
+              <span className="sm:hidden">AI</span>
+              <span className="hidden sm:inline">King&apos;s Grill AI Assistant</span>
             </KgButton>
           </div>
 
-          <KgCard className="p-3 md:p-4 space-y-4 bg-[var(--kg-surface)] border border-[var(--kg-border)] shadow-xs">
+          <div className={showMobileFilters ? 'block' : 'hidden md:block'}>
+          <KgCard className="p-3 md:p-4 space-y-3 bg-[var(--kg-surface)] border border-[var(--kg-border)] shadow-xs">
             <div>
-              <div className="flex items-center gap-2 mb-2.5">
-                <Zap size={15} className="text-[var(--kg-accent)]" />
+              <div className="flex items-center gap-2 mb-2">
+                <Zap size={14} className="text-[var(--kg-accent-ink)]" />
                 <h3 className="text-xs font-extrabold uppercase tracking-wider text-[var(--kg-text)]">
                   Tra cứu nhanh theo tình huống
                 </h3>
               </div>
-              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
+              <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
                 {QUICK_SOP_QUERIES.map((item) => {
                   const QuickIcon = item.icon;
+                  const isActiveQuery = searchTerm === item.query;
                   return (
                     <button
                       key={item.label}
@@ -783,13 +811,13 @@ export default function Training() {
                         setSearchTerm(item.query);
                         setSopScope('all');
                       }}
-                      className={`min-h-[44px] sm:min-h-[36px] flex-shrink-0 whitespace-nowrap inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-bold transition-all active:scale-95 touch-manipulation ${
-                        searchTerm === item.query
-                          ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)] shadow-sm'
-                          : 'bg-[var(--kg-surface)] text-[var(--kg-text)] border-[var(--kg-border)] hover:border-[var(--kg-primary)]'
+                      className={`min-h-[44px] sm:min-h-[34px] flex-shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-colors touch-manipulation ${
+                        isActiveQuery
+                          ? 'bg-[var(--kg-primary)] text-[var(--kg-primary-fg)] border-[var(--kg-primary)] shadow-xs'
+                          : 'bg-[var(--kg-surface-2)] text-[var(--kg-text)] border-[var(--kg-border)] hover:border-[var(--kg-primary)]'
                       }`}
                     >
-                      <QuickIcon size={14} className="shrink-0" />
+                      <QuickIcon size={13} className="shrink-0" />
                       {item.label}
                     </button>
                   );
@@ -797,34 +825,33 @@ export default function Training() {
               </div>
             </div>
 
-            <div className="flex flex-col lg:flex-row lg:items-center gap-3 lg:justify-between pt-3 border-t border-[var(--kg-border)]">
+            <div className="flex flex-col lg:flex-row lg:items-center gap-2.5 lg:justify-between pt-2.5 border-t border-[var(--kg-border)]">
               <div className="min-w-0 flex-1 flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 lg:flex-wrap lg:overflow-visible lg:pb-0">
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--kg-text-muted)] flex-shrink-0 pr-1">
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[var(--kg-text-muted)] flex-shrink-0 pr-1">
                   <ListFilter size={13} /> Lọc:
                 </span>
-                {SOP_SCOPES.map((scope) => (
-                  <button
-                    key={scope.id}
-                    type="button"
-                    onClick={() => setSopScope(scope.id)}
-                    className={`flex-shrink-0 whitespace-nowrap min-h-[44px] sm:min-h-[36px] inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-bold border transition-colors touch-manipulation ${
-                      sopScope === scope.id
-                        ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)]'
-                        : 'bg-[var(--kg-surface)] text-[var(--kg-text-muted)] border-[var(--kg-border)] hover:text-[var(--kg-text)]'
-                    }`}
-                  >
-                    {scope.label}
-                  </button>
-                ))}
+                {SOP_SCOPES.map((scope) => {
+                  const isActive = sopScope === scope.id;
+                  return (
+                    <button
+                      key={scope.id}
+                      type="button"
+                      onClick={() => setSopScope(scope.id)}
+                      className={`kg-filter-pill shrink-0 ${isActive ? 'kg-filter-pill--active' : ''}`}
+                    >
+                      {scope.label}
+                    </button>
+                  );
+                })}
               </div>
 
-              <div className="grid grid-cols-2 sm:inline-flex p-1 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)]/60 w-full sm:w-auto self-start lg:self-auto gap-1 shrink-0">
+              <div className="grid grid-cols-2 sm:inline-flex p-1 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] w-full sm:w-auto self-start lg:self-auto gap-1 shrink-0">
                 <button
                   type="button"
                   onClick={() => setSopViewMode('quick')}
-                  className={`inline-flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap shrink-0 touch-manipulation ${
+                  className={`inline-flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-[32px] px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap shrink-0 touch-manipulation ${
                     sopViewMode === 'quick'
-                      ? 'bg-[var(--kg-surface)] text-[var(--kg-primary-ink)] shadow-sm'
+                      ? 'bg-[var(--kg-surface)] text-[var(--kg-primary-ink)] shadow-xs'
                       : 'text-[var(--kg-text-muted)]'
                   }`}
                 >
@@ -833,9 +860,9 @@ export default function Training() {
                 <button
                   type="button"
                   onClick={() => setSopViewMode('full')}
-                  className={`inline-flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap shrink-0 touch-manipulation ${
+                  className={`inline-flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-[32px] px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap shrink-0 touch-manipulation ${
                     sopViewMode === 'full'
-                      ? 'bg-[var(--kg-surface)] text-[var(--kg-primary-ink)] shadow-sm'
+                      ? 'bg-[var(--kg-surface)] text-[var(--kg-primary-ink)] shadow-xs'
                       : 'text-[var(--kg-text-muted)]'
                   }`}
                 >
@@ -844,6 +871,7 @@ export default function Training() {
               </div>
             </div>
           </KgCard>
+          </div>
 
           {searchTerm.trim() ? (
             <div className="space-y-3">
@@ -961,8 +989,8 @@ export default function Training() {
                             onClick={() => setSelectedSection(section.id)}
                             className={`w-full min-h-[40px] flex items-center p-2.5 rounded-xl text-left text-xs font-bold transition-all gap-2.5 active:scale-95 ${
                               effectiveSelectedSection === section.id
-                                ? 'bg-[var(--kg-primary)] text-white shadow-xs'
-                                : 'text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)]'
+                                ? 'bg-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)] shadow-xs'
+                                : 'text-[var(--kg-text)] hover:bg-[var(--kg-surface-2)]'
                             }`}
                           >
                             <SopIcon
@@ -970,7 +998,7 @@ export default function Training() {
                               size={15}
                               className={`flex-shrink-0 ${
                                 effectiveSelectedSection === section.id
-                                  ? 'text-white'
+                                  ? 'text-current'
                                   : 'text-[var(--kg-text-muted)]'
                               }`}
                             />
@@ -980,7 +1008,7 @@ export default function Training() {
                                 size={13}
                                 className={
                                   effectiveSelectedSection === section.id
-                                    ? 'text-white/90 shrink-0'
+                                    ? 'text-current opacity-90 shrink-0'
                                     : 'text-[var(--kg-success)] shrink-0'
                                 }
                               />
@@ -1002,8 +1030,8 @@ export default function Training() {
                             onClick={() => setSelectedSection(section.id)}
                             className={`w-full min-h-[40px] flex items-center p-2.5 rounded-xl text-left text-xs font-bold transition-all gap-2.5 active:scale-95 ${
                               effectiveSelectedSection === section.id
-                                ? 'bg-[var(--kg-primary)] text-white shadow-xs'
-                                : 'text-[var(--kg-text)] hover:bg-[var(--kg-surface-soft)]'
+                                ? 'bg-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)] shadow-xs'
+                                : 'text-[var(--kg-text)] hover:bg-[var(--kg-surface-2)]'
                             }`}
                           >
                             <SopIcon
@@ -1011,7 +1039,7 @@ export default function Training() {
                               size={15}
                               className={`flex-shrink-0 ${
                                 effectiveSelectedSection === section.id
-                                  ? 'text-white'
+                                  ? 'text-current'
                                   : 'text-[var(--kg-text-muted)]'
                               }`}
                             />
@@ -1021,7 +1049,7 @@ export default function Training() {
                                 size={13}
                                 className={
                                   effectiveSelectedSection === section.id
-                                    ? 'text-white/90 shrink-0'
+                                    ? 'text-current opacity-90 shrink-0'
                                     : 'text-[var(--kg-success)] shrink-0'
                                 }
                               />
@@ -1488,15 +1516,15 @@ export default function Training() {
                   }}
                   className={`w-full min-h-[44px] flex items-center p-3 rounded-xl text-left text-xs font-bold transition-all gap-3 active:scale-98 touch-manipulation ${
                     effectiveSelectedSection === section.id
-                      ? 'bg-[var(--kg-primary)] text-white shadow-xs'
-                      : 'bg-[var(--kg-surface)] text-[var(--kg-text)] border border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]'
+                      ? 'bg-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)] shadow-xs'
+                      : 'bg-[var(--kg-surface)] text-[var(--kg-text)] border border-[var(--kg-border)] hover:bg-[var(--kg-surface-2)]'
                   }`}
                 >
                   <SopIcon
                     name={section.icon}
                     size={16}
                     className={`flex-shrink-0 ${
-                      effectiveSelectedSection === section.id ? 'text-white' : 'text-[var(--kg-text-muted)]'
+                      effectiveSelectedSection === section.id ? 'text-current' : 'text-[var(--kg-text-muted)]'
                     }`}
                   />
                   <span className="truncate flex-1">{section.title}</span>
@@ -1505,7 +1533,7 @@ export default function Training() {
                       size={14}
                       className={
                         effectiveSelectedSection === section.id
-                          ? 'text-white/90 shrink-0'
+                          ? 'text-current opacity-90 shrink-0'
                           : 'text-[var(--kg-success)] shrink-0'
                       }
                     />
@@ -1530,15 +1558,15 @@ export default function Training() {
                   }}
                   className={`w-full min-h-[44px] flex items-center p-3 rounded-xl text-left text-xs font-bold transition-all gap-3 active:scale-98 touch-manipulation ${
                     effectiveSelectedSection === section.id
-                      ? 'bg-[var(--kg-primary)] text-white shadow-xs'
-                      : 'bg-[var(--kg-surface)] text-[var(--kg-text)] border border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]'
+                      ? 'bg-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)] shadow-xs'
+                      : 'bg-[var(--kg-surface)] text-[var(--kg-text)] border border-[var(--kg-border)] hover:bg-[var(--kg-surface-2)]'
                   }`}
                 >
                   <SopIcon
                     name={section.icon}
                     size={16}
                     className={`flex-shrink-0 ${
-                      effectiveSelectedSection === section.id ? 'text-white' : 'text-[var(--kg-text-muted)]'
+                      effectiveSelectedSection === section.id ? 'text-current' : 'text-[var(--kg-text-muted)]'
                     }`}
                   />
                   <span className="truncate flex-1">{section.title}</span>
@@ -1547,7 +1575,7 @@ export default function Training() {
                       size={14}
                       className={
                         effectiveSelectedSection === section.id
-                          ? 'text-white/90 shrink-0'
+                          ? 'text-current opacity-90 shrink-0'
                           : 'text-[var(--kg-success)] shrink-0'
                       }
                     />

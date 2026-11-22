@@ -285,10 +285,8 @@ export default function Advance({ mode = 'user' }: { mode?: 'user' | 'admin' }) 
                 key={pill.id}
                 type="button"
                 onClick={() => setStatusFilter(pill.id)}
-                className={`shrink-0 whitespace-nowrap min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-full text-xs font-bold border transition-colors touch-manipulation ${
-                  active
-                    ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)]'
-                    : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)] hover:text-[var(--kg-text)]'
+                className={`kg-filter-pill shrink-0 whitespace-nowrap touch-manipulation ${
+                  active ? 'kg-filter-pill--active' : ''
                 }`}
               >
                 {pill.label}
@@ -591,6 +589,51 @@ export default function Advance({ mode = 'user' }: { mode?: 'user' | 'admin' }) 
                     className="w-full min-h-[44px] pl-14 pr-4 py-3 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] focus:ring-2 focus:ring-[var(--kg-primary)] font-mono tabular-nums text-right font-black text-emerald-600 dark:text-emerald-400 text-base sm:text-lg transition-all outline-none"
                   />
                 </div>
+                <div className="grid grid-cols-4 gap-1.5 mt-2">
+                  {['200.000', '500.000', '1.000.000'].map((preset) => {
+                    const isPresetActive = amount === preset;
+                    return (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => {
+                          setAmount(preset);
+                          if (formError) setFormError('');
+                        }}
+                        className={`kg-filter-pill !min-h-[44px] sm:!min-h-[36px] !px-2 font-mono tabular-nums justify-center text-[11px] sm:text-xs touch-manipulation ${
+                          isPresetActive ? 'kg-filter-pill--active' : ''
+                        }`}
+                      >
+                        {preset}
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (advanceQuota.hasComputedLimit && advanceQuota.remaining !== null) {
+                        if (advanceQuota.remaining > 0) {
+                          setAmount(formatMoneyInput(String(advanceQuota.remaining)));
+                          if (formError) setFormError('');
+                        } else {
+                          setFormError('Bạn đã sử dụng hết hạn mức tạm ứng khả dụng trong tháng.');
+                        }
+                        return;
+                      }
+                      kgToast('Chưa có hạn mức tối đa tự động — vui lòng nhập số tiền cần ứng.', 'info');
+                    }}
+                    className={`kg-filter-pill !min-h-[44px] sm:!min-h-[36px] !px-2 justify-center text-[11px] sm:text-xs font-extrabold touch-manipulation ${
+                      advanceQuota.hasComputedLimit &&
+                      advanceQuota.remaining !== null &&
+                      advanceQuota.remaining > 0 &&
+                      amount === formatMoneyInput(String(advanceQuota.remaining))
+                        ? 'kg-filter-pill--active'
+                        : ''
+                    }`}
+                  >
+                    Tối đa
+                  </button>
+                </div>
               </div>
 
               <div>
@@ -605,7 +648,7 @@ export default function Advance({ mode = 'user' }: { mode?: 'user' | 'admin' }) 
                     if (formError) setFormError('');
                   }}
                   placeholder="Nhập lý do cụ thể (Chi phí sinh hoạt đột xuất, việc gia đình...)"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)] transition-all outline-none min-h-[90px] text-xs sm:text-sm"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)] transition-all outline-none min-h-[90px] text-base sm:text-sm"
                 />
               </div>
 

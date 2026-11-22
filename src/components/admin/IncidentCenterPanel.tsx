@@ -1,5 +1,14 @@
 import { useMemo, useState } from 'react';
-import { RefreshCw, Search, ShieldAlert, X } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Coins,
+  RefreshCw,
+  Search,
+  ShieldAlert,
+  Wrench,
+  X,
+} from 'lucide-react';
 import { callApi } from '../../services/api';
 import { useAppStore, type User } from '../../store/useAppStore';
 import { kgToast } from '../../store/useFeedbackStore';
@@ -11,7 +20,7 @@ import {
   type IncidentRecord,
   type IncidentStatus,
 } from '../../utils/operationsReconciliation';
-import { KgEmptyState, KgErrorState, KgSkeleton } from '../KgDesignSystem';
+import { KgEmptyState, KgErrorState, KgMetricCard, KgSkeleton } from '../KgDesignSystem';
 
 export interface IncidentCenterPanelProps {
   incidents: IncidentRecord[];
@@ -43,11 +52,37 @@ export default function IncidentCenterPanel({
   >({});
   const [updatingIncidentId, setUpdatingIncidentId] = useState<string | null>(null);
 
+  const openCount = useMemo(
+    () => incidents.filter((i) => i.status === 'Open').length,
+    [incidents],
+  );
+  const investigatingCount = useMemo(
+    () => incidents.filter((i) => i.status === 'Investigating').length,
+    [incidents],
+  );
+  const resolvedCount = useMemo(
+    () => incidents.filter((i) => i.status === 'Resolved' || i.status === 'CostRecorded').length,
+    [incidents],
+  );
+
   const totalIncidentCost = useMemo(
     () =>
       incidents.reduce((sum, item) => sum + Math.max(0, Math.round(item.repairCost || 0)), 0),
     [incidents],
   );
+
+  const stepCounts = useMemo(() => {
+    const map: Record<IncidentStatus, number> = {
+      Open: 0,
+      Investigating: 0,
+      Resolved: 0,
+      CostRecorded: 0,
+    };
+    incidents.forEach((inc) => {
+      map[inc.status] = (map[inc.status] || 0) + 1;
+    });
+    return map;
+  }, [incidents]);
 
   const filteredIncidents = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -123,30 +158,42 @@ export default function IncidentCenterPanel({
     <div className="space-y-4">
       {!compact && (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 shadow-xs">
-            <p className="text-xs font-bold text-rose-600 dark:text-rose-400">1. Mới báo</p>
-            <p className="mt-2 text-2xl font-black font-mono tabular-nums text-rose-600 dark:text-rose-400">
-              {incidents.filter((i) => i.status === 'Open').length}
-            </p>
-          </div>
-          <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 shadow-xs">
-            <p className="text-xs font-bold text-amber-600 dark:text-amber-400">2. Đang xử lý</p>
-            <p className="mt-2 text-2xl font-black font-mono tabular-nums text-amber-600 dark:text-amber-400">
-              {incidents.filter((i) => i.status === 'Investigating').length}
-            </p>
-          </div>
-          <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 shadow-xs">
-            <p className="text-xs font-bold text-[var(--kg-primary-ink)]">3. Đã khắc phục</p>
-            <p className="mt-2 text-2xl font-black font-mono tabular-nums text-[var(--kg-primary-ink)]">
-              {incidents.filter((i) => i.status === 'Resolved' || i.status === 'CostRecorded').length}
-            </p>
-          </div>
-          <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 shadow-xs">
-            <p className="text-xs font-bold text-[var(--kg-text-muted)]">Tổng chi phí sửa chữa</p>
-            <p className="mt-2 text-xl font-black font-mono tabular-nums text-[var(--kg-text)]">
-              {formatVndCurrency(totalIncidentCost)}
-            </p>
-          </div>
+          <KgMetricCard
+            title="1. Mới báo"
+            value={openCount}
+            icon={AlertTriangle}
+            variant="error"
+            subtext="Chờ tiếp nhận"
+            onClick={() => setIncidentFilter('Open')}
+            className={incidentFilter === 'Open' ? 'ring-2 ring-[var(--kg-primary)] !border-[var(--kg-primary)]' : ''}
+          />
+          <KgMetricCard
+            title="2. Đang xử lý"
+            value={investigatingCount}
+            icon={Wrench}
+            variant="warning"
+            subtext="Đang khắc phục"
+            onClick={() => setIncidentFilter('Investigating')}
+            className={incidentFilter === 'Investigating' ? 'ring-2 ring-[var(--kg-primary)] !border-[var(--kg-primary)]' : ''}
+          />
+          <KgMetricCard
+            title="3. Đã khắc phục"
+            value={resolvedCount}
+            icon={CheckCircle2}
+            variant="success"
+            subtext="Đã xử lý / chốt chi phí"
+            onClick={() => setIncidentFilter('Resolved')}
+            className={incidentFilter === 'Resolved' ? 'ring-2 ring-[var(--kg-primary)] !border-[var(--kg-primary)]' : ''}
+          />
+          <KgMetricCard
+            title="Tổng chi phí sửa chữa"
+            value={formatVndCurrency(totalIncidentCost)}
+            icon={Coins}
+            variant="info"
+            subtext={`${incidents.length} sự cố ghi nhận`}
+            onClick={() => setIncidentFilter('ALL')}
+            className={incidentFilter === 'ALL' ? 'ring-2 ring-[var(--kg-primary)] !border-[var(--kg-primary)]' : ''}
+          />
         </div>
       )}
 
@@ -164,28 +211,49 @@ export default function IncidentCenterPanel({
             <button
               type="button"
               onClick={() => setIncidentFilter('ALL')}
-              className={`min-h-[42px] sm:min-h-[36px] px-3 py-1.5 rounded-xl text-xs font-bold transition-colors whitespace-nowrap shrink-0 ${
+              className={`kg-filter-pill min-h-[44px] sm:min-h-[36px] shrink-0 px-3 py-1.5 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${
                 incidentFilter === 'ALL'
-                  ? 'bg-[var(--kg-primary)] text-white shadow-xs'
-                  : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
+                  ? 'kg-filter-pill--active bg-[var(--kg-nav-active)] border-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)]'
+                  : 'bg-[var(--kg-surface-2)] border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
               }`}
             >
-              Tất cả ({incidents.length})
-            </button>
-            {INCIDENT_STATUS_STEPS.map((step) => (
-              <button
-                key={step.id}
-                type="button"
-                onClick={() => setIncidentFilter(step.id)}
-                className={`min-h-[42px] sm:min-h-[36px] px-3 py-1.5 rounded-xl text-xs font-bold transition-colors whitespace-nowrap shrink-0 ${
-                  incidentFilter === step.id
-                    ? 'bg-[var(--kg-primary)] text-white shadow-xs'
-                    : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
+              <span>Tất cả</span>
+              <span
+                className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono tabular-nums font-extrabold ${
+                  incidentFilter === 'ALL'
+                    ? 'bg-[var(--kg-nav-active-fg)]/15 text-[var(--kg-nav-active-fg)]'
+                    : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)]'
                 }`}
               >
-                {step.shortLabel}
-              </button>
-            ))}
+                {incidents.length}
+              </span>
+            </button>
+            {INCIDENT_STATUS_STEPS.map((step) => {
+              const active = incidentFilter === step.id;
+              return (
+                <button
+                  key={step.id}
+                  type="button"
+                  onClick={() => setIncidentFilter(step.id)}
+                  className={`kg-filter-pill min-h-[44px] sm:min-h-[36px] shrink-0 px-3 py-1.5 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${
+                    active
+                      ? 'kg-filter-pill--active bg-[var(--kg-nav-active)] border-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)]'
+                      : 'bg-[var(--kg-surface-2)] border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
+                  }`}
+                >
+                  <span>{step.shortLabel}</span>
+                  <span
+                    className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono tabular-nums font-extrabold ${
+                      active
+                        ? 'bg-[var(--kg-nav-active-fg)]/15 text-[var(--kg-nav-active-fg)]'
+                        : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)]'
+                    }`}
+                  >
+                    {stepCounts[step.id]}
+                  </span>
+                </button>
+              );
+            })}
             {onRefresh && (
               <button
                 type="button"
@@ -193,7 +261,7 @@ export default function IncidentCenterPanel({
                 disabled={loading}
                 aria-label="Làm mới danh sách sự cố"
                 title="Làm mới danh sách sự cố"
-                className="min-h-[42px] min-w-[42px] sm:min-h-[36px] sm:min-w-[36px] inline-flex items-center justify-center rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] shrink-0"
+                className="min-h-[44px] min-w-[44px] sm:min-h-[36px] sm:min-w-[36px] inline-flex items-center justify-center rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] shrink-0"
               >
                 <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
               </button>
@@ -214,7 +282,7 @@ export default function IncidentCenterPanel({
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Tìm khu vực, hạng mục, người báo, kỹ thuật viên..."
               aria-label="Tìm sự cố"
-              className="w-full min-h-[44px] sm:min-h-[38px] pl-9 pr-10 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-base sm:text-xs text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
+              className="w-full min-h-[44px] sm:min-h-[38px] pl-9 pr-10 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)] text-base sm:text-xs text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
             />
             {searchQuery && (
               <button
@@ -234,7 +302,7 @@ export default function IncidentCenterPanel({
               setSeverityFilter(e.target.value as 'ALL' | 'urgent' | 'high' | 'normal')
             }
             aria-label="Lọc mức độ nghiêm trọng sự cố"
-            className="min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-base sm:text-xs font-bold text-[var(--kg-text)]"
+            className="min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)] text-base sm:text-xs font-bold text-[var(--kg-text)]"
           >
             <option value="ALL">Tất cả mức độ</option>
             <option value="urgent">Khẩn cấp</option>
@@ -279,24 +347,24 @@ export default function IncidentCenterPanel({
               return (
                 <div
                   key={inc.id}
-                  className="rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface)] p-4 space-y-3"
+                  className="rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)] p-4 space-y-3"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="px-2 py-0.5 rounded bg-[var(--kg-surface-soft)] text-xs font-black text-[var(--kg-text)]">
+                        <span className="px-2 py-0.5 rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-border)] text-xs font-black text-[var(--kg-text)]">
                           {inc.area || 'Toàn quán'}
                         </span>
                         <span className="text-sm font-black text-[var(--kg-text)]">
                           {inc.category}
                         </span>
                         {inc.severity === 'urgent' && (
-                          <span className="px-2 py-0.5 rounded bg-[var(--kg-danger)] text-white dark:text-[#0D1015] text-[10px] font-black">
+                          <span className="px-2 py-0.5 rounded-md bg-[var(--kg-danger)] text-white dark:text-[#0D1015] text-[10px] font-black">
                             KHẨN CẤP
                           </span>
                         )}
                         {inc.severity === 'high' && (
-                          <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-800 dark:text-amber-300 text-[10px] font-black">
+                          <span className="px-2 py-0.5 rounded-md bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] border border-[var(--kg-warning)]/25 text-[10px] font-black">
                             QUAN TRỌNG
                           </span>
                         )}
@@ -319,7 +387,7 @@ export default function IncidentCenterPanel({
                     )}
                   </div>
 
-                  <p className="text-xs sm:text-sm text-[var(--kg-text)] bg-[var(--kg-surface-soft)] rounded-xl p-3">
+                  <p className="text-xs sm:text-sm text-[var(--kg-text)] bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl p-3">
                     {inc.description}
                   </p>
 
@@ -335,7 +403,7 @@ export default function IncidentCenterPanel({
                           className={`min-h-[44px] sm:min-h-[38px] py-2 px-2.5 rounded-xl border text-xs font-extrabold leading-tight text-center transition-colors ${
                             active
                               ? step.badgeClass
-                              : 'border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)]'
+                              : 'border-[var(--kg-border)] bg-[var(--kg-surface)] text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)]'
                           }`}
                         >
                           {step.label}
@@ -360,7 +428,7 @@ export default function IncidentCenterPanel({
                           }))
                         }
                         placeholder="Chọn NV hoặc nhập tên thợ..."
-                        className="w-full min-h-[44px] sm:min-h-[38px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-2 text-base sm:text-xs text-[var(--kg-text)]"
+                        className="w-full min-h-[44px] sm:min-h-[38px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface)] px-3 py-2 text-base sm:text-xs text-[var(--kg-text)]"
                       />
                     </div>
 
@@ -378,7 +446,7 @@ export default function IncidentCenterPanel({
                           }))
                         }
                         placeholder="VD: Đã thay cảm biến nhiệt / Gọi bảo hành..."
-                        className="w-full min-h-[44px] sm:min-h-[38px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-2 text-base sm:text-xs text-[var(--kg-text)]"
+                        className="w-full min-h-[44px] sm:min-h-[38px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface)] px-3 py-2 text-base sm:text-xs text-[var(--kg-text)]"
                       />
                     </div>
 
@@ -401,14 +469,14 @@ export default function IncidentCenterPanel({
                             }))
                           }
                           placeholder="0"
-                          className="w-full min-h-[44px] sm:min-h-[38px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-2 text-right font-mono tabular-nums font-bold text-base sm:text-xs text-[var(--kg-text)]"
+                          className="w-full min-h-[44px] sm:min-h-[38px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface)] px-3 py-2 text-right font-mono tabular-nums font-bold text-base sm:text-xs text-[var(--kg-text)]"
                         />
                       </div>
                       <button
                         type="button"
                         disabled={isBusy}
                         onClick={() => void handleUpdateIncidentState(inc)}
-                        className="min-h-[44px] sm:min-h-[38px] min-w-[84px] px-4 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs font-extrabold shrink-0 whitespace-nowrap disabled:opacity-50"
+                        className="min-h-[44px] sm:min-h-[38px] min-w-[84px] px-4 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] text-xs font-extrabold shrink-0 whitespace-nowrap disabled:opacity-50"
                       >
                         {isBusy ? 'Lưu...' : 'Lưu'}
                       </button>

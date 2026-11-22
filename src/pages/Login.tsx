@@ -13,7 +13,6 @@ import {
   Lock,
   Eye,
   EyeOff,
-  ChevronLeft,
   ArrowRight,
   Mail,
   Phone,
@@ -25,6 +24,8 @@ import {
   Check,
   Sun,
   Moon,
+  Flame,
+  RotateCcw,
 } from 'lucide-react';
 import { hashPassword } from '../utils/security';
 import { KgVersionBadge } from '../components/KgVersionBadge';
@@ -85,6 +86,14 @@ export default function Login() {
       document.removeEventListener('visibilitychange', onFocusOrVisible);
     };
   }, []);
+
+  const handleModeSwitch = (nextMode: 'login' | 'register' | 'forgot') => {
+    setAuthNotice(null);
+    setMode(nextMode);
+    if (nextMode !== 'forgot') {
+      setForgotStep(1);
+    }
+  };
 
   const handleLogin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -257,28 +266,34 @@ export default function Login() {
     setRegisterForm({ ...registerForm, dob: formattedValue });
   };
 
+  const cardTitle =
+    mode === 'login'
+      ? 'Đăng nhập tài khoản'
+      : mode === 'register'
+      ? 'Đăng ký nhân sự mới'
+      : 'Khôi phục mật khẩu';
+
+  const cardSubtitle =
+    mode === 'login'
+      ? 'Touch Operations • Staff OS 5.0'
+      : mode === 'register'
+      ? 'Tạo hồ sơ để bắt đầu xếp lịch ca và chấm công'
+      : 'Nhập email đã đăng ký để nhận mã OTP 6 chữ số';
+
   return (
-    <div className="login-shell relative flex-1 flex flex-col justify-between p-3.5 sm:p-6 lg:p-8 min-h-dvh bg-[var(--kg-bg)] text-[var(--kg-text)] font-sans transition-colors duration-200 overflow-x-hidden">
-      {/* Top Bar: Mobile/Tablet 56px Compact Brand Header + Utility Controls */}
+    <div className="login-shell relative flex-1 flex flex-col justify-between p-3.5 sm:p-6 lg:p-8 min-h-dvh bg-[var(--kg-bg)] text-[var(--kg-text)] font-sans transition-colors duration-150 overflow-x-hidden">
+      {/* Top Bar: Mobile/Tablet Compact Brand Header + Utility Controls */}
       <header className="relative z-20 w-full max-w-5xl mx-auto h-14 flex items-center justify-between gap-2 pb-2 lg:pb-4">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="lg:hidden w-9 h-9 rounded-xl bg-white border border-[var(--kg-border)] p-1 shadow-xs flex items-center justify-center shrink-0">
-            <img
-              src="/android-chrome-192x192.png?v=3"
-              width={28}
-              height={28}
-              decoding="async"
-              fetchPriority="high"
-              alt="King's Grill Logo"
-              className="w-full h-full object-contain"
-            />
+          <div className="lg:hidden w-9 h-9 rounded-xl bg-[#F29055] text-[#241C17] flex items-center justify-center shrink-0 shadow-xs">
+            <Flame size={20} strokeWidth={2} />
           </div>
           <div className="lg:hidden min-w-0">
-            <p className="text-xs font-extrabold tracking-tight text-[var(--kg-text)] truncate leading-none">
+            <p className="text-xs font-extrabold tracking-wide text-[var(--kg-text)] truncate leading-none">
               KING&apos;S GRILL
             </p>
-            <p className="text-[10.5px] font-semibold text-[var(--kg-text-muted)] truncate mt-0.5 leading-none">
-              Staff OS
+            <p className="text-[10px] font-bold tracking-wider text-[var(--kg-text-muted)] truncate mt-1 leading-none">
+              TOUCH OPERATIONS
             </p>
           </div>
           <div className="hidden lg:block">
@@ -295,98 +310,116 @@ export default function Login() {
             onClick={toggleDarkMode}
             aria-label={isDark ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'}
             title={isDark ? 'Giao diện sáng' : 'Giao diện tối'}
-            className="w-11 h-11 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] inline-flex items-center justify-center shadow-xs transition-colors flex-shrink-0"
+            className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:border-[var(--kg-border-strong)] inline-flex items-center justify-center shadow-xs transition-colors flex-shrink-0 touch-manipulation"
           >
             {isDark ? <Sun size={18} className="text-[var(--kg-warning)]" /> : <Moon size={18} />}
           </button>
         </div>
       </header>
 
-      {/* Main Split: Mobile/Tablet Portrait centered single-column; Laptop/Desktop (>= 1024px) 2-col Editorial Atelier inside max-w-5xl */}
-      <div className="relative z-10 my-auto w-full max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-[1.04fr_0.96fr] gap-4 sm:gap-6 lg:gap-8 items-stretch">
-        {/* LEFT SHOWCASE: Laptop & Desktop Editorial Brand Atelier */}
-        <section className="hidden lg:flex min-w-0 rounded-3xl bg-[var(--kg-rail-bg)] border border-[var(--kg-rail-border)] p-7 lg:p-9 text-[var(--kg-rail-text)] shadow-hero relative overflow-hidden flex-col justify-between gap-8">
+      {/* Main Split: Mobile/Tablet Portrait centered single-column; Laptop/Desktop (>= 1024px) 2-col #202C27 Forest Showcase */}
+      <div className="relative z-10 my-auto w-full max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-[1.04fr_0.96fr] gap-5 lg:gap-8 items-stretch">
+        {/* LEFT SHOWCASE: Laptop & Desktop #202C27 Forest Operations Panel */}
+        <section className="hidden lg:flex min-w-0 rounded-3xl bg-[#202C27] border border-white/10 p-8 lg:p-9 text-[#F6F8F4] shadow-hero relative overflow-hidden flex-col justify-between gap-8">
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute -right-12 -top-12 w-64 h-64 rounded-full bg-[var(--kg-accent)]/20"
+            className="pointer-events-none absolute -right-24 -top-36 w-[380px] h-[380px] rounded-full border border-white/10"
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -right-12 -top-24 w-[250px] h-[250px] rounded-full border border-white/10"
           />
 
-          <div className="relative z-10 space-y-5">
+          <div className="relative z-10 space-y-6">
             <div className="flex items-center gap-3.5">
-              <div className="login-logo-card w-14 h-14 lg:w-16 lg:h-16 rounded-2xl bg-white p-2 shadow-md flex items-center justify-center flex-shrink-0">
-                <img
-                  src="/android-chrome-192x192.png?v=3"
-                  srcSet="/android-chrome-192x192.png?v=3 1x, /android-chrome-512x512.png?v=3 2x"
-                  width={56}
-                  height={56}
-                  decoding="async"
-                  fetchPriority="high"
-                  alt="King's Grill Logo"
-                  className="w-full h-full object-contain"
-                />
+              <div className="w-14 h-14 rounded-2xl bg-[#F29055] text-[#241C17] flex items-center justify-center flex-shrink-0 shadow-xs">
+                <Flame size={28} strokeWidth={2} />
               </div>
               <div className="min-w-0">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[var(--kg-rail-surface)] border border-[var(--kg-rail-border)] text-[11px] font-extrabold uppercase tracking-wider text-amber-200">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 border border-white/15 text-[11px] font-extrabold uppercase tracking-wider text-[#F5AA7C]">
                   KING&apos;S GRILL STAFF OS
                 </span>
-                <p className="text-xs sm:text-sm text-[var(--kg-rail-muted)] font-semibold mt-1 truncate">
-                  Warm Hospitality Super-App • {APP_VERSION_TAG}
+                <p className="text-xs text-[#B7C8BC] font-semibold mt-1 truncate">
+                  Toast Touch Operations • {APP_VERSION_TAG}
                 </p>
               </div>
             </div>
 
-            <div className="space-y-2.5">
-              <h1 className="text-2xl lg:text-[32px] font-extrabold text-[var(--kg-rail-text)] tracking-tight leading-[1.18] text-balance">
-                Vận hành tinh gọn &amp; Chấm công thông minh thế hệ mới
+            <div className="space-y-3">
+              <h1 className="text-[30px] font-extrabold text-[#F6F8F4] tracking-tight leading-[1.18] text-balance">
+                Một nhịp vận hành.
+                <br />
+                Chấm công tức thì &amp; minh bạch.
               </h1>
-              <p className="text-sm text-[var(--kg-rail-muted)] max-w-lg leading-relaxed text-pretty">
-                Không gian điều hành ca trực, AI FaceID 5 góc, bàn giao khu vực và đối soát công lương minh bạch — đồng bộ tức thì trên mọi thiết bị.
+              <p className="text-sm text-[#B7C8BC] max-w-md leading-relaxed text-pretty">
+                Không gian điều hành ca trực tại quầy, nhận diện khuôn mặt 5 góc trong dưới 1 giây, bàn giao két và đối soát công lương đồng bộ trên mọi thiết bị.
               </p>
             </div>
           </div>
 
-          <div className="relative z-10 flex flex-wrap items-center gap-2 pt-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--kg-rail-surface)] border border-[var(--kg-rail-border)] text-xs font-semibold text-[var(--kg-rail-text)]">
-              <ScanFace size={14} className="text-amber-300" /> AI Face Match 5 góc
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--kg-rail-surface)] border border-[var(--kg-rail-border)] text-xs font-semibold text-[var(--kg-rail-text)]">
-              <MapPin size={14} className="text-emerald-300" /> GPS Geofence ≤25m
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--kg-rail-surface)] border border-[var(--kg-rail-border)] text-xs font-semibold text-[var(--kg-rail-text)]">
-              <ShieldCheck size={14} className="text-sky-300" /> Công lương minh bạch
-            </span>
+          <div className="relative z-10 space-y-3">
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="rounded-2xl bg-white/10 border border-white/15 p-3.5">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-[#B7C8BC]">
+                  Trạm Face ID Kiosk
+                </span>
+                <span className="block text-base font-extrabold font-mono tabular-nums text-white mt-1">
+                  {syncedProfileCount > 0 ? `${syncedProfileCount} hồ sơ` : 'V2 Sẵn sàng'}
+                </span>
+              </div>
+              <div className="rounded-2xl bg-white/10 border border-white/15 p-3.5">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-[#B7C8BC]">
+                  Chuẩn Geofence
+                </span>
+                <span className="block text-base font-extrabold font-mono tabular-nums text-[#7EDBA8] mt-1">
+                  ≤ 25m GPS
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 border border-white/15 text-xs font-semibold text-[#F6F8F4]">
+                <ScanFace size={14} className="text-[#F29055]" /> Face ID 5 góc
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 border border-white/15 text-xs font-semibold text-[#F6F8F4]">
+                <MapPin size={14} className="text-[#7EDBA8]" /> Chu kỳ 06:00–05:59
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 border border-white/15 text-xs font-semibold text-[#F6F8F4]">
+                <ShieldCheck size={14} className="text-[#7AC4FF]" /> Công lương minh bạch
+              </span>
+            </div>
           </div>
         </section>
 
         {/* RIGHT FORM PANEL */}
         <div className="w-full min-w-0 max-w-md md:max-w-[480px] mx-auto lg:max-w-none flex flex-col justify-center gap-3.5">
-          {/* OPEN MULTI-EMPLOYEE FACE ID STATION CTA (v2 Parallel Kiosk) */}
+          {/* Bold Terracotta Kiosk Face ID CTA (mode === 'login') */}
           {mode === 'login' && (
             <button
               type="button"
               onClick={() => setKioskScannerOpen(true)}
               data-testid="open-kiosk-face-v2"
-              className="w-full min-h-[64px] text-left rounded-2xl bg-[var(--kg-rail-bg)] hover:brightness-110 border border-[var(--kg-rail-border)] p-3.5 sm:p-4 text-[var(--kg-rail-text)] shadow-md transition-all duration-150 flex items-center justify-between gap-3 group cursor-pointer"
+              className="w-full min-h-[64px] text-left rounded-2xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] border border-[var(--kg-primary)] p-3.5 sm:p-4 shadow-card transition-colors duration-150 flex items-center justify-between gap-3 group cursor-pointer active:scale-[0.99] touch-manipulation"
             >
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-11 h-11 rounded-xl bg-[var(--kg-accent)] text-white dark:text-[#0D1015] flex items-center justify-center flex-shrink-0 shadow-xs">
+                <div className="w-11 h-11 rounded-xl bg-[#202C27] text-[#F29055] flex items-center justify-center flex-shrink-0">
                   <ScanFace size={22} />
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-xs sm:text-sm font-extrabold text-[var(--kg-rail-text)] tracking-tight">
-                      Chấm Công Khuôn Mặt Nhanh
+                    <span className="text-xs sm:text-sm font-extrabold tracking-tight">
+                      Chấm công khuôn mặt nhanh (Kiosk)
                     </span>
                     <span
                       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono tabular-nums font-bold border ${
                         syncedProfileCount > 0
-                          ? 'bg-emerald-950/70 border-emerald-400/50 text-emerald-300'
-                          : 'bg-sky-950/70 border-sky-400/50 text-sky-300'
+                          ? 'bg-[#202C27] border-emerald-400/40 text-[#7EDBA8]'
+                          : 'bg-[#202C27] border-sky-400/40 text-[#7AC4FF]'
                       }`}
                     >
                       <span
                         className={`w-1.5 h-1.5 rounded-full ${
-                          syncedProfileCount > 0 ? 'bg-emerald-400' : 'bg-sky-400'
+                          syncedProfileCount > 0 ? 'bg-[#7EDBA8]' : 'bg-[#7AC4FF]'
                         }`}
                       />
                       <span>
@@ -396,12 +429,12 @@ export default function Login() {
                       </span>
                     </span>
                   </div>
-                  <p className="text-[11px] text-[var(--kg-rail-muted)] mt-0.5 leading-snug">
+                  <p className="text-[11px] opacity-90 mt-0.5 leading-snug font-medium">
                     Mở trạm quét tự động • Bán kính ≤25m
                   </p>
                 </div>
               </div>
-              <span className="w-9 h-9 rounded-xl bg-[var(--kg-rail-surface)] group-hover:bg-[var(--kg-accent)] border border-[var(--kg-rail-border)] group-hover:border-[var(--kg-accent)] text-[var(--kg-rail-text)] group-hover:text-white flex items-center justify-center flex-shrink-0 transition-colors">
+              <span className="w-9 h-9 rounded-xl bg-black/15 flex items-center justify-center flex-shrink-0 transition-transform group-hover:translate-x-0.5">
                 <ArrowRight size={16} />
               </span>
             </button>
@@ -414,24 +447,55 @@ export default function Login() {
             </KgAlertCard>
           )}
 
-          {/* LOGIN FORM */}
-          {mode === 'login' && (
-            <div className="login-card relative overflow-hidden bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl sm:rounded-3xl p-5 sm:p-7 shadow-card">
-              <span
-                aria-hidden="true"
-                className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[var(--kg-primary)] via-[var(--kg-accent)] to-[var(--kg-warning)]"
-              />
-              <div className="mb-4 sm:mb-5">
-                <span className="inline-block text-[11px] font-extrabold uppercase tracking-wider text-[var(--kg-accent-ink)] mb-1">
-                  Cổng xác thực nhân sự
+          {/* UNIFIED AUTH CARD WITH 3-TAB SEGMENTED CONTROL */}
+          <div className="login-card relative overflow-hidden bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-card">
+            <div className="mb-4 text-center sm:text-left">
+              <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
+                <span className="inline-block text-[10.5px] font-extrabold uppercase tracking-wider text-[var(--kg-primary-ink)]">
+                  Cổng nhân sự King&apos;s Grill
                 </span>
-                <h2 className="text-lg sm:text-2xl font-extrabold text-[var(--kg-text)] tracking-tight">
-                  Đăng nhập tài khoản
-                </h2>
-                <p className="text-xs text-[var(--kg-text-muted)] mt-1">
-                  Sử dụng mã tài khoản nhân sự được cấp bởi Ban Quản Lý
-                </p>
               </div>
+              <h2 className="text-xl sm:text-2xl font-extrabold text-[var(--kg-text)] tracking-tight">
+                {cardTitle}
+              </h2>
+              <p className="text-xs text-[var(--kg-text-muted)] mt-1">{cardSubtitle}</p>
+            </div>
+
+            {/* Unified 3-Tab Segmented Control inside Pill Tray */}
+            <div
+              role="tablist"
+              aria-label="Chuyển chế độ tài khoản"
+              className="flex items-center gap-1 p-1 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] mb-5"
+            >
+              {(
+                [
+                  { id: 'login', label: 'Đăng nhập', flexClass: 'flex-1' },
+                  { id: 'register', label: 'Đăng ký', flexClass: 'flex-1' },
+                  { id: 'forgot', label: 'Quên mật khẩu', flexClass: 'flex-[1.35]' },
+                ] as const
+              ).map((tab) => {
+                const isActive = mode === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    onClick={() => handleModeSwitch(tab.id)}
+                    className={`${tab.flexClass} min-w-0 min-h-[44px] sm:min-h-[40px] px-2 py-2 rounded-lg text-xs transition-colors touch-manipulation whitespace-nowrap flex items-center justify-center ${
+                      isActive
+                        ? 'bg-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)] font-extrabold shadow-xs'
+                        : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* LOGIN FORM */}
+            {mode === 'login' && (
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-1.5">
                   <label htmlFor="username" className="block text-xs font-bold text-[var(--kg-text)]">
@@ -449,7 +513,7 @@ export default function Login() {
                       required
                       value={loginForm.username}
                       onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
-                      className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl pl-10 pr-4 py-2.5 text-base sm:text-sm focus:outline-none focus:bg-[var(--kg-surface)] focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 text-[var(--kg-text)] placeholder-[var(--kg-text-soft)] min-h-[46px] transition-colors"
+                      className="w-full bg-[var(--kg-surface-2)] border border-[var(--kg-border-strong)] rounded-xl pl-10 pr-4 py-2.5 text-base sm:text-sm focus:outline-none focus:bg-[var(--kg-surface)] focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/20 text-[var(--kg-text)] placeholder-[var(--kg-text-soft)] min-h-[46px] transition-colors"
                       placeholder="Nhập tên đăng nhập"
                     />
                   </div>
@@ -459,7 +523,7 @@ export default function Login() {
                   <label htmlFor="password" className="block text-xs font-bold text-[var(--kg-text)]">
                     Mật khẩu
                   </label>
-                  <div className="flex items-center bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl focus-within:bg-[var(--kg-surface)] focus-within:border-[var(--kg-primary)] focus-within:ring-2 focus-within:ring-[var(--kg-primary)]/15 transition-colors min-h-[46px]">
+                  <div className="flex items-center bg-[var(--kg-surface-2)] border border-[var(--kg-border-strong)] rounded-xl focus-within:bg-[var(--kg-surface)] focus-within:border-[var(--kg-primary)] focus-within:ring-2 focus-within:ring-[var(--kg-primary)]/20 transition-colors min-h-[46px]">
                     <div className="pl-3.5 pr-2.5 flex items-center pointer-events-none text-[var(--kg-text-soft)] shrink-0">
                       <Lock size={16} />
                     </div>
@@ -478,14 +542,14 @@ export default function Login() {
                       type="button"
                       onClick={() => setShowPass(!showPass)}
                       aria-label={showPass ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                      className="w-11 h-11 shrink-0 flex items-center justify-center text-[var(--kg-text-soft)] hover:text-[var(--kg-text)] rounded-r-xl transition-colors"
+                      className="w-11 h-11 min-w-[44px] min-h-[44px] shrink-0 flex items-center justify-center text-[var(--kg-text-soft)] hover:text-[var(--kg-text)] rounded-r-xl transition-colors touch-manipulation"
                     >
                       {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between gap-2 py-0.5">
+                <div className="flex items-center justify-start py-0.5">
                   <label
                     htmlFor="remember-me"
                     className="inline-flex items-center gap-2.5 min-h-[44px] pr-2 cursor-pointer select-none"
@@ -498,63 +562,29 @@ export default function Login() {
                       onChange={(e) => setRememberMe(e.target.checked)}
                       className="sr-only peer"
                     />
-                    <span className="h-[18px] w-[18px] rounded-[5px] border border-[var(--kg-border-strong)] bg-[var(--kg-surface)] peer-checked:bg-[var(--kg-primary)] peer-checked:border-[var(--kg-primary)] peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--kg-primary)]/30 inline-flex items-center justify-center text-white transition-colors shrink-0">
+                    <span className="h-[18px] w-[18px] rounded-[5px] border border-[var(--kg-border-strong)] bg-[var(--kg-surface)] peer-checked:bg-[var(--kg-primary)] peer-checked:border-[var(--kg-primary)] peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--kg-primary)]/30 inline-flex items-center justify-center text-[var(--kg-primary-fg)] transition-colors shrink-0">
                       {rememberMe && <Check size={12} strokeWidth={3} />}
                     </span>
-                    <span className="text-xs font-medium text-[var(--kg-text-muted)]">
+                    <span className="text-xs font-semibold text-[var(--kg-text-muted)]">
                       Ghi nhớ đăng nhập
                     </span>
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAuthNotice(null);
-                      setMode('forgot');
-                    }}
-                    className="text-xs font-bold text-[var(--kg-accent-ink)] hover:underline min-h-[44px] px-2 inline-flex items-center whitespace-nowrap"
-                  >
-                    Quên mật khẩu?
-                  </button>
                 </div>
 
                 <button
                   type="submit"
-                  className="login-primary w-full bg-[var(--kg-accent)] border-[var(--kg-accent)] hover:brightness-95 text-white dark:text-[#0D1015] font-bold py-3 rounded-xl transition-all duration-150 flex items-center justify-center gap-2 text-sm shadow-md active:scale-[0.99] min-h-[48px]"
+                  className="login-primary w-full bg-[var(--kg-primary)] border-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] font-extrabold py-3 rounded-xl transition-colors duration-150 flex items-center justify-center gap-2 text-sm shadow-xs active:scale-[0.99] min-h-[48px] touch-manipulation"
                 >
                   <span>Đăng nhập vào Ca trực</span> <ArrowRight size={16} />
                 </button>
               </form>
-              <div className="mt-4 pt-3 border-t border-[var(--kg-border)] flex flex-wrap items-center justify-center gap-1 text-center">
-                <span className="text-xs text-[var(--kg-text-muted)]">Chưa có tài khoản?</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthNotice(null);
-                    setMode('register');
-                  }}
-                  className="text-xs font-bold text-[var(--kg-primary-ink)] hover:underline min-h-[44px] px-2 inline-flex items-center"
-                >
-                  Đăng ký nhân sự mới
-                </button>
-              </div>
-            </div>
-          )}
+            )}
 
-          {/* REGISTER FORM */}
-          {mode === 'register' && (
-            <div className="login-card bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-5 sm:p-7 shadow-card">
-              <div className="mb-5">
-                <h2 className="text-lg sm:text-xl font-bold text-[var(--kg-text)] tracking-tight">
-                  Đăng ký nhân sự mới
-                </h2>
-                <p className="text-xs text-[var(--kg-text-muted)] mt-1">
-                  Tạo hồ sơ để bắt đầu xếp lịch ca và chấm công
-                </p>
-              </div>
-
+            {/* REGISTER FORM */}
+            {mode === 'register' && (
               <form onSubmit={handleRegister} className="space-y-4">
-                <div className="p-4 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] space-y-3">
-                  <h3 className="text-[11px] font-bold text-[var(--kg-primary)] uppercase tracking-wider flex items-center gap-1.5">
+                <div className="p-3.5 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] space-y-3">
+                  <h3 className="text-[11px] font-bold text-[var(--kg-primary-ink)] uppercase tracking-wider flex items-center gap-1.5">
                     <Lock size={12} /> 1. Tài khoản bảo mật
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -570,7 +600,7 @@ export default function Login() {
                         value={registerForm.username}
                         onChange={(e) => setRegisterForm({ ...registerForm, username: e.target.value })}
                         placeholder="VD: nguyenvana"
-                        className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 transition-colors placeholder-[var(--kg-text-soft)] min-h-[44px]"
+                        className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border-strong)] rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 transition-colors placeholder-[var(--kg-text-soft)] min-h-[44px]"
                       />
                     </div>
                     <div className="space-y-1">
@@ -585,15 +615,14 @@ export default function Login() {
                         value={registerForm.password}
                         onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
                         placeholder="Tối thiểu 6 ký tự"
-                        className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 transition-colors placeholder-[var(--kg-text-soft)] min-h-[44px]"
+                        className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border-strong)] rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 transition-colors placeholder-[var(--kg-text-soft)] min-h-[44px]"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* Hồ sơ cá nhân */}
-                <div className="p-4 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] space-y-3">
-                  <h3 className="text-[11px] font-bold text-[var(--kg-accent)] uppercase tracking-wider flex items-center gap-1.5">
+                <div className="p-3.5 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] space-y-3">
+                  <h3 className="text-[11px] font-bold text-[var(--kg-primary-ink)] uppercase tracking-wider flex items-center gap-1.5">
                     <User size={12} /> 2. Hồ sơ cá nhân
                   </h3>
                   <div className="space-y-3">
@@ -609,7 +638,7 @@ export default function Login() {
                         value={registerForm.fullname}
                         onChange={(e) => setRegisterForm({ ...registerForm, fullname: e.target.value })}
                         placeholder="Gõ tiếng Việt có dấu (VD: Nguyễn Văn A)"
-                        className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 transition-colors placeholder-[var(--kg-text-soft)] min-h-[44px]"
+                        className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border-strong)] rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 transition-colors placeholder-[var(--kg-text-soft)] min-h-[44px]"
                       />
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -629,7 +658,7 @@ export default function Login() {
                           value={registerForm.email}
                           onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
                           placeholder="email@gmail.com"
-                          className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 transition-colors placeholder-[var(--kg-text-soft)] min-h-[44px]"
+                          className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border-strong)] rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 transition-colors placeholder-[var(--kg-text-soft)] min-h-[44px]"
                         />
                       </div>
                       <div className="space-y-1">
@@ -648,7 +677,7 @@ export default function Login() {
                           value={registerForm.phone}
                           onChange={(e) => setRegisterForm({ ...registerForm, phone: e.target.value })}
                           placeholder="09xxxxxxxx"
-                          className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-base sm:text-sm font-mono tabular-nums text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 transition-colors placeholder-[var(--kg-text-soft)] min-h-[44px]"
+                          className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border-strong)] rounded-xl px-3.5 py-2.5 text-base sm:text-sm font-mono tabular-nums text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 transition-colors placeholder-[var(--kg-text-soft)] min-h-[44px]"
                         />
                       </div>
                     </div>
@@ -666,7 +695,7 @@ export default function Login() {
                         value={registerForm.dob}
                         onChange={handleDobChange}
                         placeholder="Gõ 8 số liền nhau, VD: 15082002"
-                        className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 text-base sm:text-sm font-mono tabular-nums text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 transition-colors placeholder-[var(--kg-text-soft)] min-h-[44px]"
+                        className="w-full bg-[var(--kg-surface)] border border-[var(--kg-border-strong)] rounded-xl px-3.5 py-2.5 text-base sm:text-sm font-mono tabular-nums text-[var(--kg-text)] focus:outline-none focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 transition-colors placeholder-[var(--kg-text-soft)] min-h-[44px]"
                       />
                     </div>
                   </div>
@@ -674,40 +703,27 @@ export default function Login() {
 
                 <button
                   type="submit"
-                  className="login-primary w-full bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-semibold py-3 rounded-xl transition-colors duration-150 text-sm shadow-xs active:scale-[0.99] min-h-[44px]"
+                  className="login-primary w-full bg-[var(--kg-primary)] border-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] font-extrabold py-3 rounded-xl transition-colors duration-150 text-sm shadow-xs active:scale-[0.99] min-h-[48px] touch-manipulation"
                 >
                   Hoàn tất đăng ký
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthNotice(null);
-                    setMode('login');
-                  }}
-                  className="w-full text-center text-xs font-semibold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] flex items-center justify-center gap-1 transition-colors min-h-[44px]"
-                >
-                  <ChevronLeft size={14} /> Quay lại đăng nhập
-                </button>
               </form>
-            </div>
-          )}
+            )}
 
-          {/* FORGOT PASSWORD FORM */}
-          {mode === 'forgot' && (
-            <div className="login-card bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-5 sm:p-7 shadow-card">
-              <div className="mb-5 text-center">
-                <div className="w-11 h-11 rounded-xl bg-[var(--kg-accent-soft)] border border-[var(--kg-accent)]/20 flex items-center justify-center mx-auto mb-3 text-[var(--kg-accent)]">
-                  <KeyRound size={20} />
-                </div>
-                <h2 className="text-lg sm:text-xl font-bold text-[var(--kg-text)] tracking-tight">
-                  Khôi phục mật khẩu
-                </h2>
-                <p className="text-xs text-[var(--kg-text-muted)] mt-1">
-                  Nhập email đã đăng ký để nhận mã OTP 6 chữ số
-                </p>
-              </div>
-
+            {/* FORGOT PASSWORD FORM */}
+            {mode === 'forgot' && (
               <form onSubmit={handleForgot} className="space-y-4">
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)]">
+                  <div className="w-10 h-10 rounded-xl bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] flex items-center justify-center shrink-0">
+                    <KeyRound size={18} />
+                  </div>
+                  <p className="text-xs text-[var(--kg-text-muted)] leading-snug">
+                    {forgotStep === 1
+                      ? 'Hệ thống sẽ gửi mã OTP 6 chữ số đến email bạn đã đăng ký.'
+                      : `Đã gửi OTP tới ${forgotForm.email || 'email của bạn'}. Nhập mã xác thực để đặt mật khẩu mới.`}
+                  </p>
+                </div>
+
                 {forgotStep === 1 ? (
                   <>
                     <div className="space-y-1.5">
@@ -726,13 +742,13 @@ export default function Login() {
                           value={forgotForm.email}
                           onChange={(e) => setForgotForm({ email: e.target.value })}
                           placeholder="Nhập email cá nhân đã đăng ký"
-                          className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl pl-10 pr-4 py-2.5 text-base sm:text-sm focus:outline-none focus:bg-[var(--kg-surface)] focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 text-[var(--kg-text)] placeholder-[var(--kg-text-soft)] min-h-[44px]"
+                          className="w-full bg-[var(--kg-surface-2)] border border-[var(--kg-border-strong)] rounded-xl pl-10 pr-4 py-2.5 text-base sm:text-sm focus:outline-none focus:bg-[var(--kg-surface)] focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 text-[var(--kg-text)] placeholder-[var(--kg-text-soft)] min-h-[46px]"
                         />
                       </div>
                     </div>
                     <button
                       type="submit"
-                      className="login-primary w-full bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-semibold py-3 rounded-xl transition-colors duration-150 text-sm shadow-xs active:scale-[0.99] min-h-[44px]"
+                      className="login-primary w-full bg-[var(--kg-primary)] border-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] font-extrabold py-3 rounded-xl transition-colors duration-150 text-sm shadow-xs active:scale-[0.99] min-h-[48px] touch-manipulation"
                     >
                       Gửi mã OTP
                     </button>
@@ -752,7 +768,7 @@ export default function Login() {
                           value={resetForm.otp}
                           onChange={(e) => setResetForm({ ...resetForm, otp: e.target.value })}
                           placeholder="000000"
-                          className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-4 py-2.5 text-base sm:text-sm text-center tracking-[0.35em] font-mono tabular-nums font-bold focus:outline-none focus:bg-[var(--kg-surface)] focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 text-[var(--kg-text)] min-h-[44px]"
+                          className="w-full bg-[var(--kg-surface-2)] border border-[var(--kg-border-strong)] rounded-xl px-4 py-2.5 text-base sm:text-sm text-center tracking-[0.35em] font-mono tabular-nums font-bold focus:outline-none focus:bg-[var(--kg-surface)] focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 text-[var(--kg-text)] min-h-[46px]"
                           maxLength={6}
                         />
                       </div>
@@ -768,33 +784,31 @@ export default function Login() {
                           value={resetForm.newPassword}
                           onChange={(e) => setResetForm({ ...resetForm, newPassword: e.target.value })}
                           placeholder="Nhập mật khẩu mới"
-                          className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-4 py-2.5 text-base sm:text-sm focus:outline-none focus:bg-[var(--kg-surface)] focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 text-[var(--kg-text)] min-h-[44px]"
+                          className="w-full bg-[var(--kg-surface-2)] border border-[var(--kg-border-strong)] rounded-xl px-4 py-2.5 text-base sm:text-sm focus:outline-none focus:bg-[var(--kg-surface)] focus:border-[var(--kg-primary)] focus:ring-2 focus:ring-[var(--kg-primary)]/15 text-[var(--kg-text)] min-h-[46px]"
                         />
                       </div>
                     </div>
                     <button
                       type="submit"
-                      className="w-full bg-[var(--kg-success)] hover:brightness-95 text-white dark:text-[#0D1015] font-semibold py-3 rounded-xl transition-colors duration-150 text-sm shadow-xs active:scale-[0.99] min-h-[44px]"
+                      className="w-full bg-[var(--kg-success)] hover:brightness-95 text-white dark:text-[#0F2419] font-extrabold py-3 rounded-xl transition-colors duration-150 text-sm shadow-xs active:scale-[0.99] min-h-[48px] touch-manipulation"
                     >
                       Đặt lại mật khẩu
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthNotice(null);
+                        setForgotStep(1);
+                      }}
+                      className="w-full text-center text-xs font-semibold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] flex items-center justify-center gap-1.5 transition-colors min-h-[44px] touch-manipulation"
+                    >
+                      <RotateCcw size={13} /> Đổi email / Gửi lại OTP
+                    </button>
                   </>
                 )}
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthNotice(null);
-                    setMode('login');
-                    setForgotStep(1);
-                  }}
-                  className="w-full text-center text-xs font-semibold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] flex items-center justify-center gap-1 transition-colors min-h-[44px]"
-                >
-                  <ChevronLeft size={14} /> Quay lại đăng nhập
-                </button>
               </form>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 

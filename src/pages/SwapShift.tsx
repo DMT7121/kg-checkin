@@ -565,7 +565,7 @@ export default function SwapShift() {
           onClick={() => setViewTab('board')}
           className={`flex-1 sm:flex-initial min-w-0 min-h-[44px] sm:min-h-[38px] px-1.5 sm:px-4 py-2 flex items-center justify-center gap-1 sm:gap-1.5 rounded-xl text-[11.5px] sm:text-sm font-black transition-all active:scale-95 select-none whitespace-nowrap touch-manipulation ${
             viewTab === 'board'
-              ? 'bg-[var(--kg-primary)] text-white shadow-xs'
+              ? 'bg-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)] shadow-xs'
               : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
           }`}
         >
@@ -583,7 +583,7 @@ export default function SwapShift() {
           onClick={() => setViewTab('post')}
           className={`flex-1 sm:flex-initial min-w-0 min-h-[44px] sm:min-h-[38px] px-1.5 sm:px-4 py-2 flex items-center justify-center gap-1 sm:gap-1.5 rounded-xl text-[11.5px] sm:text-sm font-black transition-all active:scale-95 select-none whitespace-nowrap touch-manipulation ${
             viewTab === 'post'
-              ? 'bg-[var(--kg-primary)] text-white shadow-xs'
+              ? 'bg-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)] shadow-xs'
               : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
           }`}
         >
@@ -598,7 +598,7 @@ export default function SwapShift() {
           onClick={() => setViewTab('leave')}
           className={`flex-1 sm:flex-initial min-w-0 min-h-[44px] sm:min-h-[38px] px-1.5 sm:px-4 py-2 flex items-center justify-center gap-1 sm:gap-1.5 rounded-xl text-[11.5px] sm:text-sm font-black transition-all active:scale-95 select-none whitespace-nowrap touch-manipulation ${
             viewTab === 'leave'
-              ? 'bg-[var(--kg-primary)] text-white shadow-xs'
+              ? 'bg-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)] shadow-xs'
               : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
           }`}
         >
@@ -667,7 +667,7 @@ export default function SwapShift() {
                       <button
                         type="button"
                         onClick={() => void handleAdminDecision(req, 'APPROVE')}
-                        className="flex-1 min-h-[44px] bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-bold py-2.5 rounded-xl text-xs sm:text-sm transition touch-manipulation"
+                        className="flex-1 min-h-[44px] bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] font-bold py-2.5 rounded-xl text-xs sm:text-sm transition touch-manipulation"
                       >
                         Phê duyệt
                       </button>
@@ -717,7 +717,7 @@ export default function SwapShift() {
                   >
                     <div>
                       {req.username === currentUser?.username && (
-                        <div className="absolute top-0 right-0 bg-[var(--kg-primary)] text-white text-[10px] font-bold px-2.5 py-1 rounded-bl-lg">
+                        <div className="absolute top-0 right-0 bg-[var(--kg-primary)] text-[var(--kg-primary-fg)] text-[10px] font-bold px-2.5 py-1 rounded-bl-lg">
                           Của bạn
                         </div>
                       )}
@@ -767,7 +767,7 @@ export default function SwapShift() {
                       <button
                         type="button"
                         onClick={() => handleAcceptSwap(req)}
-                        className="w-full min-h-[44px] bg-[var(--kg-accent-soft)] text-[var(--kg-primary)] font-bold py-2.5 rounded-xl border border-[var(--kg-primary)]/25 hover:bg-[var(--kg-primary)] hover:text-white transition-all flex items-center justify-center text-sm touch-manipulation"
+                        className="w-full min-h-[44px] bg-[var(--kg-accent-soft)] text-[var(--kg-primary-ink)] font-bold py-2.5 rounded-xl border border-[var(--kg-primary)]/25 hover:bg-[var(--kg-primary)] hover:text-[var(--kg-primary-fg)] transition-all flex items-center justify-center text-sm touch-manipulation"
                       >
                         <HandshakeIcon size={16} className="mr-2" /> Nhận làm thay ca này
                       </button>
@@ -811,7 +811,7 @@ export default function SwapShift() {
               }}
               className={`flex-1 min-h-[44px] sm:min-h-[38px] py-2 px-3 rounded-lg text-xs font-bold transition-all touch-manipulation ${
                 weekScope === 'current'
-                  ? 'bg-[var(--kg-primary)] text-white shadow-2xs'
+                  ? 'bg-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)] shadow-2xs'
                   : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
               }`}
             >
@@ -825,7 +825,7 @@ export default function SwapShift() {
               }}
               className={`flex-1 min-h-[44px] sm:min-h-[38px] py-2 px-3 rounded-lg text-xs font-bold transition-all touch-manipulation ${
                 weekScope === 'next'
-                  ? 'bg-[var(--kg-primary)] text-white shadow-2xs'
+                  ? 'bg-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)] shadow-2xs'
                   : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
               }`}
             >
@@ -844,12 +844,12 @@ export default function SwapShift() {
               </div>
             )}
 
-          {/* Glanceable 7-Day Grid Picker (Zero horizontal scroll) */}
+          {/* Responsive Day Grid Picker (4-col on mobile so touch targets stay roomy, 7-col on sm+) */}
           <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-3 sm:p-5 mb-5">
             <h3 className="font-bold text-[var(--kg-text)] mb-3.5 text-sm sm:text-base">
               1. Chọn ca của bạn muốn {viewTab === 'leave' ? 'xin nghỉ' : 'đổi'}
             </h3>
-            <div className="grid grid-cols-7 gap-1 sm:gap-2 min-w-0">
+            <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5 sm:gap-2 min-w-0">
               {SHORT_DAY_NAMES.map((shortDay, i) => {
                 const shift = activeApprovedShifts?.[i] || 'OFF';
                 const isSelected = selectedDayIndex === i;
@@ -1045,19 +1045,19 @@ export default function SwapShift() {
             <button
               type="button"
               onClick={handleSwapRequest}
-              className="w-full sm:w-auto sm:min-w-[240px] sm:px-7 min-h-[48px] sm:min-h-[44px] bg-[var(--kg-primary)] text-white font-black py-3 rounded-2xl sm:rounded-xl shadow-md sm:shadow-sm hover:brightness-110 transition-all transform active:scale-98 flex items-center justify-center touch-manipulation border-none text-xs sm:text-sm tracking-wider uppercase whitespace-nowrap"
+              className="w-full sm:w-auto sm:min-w-[240px] sm:px-7 min-h-[48px] sm:min-h-[44px] bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] font-black py-3 rounded-2xl sm:rounded-xl shadow-md sm:shadow-sm transition-all transform active:scale-98 flex items-center justify-center touch-manipulation border-none text-xs sm:text-sm tracking-wider uppercase whitespace-nowrap"
             >
               {viewTab === 'leave' ? (
                 <>
-                  <LogOut size={17} className="mr-2 text-[var(--kg-accent)] flex-shrink-0" /> GỬI YÊU CẦU NGHỈ PHÉP
+                  <LogOut size={17} className="mr-2 flex-shrink-0" /> GỬI YÊU CẦU NGHỈ PHÉP
                 </>
               ) : targetUsername === 'ALL' ? (
                 <>
-                  <Megaphone size={17} className="mr-2 text-[var(--kg-accent)] flex-shrink-0" /> ĐĂNG LÊN BẢNG TIN
+                  <Megaphone size={17} className="mr-2 flex-shrink-0" /> ĐĂNG LÊN BẢNG TIN
                 </>
               ) : (
                 <>
-                  <Send size={17} className="mr-2 text-[var(--kg-accent)] flex-shrink-0" /> GỬI YÊU CẦU ĐỔI CA
+                  <Send size={17} className="mr-2 flex-shrink-0" /> GỬI YÊU CẦU ĐỔI CA
                 </>
               )}
             </button>

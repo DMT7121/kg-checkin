@@ -247,7 +247,7 @@ export default function Discipline({ mode = 'user' }: { mode?: 'user' | 'admin' 
             setTargetUsername(e.target.value);
             if (formError) setFormError('');
           }}
-          className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text)] focus:ring-2 focus:ring-[var(--kg-primary)] outline-none text-xs sm:text-sm font-medium"
+          className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text)] focus:ring-2 focus:ring-[var(--kg-primary)] outline-none text-base sm:text-sm font-medium"
         >
           <option value="">-- Chọn nhân viên --</option>
           {eligibleStaff.map((u) => (
@@ -294,7 +294,7 @@ export default function Discipline({ mode = 'user' }: { mode?: 'user' | 'admin' 
             if (formError) setFormError('');
           }}
           placeholder="Nhập lý do khen thưởng / vi phạm..."
-          className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text)] focus:ring-2 focus:ring-[var(--kg-primary)] outline-none text-xs sm:text-sm"
+          className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-[var(--kg-text)] focus:ring-2 focus:ring-[var(--kg-primary)] outline-none text-base sm:text-sm"
         />
       </div>
 
@@ -371,10 +371,8 @@ export default function Discipline({ mode = 'user' }: { mode?: 'user' | 'admin' 
                   key={pill.id}
                   type="button"
                   onClick={() => setTypeFilter(pill.id)}
-                  className={`shrink-0 whitespace-nowrap min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-full text-xs font-bold border transition-colors touch-manipulation ${
-                    active
-                      ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)]'
-                      : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)] hover:text-[var(--kg-text)]'
+                  className={`kg-filter-pill shrink-0 whitespace-nowrap touch-manipulation ${
+                    active ? 'kg-filter-pill--active' : ''
                   }`}
                 >
                   {pill.label}
@@ -569,33 +567,33 @@ export default function Discipline({ mode = 'user' }: { mode?: 'user' | 'admin' 
 
       {/* Period Bonus vs Penalty Summary Strip (stacks cleanly on 375px so full VNĐ figures never clip) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
-        <div className="rounded-2xl border border-[var(--kg-success)]/25 bg-[var(--kg-success-soft)] px-3.5 py-2.5 sm:px-4 sm:py-3 flex items-center justify-between sm:block gap-2">
-          <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[var(--kg-success)]">
+        <div className="rounded-2xl border border-[var(--kg-success)]/25 bg-[var(--kg-success-soft)] px-4 py-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-[var(--kg-success)]">
             <ArrowUpRight size={14} className="flex-shrink-0" />
             <span>Tổng thưởng</span>
           </div>
-          <p className="sm:mt-1 font-mono tabular-nums font-black text-sm sm:text-base text-[var(--kg-success)] text-right sm:text-left whitespace-nowrap">
+          <p className="font-mono tabular-nums font-black text-sm sm:text-base text-[var(--kg-success)] text-right whitespace-nowrap">
             +{formatVnd(periodSummary.totalBonus)}
           </p>
         </div>
-        <div className="rounded-2xl border border-[var(--kg-danger)]/25 bg-[var(--kg-danger-soft)] px-3.5 py-2.5 sm:px-4 sm:py-3 flex items-center justify-between sm:block gap-2">
-          <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[var(--kg-danger)]">
+        <div className="rounded-2xl border border-[var(--kg-danger)]/25 bg-[var(--kg-danger-soft)] px-4 py-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-[var(--kg-danger)]">
             <ArrowDownRight size={14} className="flex-shrink-0" />
             <span>Tổng phạt</span>
           </div>
-          <p className="sm:mt-1 font-mono tabular-nums font-black text-sm sm:text-base text-[var(--kg-danger)] text-right sm:text-left whitespace-nowrap">
+          <p className="font-mono tabular-nums font-black text-sm sm:text-base text-[var(--kg-danger)] text-right whitespace-nowrap">
             -{formatVnd(periodSummary.totalPenalty)}
           </p>
         </div>
-        <div className="rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface)] px-3.5 py-2.5 sm:px-4 sm:py-3 flex items-center justify-between sm:block gap-2">
-          <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--kg-text-muted)]">
+        <div className="rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface)] px-4 py-3 flex items-center justify-between gap-2 shadow-2xs">
+          <div className="text-[11px] font-extrabold uppercase tracking-wider text-[var(--kg-text-muted)]">
             Chênh lệch kỳ
           </div>
           <p
-            className={`sm:mt-1 font-mono tabular-nums font-black text-sm sm:text-base text-right sm:text-left whitespace-nowrap ${
+            className={`font-mono tabular-nums font-black text-sm sm:text-base text-right whitespace-nowrap ${
               periodSummary.netImpact >= 0
-                ? 'text-emerald-600 dark:text-emerald-400'
-                : 'text-rose-600 dark:text-rose-400'
+                ? 'text-[var(--kg-success)]'
+                : 'text-[var(--kg-danger)]'
             }`}
           >
             {periodSummary.netImpact >= 0 ? '+' : '-'}

@@ -24,6 +24,7 @@ import {
   KgButton,
   KgEmptyState,
   KgErrorState,
+  KgMetricCard,
   KgModuleHero,
   KgSkeleton,
   KgStatusBadge,
@@ -110,7 +111,7 @@ function normalizeClaim(raw: any): MissedClaimItem {
     username: String(raw?.username || ''),
     fullname: String(raw?.fullname || raw?.username || ''),
     date: cleanMissedDate(raw?.date),
-    effectiveDate: raw?.effectiveDate ? cleanMissedDate(raw.effectiveDate) : undefined,
+    effectiveDate: raw?.effectiveDate ? cleanMissedDate(raw?.effectiveDate) : undefined,
     time: cleanMissedTime(raw?.time),
     type: canonicalType,
     canonicalType,
@@ -119,6 +120,15 @@ function normalizeClaim(raw: any): MissedClaimItem {
     proofImage: raw?.proofImage ? String(raw.proofImage) : undefined,
     status: String(raw?.status || 'Pending'),
   };
+}
+
+function isHandoverDiscrepancy(h: HandoverLedgerRecord): boolean {
+  return (
+    h.reconcileStatus !== 'ManagerConfirmed' &&
+    ((h.discrepancy ?? 0) !== 0 ||
+      h.ackStatus === 'Disputed' ||
+      h.reconcileStatus === 'Disputed')
+  );
 }
 
 export default function AdminApprovalInbox() {
@@ -133,6 +143,7 @@ function AdminApprovalInboxContent() {
   const setLogs = useAppStore((s) => s.setLogs);
   const setSwapRequestsStore = useAppStore((s) => s.setSwapRequests);
   const setAdvancesStore = useAppStore((s) => s.setAdvances);
+  const setAdminPendingQueueCount = useAppStore((s) => s.setAdminPendingQueueCount);
 
   const [category, setCategory] = useState<InboxCategory>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -150,7 +161,6 @@ function AdminApprovalInboxContent() {
   const [advances, setAdvances] = useState<AdvanceRequest[]>([]);
   const [adjustments, setAdjustments] = useState<SalaryAdjustmentRequest[]>([]);
 
-  // Reject / Note bottom sheet
   const [noteSheet, setNoteSheet] = useState<
     | { kind: 'missed_reject'; claim: MissedClaimItem }
     | { kind: 'adjustment_review'; request: SalaryAdjustmentRequest; status: 'Approved' | 'Rejected' }
@@ -308,36 +318,43 @@ function AdminApprovalInboxContent() {
     return () => window.clearTimeout(timer);
   }, [loadAllQueues]);
 
-  // Pending subsets
+  // Pending subsets (Pending_Admin sorted ahead of Pending_User)
   const pendingMissed = useMemo(
     () => missedClaims.filter((c) => c.status === 'Pending'),
     [missedClaims],
   );
   const pendingSwaps = useMemo(
-    () => swaps.filter((r) => r.status === 'Pending_Admin' || r.status === 'Pending_User'),
+    () =>
+      swaps
+        .filter((r) => r.status === 'Pending_Admin' || r.status === 'Pending_User')
+        .sort((a, b) => {
+          const rank = (s?: string) => (s === 'Pending_Admin' ? 0 : 1);
+          return rank(a.status) - rank(b.status);
+        }),
     [swaps],
   );
-  const pendingCash = useMemo(
+  // All unconfirmed cash shifts (open discrepancies + disputed + matched unconfirmed shifts)
+  const unconfirmedCash = useMemo(
     () =>
-      handovers.filter(
-        (h) =>
-          h.reconcileStatus !== 'ManagerConfirmed' &&
-          ((h.discrepancy ?? 0) !== 0 ||
-            h.ackStatus === 'Disputed' ||
-            h.reconcileStatus === 'Disputed'),
-      ),
+      handovers
+        .filter((h) => h.reconcileStatus !== 'ManagerConfirmed')
+        .sort((a, b) => {
+          const rank = (h: HandoverLedgerRecord) => {
+            if (h.ackStatus === 'Disputed' || h.reconcileStatus === 'Disputed') return 0;
+            if ((h.discrepancy ?? 0) !== 0) return 1;
+            return 2;
+          };
+          return rank(a) - rank(b);
+        }),
     [handovers],
   );
+  const cashDiscrepancies = useMemo(
+    () => unconfirmedCash.filter(isHandoverDiscrepancy),
+    [unconfirmedCash],
+  );
   const matchedUnconfirmedCash = useMemo(
-    () =>
-      handovers.filter(
-        (h) =>
-          h.reconcileStatus !== 'ManagerConfirmed' &&
-          (h.discrepancy ?? 0) === 0 &&
-          h.ackStatus !== 'Disputed' &&
-          h.reconcileStatus !== 'Disputed',
-      ),
-    [handovers],
+    () => unconfirmedCash.filter((h) => !isHandoverDiscrepancy(h)),
+    [unconfirmedCash],
   );
   const openIncidents = useMemo(
     () => incidents.filter((i) => i.status === 'Open' || i.status === 'Investigating'),
@@ -355,18 +372,24 @@ function AdminApprovalInboxContent() {
   const counts = {
     missed: pendingMissed.length,
     swaps: pendingSwaps.length,
-    cash: pendingCash.length,
+    cash: unconfirmedCash.length,
     incidents: openIncidents.length,
     advances: pendingAdvances.length,
     adjustments: pendingAdjustments.length,
     total:
       pendingMissed.length +
       pendingSwaps.length +
-      pendingCash.length +
+      unconfirmedCash.length +
       openIncidents.length +
       pendingAdvances.length +
       pendingAdjustments.length,
   };
+
+  useEffect(() => {
+    if (!loading && !globalError) {
+      setAdminPendingQueueCount(counts.total);
+    }
+  }, [loading, globalError, counts.total, setAdminPendingQueueCount]);
 
   // Search filter helper
   const q = searchQuery.trim().toLowerCase();
@@ -394,10 +417,10 @@ function AdminApprovalInboxContent() {
   );
   const visibleCash = useMemo(
     () =>
-      pendingCash.filter((h) =>
+      unconfirmedCash.filter((h) =>
         matchesQuery(h.fullname, h.username, h.date, h.shift, h.note, h.ackNote, h.ackBy),
       ),
-    [pendingCash, matchesQuery],
+    [unconfirmedCash, matchesQuery],
   );
   const visibleIncidents = useMemo(
     () =>
@@ -467,12 +490,15 @@ function AdminApprovalInboxContent() {
   const handleSwapDecision = async (req: SwapRequest, decision: 'APPROVE' | 'REJECT') => {
     if (!currentUser || busyKey) return;
     const isApprove = decision === 'APPROVE';
+    const isPendingUser = req.status === 'Pending_User';
     const confirmed = await kgConfirm({
       title: isApprove ? 'Phê duyệt yêu cầu?' : 'Từ chối yêu cầu?',
       message: isApprove
         ? req.targetUsername === 'ADMIN'
           ? `Phê duyệt đơn xin nghỉ phép của ${req.fullname} (${req.dayName} ${req.date})?`
-          : `Phê duyệt đổi ca ${req.shift} (${req.dayName} ${req.date}) giữa ${req.fullname} và ${req.targetFullname || 'đồng nghiệp'}?`
+          : isPendingUser
+            ? `Đơn đổi ca ${req.shift} (${req.dayName} ${req.date}) của ${req.fullname} hiện vẫn đang chờ đồng nghiệp nhận thay. Bạn vẫn muốn phê duyệt ngay?`
+            : `Phê duyệt đổi ca ${req.shift} (${req.dayName} ${req.date}) giữa ${req.fullname} và ${req.targetFullname || 'đồng nghiệp'}?`
         : `Từ chối yêu cầu của ${req.fullname} (${req.dayName} ${req.date})?`,
       confirmLabel: isApprove ? 'Phê duyệt' : 'Từ chối',
       cancelLabel: 'Hủy',
@@ -521,6 +547,7 @@ function AdminApprovalInboxContent() {
                   ...h,
                   reconcileStatus: 'ManagerConfirmed',
                   managerBy: currentUser.fullname || currentUser.username,
+                  managerAt: new Date().toLocaleString('vi-VN'),
                 }
               : h,
           ),
@@ -571,6 +598,7 @@ function AdminApprovalInboxContent() {
                   ...h,
                   reconcileStatus: 'ManagerConfirmed',
                   managerBy: currentUser.fullname || currentUser.username,
+                  managerAt: new Date().toLocaleString('vi-VN'),
                 }
               : h,
           ),
@@ -775,7 +803,7 @@ function AdminApprovalInboxContent() {
     count: number;
     icon: typeof Inbox;
   }> = [
-    { id: 'all', label: 'Tất cả chờ duyệt', count: counts.total, icon: Inbox },
+    { id: 'all', label: 'Tất cả', count: counts.total, icon: Inbox },
     { id: 'missed', label: 'Bổ sung công', count: counts.missed, icon: Clock3 },
     { id: 'swaps', label: 'Đổi ca & Nghỉ', count: counts.swaps, icon: Repeat2 },
     { id: 'cash', label: 'Đối soát két', count: counts.cash, icon: Banknote },
@@ -796,26 +824,11 @@ function AdminApprovalInboxContent() {
     <div className="p-4 md:px-0 md:pt-1 space-y-4 animate-fade-in pb-24 md:pb-12 max-w-6xl mx-auto">
       <KgModuleHero
         moduleId="admin-ops"
-        title="Hộp Duyệt 1 Chạm"
-        description="Gom toàn bộ yêu cầu bổ sung công, đổi ca, đối soát két, sự cố, ứng lương và điều chỉnh lương vào một hàng chờ thống nhất."
-        eyebrow="Điều hành"
+        title="Hộp duyệt 1 chạm"
+        description="Tập trung mọi yêu cầu cần quyết định của quản lý trong cùng một hàng chờ."
+        eyebrow="SERVICE COMMAND CENTER · ĐIỀU HÀNH"
         actions={
           <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-            {matchedUnconfirmedCash.length > 0 && (
-              <button
-                type="button"
-                disabled={bulkConfirmingCash}
-                onClick={() => void handleBulkConfirmMatchedCash()}
-                className="flex-1 sm:flex-none min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50 whitespace-nowrap"
-              >
-                <CheckCheck size={14} className="shrink-0" />
-                <span>
-                  {bulkConfirmingCash
-                    ? 'Đang duyệt...'
-                    : `Duyệt ${matchedUnconfirmedCash.length} ca khớp`}
-                </span>
-              </button>
-            )}
             <button
               type="button"
               onClick={() => void loadAllQueues(true)}
@@ -825,11 +838,70 @@ function AdminApprovalInboxContent() {
               <RefreshCw size={14} className={refreshing || loading ? 'animate-spin shrink-0' : 'shrink-0'} />
               <span>Làm mới</span>
             </button>
+            {matchedUnconfirmedCash.length > 0 && (
+              <button
+                type="button"
+                disabled={bulkConfirmingCash}
+                onClick={() => void handleBulkConfirmMatchedCash()}
+                className="flex-1 sm:flex-none min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] text-xs font-extrabold inline-flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50 whitespace-nowrap"
+              >
+                <CheckCheck size={14} className="shrink-0" />
+                <span>
+                  {bulkConfirmingCash
+                    ? 'Đang duyệt...'
+                    : `Duyệt ${matchedUnconfirmedCash.length} ca khớp`}
+                </span>
+              </button>
+            )}
           </div>
         }
       />
 
-      {/* Category Filter Chips + Search */}
+      {/* Toast Touch 4 KPI Summary Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <KgMetricCard
+          title="Tổng hàng chờ"
+          value={counts.total}
+          icon={Inbox}
+          variant="warning"
+          subtext="Cần xử lý"
+          onClick={() => setCategory('all')}
+          className={category === 'all' ? 'ring-2 ring-[var(--kg-primary)] !border-[var(--kg-primary)]' : ''}
+        />
+        <KgMetricCard
+          title="Bổ sung công"
+          value={counts.missed}
+          icon={Clock3}
+          variant="info"
+          subtext="Yêu cầu đang chờ"
+          onClick={() => setCategory('missed')}
+          className={category === 'missed' ? 'ring-2 ring-[var(--kg-primary)] !border-[var(--kg-primary)]' : ''}
+        />
+        <KgMetricCard
+          title="Đối soát két"
+          value={counts.cash}
+          icon={Banknote}
+          variant="error"
+          subtext={
+            counts.cash > 0
+              ? `${cashDiscrepancies.length} lệch · ${matchedUnconfirmedCash.length} khớp`
+              : 'Cần kiểm đếm'
+          }
+          onClick={() => setCategory('cash')}
+          className={category === 'cash' ? 'ring-2 ring-[var(--kg-primary)] !border-[var(--kg-primary)]' : ''}
+        />
+        <KgMetricCard
+          title="Sự cố đang mở"
+          value={counts.incidents}
+          icon={ShieldAlert}
+          variant="warning"
+          subtext="Cần xử lý"
+          onClick={() => setCategory('incidents')}
+          className={category === 'incidents' ? 'ring-2 ring-[var(--kg-primary)] !border-[var(--kg-primary)]' : ''}
+        />
+      </div>
+
+      {/* Category Filter Pills + Search */}
       <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-3 space-y-2.5 shadow-xs">
         <div
           className="flex gap-1.5 overflow-x-auto hide-scrollbar no-scrollbar pb-0.5 sm:flex-wrap sm:overflow-visible sm:pb-0"
@@ -846,21 +918,21 @@ function AdminApprovalInboxContent() {
                 role="tab"
                 aria-selected={active}
                 onClick={() => setCategory(chip.id)}
-                className={`min-h-[44px] sm:min-h-[36px] shrink-0 px-2.5 py-1.5 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${
+                className={`kg-filter-pill min-h-[44px] sm:min-h-[36px] shrink-0 px-3 py-1.5 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${
                   active
-                    ? 'bg-[var(--kg-primary)] border-[var(--kg-primary)] text-white shadow-xs'
-                    : 'bg-[var(--kg-surface-soft)] border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
+                    ? 'kg-filter-pill--active bg-[var(--kg-nav-active)] border-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)]'
+                    : 'bg-[var(--kg-surface-2)] border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
                 }`}
               >
                 <Icon size={14} className="shrink-0" />
                 <span>{chip.label}</span>
                 <span
-                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono tabular-nums font-black ${
+                  className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono tabular-nums font-extrabold ${
                     active
-                      ? 'bg-white/20 text-white'
+                      ? 'bg-[var(--kg-nav-active-fg)]/15 text-[var(--kg-nav-active-fg)]'
                       : chip.count > 0
-                        ? 'bg-[var(--kg-accent-soft)] text-[var(--kg-accent-ink)]'
-                        : 'bg-[var(--kg-surface)] text-[var(--kg-text-soft)]'
+                        ? 'bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)]'
+                        : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-soft)]'
                   }`}
                 >
                   {chip.count}
@@ -883,7 +955,7 @@ function AdminApprovalInboxContent() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Tìm nhân viên, ngày, ca, lý do..."
                 aria-label="Tìm trong hộp duyệt"
-                className="w-full min-h-[44px] sm:min-h-[38px] pl-9 pr-10 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-base sm:text-xs font-medium text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
+                className="w-full min-h-[44px] sm:min-h-[38px] pl-9 pr-10 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)] text-base sm:text-xs font-medium text-[var(--kg-text)] focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
               />
               {searchQuery && (
                 <button
@@ -900,7 +972,7 @@ function AdminApprovalInboxContent() {
               <button
                 type="button"
                 onClick={() => navigateToHubSubTab('admin_ops', 'schedule')}
-                className="min-h-[44px] sm:min-h-[38px] px-3 py-1.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-xs font-bold text-[var(--kg-text)] hover:border-[var(--kg-border-strong)] inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
+                className="min-h-[44px] sm:min-h-[38px] px-3 py-1.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)] text-xs font-bold text-[var(--kg-text)] hover:border-[var(--kg-border-strong)] inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
               >
                 <CalendarClock size={14} className="shrink-0" />
                 <span>Xếp lịch</span>
@@ -908,7 +980,7 @@ function AdminApprovalInboxContent() {
               <button
                 type="button"
                 onClick={() => navigateToHubSubTab('admin_people_pay', 'payroll')}
-                className="min-h-[44px] sm:min-h-[38px] px-3 py-1.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] text-xs font-bold text-[var(--kg-text)] hover:border-[var(--kg-border-strong)] inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
+                className="min-h-[44px] sm:min-h-[38px] px-3 py-1.5 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)] text-xs font-bold text-[var(--kg-text)] hover:border-[var(--kg-border-strong)] inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
               >
                 <Banknote size={14} className="shrink-0" />
                 <span>Bảng lương</span>
@@ -920,7 +992,7 @@ function AdminApprovalInboxContent() {
 
       {/* Partial Queue Errors */}
       {Object.keys(queueErrors).length > 0 && !globalError && (
-        <div className="rounded-2xl border border-amber-500/35 bg-amber-500/10 px-4 py-3 flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-amber-800 dark:text-amber-300">
+        <div className="rounded-2xl border border-[var(--kg-warning)]/35 bg-[var(--kg-warning-soft)] px-4 py-3 flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-[var(--kg-warning)]">
           <div className="flex items-start sm:items-center gap-2 min-w-0 flex-1">
             <AlertTriangle size={15} className="shrink-0 mt-0.5 sm:mt-0" />
             <span className="leading-snug">
@@ -931,7 +1003,7 @@ function AdminApprovalInboxContent() {
           <button
             type="button"
             onClick={() => void loadAllQueues(true)}
-            className="min-h-[40px] sm:min-h-[36px] px-3.5 py-1.5 rounded-xl bg-[var(--kg-primary)] text-white text-xs font-bold whitespace-nowrap shrink-0"
+            className="min-h-[44px] sm:min-h-[36px] px-3.5 py-1.5 rounded-xl bg-[var(--kg-primary)] text-[var(--kg-primary-fg)] text-xs font-bold whitespace-nowrap shrink-0"
           >
             Tải lại
           </button>
@@ -995,8 +1067,8 @@ function AdminApprovalInboxContent() {
               <section className="space-y-2.5">
                 <div className="flex items-center justify-between px-0.5">
                   <h3 className="text-xs font-extrabold uppercase tracking-wider text-[var(--kg-text-muted)] flex items-center gap-1.5">
-                    <Clock3 size={14} className="text-[var(--kg-accent-ink)]" />
-                    Bổ sung chấm công ({visibleMissed.length})
+                    <Clock3 size={14} className="text-[var(--kg-primary-ink)]" />
+                    Bổ sung chấm công (<span className="font-mono tabular-nums">{visibleMissed.length}</span>)
                   </h3>
                 </div>
                 {visibleMissed.length === 0 ? (
@@ -1020,7 +1092,7 @@ function AdminApprovalInboxContent() {
                                 <p className="text-sm font-extrabold text-[var(--kg-text)] truncate">
                                   {claim.fullname}
                                 </p>
-                                <p className="text-[11px] font-mono text-[var(--kg-text-muted)]">
+                                <p className="text-[11px] font-mono tabular-nums text-[var(--kg-text-muted)]">
                                   @{claim.username} · #{claim.id}
                                 </p>
                               </div>
@@ -1031,13 +1103,13 @@ function AdminApprovalInboxContent() {
                                 {claim.time} · {claim.effectiveDate || claim.date}
                               </span>
                               {claim.shift && (
-                                <span className="px-2 py-0.5 rounded-lg bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)]">
+                                <span className="px-2 py-0.5 rounded-lg bg-[var(--kg-surface-2)] border border-[var(--kg-border)] text-[var(--kg-text-muted)]">
                                   Ca {claim.shift}
                                 </span>
                               )}
                             </div>
                             {claim.reason && (
-                              <p className="text-xs text-[var(--kg-text)] bg-[var(--kg-surface-soft)] rounded-xl px-3 py-2">
+                              <p className="text-xs text-[var(--kg-text)] bg-[var(--kg-surface-2)] border border-[var(--kg-border)] rounded-xl px-3 py-2">
                                 {claim.reason}
                               </p>
                             )}
@@ -1060,7 +1132,7 @@ function AdminApprovalInboxContent() {
                                 setNoteText('');
                                 setNoteSheet({ kind: 'missed_reject', claim });
                               }}
-                              className="flex-1 sm:flex-none min-w-[110px] min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-50 whitespace-nowrap"
+                              className="flex-1 sm:flex-none min-w-[110px] min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl border border-[var(--kg-danger)]/30 bg-[var(--kg-danger-soft)] hover:brightness-95 text-[var(--kg-danger)] text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-50 whitespace-nowrap"
                             >
                               <X size={14} className="shrink-0" /> Từ chối
                             </button>
@@ -1068,7 +1140,7 @@ function AdminApprovalInboxContent() {
                               type="button"
                               disabled={Boolean(busyKey)}
                               onClick={() => void handleApproveMissed(claim)}
-                              className="flex-1 sm:flex-none min-w-[126px] min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50 whitespace-nowrap"
+                              className="flex-1 sm:flex-none min-w-[126px] min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-[var(--kg-success)] hover:brightness-95 text-white dark:text-[#0D1F16] text-xs font-extrabold inline-flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50 whitespace-nowrap"
                             >
                               <Check size={14} className="shrink-0" /> {isBusy ? 'Đang duyệt...' : 'Duyệt 1 chạm'}
                             </button>
@@ -1088,7 +1160,7 @@ function AdminApprovalInboxContent() {
                 <div className="flex items-center justify-between px-0.5">
                   <h3 className="text-xs font-extrabold uppercase tracking-wider text-[var(--kg-text-muted)] flex items-center gap-1.5">
                     <Repeat2 size={14} className="text-[var(--kg-primary-ink)]" />
-                    Đổi ca &amp; Xin nghỉ phép ({visibleSwaps.length})
+                    Đổi ca &amp; Xin nghỉ phép (<span className="font-mono tabular-nums">{visibleSwaps.length}</span>)
                   </h3>
                 </div>
                 {visibleSwaps.length === 0 ? (
@@ -1101,11 +1173,17 @@ function AdminApprovalInboxContent() {
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                     {visibleSwaps.map((req) => {
                       const isLeave = req.targetUsername === 'ADMIN';
+                      const isPendingUser = req.status === 'Pending_User';
+                      const isPendingAdmin = req.status === 'Pending_Admin';
                       const isBusy = busyKey === `swap-${req.id}`;
                       return (
                         <article
                           key={req.id}
-                          className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 shadow-xs flex flex-col justify-between gap-3"
+                          className={`bg-[var(--kg-surface)] rounded-2xl p-4 shadow-xs flex flex-col justify-between gap-3 border ${
+                            isPendingAdmin
+                              ? 'border-[var(--kg-primary)]/40'
+                              : 'border-[var(--kg-border)]'
+                          }`}
                         >
                           <div className="space-y-2">
                             <div className="flex items-start justify-between gap-2">
@@ -1118,12 +1196,22 @@ function AdminApprovalInboxContent() {
                                   {req.dayName} · {req.date} · Ca {req.shift}
                                 </p>
                               </div>
-                              <KgStatusBadge variant={isLeave ? 'warning' : 'info'}>
-                                {isLeave ? 'Xin nghỉ' : 'Đổi ca'}
-                              </KgStatusBadge>
+                              <div className="flex flex-col items-end gap-1 shrink-0">
+                                <KgStatusBadge variant={isLeave ? 'warning' : 'info'}>
+                                  {isLeave ? 'Xin nghỉ' : 'Đổi ca'}
+                                </KgStatusBadge>
+                                <KgStatusBadge variant={isPendingUser ? 'neutral' : 'warning'}>
+                                  {isPendingUser ? 'Chờ đồng nghiệp nhận ca' : 'Chờ quản lý duyệt'}
+                                </KgStatusBadge>
+                              </div>
                             </div>
+                            {isPendingUser && (
+                              <p className="text-[11px] text-[var(--kg-text-muted)] italic">
+                                Đồng nghiệp chưa xác nhận nhận ca thay (đang treo trên Chợ đổi ca).
+                              </p>
+                            )}
                             {req.reason && (
-                              <p className="text-xs text-[var(--kg-text)] bg-[var(--kg-surface-soft)] rounded-xl px-3 py-2">
+                              <p className="text-xs text-[var(--kg-text)] bg-[var(--kg-surface-2)] border border-[var(--kg-border)] rounded-xl px-3 py-2">
                                 {req.reason}
                               </p>
                             )}
@@ -1133,7 +1221,7 @@ function AdminApprovalInboxContent() {
                               type="button"
                               disabled={Boolean(busyKey)}
                               onClick={() => void handleSwapDecision(req, 'REJECT')}
-                              className="flex-1 sm:flex-none min-w-[110px] min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-50 whitespace-nowrap"
+                              className="flex-1 sm:flex-none min-w-[110px] min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl border border-[var(--kg-danger)]/30 bg-[var(--kg-danger-soft)] hover:brightness-95 text-[var(--kg-danger)] text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-50 whitespace-nowrap"
                             >
                               <X size={14} className="shrink-0" /> Từ chối
                             </button>
@@ -1141,9 +1229,14 @@ function AdminApprovalInboxContent() {
                               type="button"
                               disabled={Boolean(busyKey)}
                               onClick={() => void handleSwapDecision(req, 'APPROVE')}
-                              className="flex-1 sm:flex-none min-w-[120px] min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50 whitespace-nowrap"
+                              className={`flex-1 sm:flex-none min-w-[120px] min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-xl text-xs font-extrabold inline-flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50 whitespace-nowrap ${
+                                isPendingUser
+                                  ? 'border border-[var(--kg-primary)]/40 bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] hover:brightness-95'
+                                  : 'bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)]'
+                              }`}
                             >
-                              <Check size={14} className="shrink-0" /> {isBusy ? 'Đang xử lý...' : 'Phê duyệt'}
+                              <Check size={14} className="shrink-0" />{' '}
+                              {isBusy ? 'Đang xử lý...' : isPendingUser ? 'Duyệt trực tiếp' : 'Phê duyệt'}
                             </button>
                           </div>
                         </article>
@@ -1154,13 +1247,15 @@ function AdminApprovalInboxContent() {
               </section>
             )}
 
-          {/* 3. Cash Handover Disputes (Compact cards in ALL mode; full CashAuditPanel on cash tab) */}
+          {/* 3. Cash Handover Unconfirmed / Discrepancies */}
           {category === 'all' && visibleCash.length > 0 && (
             <section className="space-y-2.5">
               <div className="flex items-center justify-between gap-2 px-0.5">
                 <h3 className="text-xs font-extrabold uppercase tracking-wider text-[var(--kg-text-muted)] flex items-center gap-1.5 min-w-0">
-                  <Banknote size={14} className="text-amber-600 dark:text-amber-400 shrink-0" />
-                  <span className="truncate">Đối soát két cần kiểm tra ({visibleCash.length})</span>
+                  <Banknote size={14} className="text-[var(--kg-warning)] shrink-0" />
+                  <span className="truncate">
+                    Đối soát két chờ kiểm tra (<span className="font-mono tabular-nums">{visibleCash.length}</span>)
+                  </span>
                 </h3>
                 <button
                   type="button"
@@ -1174,10 +1269,13 @@ function AdminApprovalInboxContent() {
                 {visibleCash.map((item) => {
                   const diff = item.discrepancy ?? 0;
                   const isBusy = busyKey === `cash-${item.id}`;
+                  const hasIssue = isHandoverDiscrepancy(item);
                   return (
                     <article
                       key={item.id}
-                      className="bg-[var(--kg-surface)] border border-amber-500/40 rounded-2xl p-4 shadow-xs flex flex-col justify-between gap-3"
+                      className={`bg-[var(--kg-surface)] rounded-2xl p-4 shadow-xs flex flex-col justify-between gap-3 border ${
+                        hasIssue ? 'border-[var(--kg-warning)]/45' : 'border-[var(--kg-border)]'
+                      }`}
                     >
                       <div className="space-y-2">
                         <div className="flex items-start justify-between gap-2">
@@ -1189,18 +1287,27 @@ function AdminApprovalInboxContent() {
                               {item.shift || 'Ca trực'} · {item.date}
                             </p>
                           </div>
-                          <span
-                            className={`px-2 py-0.5 rounded-lg text-xs font-mono tabular-nums font-black shrink-0 ${
-                              diff < 0
-                                ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
-                                : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
-                            }`}
-                          >
-                            {formatSignedVnd(diff)}
-                          </span>
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            <span
+                              className={`px-2 py-0.5 rounded-lg text-xs font-mono tabular-nums font-black ${
+                                diff === 0
+                                  ? 'bg-[var(--kg-success-soft)] text-[var(--kg-success)]'
+                                  : diff < 0
+                                    ? 'bg-[var(--kg-danger-soft)] text-[var(--kg-danger)]'
+                                    : 'bg-[var(--kg-warning-soft)] text-[var(--kg-warning)]'
+                              }`}
+                            >
+                              {diff === 0 ? 'Khớp 0 đ' : formatSignedVnd(diff)}
+                            </span>
+                            {!hasIssue && (
+                              <span className="text-[10px] font-bold text-[var(--kg-text-muted)]">
+                                Chờ quản lý chốt
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-xs font-mono tabular-nums text-right">
-                          <div className="rounded-xl bg-[var(--kg-surface-soft)] px-2.5 py-1.5">
+                          <div className="rounded-xl bg-[var(--kg-surface-2)] border border-[var(--kg-border)] px-2.5 py-1.5">
                             <span className="block font-sans text-left text-[10px] text-[var(--kg-text-muted)]">
                               Lý thuyết
                             </span>
@@ -1208,7 +1315,7 @@ function AdminApprovalInboxContent() {
                               {formatVndCurrency(item.expectedCash ?? item.cashAmount)}
                             </span>
                           </div>
-                          <div className="rounded-xl bg-[var(--kg-surface-soft)] px-2.5 py-1.5">
+                          <div className="rounded-xl bg-[var(--kg-surface-2)] border border-[var(--kg-border)] px-2.5 py-1.5">
                             <span className="block font-sans text-left text-[10px] text-[var(--kg-text-muted)]">
                               Thực giao
                             </span>
@@ -1231,7 +1338,7 @@ function AdminApprovalInboxContent() {
                             setNoteText(item.managerNote || '');
                             setNoteSheet({ kind: 'cash_dispute', handover: item });
                           }}
-                          className="flex-1 sm:flex-none min-w-[136px] min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-300 text-xs font-bold disabled:opacity-50 whitespace-nowrap"
+                          className="flex-1 sm:flex-none min-w-[136px] min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl border border-[var(--kg-warning)]/35 bg-[var(--kg-warning-soft)] hover:brightness-95 text-[var(--kg-warning)] text-xs font-bold disabled:opacity-50 whitespace-nowrap"
                         >
                           Yêu cầu giải trình
                         </button>
@@ -1239,7 +1346,7 @@ function AdminApprovalInboxContent() {
                           type="button"
                           disabled={Boolean(busyKey)}
                           onClick={() => void handleConfirmCashQuick(item)}
-                          className="flex-1 sm:flex-none min-w-[126px] min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold disabled:opacity-50 whitespace-nowrap"
+                          className="flex-1 sm:flex-none min-w-[126px] min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-[var(--kg-success)] hover:brightness-95 text-white dark:text-[#0D1F16] text-xs font-extrabold disabled:opacity-50 whitespace-nowrap"
                         >
                           {isBusy ? 'Đang lưu...' : 'Duyệt chốt két'}
                         </button>
@@ -1251,13 +1358,15 @@ function AdminApprovalInboxContent() {
             </section>
           )}
 
-          {/* 4. Open Incidents (Compact cards in ALL mode; full IncidentCenterPanel on incidents tab) */}
+          {/* 4. Open Incidents */}
           {category === 'all' && visibleIncidents.length > 0 && (
             <section className="space-y-2.5">
               <div className="flex items-center justify-between gap-2 px-0.5">
                 <h3 className="text-xs font-extrabold uppercase tracking-wider text-[var(--kg-text-muted)] flex items-center gap-1.5 min-w-0">
-                  <ShieldAlert size={14} className="text-rose-600 dark:text-rose-400 shrink-0" />
-                  <span className="truncate">Sự cố đang mở / xử lý ({visibleIncidents.length})</span>
+                  <ShieldAlert size={14} className="text-[var(--kg-danger)] shrink-0" />
+                  <span className="truncate">
+                    Sự cố đang mở / xử lý (<span className="font-mono tabular-nums">{visibleIncidents.length}</span>)
+                  </span>
                 </h3>
                 <button
                   type="button"
@@ -1278,7 +1387,7 @@ function AdminApprovalInboxContent() {
                       <div className="space-y-1.5">
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex flex-wrap items-center gap-1.5">
-                            <span className="px-2 py-0.5 rounded bg-[var(--kg-surface-soft)] text-xs font-black text-[var(--kg-text)]">
+                            <span className="px-2 py-0.5 rounded-md bg-[var(--kg-surface-2)] border border-[var(--kg-border)] text-xs font-black text-[var(--kg-text)]">
                               {inc.area || 'Toàn quán'}
                             </span>
                             <span className="text-sm font-extrabold text-[var(--kg-text)]">
@@ -1292,9 +1401,9 @@ function AdminApprovalInboxContent() {
                           </KgStatusBadge>
                         </div>
                         <p className="text-[11px] text-[var(--kg-text-muted)]">
-                          {inc.fullname || inc.username} · {inc.date}
+                          {inc.fullname || inc.username} · <span className="font-mono tabular-nums">{inc.date}</span>
                         </p>
-                        <p className="text-xs text-[var(--kg-text)] bg-[var(--kg-surface-soft)] rounded-xl px-3 py-2 line-clamp-2">
+                        <p className="text-xs text-[var(--kg-text)] bg-[var(--kg-surface-2)] border border-[var(--kg-border)] rounded-xl px-3 py-2 line-clamp-2">
                           {inc.description}
                         </p>
                       </div>
@@ -1304,7 +1413,7 @@ function AdminApprovalInboxContent() {
                             type="button"
                             disabled={Boolean(busyKey)}
                             onClick={() => void handleIncidentQuickStatus(inc, 'Investigating')}
-                            className="flex-1 sm:flex-none min-w-[116px] min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-300 text-xs font-bold disabled:opacity-50 whitespace-nowrap"
+                            className="flex-1 sm:flex-none min-w-[116px] min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl border border-[var(--kg-warning)]/35 bg-[var(--kg-warning-soft)] hover:brightness-95 text-[var(--kg-warning)] text-xs font-bold disabled:opacity-50 whitespace-nowrap"
                           >
                             Nhận xử lý
                           </button>
@@ -1313,7 +1422,7 @@ function AdminApprovalInboxContent() {
                           type="button"
                           disabled={Boolean(busyKey)}
                           onClick={() => void handleIncidentQuickStatus(inc, 'Resolved')}
-                          className="flex-1 sm:flex-none min-w-[144px] min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold disabled:opacity-50 whitespace-nowrap"
+                          className="flex-1 sm:flex-none min-w-[144px] min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-[var(--kg-success)] hover:brightness-95 text-white dark:text-[#0D1F16] text-xs font-extrabold disabled:opacity-50 whitespace-nowrap"
                         >
                           {isBusy ? 'Đang lưu...' : 'Đánh dấu đã xử lý'}
                         </button>
@@ -1331,8 +1440,8 @@ function AdminApprovalInboxContent() {
               <section className="space-y-2.5">
                 <div className="flex items-center justify-between px-0.5">
                   <h3 className="text-xs font-extrabold uppercase tracking-wider text-[var(--kg-text-muted)] flex items-center gap-1.5">
-                    <HandCoins size={14} className="text-emerald-600 dark:text-emerald-400" />
-                    Yêu cầu ứng lương ({visibleAdvances.length})
+                    <HandCoins size={14} className="text-[var(--kg-success)]" />
+                    Yêu cầu ứng lương (<span className="font-mono tabular-nums">{visibleAdvances.length}</span>)
                   </h3>
                 </div>
                 {visibleAdvances.length === 0 ? (
@@ -1360,12 +1469,12 @@ function AdminApprovalInboxContent() {
                                   @{adv.username}
                                 </p>
                               </div>
-                              <span className="text-base font-black font-mono tabular-nums text-[var(--kg-accent-ink)] shrink-0">
+                              <span className="text-base font-black font-mono tabular-nums text-[var(--kg-primary-ink)] shrink-0">
                                 {formatVnd(adv.amount)}
                               </span>
                             </div>
                             {adv.reason && (
-                              <p className="text-xs text-[var(--kg-text)] bg-[var(--kg-surface-soft)] rounded-xl px-3 py-2">
+                              <p className="text-xs text-[var(--kg-text)] bg-[var(--kg-surface-2)] border border-[var(--kg-border)] rounded-xl px-3 py-2">
                                 {adv.reason}
                               </p>
                             )}
@@ -1375,7 +1484,7 @@ function AdminApprovalInboxContent() {
                               type="button"
                               disabled={Boolean(busyKey)}
                               onClick={() => void handleAdvanceDecision(adv, 'REJECT')}
-                              className="flex-1 sm:flex-none min-w-[110px] min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-50 whitespace-nowrap"
+                              className="flex-1 sm:flex-none min-w-[110px] min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl border border-[var(--kg-danger)]/30 bg-[var(--kg-danger-soft)] hover:brightness-95 text-[var(--kg-danger)] text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-50 whitespace-nowrap"
                             >
                               <X size={14} className="shrink-0" /> Từ chối
                             </button>
@@ -1383,7 +1492,7 @@ function AdminApprovalInboxContent() {
                               type="button"
                               disabled={Boolean(busyKey)}
                               onClick={() => void handleAdvanceDecision(adv, 'APPROVE')}
-                              className="flex-1 sm:flex-none min-w-[120px] min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50 whitespace-nowrap"
+                              className="flex-1 sm:flex-none min-w-[120px] min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-[var(--kg-success)] hover:brightness-95 text-white dark:text-[#0D1F16] text-xs font-extrabold inline-flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50 whitespace-nowrap"
                             >
                               <Check size={14} className="shrink-0" /> {isBusy ? 'Đang xử lý...' : 'Duyệt ứng'}
                             </button>
@@ -1402,8 +1511,8 @@ function AdminApprovalInboxContent() {
               <section className="space-y-2.5">
                 <div className="flex items-center justify-between px-0.5">
                   <h3 className="text-xs font-extrabold uppercase tracking-wider text-[var(--kg-text-muted)] flex items-center gap-1.5">
-                    <CircleDollarSign size={14} className="text-[var(--kg-accent-ink)]" />
-                    Đề nghị điều chỉnh lương ({visibleAdjustments.length})
+                    <CircleDollarSign size={14} className="text-[var(--kg-primary-ink)]" />
+                    Đề nghị điều chỉnh lương (<span className="font-mono tabular-nums">{visibleAdjustments.length}</span>)
                   </h3>
                 </div>
                 {visibleAdjustments.length === 0 ? (
@@ -1432,7 +1541,7 @@ function AdminApprovalInboxContent() {
                             <KgStatusBadge variant="warning">Chờ duyệt</KgStatusBadge>
                           </div>
                           <div className="grid grid-cols-2 gap-2 text-xs">
-                            <div className="rounded-xl bg-[var(--kg-surface-soft)] p-2.5 border border-[var(--kg-border)] text-right">
+                            <div className="rounded-xl bg-[var(--kg-surface-2)] p-2.5 border border-[var(--kg-border)] text-right">
                               <span className="block text-left text-[10px] font-bold uppercase text-[var(--kg-text-muted)]">
                                 Hiện tại
                               </span>
@@ -1443,14 +1552,14 @@ function AdminApprovalInboxContent() {
                                 {salaryTypeLabel(req.currentType)}
                               </span>
                             </div>
-                            <div className="rounded-xl bg-[var(--kg-surface-soft)] p-2.5 border border-[var(--kg-accent)]/35 text-right">
-                              <span className="block text-left text-[10px] font-bold uppercase text-[var(--kg-accent-ink)]">
+                            <div className="rounded-xl bg-[var(--kg-primary-soft)] p-2.5 border border-[var(--kg-primary)]/35 text-right">
+                              <span className="block text-left text-[10px] font-bold uppercase text-[var(--kg-primary-ink)]">
                                 Đề xuất
                               </span>
-                              <span className="font-mono tabular-nums font-extrabold text-[var(--kg-accent-ink)]">
+                              <span className="font-mono tabular-nums font-extrabold text-[var(--kg-primary-ink)]">
                                 {formatVnd(req.proposedAmount)}
                               </span>
-                              <span className="block text-[10px] text-[var(--kg-accent-ink)]">
+                              <span className="block text-[10px] text-[var(--kg-primary-ink)]">
                                 {salaryTypeLabel(req.proposedType)}
                               </span>
                             </div>
@@ -1471,7 +1580,7 @@ function AdminApprovalInboxContent() {
                                 status: 'Rejected',
                               });
                             }}
-                            className="flex-1 sm:flex-none min-w-[110px] min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 text-xs font-bold inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
+                            className="flex-1 sm:flex-none min-w-[110px] min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl border border-[var(--kg-danger)]/30 bg-[var(--kg-danger-soft)] hover:brightness-95 text-[var(--kg-danger)] text-xs font-bold inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
                           >
                             <X size={14} className="shrink-0" /> Từ chối
                           </button>
@@ -1486,7 +1595,7 @@ function AdminApprovalInboxContent() {
                                 status: 'Approved',
                               });
                             }}
-                            className="flex-1 sm:flex-none min-w-[140px] min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 shadow-xs whitespace-nowrap"
+                            className="flex-1 sm:flex-none min-w-[140px] min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-[var(--kg-success)] hover:brightness-95 text-white dark:text-[#0D1F16] text-xs font-extrabold inline-flex items-center justify-center gap-1.5 shadow-xs whitespace-nowrap"
                           >
                             <Check size={14} className="shrink-0" /> Duyệt &amp; cập nhật
                           </button>

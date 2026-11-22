@@ -51,8 +51,8 @@ export default function Feedback() {
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'REVIEWED'>('ALL');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
 
-  // Admin reply states
-  const [replyContent, setReplyContent] = useState('');
+  // Admin reply states (per-feedback draft map so typing on card A never leaks into card B)
+  const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyBusyId, setReplyBusyId] = useState<string | null>(null);
 
@@ -133,20 +133,25 @@ export default function Feedback() {
   };
 
   const handleReply = async (feedbackId: string) => {
-    if (!replyContent.trim()) return;
+    const draft = (replyDrafts[feedbackId] || '').trim();
+    if (!draft) return;
 
     setUpdating(true);
     setReplyBusyId(feedbackId);
     try {
       const res = await callApi('REPLY_FEEDBACK', {
         feedbackId,
-        reply: replyContent,
+        reply: draft,
       });
 
       if (res?.ok) {
         pushToast('Đã gửi phản hồi thành công', 'success');
-        setReplyContent('');
-        setReplyingTo(null);
+        setReplyDrafts((prev) => {
+          const next = { ...prev };
+          delete next[feedbackId];
+          return next;
+        });
+        setReplyingTo((prev) => (prev === feedbackId ? null : prev));
         await fetchFeedbacks(false);
       } else {
         pushToast(res?.message || 'Máy chủ đang bận hoặc mất kết nối. Vui lòng thử lại.', 'error');
@@ -216,7 +221,7 @@ export default function Feedback() {
                   id="feedback-category"
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
-                  className="w-full min-h-[44px] bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)] text-xs sm:text-sm font-medium"
+                  className="w-full min-h-[44px] bg-[var(--kg-surface-2)] border border-[var(--kg-border)] rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)] text-xs sm:text-sm font-medium"
                 >
                   {FEEDBACK_CATEGORIES.map((cat) => (
                     <option key={cat}>{cat}</option>
@@ -256,7 +261,7 @@ export default function Feedback() {
                   }}
                   placeholder="Nhập nội dung chi tiết..."
                   rows={4}
-                  className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)] text-xs sm:text-sm"
+                  className="w-full bg-[var(--kg-surface-2)] border border-[var(--kg-border)] rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)] text-xs sm:text-sm"
                 />
               </div>
 
@@ -310,39 +315,47 @@ export default function Feedback() {
             <h3 className="font-black text-[var(--kg-text-muted)] text-[11px] uppercase tracking-wider">
               Lịch sử phản hồi (<span className="font-mono tabular-nums">{filteredFeedbacks.length}</span>)
             </h3>
-            <button
+            <KgButton
               type="button"
+              variant="secondary"
+              size="sm"
+              loading={isRefreshing}
+              disabled={loading}
+              icon={RefreshCw}
               onClick={() => void fetchFeedbacks(false)}
-              disabled={isRefreshing || loading}
-              aria-label="Làm mới danh sách phản hồi"
-              className="min-w-[44px] min-h-[44px] sm:min-w-[36px] sm:min-h-[36px] rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition-colors touch-manipulation"
             >
-              <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
-            </button>
+              Làm mới
+            </KgButton>
           </div>
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-3">
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5 sm:flex-wrap sm:overflow-visible sm:pb-0">
               {(
                 [
-                  { id: 'ALL', label: `Tất cả (${counts.all})` },
-                  { id: 'PENDING', label: `Chờ phản hồi (${counts.pending})` },
-                  { id: 'REVIEWED', label: `Đã xem xét (${counts.reviewed})` },
+                  { id: 'ALL', label: 'Tất cả', count: counts.all },
+                  { id: 'PENDING', label: 'Chờ phản hồi', count: counts.pending },
+                  { id: 'REVIEWED', label: 'Đã xem xét', count: counts.reviewed },
                 ] as const
-              ).map((pill) => (
-                <button
-                  key={pill.id}
-                  type="button"
-                  onClick={() => setStatusFilter(pill.id)}
-                  className={`shrink-0 whitespace-nowrap min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-full text-xs font-bold border transition-colors touch-manipulation ${
-                    statusFilter === pill.id
-                      ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)]'
-                      : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)] hover:text-[var(--kg-text)]'
-                  }`}
-                >
-                  {pill.label}
-                </button>
-              ))}
+              ).map((pill) => {
+                const isActive = statusFilter === pill.id;
+                return (
+                  <button
+                    key={pill.id}
+                    type="button"
+                    onClick={() => setStatusFilter(pill.id)}
+                    className={`kg-filter-pill shrink-0 ${isActive ? 'kg-filter-pill--active' : ''}`}
+                  >
+                    <span>{pill.label}</span>
+                    <span
+                      className={`font-mono tabular-nums text-[11px] px-1.5 rounded-md ${
+                        isActive ? 'bg-white/15 text-current' : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)]'
+                      }`}
+                    >
+                      {pill.count}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
 
             <label className="block w-full sm:w-60 shrink-0">
@@ -350,7 +363,7 @@ export default function Feedback() {
               <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                className="w-full min-h-[44px] sm:min-h-[36px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-1.5 text-xs font-semibold text-[var(--kg-text)] outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
+                className="w-full min-h-[44px] sm:min-h-[36px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)] px-3 py-1.5 text-xs font-semibold text-[var(--kg-text)] outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
               >
                 <option value="ALL">Tất cả nhóm nội dung</option>
                 {FEEDBACK_CATEGORIES.map((cat) => (
@@ -450,10 +463,13 @@ export default function Feedback() {
                         <div className="space-y-2">
                           <textarea
                             aria-label="Nhập phản hồi của Quản lý"
-                            value={replyContent}
-                            onChange={(e) => setReplyContent(e.target.value)}
+                            value={replyDrafts[fb.id] || ''}
+                            onChange={(e) => {
+                              const nextVal = e.target.value;
+                              setReplyDrafts((prev) => ({ ...prev, [fb.id]: nextVal }));
+                            }}
                             placeholder="Nhập phản hồi của bạn..."
-                            className="w-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)]"
+                            className="w-full bg-[var(--kg-surface-2)] border border-[var(--kg-border)] rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)]"
                             rows={2}
                           />
                           <div className="grid grid-cols-2 sm:flex sm:justify-end gap-2">
@@ -472,7 +488,7 @@ export default function Feedback() {
                               variant="primary"
                               size="sm"
                               loading={replyBusyId === fb.id}
-                              disabled={!replyContent.trim()}
+                              disabled={!(replyDrafts[fb.id] || '').trim()}
                               onClick={() => void handleReply(fb.id)}
                               className="w-full sm:w-auto"
                             >

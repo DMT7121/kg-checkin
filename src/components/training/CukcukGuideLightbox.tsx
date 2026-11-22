@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { BookOpen, ChevronDown, ChevronRight, X } from 'lucide-react';
 import type { CukcukStep } from '../../pages/cukcukData';
@@ -24,16 +24,27 @@ export default function CukcukGuideLightbox({
   const [swipeStartX, setSwipeStartX] = useState<number | null>(null);
   const [swipeStartY, setSwipeStartY] = useState<number | null>(null);
   const [showDescription, setShowDescription] = useState(false);
+  const activeScrubberBtnRef = useRef<HTMLButtonElement | null>(null);
 
   const selectStep = useCallback(
     (nextIndex: number | null) => {
       setZoomScale(1);
       setZoomPos({ x: 0, y: 0 });
-      setShowDescription(false);
+      if (nextIndex === null) {
+        setShowDescription(false);
+      }
       onSelectIndex(nextIndex);
     },
     [onSelectIndex],
   );
+
+  useEffect(() => {
+    activeScrubberBtnRef.current?.scrollIntoView?.({
+      behavior: 'smooth',
+      block: 'nearest',
+      inline: 'center',
+    });
+  }, [activeIndex]);
 
   const resetZoom = () => {
     setZoomScale(1);
@@ -182,10 +193,10 @@ export default function CukcukGuideLightbox({
       role="dialog"
       aria-modal="true"
       aria-label={`Hướng dẫn CUKCUK: ${currentStep.title}`}
-      className="fixed inset-0 h-dvh w-screen z-[10055] flex flex-col justify-between bg-black/95 backdrop-blur-sm select-none overflow-hidden"
+      className="fixed inset-0 h-dvh w-screen z-[10055] flex flex-col justify-between bg-[#0B110E]/95 select-none overflow-hidden"
     >
       {/* Header Controls */}
-      <div className="shrink-0 w-full px-3.5 py-3 sm:px-5 sm:py-4 flex items-center justify-between gap-3 bg-gradient-to-b from-black/90 to-black/40 border-b border-white/10 text-white z-10">
+      <div className="shrink-0 w-full px-3.5 py-3 sm:px-5 sm:py-4 flex items-center justify-between gap-3 bg-[#101A15] border-b border-white/10 text-white z-10">
         <div className="flex flex-col min-w-0 flex-1">
           <span className="text-[10px] uppercase tracking-wider text-white/70 font-bold font-mono tabular-nums truncate">
             Hướng dẫn sử dụng CUKCUK • Bước {activeIndex + 1}/{steps.length}
@@ -231,26 +242,26 @@ export default function CukcukGuideLightbox({
           <img
             src={currentStep.image}
             alt={currentStep.title}
-            className="max-h-[calc(100dvh-13.5rem)] max-w-[94vw] md:max-w-[86vw] object-contain pointer-events-none rounded shadow-2xl border border-white/10"
+            className="max-h-[calc(100dvh-16.5rem)] max-w-[94vw] md:max-w-[86vw] object-contain pointer-events-none rounded shadow-2xl border border-white/10"
           />
         </div>
       </div>
 
       {/* Bottom Action Bar — always visible with safe-area padding */}
-      <div className="shrink-0 w-full flex flex-col items-center gap-2 sm:gap-2.5 px-3 sm:px-6 pt-2 pb-[max(0.875rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-black/90 via-black/60 to-transparent z-10">
-        <div className="w-full max-w-lg flex flex-col items-center gap-2 sm:gap-2.5">
+      <div className="shrink-0 w-full flex flex-col items-center gap-2 px-3 sm:px-6 pt-2 pb-[max(0.875rem,env(safe-area-inset-bottom))] bg-[#0D1410] border-t border-white/10 z-10">
+        <div className="w-full max-w-2xl flex flex-col items-center gap-2">
         {!showDescription ? (
           <button
             type="button"
             onClick={() => setShowDescription(true)}
-            className="min-h-[44px] sm:min-h-[38px] bg-black/80 hover:bg-black/90 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md border border-white/15 flex items-center gap-2 backdrop-blur-sm transition-all active:scale-95 animate-fade-in touch-manipulation focus-visible:ring-2 focus-visible:ring-white"
+            className="min-h-[44px] sm:min-h-[38px] bg-[#16221C] hover:bg-[#1E2E26] text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md border border-white/15 flex items-center gap-2 transition-all active:scale-95 animate-fade-in touch-manipulation focus-visible:ring-2 focus-visible:ring-white"
           >
-            <BookOpen size={14} className="text-[var(--kg-info)]" />
+            <BookOpen size={14} className="text-[#F29055]" />
             Đọc hướng dẫn, mô tả
           </button>
         ) : (
-          <div className="bg-black/85 text-white text-xs font-semibold p-3.5 sm:p-4 rounded-2xl shadow-xl border border-white/15 backdrop-blur-md w-full leading-relaxed relative flex flex-col items-center animate-slide-up">
-            <div className="max-h-[120px] overflow-y-auto w-full text-center mb-1">
+          <div className="bg-[#16221C] text-white text-xs font-semibold p-3.5 sm:p-4 rounded-2xl shadow-xl border border-white/15 w-full leading-relaxed relative flex flex-col items-center animate-slide-up">
+            <div className="max-h-[110px] overflow-y-auto w-full text-center mb-1">
               {currentStep.description}
             </div>
             <button
@@ -263,7 +274,37 @@ export default function CukcukGuideLightbox({
           </div>
         )}
 
-        <div className="flex items-center justify-between gap-1.5 sm:gap-2 w-full bg-black/80 backdrop-blur-md px-2 sm:px-4 py-2 rounded-2xl border border-white/15 shadow-2xl">
+        {/* Compact Step Scrubber Strip (1..N) for instant jumping between steps */}
+        {steps.length > 1 && (
+          <div
+            role="navigation"
+            aria-label="Chọn nhanh bước hướng dẫn CUKCUK"
+            className="w-full flex items-center gap-1 overflow-x-auto hide-scrollbar bg-[#141F19] border border-white/10 rounded-xl p-1"
+          >
+            {steps.map((step, idx) => {
+              const isActive = idx === activeIndex;
+              return (
+                <button
+                  key={step.step}
+                  ref={isActive ? activeScrubberBtnRef : undefined}
+                  type="button"
+                  onClick={() => selectStep(idx)}
+                  aria-label={`Bước ${idx + 1}: ${step.title}`}
+                  aria-current={isActive ? 'step' : undefined}
+                  className={`min-w-[36px] min-h-[36px] sm:min-w-[32px] sm:min-h-[32px] px-2 rounded-lg font-mono tabular-nums text-xs font-extrabold transition-colors shrink-0 touch-manipulation ${
+                    isActive
+                      ? 'bg-[#F29055] text-[#241C17]'
+                      : 'bg-white/10 text-white/80 hover:bg-white/20 hover:text-white'
+                  }`}
+                >
+                  {idx + 1}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="flex items-center justify-between gap-1.5 sm:gap-2 w-full bg-[#16221C] px-2 sm:px-4 py-2 rounded-2xl border border-white/15 shadow-2xl">
           <button
             type="button"
             disabled={activeIndex === 0}

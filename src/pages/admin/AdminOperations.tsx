@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
-  ArrowRight,
   CalendarPlus,
   CheckCircle2,
-  Inbox,
   LoaderCircle,
   Plus,
   RefreshCw,
   Save,
   Sparkles,
   Star,
+  StickyNote,
   Trash2,
   UsersRound,
 } from 'lucide-react';
@@ -41,7 +40,6 @@ import {
   todayIso,
 } from '../../types/operations';
 import { isWorkEligible } from '../../utils/employment';
-import { navigateToHubSubTab } from '../../utils/hubNavigation';
 import { isAdminUser } from '../../utils/permissions';
 
 type DispatchSection = 'teams' | 'assignments' | 'evaluations';
@@ -82,6 +80,7 @@ function AdminOperationsContent() {
     shift: 'Cả ngày',
     note: '',
   });
+  const [hasManualZoneOverride, setHasManualZoneOverride] = useState(false);
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
   const [modalError, setModalError] = useState('');
   const [teamDraft, setTeamDraft] = useState({ name: '', description: '' });
@@ -115,6 +114,7 @@ function AdminOperationsContent() {
           teamId: current.teamId || next.teams?.[0]?.id || '',
           zoneId: current.zoneId || next.zones?.[0]?.id || '',
         }));
+        setHasManualZoneOverride(false);
         setDirty(false);
       } else {
         setLoadError(res?.message || 'Không thể tải cấu hình vận hành từ máy chủ.');
@@ -268,6 +268,7 @@ function AdminOperationsContent() {
     };
     patchConfig((current) => ({ ...current, assignments: [...current.assignments, assignment] }));
     setAssignmentDraft((current) => ({ ...current, note: '' }));
+    setHasManualZoneOverride(false);
   };
 
   const updateEvaluation = (
@@ -441,17 +442,24 @@ function AdminOperationsContent() {
     [config.assignments],
   );
 
+  const suggestedZoneId = useMemo(
+    () => getSuggestedZoneId(assignmentDraft.teamId, assignmentDraft.date),
+    [assignmentDraft.teamId, assignmentDraft.date, getSuggestedZoneId],
+  );
+
+  // Auto-suggest zone ONLY when teamId/date changes AND user has NOT manually overridden zoneId for this draft
   useEffect(() => {
-    if (assignmentDraft.teamId && assignmentDraft.date) {
-      const suggested = getSuggestedZoneId(assignmentDraft.teamId, assignmentDraft.date);
-      if (suggested && suggested !== assignmentDraft.zoneId) {
-        const timer = setTimeout(() => {
-          setAssignmentDraft((current) => ({ ...current, zoneId: suggested }));
-        }, 0);
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [assignmentDraft.teamId, assignmentDraft.date, assignmentDraft.zoneId, getSuggestedZoneId]);
+    if (hasManualZoneOverride) return;
+    if (!assignmentDraft.teamId || !assignmentDraft.date) return;
+    const suggested = getSuggestedZoneId(assignmentDraft.teamId, assignmentDraft.date);
+    if (!suggested) return;
+    const timer = window.setTimeout(() => {
+      setAssignmentDraft((current) =>
+        current.zoneId === suggested ? current : { ...current, zoneId: suggested },
+      );
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [assignmentDraft.teamId, assignmentDraft.date, hasManualZoneOverride, getSuggestedZoneId]);
 
   const autoRotateAllAssignments = () => {
     if (!assignmentDraft.date) {
@@ -524,44 +532,19 @@ function AdminOperationsContent() {
     <div className="p-4 md:px-0 md:pt-1 space-y-4 animate-fade-in pb-28 md:pb-12 max-w-6xl mx-auto">
       <KgModuleHero
         moduleId="admin-operations"
-        title="Điều Phối Đội Hình & Khu Trực"
-        description="Chia nhóm trực, xoay vòng khu vực A/B/C/D&E tự động và đánh giá năng lực cân bằng ca."
+        title="Điều phối khu trực"
+        description="Chia nhóm trực, phân công theo khu vực A/B/C/D&E và đánh giá năng lực cân bằng ca."
         eyebrow="Điều hành"
         actions={
           <button
             type="button"
             onClick={() => void autoBalanceTeams()}
-            className="w-full sm:w-auto min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 shadow-xs whitespace-nowrap"
+            className="w-full sm:w-auto min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] text-xs font-extrabold inline-flex items-center justify-center gap-1.5 shadow-xs whitespace-nowrap"
           >
             <Sparkles size={14} className="shrink-0" /> Tự cân bằng đội
           </button>
         }
       />
-
-      {/* Compact 1-Tap Banner to AdminApprovalInbox for Cash Audit & Incidents */}
-      <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-xs">
-        <div className="flex items-start sm:items-center gap-2.5 min-w-0 flex-1">
-          <div className="w-9 h-9 rounded-xl bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] flex items-center justify-center shrink-0">
-            <Inbox size={17} />
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs sm:text-sm font-extrabold text-[var(--kg-text)] leading-snug sm:truncate">
-              Đối soát Két 2 chiều &amp; Trung tâm Sự cố đã chuyển sang Hộp duyệt
-            </p>
-            <p className="text-[11px] text-[var(--kg-text-muted)] leading-snug line-clamp-2 sm:line-clamp-1">
-              Duyệt chốt két, duyệt ca khớp 1 chạm và cập nhật sự cố 4 bước ngay tại Hộp duyệt.
-            </p>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={() => navigateToHubSubTab('admin_ops', 'inbox')}
-          className="w-full sm:w-auto min-h-[44px] sm:min-h-[36px] px-3.5 py-2 rounded-xl bg-[var(--kg-primary-soft)] hover:opacity-90 text-[var(--kg-primary-ink)] text-xs font-extrabold inline-flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap"
-        >
-          <span>Mở Hộp duyệt</span>
-          <ArrowRight size={14} className="shrink-0" />
-        </button>
-      </div>
 
       {/* Clean 3-Tab Dispatch Switcher */}
       <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-1.5 shadow-xs">
@@ -576,19 +559,19 @@ function AdminOperationsContent() {
                 role="tab"
                 aria-selected={active}
                 onClick={() => setSection(item.id)}
-                className={`min-w-0 min-h-[44px] sm:min-h-[38px] flex items-center justify-center gap-1.5 rounded-xl px-2 sm:px-3 py-2 text-xs font-extrabold transition-colors ${
+                className={`kg-filter-pill min-w-0 min-h-[44px] sm:min-h-[38px] flex items-center justify-center gap-1.5 rounded-xl px-2 sm:px-3 py-2 text-xs font-extrabold transition-colors ${
                   active
-                    ? 'bg-[var(--kg-primary)] text-white shadow-xs'
-                    : 'text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-soft)] hover:text-[var(--kg-text)]'
+                    ? 'kg-filter-pill--active bg-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)] shadow-xs'
+                    : 'text-[var(--kg-text-muted)] hover:bg-[var(--kg-surface-2)] hover:text-[var(--kg-text)]'
                 }`}
               >
                 <Icon size={15} className="shrink-0" />
                 <span className="truncate">{item.label}</span>
                 {typeof item.badge === 'number' && item.badge > 0 && (
                   <span
-                    className={`hidden sm:inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-mono tabular-nums font-black ${
+                    className={`hidden sm:inline-flex px-1.5 py-0.5 rounded-md text-[10px] font-mono tabular-nums font-black ${
                       active
-                        ? 'bg-white/20 text-white'
+                        ? 'bg-[var(--kg-nav-active-fg)]/15 text-[var(--kg-nav-active-fg)]'
                         : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)]'
                     }`}
                   >
@@ -623,8 +606,8 @@ function AdminOperationsContent() {
                 <div
                   className={`rounded-2xl border p-3.5 flex flex-wrap items-center justify-between gap-2 text-xs ${
                     scoreGap > 1
-                      ? 'border-amber-500/35 bg-amber-500/10 text-amber-800 dark:text-amber-300'
-                      : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300'
+                      ? 'border-[var(--kg-warning)]/35 bg-[var(--kg-warning-soft)] text-[var(--kg-warning)]'
+                      : 'border-[var(--kg-success)]/30 bg-[var(--kg-success-soft)] text-[var(--kg-success)]'
                   }`}
                 >
                   <div className="flex items-center gap-2 font-bold">
@@ -657,7 +640,7 @@ function AdminOperationsContent() {
                       onClick={createTeam}
                       aria-label="Tạo nhóm trực mới"
                       title="Tạo nhóm trực mới"
-                      className="min-h-[44px] min-w-[44px] sm:min-h-[38px] sm:min-w-[38px] rounded-xl bg-[var(--kg-primary-soft)] hover:opacity-90 border border-[var(--kg-primary)]/20 text-[var(--kg-primary-ink)] inline-flex items-center justify-center shrink-0"
+                      className="min-h-[44px] min-w-[44px] sm:min-h-[38px] sm:min-w-[38px] rounded-xl bg-[var(--kg-primary-soft)] hover:opacity-90 border border-[var(--kg-primary)]/25 text-[var(--kg-primary-ink)] inline-flex items-center justify-center shrink-0"
                     >
                       <Plus size={17} />
                     </button>
@@ -668,10 +651,10 @@ function AdminOperationsContent() {
                         type="button"
                         key={team.id}
                         onClick={() => setSelectedTeamId(team.id)}
-                        className={`w-full rounded-xl border p-3 text-left transition-colors ${
+                        className={`w-full min-h-[44px] rounded-xl border p-3 text-left transition-colors ${
                           selectedTeamId === team.id
                             ? 'border-[var(--kg-primary)] bg-[var(--kg-primary-soft)]'
-                            : 'border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)]'
+                            : 'border-[var(--kg-border)] hover:bg-[var(--kg-surface-2)]'
                         }`}
                       >
                         <div className="flex items-center gap-2">
@@ -717,7 +700,7 @@ function AdminOperationsContent() {
                           onClick={() => void removeTeam(selectedTeam)}
                           aria-label={`Xóa nhóm ${selectedTeam.name}`}
                           title={`Xóa nhóm ${selectedTeam.name}`}
-                          className="min-h-[44px] min-w-[44px] sm:min-h-[38px] sm:min-w-[38px] rounded-xl text-rose-500 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 inline-flex items-center justify-center shrink-0"
+                          className="min-h-[44px] min-w-[44px] sm:min-h-[38px] sm:min-w-[38px] rounded-xl text-[var(--kg-danger)] hover:bg-[var(--kg-danger-soft)] border border-transparent hover:border-[var(--kg-danger)]/20 inline-flex items-center justify-center shrink-0"
                         >
                           <Trash2 size={17} />
                         </button>
@@ -730,7 +713,7 @@ function AdminOperationsContent() {
                         <select
                           value={selectedTeam.leaderUsername}
                           onChange={(event) => setTeamLeader(selectedTeam.id, event.target.value)}
-                          className="w-full min-h-[44px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-2 text-base sm:text-sm font-bold text-[var(--kg-text)]"
+                          className="w-full min-h-[44px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)] px-3 py-2 text-base sm:text-sm font-bold text-[var(--kg-text)]"
                         >
                           <option value="">Chưa chọn nhóm trưởng</option>
                           {employees
@@ -756,11 +739,11 @@ function AdminOperationsContent() {
                           placeholder="Tìm nhân viên theo tên hoặc bộ phận..."
                           value={memberSearchQuery}
                           onChange={(e) => setMemberSearchQuery(e.target.value)}
-                          className="mb-3 w-full min-h-[44px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-2 text-base sm:text-sm text-[var(--kg-text)]"
+                          className="mb-3 w-full min-h-[44px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)] px-3 py-2 text-base sm:text-sm text-[var(--kg-text)]"
                         />
                         <div className="space-y-4">
                           <div>
-                            <p className="text-[10px] font-bold uppercase text-emerald-600 dark:text-emerald-400 mb-2">
+                            <p className="text-[10px] font-bold uppercase text-[var(--kg-success)] mb-2">
                               Thành viên hiện tại ({filteredCurrentTeamEmployees.length})
                             </p>
                             {filteredCurrentTeamEmployees.length > 0 ? (
@@ -776,7 +759,7 @@ function AdminOperationsContent() {
                                       onClick={() => toggleMember(selectedTeam.id, employee.username)}
                                       className="min-h-[48px] flex items-center gap-3 rounded-xl border border-[var(--kg-primary)] bg-[var(--kg-primary-soft)] p-3 text-left transition-colors"
                                     >
-                                      <span className="flex h-5 w-5 items-center justify-center rounded-md bg-[var(--kg-primary)] text-white shrink-0">
+                                      <span className="flex h-5 w-5 items-center justify-center rounded-md bg-[var(--kg-primary)] text-[var(--kg-primary-fg)] shrink-0">
                                         <CheckCircle2 size={14} />
                                       </span>
                                       <span className="min-w-0 flex-1">
@@ -785,7 +768,9 @@ function AdminOperationsContent() {
                                         </span>
                                         <span className="block truncate text-[10px] text-[var(--kg-text-muted)]">
                                           {employee.position || 'Nhân viên'} ·{' '}
-                                          {operationScore(evaluation).toFixed(1)}/5
+                                          <span className="font-mono tabular-nums">
+                                            {operationScore(evaluation).toFixed(1)}/5
+                                          </span>
                                         </span>
                                       </span>
                                     </button>
@@ -814,7 +799,7 @@ function AdminOperationsContent() {
                                       type="button"
                                       key={employee.username}
                                       onClick={() => toggleMember(selectedTeam.id, employee.username)}
-                                      className="min-h-[48px] flex items-center gap-3 rounded-xl border border-[var(--kg-border)] hover:border-[var(--kg-primary)] p-3 text-left transition-colors"
+                                      className="min-h-[48px] flex items-center gap-3 rounded-xl border border-[var(--kg-border)] hover:border-[var(--kg-primary)] bg-[var(--kg-surface-2)] p-3 text-left transition-colors"
                                     >
                                       <span className="h-5 w-5 rounded-md border border-[var(--kg-border-strong)] bg-[var(--kg-surface)] shrink-0" />
                                       <span className="min-w-0 flex-1">
@@ -823,7 +808,9 @@ function AdminOperationsContent() {
                                         </span>
                                         <span className="block truncate text-[10px] text-[var(--kg-text-muted)]">
                                           {employee.position || 'Nhân viên'} ·{' '}
-                                          {operationScore(evaluation).toFixed(1)}/5
+                                          <span className="font-mono tabular-nums">
+                                            {operationScore(evaluation).toFixed(1)}/5
+                                          </span>
                                         </span>
                                       </span>
                                     </button>
@@ -839,7 +826,7 @@ function AdminOperationsContent() {
 
                           {filteredOtherTeamEmployees.length > 0 && (
                             <div className="border-t border-[var(--kg-border)] pt-4">
-                              <p className="text-[10px] font-bold uppercase text-rose-600 dark:text-rose-400 mb-2">
+                              <p className="text-[10px] font-bold uppercase text-[var(--kg-danger)] mb-2">
                                 Thành viên ở nhóm khác ({filteredOtherTeamEmployees.length}) — chạm để chuyển
                               </p>
                               <div className="grid gap-2 sm:grid-cols-2">
@@ -857,7 +844,7 @@ function AdminOperationsContent() {
                                       type="button"
                                       key={employee.username}
                                       onClick={() => toggleMember(selectedTeam.id, employee.username)}
-                                      className="min-h-[48px] flex items-center gap-3 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)]/50 p-3 text-left opacity-75 hover:opacity-100 hover:border-[var(--kg-primary)] transition-all"
+                                      className="min-h-[48px] flex items-center gap-3 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)] p-3 text-left opacity-80 hover:opacity-100 hover:border-[var(--kg-primary)] transition-all"
                                     >
                                       <span className="h-5 w-5 rounded-md border border-[var(--kg-border-strong)] bg-[var(--kg-surface)] shrink-0" />
                                       <span className="min-w-0 flex-1">
@@ -866,7 +853,9 @@ function AdminOperationsContent() {
                                         </span>
                                         <span className="block truncate text-[10px] text-[var(--kg-text-muted)]">
                                           {employee.position || 'Nhân viên'} ·{' '}
-                                          {operationScore(evaluation).toFixed(1)}/5
+                                          <span className="font-mono tabular-nums">
+                                            {operationScore(evaluation).toFixed(1)}/5
+                                          </span>
                                         </span>
                                         <span className="mt-0.5 inline-block text-[9px] font-bold text-[var(--kg-primary-ink)]">
                                           Đang ở: {otherTeam?.name || 'Nhóm khác'}
@@ -908,7 +897,7 @@ function AdminOperationsContent() {
                   <button
                     type="button"
                     onClick={autoRotateAllAssignments}
-                    className="w-full sm:w-auto min-h-[44px] sm:min-h-[38px] inline-flex items-center justify-center gap-1.5 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] px-4 py-2 text-xs font-bold text-white shadow-xs whitespace-nowrap shrink-0"
+                    className="w-full sm:w-auto min-h-[44px] sm:min-h-[38px] inline-flex items-center justify-center gap-1.5 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] px-4 py-2 text-xs font-bold text-[var(--kg-primary-fg)] shadow-xs whitespace-nowrap shrink-0"
                   >
                     <Sparkles size={14} className="shrink-0" /> Tự động xoay ca tất cả nhóm
                   </button>
@@ -916,18 +905,21 @@ function AdminOperationsContent() {
                 <div className="grid gap-2.5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
                   <input
                     type="date"
+                    aria-label="Ngày phân công"
                     value={assignmentDraft.date}
                     onChange={(event) =>
                       setAssignmentDraft((current) => ({ ...current, date: event.target.value }))
                     }
-                    className="w-full min-h-[44px] sm:min-h-[40px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-2 text-base sm:text-sm font-bold font-mono text-[var(--kg-text)]"
+                    className="w-full min-h-[44px] sm:min-h-[40px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)] px-3 py-2 text-base sm:text-sm font-bold font-mono tabular-nums text-[var(--kg-text)]"
                   />
                   <select
+                    aria-label="Nhóm trực phân công"
                     value={assignmentDraft.teamId}
-                    onChange={(event) =>
-                      setAssignmentDraft((current) => ({ ...current, teamId: event.target.value }))
-                    }
-                    className="w-full min-h-[44px] sm:min-h-[40px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-2 text-base sm:text-sm font-bold text-[var(--kg-text)]"
+                    onChange={(event) => {
+                      const nextTeamId = event.target.value;
+                      setAssignmentDraft((current) => ({ ...current, teamId: nextTeamId }));
+                    }}
+                    className="w-full min-h-[44px] sm:min-h-[40px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)] px-3 py-2 text-base sm:text-sm font-bold text-[var(--kg-text)]"
                   >
                     <option value="">Chọn nhóm trực</option>
                     {config.teams.map((team) => (
@@ -937,11 +929,14 @@ function AdminOperationsContent() {
                     ))}
                   </select>
                   <select
+                    aria-label="Khu trực phân công"
                     value={assignmentDraft.zoneId}
-                    onChange={(event) =>
-                      setAssignmentDraft((current) => ({ ...current, zoneId: event.target.value }))
-                    }
-                    className="w-full min-h-[44px] sm:min-h-[40px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-2 text-base sm:text-sm font-bold text-[var(--kg-text)]"
+                    onChange={(event) => {
+                      const nextZoneId = event.target.value;
+                      setHasManualZoneOverride(true);
+                      setAssignmentDraft((current) => ({ ...current, zoneId: nextZoneId }));
+                    }}
+                    className="w-full min-h-[44px] sm:min-h-[40px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)] px-3 py-2 text-base sm:text-sm font-bold text-[var(--kg-text)]"
                   >
                     <option value="">Chọn khu trực</option>
                     {config.zones.map((zone) => (
@@ -951,11 +946,12 @@ function AdminOperationsContent() {
                     ))}
                   </select>
                   <select
+                    aria-label="Ca trực phân công"
                     value={assignmentDraft.shift}
                     onChange={(event) =>
                       setAssignmentDraft((current) => ({ ...current, shift: event.target.value }))
                     }
-                    className="w-full min-h-[44px] sm:min-h-[40px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-2 text-base sm:text-sm font-bold text-[var(--kg-text)]"
+                    className="w-full min-h-[44px] sm:min-h-[40px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)] px-3 py-2 text-base sm:text-sm font-bold text-[var(--kg-text)]"
                   >
                     <option>Cả ngày</option>
                     <option>Ca sáng</option>
@@ -965,18 +961,38 @@ function AdminOperationsContent() {
                   <button
                     type="button"
                     onClick={addAssignment}
-                    className="sm:col-span-2 lg:col-span-1 min-h-[44px] sm:min-h-[40px] inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] px-4 py-2 text-sm font-extrabold text-white shadow-xs whitespace-nowrap"
+                    className="sm:col-span-2 lg:col-span-1 min-h-[44px] sm:min-h-[40px] inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] px-4 py-2 text-sm font-extrabold text-[var(--kg-primary-fg)] shadow-xs whitespace-nowrap"
                   >
                     <CalendarPlus size={16} className="shrink-0" /> Phân công
                   </button>
                 </div>
+                {hasManualZoneOverride && suggestedZoneId && (
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-[var(--kg-text-muted)]">
+                    <span>
+                      Đang giữ lựa chọn khu thủ công (không tự ghi đè).
+                    </span>
+                    {assignmentDraft.zoneId !== suggestedZoneId && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHasManualZoneOverride(false);
+                          setAssignmentDraft((current) => ({ ...current, zoneId: suggestedZoneId }));
+                        }}
+                        className="font-bold text-[var(--kg-primary-ink)] hover:underline"
+                      >
+                        Dùng khu gợi ý xoay vòng ({suggestedZoneId})
+                      </button>
+                    )}
+                  </div>
+                )}
                 <input
                   value={assignmentDraft.note}
                   onChange={(event) =>
                     setAssignmentDraft((current) => ({ ...current, note: event.target.value }))
                   }
                   placeholder="Ghi chú vận hành, yêu cầu đặc biệt..."
-                  className="mt-3 w-full min-h-[44px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-2 text-base sm:text-sm text-[var(--kg-text)]"
+                  aria-label="Ghi chú phân công"
+                  className="mt-3 w-full min-h-[44px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)] px-3 py-2 text-base sm:text-sm text-[var(--kg-text)]"
                 />
               </div>
 
@@ -996,56 +1012,65 @@ function AdminOperationsContent() {
                         .filter((log) => log.assignmentId === assignment.id)
                         .map((log) => log.taskId),
                     ).size;
+                    const trimmedNote = assignment.note?.trim();
                     return (
                       <div
                         key={assignment.id}
-                        className="grid gap-3 rounded-2xl border border-[var(--kg-border)] p-4 md:grid-cols-[130px_1fr_1fr_auto] md:items-center"
+                        className="rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)] p-4 space-y-2.5"
                       >
-                        <div>
-                          <p className="text-sm font-black font-mono tabular-nums text-[var(--kg-text)]">
-                            {formatOperationDate(assignment.date)}
-                          </p>
-                          <p className="mt-0.5 text-[11px] font-bold text-[var(--kg-text-muted)]">
-                            {assignment.shift}
-                          </p>
+                        <div className="grid gap-3 md:grid-cols-[130px_1fr_1fr_auto] md:items-center">
+                          <div>
+                            <p className="text-sm font-black font-mono tabular-nums text-[var(--kg-text)]">
+                              {formatOperationDate(assignment.date)}
+                            </p>
+                            <p className="mt-0.5 text-[11px] font-bold text-[var(--kg-text-muted)]">
+                              {assignment.shift}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold uppercase text-[var(--kg-text-muted)]">
+                              Nhóm trực
+                            </p>
+                            <p className="mt-0.5 text-sm font-extrabold text-[var(--kg-primary-ink)]">
+                              {team?.name || 'Nhóm đã xóa'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold uppercase text-[var(--kg-text-muted)]">
+                              Khu &amp; tiến độ
+                            </p>
+                            <p className="mt-0.5 text-sm font-extrabold text-[var(--kg-text)] font-mono tabular-nums">
+                              <span className="font-sans">{zone?.name || 'Khu đã xóa'}</span> ·{' '}
+                              {completedTasks}/{totalTasks} việc
+                            </p>
+                          </div>
+                          {assignment.isVirtual ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-[var(--kg-primary-ink)] bg-[var(--kg-primary-soft)] px-2.5 py-1 rounded-lg justify-self-end">
+                              <Sparkles size={11} /> Tự động
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              aria-label="Xóa phân công"
+                              onClick={() =>
+                                patchConfig((current) => ({
+                                  ...current,
+                                  assignments: current.assignments.filter(
+                                    (item) => item.id !== assignment.id,
+                                  ),
+                                }))
+                              }
+                              className="justify-self-end min-h-[44px] min-w-[44px] sm:min-h-[40px] sm:min-w-[40px] rounded-xl text-[var(--kg-text-muted)] hover:text-[var(--kg-danger)] hover:bg-[var(--kg-danger-soft)] inline-flex items-center justify-center"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
                         </div>
-                        <div>
-                          <p className="text-[10px] font-bold uppercase text-[var(--kg-text-muted)]">
-                            Nhóm trực
-                          </p>
-                          <p className="mt-0.5 text-sm font-extrabold text-[var(--kg-primary-ink)]">
-                            {team?.name || 'Nhóm đã xóa'}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-bold uppercase text-[var(--kg-text-muted)]">
-                            Khu &amp; tiến độ
-                          </p>
-                          <p className="mt-0.5 text-sm font-extrabold text-[var(--kg-text)] font-mono tabular-nums">
-                            <span className="font-sans">{zone?.name || 'Khu đã xóa'}</span> ·{' '}
-                            {completedTasks}/{totalTasks} việc
-                          </p>
-                        </div>
-                        {assignment.isVirtual ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-[var(--kg-primary-ink)] bg-[var(--kg-primary-soft)] px-2.5 py-1 rounded-lg justify-self-end">
-                            <Sparkles size={11} /> Tự động
-                          </span>
-                        ) : (
-                          <button
-                            type="button"
-                            aria-label="Xóa phân công"
-                            onClick={() =>
-                              patchConfig((current) => ({
-                                ...current,
-                                assignments: current.assignments.filter(
-                                  (item) => item.id !== assignment.id,
-                                ),
-                              }))
-                            }
-                            className="justify-self-end min-h-[40px] min-w-[40px] rounded-xl text-[var(--kg-text-muted)] hover:text-rose-500 hover:bg-rose-500/10 inline-flex items-center justify-center"
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                        {trimmedNote && (
+                          <div className="flex items-start gap-2 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] px-3 py-2 text-xs text-[var(--kg-text)]">
+                            <StickyNote size={14} className="text-[var(--kg-primary-ink)] shrink-0 mt-0.5" />
+                            <span className="leading-relaxed break-words">{trimmedNote}</span>
+                          </div>
                         )}
                       </div>
                     );
@@ -1077,7 +1102,7 @@ function AdminOperationsContent() {
                     placeholder="Tìm nhân viên..."
                     value={evalSearchQuery}
                     onChange={(e) => setEvalSearchQuery(e.target.value)}
-                    className="w-full sm:w-52 min-h-[44px] sm:min-h-[38px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-2 text-base sm:text-xs text-[var(--kg-text)]"
+                    className="w-full sm:w-52 min-h-[44px] sm:min-h-[38px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)] px-3 py-2 text-base sm:text-xs text-[var(--kg-text)]"
                   />
                   <button
                     type="button"
@@ -1116,7 +1141,7 @@ function AdminOperationsContent() {
                     return (
                       <div
                         key={employee.username}
-                        className="rounded-2xl border border-[var(--kg-border)] p-4"
+                        className="rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)] p-4"
                       >
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div>
@@ -1127,7 +1152,7 @@ function AdminOperationsContent() {
                               {employee.position || 'Nhân viên'}
                             </p>
                           </div>
-                          <span className="rounded-full bg-amber-500/15 px-3 py-1 text-sm font-black font-mono tabular-nums text-amber-700 dark:text-amber-300">
+                          <span className="rounded-full bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/25 px-3 py-1 text-sm font-black font-mono tabular-nums text-[var(--kg-warning)]">
                             {operationScore(evaluation).toFixed(1)}/5
                           </span>
                         </div>
@@ -1143,7 +1168,7 @@ function AdminOperationsContent() {
                           ).map(([field, label], idx) => (
                             <label
                               key={field}
-                              className={`rounded-xl bg-[var(--kg-surface-soft)] p-2.5 border border-[var(--kg-border)] ${idx === 4 ? 'col-span-2 sm:col-span-1' : ''}`}
+                              className={`rounded-xl bg-[var(--kg-surface)] p-2.5 border border-[var(--kg-border)] ${idx === 4 ? 'col-span-2 sm:col-span-1' : ''}`}
                             >
                               <span className="block text-[10px] font-bold uppercase text-[var(--kg-text-muted)]">
                                 {label}
@@ -1174,7 +1199,7 @@ function AdminOperationsContent() {
                             updateEvaluation(employee.username, 'note', event.target.value)
                           }
                           placeholder="Nhận xét, điểm mạnh, hạn chế hoặc lưu ý khi xếp nhóm..."
-                          className="mt-3 w-full min-h-[44px] sm:min-h-[38px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] px-3 py-2 text-base sm:text-xs text-[var(--kg-text)]"
+                          className="mt-3 w-full min-h-[44px] sm:min-h-[38px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface)] px-3 py-2 text-base sm:text-xs text-[var(--kg-text)]"
                         />
                       </div>
                     );
@@ -1185,8 +1210,8 @@ function AdminOperationsContent() {
         </>
       )}
 
-      {/* Sticky Save Bar — stays centered within the workspace container across all devices */}
-      <div className="sticky bottom-[calc(5.25rem+env(safe-area-inset-bottom,0px))] md:bottom-4 z-30 mx-auto flex w-full max-w-[720px] items-center gap-2 rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface)]/95 backdrop-blur-sm p-2 shadow-xl">
+      {/* Sticky Save Bar — solid surface */}
+      <div className="sticky bottom-[calc(5.25rem+env(safe-area-inset-bottom,0px))] md:bottom-4 z-30 mx-auto flex w-full max-w-[720px] items-center gap-2 rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface)] p-2 shadow-xl">
         <button
           type="button"
           onClick={() => void loadData()}
@@ -1209,7 +1234,7 @@ function AdminOperationsContent() {
           type="button"
           onClick={() => void saveConfig()}
           disabled={saving || loading || !dirty}
-          className="inline-flex h-11 sm:h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] px-4 text-xs font-extrabold text-white shadow-xs disabled:cursor-not-allowed disabled:opacity-45 whitespace-nowrap"
+          className="inline-flex min-h-[44px] sm:min-h-[40px] shrink-0 items-center justify-center gap-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] px-4 text-xs font-extrabold text-[var(--kg-primary-fg)] shadow-xs disabled:cursor-not-allowed disabled:opacity-45 whitespace-nowrap"
         >
           {saving ? <LoaderCircle size={16} className="animate-spin shrink-0" /> : <Save size={16} className="shrink-0" />}
           <span>{saving ? 'Đang lưu' : 'Lưu cấu hình'}</span>

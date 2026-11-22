@@ -162,7 +162,7 @@ const ModuleRecoverFallback = ({
             <button
               type="button"
               onClick={onRetry}
-              className="px-4 py-2 min-h-[44px] sm:min-h-[40px] text-xs sm:text-sm font-bold rounded-xl bg-[var(--kg-primary)] text-white hover:brightness-105 active:scale-98 transition inline-flex items-center justify-center gap-2 shadow-xs"
+              className="px-4 py-2 min-h-[44px] sm:min-h-[40px] text-xs sm:text-sm font-bold rounded-xl bg-[var(--kg-primary)] text-[var(--kg-primary-fg)] hover:bg-[var(--kg-primary-hover)] active:scale-98 transition inline-flex items-center justify-center gap-2 shadow-xs"
             >
               <RefreshCw size={15} /> Thử nạp lại
             </button>
@@ -170,7 +170,7 @@ const ModuleRecoverFallback = ({
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="px-4 py-2 min-h-[44px] sm:min-h-[40px] text-xs sm:text-sm font-bold rounded-xl bg-[var(--kg-primary)] text-white hover:brightness-105 active:scale-98 transition inline-flex items-center justify-center gap-2 shadow-xs"
+              className="px-4 py-2 min-h-[44px] sm:min-h-[40px] text-xs sm:text-sm font-bold rounded-xl bg-[var(--kg-primary)] text-[var(--kg-primary-fg)] hover:bg-[var(--kg-primary-hover)] active:scale-98 transition inline-flex items-center justify-center gap-2 shadow-xs"
             >
               <RefreshCw size={15} /> Làm mới
             </button>
@@ -413,6 +413,10 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
     payrollDisputesCount +
     (store.pendingFeedbackCount || 0);
 
+  useEffect(() => {
+    useAppStore.getState().setAdminPendingQueueCount?.(isAdmin ? totalAdminQueueCount : 0);
+  }, [isAdmin, totalAdminQueueCount]);
+
   // Discrepancy Logic (synced with 06:00-05:59 Vietnam workday cycle)
   const [wdYear, wdMonth, wdDay] = workdayDateKey.split('-');
   const todayPrefix = `${wdDay}/${wdMonth}/${wdYear}`;
@@ -497,7 +501,7 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
           <button
             type="button"
             onClick={() => onTabChange('schedule')}
-            className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs transition-colors active:scale-95 touch-manipulation whitespace-nowrap flex-shrink-0 min-h-[44px] sm:min-h-[40px]"
+            className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] text-xs font-bold shadow-xs transition-colors active:scale-95 touch-manipulation whitespace-nowrap flex-shrink-0 min-h-[44px] sm:min-h-[40px]"
           >
             Đăng ký ca ngay →
           </button>

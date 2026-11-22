@@ -5,7 +5,6 @@ import { callApi } from '../services/api';
 import {
   speak,
   computeWeekInfo,
-  getActiveShiftClass,
   getPreviewShiftClass,
   SHIFT_OPTIONS,
   SHORT_DAY_NAMES,
@@ -22,7 +21,7 @@ import {
   getCurrentTimeString,
 } from '../utils/helpers';
 import type { MonthDateInfo } from '../utils/helpers';
-import { CalendarCheck, Eye, AlertTriangle, Send, Lock, ExternalLink, Clock, RefreshCw, Pencil, CheckCheck, Inbox, LayoutGrid, CalendarRange, ChevronLeft, ChevronRight, ChevronDown, Sparkles, X, Bot, Info, FileSpreadsheet, ShieldCheck, CheckCircle2, Copy, ArrowLeftRight } from 'lucide-react';
+import { CalendarCheck, Eye, AlertTriangle, Send, Lock, ExternalLink, Clock, RefreshCw, Pencil, CheckCheck, Inbox, LayoutGrid, CalendarRange, ChevronLeft, ChevronRight, ChevronDown, Sparkles, X, Bot, Info, FileSpreadsheet, ShieldCheck, CheckCircle2, Copy, ArrowLeftRight, Briefcase, Calendar } from 'lucide-react';
 import { KgModuleHero, KgAlertCard, KgButton, KgBottomSheet, KgConfirmSheet } from '../components/KgDesignSystem';
 import { getCalendarDayMeta } from '../utils/calendarHighlights';
 import { isWorkEligible } from '../utils/employment';
@@ -51,6 +50,19 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
   const isManagerView = mode === 'admin' && currentUser?.role === 'admin';
 
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
+  const [isMobileViewport, setIsMobileViewport] = useState<boolean>(() =>
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      ? window.matchMedia('(max-width: 767px)').matches
+      : false
+  );
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const mq = window.matchMedia('(max-width: 767px)');
+    const sync = () => setIsMobileViewport(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
   const [aiModalOpen, setAiModalOpen] = useState(false);
   const [aiInputText, setAiInputText] = useState('');
   const [isAiProcessing, setIsAiProcessing] = useState(false);
@@ -493,6 +505,18 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
   const handleShiftChange = (key: string, value: string) => {
     if (!isOpen) return;
     store.updateShiftData(key, value);
+  };
+
+  const handleCopyMondayShift = () => {
+    if (!isOpen) return;
+    const monKey = weekInfo.weekDatesKeys[0];
+    const monShift = shiftData[monKey] || 'OFF';
+    const nextShifts = { ...shiftData };
+    for (let i = 1; i < 5; i++) {
+      nextShifts[weekInfo.weekDatesKeys[i]] = monShift;
+    }
+    store.setShiftData(nextShifts);
+    pushToast(`Đã sao chép ca Thứ 2 (${monShift}) cho T3–T6!`, 'success');
   };
 
   const startEditing = () => {
@@ -1174,14 +1198,14 @@ ${aiInputText}
               <button
                 type="button"
                 onClick={() => setViewMode('week')}
-                className={`flex-1 sm:flex-initial min-h-[44px] min-w-[44px] lg:min-h-[38px] flex items-center justify-center px-4 py-2 rounded-lg text-xs sm:text-sm font-black transition-all touch-manipulation ${viewMode === 'week' ? 'bg-[var(--kg-primary)] text-white shadow-xs' : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'}`}
+                className={`flex-1 sm:flex-initial min-h-[44px] min-w-[44px] lg:min-h-[38px] flex items-center justify-center px-4 py-2 rounded-lg text-xs sm:text-sm font-black transition-all touch-manipulation ${viewMode === 'week' ? 'bg-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)] shadow-xs' : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'}`}
               >
                 <CalendarRange size={15} className="mr-1.5 flex-shrink-0" /> Tuần
               </button>
               <button
                 type="button"
                 onClick={() => setViewMode('month')}
-                className={`flex-1 sm:flex-initial min-h-[44px] min-w-[44px] lg:min-h-[38px] flex items-center justify-center px-4 py-2 rounded-lg text-xs sm:text-sm font-black transition-all touch-manipulation ${viewMode === 'month' ? 'bg-[var(--kg-primary)] text-white shadow-xs' : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'}`}
+                className={`flex-1 sm:flex-initial min-h-[44px] min-w-[44px] lg:min-h-[38px] flex items-center justify-center px-4 py-2 rounded-lg text-xs sm:text-sm font-black transition-all touch-manipulation ${viewMode === 'month' ? 'bg-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)] shadow-xs' : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'}`}
               >
                 <LayoutGrid size={15} className="mr-1.5 flex-shrink-0" /> Tháng
               </button>
@@ -1254,9 +1278,9 @@ ${aiInputText}
             </div>
           </div>
 
-          <div className="md:hidden mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 flex items-start space-x-3 text-blue-700 dark:text-blue-300">
+          <div className="md:hidden mb-3 p-3 bg-[var(--kg-info-soft)] rounded-xl border border-[var(--kg-info)]/25 flex items-start space-x-3 text-[var(--kg-info)]">
             <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" />
-            <div className="text-sm font-medium">
+            <div className="text-xs font-semibold text-[var(--kg-text)]">
               Lịch tuần đã được thu gọn đủ 7 ngày. Chạm vào từng ô để điều chỉnh ca làm.
             </div>
           </div>
@@ -1335,28 +1359,23 @@ ${aiInputText}
                               {isChanged && <div className="absolute top-0 right-0 w-2 h-2 bg-orange-500 rounded-full animate-pulse" title="Đã thay đổi"></div>}
                               {!isChanged && hasNote && <div className="absolute top-0 right-0 w-2 h-2 bg-[var(--kg-primary)] rounded-full" title={tooltipText}></div>}
                               <div className="relative" title={tooltipText}>
-                                <select value={shift || ''} onChange={(e) => updateAdminShift(empIdx, dayIdx, e.target.value)}
+                                <select
+                                  value={shift || ''}
+                                  onChange={(e) => updateAdminShift(empIdx, dayIdx, e.target.value)}
                                   aria-label={`${emp.fullname} - ${SHORT_DAY_NAMES[dayIdx]}`}
-                                  className={`schedule-shift-select schedule-shift-select--mobile md:hidden text-[10px] font-bold rounded-lg border focus:outline-none w-full cursor-pointer appearance-none text-center transition-all ${
+                                  className={`schedule-shift-select schedule-shift-select--mobile text-[10px] md:text-xs font-bold rounded-lg border focus:outline-none md:px-2 md:py-1.5 w-full md:min-w-[84px] cursor-pointer appearance-none text-center transition-all ${
                                     isChanged
-                                      ? 'border-orange-500 ring-1 ring-orange-200 dark:ring-orange-900/50 shadow-sm ' + getAdminShiftClass(shift)
-                                      : 'border-[var(--kg-border)] focus:ring-1 focus:ring-[var(--kg-primary)] ' + getAdminShiftClass(shift)
-                                  }`}>
-                                  <option value="">—</option>
+                                      ? 'border-orange-500 ring-1 md:ring-2 ring-orange-200 dark:ring-orange-900/50 shadow-sm ' + getAdminShiftClass(shift)
+                                      : 'border-[var(--kg-border)] focus:ring-1 md:focus:ring-2 focus:ring-[var(--kg-primary)] ' + getAdminShiftClass(shift)
+                                  }`}
+                                >
+                                  <option value="" className="bg-[var(--kg-surface)] text-[var(--kg-text)]">
+                                    {isMobileViewport ? '—' : '(Trống)'}
+                                  </option>
                                   {ADMIN_SHIFT_OPTIONS.map((opt) => (
-                                    <option key={opt} value={opt} className="bg-white text-gray-800">{formatMobileShift(opt)}</option>
-                                  ))}
-                                </select>
-                                <select value={shift || ''} onChange={(e) => updateAdminShift(empIdx, dayIdx, e.target.value)}
-                                  aria-label={`${emp.fullname} - ${SHORT_DAY_NAMES[dayIdx]}`}
-                                  className={`text-xs font-bold rounded-lg border focus:outline-none px-2 py-1.5 w-full min-w-[84px] cursor-pointer appearance-none text-center transition-all ${
-                                    isChanged 
-                                      ? 'border-orange-500 ring-2 ring-orange-200 dark:ring-orange-900/50 shadow-sm ' + getAdminShiftClass(shift)
-                                      : 'border-[var(--kg-border)] focus:ring-2 focus:ring-[var(--kg-primary)] ' + getAdminShiftClass(shift)
-                                  } hidden md:block`}>
-                                  <option value="">(Trống)</option>
-                                  {ADMIN_SHIFT_OPTIONS.map((opt) => (
-                                    <option key={opt} value={opt} className="bg-white text-gray-800">{opt}</option>
+                                    <option key={opt} value={opt} className="bg-[var(--kg-surface)] text-[var(--kg-text)]">
+                                      {isMobileViewport ? formatMobileShift(opt) : opt}
+                                    </option>
                                   ))}
                                 </select>
                               </div>
@@ -1372,26 +1391,17 @@ ${aiInputText}
                 </table>
               </div>
               <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-end gap-2.5 mb-2">
-                <button 
+                <button
                   type="button"
-                  onClick={() => setAiModalOpen(true)} 
-                  className="w-full sm:w-auto px-4 lg:px-5 min-h-[46px] sm:min-h-[42px] bg-[var(--kg-primary)] hover:brightness-110 text-white font-black py-2.5 rounded-xl shadow-sm transition transform active:scale-98 flex items-center justify-center touch-manipulation text-xs sm:text-sm tracking-wider uppercase whitespace-nowrap"
+                  onClick={() => setAiModalOpen(true)}
+                  className="w-full sm:w-auto px-4 lg:px-5 min-h-[46px] sm:min-h-[42px] bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] font-black py-2.5 rounded-xl shadow-sm transition transform active:scale-98 flex items-center justify-center touch-manipulation text-xs sm:text-sm tracking-wider uppercase whitespace-nowrap"
                 >
-                  <Bot size={17} className="mr-2 text-[var(--kg-accent)] flex-shrink-0" /> XẾP CA BẰNG AI
+                  <Bot size={17} className="mr-2 flex-shrink-0" /> XẾP CA BẰNG AI
                 </button>
-                <button 
+                <button
                   type="button"
-                  onClick={handleManualSyncRoster}
-                  disabled={isSyncingRoster}
-                  className="w-full sm:w-auto px-4 lg:px-5 min-h-[46px] sm:min-h-[42px] bg-blue-600 hover:bg-blue-700 text-white font-black py-2.5 rounded-xl shadow-sm transition transform active:scale-98 flex items-center justify-center touch-manipulation text-xs sm:text-sm tracking-wider uppercase whitespace-nowrap disabled:opacity-50"
-                  title="Đồng bộ lại sang Sheet Lịch Làm (1Vrm...)"
-                >
-                  <FileSpreadsheet size={17} className={`mr-2 flex-shrink-0 ${isSyncingRoster ? 'animate-spin' : ''}`} /> ĐỒNG BỘ ROSTER
-                </button>
-                <button 
-                  type="button"
-                  onClick={approveAllSchedules} 
-                  className="w-full sm:w-auto px-5 lg:px-6 min-h-[46px] sm:min-h-[42px] bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 rounded-xl shadow-sm transition transform active:scale-98 flex items-center justify-center touch-manipulation text-xs sm:text-sm tracking-wider uppercase whitespace-nowrap"
+                  onClick={approveAllSchedules}
+                  className="w-full sm:w-auto px-5 lg:px-6 min-h-[46px] sm:min-h-[42px] bg-[var(--kg-success)] hover:brightness-95 text-white dark:text-[#0D1015] font-black py-2.5 rounded-xl shadow-sm transition transform active:scale-98 flex items-center justify-center touch-manipulation text-xs sm:text-sm tracking-wider uppercase whitespace-nowrap"
                 >
                   <CheckCheck size={17} className="mr-2 flex-shrink-0" /> DUYỆT &amp; ĐỒNG BỘ LỊCH LÀM
                 </button>
@@ -1454,7 +1464,7 @@ ${aiInputText}
                   </div>
                   <div className="min-w-0 space-y-1">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-[var(--kg-success)] text-white">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-[var(--kg-success)] text-white dark:text-[#0D1015]">
                         <ShieldCheck size={10} /> {scheduleStatus === 'approved' ? 'Lịch đã duyệt' : 'Đã ghi nhớ tuần tới'}
                       </span>
                       <span className="text-[11px] font-bold text-[var(--kg-text-muted)] font-mono tabular-nums">
@@ -1607,16 +1617,16 @@ ${aiInputText}
                       <button
                         type="button"
                         onClick={startEditing}
-                        className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] bg-[var(--kg-primary)] hover:brightness-110 text-white font-black py-2.5 px-5 rounded-xl shadow-xs transition-all active:scale-98 flex items-center justify-center touch-manipulation text-xs sm:text-sm tracking-wide uppercase whitespace-nowrap"
+                        className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] font-black py-2.5 px-5 rounded-xl shadow-xs transition-all active:scale-98 flex items-center justify-center touch-manipulation text-xs sm:text-sm tracking-wide uppercase whitespace-nowrap"
                       >
-                        <Pencil size={15} className="mr-2 text-[var(--kg-accent)] flex-shrink-0" /> Chỉnh sửa đăng ký ca
+                        <Pencil size={15} className="mr-2 flex-shrink-0" /> Chỉnh sửa đăng ký ca
                       </button>
                     )}
                     {(!isOpen || scheduleStatus === 'approved') && (
                       <button
                         type="button"
                         onClick={handleGoToSwap}
-                        className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] px-5 py-2.5 rounded-xl bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] border border-[var(--kg-primary)]/25 text-xs sm:text-sm font-black inline-flex items-center justify-center gap-1.5 hover:bg-[var(--kg-primary)] hover:text-white transition-colors touch-manipulation whitespace-nowrap"
+                        className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] px-5 py-2.5 rounded-xl bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] border border-[var(--kg-primary)]/25 text-xs sm:text-sm font-black inline-flex items-center justify-center gap-1.5 hover:bg-[var(--kg-primary)] hover:text-[var(--kg-primary-fg)] transition-colors touch-manipulation whitespace-nowrap"
                       >
                         <ArrowLeftRight size={14} />
                         <span>Đổi ca</span>
@@ -1644,7 +1654,7 @@ ${aiInputText}
             <button
               type="button"
               onClick={handleGoToSwap}
-              className="min-h-[44px] px-4 py-2 rounded-xl bg-[var(--kg-primary)] text-white text-xs font-black inline-flex items-center justify-center gap-1.5 shrink-0 touch-manipulation"
+              className="min-h-[44px] px-4 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] text-xs font-black inline-flex items-center justify-center gap-1.5 shrink-0 touch-manipulation"
             >
               <ArrowLeftRight size={14} />
               <span>Đổi ca</span>
@@ -1661,7 +1671,15 @@ ${aiInputText}
       {/* === CLOSED WINDOW (registered - already shown pending status above, no error needed) === */}
 
       {/* === REGISTRATION FORM (new registration or editing) === */}
-      {showRegistrationForm && (
+      {showRegistrationForm && (() => {
+        const workShiftOptions = SHIFT_OPTIONS.filter((s) => s !== 'OFF');
+        const selectedWorkCount = weekInfo.weekDatesKeys.filter(
+          (k) => (shiftData[k] || 'OFF') !== 'OFF'
+        ).length;
+        const selectedOffCount = 7 - selectedWorkCount;
+        const needsOffReason = hasWeekendOff || hasConsecutiveOffs || hasHolidayOff;
+
+        return (
         <>
           {/* Sticky Collapsible 7-Day Preview Summary */}
           <div className="sticky top-2 z-20 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-3 mb-4 shadow-md">
@@ -1713,17 +1731,37 @@ ${aiInputText}
             )}
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-4 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl px-4 py-3 shadow-2xs">
-            <div className="text-xs text-[var(--kg-text-muted)] font-medium">
-              Muốn giữ nguyên khung giờ làm như tuần này? Điền tự động đủ 7 ngày chỉ với 1 chạm:
+          {/* Quick Actions Bar + Selected Count */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-4 bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-3.5 sm:px-4 sm:py-3 shadow-xs">
+            <div className="flex items-center justify-between sm:justify-start gap-2.5">
+              <div>
+                <h3 className="text-xs sm:text-sm font-black text-[var(--kg-text)]">
+                  Tuần làm việc sắp tới
+                </h3>
+                <p className="text-[11px] text-[var(--kg-text-muted)]">
+                  Chạm vào giờ ca hoặc nút OFF để đổi lựa chọn
+                </p>
+              </div>
+              <span className="px-2.5 py-1 rounded-lg bg-[var(--kg-success-soft)] text-[var(--kg-success)] text-xs font-extrabold font-mono tabular-nums whitespace-nowrap">
+                {selectedWorkCount} ca đã chọn
+              </span>
             </div>
-            <button
-              type="button"
-              onClick={handleCopyEmployeeCurrentWeek}
-              className="inline-flex items-center gap-1.5 min-h-[44px] sm:min-h-[36px] px-3 py-2 rounded-xl text-xs font-black bg-[var(--kg-accent-soft)] text-[var(--kg-primary)] border border-[var(--kg-primary)]/25 hover:bg-[var(--kg-primary)] hover:text-white transition-all active:scale-95 touch-manipulation"
-            >
-              <Copy size={14} /> Sao chép lịch tuần này
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleCopyMondayShift}
+                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-[36px] px-3 py-2 rounded-xl text-xs font-extrabold bg-[var(--kg-surface-2)] text-[var(--kg-text)] border border-[var(--kg-border)] hover:border-[var(--kg-primary)] hover:text-[var(--kg-primary-ink)] transition-all active:scale-95 touch-manipulation whitespace-nowrap"
+              >
+                <Copy size={14} /> Sao chép ca T2
+              </button>
+              <button
+                type="button"
+                onClick={handleCopyEmployeeCurrentWeek}
+                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-[36px] px-3 py-2 rounded-xl text-xs font-extrabold bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] border border-[var(--kg-primary)]/25 hover:bg-[var(--kg-primary)] hover:text-[var(--kg-primary-fg)] transition-all active:scale-95 touch-manipulation whitespace-nowrap"
+              >
+                <Copy size={14} /> Sao chép lịch tuần này
+              </button>
+            </div>
           </div>
 
           {/* Editing banner */}
@@ -1740,82 +1778,184 @@ ${aiInputText}
             </div>
           )}
 
-          {/* Day-by-day shift selection: 1-col Mobile/Tablet, balanced 2-col grid on Laptop/Desktop */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 sm:gap-4 mb-6">
+          {/* Toast Touch 1-Tap Shift Chip Cards: 1-col Mobile, 2-col Laptop/Desktop */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-3.5 mb-5">
             {SHORT_DAY_NAMES.map((shortDayName, index) => {
               const key = weekInfo.weekDatesKeys[index];
               const currentShift = shiftData[key] || 'OFF';
+              const isPeak = index >= 4 || weekDayMeta[index].kind !== 'normal';
+              const isOff = currentShift === 'OFF';
+
               return (
-                <div
+                <section
                   key={index}
-                  className={`calendar-registration-day bg-[var(--kg-surface)] border border-[var(--kg-border)] shadow-xs p-3.5 sm:p-4 rounded-2xl transition hover:border-[var(--kg-border-strong)] ${weekDayMeta[index].className}`}
+                  className={`calendar-registration-day bg-[var(--kg-surface)] border shadow-xs p-3.5 sm:p-4 rounded-2xl transition hover:border-[var(--kg-border-strong)] ${
+                    isPeak ? 'border-[var(--kg-accent)]/55' : 'border-[var(--kg-border)]'
+                  } ${weekDayMeta[index].className}`}
                   title={weekDayMeta[index].label || undefined}
                 >
-                  <div className="flex justify-between items-center mb-3">
-                    <span className={`font-bold ${index >= 4 && currentShift === 'OFF' ? 'text-red-500' : 'text-gray-800 dark:text-white'}`}>
-                      <span className="font-mono tabular-nums">{weekInfo.weekDates[index]}</span>{' '}
-                      <span className="text-sm text-gray-500 dark:text-gray-400 font-medium ml-0.5">({shortDayName})</span>
-                      {weekDayMeta[index].kind !== 'normal' && (
-                        <span className="calendar-day-label ml-2 text-xs px-1.5 py-0.5 rounded">
-                          {weekDayMeta[index].kind === 'holiday'
-                            ? 'Lễ/Tết'
-                            : weekDayMeta[index].kind === 'fnb'
-                              ? 'Cao điểm F&B'
-                              : 'Cuối tuần'}
-                        </span>
-                      )}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h4
+                          className={`text-sm font-extrabold font-mono tabular-nums ${
+                            isPeak ? 'text-[var(--kg-primary-ink)]' : 'text-[var(--kg-text)]'
+                          }`}
+                        >
+                          {shortDayName} · {weekInfo.weekDates[index]}
+                        </h4>
+                        {weekDayMeta[index].kind !== 'normal' && (
+                          <span className="calendar-day-label text-[10px] font-bold px-1.5 py-0.5 rounded">
+                            {weekDayMeta[index].kind === 'holiday'
+                              ? 'Lễ/Tết'
+                              : weekDayMeta[index].kind === 'fnb'
+                                ? 'Cao điểm F&B'
+                                : 'Cuối tuần'}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-[var(--kg-text-muted)] mt-0.5">
+                        {isPeak ? 'Cao điểm cuối tuần / lễ' : 'Ngày trong tuần'}
+                      </p>
+                    </div>
+                    <span
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold font-mono tabular-nums shrink-0 ${
+                        isOff
+                          ? 'bg-[var(--kg-danger-soft)] text-[var(--kg-danger)]'
+                          : 'bg-[var(--kg-success-soft)] text-[var(--kg-success)]'
+                      }`}
+                    >
+                      {currentShift}
                     </span>
                   </div>
-                  <div className="grid grid-cols-3 sm:flex sm:flex-wrap gap-2">
-                    {SHIFT_OPTIONS.map((shift) => (
-                      <button 
-                        key={shift} 
-                        type="button"
-                        onClick={() => handleShiftChange(key, shift)}
-                        className={`min-w-0 px-2 sm:px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition-all transform active:scale-95 touch-manipulation min-h-[44px] sm:min-h-[38px] flex items-center justify-center ${currentShift === shift ? getActiveShiftClass(shift) : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)] hover:bg-[var(--kg-border)]/50'}`}
-                      >
-                        <ResponsiveShift shift={shift} />
-                      </button>
-                    ))}
+
+                  {/* 5 Working Shift Chips + Full-Width OFF Button */}
+                  <div className="grid grid-cols-5 gap-1.5 mt-3">
+                    {workShiftOptions.map((shift) => {
+                      const active = currentShift === shift;
+                      return (
+                        <button
+                          key={shift}
+                          type="button"
+                          aria-pressed={active}
+                          onClick={() => handleShiftChange(key, shift)}
+                          className={`kg-shift-chip ${active ? 'kg-shift-chip--active' : ''} !min-w-0 !px-1 min-h-[44px] font-mono tabular-nums text-xs font-extrabold flex items-center justify-center touch-manipulation`}
+                        >
+                          {shift}
+                        </button>
+                      );
+                    })}
                   </div>
-                </div>
+                  <button
+                    type="button"
+                    aria-pressed={isOff}
+                    onClick={() => handleShiftChange(key, 'OFF')}
+                    className={`kg-shift-chip ${isOff ? 'kg-shift-chip--off' : ''} w-full mt-2 min-h-[44px] text-xs font-extrabold flex items-center justify-center touch-manipulation`}
+                  >
+                    OFF
+                  </button>
+                </section>
               );
             })}
           </div>
 
-          {/* Warning + reason input */}
-          {(hasWeekendOff || hasConsecutiveOffs || hasHolidayOff) && (
-            <div className="bg-[var(--kg-danger-soft)] border border-[var(--kg-danger)]/35 p-4 rounded-2xl mb-6 animate-fade-in shadow-2xs">
-              <div className="flex items-start">
-                <AlertTriangle size={20} className="text-[var(--kg-danger)] mt-0.5 mr-3 flex-shrink-0" />
-                <div className="flex-1">
-                  <h4 className="font-bold text-[var(--kg-danger)] text-sm mb-1">Quy định nộp lịch</h4>
-                  <ul className="text-xs text-[var(--kg-text)] list-disc list-inside mb-3 space-y-1 ml-1 font-medium">
-                    {hasConsecutiveOffs && <li>Bạn đang chọn OFF từ 2 ngày liên tiếp trở lên.</li>}
-                    {hasWeekendOff && <li>Bạn đang chọn OFF vào ngày cuối tuần (T6, T7 hoặc CN).</li>}
-                    {hasHolidayOff && <li>Bạn đang chọn OFF vào ngày Lễ/Tết cao điểm.</li>}
-                  </ul>
-                  <p className="text-xs font-medium text-[var(--kg-text-muted)] mb-3">
-                    Vui lòng nhập lý do bên dưới VÀ gửi hình ảnh minh chứng vào nhóm Zalo lịch làm: <br />
-                    <a href="https://zalo.me/g/zkowlm391" target="_blank" rel="noreferrer" className="inline-flex items-center text-[var(--kg-primary)] bg-[var(--kg-primary-soft)] border border-[var(--kg-primary)]/20 px-2.5 py-1 rounded-lg mt-1.5 hover:underline font-bold">
-                      <ExternalLink size={12} className="mr-1" /> Mở nhóm Zalo lịch làm
-                    </a>
+          {/* 2-Column Split: OFF Justification + Weekly Summary */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5 items-start">
+            <div
+              className={`bg-[var(--kg-surface)] border rounded-2xl p-4 sm:p-5 shadow-xs space-y-3 ${
+                needsOffReason ? 'border-[var(--kg-danger)]/40' : 'border-[var(--kg-border)]'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <h4 className="font-extrabold text-sm text-[var(--kg-text)]">
+                  Giải trình ngày OFF
+                </h4>
+                <span
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold ${
+                    needsOffReason
+                      ? 'bg-[var(--kg-warning-soft)] text-[var(--kg-warning)]'
+                      : 'bg-[var(--kg-success-soft)] text-[var(--kg-success)]'
+                  }`}
+                >
+                  {needsOffReason ? 'Cần lý do' : 'Không bắt buộc'}
+                </span>
+              </div>
+
+              {needsOffReason ? (
+                <div className="bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/30 p-3 rounded-xl text-xs space-y-2">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle size={16} className="text-[var(--kg-warning)] mt-0.5 shrink-0" />
+                    <ul className="text-[var(--kg-text)] list-disc list-inside space-y-0.5 font-medium">
+                      {hasConsecutiveOffs && <li>Bạn đang chọn OFF từ 2 ngày liên tiếp trở lên.</li>}
+                      {hasWeekendOff && <li>Bạn đang chọn OFF vào ngày cuối tuần (T6, T7 hoặc CN).</li>}
+                      {hasHolidayOff && <li>Bạn đang chọn OFF vào ngày Lễ/Tết cao điểm.</li>}
+                    </ul>
+                  </div>
+                  <p className="text-[11px] text-[var(--kg-text-muted)]">
+                    Nhập lý do bên dưới và gửi hình ảnh minh chứng vào nhóm Zalo lịch làm:
                   </p>
-                  <label htmlFor="schedule-off-reason" className="block text-xs font-bold text-[var(--kg-text)] mb-1.5">
-                    Lý do xin nghỉ cụ thể
-                  </label>
-                  <textarea
-                    id="schedule-off-reason"
-                    value={offReason}
-                    onChange={(e) => store.setOffReason(e.target.value)}
-                    className="w-full bg-[var(--kg-surface)] border border-[var(--kg-danger)]/40 rounded-xl p-3 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-danger)] text-[var(--kg-text)]"
-                    rows={3}
-                    placeholder="Nhập lý do xin nghỉ cụ thể..."
-                  />
+                  <a
+                    href="https://zalo.me/g/zkowlm391"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center text-[var(--kg-primary-ink)] bg-[var(--kg-surface)] border border-[var(--kg-border)] px-2.5 py-1.5 rounded-lg hover:underline font-bold"
+                  >
+                    <ExternalLink size={12} className="mr-1.5" /> Mở nhóm Zalo lịch làm
+                  </a>
                 </div>
+              ) : (
+                <p className="text-xs text-[var(--kg-text-muted)] bg-[var(--kg-surface-2)] border border-[var(--kg-border)] rounded-xl p-3">
+                  OFF cuối tuần (T6–CN), ngày Lễ/Tết hoặc OFF từ 2 ngày liên tiếp phải nhập lý do để quản lý duyệt.
+                </p>
+              )}
+
+              <div>
+                <label htmlFor="schedule-off-reason" className="block text-xs font-bold text-[var(--kg-text)] mb-1.5">
+                  Lý do xin nghỉ {needsOffReason && <span className="text-[var(--kg-danger)]">*</span>}
+                </label>
+                <textarea
+                  id="schedule-off-reason"
+                  value={offReason}
+                  onChange={(e) => store.setOffReason(e.target.value)}
+                  required={needsOffReason}
+                  className="w-full bg-[var(--kg-surface-2)] border border-[var(--kg-border-strong)] rounded-xl p-3 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-[var(--kg-primary)] text-[var(--kg-text)]"
+                  rows={3}
+                  placeholder="Ví dụ: Việc gia đình, lịch học/thi, đã bàn giao..."
+                />
               </div>
             </div>
-          )}
+
+            <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-4 sm:p-5 shadow-xs space-y-3">
+              <h4 className="font-extrabold text-sm text-[var(--kg-text)]">Tổng quan tuần</h4>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl bg-[var(--kg-surface-2)] border border-[var(--kg-border)] p-3.5">
+                  <div className="flex items-center justify-between text-xs text-[var(--kg-text-muted)] font-semibold">
+                    <span>Ca làm</span>
+                    <Briefcase size={15} className="text-[var(--kg-primary-ink)]" />
+                  </div>
+                  <div className="mt-1.5 text-2xl font-black font-mono tabular-nums text-[var(--kg-text)]">
+                    {selectedWorkCount}
+                  </div>
+                  <p className="text-[11px] text-[var(--kg-text-muted)] mt-0.5">Trong 7 ngày</p>
+                </div>
+                <div className="rounded-xl bg-[var(--kg-surface-2)] border border-[var(--kg-border)] p-3.5">
+                  <div className="flex items-center justify-between text-xs text-[var(--kg-text-muted)] font-semibold">
+                    <span>Ngày OFF</span>
+                    <Calendar size={15} className="text-[var(--kg-warning)]" />
+                  </div>
+                  <div className="mt-1.5 text-2xl font-black font-mono tabular-nums text-[var(--kg-text)]">
+                    {selectedOffCount}
+                  </div>
+                  <p className="text-[11px] text-[var(--kg-text-muted)] mt-0.5">
+                    {needsOffReason ? 'Cần giải trình' : 'Hợp lệ'}
+                  </p>
+                </div>
+              </div>
+              <div className="rounded-xl bg-[var(--kg-surface-2)] border border-[var(--kg-border)] p-3 text-xs text-[var(--kg-text-muted)] leading-relaxed">
+                Cổng đăng ký chính thức: <b className="text-[var(--kg-text)] font-mono tabular-nums">T2 00:00 – T7 16:59</b>. Từ T5 đến trước 17:00 T7, lịch chưa đăng ký có thể chặn chấm công theo chính sách hiện hữu.
+              </div>
+            </div>
+          </div>
 
           {/* Submit Action Bar: Full-width on Mobile, balanced right-aligned CTA on Tablet/Desktop */}
           <div className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-xs">
@@ -1824,11 +1964,11 @@ ${aiInputText}
                 ? 'Bạn có thể cập nhật lịch không giới hạn trong thời gian mở đăng ký.'
                 : 'Hạn đăng ký: Trước 17:00 Thứ Bảy hàng tuần.'}
             </p>
-            <button 
+            <button
               type="button"
               disabled={isSubmitting}
-              onClick={submitRegistration} 
-              className="w-full sm:w-auto sm:min-w-[230px] px-6 min-h-[48px] sm:min-h-[44px] bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white font-black py-3 sm:py-2.5 rounded-xl shadow-sm transition-all active:scale-99 flex items-center justify-center touch-manipulation text-sm tracking-wide uppercase whitespace-nowrap flex-shrink-0 disabled:opacity-75 disabled:pointer-events-none"
+              onClick={submitRegistration}
+              className="w-full sm:w-auto sm:min-w-[230px] px-6 min-h-[48px] sm:min-h-[44px] bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] font-black py-3 sm:py-2.5 rounded-xl shadow-sm transition-all active:scale-99 flex items-center justify-center touch-manipulation text-sm tracking-wide uppercase whitespace-nowrap flex-shrink-0 disabled:opacity-75 disabled:pointer-events-none"
             >
               {isSubmitting ? (
                 <><RefreshCw size={17} className="animate-spin mr-2 flex-shrink-0" /> ĐANG ĐẨY VÀO SHEETS...</>
@@ -1840,7 +1980,8 @@ ${aiInputText}
             </button>
           </div>
         </>
-      )}
+        );
+      })()}
       </>
       )}
       {/* AI Schedule Modal */}
@@ -1894,7 +2035,7 @@ ${aiInputText}
                 type="button"
                 onClick={handleAiProcess}
                 disabled={isAiProcessing || !aiInputText.trim()}
-                className="min-h-[44px] px-5 py-2.5 rounded-xl text-sm font-bold bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-white shadow-xs transition-all flex items-center disabled:opacity-50 touch-manipulation"
+                className="min-h-[44px] px-5 py-2.5 rounded-xl text-sm font-bold bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] shadow-xs transition-all flex items-center disabled:opacity-50 touch-manipulation"
               >
                 {isAiProcessing ? (
                   <><RefreshCw size={16} className="animate-spin mr-2" /> Đang xử lý...</>

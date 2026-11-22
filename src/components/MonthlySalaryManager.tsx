@@ -24,7 +24,7 @@ import {
   salaryTypeLabel,
 } from '../types/salary';
 import { isWorkEligible } from '../utils/employment';
-import { formatVnd } from '../utils/formatCurrency';
+import { formatMoneyInput, formatVnd } from '../utils/formatCurrency';
 import { isAdminUser } from '../utils/permissions';
 import {
   KgBottomSheet,
@@ -573,13 +573,14 @@ export default function MonthlySalaryManager({
                         <td className="py-2.5 px-3 min-w-[180px]">
                           <div className="relative">
                             <input
-                              type="number"
-                              min="0"
-                              step={item.payType === 'hourly' ? 1000 : 100000}
-                              value={item.amount || ''}
-                              onChange={(event) =>
-                                updateItem(item.username, { amount: Number(event.target.value) })
-                              }
+                              type="text"
+                              inputMode="numeric"
+                              value={item.amount > 0 ? formatMoneyInput(String(item.amount)) : ''}
+                              onChange={(event) => {
+                                const digits = event.target.value.replace(/\D/g, '');
+                                updateItem(item.username, { amount: digits ? Number(digits) : 0 });
+                              }}
+                              placeholder={item.payType === 'hourly' ? '28.000' : '8.000.000'}
                               className="w-full min-h-[38px] rounded-lg border border-[var(--kg-border)] bg-[var(--kg-surface-soft)] pl-3 pr-11 py-1.5 text-right text-sm font-mono tabular-nums font-black text-[var(--kg-text)] outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
                               aria-label={`Mức lương của ${item.fullname}`}
                             />
@@ -654,14 +655,15 @@ export default function MonthlySalaryManager({
                         </span>
                         <div className="relative">
                           <input
-                            type="number"
-                            min="0"
-                            step={item.payType === 'hourly' ? 1000 : 100000}
-                            value={item.amount || ''}
-                            onChange={(event) =>
-                              updateItem(item.username, { amount: Number(event.target.value) })
-                            }
-                            className="w-full min-h-[44px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface)] pl-3 pr-12 py-2 text-right text-sm font-mono tabular-nums font-black text-[var(--kg-text)] outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
+                            type="text"
+                            inputMode="numeric"
+                            value={item.amount > 0 ? formatMoneyInput(String(item.amount)) : ''}
+                            onChange={(event) => {
+                              const digits = event.target.value.replace(/\D/g, '');
+                              updateItem(item.username, { amount: digits ? Number(digits) : 0 });
+                            }}
+                            placeholder={item.payType === 'hourly' ? '28.000' : '8.000.000'}
+                            className="w-full min-h-[44px] rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface)] pl-3 pr-12 py-2 text-right text-base sm:text-sm font-mono tabular-nums font-black text-[var(--kg-text)] outline-none focus:ring-2 focus:ring-[var(--kg-primary)]"
                             aria-label={`Mức lương của ${item.fullname}`}
                           />
                           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-[var(--kg-text-muted)] pointer-events-none">
@@ -681,20 +683,22 @@ export default function MonthlySalaryManager({
             </>
           )}
 
-          <div className="flex justify-end pt-1">
-            <KgButton
-              type="button"
-              variant="primary"
-              size="lg"
-              loading={saving}
-              disabled={saving || loading || !items.length}
-              icon={Save}
-              onClick={save}
-              className="w-full sm:w-auto sm:min-w-[260px]"
-            >
-              {saving ? 'Đang cập nhật bảng lương...' : `Lưu bảng lương ${salaryMonthLabel(month)}`}
-            </KgButton>
-          </div>
+          {!dirty && (
+            <div className="flex justify-end pt-1">
+              <KgButton
+                type="button"
+                variant="primary"
+                size="lg"
+                loading={saving}
+                disabled={saving || loading || !items.length}
+                icon={Save}
+                onClick={save}
+                className="w-full sm:w-auto sm:min-w-[260px]"
+              >
+                {saving ? 'Đang cập nhật bảng lương...' : `Lưu bảng lương ${salaryMonthLabel(month)}`}
+              </KgButton>
+            </div>
+          )}
         </div>
       </div>
 
@@ -749,10 +753,8 @@ export default function MonthlySalaryManager({
                   key={pill.id}
                   type="button"
                   onClick={() => setRequestFilter(pill.id)}
-                  className={`min-h-[44px] sm:min-h-[38px] px-3.5 py-1.5 rounded-full text-xs font-bold border transition-colors whitespace-nowrap touch-manipulation ${
-                    active
-                      ? 'bg-[var(--kg-primary)] text-white border-[var(--kg-primary)]'
-                      : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)] hover:text-[var(--kg-text)]'
+                  className={`kg-filter-pill whitespace-nowrap touch-manipulation ${
+                    active ? 'kg-filter-pill--active' : ''
                   }`}
                 >
                   {pill.label}
