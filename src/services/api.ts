@@ -4,11 +4,14 @@
 import { kgToast } from '../store/useFeedbackStore';
 
 const inFlightReadCalls = new Map<string, Promise<any>>();
-const responseCache = new Map<string, { expiresAt: number; value: any }>();
+const inFlightMutationCalls = new Map<string, Promise<any>>();
+const responseCache = new Map<string, { expiresAt: number; staleUntil: number; value: any }>();
 
 const MUTATION_INVALIDATION_PREFIXES: Record<string, string[]> = {
   LIKE_POST: ['GET_POSTS', 'GET_NOTIFICATIONS'],
   COMMENT_POST: ['GET_POSTS', 'GET_NOTIFICATIONS'],
+  INTERACT_POST: ['GET_POSTS', 'GET_NOTIFICATIONS'],
+  ADD_POST: ['GET_POSTS', 'GET_NOTIFICATIONS', 'GET_DATA'],
   CREATE_POST: ['GET_POSTS', 'GET_NOTIFICATIONS', 'GET_DATA'],
   DELETE_POST: ['GET_POSTS'],
   MARK_POST_READ: ['GET_POSTS'],
@@ -21,21 +24,29 @@ const MUTATION_INVALIDATION_PREFIXES: Record<string, string[]> = {
   UPDATE_FEEDBACK: ['GET_FEEDBACK', 'GET_NOTIFICATIONS', 'GET_DATA'],
   SAVE_CHAT_LOG: [],
   AI_CHAT: [],
-  SUBMIT_TRAINING_QUIZ: ['GET_TRAINING_', 'GET_LEADERBOARD', 'GET_KING_COINS'],
+  SUBMIT_SURVEY: [],
+  SUBMIT_TRAINING_QUIZ: ['GET_TRAINING_', 'GET_LEADERBOARD', 'GET_KING_COINS', 'GET_USER_COINS'],
   SEND_EMAIL_NOTIFICATION: [],
   UPLOAD_IMAGE: [],
-  UPLOAD_CHECKIN_IMAGE: [],
+  UPLOAD_CHECKIN_IMAGE: ['GET_DATA', 'GET_CHECKIN_LOGS'],
+  PATCH_OPS_CHECKLIST_ITEM: ['GET_OPS_CHECKLIST', 'GET_CHECKLIST', 'GET_DATA'],
+  SAVE_OPS_CHECKLIST_STATE: ['GET_OPS_CHECKLIST', 'GET_CHECKLIST', 'GET_DATA'],
   SAVE_OPS_CHECKLIST: ['GET_OPS_CHECKLIST', 'GET_CHECKLIST', 'GET_DATA'],
   SUBMIT_OPS_CHECKLIST: ['GET_OPS_CHECKLIST', 'GET_CHECKLIST', 'GET_DATA'],
   SUBMIT_CHECKLIST: ['GET_OPS_CHECKLIST', 'GET_CHECKLIST', 'GET_DATA'],
   SAVE_OPS_CHECKLIST_CONFIG: ['GET_OPS_CHECKLIST', 'GET_CHECKLIST'],
+  TOGGLE_OPERATION_TASK: ['GET_OPERATIONS_CONFIG', 'GET_DATA'],
+  UPDATE_OPERATIONS_CONFIG: ['GET_OPERATIONS_CONFIG', 'GET_DATA'],
   SUBMIT_HANDOVER: ['GET_HANDOVER', 'GET_INCIDENTS', 'GET_DATA'],
   SAVE_HANDOVER: ['GET_HANDOVER', 'GET_INCIDENTS', 'GET_DATA'],
-  REVIEW_HANDOVER: ['GET_HANDOVER', 'GET_DATA'],
+  ACKNOWLEDGE_HANDOVER: ['GET_HANDOVER', 'GET_DATA'],
+  REVIEW_HANDOVER: ['GET_HANDOVER', 'GET_DATA', 'GET_AUDIT_LOGS'],
   AUDIT_HANDOVER: ['GET_HANDOVER', 'GET_DATA'],
-  UPDATE_INCIDENT: ['GET_INCIDENTS', 'GET_HANDOVER'],
+  SUBMIT_INCIDENT: ['GET_INCIDENTS', 'GET_HANDOVER', 'GET_DATA'],
+  UPDATE_INCIDENT: ['GET_INCIDENTS', 'GET_HANDOVER', 'GET_DATA', 'GET_AUDIT_LOGS'],
   REGISTER_SHIFT: ['GET_ALL_SCHEDULES', 'GET_MONTH_SCHEDULES', 'GET_DATA'],
   APPROVE_SCHEDULES: ['GET_ALL_SCHEDULES', 'GET_MONTH_SCHEDULES', 'GET_DATA'],
+  SAVE_ALL_SCHEDULES: ['GET_ALL_SCHEDULES', 'GET_MONTH_SCHEDULES', 'GET_DATA'],
   UPDATE_SINGLE_SHIFT: ['GET_ALL_SCHEDULES', 'GET_MONTH_SCHEDULES', 'GET_DATA'],
   SYNC_ROSTER_SCHEDULES: ['GET_ALL_SCHEDULES', 'GET_MONTH_SCHEDULES', 'GET_DATA'],
   SUBMIT_SWAP: ['GET_SWAP_REQUESTS', 'GET_ALL_SCHEDULES', 'GET_MONTH_SCHEDULES', 'GET_DATA', 'GET_NOTIFICATIONS'],
@@ -44,21 +55,25 @@ const MUTATION_INVALIDATION_PREFIXES: Record<string, string[]> = {
   DELETE_SWAP: ['GET_SWAP_REQUESTS', 'GET_DATA'],
   SUBMIT_ADVANCE: ['GET_ADVANCES', 'GET_PAYROLL', 'GET_DATA', 'GET_NOTIFICATIONS'],
   APPROVE_ADVANCE: ['GET_ADVANCES', 'GET_PAYROLL', 'GET_DATA', 'GET_NOTIFICATIONS'],
+  ADD_BONUS_PENALTY: ['GET_BONUS_PENALTY', 'GET_DISCIPLINE', 'GET_PAYROLL', 'GET_USER_COINS', 'GET_DATA'],
+  DELETE_BONUS_PENALTY: ['GET_BONUS_PENALTY', 'GET_DISCIPLINE', 'GET_PAYROLL', 'GET_USER_COINS', 'GET_DATA'],
   SUBMIT_DISCIPLINE: ['GET_DISCIPLINE', 'GET_BONUS_PENALTIES', 'GET_PAYROLL', 'GET_KING_COINS', 'GET_DATA'],
-  UPDATE_PAYROLL_CONFIG: ['GET_PAYROLL', 'GET_DATA'],
+  UPDATE_PAYROLL_CONFIG: ['GET_SALARY_CONFIG', 'GET_PAYROLL', 'GET_DATA'],
   UPDATE_MONTHLY_SALARY_CONFIG: ['GET_MONTHLY_SALARY', 'GET_PAYROLL', 'GET_DATA'],
   COPY_MONTHLY_SALARY_CONFIG: ['GET_MONTHLY_SALARY', 'GET_PAYROLL'],
   SUBMIT_SALARY_ADJUSTMENT: ['GET_SALARY_ADJUSTMENTS', 'GET_PAYROLL', 'GET_NOTIFICATIONS'],
   REVIEW_SALARY_ADJUSTMENT: ['GET_SALARY_ADJUSTMENTS', 'GET_MONTHLY_SALARY', 'GET_PAYROLL', 'GET_NOTIFICATIONS'],
   CONFIRM_PAYROLL_SLIP: ['GET_PAYROLL', 'GET_PAYROLL_WORKFLOW'],
+  SET_PAYROLL_WORKFLOW_STATUS: ['GET_PAYROLL', 'GET_PAYROLL_WORKFLOW', 'GET_AUDIT_LOGS'],
   UPDATE_PAYROLL_WORKFLOW: ['GET_PAYROLL', 'GET_PAYROLL_WORKFLOW'],
-  CHECK_IN_OUT: ['GET_DATA', 'GET_MISSED_CHECKINS', 'GET_TIMESHEET', 'GET_KIOSK_ATTENDANCE_STATE', 'GET_PAYROLL', 'GET_ANALYTICS'],
-  SUBMIT_MISSED_CHECKIN: ['GET_MISSED_CHECKINS', 'GET_DATA', 'GET_TIMESHEET', 'GET_NOTIFICATIONS'],
-  APPROVE_MISSED_CHECKIN: ['GET_MISSED_CHECKINS', 'GET_DATA', 'GET_TIMESHEET', 'GET_PAYROLL', 'GET_ANALYTICS', 'GET_NOTIFICATIONS'],
-  REJECT_MISSED_CHECKIN: ['GET_MISSED_CHECKINS', 'GET_DATA', 'GET_NOTIFICATIONS'],
-  ENROLL_FACE_PROFILE: ['GET_FACE_PROFILES'],
-  DELETE_FACE_PROFILE: ['GET_FACE_PROFILES'],
-  RESET_FACE_PROFILE: ['GET_FACE_PROFILES'],
+  CHECK_IN_OUT: ['GET_DATA', 'GET_CHECKIN_LOGS', 'GET_MISSED_CHECKINS', 'GET_TIMESHEET', 'GET_KIOSK_ATTENDANCE_STATE', 'GET_PAYROLL', 'GET_ANALYTICS'],
+  SUBMIT_MISSED_CHECKIN: ['GET_MISSED_CHECKINS', 'GET_DATA', 'GET_CHECKIN_LOGS', 'GET_TIMESHEET', 'GET_NOTIFICATIONS'],
+  APPROVE_MISSED_CHECKIN: ['GET_MISSED_CHECKINS', 'GET_DATA', 'GET_CHECKIN_LOGS', 'GET_TIMESHEET', 'GET_PAYROLL', 'GET_ANALYTICS', 'GET_NOTIFICATIONS'],
+  REJECT_MISSED_CHECKIN: ['GET_MISSED_CHECKINS', 'GET_DATA', 'GET_CHECKIN_LOGS', 'GET_NOTIFICATIONS'],
+  UPDATE_CHECKIN_TYPE: ['GET_DATA', 'GET_CHECKIN_LOGS', 'GET_TIMESHEET', 'GET_PAYROLL'],
+  ENROLL_FACE_PROFILE: ['GET_FACE_PROFILES', 'GET_DATA'],
+  DELETE_FACE_PROFILE: ['GET_FACE_PROFILES', 'GET_DATA'],
+  RESET_FACE_PROFILE: ['GET_FACE_PROFILES', 'GET_DATA'],
 };
 
 function extractActionFromCacheKey(requestKey: string): string {
@@ -197,15 +212,22 @@ export async function callApi(
   const canUseCache = isReadAction && normalizedPayload.forceRefresh !== true && options?.cacheTtlMs !== 0;
 
   if (canUseCache) {
+    const nowMs = Date.now();
     let cached = responseCache.get(requestKey);
     if (!cached) {
       try {
         const storedStr = sessionStorage.getItem(`api_cache:${requestKey}`);
         if (storedStr) {
           const parsed = JSON.parse(storedStr);
-          if (parsed && parsed.expiresAt > Date.now()) {
-            responseCache.set(requestKey, parsed);
-            cached = parsed;
+          const staleUntil = parsed?.staleUntil ?? parsed?.expiresAt ?? 0;
+          if (parsed && staleUntil > nowMs) {
+            const normalizedEntry = {
+              expiresAt: parsed.expiresAt || nowMs,
+              staleUntil,
+              value: parsed.value,
+            };
+            responseCache.set(requestKey, normalizedEntry);
+            cached = normalizedEntry;
           } else {
             sessionStorage.removeItem(`api_cache:${requestKey}`);
           }
@@ -214,7 +236,31 @@ export async function callApi(
         console.warn('[API Cache] read error:', e);
       }
     }
-    if (cached && cached.expiresAt > Date.now()) return cached.value;
+    if (cached && cached.expiresAt > nowMs) return cached.value;
+    // Client-side Stale-While-Revalidate: return stale cached data in 0ms and refresh silently in background
+    if (cached && cached.staleUntil > nowMs) {
+      if (!inFlightReadCalls.has(requestKey)) {
+        void callApi(action, normalizedPayload, {
+          ...options,
+          background: true,
+          cacheTtlMs: 0,
+        }).then((freshRes) => {
+          if (freshRes?.ok) {
+            const defaultTtl = action === 'GET_DATA'
+              ? 5 * 60_000
+              : (action === 'GET_NOTIFICATIONS' || action === 'GET_POSTS' ? 30_000 : 2 * 60_000);
+            const ttl = options?.cacheTtlMs ?? defaultTtl;
+            const entry = {
+              expiresAt: Date.now() + ttl,
+              staleUntil: Date.now() + ttl * 3,
+              value: freshRes,
+            };
+            responseCache.set(requestKey, entry);
+          }
+        }).catch(() => {});
+      }
+      return cached.value;
+    }
     if (cached) {
       responseCache.delete(requestKey);
       try {
@@ -225,6 +271,11 @@ export async function callApi(
 
   if (isReadAction && inFlightReadCalls.has(requestKey)) {
     return inFlightReadCalls.get(requestKey);
+  }
+
+  // Coalesce accidental double-tap / duplicate in-flight identical mutations
+  if (!isReadAction && inFlightMutationCalls.has(requestKey)) {
+    return inFlightMutationCalls.get(requestKey);
   }
 
   if (!bg) {
@@ -321,10 +372,19 @@ export async function callApi(
               ? 5 * 60_000
               : (action === 'GET_NOTIFICATIONS' || action === 'GET_POSTS' ? 30_000 : 2 * 60_000);
             const ttl = options?.cacheTtlMs ?? defaultTtl;
-            const cacheEntry = { expiresAt: Date.now() + ttl, value: result };
+            const nowStore = Date.now();
+            const cacheEntry = {
+              expiresAt: nowStore + ttl,
+              staleUntil: nowStore + ttl * 3,
+              value: result,
+            };
             responseCache.set(requestKey, cacheEntry);
             try {
-              sessionStorage.setItem(`api_cache:${requestKey}`, JSON.stringify(cacheEntry));
+              const serializedCache = JSON.stringify(cacheEntry);
+              // Avoid synchronous main-thread stalls & quota errors on large payloads (>150KB stay in RAM Map)
+              if (serializedCache.length <= 150_000) {
+                sessionStorage.setItem(`api_cache:${requestKey}`, serializedCache);
+              }
             } catch (e) {
               console.warn('[API Cache] write error:', e);
             }
@@ -360,6 +420,9 @@ export async function callApi(
   if (isReadAction) {
     inFlightReadCalls.set(requestKey, requestPromise);
     requestPromise.finally(() => inFlightReadCalls.delete(requestKey));
+  } else {
+    inFlightMutationCalls.set(requestKey, requestPromise);
+    requestPromise.finally(() => inFlightMutationCalls.delete(requestKey));
   }
 
   return requestPromise;

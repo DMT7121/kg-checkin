@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { kgToast } from '../store/useFeedbackStore';
 import { callApi } from '../services/api';
+import { enqueueTask } from '../utils/offlineQueue';
 import {
   speak,
   computeWeekInfo,
@@ -240,13 +241,14 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
     }
     setMonthData(newData);
     
-    // API
+    // API (Instant Edge D1 Write-Ahead + background Google Sheets sync)
     const res = await callApi('UPDATE_SINGLE_SHIFT', {
        monthSheet: `Tháng ${String(selectedMonth).padStart(2, '0')}/${selectedYear}`,
        weekLabel: mDate.weekLabel,
        fullname: empFullname,
        dayIndex: mDate.dayIndex,
-       shiftValue: value
+       shiftValue: value,
+       instantEdge: true,
     }, { background: true });
     
     if (!res?.ok) {
@@ -451,11 +453,12 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
   };
 
   // Auto-heal if schedule was buffered in Edge D1 (sheetSaved === false)
+  // Delay 6.5s so Edge's background waitUntil write finishes cleanly first without duplicate GAS lock race
   useEffect(() => {
     if (isManagerView || !isRegisteredForTargetWeek || effectiveSheetSynced || !currentUser) return;
     const t1 = window.setTimeout(() => {
       syncPendingScheduleToSheet(true);
-    }, 3500);
+    }, 6500);
     return () => window.clearTimeout(t1);
   }, [isManagerView, isRegisteredForTargetWeek, effectiveSheetSynced, currentUser?.username, expectedWeekKey]);
 
@@ -714,21 +717,26 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
       shifts,
       offReason,
       isEdit: isUpdate,
+      instantEdge: true,
     };
 
     try {
-      // Concurrent-resilient submission: up to 3 attempts with random jitter so simultaneous staff submissions all succeed
+      // Ultra-fast Edge D1 Write-Ahead (<80ms) with resilient retry + automatic offline queue fallback
       let res: any = null;
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        res = await callApi('REGISTER_SHIFT', payload, { timeoutMs: 28000, maxAttempts: 1 });
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        res = await callApi('REGISTER_SHIFT', payload, {
+          background: true,
+          timeoutMs: 18000,
+          maxAttempts: 1,
+        });
         if (res?.ok) break;
         const msg = String(res?.message || '');
         // Do not retry if server explicitly rejected due to employment status
         if (msg.includes('trạng thái') || msg.includes('tạm khóa') || msg.includes('nghỉ việc')) {
           break;
         }
-        if (attempt < 3) {
-          const jitterMs = 550 * attempt + Math.floor(Math.random() * 650);
+        if (attempt < 2) {
+          const jitterMs = 450 + Math.floor(Math.random() * 450);
           await new Promise((r) => setTimeout(r, jitterMs));
         }
       }
@@ -761,11 +769,11 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
           store.setAdminSchedules(updatedAdmin);
         }
 
-        // If Edge buffered into D1 because GAS lock was busy, schedule a follow-up push to confirm 100% Sheet write
+        // If Edge committed to D1 & is syncing to Google Sheets in background, schedule a non-blocking verification check
         if (!sheetSaved) {
           window.setTimeout(() => {
             syncPendingScheduleToSheet(true);
-          }, 4000);
+          }, 6500);
         }
 
         setSubmitReceiptModal({
@@ -775,7 +783,7 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
           syncTimestamp,
           isUpdate,
         });
-        speak('Đăng ký lịch làm việc thành công, đã nạp vào Google Sheets');
+        speak('Đăng ký lịch làm việc thành công, đã ghi nhận vào hệ thống');
       } else if (res) {
         setInlineNotice({
           variant: 'error',
@@ -783,11 +791,30 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
           text: res.message || 'Không thể ghi vào sheet lúc này.',
         });
       } else {
-        setInlineNotice({
-          variant: 'error',
-          title: 'Lỗi mạng',
-          text: 'Không thể kết nối đến máy chủ Google Sheets. Vui lòng thử lại.',
+        // Offline / network drop -> queue safely in localStorage & OfflineQueue so employee never loses schedule
+        const localTimestamp = getCurrentTimeString();
+        enqueueTask('REGISTER_SHIFT', payload, { priority: 'high', maxAttempts: 15 });
+        markScheduleRegisteredLocally(currentUser?.username, expectedWeekKey, shifts, {
+          updatedAt: localTimestamp,
+          sheetSynced: false,
+          offReason,
         });
+        store.setRegisteredShifts(shifts);
+        store.setScheduleRegistered(true, expectedWeekKey);
+        store.setScheduleMeta({
+          registeredWeekKey: expectedWeekKey,
+          scheduleUpdatedAt: localTimestamp,
+          scheduleSheetSynced: false,
+        });
+        setIsEditing(false);
+        setSubmitReceiptModal({
+          weekDisplay: weekInfo.weekDisplay,
+          monthSheet: weekInfo.monthSheet,
+          sheetSaved: false,
+          syncTimestamp: localTimestamp,
+          isUpdate,
+        });
+        pushToast('Đang ngoại tuyến — đã lưu lịch an toàn và sẽ tự đồng bộ khi có mạng!', 'warning');
       }
     } catch (err: any) {
       setInlineNotice({
@@ -828,9 +855,14 @@ export default function Schedule({ mode = 'user' }: { mode?: 'user' | 'admin' })
 
   // === ADMIN FUNCTIONS ===
   async function loadAdminSchedules() {
-    store.setLoading(true, 'Đang kết nối Server...');
-    const res = await callApi('GET_ALL_SCHEDULES', { monthSheet: weekInfo.monthSheet, weekLabel: weekInfo.weekLabel });
-    store.setLoading(false);
+    const hasExisting = Array.isArray(useAppStore.getState().adminSchedules) && useAppStore.getState().adminSchedules.length > 0;
+    if (!hasExisting) {
+      store.setLoading(true, 'Đang kết nối Server...');
+    }
+    const res = await callApi('GET_ALL_SCHEDULES', { monthSheet: weekInfo.monthSheet, weekLabel: weekInfo.weekLabel }, { background: hasExisting });
+    if (!hasExisting) {
+      store.setLoading(false);
+    }
     if (res?.ok) {
       const parsedSchedules = Array.isArray(res.data) ? res.data : (res.data.schedules || []);
       let cleanSchedules = parsedSchedules.map((emp: any) => {

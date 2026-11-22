@@ -171,7 +171,8 @@ export default function Payroll({ mode = 'user' }: { mode?: 'user' | 'admin' }) 
           month: selectedMonth,
           status: targetStatus,
           note: note.trim(),
-        });
+          instantEdge: true,
+        }, { background: true });
         if (res?.ok && res.data?.workflow) {
           setWorkflow((prev) => ({
             month: res.data.workflow.month || selectedMonth,
@@ -207,7 +208,8 @@ export default function Payroll({ mode = 'user' }: { mode?: 'user' | 'admin' }) 
           month: selectedMonth,
           decision,
           note: note.trim(),
-        });
+          instantEdge: true,
+        }, { background: true });
         if (res?.ok && res.data?.workflow) {
           setWorkflow((prev) => ({
             month: res.data.workflow.month || selectedMonth,

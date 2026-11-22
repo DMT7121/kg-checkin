@@ -2183,80 +2183,77 @@ export default function FastFaceScannerV2({
                     data-testid="v2-smart-disambiguation-card"
                     role="alertdialog"
                     aria-labelledby="v2-disambiguation-title"
-                    className="kg-animate-scale-in pointer-events-auto w-full max-w-sm max-h-[72dvh] overflow-y-auto bg-[#101B15] border-2 border-[#FBBF24] rounded-2xl p-4 sm:p-5 shadow-2xl space-y-3 text-left"
+                    className="kg-animate-scale-in pointer-events-auto w-full max-w-[356px] max-h-[76dvh] overflow-y-auto bg-[#101B15] border-2 border-[#FBBF24]/70 rounded-2xl p-4 shadow-2xl space-y-3 text-left"
                   >
-                    <div className="flex items-start gap-2.5">
-                      <div className="w-10 h-10 rounded-xl bg-[#362614] border border-[#FBBF24] text-[#FBBF24] flex items-center justify-center shrink-0">
-                        <AlertTriangle size={20} />
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-10 h-10 rounded-xl bg-[#362614] border border-[#FBBF24]/70 text-[#FBBF24] flex items-center justify-center shrink-0">
+                        <AlertTriangle size={18} />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <span className="inline-block text-[10px] font-extrabold uppercase tracking-wider text-[#FBBF24]">
-                          CẦN XÁC NHẬN LOẠI CHẤM CÔNG
-                        </span>
                         <h3
                           id="v2-disambiguation-title"
-                          className="text-sm sm:text-base font-extrabold text-[#F4F6F0] leading-snug"
+                          className="text-sm sm:text-base font-extrabold text-[#F4F6F0] leading-tight truncate"
                         >
                           {pendingDisambiguation.profile.fullname}
                         </h3>
-                        <p className="text-[11px] font-semibold text-[#FDE68A] mt-0.5 leading-snug">
+                        <p className="text-[11px] font-bold text-[#FDE68A] mt-0.5 leading-snug">
                           {pendingDisambiguation.intent.guidanceTitle}
                         </p>
                       </div>
                     </div>
 
-                    <p className="text-xs text-[#D3DDD5] leading-relaxed bg-[#1B2821] border border-[#334539] rounded-xl p-2.5">
-                      {pendingDisambiguation.intent.guidanceDetail}
-                    </p>
+                    <div className="grid grid-cols-2 gap-2.5 pt-0.5">
+                      <button
+                        type="button"
+                        data-testid={
+                          pendingDisambiguation.intent.ambiguityReason === 'LATE_SHIFT_MISSING_IN'
+                            ? 'v2-confirm-late-in-btn'
+                            : 'v2-confirm-in-btn'
+                        }
+                        onClick={() => handleResolvePendingDisambiguation('Vào ca', false)}
+                        className="kg-punch-tile kg-punch-tile--in min-h-[104px] p-3 flex flex-col items-center justify-center gap-2 text-center"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-white/15 border border-white/25 flex items-center justify-center">
+                          <LogIn size={20} className="kg-punch-icon-in text-white" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-black tracking-wide leading-none">VÀO CA</div>
+                          <div className="text-[10px] font-semibold text-white/85 mt-1">Bắt đầu ca</div>
+                        </div>
+                      </button>
 
-                    {pendingDisambiguation.intent.ambiguityReason === 'LATE_SHIFT_MISSING_IN' ? (
-                      <div className="space-y-2">
-                        <button
-                          type="button"
-                          data-testid="v2-combo-out-and-supplement-btn"
-                          onClick={() => handleResolvePendingDisambiguation('Ra ca', true)}
-                          className="kg-pressable w-full min-h-[48px] py-2.5 px-3.5 rounded-xl bg-[#C0522A] hover:bg-[#AA4622] text-white font-extrabold text-xs flex items-center justify-center gap-2 transition-colors"
-                        >
-                          <LogOut size={16} className="shrink-0" />
-                          <span>Chấm RA CA ngay + Báo quên Vào ca</span>
-                        </button>
-                        <button
-                          type="button"
-                          data-testid="v2-confirm-late-in-btn"
-                          onClick={() => handleResolvePendingDisambiguation('Vào ca', false)}
-                          className="kg-pressable w-full min-h-[48px] py-2.5 px-3.5 rounded-xl bg-[#1E7550] hover:bg-[#175B3E] text-white font-extrabold text-xs flex items-center justify-center gap-2 transition-colors"
-                        >
-                          <LogIn size={16} className="shrink-0" />
-                          <span>Tôi mới bắt đầu VÀO CA lúc này</span>
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        <button
-                          type="button"
-                          data-testid="v2-confirm-out-btn"
-                          onClick={() => handleResolvePendingDisambiguation('Ra ca', false)}
-                          className="kg-pressable w-full min-h-[48px] py-2.5 px-3.5 rounded-xl bg-[#C0522A] hover:bg-[#AA4622] text-white font-extrabold text-xs flex items-center justify-center gap-2 transition-colors"
-                        >
-                          <LogOut size={16} className="shrink-0" />
-                          <span>Tôi đang RA CA (Kết thúc ca trước)</span>
-                        </button>
-                        <button
-                          type="button"
-                          data-testid="v2-confirm-in-btn"
-                          onClick={() => handleResolvePendingDisambiguation('Vào ca', false)}
-                          className="kg-pressable w-full min-h-[48px] py-2.5 px-3.5 rounded-xl bg-[#1E7550] hover:bg-[#175B3E] text-white font-extrabold text-xs flex items-center justify-center gap-2 transition-colors"
-                        >
-                          <LogIn size={16} className="shrink-0" />
-                          <span>Tôi đang VÀO CA mới</span>
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        data-testid="v2-confirm-out-btn"
+                        onClick={() => handleResolvePendingDisambiguation('Ra ca', false)}
+                        className="kg-punch-tile kg-punch-tile--out min-h-[104px] p-3 flex flex-col items-center justify-center gap-2 text-center"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-white/15 border border-white/25 flex items-center justify-center">
+                          <LogOut size={20} className="kg-punch-icon-out text-white" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-black tracking-wide leading-none">RA CA</div>
+                          <div className="text-[10px] font-semibold text-white/85 mt-1">Kết thúc ca</div>
+                        </div>
+                      </button>
+                    </div>
+
+                    {pendingDisambiguation.intent.ambiguityReason === 'LATE_SHIFT_MISSING_IN' && (
+                      <button
+                        type="button"
+                        data-testid="v2-combo-out-and-supplement-btn"
+                        onClick={() => handleResolvePendingDisambiguation('Ra ca', true)}
+                        className="kg-pressable w-full min-h-[44px] py-2 px-3 rounded-xl bg-[#2A2216] hover:bg-[#382C1B] border border-[#FBBF24]/50 text-[#FDE68A] font-extrabold text-[11px] flex items-center justify-center gap-1.5 transition-colors"
+                      >
+                        <Clock size={14} className="shrink-0" />
+                        <span>Ra ca + Bổ sung quên Vào ca đầu giờ</span>
+                      </button>
                     )}
 
                     <button
                       type="button"
                       onClick={() => setPendingDisambiguation(null)}
-                      className="kg-pressable w-full min-h-[44px] py-2 px-3 rounded-xl bg-[#1B2821] hover:bg-[#24322A] border border-[#334539] text-xs font-bold text-[#B7C4B9] transition-colors"
+                      className="kg-pressable w-full min-h-[40px] py-1.5 px-3 rounded-xl bg-[#1B2821] hover:bg-[#24322A] border border-[#334539] text-xs font-bold text-[#B7C4B9] transition-colors"
                     >
                       Hủy / Quét lại khuôn mặt
                     </button>

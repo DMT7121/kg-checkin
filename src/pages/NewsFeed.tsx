@@ -95,7 +95,7 @@ export default function NewsFeed() {
     try {
       const res = await callApi(
         'INTERACT_POST',
-        { postId: id, subAction: 'LIKE', username: currentUsername },
+        { postId: id, subAction: 'LIKE', username: currentUsername, instantEdge: true },
         { background: true },
       );
       if (!res?.ok) {
@@ -143,6 +143,7 @@ export default function NewsFeed() {
           subAction: 'COMMENT',
           author: currentUser?.fullname || 'Ẩn danh',
           content,
+          instantEdge: true,
         },
         { background: true },
       );
@@ -194,17 +195,27 @@ export default function NewsFeed() {
     setIsPosting(true);
     try {
       const content = newPostContent.trim();
+      const postImage = newPostImagePreview || '';
       const res = await callApi('ADD_POST', {
         author: currentUser?.fullname || 'Admin',
         content,
-        image: newPostImagePreview || '',
-      });
+        image: postImage,
+        instantEdge: true,
+      }, { background: true });
 
       if (res?.ok) {
+        const optimisticPost = {
+          id: Number(res.data?.id) || Date.now(),
+          author: currentUser?.fullname || 'Admin',
+          content,
+          image: postImage,
+          time: 'Vừa xong',
+          likes: [],
+          comments: [],
+        };
+        setPosts([optimisticPost, ...useAppStore.getState().news]);
         setNewPostContent('');
         setNewPostImagePreview(null);
-        const reloadRes = await callApi('GET_POSTS', {});
-        if (reloadRes?.ok && Array.isArray(reloadRes.data)) setPosts(reloadRes.data);
         pushToast('Đã đăng bài lên Bảng tin', 'success');
       } else {
         pushToast(res?.message || 'Không thể đăng bài lên Bảng tin.', 'error');

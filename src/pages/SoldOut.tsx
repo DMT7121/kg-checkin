@@ -162,12 +162,12 @@ export default function SoldOut() {
         {
           itemName,
           reportedBy: currentUser?.fullname || 'Nhân viên',
+          instantEdge: true,
         },
         { background: true },
       );
 
       if (res?.ok) {
-        void fetchSoldOut(true);
         pushToast(`Đã báo hết "${itemName}"`, 'success');
       } else {
         setSoldOutItems(previousItems);
@@ -187,10 +187,12 @@ export default function SoldOut() {
   const commitRestoreOnServer = useCallback(
     async (targetItem: SoldOutItem, fallbackItems: SoldOutItem[]) => {
       try {
-        const res = await callApi('REMOVE_SOLDOUT', { id: targetItem.id }, { background: true });
-        if (res?.ok) {
-          void fetchSoldOut(true);
-        } else {
+        const res = await callApi(
+          'REMOVE_SOLDOUT',
+          { id: targetItem.id, instantEdge: true },
+          { background: true },
+        );
+        if (!res?.ok) {
           setSoldOutItems(fallbackItems);
           pushToast(res?.message || 'Không thể mở bán lại món', 'error');
         }

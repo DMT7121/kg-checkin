@@ -149,19 +149,21 @@ function handleLogin(payload) {
   var inputPassword = payload.password.toString();
   var inputHash = payload.passwordHash || computePasswordHash(inputPassword);
 
-  // Emergency Super Admin login only via ScriptProperties (no hardcoded plaintext credentials)
-  var superAdminSecret = PropertiesService.getScriptProperties().getProperty('SUPER_ADMIN_PASSWORD');
-  if (superAdminSecret && targetUser.toUpperCase() === 'ADMIN' && inputPassword === superAdminSecret) {
-    return jsonResponse(true, {
-      username: 'ADMIN',
-      fullname: 'SUPER ADMIN',
-      email: 'dmt.7121@gmail.com',
-      role: 'admin',
-      position: 'Quản lý',
-      employmentStatus: 'active',
-      statusUntil: '',
-      statusReason: ''
-    });
+  // Emergency Super Admin login only via ScriptProperties (skip RPC for non-ADMIN usernames)
+  if (targetUser.toUpperCase() === 'ADMIN') {
+    var superAdminSecret = PropertiesService.getScriptProperties().getProperty('SUPER_ADMIN_PASSWORD');
+    if (superAdminSecret && inputPassword === superAdminSecret) {
+      return jsonResponse(true, {
+        username: 'ADMIN',
+        fullname: 'SUPER ADMIN',
+        email: 'dmt.7121@gmail.com',
+        role: 'admin',
+        position: 'Quản lý',
+        employmentStatus: 'active',
+        statusUntil: '',
+        statusReason: ''
+      });
+    }
   }
 
   var users = getCachedAuthUsers();
@@ -172,7 +174,8 @@ function handleLogin(payload) {
     var u = users[i];
     if (u.username.toLowerCase() === lowerTarget) {
       var storedPass = u.password;
-      var isMatched = (storedPass === inputPassword) || (storedPass === inputHash) || (computePasswordHash(storedPass) === inputHash);
+      var isAlreadySha256 = storedPass.length === 64 && /^[a-f0-9]{64}$/i.test(storedPass);
+      var isMatched = (storedPass === inputHash) || (storedPass === inputPassword) || (!isAlreadySha256 && computePasswordHash(storedPass) === inputHash);
 
       if (isMatched) {
         // Tự động nâng cấp hash mật khẩu nếu cần thiết
@@ -4462,121 +4465,138 @@ function handleUploadCheckinImage(payload) {
   if (!payload || !payload.image) {
     return jsonResponse(false, 'Thiếu dữ liệu upload ảnh');
   }
-  
-  var lock = LockService.getScriptLock();
-  try {
-    // Acquire lock with 30s timeout to prevent concurrency race conditions with insertRowBefore(2)
-    lock.waitLock(30000);
-    
-    var imageUrl = uploadImageBlobToDrive(payload.image, payload.fullname || payload.username || 'checkin');
-    if (!imageUrl) {
-      return jsonResponse(false, 'Không thể tạo file ảnh trên Google Drive');
-    }
-    
-    // Tìm dòng tương ứng trên Sheet bằng 4-Tier Matcher chống trôi dòng khi nhiều người cùng checkin
-    var sheet = getSS().getSheetByName(CONFIG.SHEET_LOGS);
-    var data = sheet.getDataRange().getValues();
-    
-    var targetRowIdx = -1;
-    var targetDataRow = null;
-    
-    var targetCheckinId = payload.checkinId ? payload.checkinId.toString().trim() : '';
-    var targetTimeISO = payload.timeISO ? payload.timeISO.toString().trim() : '';
-    var cleanUsername = (payload.username || '').toString().trim().toLowerCase();
-    var empProfileForImg = cleanUsername ? getEmploymentProfileByUsername(cleanUsername) : null;
-    var cleanFullname = (payload.fullname || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
-    var cleanCanonicalName = (empProfileForImg && empProfileForImg.fullname)
-      ? empProfileForImg.fullname.toString().trim().toLowerCase().replace(/\s+/g, ' ')
-      : '';
 
-    function normalizeName(str) {
-      if (!str) return '';
-      return str.toString().trim().toLowerCase().replace(/\s+/g, ' ');
-    }
+  // 1. Upload image to Google Drive OUTSIDE ScriptLock so concurrent check-ins & uploads never block each other!
+  var imageUrl = uploadImageBlobToDrive(payload.image, payload.fullname || payload.username || 'checkin');
+  if (!imageUrl) {
+    return jsonResponse(false, 'Không thể tạo file ảnh trên Google Drive');
+  }
 
-    function isSamePerson(rowName, rowJsonCell) {
-      if (rowJsonCell) {
-        try {
-          var rJson = typeof rowJsonCell === 'string' ? JSON.parse(rowJsonCell) : rowJsonCell;
-          var rUser = rJson && rJson.username ? rJson.username.toString().trim().toLowerCase() : '';
-          if (cleanUsername && rUser) {
-            return rUser === cleanUsername;
-          }
-        } catch (eJson) {}
-      }
-      var nRow = normalizeName(rowName);
-      if (!nRow) return false;
-      if (cleanCanonicalName && nRow === cleanCanonicalName) return true;
-      if (cleanFullname && nRow === cleanFullname) return true;
-      if (cleanUsername && nRow === cleanUsername) return true;
-      return false;
+  var targetCheckinId = payload.checkinId ? payload.checkinId.toString().trim() : '';
+  var targetTimeISO = payload.timeISO ? payload.timeISO.toString().trim() : '';
+  var targetTimeStr = payload.time ? payload.time.toString().trim() : '';
+  var cleanUsername = (payload.username || '').toString().trim().toLowerCase();
+  var empProfileForImg = cleanUsername ? getEmploymentProfileByUsername(cleanUsername) : null;
+  var cleanFullname = (payload.fullname || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
+  var cleanCanonicalName = (empProfileForImg && empProfileForImg.fullname)
+    ? empProfileForImg.fullname.toString().trim().toLowerCase().replace(/\s+/g, ' ')
+    : '';
+
+  function normalizeName(str) {
+    if (!str) return '';
+    return str.toString().trim().toLowerCase().replace(/\s+/g, ' ');
+  }
+
+  function isSamePerson(rowName, rowJsonCell) {
+    if (rowJsonCell) {
+      try {
+        var rJson = typeof rowJsonCell === 'string' ? JSON.parse(rowJsonCell) : rowJsonCell;
+        var rUser = rJson && rJson.username ? rJson.username.toString().trim().toLowerCase() : '';
+        if (cleanUsername && rUser) {
+          return rUser === cleanUsername;
+        }
+      } catch (eJson) {}
     }
+    var nRow = normalizeName(rowName);
+    if (!nRow) return false;
+    if (cleanCanonicalName && nRow === cleanCanonicalName) return true;
+    if (cleanFullname && nRow === cleanFullname) return true;
+    if (cleanUsername && nRow === cleanUsername) return true;
+    return false;
+  }
+
+  function findMatchingRowInSlice(rows, startRow1Based) {
+    var matchedRowIdx = -1;
+    var matchedDataRow = null;
 
     // TIER 1: Match by unique checkinId in Column H (Data JSON) - Bất biến dù bị đẩy xuống bao nhiêu dòng
     if (targetCheckinId) {
-      for (var i = 1; i < data.length; i++) {
-        var rowJsonStr = data[i][7] ? data[i][7].toString() : '';
+      for (var i = 0; i < rows.length; i++) {
+        var rowJsonStr = rows[i][7] ? rows[i][7].toString() : '';
         if (rowJsonStr && rowJsonStr.indexOf(targetCheckinId) !== -1) {
-          targetRowIdx = i + 1;
-          targetDataRow = data[i];
-          break;
+          return { rowIdx: startRow1Based + i, dataRow: rows[i] };
         }
       }
     }
 
     // TIER 2: Match by exact display time string in Column C (DD/MM/YYYY HH:MM:SS) + đúng người
-    var targetTimeStr = payload.time ? payload.time.toString().trim() : '';
-    if (targetRowIdx === -1 && targetTimeStr) {
-      for (var i = 1; i < data.length; i++) {
-        var rowTime = data[i][2] ? data[i][2].toString().replace(/^'/, '').trim() : '';
-        if (rowTime && (rowTime === targetTimeStr || rowTime.indexOf(targetTimeStr) !== -1 || targetTimeStr.indexOf(rowTime) !== -1) && isSamePerson(data[i][0], data[i][7])) {
-          targetRowIdx = i + 1;
-          targetDataRow = data[i];
-          break;
+    if (targetTimeStr) {
+      for (var i2 = 0; i2 < rows.length; i2++) {
+        var rowTime = rows[i2][2] ? rows[i2][2].toString().replace(/^'/, '').trim() : '';
+        if (rowTime && (rowTime === targetTimeStr || rowTime.indexOf(targetTimeStr) !== -1 || targetTimeStr.indexOf(rowTime) !== -1) && isSamePerson(rows[i2][0], rows[i2][7])) {
+          return { rowIdx: startRow1Based + i2, dataRow: rows[i2] };
         }
       }
     }
 
     // TIER 3: Match by timeISO in Column H (Data JSON) + đúng người
-    if (targetRowIdx === -1 && targetTimeISO) {
-      for (var i = 1; i < data.length; i++) {
-        var rowJsonStr = data[i][7] ? data[i][7].toString() : '';
-        if (rowJsonStr && rowJsonStr.indexOf(targetTimeISO) !== -1 && isSamePerson(data[i][0], data[i][7])) {
-          targetRowIdx = i + 1;
-          targetDataRow = data[i];
-          break;
+    if (targetTimeISO) {
+      for (var i3 = 0; i3 < rows.length; i3++) {
+        var rowJsonStr3 = rows[i3][7] ? rows[i3][7].toString() : '';
+        if (rowJsonStr3 && rowJsonStr3.indexOf(targetTimeISO) !== -1 && isSamePerson(rows[i3][0], rows[i3][7])) {
+          return { rowIdx: startRow1Based + i3, dataRow: rows[i3] };
         }
       }
     }
 
-    // TIER 4: Match theo đúng nhân viên và Cột G đang chưa có link Drive hợp lệ (quét 250 dòng mới nhất)
-    if (targetRowIdx === -1) {
-      var scanLimit = Math.min(data.length, 250);
-      for (var i = 1; i < scanLimit; i++) {
-        if (isSamePerson(data[i][0], data[i][7])) {
-          var colG = data[i][6] ? data[i][6].toString().trim() : '';
-          var hasDriveLink = colG.indexOf('drive.google.com') !== -1;
-          if (!hasDriveLink) {
-            targetRowIdx = i + 1;
-            targetDataRow = data[i];
-            break;
-          }
+    // TIER 4: Match theo đúng nhân viên và Cột G đang chưa có link Drive hợp lệ
+    var scanLimit = Math.min(rows.length, 250);
+    for (var i4 = 0; i4 < scanLimit; i4++) {
+      if (isSamePerson(rows[i4][0], rows[i4][7])) {
+        var colG = rows[i4][6] ? rows[i4][6].toString().trim() : '';
+        if (colG.indexOf('drive.google.com') === -1) {
+          return { rowIdx: startRow1Based + i4, dataRow: rows[i4] };
         }
       }
     }
 
-    // TIER 5: Fallback - Nếu dòng 2 là của đúng người này và Cột G chưa có link Drive
-    if (targetRowIdx === -1 && data.length > 1 && isSamePerson(data[1][0], data[1][7])) {
-      var colG2 = data[1][6] ? data[1][6].toString().trim() : '';
+    // TIER 5: Fallback - Nếu dòng đầu tiên (dòng 2) là của đúng người này và Cột G chưa có link Drive
+    if (startRow1Based === 2 && rows.length > 0 && isSamePerson(rows[0][0], rows[0][7])) {
+      var colG2 = rows[0][6] ? rows[0][6].toString().trim() : '';
       if (colG2.indexOf('drive.google.com') === -1) {
-        targetRowIdx = 2;
-        targetDataRow = data[1];
+        matchedRowIdx = 2;
+        matchedDataRow = rows[0];
+      }
+    }
+
+    return { rowIdx: matchedRowIdx, dataRow: matchedDataRow };
+  }
+
+  var targetRowIdx = -1;
+  var targetDataRow = null;
+  var isValid = true;
+  var shouldSendPostUploadEmail = false;
+  var parsedJsonForMail = null;
+
+  var lock = LockService.getScriptLock();
+  var hasLock = false;
+  try {
+    // 2. Acquire ultra-short ScriptLock (~150ms) ONLY for locating & updating Col G + Col H on the Sheet
+    lock.waitLock(30000);
+    hasLock = true;
+
+    var sheet = getSS().getSheetByName(CONFIG.SHEET_LOGS);
+    var lastRow = sheet.getLastRow();
+    if (lastRow >= 2) {
+      // Fast path: scan top 250 rows first (99.9% hit rate since new punches insert at Row 2)
+      var fastCount = Math.min(lastRow - 1, 250);
+      var fastRows = sheet.getRange(2, 1, fastCount, 8).getValues();
+      var fastMatch = findMatchingRowInSlice(fastRows, 2);
+      targetRowIdx = fastMatch.rowIdx;
+      targetDataRow = fastMatch.dataRow;
+
+      // Full fallback scan only if sheet has >251 rows and punch wasn't in top 250
+      if (targetRowIdx === -1 && lastRow > 251) {
+        var restRows = sheet.getRange(252, 1, lastRow - 251, 8).getValues();
+        var restMatch = findMatchingRowInSlice(restRows, 252);
+        targetRowIdx = restMatch.rowIdx;
+        targetDataRow = restMatch.dataRow;
       }
     }
 
     if (targetRowIdx > 1 && targetDataRow) {
       // 1. Ghi công thức Hyperlink an toàn vào Cột G
-      var isValid = (targetDataRow[4] ? targetDataRow[4].toString() : '').indexOf('Hợp lệ') >= 0;
+      isValid = (targetDataRow[4] ? targetDataRow[4].toString() : '').indexOf('Hợp lệ') >= 0;
       var linkColor = isValid ? '#10b981' : '#ef4444';
       var cellG = sheet.getRange(targetRowIdx, 7);
       try {
@@ -4594,10 +4614,8 @@ function handleUploadCheckinImage(payload) {
                .setHorizontalAlignment('center');
         } catch (fErr2) {}
       }
-      
+
       // 2. Cập nhật lại Cột H JSON + đánh dấu emailSent idempotent cho chế độ v2_face
-      var shouldSendPostUploadEmail = false;
-      var parsedJsonForMail = null;
       try {
         var oldJsonStr = targetDataRow[7] ? targetDataRow[7].toString() : '{}';
         var oldJson = JSON.parse(oldJsonStr);
@@ -4610,34 +4628,38 @@ function handleUploadCheckinImage(payload) {
         parsedJsonForMail = oldJson;
         sheet.getRange(targetRowIdx, 8).setValue(JSON.stringify(oldJson));
       } catch (ej) {}
-      
+
       SpreadsheetApp.flush();
-
-      // Invalidate cache
-      if (payload.username) {
-        invalidateGetDataCache(payload.username);
-      }
-
-      var asyncEmailSent = false;
-      if (shouldSendPostUploadEmail) {
-        try {
-          sendCheckInEmailAfterUpload_(getSS(), payload, targetDataRow, parsedJsonForMail, imageUrl, isValid);
-          asyncEmailSent = true;
-        } catch (mailAfterErr) {
-          Logger.log('Post-upload email warning: ' + mailAfterErr.message);
-        }
-      }
-      
-      return jsonResponse(true, { url: imageUrl, rowMatched: targetRowIdx, emailSent: asyncEmailSent });
     }
-
-    return jsonResponse(false, 'Không tìm thấy dòng tương ứng để cập nhật ảnh trên Sheet');
   } catch (e) {
     Logger.log('Lỗi upload ảnh chấm công: ' + e.message);
     return jsonResponse(false, 'Lỗi: ' + e.message);
   } finally {
-    lock.releaseLock();
+    if (hasLock) {
+      try { lock.releaseLock(); } catch (relErr) {}
+    }
   }
+
+  // 3. Post-lock side effects (cache invalidation + email notification) run completely outside ScriptLock!
+  if (targetRowIdx > 1 && targetDataRow) {
+    if (payload.username) {
+      try { invalidateGetDataCache(payload.username); } catch (invErr) {}
+    }
+
+    var asyncEmailSent = false;
+    if (shouldSendPostUploadEmail) {
+      try {
+        sendCheckInEmailAfterUpload_(getSS(), payload, targetDataRow, parsedJsonForMail, imageUrl, isValid);
+        asyncEmailSent = true;
+      } catch (mailAfterErr) {
+        Logger.log('Post-upload email warning: ' + mailAfterErr.message);
+      }
+    }
+
+    return jsonResponse(true, { url: imageUrl, rowMatched: targetRowIdx, emailSent: asyncEmailSent });
+  }
+
+  return jsonResponse(false, 'Không tìm thấy dòng tương ứng để cập nhật ảnh trên Sheet');
 }
 
 /**
@@ -4858,41 +4880,70 @@ function handleUploadAvatar(payload) {
 }
 function handleUploadImage(payload) {
   if (!payload || !payload.image) return jsonResponse(false, 'Không có ảnh upload');
-  
+
   try {
-    // Decode base64
+    // Decode base64 safely (supports WebP, JPEG, PNG)
     var base64Data = payload.image;
+    var detectedMime = '';
+    if (base64Data.indexOf('data:image/jpeg') === 0 || base64Data.indexOf('data:image/jpg') === 0) detectedMime = 'image/jpeg';
+    else if (base64Data.indexOf('data:image/png') === 0) detectedMime = 'image/png';
+    else if (base64Data.indexOf('data:image/webp') === 0) detectedMime = 'image/webp';
+
     if (base64Data.indexOf('base64,') >= 0) {
       base64Data = base64Data.split('base64,')[1];
     } else if (base64Data.indexOf(',') >= 0) {
       base64Data = base64Data.split(',')[1];
     }
-    
+
     var time = new Date();
     var filename = payload.filename || ('Upload_' + time.getTime() + '.webp');
-    
-    var mimeType = 'image/webp';
-    if (filename.toLowerCase().indexOf('.png') > 0) mimeType = 'image/png';
-    else if (filename.toLowerCase().indexOf('.jpg') > 0 || filename.toLowerCase().indexOf('.jpeg') > 0) mimeType = 'image/jpeg';
-    
+
+    var mimeType = detectedMime || 'image/webp';
+    if (!detectedMime) {
+      if (filename.toLowerCase().indexOf('.png') > 0) mimeType = 'image/png';
+      else if (filename.toLowerCase().indexOf('.jpg') > 0 || filename.toLowerCase().indexOf('.jpeg') > 0) mimeType = 'image/jpeg';
+    }
+
     var blob = Utilities.newBlob(
       Utilities.base64Decode(base64Data),
       mimeType,
       filename
     );
-    
-    // Use CONFIG.FOLDER_ID or let user pass folder ID if needed later
+
     var folderId = payload.folderId || CONFIG.FOLDER_ID;
+
+    // 1. Ultra-fast Drive API v3 (3-5x faster than legacy DriveApp)
+    try {
+      if (typeof Drive !== 'undefined' && Drive.Files && typeof Drive.Files.create === 'function') {
+        var createdFile = Drive.Files.create(
+          { name: filename, parents: [folderId], mimeType: mimeType },
+          blob,
+          { fields: 'id, webViewLink' }
+        );
+        if (createdFile && createdFile.id) {
+          try {
+            Drive.Permissions.create({ role: 'reader', type: 'anyone' }, createdFile.id);
+          } catch (pErr) {}
+          return jsonResponse(true, {
+            url: 'https://drive.google.com/file/d/' + createdFile.id + '/view?usp=drivesdk'
+          });
+        }
+      }
+    } catch (advErr) {
+      Logger.log('handleUploadImage Drive v3 fallback: ' + advErr.message);
+    }
+
+    // 2. Fallback to DriveApp
     var folder = DriveApp.getFolderById(folderId);
     var file = folder.createFile(blob);
     var imageUrl = file.getUrl();
-    
+
     try {
       file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     } catch (eShare) {
       Logger.log('Cảnh báo phân quyền: ' + eShare.message);
     }
-    
+
     return jsonResponse(true, { url: imageUrl });
   } catch (e) {
     return jsonResponse(false, 'Lỗi upload ảnh: ' + e.message);

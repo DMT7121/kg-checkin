@@ -913,6 +913,61 @@ th.calendar-day--holiday { color: #b91c1c !important; }
   }
 }
 
+/* Opposing kinetic sheen & directional icon motion for Vào ca (IN ->) vs Ra ca (<- OUT) */
+@keyframes kg-sheen-in {
+  0% {
+    transform: translate3d(-150%, 0, 0) skewX(-22deg);
+    opacity: 0;
+  }
+  18% {
+    opacity: 0.34;
+  }
+  42% {
+    transform: translate3d(240%, 0, 0) skewX(-22deg);
+    opacity: 0;
+  }
+  100% {
+    transform: translate3d(240%, 0, 0) skewX(-22deg);
+    opacity: 0;
+  }
+}
+
+@keyframes kg-sheen-out {
+  0% {
+    transform: translate3d(240%, 0, 0) skewX(22deg);
+    opacity: 0;
+  }
+  18% {
+    opacity: 0.34;
+  }
+  42% {
+    transform: translate3d(-150%, 0, 0) skewX(22deg);
+    opacity: 0;
+  }
+  100% {
+    transform: translate3d(-150%, 0, 0) skewX(22deg);
+    opacity: 0;
+  }
+}
+
+@keyframes kg-nudge-in {
+  0%, 100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(3px, 0, 0);
+  }
+}
+
+@keyframes kg-nudge-out {
+  0%, 100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(-3px, 0, 0);
+  }
+}
+
 @layer components {
   /* Interactive Toast Touch Card — subtle hover lift + crisp border/shadow + tactile press */
   .kg-card-interactive {
@@ -982,6 +1037,90 @@ th.calendar-day--holiday { color: #b91c1c !important; }
     background-color: #FFFFFF;
     animation: kg-shutter-flash 180ms var(--ease-standard) forwards;
     will-change: opacity;
+  }
+
+  /* High-Contrast Opposing Vào ca (Emerald ->) vs Ra ca (<- Crimson) Hero Action Tiles */
+  .kg-punch-tile {
+    position: relative;
+    overflow: hidden;
+    border-radius: 18px;
+    color: #FFFFFF;
+    touch-action: manipulation;
+    transition: transform var(--motion-press) var(--ease-standard),
+                box-shadow var(--motion-fast) var(--ease-standard),
+                filter var(--motion-fast) var(--ease-standard);
+  }
+
+  .kg-punch-tile::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 46%;
+    pointer-events: none;
+    will-change: transform, opacity;
+  }
+
+  .kg-punch-tile--in {
+    background: linear-gradient(150deg, #1F8E60 0%, #146342 100%);
+    border: 1.5px solid rgba(167, 243, 208, 0.38);
+    box-shadow: 0 12px 24px -10px rgba(20, 99, 66, 0.56);
+  }
+
+  .kg-punch-tile--in::after {
+    left: 0;
+    background: linear-gradient(90deg, transparent 0%, rgba(209, 250, 229, 0.45) 50%, transparent 100%);
+    animation: kg-sheen-in 3.2s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  }
+
+  .kg-punch-tile--out {
+    background: linear-gradient(150deg, #D34B3C 0%, #A72E24 100%);
+    border: 1.5px solid rgba(254, 202, 202, 0.38);
+    box-shadow: 0 12px 24px -10px rgba(167, 46, 36, 0.56);
+  }
+
+  .kg-punch-tile--out::after {
+    left: 0;
+    background: linear-gradient(90deg, transparent 0%, rgba(254, 226, 226, 0.45) 50%, transparent 100%);
+    animation: kg-sheen-out 3.2s cubic-bezier(0.22, 1, 0.36, 1) 0.9s infinite;
+  }
+
+  @media (hover: hover) {
+    .kg-punch-tile--in:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 16px 28px -10px rgba(20, 99, 66, 0.68);
+      filter: brightness(1.04);
+    }
+
+    .kg-punch-tile--out:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 16px 28px -10px rgba(167, 46, 36, 0.68);
+      filter: brightness(1.04);
+    }
+  }
+
+  .kg-punch-tile:active:not(:disabled) {
+    transform: scale(0.965) translateY(1px);
+  }
+
+  .kg-punch-icon-in {
+    animation: kg-nudge-in 2.2s ease-in-out infinite;
+    will-change: transform;
+  }
+
+  .kg-punch-icon-out {
+    animation: kg-nudge-out 2.2s ease-in-out infinite;
+    will-change: transform;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .kg-punch-tile::after {
+      display: none;
+    }
+    .kg-punch-icon-in,
+    .kg-punch-icon-out {
+      animation: none;
+    }
   }
 }
 

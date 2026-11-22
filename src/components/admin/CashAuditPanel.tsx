@@ -156,7 +156,8 @@ export default function CashAuditPanel({
         handoverId: item.id,
         decision,
         managerNote: note,
-      });
+        instantEdge: true,
+      }, { background: true });
       if (!res) return;
       if (res.ok) {
         const nextStatus = decision === 'DISPUTE' ? 'Disputed' : 'ManagerConfirmed';

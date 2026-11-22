@@ -265,6 +265,7 @@ export default function Handover() {
           ackStatus: ackMode,
           countedCash: countedNum,
           ackNote: ackMode === 'Disputed' ? disputeReason.trim() : '',
+          instantEdge: true,
         },
         { background: true },
       );
@@ -334,7 +335,8 @@ export default function Handover() {
         discrepancy: recon.discrepancy,
         cashAmount: formattedClosing,
         note: handoverNote.trim(),
-      });
+        instantEdge: true,
+      }, { background: true });
 
       if (res?.ok) {
         setTodayHandoverDone(true);

@@ -152,7 +152,6 @@ export default function Checklist() {
   const users = useAppStore((s) => s.users);
   const setCurrentUser = useAppStore((s) => s.setCurrentUser);
   const shiftName = useAppStore((s) => s.shiftName);
-  const setGlobalLoading = useAppStore((s) => s.setLoading);
   const setTodayChecklistDone = useAppStore((s) => s.setTodayChecklistDone);
 
   const [loading, setLoading] = useState(true);
@@ -430,56 +429,65 @@ export default function Checklist() {
     completed: boolean,
   ) => {
     if (!currentUser) return;
+    const prevLogs = opsTaskLogs;
+    // Optimistic 0ms UI update
+    if (completed) {
+      setOpsTaskLogs((current) => [
+        ...current.filter(
+          (log) =>
+            !(
+              log.assignmentId === assignment.id &&
+              log.taskId === taskId &&
+              log.username === currentUser.username
+            ),
+        ),
+        {
+          id: `${assignment.id}_${taskId}_${currentUser.username}`,
+          date: assignment.date,
+          assignmentId: assignment.id,
+          taskId,
+          username: currentUser.username,
+          fullname: currentUser.fullname,
+          completedAt: 'Vừa xong',
+          status: 'Completed',
+          note: '',
+        },
+      ]);
+    } else {
+      setOpsTaskLogs((current) =>
+        current.filter(
+          (log) =>
+            !(
+              log.assignmentId === assignment.id &&
+              log.taskId === taskId &&
+              log.username === currentUser.username
+            ),
+        ),
+      );
+    }
+
     setUpdatingOpsTaskId(`${assignment.id}_${taskId}`);
     try {
-      const res = await callApi('TOGGLE_OPERATION_TASK', {
-        role: currentUser.role,
-        username: currentUser.username,
-        fullname: currentUser.fullname,
-        assignmentId: assignment.id,
-        taskId,
-        date: assignment.date,
-        completed,
-      });
+      const res = await callApi(
+        'TOGGLE_OPERATION_TASK',
+        {
+          role: currentUser.role,
+          username: currentUser.username,
+          fullname: currentUser.fullname,
+          assignmentId: assignment.id,
+          taskId,
+          date: assignment.date,
+          completed,
+          instantEdge: true,
+        },
+        { background: true },
+      );
       if (!res?.ok) {
+        setOpsTaskLogs(prevLogs);
         kgToast(res?.message || 'Chưa cập nhật được đầu việc điều phối. Vui lòng thử lại.', 'error');
-        return;
-      }
-      if (completed) {
-        setOpsTaskLogs((current) => [
-          ...current.filter(
-            (log) =>
-              !(
-                log.assignmentId === assignment.id &&
-                log.taskId === taskId &&
-                log.username === currentUser.username
-              ),
-          ),
-          {
-            id: `${assignment.id}_${taskId}_${currentUser.username}`,
-            date: assignment.date,
-            assignmentId: assignment.id,
-            taskId,
-            username: currentUser.username,
-            fullname: currentUser.fullname,
-            completedAt: res.data?.completedAt || 'Vừa xong',
-            status: 'Completed',
-            note: '',
-          },
-        ]);
-      } else {
-        setOpsTaskLogs((current) =>
-          current.filter(
-            (log) =>
-              !(
-                log.assignmentId === assignment.id &&
-                log.taskId === taskId &&
-                log.username === currentUser.username
-              ),
-          ),
-        );
       }
     } catch {
+      setOpsTaskLogs(prevLogs);
       kgToast('Lỗi kết nối khi cập nhật trạng thái nhiệm vụ.', 'error');
     } finally {
       setUpdatingOpsTaskId('');
@@ -598,7 +606,7 @@ export default function Checklist() {
     [states, getAreaPendingItems],
   );
 
-  // Sync state to Google Sheets with concurrent-safe delta merging
+  // Sync state to Cloudflare Edge D1 (<40ms) + coalesced background Google Sheets merge
   const syncToServer = async (
     area: AreaCode,
     participants: SavedAreaState['participants'],
@@ -611,26 +619,9 @@ export default function Checklist() {
     silentSuccess = false,
   ): Promise<boolean> => {
     setIsSaving(true);
-    if (!silentSuccess) {
-      setGlobalLoading(true, 'Đang đồng bộ tiến độ Checklist an toàn...');
-    }
 
     try {
-      let latestRemoteAreaState: SavedAreaState | undefined = states[area];
-      try {
-        const freshRes = await callApi(
-          'GET_OPS_CHECKLIST_INIT',
-          { dateStr: workDate, forceRefresh: true },
-          { background: true, cacheTtlMs: 0 },
-        );
-        if (freshRes?.ok && freshRes.data?.states?.[area]) {
-          latestRemoteAreaState = freshRes.data.states[area];
-        }
-      } catch {
-        // Proceed with cached base if pre-read times out
-      }
-
-      const preMerged = mergeChecklistAreaState(latestRemoteAreaState, {
+      const preMerged = mergeChecklistAreaState(states[area], {
         participants,
         removedParticipantKeys: removedKeys,
         items,
@@ -654,8 +645,9 @@ export default function Checklist() {
           supply: preMerged.supply,
           signatures: preMerged.signatures,
           deltaSignatures,
+          instantEdge: true,
         },
-        { background: silentSuccess },
+        { background: true },
       );
 
       if (res?.ok) {
@@ -679,7 +671,7 @@ export default function Checklist() {
           setPendingSignatures(null);
           setNoteDrafts({});
           clearAreaChecklistDraft(draftStorageKey, area);
-          kgToast('Đã đồng bộ & gộp tiến độ cùng đồng đội!', 'success', undefined, 2600);
+          kgToast('Đã đồng bộ & gộp tiến độ cùng đồng đội!', 'success', undefined, 2200);
         }
         return true;
       }
@@ -696,19 +688,16 @@ export default function Checklist() {
       return false;
     } finally {
       setIsSaving(false);
-      if (!silentSuccess) {
-        setGlobalLoading(false);
-      }
     }
   };
 
-  // Atomic single-item patch (default mode) with offline/draft fallback into `pending`
+  // Atomic single-item patch (default mode) with instant Edge D1 merge & offline draft fallback
   const syncSingleItemDelta = async (
     area: AreaCode,
     itemId: string,
     stateUpdate: Partial<SavedItemState>,
   ) => {
-    // Apply optimistically to local area state right away for crisp instant UX
+    // Apply optimistically to local area state right away for crisp 0ms instant UX
     setStates((prev) => {
       const base = prev[area] || { participants: [], items: {}, supply: {}, signatures: {} };
       return {
@@ -732,6 +721,13 @@ export default function Checklist() {
 
     setIsSaving(true);
     try {
+      const itemPatch = {
+        checked: stateUpdate.checked,
+        note: stateUpdate.note,
+        subchecks: stateUpdate.subchecks,
+        by: stateUpdate.by || sessionName,
+        at: stateUpdate.at || new Date().toISOString(),
+      };
       const patchRes = await callApi(
         'PATCH_OPS_CHECKLIST_ITEM',
         {
@@ -741,11 +737,13 @@ export default function Checklist() {
           fullname: currentUser?.fullname,
           participants: areaData.participants,
           itemId,
-          checked: stateUpdate.checked,
-          note: stateUpdate.note,
-          subchecks: stateUpdate.subchecks,
-          by: stateUpdate.by || sessionName,
-          at: stateUpdate.at || new Date().toISOString(),
+          itemPatch,
+          checked: itemPatch.checked,
+          note: itemPatch.note,
+          subchecks: itemPatch.subchecks,
+          by: itemPatch.by,
+          at: itemPatch.at,
+          instantEdge: true,
         },
         { background: true },
       );

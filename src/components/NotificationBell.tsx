@@ -113,23 +113,23 @@ export default function NotificationBell() {
   }, [currentUser?.username, fetchNotifications]);
 
   const handleMarkRead = async (id: string) => {
-    await callApi('MARK_NOTIFICATION_READ', { notificationId: id, username: currentUser?.username }, { background: true });
     sharedNotifications = sharedNotifications.map(n => n.id === id ? { ...n, isRead: true } : n);
     sharedUnreadCount = Math.max(0, sharedUnreadCount - 1);
     try {
       localStorage.setItem('kg_notif_unread', String(sharedUnreadCount));
     } catch { /* ignore */ }
     notifyBellSubscribers();
+    void callApi('MARK_NOTIFICATION_READ', { notificationId: id, username: currentUser?.username, instantEdge: true }, { background: true });
   };
 
   const handleMarkAllRead = async () => {
-    await callApi('MARK_NOTIFICATION_READ', { markAll: true, username: currentUser?.username }, { background: true });
     sharedNotifications = sharedNotifications.map(n => ({ ...n, isRead: true }));
     sharedUnreadCount = 0;
     try {
       localStorage.setItem('kg_notif_unread', '0');
     } catch { /* ignore */ }
     notifyBellSubscribers();
+    void callApi('MARK_NOTIFICATION_READ', { markAll: true, username: currentUser?.username, instantEdge: true }, { background: true });
   };
 
   const typeConfig: Record<string, { icon: typeof Info; color: string; bg: string; border: string }> = {

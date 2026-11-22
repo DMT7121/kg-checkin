@@ -128,7 +128,8 @@ export default function IncidentCenterPanel({
         assignedTo,
         resolutionNote,
         repairCost,
-      });
+        instantEdge: true,
+      }, { background: true });
 
       if (!res) return;
       if (res.ok) {

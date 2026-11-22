@@ -466,7 +466,7 @@ function hydrateStore(data: any): void {
  * - Skips if data fresh (< 5min) unless force=true
  * - Persists to expanded localStorage
  */
-async function performRefresh(force: boolean): Promise<void> {
+async function performRefresh(force: boolean, bypassEdgeCache = force): Promise<void> {
   const store = useAppStore.getState();
   const { currentUser } = store;
   if (!currentUser) return;
@@ -484,8 +484,8 @@ async function performRefresh(force: boolean): Promise<void> {
     weekLabel: weekInfo.weekLabel,
     currentMonthSheet: currentWeekInfo.monthSheet,
     currentWeekLabel: currentWeekInfo.weekLabel,
-    forceRefresh: force || undefined,
-  }, { background: true });
+    forceRefresh: bypassEdgeCache || undefined,
+  }, { background: true, cacheTtlMs: force ? 0 : undefined });
 
   if (res?.ok) {
     hydrateStore(res.data);
@@ -537,10 +537,15 @@ async function performRefresh(force: boolean): Promise<void> {
   }
 }
 
-export function refreshAppData(force = false): Promise<void> {
+export function refreshAppData(
+  force = false,
+  options?: { bypassEdgeCache?: boolean }
+): Promise<void> {
   if (refreshInFlight) return refreshInFlight;
   setRefreshingState(true);
-  refreshInFlight = performRefresh(force).finally(() => {
+  const bypassEdgeCache =
+    options?.bypassEdgeCache !== undefined ? options.bypassEdgeCache : force;
+  refreshInFlight = performRefresh(force, bypassEdgeCache).finally(() => {
     refreshInFlight = null;
     setRefreshingState(false);
   });

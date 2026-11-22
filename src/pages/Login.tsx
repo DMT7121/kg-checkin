@@ -26,6 +26,7 @@ import {
   Moon,
   Flame,
   RotateCcw,
+  Loader2,
 } from 'lucide-react';
 import { hashPassword } from '../utils/security';
 import { KgVersionBadge } from '../components/KgVersionBadge';
@@ -55,6 +56,7 @@ export default function Login() {
   const [forgotStep, setForgotStep] = useState<1 | 2>(1);
   const [resetForm, setResetForm] = useState({ otp: '', newPassword: '' });
   const [showPass, setShowPass] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [kioskScannerOpen, setKioskScannerOpen] = useState(false);
   const [syncedProfileCount, setSyncedProfileCount] = useState<number>(
     () => getCachedFaceProfiles().length
@@ -79,7 +81,14 @@ export default function Login() {
     };
     window.addEventListener('focus', onFocusOrVisible);
     document.addEventListener('visibilitychange', onFocusOrVisible);
+
+    // Preload Dashboard chunk silently while user enters credentials so post-login transition is 0ms instant
+    const preloadTimer = window.setTimeout(() => {
+      void import('./Dashboard').catch(() => {});
+    }, 350);
+
     return () => {
+      window.clearTimeout(preloadTimer);
       unsub();
       window.removeEventListener('focus', onFocusOrVisible);
       document.removeEventListener('visibilitychange', onFocusOrVisible);
@@ -96,41 +105,49 @@ export default function Login() {
 
   const handleLogin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (isLoggingIn) return;
+    const cleanUsername = loginForm.username.trim();
+    if (!cleanUsername || !loginForm.password) return;
+
     setAuthNotice(null);
-    store.setLoading(true, 'Đang đăng nhập...');
+    setIsLoggingIn(true);
 
-    let passwordHash = '';
     try {
-      passwordHash = await hashPassword(loginForm.password);
-    } catch {
-      /* ignore */
-    }
+      let passwordHash = '';
+      try {
+        passwordHash = await hashPassword(loginForm.password);
+      } catch {
+        /* ignore */
+      }
 
-    const res = await callApi(
-      'LOGIN',
-      {
-        ...loginForm,
-        passwordHash: passwordHash || undefined,
-      },
-      { timeoutMs: 15000, maxAttempts: 1 }
-    );
-    store.setLoading(false);
+      const res = await callApi(
+        'LOGIN',
+        {
+          username: cleanUsername,
+          password: loginForm.password,
+          passwordHash: passwordHash || undefined,
+        },
+        { background: true, timeoutMs: 15000, maxAttempts: 1 }
+      );
 
-    if (res?.ok) {
-      hydrateSessionAfterLogin(res.data, rememberMe);
-    } else if (res) {
-      speak('Đăng nhập thất bại');
-      setAuthNotice({
-        variant: 'error',
-        title: 'Đăng nhập thất bại',
-        text: res.message || 'Tên đăng nhập hoặc mật khẩu chưa đúng.',
-      });
-    } else {
-      setAuthNotice({
-        variant: 'error',
-        title: 'Lỗi kết nối',
-        text: 'Không thể kết nối máy chủ. Vui lòng thử lại.',
-      });
+      if (res?.ok) {
+        hydrateSessionAfterLogin(res.data, rememberMe);
+      } else if (res) {
+        speak('Đăng nhập thất bại');
+        setAuthNotice({
+          variant: 'error',
+          title: 'Đăng nhập thất bại',
+          text: res.message || 'Tên đăng nhập hoặc mật khẩu chưa đúng.',
+        });
+      } else {
+        setAuthNotice({
+          variant: 'error',
+          title: 'Lỗi kết nối',
+          text: 'Không thể kết nối máy chủ. Vui lòng thử lại.',
+        });
+      }
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -589,9 +606,19 @@ export default function Login() {
 
                 <button
                   type="submit"
-                  className="login-primary kg-pressable w-full bg-[var(--kg-primary)] border-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] font-extrabold py-3 rounded-xl transition-colors duration-150 flex items-center justify-center gap-2 text-sm shadow-xs min-h-[48px] touch-manipulation"
+                  disabled={isLoggingIn}
+                  className="login-primary kg-pressable w-full bg-[var(--kg-primary)] border-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] disabled:opacity-75 text-[var(--kg-primary-fg)] font-extrabold py-3 rounded-xl transition-colors duration-150 flex items-center justify-center gap-2 text-sm shadow-xs min-h-[48px] touch-manipulation"
                 >
-                  <span>Đăng nhập vào Ca trực</span> <ArrowRight size={16} />
+                  {isLoggingIn ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>Đang xác thực...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Đăng nhập vào Ca trực</span> <ArrowRight size={16} />
+                    </>
+                  )}
                 </button>
               </form>
             )}

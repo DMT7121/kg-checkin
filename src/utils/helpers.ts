@@ -1607,8 +1607,8 @@ export function fileToBase64(file: File): Promise<string> {
         let width = img.width;
         let height = img.height;
         
-        // Max dimension 1280px to keep it sharp but lightweight
-        const MAX_DIMENSION = 1280;
+        // Max dimension 1080px to keep photos crisp while cutting 4G upload payload ~35%
+        const MAX_DIMENSION = 1080;
         if (width > height && width > MAX_DIMENSION) {
           height = Math.round((height * MAX_DIMENSION) / width);
           width = MAX_DIMENSION;
@@ -1629,7 +1629,7 @@ export function fileToBase64(file: File): Promise<string> {
         ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, width, height);
         
-        resolve(encodeOptimalCanvas(canvas, 0.83));
+        resolve(encodeOptimalCanvas(canvas, 0.8));
       };
       img.onerror = (error) => reject(error);
       img.src = event.target?.result as string;

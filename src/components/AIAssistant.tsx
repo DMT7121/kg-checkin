@@ -467,7 +467,8 @@ Nhiệm vụ của bạn là hỗ trợ nhân sự (${currentUser?.fullname || '
         messages: [
           { role: 'user', content: userMessage.content },
           { role: 'assistant', content: aiText }
-        ]
+        ],
+        instantEdge: true,
       }, { background: true });
 
     } catch (error) {

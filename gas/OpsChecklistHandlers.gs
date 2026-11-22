@@ -52,11 +52,21 @@ function handlePatchOpsChecklistItem(payload) {
       return jsonResponse(false, 'Trạng thái nhân sự hiện tại không được thực hiện checklist');
     }
     var itemId = String(payload.itemId || '').trim();
-    if (!itemId || !payload.itemPatch) {
+    var itemPatch = payload.itemPatch;
+    if (!itemPatch && itemId && (payload.checked !== undefined || payload.note !== undefined || payload.subchecks !== undefined)) {
+      itemPatch = {
+        checked: payload.checked,
+        note: payload.note,
+        subchecks: payload.subchecks,
+        by: payload.by || payload.fullname || actorUser || '',
+        at: payload.at || new Date().toISOString()
+      };
+    }
+    if (!itemId || !itemPatch) {
       return jsonResponse(false, 'Thiếu thông tin hạng mục checklist cần cập nhật');
     }
     var deltaItems = {};
-    deltaItems[itemId] = payload.itemPatch;
+    deltaItems[itemId] = itemPatch;
     var participants = payload.participant ? [payload.participant] : (payload.participants || []);
     var res = ChecklistService.saveChecklistState(
       payload.dateStr,

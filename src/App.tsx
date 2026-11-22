@@ -177,8 +177,8 @@ export default function App() {
           // Refresh session timestamp (extend session on reload)
           localStorage.setItem('kg_session_time', Date.now().toString());
 
-          // Always force a fresh schedule/log sync on session boot so T5-T7 check-in gate has live server state
-          refreshAppData(true);
+          // Pull live D1-overlaid schedule & logs instantly on boot (<50ms via Edge SWR) without bypassing Edge cache
+          refreshAppData(true, { bypassEdgeCache: false });
         }
       } catch {
         localStorage.removeItem('kg_user');

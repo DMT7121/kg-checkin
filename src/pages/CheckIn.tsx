@@ -61,7 +61,6 @@ import {
   Moon,
   ChevronRight,
   ChevronDown,
-  Check,
   Users,
   Crosshair,
   Radio,
@@ -74,8 +73,10 @@ import {
   Zap,
   ScanFace,
   UserPlus,
-  Loader2
+  Loader2,
+  Send
 } from 'lucide-react';
+import { kgToast } from '../store/useFeedbackStore';
 import {
   KgButton,
   KgBottomSheet,
@@ -326,6 +327,11 @@ export default function CheckIn() {
     smartIntent.suggestedSupplementTime || '15:00'
   );
   const [comboSupplementReason, setComboSupplementReason] = useState<string>('Quên bấm đầu ca');
+  const [quickSupplementSheetOpen, setQuickSupplementSheetOpen] = useState(false);
+  const [quickSupplementType, setQuickSupplementType] = useState<'Vào ca' | 'Ra ca'>('Vào ca');
+  const [quickSupplementCustomReason, setQuickSupplementCustomReason] = useState<string>('');
+  const [isSubmittingQuickSupplement, setIsSubmittingQuickSupplement] = useState(false);
+  const [earlyOutPromptOpenInModal, setEarlyOutPromptOpenInModal] = useState(false);
   const [isSubmittingPunch, setIsSubmittingPunch] = useState(false);
   const isSubmittingPunchRef = useRef(false);
   const [hasAcknowledgedEarlyOut, setHasAcknowledgedEarlyOut] = useState(false);
@@ -1446,7 +1452,7 @@ export default function CheckIn() {
   };
 
   // Submit flow triggers
-  const submitCheck = async (type: string) => {
+  const submitCheck = async (type: string, skipInvertedGuard = false) => {
     if (isSubmittingPunchRef.current) return;
     const activeLat = capturedGps?.lat ?? gps.lat;
     const activeLng = capturedGps?.lng ?? gps.lng;
@@ -1460,6 +1466,7 @@ export default function CheckIn() {
     const isOutAction = isCheckOutLabel(type);
     // Safety guard: If user manually chose 'Ra ca' without resolving disambiguation and has no active open shift
     if (
+      !skipInvertedGuard &&
       isOutAction &&
       !recommendation.isOpenShift &&
       !recommendation.hasInToday &&
@@ -2024,6 +2031,103 @@ export default function CheckIn() {
     }
   };
 
+  const handleSelectCheckInTypeInModal = (choice: 'Vào ca' | 'Ra ca') => {
+    if (isSubmittingPunchRef.current || !isWithinRadius || photoTimeLeftSeconds <= 0 || recommendation.isMaxPunchesReached) {
+      return;
+    }
+
+    if (
+      choice === 'Ra ca' &&
+      recommendation.isOpenShift &&
+      !recommendation.canCheckOutNow &&
+      !hasAcknowledgedEarlyOut
+    ) {
+      setUserResolvedDisambiguation('Ra ca');
+      handleTypeChangeInModal('Ra ca');
+      setEarlyOutPromptOpenInModal(true);
+      return;
+    }
+
+    setEarlyOutPromptOpenInModal(false);
+    setUserResolvedDisambiguation(choice);
+    handleTypeChangeInModal(choice);
+    void submitCheck(choice, true);
+  };
+
+  const openQuickSupplementSheet = () => {
+    const inferredType: 'Vào ca' | 'Ra ca' =
+      smartIntent.ambiguityReason === 'LATE_SHIFT_MISSING_IN' || !recommendation.hasInToday
+        ? 'Vào ca'
+        : smartIntent.unclosedYesterdayDateStr || recommendation.isOpenShift
+        ? 'Ra ca'
+        : 'Vào ca';
+    setQuickSupplementType(inferredType);
+    if (smartIntent.suggestedSupplementTime) {
+      setComboSupplementTime(smartIntent.suggestedSupplementTime);
+    }
+    setComboSupplementReason(inferredType === 'Ra ca' ? 'Quên bấm cuối ca' : 'Quên bấm đầu ca');
+    setQuickSupplementCustomReason('');
+    setQuickSupplementSheetOpen(true);
+  };
+
+  const handleSubmitQuickSupplementOnly = async () => {
+    if (!currentUser || isSubmittingQuickSupplement) return;
+    setIsSubmittingQuickSupplement(true);
+    try {
+      const vn = getVietnamDateParts();
+      const fallbackTodayStr = `${String(vn.day).padStart(2, '0')}/${String(vn.month).padStart(2, '0')}/${vn.year}`;
+      const suppDate =
+        (quickSupplementType === 'Ra ca' ? smartIntent.unclosedYesterdayDateStr : undefined) ||
+        smartIntent.suggestedSupplementDate ||
+        fallbackTodayStr;
+      const suppTime = (comboSupplementTime || smartIntent.suggestedSupplementTime || '15:00').slice(0, 5);
+      const suppReason =
+        quickSupplementCustomReason.trim() ||
+        comboSupplementReason.trim() ||
+        (quickSupplementType === 'Ra ca' ? 'Quên bấm cuối ca' : 'Quên bấm đầu ca');
+      const shiftStr = todayScheduledShift || 'Không có ca';
+
+      recordLocalMissedClaim({
+        username: currentUser.username,
+        fullname: currentUser.fullname,
+        date: suppDate,
+        time: suppTime,
+        type: quickSupplementType,
+        shift: shiftStr,
+        reason: suppReason,
+      });
+
+      const missedPayload = {
+        username: currentUser.username,
+        fullname: currentUser.fullname,
+        date: suppDate,
+        time: suppTime,
+        type: quickSupplementType,
+        shift: shiftStr,
+        reason: suppReason,
+      };
+
+      const mRes = await callApi('SUBMIT_MISSED_CHECKIN', missedPayload, {
+        background: true,
+        timeoutMs: 25000,
+        maxAttempts: 2,
+      }).catch(() => null);
+
+      if (!mRes?.ok) {
+        enqueueTask('SUBMIT_MISSED_CHECKIN', missedPayload, { priority: 'high', maxAttempts: 12 });
+        kgToast('Đã lưu đơn bổ sung công ngoại tuyến — sẽ tự đồng bộ khi có mạng.', 'info');
+      } else {
+        kgToast(`Đã gửi đơn bổ sung ${quickSupplementType} (${suppTime}) • Chờ Admin duyệt`, 'success');
+      }
+
+      setQuickSupplementSheetOpen(false);
+      setConfirmCheckInModalOpen(false);
+      void refreshFastAttendanceState();
+    } finally {
+      setIsSubmittingQuickSupplement(false);
+    }
+  };
+
   // 1-Tap Smart Combo: Submit verified "Ra ca" now + submit "Bổ sung Vào ca" for forgotten shift start sequentially
   const handleComboOutAndSupplementIn = async () => {
     if (!currentUser || isSubmittingPunchRef.current) return;
@@ -2031,9 +2135,10 @@ export default function CheckIn() {
     const fallbackTodayStr = `${String(vn.day).padStart(2, '0')}/${String(vn.month).padStart(2, '0')}/${vn.year}`;
     const suppDate = smartIntent.suggestedSupplementDate || fallbackTodayStr;
     const suppTime = (comboSupplementTime || smartIntent.suggestedSupplementTime || '15:00').slice(0, 5);
-    const suppReason = comboSupplementReason.trim() || 'Quên bấm đầu ca';
+    const suppReason = quickSupplementCustomReason.trim() || comboSupplementReason.trim() || 'Quên bấm đầu ca';
     const shiftStr = todayScheduledShift || 'Không có ca';
 
+    setQuickSupplementSheetOpen(false);
     const restampedRaCaImage = handleTypeChangeInModal('Ra ca') || undefined;
     setUserResolvedDisambiguation('Ra ca');
 
@@ -2086,7 +2191,8 @@ export default function CheckIn() {
       username: currentUser!.username,
       fullname: currentUser!.fullname,
       emotion: surveyEmotion,
-      note: surveyNote
+      note: surveyNote,
+      instantEdge: true,
     }, { background: true });
     
     setSurveySubmitting(false);
@@ -3231,452 +3337,470 @@ export default function CheckIn() {
         </div>
       </div>
 
-      {/* Smart Context-Aware Confirmation & Disambiguation Bottom Sheet (Zero Wrong Vào/Ra Clicks) */}
+      {/* Redesigned Compact Mobile-First Check-In Type Selection Modal (Opposing Vào ca vs Ra ca + Quick Supplement) */}
       <KgBottomSheet
         isOpen={confirmCheckInModalOpen}
         onClose={() => {
-          if (!isSubmittingPunch) setConfirmCheckInModalOpen(false);
+          if (!isSubmittingPunch) {
+            setEarlyOutPromptOpenInModal(false);
+            setConfirmCheckInModalOpen(false);
+          }
         }}
-        title={
-          smartIntent.requiresDisambiguation && userResolvedDisambiguation === null
-            ? 'Kiểm Tra & Xác Nhận Lượt Ca'
-            : (userResolvedDisambiguation || smartIntent.smartSuggestedAction) === 'Ra ca'
-            ? 'Xác Nhận Ra Ca'
-            : 'Xác Nhận Vào Ca'
-        }
+        title="Chọn Loại Chấm Công"
       >
-        <div className="space-y-3.5 py-1 kg-animate-fade-up">
-          {/* Summary Proof Pill Card */}
-          <div className="p-3 bg-[var(--kg-surface-2)] rounded-2xl border border-[var(--kg-border)] flex items-center gap-3 kg-animate-scale-in">
-            {capturedImage && (
-              <div className="w-14 h-16 rounded-xl overflow-hidden bg-[#111E18] border border-[var(--kg-border)] flex-shrink-0">
-                <img src={capturedImage} alt="Preview" className="w-full h-full object-cover" />
-              </div>
-            )}
-            <div className="min-w-0 flex-1 space-y-0.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-[var(--kg-primary-ink)] inline-flex items-center gap-1">
-                  <ShieldCheck size={12} /> KING&apos;S GRILL
-                </span>
-                <span className="text-[10px] font-mono tabular-nums font-bold text-[var(--kg-text-muted)]">
-                  {store.capturedTime || currentTime}
-                </span>
-              </div>
-              <p className="text-xs font-black text-[var(--kg-text)] truncate">
-                {currentUser?.fullname} ({currentUser?.username})
-              </p>
-              <p className="text-[10px] text-[var(--kg-text-muted)] truncate flex items-center gap-1">
-                <MapPin size={11} className="text-[var(--kg-success)] flex-shrink-0" />
-                <span className="truncate">{gps.address || 'Đúng bán kính nhà hàng'}</span>
-              </p>
-            </div>
-          </div>
+        {(() => {
+          const suggestedAction: CheckInTypeString =
+            userResolvedDisambiguation || smartIntent.smartSuggestedAction;
+          const isActionsDisabled =
+            isSubmittingPunch ||
+            !isWithinRadius ||
+            photoTimeLeftSeconds <= 0 ||
+            Boolean(recommendation.isMaxPunchesReached);
+          const expiryToneClass =
+            photoTimeLeftSeconds <= 15
+              ? 'bg-[var(--kg-danger-soft)] border-[var(--kg-danger)]/40 text-[var(--kg-danger)] animate-pulse'
+              : photoTimeLeftSeconds <= 30
+              ? 'bg-[var(--kg-warning-soft)] border-[var(--kg-warning)]/40 text-[var(--kg-warning)]'
+              : 'bg-[var(--kg-success-soft)] border-[var(--kg-success)]/30 text-[var(--kg-success)]';
 
-          {smartIntent.requiresDisambiguation && userResolvedDisambiguation === null ? (
-            <div
-              data-testid="smart-disambiguation-card"
-              className="p-3.5 rounded-2xl border-2 border-[var(--kg-warning)]/40 bg-[var(--kg-warning-soft)] space-y-3 text-[var(--kg-text)]"
-            >
-              <div className="flex items-start gap-2.5">
-                <div className="w-10 h-10 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-warning)]/30 text-[var(--kg-warning)] flex items-center justify-center shrink-0 shadow-xs">
-                  <AlertTriangle size={20} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs sm:text-sm font-black text-[var(--kg-warning)] leading-snug">
-                    {smartIntent.guidanceTitle}
-                  </p>
-                  <p className="text-[11px] text-[var(--kg-text-muted)] font-medium leading-relaxed mt-1">
-                    {smartIntent.guidanceDetail}
-                  </p>
-                </div>
-              </div>
-
-              {smartIntent.ambiguityReason === 'LATE_SHIFT_MISSING_IN' ? (
-                <div className="space-y-2.5 pt-1">
-                  <div className="p-2.5 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <label
-                        htmlFor="combo-supp-time-input"
-                        className="text-[11px] font-black text-[var(--kg-text)]"
-                      >
-                        Giờ Vào ca thực tế đầu giờ ({smartIntent.suggestedSupplementDate}):
-                      </label>
-                      <input
-                        id="combo-supp-time-input"
-                        type="time"
-                        value={comboSupplementTime}
-                        onChange={(e) => setComboSupplementTime(e.target.value)}
-                        className="px-2.5 py-1.5 min-h-[44px] sm:min-h-[38px] rounded-lg border border-[var(--kg-border-strong)] bg-[var(--kg-surface-2)] text-base sm:text-xs font-mono tabular-nums font-black text-[var(--kg-text)]"
-                      />
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {[
-                        'Quên bấm đầu ca',
-                        'Bận phục vụ khách đầu ca',
-                        'Điện thoại hết pin / lỗi mạng',
-                      ].map((rText) => (
-                        <button
-                          key={rText}
-                          type="button"
-                          onClick={() => setComboSupplementReason(rText)}
-                          className={`px-2.5 py-1.5 min-h-[44px] sm:min-h-[34px] rounded-lg text-[11px] font-bold border transition touch-manipulation ${
-                            comboSupplementReason === rText
-                              ? 'bg-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)] border-transparent font-black'
-                              : 'bg-[var(--kg-surface-2)] text-[var(--kg-text-muted)] border-[var(--kg-border)]'
-                          }`}
-                        >
-                          {rText}
-                        </button>
-                      ))}
-                    </div>
+          return (
+            <div className="space-y-3 py-0.5 kg-animate-fade-up">
+              {/* Compact Proof Header Bar with inline 60s expiry badge */}
+              <div className="p-2.5 bg-[var(--kg-surface-2)] rounded-2xl border border-[var(--kg-border)] flex items-center gap-2.5 kg-animate-scale-in">
+                {capturedImage && (
+                  <div className="w-12 h-14 rounded-xl overflow-hidden bg-[#111E18] border border-[var(--kg-border)] flex-shrink-0">
+                    <img src={capturedImage} alt="Preview" className="w-full h-full object-cover" />
                   </div>
-
-                  <button
-                    type="button"
-                    data-testid="smart-combo-out-and-supplement-btn"
-                    disabled={isSubmittingPunch || !isWithinRadius || photoTimeLeftSeconds <= 0}
-                    onClick={() => void handleComboOutAndSupplementIn()}
-                    className="w-full min-h-[52px] px-4 py-2.5 rounded-2xl bg-[#B93F36] hover:bg-[#992F27] text-white text-xs sm:text-sm font-black shadow-md active:scale-[0.98] transition flex items-center justify-center gap-2 disabled:opacity-55 disabled:pointer-events-none touch-manipulation"
-                  >
-                    {isSubmittingPunch ? (
-                      <Loader2 size={18} className="animate-spin shrink-0" />
-                    ) : (
-                      <LogOut size={18} className="shrink-0" />
-                    )}
-                    <span>
-                      {isSubmittingPunch
-                        ? 'Đang xác nhận tức thì...'
-                        : 'Chấm RA CA ngay + Báo quên Vào ca đầu giờ'}
+                )}
+                <div className="min-w-0 flex-1 space-y-0.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs sm:text-sm font-black text-[var(--kg-text)] truncate">
+                      {currentUser?.fullname}
+                    </p>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-mono tabular-nums font-black shrink-0 ${expiryToneClass}`}
+                    >
+                      <Clock size={11} />
+                      <span>{photoTimeLeftSeconds}s</span>
                     </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    data-testid="smart-confirm-late-in-btn"
-                    disabled={isSubmittingPunch}
-                    onClick={() => {
-                      setUserResolvedDisambiguation('Vào ca');
-                      handleTypeChangeInModal('Vào ca');
-                    }}
-                    className="w-full min-h-[48px] px-4 py-2 rounded-2xl bg-[var(--kg-success-soft)] hover:opacity-90 border border-[var(--kg-success)]/40 text-[var(--kg-success)] text-xs font-black active:scale-[0.98] transition flex items-center justify-center gap-1.5 touch-manipulation"
-                  >
-                    <LogIn size={16} className="shrink-0" />
-                    <span>Không, tôi mới bắt đầu VÀO CA lúc này</span>
-                  </button>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[11px] text-[var(--kg-text-muted)]">
+                    <span className="font-mono tabular-nums font-semibold shrink-0">
+                      {(store.capturedTime || currentTime).split(' ').pop() || currentTime}
+                    </span>
+                    <span aria-hidden="true">•</span>
+                    <span className="truncate inline-flex items-center gap-1">
+                      <MapPin size={11} className="text-[var(--kg-success)] flex-shrink-0" />
+                      <span className="truncate">{gps.address || 'Đúng bán kính nhà hàng'}</span>
+                    </span>
+                  </div>
                 </div>
-              ) : (
-                <div className="space-y-2 pt-1">
-                  <button
-                    type="button"
-                    disabled={isSubmittingPunch}
-                    onClick={() => {
-                      setUserResolvedDisambiguation('Ra ca');
-                      handleTypeChangeInModal('Ra ca');
-                    }}
-                    className="w-full min-h-[48px] px-4 py-2.5 rounded-2xl bg-[#B93F36] hover:bg-[#992F27] text-white text-xs sm:text-sm font-black shadow-xs active:scale-[0.98] transition flex items-center justify-center gap-2 touch-manipulation"
-                  >
-                    <LogOut size={17} className="shrink-0" />
-                    <span>Tôi đang RA CA (Kết thúc ca trước)</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={isSubmittingPunch}
-                    onClick={() => {
-                      setUserResolvedDisambiguation('Vào ca');
-                      handleTypeChangeInModal('Vào ca');
-                    }}
-                    className="w-full min-h-[48px] px-4 py-2.5 rounded-2xl bg-[#1E7550] hover:bg-[#175B3E] text-white text-xs sm:text-sm font-black shadow-xs active:scale-[0.98] transition flex items-center justify-center gap-2 touch-manipulation"
-                  >
-                    <LogIn size={17} className="shrink-0" />
-                    <span>Tôi đang VÀO CA mới</span>
-                  </button>
-
-                  {(smartIntent.unclosedYesterdayDateStr || smartIntent.suggestedSupplementDate) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const targetDate =
-                          smartIntent.unclosedYesterdayDateStr || smartIntent.suggestedSupplementDate || '';
-                        const targetTime = smartIntent.openShiftStartTime || '';
-                        setConfirmCheckInModalOpen(false);
-                        setSelectedMissingAlert(
-                          targetDate
-                            ? {
-                                id: `missing_out_disambig_${targetDate}_${targetTime}`,
-                                dateStr: targetDate,
-                                timeStr: targetTime,
-                                missingType: 'Ra ca',
-                                existingType: 'Vào ca',
-                                message: `Thiếu Ra ca ngày ${targetDate}${targetTime ? ` (Vào lúc ${targetTime})` : ''}`,
-                              }
-                            : null
-                        );
-                        setMissedModalOpen(true);
-                      }}
-                      className="w-full min-h-[44px] sm:min-h-[40px] px-3 py-1.5 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-warning)]/40 text-[var(--kg-warning)] text-[11px] font-black inline-flex items-center justify-center gap-1.5 touch-manipulation"
-                    >
-                      <Clock size={13} />
-                      <span>Bổ sung lượt Ra ca bị quên trước đó →</span>
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* 60s Expiry Indicator inside Disambiguation Mode */}
-              <div className="p-2 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] flex items-center justify-between text-[11px] font-bold">
-                <span className="text-[var(--kg-text-muted)] inline-flex items-center gap-1">
-                  <Clock size={13} /> Thời hạn hiệu lực ảnh:
-                </span>
-                <span className="font-mono tabular-nums font-black text-[var(--kg-text)]">
-                  {photoTimeLeftSeconds}s
-                </span>
               </div>
-            </div>
-          ) : (
-            <>
-              {/* Single Smart Locked Action Card (06:00 -> 05:59 Cycle) */}
-              {(() => {
-                const effectiveType: CheckInTypeString =
-                  userResolvedDisambiguation || smartIntent.smartSuggestedAction;
-                const isSmartOut = effectiveType === 'Ra ca';
-                const smartActionTitle = isSmartOut ? 'RA CA' : 'VÀO CA';
-                const canonicalBadge = recommendation.isOvernightShift
-                  ? `Ca đêm (${recommendation.openShiftTime})`
-                  : recommendation.shiftIndex > 1
-                  ? `Lượt ca ${recommendation.shiftIndex} trong ngày`
-                  : 'Chu kỳ 06:00 – 05:59';
 
-                return (
-                  <div
-                    data-testid="smart-locked-action-card"
-                    className={`p-3.5 rounded-2xl border-2 flex items-start gap-3 ${
-                      isSmartOut
-                        ? 'bg-[var(--kg-danger-soft)] border-[var(--kg-danger)]/35 text-[var(--kg-text)]'
-                        : 'bg-[var(--kg-success-soft)] border-[var(--kg-success)]/35 text-[var(--kg-text)]'
-                    }`}
-                  >
-                    <div
-                      className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 text-white shadow-xs ${
-                        isSmartOut ? 'bg-[#B93F36]' : 'bg-[#1E7550]'
-                      }`}
-                    >
-                      {isSmartOut ? <LogOut size={20} /> : <LogIn size={20} />}
-                    </div>
-                    <div className="min-w-0 flex-1 space-y-1.5">
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <span
-                          className={`text-sm font-black tracking-tight inline-flex items-center gap-1.5 ${
-                            isSmartOut
-                              ? 'text-[var(--kg-danger)]'
-                              : 'text-[var(--kg-success)]'
-                          }`}
-                        >
-                          <Check size={15} />
-                          <span>Lượt chấm công: {smartActionTitle}</span>
-                        </span>
-                        <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-[var(--kg-surface)] border border-[var(--kg-border)] ${
-                            isSmartOut
-                              ? 'text-[var(--kg-danger)]'
-                              : 'text-[var(--kg-success)]'
-                          }`}
-                        >
-                          {recommendation.isOvernightShift && <Moon size={10} />}
-                          <span>{canonicalBadge}</span>
-                        </span>
-                      </div>
-
-                      {isSmartOut && smartIntent.openShiftDurationFormatted && (
-                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-border)] text-[11px] font-mono tabular-nums font-black text-[var(--kg-text)]">
-                          <Clock size={12} className="text-[var(--kg-danger)] shrink-0" />
-                          <span>
-                            Đã làm việc: {smartIntent.openShiftDurationFormatted} (từ {smartIntent.openShiftStartTime})
-                          </span>
-                        </div>
-                      )}
-
-                      <p className="text-[11px] text-[var(--kg-text-muted)] font-medium leading-snug">
-                        {recommendation.reason}
-                      </p>
-
-                      <div className="pt-0.5 flex items-center justify-between gap-2">
-                        <button
-                          type="button"
-                          disabled={isSubmittingPunch}
-                          onClick={() => {
-                            const nextChoice: CheckInTypeString = isSmartOut ? 'Vào ca' : 'Ra ca';
-                            setUserResolvedDisambiguation(nextChoice);
-                            handleTypeChangeInModal(nextChoice);
-                          }}
-                          className="text-[11px] font-bold text-[var(--kg-primary-ink)] hover:underline inline-flex items-center gap-1 min-h-[44px] sm:min-h-[32px] touch-manipulation"
-                        >
-                          <RefreshCw size={11} />
-                          <span>{isSmartOut ? 'Đổi sang Vào ca' : 'Đổi sang Ra ca'}</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Forgotten Earlier Vào Ca Escape Hatch -> Direct to "Bổ sung chấm công" */}
-              {(userResolvedDisambiguation || smartIntent.smartSuggestedAction) === 'Vào ca' ? (
-                <div className="p-3 bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/30 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-black text-[var(--kg-warning)] leading-tight">
-                      Quên bấm Vào ca lúc đầu giờ?
-                    </p>
-                    <p className="text-[11px] text-[var(--kg-text-muted)] mt-0.5 leading-snug">
-                      Nếu hiện đang cuối ca, hãy bổ sung Vào ca trước để hệ thống chuyển sang Ra ca.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    data-testid="confirm-sheet-open-supplement-btn"
-                    onClick={() => {
-                      setConfirmCheckInModalOpen(false);
-                      setSelectedMissingAlert(null);
-                      setMissedModalOpen(true);
-                    }}
-                    className="w-full sm:w-auto justify-center px-3 py-2 min-h-[44px] sm:min-h-[38px] bg-[var(--kg-surface)] hover:bg-[var(--kg-surface-2)] border border-[var(--kg-warning)]/35 text-[var(--kg-warning)] font-black text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition active:scale-95 flex-shrink-0 whitespace-nowrap touch-manipulation"
-                  >
-                    <Clock size={14} />
-                    <span>Bổ sung chấm công →</span>
-                  </button>
+              {/* Concise 1-Line Context Notice Pill */}
+              {smartIntent.requiresDisambiguation ? (
+                <div
+                  data-testid="smart-disambiguation-card"
+                  className="px-3 py-2 rounded-xl border border-[var(--kg-warning)]/35 bg-[var(--kg-warning-soft)] flex items-center gap-2 text-[var(--kg-text)]"
+                >
+                  <AlertTriangle size={15} className="text-[var(--kg-warning)] shrink-0" />
+                  <p className="text-[11px] sm:text-xs font-bold leading-snug text-[var(--kg-text)] min-w-0">
+                    <span className="text-[var(--kg-warning)] font-black">{smartIntent.guidanceTitle}</span>{' '}
+                    <span className="text-[var(--kg-text-muted)] font-medium">
+                      Chọn đúng lượt bên dưới hoặc gửi bổ sung công.
+                    </span>
+                  </p>
                 </div>
-              ) : (
-                <div className="flex items-center justify-end px-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setConfirmCheckInModalOpen(false);
-                      setSelectedMissingAlert(null);
-                      setMissedModalOpen(true);
-                    }}
-                    className="text-[11px] font-bold text-[var(--kg-warning)] hover:underline inline-flex items-center gap-1 min-h-[44px] sm:min-h-[36px] touch-manipulation"
-                  >
-                    <Clock size={12} />
-                    <span>Thiếu lượt chấm công ngày trước? Bổ sung chấm công →</span>
-                  </button>
+              ) : recommendation.isOpenShift && smartIntent.openShiftDurationFormatted ? (
+                <div className="px-3 py-2 rounded-xl border border-[var(--kg-border)] bg-[var(--kg-surface-2)] flex items-center justify-between gap-2 text-[11px] font-bold">
+                  <span className="text-[var(--kg-text-muted)] inline-flex items-center gap-1.5 truncate">
+                    {recommendation.isOvernightShift ? (
+                      <Moon size={13} className="text-[var(--kg-primary-ink)] shrink-0" />
+                    ) : (
+                      <ShieldCheck size={13} className="text-[var(--kg-success)] shrink-0" />
+                    )}
+                    <span className="truncate">Đang trong ca từ {smartIntent.openShiftStartTime}</span>
+                  </span>
+                  <span className="font-mono tabular-nums font-black text-[var(--kg-text)] shrink-0">
+                    {smartIntent.openShiftDurationFormatted}
+                  </span>
+                </div>
+              ) : null}
+
+              {/* GPS Lock Banner (only if outside geofence) */}
+              {!isWithinRadius && (
+                <div className="px-3 py-2 bg-[var(--kg-danger-soft)] border border-[var(--kg-danger)]/35 rounded-xl flex items-center gap-2 text-[var(--kg-danger)] font-bold text-[11px]">
+                  <Lock size={14} className="flex-shrink-0" />
+                  <span>
+                    Ngoài bán kính ≤ {targetRadius}m ({currentDist ?? 'quá'}m). Không thể gửi chấm công.
+                  </span>
                 </div>
               )}
 
-              {/* Safety Warning: if Ra ca earlier than 15 minutes after Vào ca */}
-              {(userResolvedDisambiguation || smartIntent.smartSuggestedAction) === 'Ra ca' &&
+              {/* HERO DUAL OPPOSING ACTION BUTTONS: VÀO CA (Emerald ->) vs RA CA (<- Crimson) */}
+              <div className="grid grid-cols-2 gap-3 pt-0.5">
+                <button
+                  type="button"
+                  data-testid="smart-confirm-late-in-btn"
+                  disabled={isActionsDisabled}
+                  onClick={() => handleSelectCheckInTypeInModal('Vào ca')}
+                  className={`kg-punch-tile kg-punch-tile--in min-h-[126px] sm:min-h-[132px] p-3.5 flex flex-col items-center justify-center gap-2.5 text-center disabled:opacity-50 disabled:pointer-events-none ${
+                    suggestedAction === 'Vào ca'
+                      ? 'ring-2 ring-[#1F8E60]/60 ring-offset-2 ring-offset-[var(--kg-surface)]'
+                      : ''
+                  }`}
+                >
+                  {suggestedAction === 'Vào ca' && (
+                    <span className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full bg-white text-[#146342] text-[9px] font-black uppercase tracking-wider shadow-xs">
+                      Gợi ý
+                    </span>
+                  )}
+                  <div className="w-12 h-12 rounded-2xl bg-white/15 border border-white/25 flex items-center justify-center shadow-xs">
+                    {isSubmittingPunch && modalChosenType === 'Vào ca' ? (
+                      <Loader2 size={24} className="animate-spin text-white" />
+                    ) : (
+                      <LogIn size={24} className="kg-punch-icon-in text-white" />
+                    )}
+                  </div>
+                  <div className="space-y-0.5">
+                    <span className="block text-base sm:text-lg font-black tracking-wide leading-none text-white">
+                      VÀO CA
+                    </span>
+                    <span className="block text-[11px] font-semibold text-white/85 leading-tight">
+                      Bắt đầu ca làm
+                    </span>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  data-testid="smart-choose-out-btn"
+                  disabled={isActionsDisabled}
+                  onClick={() => handleSelectCheckInTypeInModal('Ra ca')}
+                  className={`kg-punch-tile kg-punch-tile--out min-h-[126px] sm:min-h-[132px] p-3.5 flex flex-col items-center justify-center gap-2.5 text-center disabled:opacity-50 disabled:pointer-events-none ${
+                    suggestedAction === 'Ra ca'
+                      ? 'ring-2 ring-[#D34B3C]/60 ring-offset-2 ring-offset-[var(--kg-surface)]'
+                      : ''
+                  }`}
+                >
+                  {suggestedAction === 'Ra ca' && (
+                    <span className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full bg-white text-[#A72E24] text-[9px] font-black uppercase tracking-wider shadow-xs">
+                      Gợi ý
+                    </span>
+                  )}
+                  <div className="w-12 h-12 rounded-2xl bg-white/15 border border-white/25 flex items-center justify-center shadow-xs">
+                    {isSubmittingPunch && modalChosenType === 'Ra ca' ? (
+                      <Loader2 size={24} className="animate-spin text-white" />
+                    ) : (
+                      <LogOut size={24} className="kg-punch-icon-out text-white" />
+                    )}
+                  </div>
+                  <div className="space-y-0.5">
+                    <span className="block text-base sm:text-lg font-black tracking-wide leading-none text-white">
+                      RA CA
+                    </span>
+                    <span className="block text-[11px] font-semibold text-white/85 leading-tight">
+                      Kết thúc ca làm
+                    </span>
+                  </div>
+                </button>
+              </div>
+
+              {/* Safety Guard: Inline 15-minute Early-Out Confirmation (only expands if tapping Ra ca <15m after Vào ca) */}
+              {earlyOutPromptOpenInModal &&
                 recommendation.isOpenShift &&
                 !recommendation.canCheckOutNow && (
-                  <div className="p-3.5 bg-[var(--kg-warning-soft)] border-2 border-[var(--kg-warning)]/35 rounded-2xl space-y-2.5 animate-fade-in">
-                    <div className="flex items-start gap-2 text-[var(--kg-warning)] font-bold text-xs">
-                      <Clock size={18} className="flex-shrink-0 mt-0.5" />
-                      <span>Cảnh báo: Quy định giãn cách tối thiểu 15 phút!</span>
+                  <div className="p-3 bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/40 rounded-2xl space-y-2.5 kg-animate-fade-up">
+                    <div className="flex items-start gap-2 text-[var(--kg-warning)] font-extrabold text-xs">
+                      <Clock size={16} className="flex-shrink-0 mt-0.5" />
+                      <span>
+                        Bạn vừa Vào ca lúc{' '}
+                        <span className="font-mono tabular-nums">{recommendation.openShiftTime}</span> (mới{' '}
+                        <span className="font-mono tabular-nums">{recommendation.elapsedMinutes}</span> phút, cần đủ 15 phút).
+                      </span>
                     </div>
-                    <p className="text-[11px] text-[var(--kg-text-muted)] leading-relaxed font-medium">
-                      Bạn vừa Vào ca lúc <b className="font-mono tabular-nums">{recommendation.openShiftTime}</b> (mới được <b className="font-mono tabular-nums">{recommendation.elapsedMinutes} phút</b>). Theo quy định, sau khi Vào ca cần tối thiểu 15 phút mới được Ra ca (còn thiếu <b className="font-mono tabular-nums">{recommendation.minWaitMinutesRemaining} phút</b>).
-                    </p>
-                    <label className="flex items-center gap-2.5 pt-1 cursor-pointer select-none min-h-[44px]">
+                    <label className="flex items-center gap-2.5 cursor-pointer select-none min-h-[40px]">
                       <input
                         type="checkbox"
                         checked={hasAcknowledgedEarlyOut}
                         onChange={(e) => setHasAcknowledgedEarlyOut(e.target.checked)}
-                        className="w-4 h-4 rounded text-[var(--kg-primary)] focus:ring-[var(--kg-primary)] cursor-pointer"
+                        className="w-4 h-4 rounded text-[var(--kg-primary)] focus:ring-[var(--kg-primary)] cursor-pointer shrink-0"
                       />
-                      <span className="text-xs font-black text-[var(--kg-warning)]">
-                        Tôi xác nhận có việc đột xuất và vẫn muốn Ra ca sớm
+                      <span className="text-xs font-bold text-[var(--kg-text)]">
+                        Tôi xác nhận có việc đột xuất và muốn Ra ca sớm
                       </span>
                     </label>
-                  </div>
-                )}
-
-              {/* Final Single Smart Confirmation Button */}
-              {(() => {
-                const effectiveType: CheckInTypeString =
-                  userResolvedDisambiguation || smartIntent.smartSuggestedAction;
-                const isOutSelection = effectiveType === 'Ra ca';
-                const isEarlyOutGuard =
-                  isOutSelection &&
-                  recommendation.isOpenShift &&
-                  !recommendation.canCheckOutNow &&
-                  !hasAcknowledgedEarlyOut;
-                const isSubmitDisabled =
-                  isSubmittingPunch ||
-                  isEarlyOutGuard ||
-                  !isWithinRadius ||
-                  photoTimeLeftSeconds <= 0 ||
-                  Boolean(recommendation.isMaxPunchesReached);
-                const confirmBtnLabel = isSubmittingPunch
-                  ? 'Đang xác nhận tức thì...'
-                  : isOutSelection
-                  ? 'Xác nhận Ra ca'
-                  : 'Xác nhận Vào ca';
-
-                return (
-                  <div className="space-y-2 pt-1">
-                    {/* 60s Expiry Indicator in Modal */}
-                    <div
-                      className={`p-2.5 rounded-xl border flex items-center justify-between text-xs font-bold transition-all ${
-                        photoTimeLeftSeconds <= 15
-                          ? 'bg-[var(--kg-danger-soft)] border-[var(--kg-danger)]/40 text-[var(--kg-danger)] animate-pulse'
-                          : photoTimeLeftSeconds <= 30
-                          ? 'bg-[var(--kg-warning-soft)] border-[var(--kg-warning)]/40 text-[var(--kg-warning)]'
-                          : 'bg-[var(--kg-success-soft)] border-[var(--kg-success)]/30 text-[var(--kg-success)]'
-                      }`}
-                    >
-                      <div className="flex items-center gap-1.5">
-                        <Clock size={15} />
-                        <span>Thời hạn hiệu lực ảnh:</span>
-                      </div>
-                      <span className="font-mono tabular-nums font-black text-sm">
-                        {photoTimeLeftSeconds}s
-                      </span>
-                    </div>
-
-                    {!isWithinRadius && (
-                      <div className="p-3 bg-[var(--kg-danger-soft)] border-2 border-[var(--kg-danger)]/35 rounded-2xl flex items-center gap-2 text-[var(--kg-danger)] font-bold text-xs">
-                        <Lock size={16} className="flex-shrink-0" />
-                        <span>
-                          Bạn đang cách nhà hàng {currentDist ?? 'quá'}m (quy định ≤ {targetRadius}m). Đã khóa gửi chấm công.
-                        </span>
-                      </div>
-                    )}
-
                     <button
                       type="button"
                       data-testid="smart-confirm-punch-btn"
-                      disabled={isSubmitDisabled}
-                      onClick={() => {
-                        void submitCheck(effectiveType);
-                      }}
-                      className={`kg-pressable w-full h-13 min-h-[52px] px-5 py-2.5 shadow-md rounded-2xl text-[15px] font-black tracking-wide transition-all touch-manipulation flex items-center justify-center gap-2 disabled:opacity-55 disabled:pointer-events-none ${
-                        isOutSelection
-                          ? 'bg-[#B93F36] hover:bg-[#992F27] text-white'
-                          : 'bg-[#1E7550] hover:bg-[#175B3E] text-white'
-                      }`}
+                      disabled={isActionsDisabled || !hasAcknowledgedEarlyOut}
+                      onClick={() => void submitCheck('Ra ca', true)}
+                      className="kg-pressable w-full min-h-[44px] px-4 py-2 rounded-xl bg-[#B93F36] hover:bg-[#992F27] text-white text-xs font-black flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
                     >
                       {isSubmittingPunch ? (
-                        <Loader2 size={18} className="animate-spin" />
-                      ) : isOutSelection ? (
-                        <LogOut size={18} />
+                        <Loader2 size={16} className="animate-spin" />
                       ) : (
-                        <LogIn size={18} />
+                        <LogOut size={16} />
                       )}
-                      <span>{confirmBtnLabel}</span>
+                      <span>Xác nhận Ra ca sớm</span>
+                    </button>
+                  </div>
+                )}
+
+              {/* Hidden/Passive contract anchor when early-out guard isn't expanded */}
+              {!earlyOutPromptOpenInModal && (
+                <button
+                  type="button"
+                  data-testid="smart-confirm-punch-btn"
+                  disabled={isActionsDisabled}
+                  onClick={() => handleSelectCheckInTypeInModal(suggestedAction)}
+                  className="sr-only"
+                  tabIndex={-1}
+                  aria-hidden="true"
+                >
+                  Xác nhận nhanh {suggestedAction}
+                </button>
+              )}
+
+              {/* Compact Secondary Action: "Bổ sung chấm công" -> opens Quick Reason/Approval Sheet */}
+              <div className="pt-0.5 flex flex-col items-center gap-1.5">
+                <button
+                  type="button"
+                  data-testid="confirm-sheet-open-supplement-btn"
+                  disabled={isSubmittingPunch}
+                  onClick={openQuickSupplementSheet}
+                  className="kg-pressable w-full min-h-[44px] px-3.5 py-2 rounded-xl bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-warning-soft)] border border-[var(--kg-border)] hover:border-[var(--kg-warning)]/40 text-[var(--kg-text)] flex items-center justify-between gap-2 transition-colors disabled:opacity-50 touch-manipulation"
+                >
+                  <span className="inline-flex items-center gap-2 text-xs font-extrabold text-[var(--kg-text)]">
+                    <span className="w-7 h-7 rounded-lg bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] border border-[var(--kg-warning)]/25 flex items-center justify-center shrink-0">
+                      <Clock size={14} />
+                    </span>
+                    <span>Bổ sung chấm công</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[var(--kg-warning)] shrink-0">
+                    <span>Chọn lí do xin duyệt</span>
+                    <ChevronRight size={14} />
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={isSubmittingPunch}
+                  onClick={() => {
+                    setEarlyOutPromptOpenInModal(false);
+                    setConfirmCheckInModalOpen(false);
+                  }}
+                  className="w-full py-1.5 text-center text-xs font-bold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition min-h-[40px] touch-manipulation disabled:opacity-50"
+                >
+                  Đóng / Chụp lại ảnh
+                </button>
+              </div>
+            </div>
+          );
+        })()}
+      </KgBottomSheet>
+
+      {/* Dedicated Quick Supplement Modal ("Bổ sung chấm công" — Pick preset reason or type custom reason) */}
+      <KgBottomSheet
+        isOpen={quickSupplementSheetOpen}
+        onClose={() => {
+          if (!isSubmittingQuickSupplement && !isSubmittingPunch) {
+            setQuickSupplementSheetOpen(false);
+          }
+        }}
+        title="Xin Duyệt Bổ Sung Công"
+      >
+        {(() => {
+          const vn = getVietnamDateParts();
+          const fallbackTodayStr = `${String(vn.day).padStart(2, '0')}/${String(vn.month).padStart(2, '0')}/${vn.year}`;
+          const targetSuppDate =
+            (quickSupplementType === 'Ra ca' ? smartIntent.unclosedYesterdayDateStr : undefined) ||
+            smartIntent.suggestedSupplementDate ||
+            fallbackTodayStr;
+          const canRunCombo =
+            smartIntent.ambiguityReason === 'LATE_SHIFT_MISSING_IN' &&
+            Boolean(capturedImage) &&
+            isWithinRadius &&
+            photoTimeLeftSeconds > 0;
+          const quickReasons = [
+            'Quên bấm đầu ca',
+            'Bận phục vụ khách đầu ca',
+            'Điện thoại hết pin / lỗi mạng',
+            'Lỗi GPS tại quán',
+            'Quên bấm cuối ca',
+          ];
+
+          return (
+            <div className="space-y-3.5 py-0.5 kg-animate-fade-up">
+              {/* Row 1: Type Switcher (Vào ca / Ra ca) + Time Picker */}
+              <div className="p-3 rounded-2xl bg-[var(--kg-surface-2)] border border-[var(--kg-border)] space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-extrabold text-[var(--kg-text-muted)] uppercase tracking-wider">
+                    Loại bổ sung
+                  </span>
+                  <span className="text-[11px] font-mono tabular-nums font-bold text-[var(--kg-primary-ink)] bg-[var(--kg-primary-soft)] px-2 py-0.5 rounded-full">
+                    {targetSuppDate}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setQuickSupplementType('Vào ca')}
+                    className={`kg-pressable min-h-[44px] px-3 py-2 rounded-xl text-xs font-black border flex items-center justify-center gap-1.5 transition-colors ${
+                      quickSupplementType === 'Vào ca'
+                        ? 'bg-[#1E7550] text-white border-[#1E7550] shadow-xs'
+                        : 'bg-[var(--kg-surface)] text-[var(--kg-text-muted)] border-[var(--kg-border)]'
+                    }`}
+                  >
+                    <LogIn size={14} />
+                    <span>Bổ sung Vào ca</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setQuickSupplementType('Ra ca')}
+                    className={`kg-pressable min-h-[44px] px-3 py-2 rounded-xl text-xs font-black border flex items-center justify-center gap-1.5 transition-colors ${
+                      quickSupplementType === 'Ra ca'
+                        ? 'bg-[#B93F36] text-white border-[#B93F36] shadow-xs'
+                        : 'bg-[var(--kg-surface)] text-[var(--kg-text-muted)] border-[var(--kg-border)]'
+                    }`}
+                  >
+                    <LogOut size={14} />
+                    <span>Bổ sung Ra ca</span>
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 pt-0.5">
+                  <label
+                    htmlFor="combo-supp-time-input"
+                    className="text-xs font-bold text-[var(--kg-text)]"
+                  >
+                    Giờ {quickSupplementType.toLowerCase()} thực tế:
+                  </label>
+                  <input
+                    id="combo-supp-time-input"
+                    type="time"
+                    value={comboSupplementTime}
+                    onChange={(e) => setComboSupplementTime(e.target.value)}
+                    className="px-3 py-1.5 min-h-[44px] sm:min-h-[38px] rounded-xl border border-[var(--kg-border-strong)] bg-[var(--kg-surface)] text-base sm:text-xs font-mono tabular-nums font-black text-[var(--kg-text)]"
+                  />
+                </div>
+              </div>
+
+              {/* Row 2: Quick Reason Pills */}
+              <div className="space-y-2">
+                <p className="text-xs font-black text-[var(--kg-text)]">
+                  Chọn nhanh lí do hoặc nhập bên dưới
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {quickReasons.map((rText) => {
+                    const isSelected = !quickSupplementCustomReason.trim() && comboSupplementReason === rText;
+                    return (
+                      <button
+                        key={rText}
+                        type="button"
+                        onClick={() => {
+                          setComboSupplementReason(rText);
+                          setQuickSupplementCustomReason('');
+                        }}
+                        className={`kg-pressable px-3 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl text-xs font-bold border transition-colors touch-manipulation ${
+                          isSelected
+                            ? 'bg-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)] border-transparent font-extrabold shadow-xs'
+                            : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border-[var(--kg-border)] hover:text-[var(--kg-text)]'
+                        }`}
+                      >
+                        {rText}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Row 3: Custom Reason Input */}
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="quick-supp-custom-reason"
+                  className="text-[11px] font-bold text-[var(--kg-text-muted)] block"
+                >
+                  Lí do chi tiết (tuỳ chọn)
+                </label>
+                <textarea
+                  id="quick-supp-custom-reason"
+                  rows={2}
+                  value={quickSupplementCustomReason}
+                  onChange={(e) => setQuickSupplementCustomReason(e.target.value)}
+                  placeholder="Nhập lí do cụ thể nếu khác các mục trên..."
+                  className="w-full px-3 py-2.5 rounded-xl border border-[var(--kg-border-strong)] bg-[var(--kg-surface)] text-base sm:text-xs text-[var(--kg-text)] placeholder:text-[var(--kg-text-soft)] resize-none focus:outline-none focus:border-[var(--kg-primary)]"
+                />
+              </div>
+
+              {/* Row 4: Submit Actions */}
+              <div className="space-y-2 pt-0.5">
+                {canRunCombo ? (
+                  <>
+                    <button
+                      type="button"
+                      data-testid="smart-combo-out-and-supplement-btn"
+                      disabled={isSubmittingPunch || isSubmittingQuickSupplement}
+                      onClick={() => void handleComboOutAndSupplementIn()}
+                      className="kg-pressable w-full min-h-[50px] px-4 py-2.5 rounded-2xl bg-[#B93F36] hover:bg-[#992F27] text-white text-xs sm:text-sm font-black shadow-md flex items-center justify-center gap-2 disabled:opacity-55 disabled:pointer-events-none touch-manipulation"
+                    >
+                      {isSubmittingPunch ? (
+                        <Loader2 size={17} className="animate-spin shrink-0" />
+                      ) : (
+                        <LogOut size={17} className="shrink-0" />
+                      )}
+                      <span>Chấm Ra ca + Xin duyệt bổ sung Vào ca</span>
                     </button>
 
                     <button
                       type="button"
-                      disabled={isSubmittingPunch}
-                      onClick={() => setConfirmCheckInModalOpen(false)}
-                      className="w-full py-2.5 text-center text-xs font-bold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] transition min-h-[44px] touch-manipulation disabled:opacity-50"
+                      disabled={isSubmittingPunch || isSubmittingQuickSupplement}
+                      onClick={() => void handleSubmitQuickSupplementOnly()}
+                      className="kg-pressable w-full min-h-[44px] px-4 py-2 rounded-xl bg-[var(--kg-surface-soft)] hover:bg-[var(--kg-border)] border border-[var(--kg-border-strong)] text-[var(--kg-text)] text-xs font-extrabold flex items-center justify-center gap-1.5 disabled:opacity-55 touch-manipulation"
                     >
-                      Đóng / Xem lại ảnh
+                      {isSubmittingQuickSupplement ? (
+                        <Loader2 size={15} className="animate-spin shrink-0" />
+                      ) : (
+                        <Send size={14} className="shrink-0" />
+                      )}
+                      <span>Chỉ gửi đơn xin duyệt bổ sung công</span>
                     </button>
-                  </div>
-                );
-              })()}
-            </>
-          )}
-        </div>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    data-testid="smart-combo-out-and-supplement-btn"
+                    disabled={isSubmittingQuickSupplement}
+                    onClick={() => void handleSubmitQuickSupplementOnly()}
+                    className="kg-pressable w-full min-h-[50px] px-4 py-2.5 rounded-2xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] text-xs sm:text-sm font-black shadow-md flex items-center justify-center gap-2 disabled:opacity-55 disabled:pointer-events-none touch-manipulation"
+                  >
+                    {isSubmittingQuickSupplement ? (
+                      <Loader2 size={17} className="animate-spin shrink-0" />
+                    ) : (
+                      <Send size={16} className="shrink-0" />
+                    )}
+                    <span>Gửi đơn xin duyệt bổ sung công</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  disabled={isSubmittingQuickSupplement || isSubmittingPunch}
+                  onClick={() => {
+                    setQuickSupplementSheetOpen(false);
+                    setConfirmCheckInModalOpen(false);
+                    setSelectedMissingAlert(null);
+                    setMissedModalOpen(true);
+                  }}
+                  className="w-full py-1.5 text-center text-[11px] font-bold text-[var(--kg-text-muted)] hover:text-[var(--kg-primary-ink)] transition min-h-[40px] touch-manipulation"
+                >
+                  Chọn ngày khác / Xem lịch sử đơn bổ sung →
+                </button>
+              </div>
+            </div>
+          );
+        })()}
       </KgBottomSheet>
 
       {/* Missed Check-in Claim Modal ("Bổ sung chấm công") */}

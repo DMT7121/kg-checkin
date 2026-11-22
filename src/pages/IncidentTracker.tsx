@@ -192,7 +192,8 @@ export default function IncidentTracker() {
         category: incidentCategory,
         description: incidentDesc.trim(),
         photoUrl: incidentPhotoUrl,
-      });
+        instantEdge: true,
+      }, { background: true });
 
       if (res?.ok) {
         const now = new Date();

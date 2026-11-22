@@ -69,8 +69,122 @@ const GPS_CONFIG_RESYNC_TTL_MS = 6 * 3600 * 1000;
 const EDGE_CACHE_PRUNE_INTERVAL_MS = 15 * 60 * 1000;
 const EDGE_CACHE_MAX_RETENTION_MS = 24 * 3600 * 1000;
 
+const EDGE_SWR_WINDOW_MS = {
+  GET_DATA: 5 * 60 * 1000,
+  GET_ALL_SCHEDULES: 3 * 60 * 1000,
+  GET_MONTH_SCHEDULES: 10 * 60 * 1000,
+  GET_OPS_CHECKLIST_INIT: 5 * 60 * 1000,
+  GET_HANDOVERS: 5 * 60 * 1000,
+  GET_INCIDENTS: 5 * 60 * 1000,
+  GET_SOLDOUT: 3 * 60 * 1000,
+  GET_POSTS: 3 * 60 * 1000,
+  GET_FEEDBACK: 3 * 60 * 1000,
+  GET_FEEDBACKS: 3 * 60 * 1000,
+  GET_NOTIFICATIONS: 90 * 1000,
+  GET_TRAINING_CONTENT: 15 * 60 * 1000,
+  GET_TRAINING_PROGRESS: 5 * 60 * 1000,
+  GET_LEADERBOARD: 5 * 60 * 1000,
+  GET_USER_COINS: 5 * 60 * 1000,
+  GET_PAYROLL: 5 * 60 * 1000,
+  GET_TIMESHEET: 5 * 60 * 1000,
+  GET_OPERATIONS_CONFIG: 5 * 60 * 1000,
+  GEOCODE: 24 * 3600 * 1000,
+};
+
+const EDGE_MUTATION_INVALIDATION_ACTIONS = {
+  LOGIN: [],
+  REGISTER: ['GET_DATA'],
+  REQUEST_OTP: [],
+  RESET_PASSWORD: [],
+  FORCE_RESET_PASSWORD: [],
+  UPDATE_USER_ROLE: ['GET_DATA', 'GET_AUDIT_LOGS'],
+  UPDATE_USER_POSITION: ['GET_DATA', 'GET_AUDIT_LOGS'],
+  UPDATE_EMPLOYMENT_STATUS: ['GET_DATA', 'GET_FACE_PROFILES', 'GET_AUDIT_LOGS'],
+  UPLOAD_AVATAR: ['GET_DATA'],
+  CHECK_IN_OUT: ['GET_DATA', 'GET_CHECKIN_LOGS', 'GET_KIOSK_ATTENDANCE_STATE', 'GET_TIMESHEET', 'GET_PAYROLL', 'GET_ANALYTICS'],
+  CHECK_IN: ['GET_DATA', 'GET_CHECKIN_LOGS', 'GET_KIOSK_ATTENDANCE_STATE', 'GET_TIMESHEET', 'GET_PAYROLL', 'GET_ANALYTICS'],
+  UPLOAD_CHECKIN_IMAGE: ['GET_DATA', 'GET_CHECKIN_LOGS'],
+  UPLOAD_IMAGE: [],
+  SEND_EMAIL_NOTIFICATION: [],
+  SAVE_CHAT_LOG: [],
+  AI_CHAT: [],
+  SUBMIT_SURVEY: [],
+  REGISTER_SHIFT: ['GET_DATA', 'GET_ALL_SCHEDULES', 'GET_MONTH_SCHEDULES'],
+  APPROVE_SCHEDULES: ['GET_DATA', 'GET_ALL_SCHEDULES', 'GET_MONTH_SCHEDULES'],
+  SAVE_ALL_SCHEDULES: ['GET_DATA', 'GET_ALL_SCHEDULES', 'GET_MONTH_SCHEDULES'],
+  UPDATE_SINGLE_SHIFT: ['GET_DATA', 'GET_ALL_SCHEDULES', 'GET_MONTH_SCHEDULES'],
+  SYNC_ROSTER_SCHEDULES: ['GET_DATA', 'GET_ALL_SCHEDULES', 'GET_MONTH_SCHEDULES'],
+  PATCH_OPS_CHECKLIST_ITEM: ['GET_OPS_CHECKLIST_INIT', 'GET_DATA'],
+  SAVE_OPS_CHECKLIST_STATE: ['GET_OPS_CHECKLIST_INIT', 'GET_DATA'],
+  SUBMIT_CHECKLIST: ['GET_OPS_CHECKLIST_INIT', 'GET_CHECKLISTS', 'GET_DATA'],
+  SAVE_OPS_CHECKLIST_CONFIG: ['GET_OPS_CHECKLIST_INIT'],
+  TOGGLE_OPERATION_TASK: ['GET_OPERATIONS_CONFIG', 'GET_DATA'],
+  UPDATE_OPERATIONS_CONFIG: ['GET_OPERATIONS_CONFIG', 'GET_DATA'],
+  SUBMIT_HANDOVER: ['GET_HANDOVERS', 'GET_DATA'],
+  ACKNOWLEDGE_HANDOVER: ['GET_HANDOVERS', 'GET_DATA'],
+  REVIEW_HANDOVER: ['GET_HANDOVERS', 'GET_DATA', 'GET_AUDIT_LOGS'],
+  SUBMIT_INCIDENT: ['GET_INCIDENTS', 'GET_HANDOVERS', 'GET_DATA'],
+  UPDATE_INCIDENT: ['GET_INCIDENTS', 'GET_HANDOVERS', 'GET_DATA', 'GET_AUDIT_LOGS'],
+  ADD_SOLDOUT: ['GET_SOLDOUT', 'GET_DATA'],
+  REMOVE_SOLDOUT: ['GET_SOLDOUT', 'GET_DATA'],
+  INTERACT_POST: ['GET_POSTS', 'GET_NOTIFICATIONS'],
+  ADD_POST: ['GET_POSTS', 'GET_NOTIFICATIONS', 'GET_DATA'],
+  CREATE_POST: ['GET_POSTS', 'GET_NOTIFICATIONS', 'GET_DATA'],
+  DELETE_POST: ['GET_POSTS', 'GET_DATA'],
+  SUBMIT_FEEDBACK: ['GET_FEEDBACK', 'GET_FEEDBACKS', 'GET_NOTIFICATIONS', 'GET_DATA'],
+  REPLY_FEEDBACK: ['GET_FEEDBACK', 'GET_FEEDBACKS', 'GET_NOTIFICATIONS', 'GET_DATA'],
+  MARK_NOTIFICATION_READ: ['GET_NOTIFICATIONS'],
+  SUBMIT_SWAP: ['GET_SWAP_REQUESTS', 'GET_ALL_SCHEDULES', 'GET_MONTH_SCHEDULES', 'GET_DATA', 'GET_NOTIFICATIONS'],
+  ACCEPT_SWAP: ['GET_SWAP_REQUESTS', 'GET_ALL_SCHEDULES', 'GET_MONTH_SCHEDULES', 'GET_DATA', 'GET_NOTIFICATIONS'],
+  APPROVE_SWAP: ['GET_SWAP_REQUESTS', 'GET_ALL_SCHEDULES', 'GET_MONTH_SCHEDULES', 'GET_DATA', 'GET_NOTIFICATIONS', 'GET_AUDIT_LOGS'],
+  DELETE_SWAP: ['GET_SWAP_REQUESTS', 'GET_DATA'],
+  SUBMIT_ADVANCE: ['GET_ADVANCES', 'GET_PAYROLL', 'GET_DATA', 'GET_NOTIFICATIONS'],
+  APPROVE_ADVANCE: ['GET_ADVANCES', 'GET_PAYROLL', 'GET_DATA', 'GET_NOTIFICATIONS', 'GET_AUDIT_LOGS'],
+  ADD_BONUS_PENALTY: ['GET_BONUS_PENALTY', 'GET_PAYROLL', 'GET_USER_COINS', 'GET_DATA', 'GET_AUDIT_LOGS'],
+  DELETE_BONUS_PENALTY: ['GET_BONUS_PENALTY', 'GET_PAYROLL', 'GET_USER_COINS', 'GET_DATA', 'GET_AUDIT_LOGS'],
+  SET_PAYROLL_WORKFLOW_STATUS: ['GET_PAYROLL', 'GET_AUDIT_LOGS'],
+  CONFIRM_PAYROLL_SLIP: ['GET_PAYROLL'],
+  UPDATE_MONTHLY_SALARY_CONFIG: ['GET_MONTHLY_SALARY_CONFIG', 'GET_PAYROLL', 'GET_DATA', 'GET_AUDIT_LOGS'],
+  COPY_MONTHLY_SALARY_CONFIG: ['GET_MONTHLY_SALARY_CONFIG', 'GET_PAYROLL', 'GET_AUDIT_LOGS'],
+  UPDATE_PAYROLL_CONFIG: ['GET_SALARY_CONFIG', 'GET_PAYROLL', 'GET_DATA', 'GET_AUDIT_LOGS'],
+  SUBMIT_SALARY_ADJUSTMENT: ['GET_SALARY_ADJUSTMENTS', 'GET_PAYROLL', 'GET_NOTIFICATIONS'],
+  REVIEW_SALARY_ADJUSTMENT: ['GET_SALARY_ADJUSTMENTS', 'GET_MONTHLY_SALARY_CONFIG', 'GET_PAYROLL', 'GET_NOTIFICATIONS', 'GET_AUDIT_LOGS'],
+  SUBMIT_MISSED_CHECKIN: ['GET_MISSED_CHECKINS', 'GET_DATA', 'GET_CHECKIN_LOGS', 'GET_TIMESHEET', 'GET_NOTIFICATIONS'],
+  APPROVE_MISSED_CHECKIN: ['GET_MISSED_CHECKINS', 'GET_DATA', 'GET_CHECKIN_LOGS', 'GET_TIMESHEET', 'GET_PAYROLL', 'GET_ANALYTICS', 'GET_NOTIFICATIONS', 'GET_AUDIT_LOGS'],
+  REJECT_MISSED_CHECKIN: ['GET_MISSED_CHECKINS', 'GET_DATA', 'GET_CHECKIN_LOGS', 'GET_NOTIFICATIONS', 'GET_AUDIT_LOGS'],
+  UPDATE_CHECKIN_TYPE: ['GET_DATA', 'GET_CHECKIN_LOGS', 'GET_TIMESHEET', 'GET_PAYROLL', 'GET_AUDIT_LOGS'],
+  ENROLL_FACE_PROFILE: ['GET_FACE_PROFILES', 'GET_DATA'],
+  RESET_FACE_PROFILE: ['GET_FACE_PROFILES', 'GET_DATA', 'GET_AUDIT_LOGS'],
+  SUBMIT_TRAINING_QUIZ: ['GET_TRAINING_PROGRESS', 'GET_LEADERBOARD', 'GET_USER_COINS', 'GET_DATA'],
+};
+
+const INSTANT_EDGE_OPERATIONAL_ACTIONS = new Set([
+  'PATCH_OPS_CHECKLIST_ITEM',
+  'SAVE_OPS_CHECKLIST_STATE',
+  'SUBMIT_HANDOVER',
+  'ACKNOWLEDGE_HANDOVER',
+  'REVIEW_HANDOVER',
+  'SUBMIT_INCIDENT',
+  'UPDATE_INCIDENT',
+  'SET_PAYROLL_WORKFLOW_STATUS',
+  'CONFIRM_PAYROLL_SLIP',
+  'ADD_SOLDOUT',
+  'REMOVE_SOLDOUT',
+  'INTERACT_POST',
+  'ADD_POST',
+  'SUBMIT_FEEDBACK',
+  'MARK_NOTIFICATION_READ',
+  'SAVE_CHAT_LOG',
+  'SUBMIT_SURVEY',
+  'TOGGLE_OPERATION_TASK',
+  'UPDATE_SINGLE_SHIFT',
+]);
+
 const lastBioFailoverSnapshotMap = new Map();
 const lastFaceHealMap = new Map();
+const inFlightRevalidations = new Set();
+const checklistMergeLocks = new Map();
+let drainInFlightPromise = null;
 let lastSavedGpsConfigJson = '';
 let lastSavedGpsConfigAtMs = 0;
 let lastCachePruneAtMs = 0;
@@ -79,10 +193,24 @@ export function resetEdgeMemoryStateForTests() {
   d1SchemaInitialized = false;
   lastBioFailoverSnapshotMap.clear();
   lastFaceHealMap.clear();
+  inFlightRevalidations.clear();
+  checklistMergeLocks.clear();
+  drainInFlightPromise = null;
   lastSavedGpsConfigJson = '';
   lastSavedGpsConfigAtMs = 0;
   lastCachePruneAtMs = 0;
   inFlightEdgeCheckIns.clear();
+}
+
+function getEdgeSwrWindowMs(action) {
+  return EDGE_SWR_WINDOW_MS[action] || 3 * 60 * 1000;
+}
+
+function getEdgeInvalidationActionsForMutation(action) {
+  if (Object.prototype.hasOwnProperty.call(EDGE_MUTATION_INVALIDATION_ACTIONS, action)) {
+    return EDGE_MUTATION_INVALIDATION_ACTIONS[action];
+  }
+  return null;
 }
 
 function buildCanonicalEdgeCacheInput(action, payload) {
@@ -232,13 +360,17 @@ export async function onRequest(context) {
     // Opportunistically drain any pending Google Sheets sync tasks & prune >24h cache entries in background.
     // For legacy synchronous UPLOAD_CHECKIN_IMAGE, await drain first so any D1-buffered CHECK_IN_OUT row lands in Google Sheets
     // right before Drive photo attachment & post-upload email notification run!
-    if (env?.DB && action !== 'GET_EDGE_DB_STATUS') {
+    if (env?.DB && action !== 'GET_EDGE_DB_STATUS' && action !== 'LOGIN') {
       if (action === 'UPLOAD_CHECKIN_IMAGE' && payload.instantEdge !== true) {
         await drainEdgeSyncQueue(env, TARGET_GAS_URL);
       } else if (
         !(
           payload.instantEdge === true &&
-          (action === 'CHECK_IN_OUT' || action === 'CHECK_IN' || action === 'UPLOAD_CHECKIN_IMAGE')
+          (action === 'CHECK_IN_OUT' ||
+            action === 'CHECK_IN' ||
+            action === 'UPLOAD_CHECKIN_IMAGE' ||
+            action === 'REGISTER_SHIFT' ||
+            INSTANT_EDGE_OPERATIONAL_ACTIONS.has(action))
         )
       ) {
         context.waitUntil(drainEdgeSyncQueue(env, TARGET_GAS_URL));
@@ -253,6 +385,14 @@ export async function onRequest(context) {
     if (action === 'GET_EDGE_DB_STATUS') {
       const statusReport = await getEdgeDbStatus(env);
       return jsonResponse(statusReport, 200, { 'X-Edge-DB': 'STATUS' });
+    }
+
+    // 1a. Ultra-Fast Cloudflare D1 Salted-SHA256 Login Verifier (<35ms vs 1.5-4.5s GAS cold start)
+    if (action === 'LOGIN' && env?.DB) {
+      const instantLoginRes = await handleInstantEdgeLogin(context, payload, bodyText);
+      if (instantLoginRes) {
+        return instantLoginRes;
+      }
     }
 
     // 1b. Server-side AI Chat Proxy (keeps Groq/Gemini API keys off client browsers)
@@ -323,6 +463,23 @@ export async function onRequest(context) {
         }
       }
 
+      // 2a-v6. Instant Edge Write-Ahead (<50ms) for Operational & HR Mutations (Checklist, Handover, Incidents, SoldOut, Posts, Payroll Workflow...)
+      if (
+        payload.instantEdge === true &&
+        env?.DB &&
+        INSTANT_EDGE_OPERATIONAL_ACTIONS.has(action)
+      ) {
+        const instantOpRes = await handleInstantOperationalMutationEdge(
+          context,
+          action,
+          payload,
+          verifiedSession
+        );
+        if (instantOpRes) {
+          return instantOpRes;
+        }
+      }
+
       // 2b. Pre-merge concurrent checklist items in Edge D1 before forwarding to GAS
       let preMergedChecklistState = null;
       if (
@@ -337,11 +494,20 @@ export async function onRequest(context) {
             payload.supply = preMergedChecklistState.supply;
             payload.signatures = preMergedChecklistState.signatures;
             bodyText = JSON.stringify(payload);
+          } else if (action === 'PATCH_OPS_CHECKLIST_ITEM' && payload.itemId && !payload.itemPatch) {
+            payload.itemPatch = {
+              checked: payload.checked,
+              note: payload.note,
+              subchecks: payload.subchecks,
+              by: payload.by || payload.fullname || payload.username || '',
+              at: payload.at || new Date().toISOString(),
+            };
+            bodyText = JSON.stringify(payload);
           }
         }
       }
 
-      // 3. Read Actions (GET_* & GEOCODE) with D1 Real-time Overlay + KV/D1 SWR + Failover
+      // 3. Read Actions (GET_* & GEOCODE) with D1 Real-time Overlay + True SWR + Failover
       // Face ID & Kiosk state reads NEVER serve from L1 POP/L2 cache so cross-phone enrollment & cooldown sync in 0ms!
       const isReadAction = action.startsWith('GET_') || action === 'GEOCODE';
       const isLiveBiometricRead =
@@ -379,21 +545,32 @@ export async function onRequest(context) {
           }
         }
 
-        // L2: Check Cloudflare D1 / KV SWR Cache (30s fresh TTL)
-        const l2Entry = await readEdgeCache(env, edgeCacheKey);
-        if (l2Entry && l2Entry.expiresAt > Date.now()) {
-          const overlaid = await applyD1Overlays(action, payload, l2Entry.data, env, verifiedSession);
-          // Trigger background revalidation if older than 12 seconds
-          if (Date.now() - l2Entry.updatedAt > 12000) {
-            context.waitUntil(
-              revalidateFromGas(context, action, payload, bodyText, edgeCacheKey, popCacheReq)
-            );
+        // L2: Check Cloudflare D1 / KV Cache with True Stale-While-Revalidate (SWR)
+        const l2Entry = await readEdgeCache(env, edgeCacheKey, true);
+        const nowReadMs = Date.now();
+        if (l2Entry && l2Entry.data) {
+          const isFresh = l2Entry.expiresAt > nowReadMs;
+          const ageMs = nowReadMs - Number(l2Entry.updatedAt || 0);
+          const isWithinSwr = !isFresh && ageMs <= getEdgeSwrWindowMs(action);
+          if (isFresh || isWithinSwr) {
+            const overlaid = await applyD1Overlays(action, payload, l2Entry.data, env, verifiedSession);
+            // Trigger deduplicated background revalidation when stale or >12s old
+            if ((isWithinSwr || ageMs > 12000) && !inFlightRevalidations.has(edgeCacheKey)) {
+              inFlightRevalidations.add(edgeCacheKey);
+              context.waitUntil(
+                revalidateFromGas(context, action, payload, bodyText, edgeCacheKey, popCacheReq).finally(
+                  () => {
+                    inFlightRevalidations.delete(edgeCacheKey);
+                  }
+                )
+              );
+            }
+            return jsonResponse(overlaid, 200, {
+              'X-Proxy-Cache': isFresh ? 'HIT-L2-EDGE-DB' : 'STALE-WHILE-REVALIDATE',
+              'X-Edge-DB': 'D1-KV-HIT',
+              'Cache-Control': 'public, max-age=10, s-maxage=10',
+            });
           }
-          return jsonResponse(overlaid, 200, {
-            'X-Proxy-Cache': 'HIT-L2-EDGE-DB',
-            'X-Edge-DB': 'D1-KV-HIT',
-            'Cache-Control': 'public, max-age=10, s-maxage=10',
-          });
         }
       }
 
@@ -670,7 +847,7 @@ export async function onRequest(context) {
         gasResult = enrichWave2MutationResponse(action, payload, gasResult, preMergedChecklistState);
       }
 
-      // Issue Edge HMAC-SHA256 session token on successful LOGIN
+      // Issue Edge HMAC-SHA256 session token & warm D1 edge_auth_cache on successful LOGIN
       if (action === 'LOGIN' && isValidSuccess && gasResult?.data && typeof gasResult.data === 'object') {
         const loginUser = String(gasResult.data.username || payload.username || '').trim().toLowerCase();
         const loginRole = String(gasResult.data.role || 'user').trim().toLowerCase();
@@ -678,9 +855,12 @@ export async function onRequest(context) {
           { u: loginUser, r: loginRole, exp: Date.now() + 7 * 86400 * 1000 },
           getEdgeSecret(env)
         );
+        if (env?.DB && loginUser && (payload.password || payload.passwordHash)) {
+          context.waitUntil(cacheAuthProfileInD1(env.DB, payload, gasResult.data));
+        }
       }
 
-      // Handle post-write hooks for mutations (synchronous on attendance & Face ID mutations for strict read-after-write D1 consistency)
+      // Handle post-write hooks for mutations (synchronous on attendance, auth & Face ID mutations for strict read-after-write D1 consistency)
       if (!isReadAction && isValidSuccess) {
         if (
           action === 'CHECK_IN_OUT' ||
@@ -693,7 +873,13 @@ export async function onRequest(context) {
           action === 'ENROLL_FACE_PROFILE' ||
           action === 'RESET_FACE_PROFILE' ||
           action === 'UPDATE_GPS_CONFIG' ||
-          action === 'UPDATE_EMPLOYMENT_STATUS'
+          action === 'UPDATE_EMPLOYMENT_STATUS' ||
+          action === 'FORCE_RESET_PASSWORD' ||
+          action === 'RESET_PASSWORD' ||
+          action === 'UPDATE_USER_ROLE' ||
+          action === 'UPDATE_USER_POSITION' ||
+          action === 'UPLOAD_AVATAR' ||
+          action === 'REGISTER'
         ) {
           await handleMutationSideEffects(env, action, payload, gasResult, preMergedChecklistState);
         } else {
@@ -798,6 +984,176 @@ export async function onRequest(context) {
 }
 
 // ============================================================================
+// 0. Ultra-Fast Edge D1 Salted-SHA256 Auth Verifier (<35ms Login)
+// ============================================================================
+const EDGE_PASSWORD_SALT = 'kg_salt_2026';
+const EDGE_AUTH_CACHE_TTL_MS = 24 * 3600 * 1000; // 24h max credential TTL
+const EDGE_AUTH_REVALIDATE_AFTER_MS = 2 * 60 * 1000; // Silent background profile revalidation after 2m
+
+async function computeEdgeSaltedPasswordHash(password, fallbackHash = '') {
+  if (password !== undefined && password !== null && String(password) !== '') {
+    return sha256(`${String(password)}:${EDGE_PASSWORD_SALT}`);
+  }
+  const cleanHash = String(fallbackHash || '').trim().toLowerCase();
+  return /^[a-f0-9]{64}$/.test(cleanHash) ? cleanHash : '';
+}
+
+function timingSafeEqualStr(a, b) {
+  const s1 = String(a || '');
+  const s2 = String(b || '');
+  if (!s1 || s1.length !== s2.length) return false;
+  let diff = 0;
+  for (let i = 0; i < s1.length; i++) {
+    diff |= s1.charCodeAt(i) ^ s2.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
+async function cacheAuthProfileInD1(db, payload, userData) {
+  if (!db || !userData || typeof userData !== 'object') return;
+  const cleanUser = String(userData.username || payload?.username || '').trim().toLowerCase();
+  if (!cleanUser) return;
+  const pwdHash = await computeEdgeSaltedPasswordHash(payload?.password, payload?.passwordHash);
+  if (!pwdHash) return;
+
+  // Never persist sessionToken or plaintext password into edge_auth_cache
+  const safeUser = {
+    username: String(userData.username || cleanUser).trim(),
+    fullname: String(userData.fullname || cleanUser).trim(),
+    email: String(userData.email || '').trim(),
+    role: String(userData.role || (cleanUser === 'admin' ? 'admin' : 'user')).trim(),
+    position: String(userData.position || 'Phục vụ').trim(),
+    avatarUrl: String(userData.avatarUrl || '').trim(),
+    employmentStatus: String(userData.employmentStatus || 'active').trim(),
+    statusUntil: String(userData.statusUntil || '').trim(),
+    statusReason: String(userData.statusReason || '').trim(),
+    statusUpdatedAt: String(userData.statusUpdatedAt || '').trim(),
+  };
+
+  await db
+    .prepare(
+      `INSERT INTO edge_auth_cache (username, password_hash, email, user_json, updated_at)
+       VALUES (?1, ?2, ?3, ?4, ?5)
+       ON CONFLICT(username) DO UPDATE SET
+         password_hash = excluded.password_hash,
+         email = excluded.email,
+         user_json = excluded.user_json,
+         updated_at = excluded.updated_at`
+    )
+    .bind(cleanUser, pwdHash, safeUser.email.toLowerCase(), JSON.stringify(safeUser), Date.now())
+    .run()
+    .catch(() => {});
+}
+
+async function revalidateAuthEntryFromGas(env, cleanUser, payload, bodyText) {
+  if (!env?.DB || !cleanUser) return;
+  const dedupeKey = `auth:${cleanUser}`;
+  if (inFlightRevalidations.has(dedupeKey)) return;
+  inFlightRevalidations.add(dedupeKey);
+  try {
+    const gasRes = await fetch(TARGET_GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: bodyText,
+      signal:
+        typeof AbortSignal !== 'undefined' && AbortSignal.timeout
+          ? AbortSignal.timeout(20000)
+          : undefined,
+    });
+    const parsed = await gasRes.json();
+    if (parsed && parsed.ok === true && parsed.data) {
+      await cacheAuthProfileInD1(env.DB, payload, parsed.data);
+    } else if (parsed && parsed.ok === false) {
+      // Credentials were changed or revoked directly in Google Sheets -> purge stale Edge cache
+      await env.DB.prepare(`DELETE FROM edge_auth_cache WHERE username = ?1`)
+        .bind(cleanUser)
+        .run()
+        .catch(() => {});
+    }
+  } catch {
+    // Non-fatal: keep cached entry on transient GAS outage
+  } finally {
+    inFlightRevalidations.delete(dedupeKey);
+  }
+}
+
+async function handleInstantEdgeLogin(context, payload, bodyText) {
+  const { env } = context;
+  if (!env?.DB || !payload) return null;
+
+  const cleanUser = String(payload.username || '').trim().toLowerCase();
+  if (!cleanUser || (!payload.password && !payload.passwordHash)) {
+    return null;
+  }
+
+  try {
+    const cachedRow = await env.DB.prepare(
+      `SELECT username, password_hash, user_json, updated_at FROM edge_auth_cache WHERE username = ?1 LIMIT 1`
+    )
+      .bind(cleanUser)
+      .first()
+      .catch(() => null);
+
+    if (!cachedRow || !cachedRow.password_hash || !cachedRow.user_json) {
+      return null;
+    }
+
+    const now = Date.now();
+    const ageMs = now - Number(cachedRow.updated_at || 0);
+    if (ageMs > EDGE_AUTH_CACHE_TTL_MS) {
+      return null;
+    }
+
+    const incomingHash = await computeEdgeSaltedPasswordHash(payload.password, payload.passwordHash);
+    if (!incomingHash || !timingSafeEqualStr(cachedRow.password_hash, incomingHash)) {
+      // Never reject from stale cache: fall through to GAS in case password was updated directly in Sheet
+      return null;
+    }
+
+    const userObj = JSON.parse(cachedRow.user_json);
+    // Honor automatic reactivation if temporary suspension window expired
+    if (userObj.employmentStatus === 'suspended' && userObj.statusUntil) {
+      const untilMs = Date.parse(`${userObj.statusUntil}T23:59:59+07:00`);
+      if (Number.isFinite(untilMs) && untilMs < now) {
+        userObj.employmentStatus = 'active';
+        userObj.statusUntil = '';
+        userObj.statusReason = 'Tự động kích hoạt lại sau thời hạn đình chỉ';
+      }
+    }
+
+    const loginRole = String(userObj.role || (cleanUser === 'admin' ? 'admin' : 'user'))
+      .trim()
+      .toLowerCase();
+    const sessionToken = await signEdgeSessionToken(
+      { u: cleanUser, r: loginRole, exp: now + 7 * 86400 * 1000 },
+      getEdgeSecret(env)
+    );
+
+    if (ageMs > EDGE_AUTH_REVALIDATE_AFTER_MS) {
+      context.waitUntil(revalidateAuthEntryFromGas(env, cleanUser, payload, bodyText));
+    }
+
+    return jsonResponse(
+      {
+        ok: true,
+        data: {
+          ...userObj,
+          sessionToken,
+        },
+      },
+      200,
+      {
+        'X-Edge-Auth': 'D1-INSTANT',
+        'X-Edge-DB': 'D1-AUTH-HIT',
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+      }
+    );
+  } catch {
+    return null;
+  }
+}
+
+// ============================================================================
 // 1. D1 + KV Ultra-Fast Schedule Registration Handler (`REGISTER_SHIFT`)
 // ============================================================================
 function formatVietnamTimestampFromMs(ms) {
@@ -827,6 +1183,24 @@ async function handleRegisterShiftEdge(context, payload, bodyText) {
   const scheduleId = `${monthSheet}|${weekLabel}|${cleanUser || fullname.toLowerCase()}`;
   const now = Date.now();
   const vnTimestamp = formatVietnamTimestampFromMs(now);
+
+  // Fast D1 employment eligibility precheck (<5ms)
+  if (env?.DB && cleanUser) {
+    const profRow = await env.DB.prepare(
+      `SELECT employment_status FROM edge_face_profiles WHERE username = ?1 LIMIT 1`
+    )
+      .bind(cleanUser)
+      .first()
+      .catch(() => null);
+    const empSt = String(profRow?.employment_status || 'active').trim().toLowerCase();
+    if (empSt === 'resigned' || empSt === 'suspended') {
+      return jsonResponse(
+        { ok: false, message: 'Trạng thái nhân sự hiện tại không được đăng ký ca' },
+        200,
+        { 'X-Edge-DB': 'D1-INACTIVE-BLOCKED' }
+      );
+    }
+  }
 
   // Step 1: Write immediately to Cloudflare D1 & KV (<15ms) when bound
   let d1Persisted = false;
@@ -881,12 +1255,65 @@ async function handleRegisterShiftEdge(context, payload, bodyText) {
     );
   }
 
-  // Step 2: Invalidate stale read caches in D1/KV
-  context.waitUntil(invalidateEdgeReadCaches(env, ['GET_DATA', 'GET_ALL_SCHEDULES']));
+  // Step 2: Invalidate stale read caches in D1/KV (targeted only to schedule/data reads)
+  context.waitUntil(invalidateEdgeReadCaches(env, ['GET_DATA', 'GET_ALL_SCHEDULES', 'GET_MONTH_SCHEDULES']));
 
-  // Step 3: Forward synchronously to Google Apps Script (up to 24.5s matching GAS LockService 25s)
-  // Guarantees direct write-through to Google Sheets whenever GAS is reachable.
-  const gasSyncPromise = syncScheduleToGasWithRetry(env, scheduleId, payload, bodyText);
+  // Clean bodyText for GAS (strip instantEdge flag)
+  const gasPayloadObj = { ...payload };
+  delete gasPayloadObj.instantEdge;
+  const gasBodyText = JSON.stringify({ ...gasPayloadObj, action: 'REGISTER_SHIFT' });
+
+  // Step 2.5: Instant Edge Write-Ahead (<50ms) when client requests instantEdge=true & D1 committed safely
+  if (payload.instantEdge === true && d1Persisted && env?.DB) {
+    const dedupeKey = `REGISTER_SHIFT:${scheduleId}`;
+    await env.DB.prepare(
+      `INSERT INTO edge_sync_queue (dedupe_key, action, payload_json, attempts, status, created_at, updated_at)
+       VALUES (?1, 'REGISTER_SHIFT', ?2, 0, 'processing', ?3, ?3)
+       ON CONFLICT(dedupe_key) DO UPDATE SET
+         payload_json = excluded.payload_json,
+         status = 'processing',
+         updated_at = excluded.updated_at`
+    )
+      .bind(dedupeKey, JSON.stringify(gasPayloadObj), now)
+      .run()
+      .catch(() => {});
+
+    context.waitUntil(
+      syncScheduleToGasWithRetry(env, scheduleId, gasPayloadObj, gasBodyText).then(async (syncOutcome) => {
+        if (syncOutcome && syncOutcome.ok === false && syncOutcome.gasResult && syncOutcome.gasResult.ok === false) {
+          // Business rule rejection (e.g., employee suspended/resigned) -> rollback D1 schedule & queue entry
+          await env.DB.prepare(`DELETE FROM edge_schedules WHERE id = ?1`).bind(scheduleId).run().catch(() => {});
+          await env.DB.prepare(`DELETE FROM edge_sync_queue WHERE dedupe_key = ?1`).bind(dedupeKey).run().catch(() => {});
+          await invalidateEdgeReadCaches(env, ['GET_DATA', 'GET_ALL_SCHEDULES', 'GET_MONTH_SCHEDULES']);
+        }
+      })
+    );
+
+    return jsonResponse(
+      {
+        ok: true,
+        message: 'Đã ghi nhận lịch làm việc tức thì! Đang tự động đồng bộ vào Google Sheets...',
+        data: {
+          instantEdgeCommitted: true,
+          sheetSaved: false,
+          edgeSaved: true,
+          queuedForSheet: true,
+          shifts,
+          weekLabel,
+          monthSheet,
+          timestamp: vnTimestamp,
+        },
+      },
+      200,
+      {
+        'X-Edge-DB': 'D1-INSTANT-SCHEDULE-COMMITTED',
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+      }
+    );
+  }
+
+  // Step 3: Legacy synchronous write-through to Google Apps Script (up to 24.5s matching GAS LockService 25s)
+  const gasSyncPromise = syncScheduleToGasWithRetry(env, scheduleId, gasPayloadObj, gasBodyText);
   context.waitUntil(gasSyncPromise);
 
   let raceTimerId = null;
@@ -1140,17 +1567,19 @@ async function applyD1Overlays(action, payload, resultObj, env, verifiedSession 
           const cleanFn = String(fn || '').normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase();
           return `${cleanU || cleanFn}|${String(t || '').replace(/^'/, '').trim()}|${String(tp || '').trim().toLowerCase()}`;
         };
-        const existingKeys = new Set(
-          data.logs.map((l) => makeLogDedupKey(l.username, l.fullname, l.time, l.type))
-        );
-        const existingLooseNameKeys = new Set(
-          data.logs
-            .filter((l) => !String(l.username || '').trim())
-            .map(
-              (l) =>
-                `${String(l.fullname || '').normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase()}|${String(l.time || '').replace(/^'/, '').trim()}|${String(l.type || '').trim().toLowerCase()}`
-            )
-        );
+        const existingByKey = new Map();
+        const existingByCheckinId = new Map();
+        const existingLooseNameByKey = new Map();
+        for (const l of data.logs) {
+          existingByKey.set(makeLogDedupKey(l.username, l.fullname, l.time, l.type), l);
+          if (l.checkinId) {
+            existingByCheckinId.set(String(l.checkinId).trim(), l);
+          }
+          if (!String(l.username || '').trim()) {
+            const lk = `${String(l.fullname || '').normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase()}|${String(l.time || '').replace(/^'/, '').trim()}|${String(l.type || '').trim().toLowerCase()}`;
+            existingLooseNameByKey.set(lk, l);
+          }
+        }
         const missingLogs = [];
         for (const r of recentLogsRes.results) {
           // Non-admin staff must ONLY see their own check-in GPS & selfie logs (strict username isolation)
@@ -1164,26 +1593,45 @@ async function applyD1Overlays(action, payload, resultObj, env, verifiedSession 
           const key = makeLogDedupKey(r.username, r.fullname, cleanTime, cleanType);
           const looseNameKey = `${String(r.fullname || '').normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase()}|${cleanTime}|${cleanType}`;
           const isSheetSynced = r.sheet_synced === undefined ? true : Number(r.sheet_synced) !== 0;
-          if (!existingKeys.has(key) && !existingLooseNameKeys.has(looseNameKey)) {
-            existingKeys.add(key);
-            missingLogs.push({
-              checkinId: r.id,
-              username: r.username,
-              time: r.time_str,
-              fullname: r.fullname,
-              type: r.check_type,
-              shift: r.shift_name,
-              status: r.status,
-              distance: r.distance !== undefined && r.distance !== null ? `${r.distance}m` : '',
-              lat: r.lat,
-              lng: r.lng,
-              note: r.note,
-              image: r.image_url,
-              sheetSynced: isSheetSynced,
-              edgeBuffered: !isSheetSynced,
-              timestamp: parseEdgeVietnamTimestampMs(r.time_str) || Number(r.created_at || Date.now()),
-            });
+          const d1DriveUrl = typeof r.image_url === 'string' && r.image_url.startsWith('http') ? r.image_url : '';
+          const matchedExisting =
+            existingByCheckinId.get(String(r.id || '').trim()) ||
+            existingByKey.get(key) ||
+            existingLooseNameByKey.get(looseNameKey);
+
+          if (matchedExisting) {
+            // Patch confirmed Google Drive photo link from D1 immediately onto cached GAS rows still showing PENDING/empty
+            if (
+              d1DriveUrl &&
+              (!matchedExisting.image ||
+                matchedExisting.image === 'PENDING' ||
+                !String(matchedExisting.image).startsWith('http'))
+            ) {
+              matchedExisting.image = d1DriveUrl;
+            }
+            continue;
           }
+
+          const newOverlayLog = {
+            checkinId: r.id,
+            username: r.username,
+            time: r.time_str,
+            fullname: r.fullname,
+            type: r.check_type,
+            shift: r.shift_name,
+            status: r.status,
+            distance: r.distance !== undefined && r.distance !== null ? `${r.distance}m` : '',
+            lat: r.lat,
+            lng: r.lng,
+            note: r.note,
+            image: r.image_url,
+            sheetSynced: isSheetSynced,
+            edgeBuffered: !isSheetSynced,
+            timestamp: parseEdgeVietnamTimestampMs(r.time_str) || Number(r.created_at || Date.now()),
+          };
+          existingByKey.set(key, newOverlayLog);
+          if (r.id) existingByCheckinId.set(String(r.id).trim(), newOverlayLog);
+          missingLogs.push(newOverlayLog);
         }
         if (missingLogs.length > 0) {
           data.logs = [...missingLogs, ...data.logs];
@@ -1233,17 +1681,19 @@ async function applyD1Overlays(action, payload, resultObj, env, verifiedSession 
           const cleanFn = String(fn || '').normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase();
           return `${cleanU || cleanFn}|${String(t || '').replace(/^'/, '').trim()}|${String(tp || '').trim().toLowerCase()}`;
         };
-        const existingKeys = new Set(
-          baseLogs.map((l) => makeLogDedupKey(l.username, l.fullname, l.time, l.type))
-        );
-        const existingLooseNameKeys = new Set(
-          baseLogs
-            .filter((l) => !String(l.username || '').trim())
-            .map(
-              (l) =>
-                `${String(l.fullname || '').normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase()}|${String(l.time || '').replace(/^'/, '').trim()}|${String(l.type || '').trim().toLowerCase()}`
-            )
-        );
+        const existingByKey = new Map();
+        const existingByCheckinId = new Map();
+        const existingLooseNameByKey = new Map();
+        for (const l of baseLogs) {
+          existingByKey.set(makeLogDedupKey(l.username, l.fullname, l.time, l.type), l);
+          if (l.checkinId) {
+            existingByCheckinId.set(String(l.checkinId).trim(), l);
+          }
+          if (!String(l.username || '').trim()) {
+            const lk = `${String(l.fullname || '').normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase()}|${String(l.time || '').replace(/^'/, '').trim()}|${String(l.type || '').trim().toLowerCase()}`;
+            existingLooseNameByKey.set(lk, l);
+          }
+        }
         const monthsSet = new Set(Array.isArray(data.availableMonths) ? data.availableMonths : []);
         const missingLogs = [];
 
@@ -1265,26 +1715,44 @@ async function applyD1Overlays(action, payload, resultObj, env, verifiedSession 
           const key = makeLogDedupKey(r.username, r.fullname, cleanTime, cleanType);
           const looseNameKey = `${String(r.fullname || '').normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase()}|${cleanTime}|${cleanType}`;
           const isSheetSynced = r.sheet_synced === undefined ? true : Number(r.sheet_synced) !== 0;
-          if (!existingKeys.has(key) && !existingLooseNameKeys.has(looseNameKey)) {
-            existingKeys.add(key);
-            missingLogs.push({
-              checkinId: r.id,
-              username: r.username,
-              time: r.time_str,
-              fullname: r.fullname,
-              type: r.check_type,
-              shift: r.shift_name,
-              status: r.status,
-              distance: r.distance !== undefined && r.distance !== null ? `${r.distance}m` : '',
-              lat: r.lat,
-              lng: r.lng,
-              note: r.note,
-              image: r.image_url,
-              sheetSynced: isSheetSynced,
-              edgeBuffered: !isSheetSynced,
-              timestamp: parseEdgeVietnamTimestampMs(r.time_str) || Number(r.created_at || Date.now()),
-            });
+          const d1DriveUrl = typeof r.image_url === 'string' && r.image_url.startsWith('http') ? r.image_url : '';
+          const matchedExisting =
+            existingByCheckinId.get(String(r.id || '').trim()) ||
+            existingByKey.get(key) ||
+            existingLooseNameByKey.get(looseNameKey);
+
+          if (matchedExisting) {
+            if (
+              d1DriveUrl &&
+              (!matchedExisting.image ||
+                matchedExisting.image === 'PENDING' ||
+                !String(matchedExisting.image).startsWith('http'))
+            ) {
+              matchedExisting.image = d1DriveUrl;
+            }
+            continue;
           }
+
+          const newOverlayLog = {
+            checkinId: r.id,
+            username: r.username,
+            time: r.time_str,
+            fullname: r.fullname,
+            type: r.check_type,
+            shift: r.shift_name,
+            status: r.status,
+            distance: r.distance !== undefined && r.distance !== null ? `${r.distance}m` : '',
+            lat: r.lat,
+            lng: r.lng,
+            note: r.note,
+            image: r.image_url,
+            sheetSynced: isSheetSynced,
+            edgeBuffered: !isSheetSynced,
+            timestamp: parseEdgeVietnamTimestampMs(r.time_str) || Number(r.created_at || Date.now()),
+          };
+          existingByKey.set(key, newOverlayLog);
+          if (r.id) existingByCheckinId.set(String(r.id).trim(), newOverlayLog);
+          missingLogs.push(newOverlayLog);
         }
 
         const merged = [...missingLogs, ...baseLogs];
@@ -1676,12 +2144,9 @@ async function handleMutationSideEffects(
       const uploadedUrl = String(gasResult?.data?.url || gasResult?.data?.imageUrl || '').trim();
       const targetId = String(payload.checkinId || '').trim();
       const targetUser = String(payload.username || '').trim().toLowerCase();
+      const targetTimeStr = String(payload.time || '').trim();
       if (uploadedUrl && (targetId || targetUser)) {
-        await env.DB.prepare(
-          `UPDATE edge_checkin_logs SET image_url = ?1 WHERE id = ?2 OR (username = ?3 AND (image_url = '' OR image_url = 'PENDING'))`
-        )
-          .bind(uploadedUrl, targetId, targetUser)
-          .run();
+        await updateEdgeCheckinLogImageUrl(env.DB, uploadedUrl, targetId, targetUser, targetTimeStr);
       }
     }
 
@@ -1844,7 +2309,58 @@ async function handleMutationSideEffects(
         )
           .bind(nextStatus, now, targetUser)
           .run();
+        await env.DB.prepare(`DELETE FROM edge_auth_cache WHERE username = ?1`)
+          .bind(targetUser)
+          .run()
+          .catch(() => {});
       }
+    }
+
+    if (
+      action === 'FORCE_RESET_PASSWORD' ||
+      action === 'UPDATE_USER_ROLE' ||
+      action === 'UPDATE_USER_POSITION' ||
+      action === 'UPLOAD_AVATAR'
+    ) {
+      const targetUser = String(
+        payload.targetUsername || payload.usernameToReset || payload.username || ''
+      )
+        .trim()
+        .toLowerCase();
+      if (targetUser) {
+        await env.DB.prepare(`DELETE FROM edge_auth_cache WHERE username = ?1`)
+          .bind(targetUser)
+          .run()
+          .catch(() => {});
+      }
+    }
+
+    if (action === 'RESET_PASSWORD') {
+      const resetEmail = String(payload.email || '').trim().toLowerCase();
+      if (resetEmail) {
+        await env.DB.prepare(`DELETE FROM edge_auth_cache WHERE lower(email) = ?1`)
+          .bind(resetEmail)
+          .run()
+          .catch(() => {});
+      } else {
+        await env.DB.prepare(`DELETE FROM edge_auth_cache`).run().catch(() => {});
+      }
+    }
+
+    if (action === 'REGISTER' && payload.username && (payload.password || payload.passwordHash)) {
+      const regUser = String(payload.username).trim();
+      await cacheAuthProfileInD1(env.DB, payload, {
+        username: regUser,
+        fullname: String(payload.fullname || regUser).trim(),
+        email: String(payload.email || '').trim(),
+        role: 'user',
+        position: 'Phục vụ',
+        avatarUrl: '',
+        employmentStatus: 'active',
+        statusUntil: '',
+        statusReason: '',
+        statusUpdatedAt: '',
+      });
     }
 
     if (action === 'SAVE_ALL_SCHEDULES' || action === 'APPROVE_SCHEDULES') {
@@ -1899,11 +2415,61 @@ async function handleMutationSideEffects(
       await appendEdgeAuditLogInD1(env.DB, action, payload, now);
     }
 
-    // Invalidate cached read queries on any mutation
-    await invalidateEdgeReadCaches(env);
+    // Targeted cache invalidation: only purge read actions affected by this mutation (prevents global cache stampede)
+    const targetCacheActions = getEdgeInvalidationActionsForMutation(action);
+    if (targetCacheActions === null) {
+      await invalidateEdgeReadCaches(env);
+    } else if (targetCacheActions.length > 0) {
+      await invalidateEdgeReadCaches(env, targetCacheActions);
+    }
   } catch (e) {
     console.warn('[D1 Mutation Hook] error:', e);
   }
+}
+
+async function updateEdgeCheckinLogImageUrl(db, uploadedUrl, checkinId, targetUser, targetTimeStr = '') {
+  if (!db || !uploadedUrl) return;
+  try {
+    if (checkinId) {
+      const exactRes = await db
+        .prepare(`UPDATE edge_checkin_logs SET image_url = ?1 WHERE id = ?2`)
+        .bind(uploadedUrl, checkinId)
+        .run()
+        .catch(() => null);
+      if (exactRes?.meta && Number(exactRes.meta.changes || 0) > 0) {
+        return;
+      }
+    }
+    if (targetUser && targetTimeStr) {
+      const timeRes = await db
+        .prepare(
+          `UPDATE edge_checkin_logs SET image_url = ?1 WHERE username = ?2 AND time_str = ?3 AND (image_url = '' OR image_url = 'PENDING')`
+        )
+        .bind(uploadedUrl, targetUser, targetTimeStr)
+        .run()
+        .catch(() => null);
+      if (timeRes?.meta && Number(timeRes.meta.changes || 0) > 0) {
+        return;
+      }
+    }
+    if (targetUser) {
+      // Fallback: update ONLY the single newest PENDING row for this user (never clobber multiple punches)
+      const latestPending = await db
+        .prepare(
+          `SELECT id FROM edge_checkin_logs WHERE username = ?1 AND (image_url = '' OR image_url = 'PENDING') ORDER BY created_at DESC LIMIT 1`
+        )
+        .bind(targetUser)
+        .first()
+        .catch(() => null);
+      if (latestPending?.id) {
+        await db
+          .prepare(`UPDATE edge_checkin_logs SET image_url = ?1 WHERE id = ?2`)
+          .bind(uploadedUrl, latestPending.id)
+          .run()
+          .catch(() => {});
+      }
+    }
+  } catch {}
 }
 
 // ============================================================================
@@ -2104,6 +2670,17 @@ function getEdgeSyncPriority(action) {
 
 async function drainEdgeSyncQueue(env, targetGasUrl) {
   if (!env?.DB) return;
+  if (drainInFlightPromise) {
+    return drainInFlightPromise;
+  }
+  drainInFlightPromise = runDrainEdgeSyncQueue_(env, targetGasUrl).finally(() => {
+    drainInFlightPromise = null;
+  });
+  return drainInFlightPromise;
+}
+
+async function runDrainEdgeSyncQueue_(env, targetGasUrl) {
+  if (!env?.DB) return;
   try {
     // Reclaim any stalled 'processing' leases older than 45s from terminated isolates
     await env.DB.prepare(
@@ -2132,6 +2709,8 @@ async function drainEdgeSyncQueue(env, targetGasUrl) {
     const sortedItems = [...pending.results].sort(
       (a, b) => getEdgeSyncPriority(a.action) - getEdgeSyncPriority(b.action)
     );
+
+    const syncedCheckinIdsForImages = [];
 
     for (const item of sortedItems) {
       try {
@@ -2214,6 +2793,7 @@ async function drainEdgeSyncQueue(env, targetGasUrl) {
             )
               .bind(Date.now(), schedId)
               .run();
+            await invalidateEdgeReadCaches(env, ['GET_DATA', 'GET_ALL_SCHEDULES', 'GET_MONTH_SCHEDULES']);
           } else if (item.action === 'CHECK_IN_OUT' || item.action === 'CHECK_IN') {
             const checkinId = String(
               payloadObj?.checkinId || String(item.dedupe_key || '').replace(/^CHECK_IN_OUT:/, '')
@@ -2231,6 +2811,7 @@ async function drainEdgeSyncQueue(env, targetGasUrl) {
                   .run()
                   .catch(() => {});
               }
+              syncedCheckinIdsForImages.push(checkinId);
             }
             await invalidateEdgeReadCaches(env, [
               'GET_DATA',
@@ -2244,15 +2825,16 @@ async function drainEdgeSyncQueue(env, targetGasUrl) {
                 String(item.dedupe_key || '').replace(/^UPLOAD_CHECKIN_IMAGE:/, '')
             ).trim();
             const targetUser = String(payloadObj?.username || '').trim().toLowerCase();
+            const targetTimeStr = String(payloadObj?.time || '').trim();
             if (uploadedUrl && (targetId || targetUser)) {
-              await env.DB.prepare(
-                `UPDATE edge_checkin_logs SET image_url = ?1 WHERE id = ?2 OR (username = ?3 AND (image_url = '' OR image_url = 'PENDING'))`
-              )
-                .bind(uploadedUrl, targetId, targetUser)
-                .run()
-                .catch(() => {});
+              await updateEdgeCheckinLogImageUrl(env.DB, uploadedUrl, targetId, targetUser, targetTimeStr);
             }
             await invalidateEdgeReadCaches(env, ['GET_DATA', 'GET_CHECKIN_LOGS']);
+          } else {
+            const invActions = getEdgeInvalidationActionsForMutation(item.action);
+            if (Array.isArray(invActions) && invActions.length > 0) {
+              await invalidateEdgeReadCaches(env, invActions);
+            }
           }
         } else {
           await env.DB.prepare(
@@ -2268,6 +2850,11 @@ async function drainEdgeSyncQueue(env, targetGasUrl) {
           .bind(String(err?.message || 'Fetch error'), Date.now(), item.id)
           .run();
       }
+    }
+
+    // Immediately chain any staged proof photos waiting on check-ins that just landed in Google Sheets
+    for (const cid of syncedCheckinIdsForImages) {
+      await flushPendingImageForCheckin(env, cid, targetGasUrl).catch(() => {});
     }
   } catch {}
 }
@@ -2794,7 +3381,7 @@ async function flushPendingImageForCheckin(env, checkinId, targetGasUrl) {
   const dedupeKey = `UPLOAD_CHECKIN_IMAGE:${checkinId}`;
 
   try {
-    const logRow = await env.DB.prepare(
+    let logRow = await env.DB.prepare(
       `SELECT sheet_synced, fullname FROM edge_checkin_logs WHERE id = ?1 LIMIT 1`
     )
       .bind(checkinId)
@@ -2811,8 +3398,24 @@ async function flushPendingImageForCheckin(env, checkinId, targetGasUrl) {
         .catch(() => null);
       if (punchQueueRow?.status === 'pending') {
         await drainEdgeSyncQueue(env, targetGasUrl);
+        return;
       }
-      return;
+      // Close sub-second race window when CHECK_IN_OUT is actively 'processing' in parallel
+      if (punchQueueRow?.status === 'processing') {
+        for (let waitStep = 0; waitStep < 3; waitStep++) {
+          await new Promise((r) => setTimeout(r, 250));
+          logRow = await env.DB.prepare(
+            `SELECT sheet_synced, fullname FROM edge_checkin_logs WHERE id = ?1 LIMIT 1`
+          )
+            .bind(checkinId)
+            .first()
+            .catch(() => null);
+          if (!logRow || Number(logRow.sheet_synced) === 1) break;
+        }
+      }
+      if (logRow && Number(logRow.sheet_synced) === 0) {
+        return;
+      }
     }
 
     const claimRes = await env.DB.prepare(
@@ -2838,27 +3441,37 @@ async function flushPendingImageForCheckin(env, checkinId, targetGasUrl) {
       imgPayload.fullname = String(logRow.fullname).trim();
     }
 
-    const res = await fetch(targetGasUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'UPLOAD_CHECKIN_IMAGE', ...imgPayload }),
-      signal:
-        typeof AbortSignal !== 'undefined' && AbortSignal.timeout
-          ? AbortSignal.timeout(30000)
-          : undefined,
-    });
-    const parsed = await res.json();
+    const uploadBodyStr = JSON.stringify({ action: 'UPLOAD_CHECKIN_IMAGE', ...imgPayload });
+    let parsed = null;
+    let lastUploadErr = null;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const res = await fetch(targetGasUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: uploadBodyStr,
+          signal:
+            typeof AbortSignal !== 'undefined' && AbortSignal.timeout
+              ? AbortSignal.timeout(30000)
+              : undefined,
+        });
+        parsed = await res.json();
+        if (parsed && parsed.ok === true) break;
+        lastUploadErr = parsed?.message || 'Drive upload retry';
+      } catch (e) {
+        lastUploadErr = e?.message || 'Drive upload fetch error';
+      }
+      if (attempt < 2) {
+        await new Promise((r) => setTimeout(r, 450));
+      }
+    }
 
     if (parsed && parsed.ok === true) {
       const uploadedUrl = String(parsed?.data?.url || parsed?.data?.imageUrl || '').trim();
       const targetUser = String(imgPayload.username || '').trim().toLowerCase();
+      const targetTimeStr = String(imgPayload.time || '').trim();
       if (uploadedUrl) {
-        await env.DB.prepare(
-          `UPDATE edge_checkin_logs SET image_url = ?1 WHERE id = ?2 OR (username = ?3 AND (image_url = '' OR image_url = 'PENDING'))`
-        )
-          .bind(uploadedUrl, checkinId, targetUser)
-          .run()
-          .catch(() => {});
+        await updateEdgeCheckinLogImageUrl(env.DB, uploadedUrl, checkinId, targetUser, targetTimeStr);
       }
       await env.DB.prepare(`DELETE FROM edge_sync_queue WHERE dedupe_key = ?1`)
         .bind(dedupeKey)
@@ -2868,7 +3481,7 @@ async function flushPendingImageForCheckin(env, checkinId, targetGasUrl) {
       await env.DB.prepare(
         `UPDATE edge_sync_queue SET status = 'pending', attempts = attempts + 1, last_error = ?1, updated_at = ?2 WHERE dedupe_key = ?3`
       )
-        .bind(String(parsed?.message || 'Drive upload retry'), Date.now(), dedupeKey)
+        .bind(String(lastUploadErr || 'Drive upload retry'), Date.now(), dedupeKey)
         .run();
     }
   } catch (err) {
@@ -2879,6 +3492,343 @@ async function flushPendingImageForCheckin(env, checkinId, targetGasUrl) {
       .run()
       .catch(() => {});
   }
+}
+
+async function handleInstantOperationalMutationEdge(context, action, payload, verifiedSession = null) {
+  const { env } = context;
+  if (!env?.DB || !payload) return null;
+
+  const now = Date.now();
+  const vnTime = formatVietnamTimestampFromMs(now);
+  const cleanPayload = { ...payload };
+  delete cleanPayload.action;
+  delete cleanPayload.instantEdge;
+
+  // 1. Checklist (Coalesced atomic merge in D1 edge_ops_checklist + single coalesced GAS sync)
+  if (action === 'PATCH_OPS_CHECKLIST_ITEM' || action === 'SAVE_OPS_CHECKLIST_STATE') {
+    const dateStr = String(payload.dateStr || '').trim();
+    const area = String(payload.area || 'A').trim();
+    if (!dateStr || !area) return null;
+
+    const mergedState = await preMergeChecklistInD1(env.DB, action, payload);
+    if (!mergedState) return null;
+
+    const dedupeKey = `OPS_CHECKLIST:${dateStr}|${area}`;
+    const syncPayload = {
+      dateStr,
+      area,
+      username: payload.username || payload.actorUsername || '',
+      fullname: payload.fullname || '',
+      role: payload.role || verifiedSession?.r || 'user',
+      actorUsername: payload.actorUsername || payload.username || '',
+      participants: mergedState.participants,
+      removedParticipantKeys: Array.isArray(payload.removedParticipantKeys)
+        ? payload.removedParticipantKeys
+        : [],
+      items: mergedState.items,
+      supply: mergedState.supply,
+      signatures: mergedState.signatures,
+    };
+
+    await env.DB.prepare(
+      `INSERT INTO edge_sync_queue (dedupe_key, action, payload_json, attempts, status, created_at, updated_at)
+       VALUES (?1, 'SAVE_OPS_CHECKLIST_STATE', ?2, 0, 'processing', ?3, ?3)
+       ON CONFLICT(dedupe_key) DO UPDATE SET
+         payload_json = excluded.payload_json,
+         status = 'processing',
+         updated_at = excluded.updated_at`
+    )
+      .bind(dedupeKey, JSON.stringify(syncPayload), now)
+      .run();
+
+    const invActions = getEdgeInvalidationActionsForMutation(action) || ['GET_OPS_CHECKLIST_INIT', 'GET_DATA'];
+    await invalidateEdgeReadCaches(env, invActions);
+    context.waitUntil(
+      syncQueuedMutationToGas(env, dedupeKey, 'SAVE_OPS_CHECKLIST_STATE', syncPayload, invActions)
+    );
+
+    return jsonResponse(
+      {
+        ok: true,
+        message: 'Đã lưu tiến độ Checklist tức thì!',
+        data: {
+          instantEdgeCommitted: true,
+          queuedForSheet: true,
+          date: dateStr,
+          area,
+          state: mergedState,
+        },
+      },
+      200,
+      {
+        'X-Edge-DB': 'D1-INSTANT-CHECKLIST',
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+      }
+    );
+  }
+
+  // 2. Handover 2-Way Cash Reconciliation
+  if (
+    action === 'SUBMIT_HANDOVER' ||
+    action === 'ACKNOWLEDGE_HANDOVER' ||
+    action === 'REVIEW_HANDOVER'
+  ) {
+    if ((action === 'ACKNOWLEDGE_HANDOVER' || action === 'REVIEW_HANDOVER') && !String(payload.handoverId || '').trim()) {
+      return jsonResponse({ ok: false, message: 'Thiếu mã bàn giao két (handoverId).' }, 200);
+    }
+
+    let responseData = {};
+    let recordId = String(payload.handoverId || payload.id || `HO_EDGE_${now}`).trim();
+    if (action === 'SUBMIT_HANDOVER') {
+      const rich = buildHandoverRecordFromPayload({ ...payload, id: recordId }, {}, now);
+      recordId = rich.id;
+      cleanPayload.id = recordId;
+      await persistHandoverMutationInD1(env.DB, action, cleanPayload, { data: rich }, now);
+      responseData = rich;
+    } else {
+      await persistHandoverMutationInD1(env.DB, action, cleanPayload, null, now);
+      responseData = {
+        id: recordId,
+        handoverId: recordId,
+        ackAt: vnTime,
+        managerAt: vnTime,
+        reconcileStatus:
+          action === 'REVIEW_HANDOVER'
+            ? String(payload.decision || 'CONFIRM').toUpperCase() === 'DISPUTE'
+              ? 'Disputed'
+              : 'ManagerConfirmed'
+            : payload.ackStatus === 'Disputed'
+              ? 'Disputed'
+              : 'Matched',
+      };
+    }
+
+    if (ADMIN_ONLY_ACTIONS.has(action)) {
+      await appendEdgeAuditLogInD1(env.DB, action, payload, now).catch(() => {});
+    }
+
+    const dedupeKey = `${action}:${recordId}`;
+    await env.DB.prepare(
+      `INSERT INTO edge_sync_queue (dedupe_key, action, payload_json, attempts, status, created_at, updated_at)
+       VALUES (?1, ?2, ?3, 0, 'processing', ?4, ?4)
+       ON CONFLICT(dedupe_key) DO UPDATE SET
+         payload_json = excluded.payload_json,
+         status = 'processing',
+         updated_at = excluded.updated_at`
+    )
+      .bind(dedupeKey, action, JSON.stringify(cleanPayload), now)
+      .run();
+
+    const invActions = getEdgeInvalidationActionsForMutation(action) || ['GET_HANDOVERS', 'GET_DATA'];
+    await invalidateEdgeReadCaches(env, invActions);
+    context.waitUntil(syncQueuedMutationToGas(env, dedupeKey, action, cleanPayload, invActions));
+
+    return jsonResponse(
+      {
+        ok: true,
+        message:
+          action === 'SUBMIT_HANDOVER'
+            ? 'Đã ghi nhận bàn giao ca tức thì!'
+            : action === 'ACKNOWLEDGE_HANDOVER'
+              ? 'Đã lưu xác nhận két ca sau tức thì!'
+              : 'Đã duyệt đối soát két sắt tức thì!',
+        data: {
+          instantEdgeCommitted: true,
+          queuedForSheet: true,
+          ...responseData,
+        },
+      },
+      200,
+      {
+        'X-Edge-DB': 'D1-INSTANT-HANDOVER',
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+      }
+    );
+  }
+
+  // 3. Incidents (4-State Operations Incident Center)
+  if (action === 'SUBMIT_INCIDENT' || action === 'UPDATE_INCIDENT') {
+    if (action === 'UPDATE_INCIDENT' && !String(payload.incidentId || '').trim()) {
+      return jsonResponse({ ok: false, message: 'Thiếu mã sự cố (incidentId).' }, 200);
+    }
+    const incId = String(payload.incidentId || payload.id || `INC_EDGE_${now}`).trim();
+    if (action === 'SUBMIT_INCIDENT') {
+      cleanPayload.id = incId;
+    }
+    await persistIncidentMutationInD1(env.DB, action, cleanPayload, { data: { id: incId } }, now);
+    if (ADMIN_ONLY_ACTIONS.has(action)) {
+      await appendEdgeAuditLogInD1(env.DB, action, payload, now).catch(() => {});
+    }
+
+    const dedupeKey = `${action}:${incId}`;
+    await env.DB.prepare(
+      `INSERT INTO edge_sync_queue (dedupe_key, action, payload_json, attempts, status, created_at, updated_at)
+       VALUES (?1, ?2, ?3, 0, 'processing', ?4, ?4)
+       ON CONFLICT(dedupe_key) DO UPDATE SET
+         payload_json = excluded.payload_json,
+         status = 'processing',
+         updated_at = excluded.updated_at`
+    )
+      .bind(dedupeKey, action, JSON.stringify(cleanPayload), now)
+      .run();
+
+    const invActions = getEdgeInvalidationActionsForMutation(action) || ['GET_INCIDENTS', 'GET_DATA'];
+    await invalidateEdgeReadCaches(env, invActions);
+    context.waitUntil(syncQueuedMutationToGas(env, dedupeKey, action, cleanPayload, invActions));
+
+    return jsonResponse(
+      {
+        ok: true,
+        message: action === 'SUBMIT_INCIDENT' ? 'Đã ghi nhận báo cáo sự cố tức thì!' : 'Đã cập nhật tiến độ sự cố tức thì!',
+        data: {
+          instantEdgeCommitted: true,
+          queuedForSheet: true,
+          id: incId,
+          date: vnTime.slice(0, 10),
+          status: action === 'SUBMIT_INCIDENT' ? 'Open' : String(payload.status || 'Investigating'),
+          updatedAt: vnTime,
+        },
+      },
+      200,
+      {
+        'X-Edge-DB': 'D1-INSTANT-INCIDENT',
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+      }
+    );
+  }
+
+  // 4. Payroll 4-Step Workflow Status & Confirmation
+  if (action === 'SET_PAYROLL_WORKFLOW_STATUS' || action === 'CONFIRM_PAYROLL_SLIP') {
+    const updatedWf = await persistPayrollWorkflowMutationInD1(env.DB, action, cleanPayload, null, now);
+    if (ADMIN_ONLY_ACTIONS.has(action)) {
+      await appendEdgeAuditLogInD1(env.DB, action, payload, now).catch(() => {});
+    }
+    const wfMonth = normalizeEdgeMonthYm(payload.month, payload.year);
+    const dedupeKey = `${action}:${wfMonth}:${String(payload.username || 'admin').trim().toLowerCase()}`;
+    await env.DB.prepare(
+      `INSERT INTO edge_sync_queue (dedupe_key, action, payload_json, attempts, status, created_at, updated_at)
+       VALUES (?1, ?2, ?3, 0, 'processing', ?4, ?4)
+       ON CONFLICT(dedupe_key) DO UPDATE SET
+         payload_json = excluded.payload_json,
+         status = 'processing',
+         updated_at = excluded.updated_at`
+    )
+      .bind(dedupeKey, action, JSON.stringify(cleanPayload), now)
+      .run();
+
+    const invActions = getEdgeInvalidationActionsForMutation(action) || ['GET_PAYROLL'];
+    await invalidateEdgeReadCaches(env, invActions);
+    context.waitUntil(syncQueuedMutationToGas(env, dedupeKey, action, cleanPayload, invActions));
+
+    return jsonResponse(
+      {
+        ok: true,
+        message: 'Đã cập nhật trạng thái phiếu lương tức thì!',
+        data: {
+          instantEdgeCommitted: true,
+          queuedForSheet: true,
+          workflow: updatedWf,
+        },
+      },
+      200,
+      {
+        'X-Edge-DB': 'D1-INSTANT-PAYROLL-WF',
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+      }
+    );
+  }
+
+  // 5. General Fast Fire-and-Guarantee Operational Mutations (SoldOut, Posts, Feedback, Notifications, Tasks, Single Shift, Survey, ChatLog)
+  const dedupeSeed =
+    String(
+      payload.id ||
+        payload.postId ||
+        payload.notificationId ||
+        (payload.assignmentId && payload.taskId ? `${payload.assignmentId}_${payload.taskId}_${payload.username || ''}` : '') ||
+        (payload.weekLabel && payload.fullname ? `${payload.monthSheet || ''}_${payload.weekLabel}_${payload.fullname}_${payload.dayIndex ?? ''}` : '') ||
+        `${String(payload.username || payload.author || payload.reportedBy || 'op').trim().toLowerCase()}_${now}_${Math.random().toString(36).slice(2, 6)}`
+    ).trim();
+  const dedupeKey = `${action}:${dedupeSeed}`;
+
+  await env.DB.prepare(
+    `INSERT INTO edge_sync_queue (dedupe_key, action, payload_json, attempts, status, created_at, updated_at)
+     VALUES (?1, ?2, ?3, 0, 'processing', ?4, ?4)
+     ON CONFLICT(dedupe_key) DO UPDATE SET
+       payload_json = excluded.payload_json,
+       status = 'processing',
+       updated_at = excluded.updated_at`
+  )
+    .bind(dedupeKey, action, JSON.stringify(cleanPayload), now)
+    .run();
+
+  const invActions = getEdgeInvalidationActionsForMutation(action);
+  if (Array.isArray(invActions) && invActions.length > 0) {
+    await invalidateEdgeReadCaches(env, invActions);
+  }
+  context.waitUntil(syncQueuedMutationToGas(env, dedupeKey, action, cleanPayload, invActions || []));
+
+  return jsonResponse(
+    {
+      ok: true,
+      message: 'Đã ghi nhận thao tác tức thì và đang đồng bộ nền lên Google Sheets!',
+      data: {
+        instantEdgeCommitted: true,
+        queuedForSheet: true,
+        id: cleanPayload.id || dedupeSeed,
+        completedAt: vnTime,
+        timestamp: vnTime,
+      },
+    },
+    200,
+    {
+      'X-Edge-DB': 'D1-INSTANT-MUTATION',
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+    }
+  );
+}
+
+async function syncQueuedMutationToGas(env, dedupeKey, action, cleanPayload, invActions = []) {
+  if (!env?.DB || !dedupeKey || !action) return;
+  const bodyStr = JSON.stringify({ action, ...cleanPayload });
+  let lastErr = 'GAS sync retry';
+
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const res = await fetch(TARGET_GAS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: bodyStr,
+        signal:
+          typeof AbortSignal !== 'undefined' && AbortSignal.timeout
+            ? AbortSignal.timeout(25000)
+            : undefined,
+      });
+      const parsed = await res.json();
+      if (parsed && parsed.ok === true) {
+        await env.DB.prepare(`DELETE FROM edge_sync_queue WHERE dedupe_key = ?1`)
+          .bind(dedupeKey)
+          .run()
+          .catch(() => {});
+        if (Array.isArray(invActions) && invActions.length > 0) {
+          await invalidateEdgeReadCaches(env, invActions);
+        }
+        return;
+      }
+      lastErr = String(parsed?.message || 'GAS returned ok=false');
+    } catch (err) {
+      lastErr = String(err?.message || 'GAS fetch error');
+    }
+    if (attempt < 2) {
+      await new Promise((r) => setTimeout(r, 500 + Math.floor(Math.random() * 400)));
+    }
+  }
+
+  await env.DB.prepare(
+    `UPDATE edge_sync_queue SET status = 'pending', attempts = attempts + 1, last_error = ?1, updated_at = ?2 WHERE dedupe_key = ?3`
+  )
+    .bind(lastErr, Date.now(), dedupeKey)
+    .run()
+    .catch(() => {});
 }
 
 async function trySelfHealScheduleForCheckIn(env, payload, gasResult, fetchImpl = fetch) {
@@ -3208,6 +4158,18 @@ async function ensureD1Schema(db) {
           unlocked_by TEXT DEFAULT '',
           updated_at INTEGER NOT NULL
         )`
+      ),
+      db.prepare(
+        `CREATE TABLE IF NOT EXISTS edge_auth_cache (
+          username TEXT PRIMARY KEY,
+          password_hash TEXT NOT NULL,
+          email TEXT DEFAULT '',
+          user_json TEXT NOT NULL,
+          updated_at INTEGER NOT NULL
+        )`
+      ),
+      db.prepare(
+        `CREATE INDEX IF NOT EXISTS idx_edge_auth_cache_email ON edge_auth_cache (email)`
       ),
       db.prepare(
         `CREATE INDEX IF NOT EXISTS idx_edge_schedules_month_week ON edge_schedules (month_sheet, week_label)`
@@ -3588,12 +4550,21 @@ function mergeEdgeChecklistState(existingRaw, patch) {
 }
 
 async function preMergeChecklistInD1(db, action, payload) {
-  try {
-    const dateStr = String(payload.dateStr || '').trim();
-    const area = String(payload.area || 'A').trim();
-    if (!dateStr || !area) return null;
+  const dateStr = String(payload.dateStr || '').trim();
+  const area = String(payload.area || 'A').trim();
+  if (!dateStr || !area) return null;
 
-    const id = `${dateStr}|${area}`;
+  const id = `${dateStr}|${area}`;
+  const prevLock = checklistMergeLocks.get(id) || Promise.resolve();
+  let releaseLock;
+  const nextLock = new Promise((resolve) => {
+    releaseLock = resolve;
+  });
+  const chained = prevLock.then(() => nextLock);
+  checklistMergeLocks.set(id, chained);
+
+  await prevLock;
+  try {
     const existingRow = await db
       .prepare(`SELECT state_json FROM edge_ops_checklist WHERE id = ?1 LIMIT 1`)
       .bind(id)
@@ -3602,15 +4573,16 @@ async function preMergeChecklistInD1(db, action, payload) {
 
     let patch = payload;
     if (action === 'PATCH_OPS_CHECKLIST_ITEM' && payload.itemId) {
+      const ip = payload.itemPatch && typeof payload.itemPatch === 'object' ? payload.itemPatch : payload;
       patch = {
         participants: payload.participants,
         deltaItems: {
           [String(payload.itemId)]: {
-            checked: payload.checked,
-            note: payload.note,
-            subchecks: payload.subchecks,
-            by: payload.by || payload.fullname || payload.username || '',
-            at: payload.at || new Date().toISOString(),
+            checked: ip.checked,
+            note: ip.note,
+            subchecks: ip.subchecks,
+            by: ip.by || payload.fullname || payload.username || '',
+            at: ip.at || new Date().toISOString(),
           },
         },
       };
@@ -3632,6 +4604,11 @@ async function preMergeChecklistInD1(db, action, payload) {
   } catch (e) {
     console.warn('[D1 Checklist PreMerge] warning:', e);
     return null;
+  } finally {
+    releaseLock();
+    if (checklistMergeLocks.get(id) === chained) {
+      checklistMergeLocks.delete(id);
+    }
   }
 }
 

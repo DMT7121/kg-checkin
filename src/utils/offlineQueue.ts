@@ -4,6 +4,7 @@
 import { callApi } from '../services/api';
 import { useAppStore } from '../store/useAppStore';
 import { clearEmployeePunchCooldown, matchesAttendanceUser } from './attendanceSequence';
+import { markScheduleRegisteredLocally } from './helpers';
 
 export interface QueuedTask {
   id: string;
@@ -822,6 +823,27 @@ export async function processQueue(): Promise<void> {
               }
             } else if (res.data?.edgeImageQueued === true || res.data?.queuedForDrive === true) {
               markPunchVaultImageQueuedOnEdge(checkinId);
+            }
+          } else if (task.action === 'REGISTER_SHIFT') {
+            const weekKey =
+              task.payload?.monthSheet && task.payload?.weekLabel
+                ? `${task.payload.monthSheet}|${task.payload.weekLabel}`
+                : '';
+            if (weekKey && Array.isArray(task.payload?.shifts) && task.payload.shifts.length === 7) {
+              const sheetSaved = res.data?.sheetSaved !== false;
+              const syncedTs = res.data?.timestamp || '';
+              markScheduleRegisteredLocally(task.payload?.username, weekKey, task.payload.shifts, {
+                updatedAt: syncedTs,
+                sheetSynced: sheetSaved,
+                offReason: task.payload?.offReason || '',
+              });
+              useAppStore.getState().setScheduleRegistered(true, weekKey);
+              useAppStore.getState().setRegisteredShifts(task.payload.shifts);
+              useAppStore.getState().setScheduleMeta({
+                registeredWeekKey: weekKey,
+                scheduleUpdatedAt: syncedTs,
+                scheduleSheetSynced: sheetSaved,
+              });
             }
           }
         } else {

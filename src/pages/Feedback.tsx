@@ -112,12 +112,13 @@ export default function Feedback() {
         category,
         content,
         isAnonymous,
-      });
+        instantEdge: true,
+      }, { background: true });
 
       if (res?.ok) {
         pushToast('Đã gửi góp ý thành công', 'success');
         setContent('');
-        await fetchFeedbacks(false);
+        void fetchFeedbacks(false);
       } else {
         setFormError(
           res?.message ||
