@@ -1119,4 +1119,294 @@ describe('Suite 4 — iPhone / iOS Safari & Home-Screen PWA Optimizations', () =
       'index.css must enforce >=16px font-size on mobile inputs/selects/textareas to prevent iOS Safari auto-zoom'
     );
   });
+
+  test('4.3 Antigravity browser environment detection mutes all audio/speech/haptics on both localhost & production while keeping external browsers audible', async () => {
+    const soundMod = (await vite.ssrLoadModule('/src/utils/soundEffects.ts')) as {
+      AudioEnvironmentSnapshot?: never;
+      isAntigravityBrowser: (snapshot?: {
+        userAgent?: string;
+        brands?: ReadonlyArray<{ brand?: string }>;
+        webdriver?: boolean;
+        referrer?: string;
+        ancestorOrigins?: ReadonlyArray<string>;
+      }) => boolean;
+      isAudioMutedByEnvironment: (snapshot?: {
+        userAgent?: string;
+        brands?: ReadonlyArray<{ brand?: string }>;
+        webdriver?: boolean;
+        referrer?: string;
+        ancestorOrigins?: ReadonlyArray<string>;
+      }) => boolean;
+      setupAudioUnlock: () => void;
+      preloadAudioClips: (keys: string[]) => void;
+      playPosSuccess: () => void;
+      playPosWarning: () => void;
+      playPosError: () => void;
+      playPreRecordedAudio: (clipKey: string) => Promise<boolean>;
+      speakWithVietnameseLock: (text: string) => boolean;
+    };
+    const helpersMod = (await vite.ssrLoadModule('/src/utils/helpers.ts')) as {
+      speak: (text: string, customAudioKey?: string) => void;
+    };
+
+    // Pure snapshot detection checks
+    assert.equal(
+      soundMod.isAntigravityBrowser({
+        userAgent:
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.167 Safari/537.36 Antigravity/2.34.0',
+        webdriver: false,
+      }),
+      true,
+      'Must detect Antigravity Desktop embedded browser UA even when navigator.webdriver is false'
+    );
+    assert.equal(
+      soundMod.isAntigravityBrowser({
+        userAgent: 'Mozilla/5.0 X11; Linux x86_64 AppleWebKit/537.36 HeadlessChrome/132.0.0.0 Safari/537.36',
+      }),
+      true
+    );
+    assert.equal(
+      soundMod.isAntigravityBrowser({
+        userAgent: 'Mozilla/5.0 Electron/33.0.0 Chrome/130.0.0.0 Safari/537.36',
+      }),
+      true
+    );
+    assert.equal(
+      soundMod.isAntigravityBrowser({
+        userAgent: 'Mozilla/5.0 Chrome/132.0.0.0 Safari/537.36',
+        webdriver: true,
+      }),
+      true
+    );
+    assert.equal(
+      soundMod.isAntigravityBrowser({
+        userAgent: 'Mozilla/5.0 Chrome/132.0.0.0 Safari/537.36',
+        ancestorOrigins: ['vscode-webview://1234abcd'],
+      }),
+      true
+    );
+    assert.equal(
+      soundMod.isAntigravityBrowser({
+        userAgent: 'Mozilla/5.0 Chrome/132.0.0.0 Safari/537.36',
+        referrer: 'vscode-webview://panel-id/',
+      }),
+      true
+    );
+
+    const externalUAs = [
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 18_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Mobile/15E148 Safari/604.1',
+      'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36',
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Zalo/24.10.01',
+    ];
+    for (const ua of externalUAs) {
+      assert.equal(
+        soundMod.isAntigravityBrowser({ userAgent: ua, webdriver: false, referrer: '' }),
+        false,
+        `External browser UA must NOT be muted: ${ua}`
+      );
+    }
+
+    // Live runtime playback interception tests with safe descriptor save/restore
+    const trackedKeys = [
+      'navigator',
+      'document',
+      'Audio',
+      'AudioContext',
+      'webkitAudioContext',
+      'speechSynthesis',
+      'SpeechSynthesisUtterance',
+      'location',
+    ] as const;
+    const savedDescriptors = new Map<string, PropertyDescriptor | undefined>();
+    for (const key of trackedKeys) {
+      savedDescriptors.set(key, Object.getOwnPropertyDescriptor(globalThis, key));
+    }
+
+    let audioCtxCount = 0;
+    let oscillatorCount = 0;
+    let audioInstanceCount = 0;
+    let audioPlayCount = 0;
+    let speechSpeakCount = 0;
+    let vibrateCount = 0;
+    let currentUA = '';
+    let currentHref = 'http://localhost:5173/';
+
+    class MockAudioContext {
+      state = 'running';
+      currentTime = 0;
+      destination = {};
+      constructor() {
+        audioCtxCount += 1;
+      }
+      resume() {
+        return Promise.resolve();
+      }
+      createBuffer() {
+        return {};
+      }
+      createBufferSource() {
+        return { buffer: null as unknown, connect: () => {}, start: () => {} };
+      }
+      createOscillator() {
+        oscillatorCount += 1;
+        return {
+          type: 'sine',
+          frequency: { setValueAtTime: () => {}, linearRampToValueAtTime: () => {} },
+          connect: () => {},
+          start: () => {},
+          stop: () => {},
+        };
+      }
+      createGain() {
+        return {
+          gain: { setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} },
+          connect: () => {},
+        };
+      }
+    }
+
+    class MockAudio {
+      preload = '';
+      currentTime = 0;
+      src: string;
+      constructor(src: string) {
+        this.src = src;
+        audioInstanceCount += 1;
+      }
+      load() {}
+      play() {
+        audioPlayCount += 1;
+        return Promise.resolve();
+      }
+    }
+
+    class MockUtterance {
+      voice: unknown = null;
+      lang = '';
+      rate = 1;
+      onerror = () => {};
+      text: string;
+      constructor(text: string) {
+        this.text = text;
+      }
+    }
+
+    try {
+      Object.defineProperty(globalThis, 'navigator', {
+        configurable: true,
+        writable: true,
+        value: {
+          get userAgent() {
+            return currentUA;
+          },
+          webdriver: false,
+          onLine: true,
+          vibrate: () => {
+            vibrateCount += 1;
+            return true;
+          },
+        },
+      });
+      Object.defineProperty(globalThis, 'document', {
+        configurable: true,
+        writable: true,
+        value: {
+          ...(savedDescriptors.get('document')?.value || {}),
+          visibilityState: 'visible',
+          referrer: '',
+        },
+      });
+      Object.defineProperty(globalThis, 'location', {
+        configurable: true,
+        writable: true,
+        value: {
+          get href() {
+            return currentHref;
+          },
+          ancestorOrigins: [],
+        },
+      });
+      Object.defineProperty(globalThis, 'Audio', {
+        configurable: true,
+        writable: true,
+        value: MockAudio,
+      });
+      Object.defineProperty(globalThis, 'AudioContext', {
+        configurable: true,
+        writable: true,
+        value: MockAudioContext,
+      });
+      Object.defineProperty(globalThis, 'webkitAudioContext', {
+        configurable: true,
+        writable: true,
+        value: MockAudioContext,
+      });
+      Object.defineProperty(globalThis, 'SpeechSynthesisUtterance', {
+        configurable: true,
+        writable: true,
+        value: MockUtterance,
+      });
+      Object.defineProperty(globalThis, 'speechSynthesis', {
+        configurable: true,
+        writable: true,
+        value: {
+          paused: false,
+          getVoices: () => [{ lang: 'vi-VN', name: 'Microsoft HoaiMy Online' }],
+          resume: () => {},
+          cancel: () => {},
+          speak: () => {
+            speechSpeakCount += 1;
+          },
+        },
+      });
+
+      // 1) Antigravity on BOTH localhost and production must create 0 AudioContext/Audio/TTS calls
+      currentUA =
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.167 Safari/537.36 Antigravity/2.34.0';
+      for (const originUrl of ['http://localhost:5173/', 'https://kg-checkin.pages.dev/']) {
+        currentHref = originUrl;
+        assert.equal(soundMod.isAudioMutedByEnvironment(), true);
+        soundMod.setupAudioUnlock();
+        soundMod.preloadAudioClips(['login_success', 'checkin_in']);
+        soundMod.playPosSuccess();
+        soundMod.playPosWarning();
+        soundMod.playPosError();
+        const clipPlayed = await soundMod.playPreRecordedAudio('login_success');
+        const ttsSpoke = soundMod.speakWithVietnameseLock('Xin chào');
+        helpersMod.speak('Đăng nhập thành công. Xin chào');
+        assert.equal(clipPlayed, false, `playPreRecordedAudio must return false on ${originUrl}`);
+        assert.equal(ttsSpoke, false, `speakWithVietnameseLock must return false on ${originUrl}`);
+      }
+      assert.equal(audioCtxCount, 0, 'Antigravity must instantiate 0 AudioContext objects');
+      assert.equal(oscillatorCount, 0, 'Antigravity must create 0 Web Audio oscillators');
+      assert.equal(audioInstanceCount, 0, 'Antigravity must instantiate 0 HTMLAudioElement clips');
+      assert.equal(audioPlayCount, 0, 'Antigravity must invoke Audio.play() 0 times');
+      assert.equal(speechSpeakCount, 0, 'Antigravity must invoke speechSynthesis.speak() 0 times');
+      assert.equal(vibrateCount, 0, 'Antigravity must invoke navigator.vibrate() 0 times');
+
+      // 2) Normal external Chrome on both localhost & production must play audio normally
+      currentUA =
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36';
+      currentHref = 'https://kg-checkin.pages.dev/';
+      assert.equal(soundMod.isAudioMutedByEnvironment(), false);
+      soundMod.playPosSuccess();
+      const externalClipPlayed = await soundMod.playPreRecordedAudio('login_success');
+      assert.equal(externalClipPlayed, true);
+      assert.equal(audioCtxCount, 1);
+      assert.ok(oscillatorCount >= 2, 'playPosSuccess must synthesize dual-tone Web Audio oscillators externally');
+      assert.equal(audioInstanceCount, 1);
+      assert.equal(audioPlayCount, 1);
+      assert.equal(vibrateCount, 1);
+    } finally {
+      for (const key of trackedKeys) {
+        const desc = savedDescriptors.get(key);
+        if (desc) {
+          Object.defineProperty(globalThis, key, desc);
+        } else {
+          delete (globalThis as Record<string, unknown>)[key];
+        }
+      }
+    }
+  });
 });

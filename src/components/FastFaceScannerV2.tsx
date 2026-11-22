@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X,
@@ -1837,6 +1837,20 @@ export default function FastFaceScannerV2({
     ? 'border-[#34D399]'
     : 'border-[#C8432B]';
 
+  const reticleCornerColor = trayNotice?.kind === 'SUCCESS'
+    ? 'border-[#7EDBA8]'
+    : trayNotice?.kind === 'COOLDOWN'
+    ? 'border-[#FBBF24]'
+    : !isGpsReady
+    ? hasFaceInView
+      ? 'border-[#FBBF24]'
+      : 'border-[#FF968E]'
+    : hasFaceInView
+    ? 'border-[#7EDBA8]'
+    : 'border-[#F59B62]';
+
+  const isActivelyScanning = isGpsReady && !pendingDisambiguation && !trayNotice;
+
   const showSelfEnrollPrompt =
     !isKioskMode && Boolean(currentUser) && profilesLoadedOnce && !isCurrentUserEnrolled;
 
@@ -1850,12 +1864,12 @@ export default function FastFaceScannerV2({
         className="fixed inset-0 m-0 z-[10070] h-[100dvh] w-screen bg-[#101B15] text-[#F4F6F0] flex flex-col overflow-hidden select-none font-sans"
       >
         {/* SINGLE COMPACT TOP HEADER (Toast Touch Forest Charcoal, zero glassmorphism) */}
-        <header className="relative z-30 w-full bg-[#101B15] border-b border-[#2F4137] px-3 sm:px-5 py-2 flex items-center justify-between gap-2 shrink-0">
-          <div className="flex items-center gap-2.5 min-w-0">
+        <header className="relative z-30 w-full bg-[#101B15] border-b border-[#2F4137] px-3 sm:px-5 py-1.5 sm:py-2 flex items-center justify-between gap-2 shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
             <div className="w-9 h-9 rounded-xl bg-[#1B2821] border border-[#334539] flex items-center justify-center text-[#7EDBA8] shrink-0">
               <ScanFace size={18} />
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 leading-tight">
               <div className="flex items-center gap-1.5">
                 <span className="text-[11px] font-extrabold tracking-tight text-[#F4F6F0] truncate">
                   {isKioskMode ? 'Trạm Face ID' : 'Face ID Siêu Tốc'}
@@ -1905,7 +1919,7 @@ export default function FastFaceScannerV2({
               onClick={() => setMutedAudio((m) => !m)}
               title={mutedAudio ? 'Bật âm thanh đọc tên' : 'Tắt âm thanh'}
               aria-label={mutedAudio ? 'Bật âm thanh' : 'Tắt âm thanh'}
-              className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl bg-[#1B2821] hover:bg-[#24322A] border border-[#334539] text-[#F4F6F0] inline-flex items-center justify-center transition-colors motion-reduce:transition-none"
+              className="kg-pressable w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl bg-[#1B2821] hover:bg-[#24322A] border border-[#334539] text-[#F4F6F0] inline-flex items-center justify-center transition-colors motion-reduce:transition-none"
             >
               {mutedAudio ? (
                 <VolumeX size={16} className="text-[#FF968E]" />
@@ -1920,7 +1934,7 @@ export default function FastFaceScannerV2({
               disabled={loadingProfiles}
               title="Đồng bộ danh sách khuôn mặt mới nhất"
               aria-label="Đồng bộ hồ sơ khuôn mặt"
-              className="lg:hidden w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl bg-[#1B2821] hover:bg-[#24322A] border border-[#334539] text-[#F4F6F0] inline-flex items-center justify-center disabled:opacity-50 transition-colors motion-reduce:transition-none"
+              className="kg-pressable lg:hidden w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl bg-[#1B2821] hover:bg-[#24322A] border border-[#334539] text-[#F4F6F0] inline-flex items-center justify-center disabled:opacity-50 transition-colors motion-reduce:transition-none"
             >
               <RefreshCw
                 size={16}
@@ -1935,365 +1949,410 @@ export default function FastFaceScannerV2({
                 onClose();
               }}
               aria-label="Đóng màn hình quét khuôn mặt"
-              className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl bg-[#C0522A] hover:bg-[#AA4622] text-white inline-flex items-center justify-center transition-colors motion-reduce:transition-none"
+              className="kg-pressable w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl bg-[#C0522A] hover:bg-[#AA4622] text-white inline-flex items-center justify-center transition-colors motion-reduce:transition-none"
             >
               <X size={18} />
             </button>
           </div>
         </header>
 
-        {/* MAIN BODY: Mobile Full-Screen Viewport | Desktop/Tablet Command View (lg:grid-cols-[1fr_360px]) */}
-        <div className="relative flex-1 min-h-0 w-full flex flex-col lg:grid lg:grid-cols-[1fr_360px] overflow-hidden bg-[#101B15]">
-        {/* LIVE CAMERA VIEWPORT (Left col on lg:, Fullscreen on mobile) */}
-        <div
-          style={{
-            background: 'radial-gradient(circle at 50% 37%, #3B5547 0%, #1D3126 46%, #111E18 100%)',
-          }}
-          className="relative flex-1 min-h-0 w-full overflow-hidden flex flex-col justify-between"
-        >
-          <video
-            ref={videoRef}
-            autoPlay
-            muted
-            playsInline
-            className={`absolute inset-0 w-full h-full object-cover ${
-              cameraFacing === 'user' ? 'mirror-cam' : ''
-            } ${cameraReady && !cameraError ? 'opacity-100' : 'opacity-0'}`}
-          />
+        {/* MAIN BODY: Mobile Full-Screen Viewport | Desktop/Tablet Command View */}
+        <div className="relative flex-1 min-h-0 w-full flex flex-col lg:grid lg:grid-cols-[1fr_308px] xl:grid-cols-[1fr_332px] overflow-hidden bg-[#101B15]">
+        {/* LEFT COLUMN: Spacious Live Camera Stage (~82-88% dvh) + Slim Bottom Control Bar */}
+        <div className="flex-1 min-h-0 w-full flex flex-col overflow-hidden">
+          <div
+            data-testid="v2-camera-stage"
+            style={{
+              background: 'radial-gradient(circle at 50% 37%, #3B5547 0%, #1D3126 46%, #111E18 100%)',
+            }}
+            className="relative flex-1 min-h-0 w-full overflow-hidden flex flex-col justify-between"
+          >
+            <video
+              ref={videoRef}
+              autoPlay
+              muted
+              playsInline
+              className={`absolute inset-0 w-full h-full object-cover ${
+                cameraFacing === 'user' ? 'mirror-cam' : ''
+              } ${cameraReady && !cameraError ? 'opacity-100' : 'opacity-0'}`}
+            />
 
-          {/* FLOATING COMPACT GPS & OVERNIGHT TELEMETRY CAPSULE */}
-          <div className="relative z-20 pt-2.5 px-3 flex items-center justify-center gap-2 flex-wrap pointer-events-none">
-            <button
-              type="button"
-              onClick={startStationGpsWatch}
-              title="Chạm để làm mới định vị GPS"
-              className={`pointer-events-auto min-h-[44px] sm:min-h-[40px] inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[11px] font-bold border shadow-md transition-colors cursor-pointer touch-manipulation ${
-                isGpsReady
-                  ? 'bg-[#101B15] border-[#7EDBA8]/75 text-[#7EDBA8]'
-                  : 'bg-[#101B15] border-[#FF968E]/75 text-[#FECACA]'
-              }`}
-            >
-              <MapPin size={12} className="shrink-0" />
-              <span className="font-mono tabular-nums truncate max-w-[250px] sm:max-w-none">
-                {localGps.statusText}
-              </span>
-            </button>
+            {/* FLOATING COMPACT GPS & OVERNIGHT TELEMETRY CAPSULE */}
+            <div className="relative z-20 pt-2 px-3 flex items-center justify-center gap-2 flex-wrap pointer-events-none">
+              <button
+                type="button"
+                onClick={startStationGpsWatch}
+                title="Chạm để làm mới định vị GPS"
+                className={`kg-pressable pointer-events-auto min-h-[44px] inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[11px] font-bold border shadow-md transition-colors cursor-pointer touch-manipulation ${
+                  isGpsReady
+                    ? 'bg-[#101B15] border-[#7EDBA8]/75 text-[#7EDBA8]'
+                    : 'bg-[#101B15] border-[#FF968E]/75 text-[#FECACA]'
+                }`}
+              >
+                <MapPin size={12} className="shrink-0" />
+                <span className="font-mono tabular-nums truncate max-w-[250px] sm:max-w-none">
+                  {localGps.statusText}
+                </span>
+              </button>
 
-            {clockState.isBefore06 && (
-              <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[#172C3D] border border-[#60A5FA] text-[11px] font-bold text-[#93C5FD]">
-                Ca đêm &lt;06:00
-              </span>
-            )}
-          </div>
-
-          {/* Booting / Camera Permission Loading Overlay */}
-          {(!engineReady || !cameraReady) && !cameraError && (
-            <div className="relative z-20 my-auto mx-auto max-w-sm w-[90%] bg-[#1B2821] border border-[#334539] rounded-2xl p-5 text-center space-y-3.5 shadow-xl">
-              <div className="w-11 h-11 rounded-2xl bg-[#24322A] border border-[#334539] flex items-center justify-center mx-auto text-[#7EDBA8]">
-                <Loader2 size={22} className="animate-spin motion-reduce:animate-none" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-sm font-extrabold text-[#F4F6F0]">
-                  {engineReady ? 'Đang kết nối ống kính Camera' : 'Đang nạp bộ nhận diện khuôn mặt'}
-                </h3>
-                <p className="text-xs text-[#B7C4B9] leading-relaxed">
-                  {engineReady
-                    ? 'Nhấn "Cho phép" quyền máy ảnh & vị trí trên trình duyệt để bắt đầu.'
-                    : bootText}
-                </p>
-              </div>
-              <div className="space-y-1">
-                <div className="w-full bg-[#101B15] border border-[#334539] rounded-full h-2 overflow-hidden">
-                  <div
-                    className="bg-[#F29055] h-full transition-all duration-150"
-                    style={{ width: `${engineReady ? 94 : Math.max(15, bootPct)}%` }}
-                  />
-                </div>
-                <div className="flex items-center justify-between text-[10px] font-mono tabular-nums text-[#8DA396]">
-                  <span>{hydratedProfiles.length > 0 ? `Đã đồng bộ ${hydratedProfiles.length} hồ sơ` : 'Đang kết nối D1...'}</span>
-                  <span>{engineReady ? '94%' : `${Math.max(15, bootPct)}%`}</span>
-                </div>
-              </div>
+              {clockState.isBefore06 && (
+                <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[#172C3D] border border-[#60A5FA] text-[11px] font-bold text-[#93C5FD]">
+                  Ca đêm &lt;06:00
+                </span>
+              )}
             </div>
-          )}
 
-          {/* Camera Error State */}
-          {cameraError && (
-            <div className="relative z-20 my-auto mx-auto max-w-sm w-[90%] bg-[#1B2821] border border-[#F87171] rounded-2xl p-5 text-center space-y-3.5 shadow-xl">
-              <div className="w-11 h-11 rounded-2xl bg-[#3A1412] border border-[#F87171] flex items-center justify-center mx-auto text-[#FF968E]">
-                <CameraOff size={22} />
+            {/* Booting / Camera Permission Loading Overlay */}
+            {(!engineReady || !cameraReady) && !cameraError && (
+              <div className="kg-animate-scale-in relative z-20 my-auto mx-auto max-w-sm w-[90%] bg-[#1B2821] border border-[#334539] rounded-2xl p-5 text-center space-y-3.5 shadow-xl">
+                <div className="w-11 h-11 rounded-2xl bg-[#24322A] border border-[#334539] flex items-center justify-center mx-auto text-[#7EDBA8]">
+                  <Loader2 size={22} className="animate-spin motion-reduce:animate-none" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-sm font-extrabold text-[#F4F6F0]">
+                    {engineReady ? 'Đang kết nối ống kính Camera' : 'Đang nạp bộ nhận diện khuôn mặt'}
+                  </h3>
+                  <p className="text-xs text-[#B7C4B9] leading-relaxed">
+                    {engineReady
+                      ? 'Nhấn "Cho phép" quyền máy ảnh & vị trí trên trình duyệt để bắt đầu.'
+                      : bootText}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <div className="w-full bg-[#101B15] border border-[#334539] rounded-full h-2 overflow-hidden">
+                    <div
+                      className="bg-[#F29055] h-full transition-all duration-150"
+                      style={{ width: `${engineReady ? 94 : Math.max(15, bootPct)}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] font-mono tabular-nums text-[#8DA396]">
+                    <span>{hydratedProfiles.length > 0 ? `Đã đồng bộ ${hydratedProfiles.length} hồ sơ` : 'Đang kết nối D1...'}</span>
+                    <span>{engineReady ? '94%' : `${Math.max(15, bootPct)}%`}</span>
+                  </div>
+                </div>
               </div>
-              <div className="space-y-1">
-                <h3 className="text-base font-extrabold text-[#F4F6F0]">Chưa mở được máy ảnh</h3>
-                <p className="text-xs text-[#B7C4B9] leading-relaxed">{cameraError}</p>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <button
-                  type="button"
-                  onClick={bootScannerHardware}
-                  className="flex-1 min-h-[46px] py-2.5 px-4 rounded-xl bg-[#C0522A] hover:bg-[#AA4622] text-white font-extrabold text-xs inline-flex items-center justify-center gap-1.5"
-                >
-                  <RefreshCw size={14} />
-                  <span>Thử mở lại Camera</span>
-                </button>
-                {onSwitchToV1 && (
+            )}
+
+            {/* Camera Error State */}
+            {cameraError && (
+              <div className="kg-animate-scale-in relative z-20 my-auto mx-auto max-w-sm w-[90%] bg-[#1B2821] border border-[#F87171] rounded-2xl p-5 text-center space-y-3.5 shadow-xl">
+                <div className="w-11 h-11 rounded-2xl bg-[#3A1412] border border-[#F87171] flex items-center justify-center mx-auto text-[#FF968E]">
+                  <CameraOff size={22} />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-base font-extrabold text-[#F4F6F0]">Chưa mở được máy ảnh</h3>
+                  <p className="text-xs text-[#B7C4B9] leading-relaxed">{cameraError}</p>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
                   <button
                     type="button"
-                    onClick={() => {
-                      stopCameraAndGps();
-                      onSwitchToV1();
-                    }}
-                    className="flex-1 min-h-[46px] py-2.5 px-4 rounded-xl bg-[#101B15] border border-[#334539] text-[#F4F6F0] font-bold text-xs"
+                    onClick={bootScannerHardware}
+                    className="kg-pressable flex-1 min-h-[46px] py-2.5 px-4 rounded-xl bg-[#C0522A] hover:bg-[#AA4622] text-white font-extrabold text-xs inline-flex items-center justify-center gap-1.5"
                   >
-                    Dùng bản Chụp (v1)
+                    <RefreshCw size={14} />
+                    <span>Thử mở lại Camera</span>
                   </button>
-                )}
+                  {onSwitchToV1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        stopCameraAndGps();
+                        onSwitchToV1();
+                      }}
+                      className="kg-pressable flex-1 min-h-[46px] py-2.5 px-4 rounded-xl bg-[#101B15] border border-[#334539] text-[#F4F6F0] font-bold text-xs"
+                    >
+                      Dùng bản Chụp (v1)
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* CLEAN UNOBSTRUCTED CENTER RETICLE OR VERIFIED PUNCH CARD */}
-          {engineReady && cameraReady && !cameraError && (
-            <div className="relative z-20 flex-1 min-h-0 flex flex-col items-center justify-center px-4 py-2 pointer-events-none">
-              {trayNotice?.kind === 'SUCCESS' ? (
-                <div
-                  data-testid="v2-punch-confirmed-card"
-                  role="status"
-                  aria-live="assertive"
-                  className="pointer-events-auto w-full max-w-sm max-h-[70dvh] overflow-y-auto bg-[#101B15] border-2 border-[#7EDBA8] rounded-2xl p-4 sm:p-5 shadow-2xl space-y-3 text-center"
-                >
-                  <div className="flex items-center justify-center gap-2.5">
-                    <div className="w-11 h-11 rounded-2xl bg-[#1E7550] border border-[#7EDBA8] text-white flex items-center justify-center shrink-0">
-                      <CheckCircle2 size={24} />
+            {/* CLEAN UNOBSTRUCTED CENTER RETICLE OR VERIFIED PUNCH CARD */}
+            {engineReady && cameraReady && !cameraError && (
+              <div className="relative z-20 flex-1 min-h-0 flex flex-col items-center justify-center px-3 py-1.5 pointer-events-none">
+                {trayNotice?.kind === 'SUCCESS' ? (
+                  <div
+                    data-testid="v2-punch-confirmed-card"
+                    role="status"
+                    aria-live="assertive"
+                    className="kg-animate-scale-in pointer-events-auto w-full max-w-sm max-h-[72dvh] overflow-y-auto bg-[#101B15] border-2 border-[#7EDBA8] rounded-2xl p-4 sm:p-5 shadow-2xl space-y-3 text-center"
+                  >
+                    <div className="flex items-center justify-center gap-2.5">
+                      <div className="w-11 h-11 rounded-2xl bg-[#1E7550] border border-[#7EDBA8] text-white flex items-center justify-center shrink-0">
+                        <CheckCircle2 size={24} />
+                      </div>
+                      <div className="text-left min-w-0">
+                        <span className="inline-block text-[10px] font-extrabold uppercase tracking-wider text-[#7EDBA8]">
+                          ĐÃ GHI NHẬN LƯỢT SỚM NHẤT
+                        </span>
+                        <h3 className="text-base sm:text-lg font-extrabold text-[#F4F6F0] leading-tight truncate">
+                          {trayNotice.fullname}
+                        </h3>
+                        <p className="text-[11px] font-mono text-[#8DA396]">@{trayNotice.username}</p>
+                      </div>
                     </div>
-                    <div className="text-left min-w-0">
-                      <span className="inline-block text-[10px] font-extrabold uppercase tracking-wider text-[#7EDBA8]">
-                        ĐÃ GHI NHẬN LƯỢT SỚM NHẤT
-                      </span>
-                      <h3 className="text-base sm:text-lg font-extrabold text-[#F4F6F0] leading-tight truncate">
-                        {trayNotice.fullname}
-                      </h3>
-                      <p className="text-[11px] font-mono text-[#8DA396]">@{trayNotice.username}</p>
-                    </div>
-                  </div>
 
-                  <div className="bg-[#1B2821] border border-[#334539] rounded-xl p-3 flex items-center justify-between gap-2 text-left">
-                    <div>
-                      <span className="block text-[10px] font-bold uppercase text-[#8DA396]">
-                        Lượt chấm
-                      </span>
-                      <span
-                        className={`inline-block mt-0.5 px-2.5 py-0.5 rounded-lg text-white text-sm font-extrabold ${
-                          isCheckInLabel(trayNotice.punchType) ? 'bg-[#1E7550]' : 'bg-[#C0522A]'
-                        }`}
-                      >
-                        {trayNotice.punchType}
-                      </span>
-                    </div>
-                    <div className="text-right">
-                      <span className="block text-[10px] font-bold uppercase text-[#8DA396]">
-                        Giờ ghi Sheet
-                      </span>
-                      <span className="block mt-0.5 text-sm font-mono tabular-nums font-extrabold text-[#F4F6F0]">
-                        {trayNotice.timeStr}
-                      </span>
-                      {trayNotice.syncState && (
+                    <div className="bg-[#1B2821] border border-[#334539] rounded-xl p-3 flex items-center justify-between gap-2 text-left">
+                      <div>
+                        <span className="block text-[10px] font-bold uppercase text-[#8DA396]">
+                          Lượt chấm
+                        </span>
                         <span
-                          className={`inline-flex items-center gap-1 text-[10px] font-bold ${
-                            trayNotice.syncState === 'EDGE_BUFFERED'
-                              ? 'text-[#60A5FA]'
-                              : trayNotice.syncState === 'QUEUED_OFFLINE'
-                              ? 'text-[#FBBF24]'
-                              : 'text-[#7EDBA8]'
+                          className={`inline-block mt-0.5 px-2.5 py-0.5 rounded-lg text-white text-sm font-extrabold ${
+                            isCheckInLabel(trayNotice.punchType) ? 'bg-[#1E7550]' : 'bg-[#C0522A]'
                           }`}
                         >
-                          <CloudUpload size={11} />
-                          {trayNotice.syncState === 'PHOTO_UPLOADED'
-                            ? 'Đã lưu Sheet & Ảnh'
-                            : trayNotice.syncState === 'EDGE_BUFFERED'
-                            ? 'Đã bảo lãnh D1 • Ghi Sheet...'
-                            : trayNotice.syncState === 'QUEUED_OFFLINE'
-                            ? 'Đã lưu Offline Vault'
-                            : 'Đã ghi Sheet • Tải ảnh...'}
+                          {trayNotice.punchType}
                         </span>
-                      )}
+                      </div>
+                      <div className="text-right">
+                        <span className="block text-[10px] font-bold uppercase text-[#8DA396]">
+                          Giờ ghi Sheet
+                        </span>
+                        <span className="block mt-0.5 text-sm font-mono tabular-nums font-extrabold text-[#F4F6F0]">
+                          {trayNotice.timeStr}
+                        </span>
+                        {trayNotice.syncState && (
+                          <span
+                            className={`inline-flex items-center gap-1 text-[10px] font-bold ${
+                              trayNotice.syncState === 'EDGE_BUFFERED'
+                                ? 'text-[#60A5FA]'
+                                : trayNotice.syncState === 'QUEUED_OFFLINE'
+                                ? 'text-[#FBBF24]'
+                                : 'text-[#7EDBA8]'
+                            }`}
+                          >
+                            <CloudUpload size={11} />
+                            {trayNotice.syncState === 'PHOTO_UPLOADED'
+                              ? 'Đã lưu Sheet & Ảnh'
+                              : trayNotice.syncState === 'EDGE_BUFFERED'
+                              ? 'Đã bảo lãnh D1 • Ghi Sheet...'
+                              : trayNotice.syncState === 'QUEUED_OFFLINE'
+                              ? 'Đã lưu Offline Vault'
+                              : 'Đã ghi Sheet • Tải ảnh...'}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="bg-[#172C3D] border border-[#60A5FA]/40 rounded-xl px-3 py-2 text-left flex items-start gap-2">
-                    <ShieldCheck size={15} className="text-[#7EDBA8] shrink-0 mt-0.5" />
-                    <p className="text-[11px] font-bold text-[#F4F6F0] leading-snug">
-                      <span className="text-[#7EDBA8]">Bạn không cần quét lại!</span> Hệ thống tự khóa chấm lặp trong{' '}
-                      <span className="text-[#FBBF24]">15 phút</span>.
-                    </p>
-                  </div>
-
-                  {trayNotice.scheduleWarningText && (
-                    <div className="rounded-xl bg-[#362614] border border-[#FBBF24]/50 px-3 py-2 flex items-center gap-2 text-[11px] font-bold text-[#FBBF24] text-left">
-                      <Sparkles size={13} className="shrink-0" />
-                      <span>{trayNotice.scheduleWarningText}</span>
+                    <div className="bg-[#172C3D] border border-[#60A5FA]/40 rounded-xl px-3 py-2 text-left flex items-start gap-2">
+                      <ShieldCheck size={15} className="text-[#7EDBA8] shrink-0 mt-0.5" />
+                      <p className="text-[11px] font-bold text-[#F4F6F0] leading-snug">
+                        <span className="text-[#7EDBA8]">Bạn không cần quét lại!</span> Hệ thống tự khóa chấm lặp trong{' '}
+                        <span className="text-[#FBBF24]">15 phút</span>.
+                      </p>
                     </div>
-                  )}
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      turnTransitionUntilRef.current = Date.now() + 600;
-                      voterRef.current.reset();
-                      setVoterStreak(0);
-                      setTrayNotice(null);
-                    }}
-                    className="w-full min-h-[44px] py-2.5 px-4 rounded-xl bg-[#1B2821] hover:bg-[#24322A] border border-[#334539] text-xs font-extrabold text-[#F4F6F0] transition-colors"
-                  >
-                    Đã rõ • Quét người tiếp theo
-                  </button>
-                </div>
-              ) : trayNotice?.kind === 'SUBMITTING' ? (
-                <div className="pointer-events-auto w-full max-w-sm bg-[#101B15] border-2 border-[#60A5FA] rounded-2xl p-5 text-center space-y-3 shadow-2xl">
-                  <div className="w-11 h-11 rounded-2xl bg-[#172C3D] border border-[#60A5FA] text-[#60A5FA] flex items-center justify-center mx-auto">
-                    <Loader2 size={22} className="animate-spin motion-reduce:animate-none" />
+                    {trayNotice.scheduleWarningText && (
+                      <div className="rounded-xl bg-[#362614] border border-[#FBBF24]/50 px-3 py-2 flex items-center gap-2 text-[11px] font-bold text-[#FBBF24] text-left">
+                        <Sparkles size={13} className="shrink-0" />
+                        <span>{trayNotice.scheduleWarningText}</span>
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        turnTransitionUntilRef.current = Date.now() + 600;
+                        voterRef.current.reset();
+                        setVoterStreak(0);
+                        setTrayNotice(null);
+                      }}
+                      className="kg-pressable w-full min-h-[44px] py-2.5 px-4 rounded-xl bg-[#1B2821] hover:bg-[#24322A] border border-[#334539] text-xs font-extrabold text-[#F4F6F0] transition-colors"
+                    >
+                      Đã rõ • Quét người tiếp theo
+                    </button>
                   </div>
-                  <div className="space-y-1">
-                    <h3 className="text-sm sm:text-base font-extrabold text-[#F4F6F0]">
-                      Đang ghi {trayNotice.punchType} • {trayNotice.fullname}
-                    </h3>
-                    <p className="text-xs text-[#B7C4B9]">
-                      Đồng bộ trực tiếp vào Google Sheet ✔️CHẤM CÔNG...
-                    </p>
-                  </div>
-                </div>
-              ) : pendingDisambiguation ? (
-                <div
-                  data-testid="v2-smart-disambiguation-card"
-                  role="alertdialog"
-                  aria-labelledby="v2-disambiguation-title"
-                  className="pointer-events-auto w-full max-w-sm max-h-[70dvh] overflow-y-auto bg-[#101B15] border-2 border-[#FBBF24] rounded-2xl p-4 sm:p-5 shadow-2xl space-y-3 text-left"
-                >
-                  <div className="flex items-start gap-2.5">
-                    <div className="w-10 h-10 rounded-xl bg-[#362614] border border-[#FBBF24] text-[#FBBF24] flex items-center justify-center shrink-0">
-                      <AlertTriangle size={20} />
+                ) : trayNotice?.kind === 'SUBMITTING' ? (
+                  <div className="kg-animate-scale-in pointer-events-auto w-full max-w-sm bg-[#101B15] border-2 border-[#60A5FA] rounded-2xl p-5 text-center space-y-3 shadow-2xl">
+                    <div className="w-11 h-11 rounded-2xl bg-[#172C3D] border border-[#60A5FA] text-[#60A5FA] flex items-center justify-center mx-auto">
+                      <Loader2 size={22} className="animate-spin motion-reduce:animate-none" />
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <span className="inline-block text-[10px] font-extrabold uppercase tracking-wider text-[#FBBF24]">
-                        CẦN XÁC NHẬN LOẠI CHẤM CÔNG
-                      </span>
-                      <h3
-                        id="v2-disambiguation-title"
-                        className="text-sm sm:text-base font-extrabold text-[#F4F6F0] leading-snug"
-                      >
-                        {pendingDisambiguation.profile.fullname}
+                    <div className="space-y-1">
+                      <h3 className="text-sm sm:text-base font-extrabold text-[#F4F6F0]">
+                        Đang ghi {trayNotice.punchType} • {trayNotice.fullname}
                       </h3>
-                      <p className="text-[11px] font-semibold text-[#FDE68A] mt-0.5 leading-snug">
-                        {pendingDisambiguation.intent.guidanceTitle}
+                      <p className="text-xs text-[#B7C4B9]">
+                        Đồng bộ trực tiếp vào Google Sheet ✔️CHẤM CÔNG...
                       </p>
                     </div>
                   </div>
-
-                  <p className="text-xs text-[#D3DDD5] leading-relaxed bg-[#1B2821] border border-[#334539] rounded-xl p-2.5">
-                    {pendingDisambiguation.intent.guidanceDetail}
-                  </p>
-
-                  {pendingDisambiguation.intent.ambiguityReason === 'LATE_SHIFT_MISSING_IN' ? (
-                    <div className="space-y-2">
-                      <button
-                        type="button"
-                        data-testid="v2-combo-out-and-supplement-btn"
-                        onClick={() => handleResolvePendingDisambiguation('Ra ca', true)}
-                        className="w-full min-h-[48px] py-2.5 px-3.5 rounded-xl bg-[#C0522A] hover:bg-[#AA4622] text-white font-extrabold text-xs flex items-center justify-center gap-2 transition-colors"
-                      >
-                        <LogOut size={16} className="shrink-0" />
-                        <span>Chấm RA CA ngay + Báo quên Vào ca</span>
-                      </button>
-                      <button
-                        type="button"
-                        data-testid="v2-confirm-late-in-btn"
-                        onClick={() => handleResolvePendingDisambiguation('Vào ca', false)}
-                        className="w-full min-h-[48px] py-2.5 px-3.5 rounded-xl bg-[#1E7550] hover:bg-[#175B3E] text-white font-extrabold text-xs flex items-center justify-center gap-2 transition-colors"
-                      >
-                        <LogIn size={16} className="shrink-0" />
-                        <span>Tôi mới bắt đầu VÀO CA lúc này</span>
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <button
-                        type="button"
-                        data-testid="v2-confirm-out-btn"
-                        onClick={() => handleResolvePendingDisambiguation('Ra ca', false)}
-                        className="w-full min-h-[48px] py-2.5 px-3.5 rounded-xl bg-[#C0522A] hover:bg-[#AA4622] text-white font-extrabold text-xs flex items-center justify-center gap-2 transition-colors"
-                      >
-                        <LogOut size={16} className="shrink-0" />
-                        <span>Tôi đang RA CA (Kết thúc ca trước)</span>
-                      </button>
-                      <button
-                        type="button"
-                        data-testid="v2-confirm-in-btn"
-                        onClick={() => handleResolvePendingDisambiguation('Vào ca', false)}
-                        className="w-full min-h-[48px] py-2.5 px-3.5 rounded-xl bg-[#1E7550] hover:bg-[#175B3E] text-white font-extrabold text-xs flex items-center justify-center gap-2 transition-colors"
-                      >
-                        <LogIn size={16} className="shrink-0" />
-                        <span>Tôi đang VÀO CA mới</span>
-                      </button>
-                    </div>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => setPendingDisambiguation(null)}
-                    className="w-full min-h-[44px] py-2 px-3 rounded-xl bg-[#1B2821] hover:bg-[#24322A] border border-[#334539] text-xs font-bold text-[#B7C4B9] transition-colors"
-                  >
-                    Hủy / Quét lại khuôn mặt
-                  </button>
-                </div>
-              ) : (
-                <>
+                ) : pendingDisambiguation ? (
                   <div
-                    className={`relative w-[min(220px,56vw)] h-[min(268px,36dvh)] sm:w-[256px] sm:h-[312px] rounded-[44px] sm:rounded-[48px] border-[3px] border-dashed transition-colors duration-150 motion-reduce:transition-none ${
-                      hasFaceInView ? reticleBorderColor : 'border-[#FFE1BA]/85'
-                    }`}
+                    data-testid="v2-smart-disambiguation-card"
+                    role="alertdialog"
+                    aria-labelledby="v2-disambiguation-title"
+                    className="kg-animate-scale-in pointer-events-auto w-full max-w-sm max-h-[72dvh] overflow-y-auto bg-[#101B15] border-2 border-[#FBBF24] rounded-2xl p-4 sm:p-5 shadow-2xl space-y-3 text-left"
                   >
-                    <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-[#101B15] border border-[#334539] rounded-full px-3 py-0.5 flex items-center gap-1.5 whitespace-nowrap">
-                      {[1, 2, 3].map((step) => (
-                        <span
-                          key={step}
-                          className={`w-2 h-2 rounded-full ${
-                            voterStreak >= step ? 'bg-[#7EDBA8]' : 'bg-[#334539]'
-                          }`}
-                        />
-                      ))}
-                      <span className="text-[10px] font-mono tabular-nums font-bold text-[#F4F6F0] ml-0.5">
-                        {!isGpsReady
-                          ? hasFaceInView
-                            ? 'CHỜ GPS ≤25M'
-                            : 'ĐỊNH VỊ GPS'
-                          : hasFaceInView
-                          ? 'ĐANG KHÓA NÉT'
-                          : 'TỰ ĐỘNG QUÉT'}
-                      </span>
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-10 h-10 rounded-xl bg-[#362614] border border-[#FBBF24] text-[#FBBF24] flex items-center justify-center shrink-0">
+                        <AlertTriangle size={20} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <span className="inline-block text-[10px] font-extrabold uppercase tracking-wider text-[#FBBF24]">
+                          CẦN XÁC NHẬN LOẠI CHẤM CÔNG
+                        </span>
+                        <h3
+                          id="v2-disambiguation-title"
+                          className="text-sm sm:text-base font-extrabold text-[#F4F6F0] leading-snug"
+                        >
+                          {pendingDisambiguation.profile.fullname}
+                        </h3>
+                        <p className="text-[11px] font-semibold text-[#FDE68A] mt-0.5 leading-snug">
+                          {pendingDisambiguation.intent.guidanceTitle}
+                        </p>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Single Clean Solid Guidance Capsule */}
-                  <div className="mt-3.5 bg-[#101B15]/95 border border-[#334539] rounded-xl px-3.5 py-2 max-w-[340px] sm:max-w-md text-center shadow-lg">
-                    <p className="text-xs sm:text-sm font-bold text-[#F4F6F0] leading-snug">
-                      {liveGuidance}
+                    <p className="text-xs text-[#D3DDD5] leading-relaxed bg-[#1B2821] border border-[#334539] rounded-xl p-2.5">
+                      {pendingDisambiguation.intent.guidanceDetail}
                     </p>
+
+                    {pendingDisambiguation.intent.ambiguityReason === 'LATE_SHIFT_MISSING_IN' ? (
+                      <div className="space-y-2">
+                        <button
+                          type="button"
+                          data-testid="v2-combo-out-and-supplement-btn"
+                          onClick={() => handleResolvePendingDisambiguation('Ra ca', true)}
+                          className="kg-pressable w-full min-h-[48px] py-2.5 px-3.5 rounded-xl bg-[#C0522A] hover:bg-[#AA4622] text-white font-extrabold text-xs flex items-center justify-center gap-2 transition-colors"
+                        >
+                          <LogOut size={16} className="shrink-0" />
+                          <span>Chấm RA CA ngay + Báo quên Vào ca</span>
+                        </button>
+                        <button
+                          type="button"
+                          data-testid="v2-confirm-late-in-btn"
+                          onClick={() => handleResolvePendingDisambiguation('Vào ca', false)}
+                          className="kg-pressable w-full min-h-[48px] py-2.5 px-3.5 rounded-xl bg-[#1E7550] hover:bg-[#175B3E] text-white font-extrabold text-xs flex items-center justify-center gap-2 transition-colors"
+                        >
+                          <LogIn size={16} className="shrink-0" />
+                          <span>Tôi mới bắt đầu VÀO CA lúc này</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <button
+                          type="button"
+                          data-testid="v2-confirm-out-btn"
+                          onClick={() => handleResolvePendingDisambiguation('Ra ca', false)}
+                          className="kg-pressable w-full min-h-[48px] py-2.5 px-3.5 rounded-xl bg-[#C0522A] hover:bg-[#AA4622] text-white font-extrabold text-xs flex items-center justify-center gap-2 transition-colors"
+                        >
+                          <LogOut size={16} className="shrink-0" />
+                          <span>Tôi đang RA CA (Kết thúc ca trước)</span>
+                        </button>
+                        <button
+                          type="button"
+                          data-testid="v2-confirm-in-btn"
+                          onClick={() => handleResolvePendingDisambiguation('Vào ca', false)}
+                          className="kg-pressable w-full min-h-[48px] py-2.5 px-3.5 rounded-xl bg-[#1E7550] hover:bg-[#175B3E] text-white font-extrabold text-xs flex items-center justify-center gap-2 transition-colors"
+                        >
+                          <LogIn size={16} className="shrink-0" />
+                          <span>Tôi đang VÀO CA mới</span>
+                        </button>
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => setPendingDisambiguation(null)}
+                      className="kg-pressable w-full min-h-[44px] py-2 px-3 rounded-xl bg-[#1B2821] hover:bg-[#24322A] border border-[#334539] text-xs font-bold text-[#B7C4B9] transition-colors"
+                    >
+                      Hủy / Quét lại khuôn mặt
+                    </button>
                   </div>
-                </>
-              )}
-            </div>
-          )}
+                ) : (
+                  <>
+                    <div
+                      data-testid="v2-face-reticle"
+                      className={`relative w-[min(286px,74vw)] h-[min(376px,50dvh)] sm:w-[min(336px,58vw)] sm:h-[min(436px,56dvh)] lg:w-[min(356px,42vw)] lg:h-[min(456px,62dvh)] xl:w-[min(380px,36vw)] xl:h-[min(484px,64dvh)] rounded-[52px] sm:rounded-[60px] border-2 border-dashed transition-all duration-150 motion-reduce:transition-none ${
+                        hasFaceInView ? `${reticleBorderColor} scale-[0.985]` : 'border-[#FFE1BA]/70'
+                      }`}
+                    >
+                      {/* Crisp 4-Corner Bracket Lock Indicators */}
+                      <span
+                        aria-hidden="true"
+                        className={`absolute -top-[3px] -left-[3px] w-11 h-11 sm:w-12 sm:h-12 rounded-tl-[52px] sm:rounded-tl-[60px] border-t-[4px] border-l-[4px] transition-colors duration-150 motion-reduce:transition-none ${reticleCornerColor}`}
+                      />
+                      <span
+                        aria-hidden="true"
+                        className={`absolute -top-[3px] -right-[3px] w-11 h-11 sm:w-12 sm:h-12 rounded-tr-[52px] sm:rounded-tr-[60px] border-t-[4px] border-r-[4px] transition-colors duration-150 motion-reduce:transition-none ${reticleCornerColor}`}
+                      />
+                      <span
+                        aria-hidden="true"
+                        className={`absolute -bottom-[3px] -left-[3px] w-11 h-11 sm:w-12 sm:h-12 rounded-bl-[52px] sm:rounded-bl-[60px] border-b-[4px] border-l-[4px] transition-colors duration-150 motion-reduce:transition-none ${reticleCornerColor}`}
+                      />
+                      <span
+                        aria-hidden="true"
+                        className={`absolute -bottom-[3px] -right-[3px] w-11 h-11 sm:w-12 sm:h-12 rounded-br-[52px] sm:rounded-br-[60px] border-b-[4px] border-r-[4px] transition-colors duration-150 motion-reduce:transition-none ${reticleCornerColor}`}
+                      />
+
+                      {/* Clipped Active Scan Beam Sweep (hidden under prefers-reduced-motion) */}
+                      {isActivelyScanning && (
+                        <div
+                          aria-hidden="true"
+                          className="absolute inset-2 rounded-[44px] sm:rounded-[52px] overflow-hidden pointer-events-none"
+                        >
+                          <div
+                            style={{ '--kg-scan-travel': 'min(330px, 40dvh)' } as CSSProperties}
+                            className={`kg-scan-beam ${
+                              hasFaceInView
+                                ? '!bg-gradient-to-r from-transparent via-[#7EDBA8] to-transparent !shadow-[0_0_12px_rgba(126,219,168,0.65)]'
+                                : ''
+                            }`}
+                          />
+                        </div>
+                      )}
+
+                      {/* Snappy 3-Dot Consensus Streak Pill */}
+                      <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-[#101B15] border border-[#334539] rounded-full px-3 py-1 flex items-center gap-1.5 whitespace-nowrap shadow-md">
+                        {[1, 2, 3].map((step) => {
+                          const active = voterStreak >= step;
+                          return (
+                            <span
+                              key={step}
+                              className={`w-2 h-2 rounded-full transition-all duration-150 motion-reduce:transition-none ${
+                                active
+                                  ? 'bg-[#7EDBA8] scale-110 shadow-[0_0_6px_rgba(126,219,168,0.85)]'
+                                  : 'bg-[#334539] scale-95'
+                              }`}
+                            />
+                          );
+                        })}
+                        <span className="text-[10px] font-mono tabular-nums font-bold text-[#F4F6F0] ml-0.5">
+                          {!isGpsReady
+                            ? hasFaceInView
+                              ? 'CHỜ GPS ≤25M'
+                              : 'ĐỊNH VỊ GPS'
+                            : hasFaceInView
+                            ? 'ĐANG KHÓA NÉT'
+                            : 'TỰ ĐỘNG QUÉT'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Single Clean Solid Guidance Capsule */}
+                    <div className="kg-animate-fade-up mt-3 bg-[#101B15]/95 border border-[#334539] rounded-xl px-4 py-2 max-w-[340px] sm:max-w-md text-center shadow-lg">
+                      <p className="text-xs sm:text-sm font-bold text-[#F4F6F0] leading-snug">
+                        {liveGuidance}
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* UNIFIED ERGONOMIC CONTROL BAR (Single set of camera/enroll/v1 actions across mobile & desktop) */}
-          <footer className="relative z-30 w-full bg-[#101B15] border-t border-[#2F4137] px-3 sm:px-5 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] shrink-0">
-            <div className="max-w-xl mx-auto space-y-2">
+          <footer className="relative z-30 w-full bg-[#101B15] border-t border-[#2F4137] px-3 sm:px-5 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shrink-0">
+            <div className="max-w-xl mx-auto space-y-1.5">
               {/* Mobile-only Contextual Status / Recent Chips (Desktop shows these in Command Rail) */}
               <div className="lg:hidden">
                 {trayNotice &&
                 trayNotice.kind !== 'SUCCESS' &&
                 trayNotice.kind !== 'SUBMITTING' ? (
                   <div
-                    className={`rounded-xl border px-3 py-2.5 bg-[#1B2821] flex items-center justify-between gap-2.5 ${
+                    className={`kg-animate-fade-up rounded-xl border px-3 py-2 bg-[#1B2821] flex items-center justify-between gap-2.5 ${
                       trayNotice.kind === 'COOLDOWN' ? 'border-[#FBBF24]' : 'border-[#FF968E]'
                     }`}
                   >
@@ -2328,7 +2387,7 @@ export default function FastFaceScannerV2({
                     <button
                       type="button"
                       onClick={() => setTrayNotice(null)}
-                      className="min-h-[44px] sm:min-h-[36px] px-3 rounded-lg bg-[#101B15] border border-[#334539] text-[11px] font-bold text-[#B7C4B9] shrink-0 touch-manipulation"
+                      className="kg-pressable min-h-[44px] px-3 rounded-lg bg-[#101B15] border border-[#334539] text-[11px] font-bold text-[#B7C4B9] shrink-0 touch-manipulation"
                     >
                       Đóng
                     </button>
@@ -2341,7 +2400,7 @@ export default function FastFaceScannerV2({
                     {recentPunches.slice(0, 3).map((rp) => (
                       <span
                         key={rp.id}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#1B2821] border border-[#334539] text-[11px] font-mono tabular-nums text-[#F4F6F0] shrink-0"
+                        className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-[#1B2821] border border-[#334539] text-[11px] font-mono tabular-nums text-[#F4F6F0] shrink-0"
                       >
                         <CheckCircle2 size={11} className="text-[#7EDBA8]" />
                         <span>
@@ -2368,7 +2427,7 @@ export default function FastFaceScannerV2({
                   onClick={handleToggleCameraFacing}
                   title="Chuyển đổi Camera Trước / Camera Sau"
                   aria-label="Đổi camera trước hoặc sau"
-                  className="flex-1 min-w-0 min-h-[46px] px-2 sm:px-3 py-2 rounded-xl bg-[#1B2821] hover:bg-[#24322A] border border-[#334539] text-[11px] sm:text-xs font-extrabold text-[#F4F6F0] inline-flex items-center justify-center gap-1 sm:gap-1.5 transition-colors motion-reduce:transition-none touch-manipulation"
+                  className="kg-pressable flex-1 min-w-0 min-h-[44px] px-2 sm:px-3 py-2 rounded-xl bg-[#1B2821] hover:bg-[#24322A] border border-[#334539] text-[11px] sm:text-xs font-extrabold text-[#F4F6F0] inline-flex items-center justify-center gap-1 sm:gap-1.5 transition-colors motion-reduce:transition-none touch-manipulation"
                 >
                   <SwitchCamera size={15} className="text-[#7EDBA8] shrink-0" />
                   <span className="truncate">{cameraFacing === 'user' ? 'Cam sau' : 'Cam trước'}</span>
@@ -2383,7 +2442,7 @@ export default function FastFaceScannerV2({
                       setAdminPickerOpen(true);
                     }}
                     title="Chọn nhân viên để đăng ký khuôn mặt 5 góc"
-                    className="flex-1 min-w-0 min-h-[46px] px-2 sm:px-3 py-2 rounded-xl bg-[#163626] hover:bg-[#1E4733] border border-[#7EDBA8]/55 text-[11px] sm:text-xs font-extrabold text-[#7EDBA8] inline-flex items-center justify-center gap-1 sm:gap-1.5 transition-colors motion-reduce:transition-none touch-manipulation"
+                    className="kg-pressable flex-1 min-w-0 min-h-[44px] px-2 sm:px-3 py-2 rounded-xl bg-[#163626] hover:bg-[#1E4733] border border-[#7EDBA8]/55 text-[11px] sm:text-xs font-extrabold text-[#7EDBA8] inline-flex items-center justify-center gap-1 sm:gap-1.5 transition-colors motion-reduce:transition-none touch-manipulation"
                   >
                     <Users size={15} className="shrink-0" />
                     <span className="sm:hidden truncate">ĐK NV</span>
@@ -2399,7 +2458,7 @@ export default function FastFaceScannerV2({
                       setAdminSelectedStaff(null);
                       setEnrollModalOpen(true);
                     }}
-                    className="flex-1 min-w-0 min-h-[46px] px-2 sm:px-3 py-2 rounded-xl bg-[#C0522A] hover:bg-[#AA4622] text-white text-[11px] sm:text-xs font-extrabold inline-flex items-center justify-center gap-1 sm:gap-1.5 transition-colors motion-reduce:transition-none touch-manipulation"
+                    className="kg-pressable flex-1 min-w-0 min-h-[44px] px-2 sm:px-3 py-2 rounded-xl bg-[#C0522A] hover:bg-[#AA4622] text-white text-[11px] sm:text-xs font-extrabold inline-flex items-center justify-center gap-1 sm:gap-1.5 transition-colors motion-reduce:transition-none touch-manipulation"
                   >
                     <UserPlus size={15} className="shrink-0" />
                     <span className="truncate">Đăng ký 5 góc</span>
@@ -2413,7 +2472,7 @@ export default function FastFaceScannerV2({
                       stopCameraAndGps();
                       onSwitchToV1();
                     }}
-                    className="flex-1 min-w-0 min-h-[46px] px-2 sm:px-3 py-2 rounded-xl bg-[#1B2821] hover:bg-[#24322A] border border-[#334539] text-[11px] sm:text-xs font-extrabold text-[#F59B62] inline-flex items-center justify-center gap-1 sm:gap-1.5 transition-colors motion-reduce:transition-none touch-manipulation"
+                    className="kg-pressable flex-1 min-w-0 min-h-[44px] px-2 sm:px-3 py-2 rounded-xl bg-[#1B2821] hover:bg-[#24322A] border border-[#334539] text-[11px] sm:text-xs font-extrabold text-[#F59B62] inline-flex items-center justify-center gap-1 sm:gap-1.5 transition-colors motion-reduce:transition-none touch-manipulation"
                   >
                     <Camera size={14} className="shrink-0" />
                     <span className="sm:hidden truncate">Bản v1</span>
@@ -2425,8 +2484,8 @@ export default function FastFaceScannerV2({
           </footer>
         </div>
 
-        {/* DESKTOP / TABLET COMMAND RAIL (lg:grid-cols-[1fr_360px] Right Column: Telemetry + Live Log only, no duplicate footer buttons) */}
-        <aside className="hidden lg:flex flex-col w-[360px] bg-[#101B15] border-l border-[#2F4137] p-4 gap-3.5 overflow-y-auto shrink-0">
+        {/* DESKTOP / TABLET COMMAND RAIL (Balanced right rail so camera canvas stays spacious) */}
+        <aside className="hidden lg:flex flex-col w-[308px] xl:w-[332px] bg-[#101B15] border-l border-[#2F4137] p-3.5 gap-3 overflow-y-auto shrink-0">
           {/* Station Telemetry & GPS Status */}
           <div className="rounded-2xl bg-[#1B2821] border border-[#334539] p-3.5 space-y-2.5">
             <div className="flex items-center justify-between gap-2">
@@ -2451,19 +2510,19 @@ export default function FastFaceScannerV2({
               <button
                 type="button"
                 onClick={startStationGpsWatch}
-                className="min-h-[40px] px-2.5 py-1.5 rounded-xl bg-[#101B15] hover:bg-[#24322A] border border-[#334539] text-[11px] font-bold text-[#F4F6F0] inline-flex items-center justify-center gap-1.5 transition-colors"
+                className="kg-pressable min-h-[44px] px-2.5 py-1.5 rounded-xl bg-[#101B15] hover:bg-[#24322A] border border-[#334539] text-[11px] font-bold text-[#F4F6F0] inline-flex items-center justify-center gap-1.5 transition-colors"
               >
-                <MapPin size={13} className="text-[#7EDBA8]" />
-                <span>Làm mới GPS</span>
+                <MapPin size={13} className="text-[#7EDBA8] shrink-0" />
+                <span className="truncate">Làm mới GPS</span>
               </button>
               <button
                 type="button"
                 onClick={() => void syncProfilesAndAttendanceState(true)}
                 disabled={loadingProfiles}
-                className="min-h-[40px] px-2.5 py-1.5 rounded-xl bg-[#101B15] hover:bg-[#24322A] border border-[#334539] text-[11px] font-bold text-[#F4F6F0] inline-flex items-center justify-center gap-1.5 disabled:opacity-50 transition-colors"
+                className="kg-pressable min-h-[44px] px-2.5 py-1.5 rounded-xl bg-[#101B15] hover:bg-[#24322A] border border-[#334539] text-[11px] font-bold text-[#F4F6F0] inline-flex items-center justify-center gap-1.5 disabled:opacity-50 transition-colors"
               >
-                <RefreshCw size={13} className={loadingProfiles ? 'animate-spin' : 'text-[#F59B62]'} />
-                <span>Đồng bộ ({hydratedProfiles.length})</span>
+                <RefreshCw size={13} className={`shrink-0 ${loadingProfiles ? 'animate-spin motion-reduce:animate-none' : 'text-[#F59B62]'}`} />
+                <span className="truncate">Đồng bộ ({hydratedProfiles.length})</span>
               </button>
             </div>
           </div>
@@ -2471,7 +2530,7 @@ export default function FastFaceScannerV2({
           {/* Contextual Alert (Cooldown / Max Punches / Error) */}
           {trayNotice && trayNotice.kind !== 'SUCCESS' && trayNotice.kind !== 'SUBMITTING' && (
             <div
-              className={`rounded-2xl border p-3 bg-[#1B2821] space-y-2 ${
+              className={`kg-animate-fade-up rounded-2xl border p-3 bg-[#1B2821] space-y-2 ${
                 trayNotice.kind === 'COOLDOWN' ? 'border-[#FBBF24]' : 'border-[#FF968E]'
               }`}
             >
@@ -2494,7 +2553,7 @@ export default function FastFaceScannerV2({
                 <button
                   type="button"
                   onClick={() => setTrayNotice(null)}
-                  className="px-2.5 py-1 rounded-lg bg-[#101B15] border border-[#334539] text-[10px] font-bold text-[#B7C4B9] hover:text-[#F4F6F0]"
+                  className="kg-pressable min-h-[36px] px-2.5 py-1 rounded-lg bg-[#101B15] border border-[#334539] text-[10px] font-bold text-[#B7C4B9] hover:text-[#F4F6F0]"
                 >
                   Đóng
                 </button>
@@ -2519,7 +2578,7 @@ export default function FastFaceScannerV2({
                 {recentPunches.map((rp) => (
                   <div
                     key={rp.id}
-                    className="rounded-xl bg-[#101B15] border border-[#334539] px-3 py-2 flex items-center justify-between gap-2"
+                    className="kg-animate-fade-up rounded-xl bg-[#101B15] border border-[#334539] px-3 py-2 flex items-center justify-between gap-2"
                   >
                     <div className="min-w-0">
                       <p className="text-xs font-extrabold text-[#F4F6F0] truncate">{rp.fullname}</p>

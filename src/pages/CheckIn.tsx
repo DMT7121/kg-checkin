@@ -81,7 +81,6 @@ import {
   KgBottomSheet,
   KgConfirmSheet,
   KgTextarea,
-  KgModuleHero,
   KgFeatureTip
 } from '../components/KgDesignSystem';
 import { isWorkEligible } from '../utils/employment';
@@ -371,6 +370,27 @@ export default function CheckIn() {
   );
   const [unenrolledV2PromptOpen, setUnenrolledV2PromptOpen] = useState(false);
   const [statusStripExpanded, setStatusStripExpanded] = useState(false);
+  const [isShutterFlashing, setIsShutterFlashing] = useState(false);
+  const shutterFlashTimerRef = useRef<number | null>(null);
+
+  const triggerShutterFlash = useCallback(() => {
+    if (shutterFlashTimerRef.current !== null) {
+      window.clearTimeout(shutterFlashTimerRef.current);
+    }
+    setIsShutterFlashing(true);
+    shutterFlashTimerRef.current = window.setTimeout(() => {
+      setIsShutterFlashing(false);
+      shutterFlashTimerRef.current = null;
+    }, 220);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (shutterFlashTimerRef.current !== null) {
+        window.clearTimeout(shutterFlashTimerRef.current);
+      }
+    };
+  }, []);
   const v1CameraSuspendedRef = useRef(checkinMode === 'v2');
   v1CameraSuspendedRef.current = checkinMode === 'v2' || faceEnrollModalOpen || adminPickerOpen;
   const stopCameraRef = useRef<() => void>(() => {});
@@ -1151,6 +1171,7 @@ export default function CheckIn() {
     setHasAcknowledgedEarlyOut(false);
 
     drawWatermarkAndSave(canvas, ctx, exactTime, addr, activeType, snapGps);
+    triggerShutterFlash();
     const captureTimestampMs = Date.now();
     setPhotoCapturedAtMs(captureTimestampMs);
     setPhotoTimeLeftSeconds(PHOTO_EXPIRATION_SECONDS);
@@ -1389,6 +1410,7 @@ export default function CheckIn() {
         setHasAcknowledgedEarlyOut(false);
 
         drawWatermarkAndSave(canvas, ctx, exactTime, addr, activeType, snapGps);
+        triggerShutterFlash();
         const captureTimestampMs = Date.now();
         setPhotoCapturedAtMs(captureTimestampMs);
         setPhotoTimeLeftSeconds(PHOTO_EXPIRATION_SECONDS);
@@ -2203,27 +2225,88 @@ export default function CheckIn() {
   }
 
   return (
-    <div className="space-y-3 sm:space-y-4 animate-fade-in pb-24 md:pb-10">
-      
-      {/* Header Banner — Desktop/Tablet context, hidden on mobile so Camera & Shutter appear immediately without excessive scroll */}
-      <div className="hidden md:block">
-        <KgModuleHero
-          moduleId="checkin"
-          title="Chấm công GPS"
-          description="Hỗ trợ song song 2 chế độ: Chụp ảnh xác nhận (v1) và Quét nhận diện khuôn mặt siêu tốc 5 góc (v2)."
-          features={['Xác thực GPS ≤25m', 'Face ID 5 Góc (v2)', 'Giãn cách 15 phút/NV']}
-          tipTitle="Quy chuẩn Chấm công Hợp lệ"
-          tips={[
-            "Đứng trong bán kính 25m tại khuôn viên nhà hàng King's Grill.",
-            "Bật định vị độ chính xác cao trên điện thoại và cho phép quyền truy cập vị trí.",
-            "Đăng ký khuôn mặt đủ 5 góc để quét tự động siêu nhanh không cần bấm xác nhận.",
-            "Mỗi nhân viên sau khi chấm công thành công sẽ giãn cách 15 phút trước lượt tiếp theo (tối đa 4 lượt/ngày theo 2 cặp Vào ca – Ra ca)."
-          ]}
-          actions={
+    <div className="space-y-2 sm:space-y-2.5 kg-animate-fade-up pb-24 md:pb-4 -mt-1 md:-mt-2">
+      {/* Compact Command Bar (Mode Switcher + Desktop Title/Tips/Quick Action) + Unified Status Strip */}
+      <div className="w-full max-w-none sm:max-w-[600px] lg:max-w-[1180px] mx-auto space-y-2 sm:space-y-2.5">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+          {/* Desktop/Tablet Compact Inline Header (replaces bulky vertical hero so Camera + CTA fit inside 100dvh) */}
+          <div className="hidden md:flex items-center gap-2 min-w-0">
+            <h1 className="text-lg xl:text-xl font-extrabold tracking-tight text-[var(--kg-text)] whitespace-nowrap">
+              Chấm công GPS
+            </h1>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[10.5px] font-bold font-mono tabular-nums text-[var(--kg-text-muted)] shrink-0">
+              ≤{targetRadius}m
+            </span>
+            <KgFeatureTip
+              title="Quy chuẩn Chấm công Hợp lệ"
+              tips={[
+                "Đứng trong bán kính 25m tại khuôn viên nhà hàng King's Grill.",
+                "Bật định vị độ chính xác cao trên điện thoại và cho phép quyền truy cập vị trí.",
+                "Đăng ký khuôn mặt đủ 5 góc để quét tự động siêu nhanh không cần bấm xác nhận.",
+                "Mỗi nhân viên sau khi chấm công thành công sẽ giãn cách 15 phút trước lượt tiếp theo (tối đa 4 lượt/ngày theo 2 cặp Vào ca – Ra ca)."
+              ]}
+              size="sm"
+              variant="subtle"
+              iconType="help"
+            />
+          </div>
+
+          <div className="w-full md:w-auto md:min-w-[300px] lg:min-w-[320px]">
+            <div
+              data-testid="checkin-mode-toggle"
+              role="tablist"
+              aria-label="Chuyển đổi phiên bản chấm công"
+              className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-[var(--kg-surface-2)] border border-[var(--kg-border)] shadow-xs"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={checkinMode === 'v1'}
+                data-testid="mode-v1-btn"
+                onClick={() => switchCheckinMode('v1')}
+                className={`kg-pressable min-h-[44px] md:min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-extrabold tracking-tight flex items-center justify-center gap-1.5 transition-colors touch-manipulation ${
+                  checkinMode === 'v1'
+                    ? 'bg-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)] shadow-xs'
+                    : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
+                }`}
+              >
+                <Camera size={15} className="shrink-0" />
+                <span>Chụp ảnh (v1)</span>
+              </button>
+
+              <button
+                type="button"
+                role="tab"
+                aria-selected={checkinMode === 'v2'}
+                data-testid="mode-v2-btn"
+                onClick={handleSelectV2Mode}
+                className={`kg-pressable min-h-[44px] md:min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-extrabold tracking-tight flex items-center justify-center gap-1.5 transition-colors touch-manipulation ${
+                  checkinMode === 'v2'
+                    ? 'bg-[var(--kg-primary)] text-[var(--kg-primary-fg)] shadow-xs'
+                    : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
+                }`}
+              >
+                <ScanFace size={15} className="shrink-0" />
+                <span>Face ID Nhanh</span>
+                <span
+                  className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded font-mono tabular-nums ${
+                    checkinMode === 'v2'
+                      ? 'bg-black/15 text-[var(--kg-primary-fg)]'
+                      : 'bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)]'
+                  }`}
+                >
+                  V2
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <div className="hidden lg:flex items-center gap-2 shrink-0">
             <KgButton
               variant="secondary"
               size="sm"
               icon={Clock}
+              className="kg-pressable"
               onClick={() => {
                 setSelectedMissingAlert(null);
                 setMissedModalOpen(true);
@@ -2231,65 +2314,12 @@ export default function CheckIn() {
             >
               Bổ sung công
             </KgButton>
-          }
-        />
-      </div>
-
-      {/* Parallel Check-In Mode Switcher (v1 <-> v2) + Unified Status Strip */}
-      <div className="max-w-md lg:max-w-5xl mx-auto space-y-2.5">
-        <div className="max-w-md mx-auto lg:mx-0">
-          <div
-            data-testid="checkin-mode-toggle"
-            role="tablist"
-            aria-label="Chuyển đổi phiên bản chấm công"
-            className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-[var(--kg-surface-2)] border border-[var(--kg-border)] shadow-xs"
-          >
-            <button
-              type="button"
-              role="tab"
-              aria-selected={checkinMode === 'v1'}
-              data-testid="mode-v1-btn"
-              onClick={() => switchCheckinMode('v1')}
-              className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-extrabold tracking-tight flex items-center justify-center gap-1.5 transition-colors touch-manipulation ${
-                checkinMode === 'v1'
-                  ? 'bg-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)] shadow-xs'
-                  : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
-              }`}
-            >
-              <Camera size={15} className="shrink-0" />
-              <span>Chụp ảnh (v1)</span>
-            </button>
-
-            <button
-              type="button"
-              role="tab"
-              aria-selected={checkinMode === 'v2'}
-              data-testid="mode-v2-btn"
-              onClick={handleSelectV2Mode}
-              className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-extrabold tracking-tight flex items-center justify-center gap-1.5 transition-colors touch-manipulation ${
-                checkinMode === 'v2'
-                  ? 'bg-[var(--kg-primary)] text-[var(--kg-primary-fg)] shadow-xs'
-                  : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
-              }`}
-            >
-              <ScanFace size={15} className="shrink-0" />
-              <span>Face ID Nhanh</span>
-              <span
-                className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded font-mono tabular-nums ${
-                  checkinMode === 'v2'
-                    ? 'bg-black/15 text-[var(--kg-primary-fg)]'
-                    : 'bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)]'
-                }`}
-              >
-                V2
-              </span>
-            </button>
           </div>
         </div>
 
         {/* Blocking State 1: 15-Minute Anti-Spam Per-Employee Cooldown Banner */}
         {cooldown.isBlocked && currentUser?.role !== 'admin' && (
-          <div className="bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/35 rounded-2xl p-3.5 text-[var(--kg-text)] shadow-xs animate-fade-in">
+          <div className="bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/35 rounded-2xl p-3 text-[var(--kg-text)] shadow-xs kg-animate-fade-up">
             <div className="flex items-start gap-3">
               <div className="w-9 h-9 rounded-xl bg-[var(--kg-warning)] text-white dark:text-[#23170F] flex items-center justify-center flex-shrink-0 shadow-xs mt-0.5">
                 <Clock size={18} className="animate-spin" style={{ animationDuration: '8s' }} />
@@ -2313,7 +2343,7 @@ export default function CheckIn() {
 
         {/* Blocking State 2: Mandatory Schedule Pre-Check-In Gate Card (Thu 00:00 -> Sat 17:00 VN) */}
         {isScheduleGateBlocked && (
-          <div className="bg-[var(--kg-warning-soft)] border-2 border-[var(--kg-warning)]/45 rounded-2xl p-3.5 text-[var(--kg-text)] shadow-sm animate-fade-in space-y-2.5">
+          <div className="bg-[var(--kg-warning-soft)] border-2 border-[var(--kg-warning)]/45 rounded-2xl p-3 text-[var(--kg-text)] shadow-sm kg-animate-fade-up space-y-2">
             <div className="flex items-start gap-3">
               <div className="w-9 h-9 rounded-xl bg-[var(--kg-surface)] text-[var(--kg-warning)] flex items-center justify-center flex-shrink-0 border border-[var(--kg-warning)]/30">
                 <CalendarClock size={18} />
@@ -2330,7 +2360,7 @@ export default function CheckIn() {
             <button
               type="button"
               onClick={goToMandatorySchedule}
-              className="w-full py-2.5 px-4 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] font-black text-xs sm:text-sm tracking-wide shadow-xs transition-all active:scale-[0.98] touch-manipulation flex items-center justify-center gap-1.5 min-h-[44px]"
+              className="kg-pressable w-full py-2.5 px-4 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] font-black text-xs sm:text-sm tracking-wide shadow-xs transition-all touch-manipulation flex items-center justify-center gap-1.5 min-h-[44px]"
             >
               <span>ĐĂNG KÝ LỊCH LÀM TUẦN {upcomingWeekInfo.weekDisplay} NGAY</span>
               <ChevronRight size={16} />
@@ -2341,15 +2371,15 @@ export default function CheckIn() {
         {/* Unified 3-Item Station Status Strip (Ca / GPS / Geofence <=25m) */}
         <div
           data-testid="checkin-status-strip"
-          className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-2 sm:p-2.5 shadow-xs space-y-2"
+          className="bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl p-1.5 sm:p-2 shadow-xs space-y-1.5"
         >
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-2">
             {/* Item 1: Shift Status */}
             <button
               type="button"
               onClick={() => setStatusStripExpanded((v) => !v)}
               aria-expanded={statusStripExpanded}
-              className="min-h-[44px] sm:min-h-[40px] rounded-xl bg-[var(--kg-surface-2)] hover:border-[var(--kg-border-strong)] border border-[var(--kg-border)] px-2.5 py-1.5 text-left transition-colors touch-manipulation flex flex-col justify-center min-w-0 overflow-hidden"
+              className="kg-pressable min-h-[44px] sm:min-h-[40px] rounded-xl bg-[var(--kg-surface-2)] hover:border-[var(--kg-border-strong)] border border-[var(--kg-border)] px-2.5 py-1 text-left transition-colors touch-manipulation flex flex-col justify-center min-w-0 overflow-hidden"
             >
               <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--kg-text-muted)] leading-none truncate">
                 Trạng thái ca
@@ -2406,7 +2436,7 @@ export default function CheckIn() {
                 disabled={isPrecisionScanning}
                 aria-label="Làm mới định vị GPS"
                 title="Làm mới định vị GPS"
-                className="w-10 h-10 sm:w-8 sm:h-8 min-w-[40px] min-h-[40px] sm:min-w-[32px] sm:min-h-[32px] rounded-lg bg-[var(--kg-surface)] hover:bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-primary-ink)] flex items-center justify-center transition-colors disabled:opacity-60 shrink-0 touch-manipulation"
+                className="kg-pressable w-11 h-11 sm:w-8 sm:h-8 min-w-[44px] min-h-[44px] sm:min-w-[32px] sm:min-h-[32px] -my-1 rounded-lg bg-[var(--kg-surface)] hover:bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-primary-ink)] flex items-center justify-center transition-colors disabled:opacity-60 shrink-0 touch-manipulation"
               >
                 <RefreshCw
                   size={14}
@@ -2417,12 +2447,12 @@ export default function CheckIn() {
 
             {/* Item 3: Geofence <= 25m + Mobile Details Toggle */}
             <div className="col-span-2 sm:col-span-1 min-h-[44px] sm:min-h-[40px] rounded-xl bg-[var(--kg-surface-2)] border border-[var(--kg-border)] pl-2.5 pr-1 py-1 flex items-center justify-between gap-1.5 min-w-0 overflow-hidden">
-              <div className="min-w-0 flex-1 overflow-hidden">
+              <div className="min-w-0 flex-1 overflow-hidden flex items-center justify-between gap-2 sm:block">
                 <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--kg-text-muted)] leading-none truncate">
                   Geofence
                 </span>
                 <span
-                  className={`mt-1 inline-flex items-center gap-1 text-[11px] sm:text-xs font-extrabold font-mono tabular-nums leading-tight truncate max-w-full ${
+                  className={`sm:mt-1 inline-flex items-center gap-1 text-[11px] sm:text-xs font-extrabold font-mono tabular-nums leading-tight truncate max-w-full ${
                     gps.isValid ? 'text-[var(--kg-success)]' : 'text-[var(--kg-danger)]'
                   }`}
                 >
@@ -2442,7 +2472,7 @@ export default function CheckIn() {
                   onClick={() => setStatusStripExpanded((v) => !v)}
                   aria-expanded={statusStripExpanded}
                   aria-label="Mở cảnh báo ca"
-                  className="lg:hidden min-w-[40px] min-h-[40px] px-1.5 rounded-lg bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/35 text-[var(--kg-warning)] flex items-center justify-center gap-0.5 text-[11px] font-black font-mono tabular-nums shrink-0 touch-manipulation"
+                  className="kg-pressable lg:hidden min-w-[44px] min-h-[44px] -my-1 px-1.5 rounded-lg bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/35 text-[var(--kg-warning)] flex items-center justify-center gap-0.5 text-[11px] font-black font-mono tabular-nums shrink-0 touch-manipulation"
                 >
                   <AlertTriangle size={12} />
                   <span>{anomalies.length + missingAlerts.length}</span>
@@ -2454,7 +2484,7 @@ export default function CheckIn() {
                   aria-expanded={statusStripExpanded}
                   aria-label={statusStripExpanded ? 'Thu gọn chi tiết trạng thái' : 'Mở rộng chi tiết trạng thái'}
                   title={statusStripExpanded ? 'Thu gọn' : 'Chi tiết ca & GPS'}
-                  className="lg:hidden w-10 h-10 min-w-[40px] min-h-[40px] rounded-lg bg-[var(--kg-surface)] hover:bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-text-muted)] flex items-center justify-center transition-colors shrink-0 touch-manipulation"
+                  className="kg-pressable lg:hidden w-11 h-11 min-w-[44px] min-h-[44px] -my-1 rounded-lg bg-[var(--kg-surface)] hover:bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] text-[var(--kg-text-muted)] flex items-center justify-center transition-colors shrink-0 touch-manipulation"
                 >
                   <ChevronDown
                     size={15}
@@ -2464,24 +2494,6 @@ export default function CheckIn() {
               )}
             </div>
           </div>
-
-          {!selfFaceProfile && (
-            <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-[var(--kg-border)]/70">
-              <span className="text-[11px] font-semibold text-[var(--kg-text-muted)] truncate pl-1">
-                Chưa có hồ sơ Face ID 5 góc để quét siêu tốc
-              </span>
-              <button
-                type="button"
-                data-testid="open-face-enroll-btn"
-                onClick={openFaceEnrollmentModal}
-                className="min-h-[44px] sm:min-h-[34px] px-3 py-1.5 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] text-[11px] font-extrabold whitespace-nowrap inline-flex items-center gap-1 transition-colors shrink-0 touch-manipulation"
-                title="Đăng ký Face ID 5 góc"
-              >
-                <UserPlus size={13} />
-                <span>ĐK Face 5 góc</span>
-              </button>
-            </div>
-          )}
 
           {isPrecisionScanning && (
             <div className="px-1 pb-0.5 space-y-1">
@@ -2504,16 +2516,17 @@ export default function CheckIn() {
           )}
         </div>
 
-        {/* RESPONSIVE WORKSPACE GRID: Camera first on mobile unless details expanded; Desktop 7/5 rail */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 items-start">
-          {/* LEFT 7 COLS (Desktop): Deep Forest Emerald Camera Viewport + Primary Capture CTA */}
-          <div className={`${statusStripExpanded ? 'order-2' : 'order-1'} lg:order-1 lg:col-span-7 space-y-3`}>
-            {/* Camera Viewport: Deep forest emerald Toast Touch station */}
+        {/* RESPONSIVE WORKSPACE GRID: Camera first on mobile unless details expanded; Desktop 7/5 -> 8/4 spacious camera split */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-5 items-start">
+          {/* LEFT 7-8 COLS (Desktop): Expanded Deep Forest Emerald Camera Viewport + Primary Capture CTA */}
+          <div className={`${statusStripExpanded ? 'order-2' : 'order-1'} lg:order-1 lg:col-span-7 xl:col-span-8 space-y-2 sm:space-y-2.5`}>
+            {/* Camera Viewport: Expanded viewport-fitted Toast Touch station (100dvh safe across Mobile/Tablet/Laptop/Desktop) */}
             <div
+              data-testid="v1-camera-viewport"
               style={{
                 background: 'radial-gradient(circle at 50% 37%, #3B5547 0%, #1D3126 46%, #111E18 100%)',
               }}
-              className={`relative rounded-2xl sm:rounded-3xl overflow-hidden shadow-md w-full max-w-[360px] sm:max-w-[400px] lg:max-w-[440px] xl:max-w-[480px] h-[clamp(270px,43dvh,370px)] sm:h-[clamp(370px,46dvh,450px)] lg:h-[clamp(380px,50dvh,470px)] xl:h-[clamp(440px,54dvh,540px)] group border-[4px] sm:border-[5px] mx-auto transition-all ${
+              className={`relative rounded-2xl sm:rounded-3xl overflow-hidden shadow-md w-full max-w-none sm:max-w-[580px] lg:max-w-[680px] xl:max-w-[780px] h-[clamp(360px,54dvh,500px)] sm:h-[clamp(460px,62dvh,640px)] lg:h-[clamp(500px,65dvh,670px)] xl:h-[clamp(540px,67dvh,740px)] group border-[4px] sm:border-[5px] mx-auto transition-all ${
                 isWithinRadius ? 'border-[#769E82]' : 'border-[var(--kg-danger)]'
               }`}
             >
@@ -2529,25 +2542,33 @@ export default function CheckIn() {
                 onChange={handleFileUpload}
               />
 
+              {/* Crisp GPU Shutter Capture Flash Overlay */}
+              {isShutterFlashing && (
+                <div
+                  aria-hidden="true"
+                  className="kg-shutter-flash z-50"
+                />
+              )}
+
               {/* Camera Error / No Video */}
               {cameraError && !capturedImage && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#111E18] text-[#F4F6F0] p-6 text-center z-50">
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#111E18] text-[#F4F6F0] p-6 text-center z-50 kg-animate-fade-up">
                   <CameraOff size={44} className="mb-4 text-[#8DA396]" />
                   <p className="mb-2 text-sm font-black">Chưa thể mở camera trực tiếp</p>
-                  <p className="mb-6 text-xs text-[#C4D1C8] leading-normal max-w-[240px]">
+                  <p className="mb-6 text-xs text-[#C4D1C8] leading-normal max-w-[260px]">
                     {cameraErrorMessage || 'Hãy dùng máy ảnh hệ thống điện thoại để chụp ảnh chấm công.'}
                   </p>
-                  <KgButton onClick={handleCaptureTrigger} variant="primary" size="md" icon={Camera} className="w-full max-w-[220px]">
+                  <KgButton onClick={handleCaptureTrigger} variant="primary" size="md" icon={Camera} className="kg-pressable w-full max-w-[240px]">
                     {recommendation.baseAction === 'Ra ca' ? 'Chụp ảnh Ra ca' : 'Chụp ảnh Vào ca'}
                   </KgButton>
-                  <button type="button" onClick={() => void startCamera()} className="text-xs text-[#C4D1C8] hover:text-white underline flex items-center mt-5 min-h-[44px] p-2">
+                  <button type="button" onClick={() => void startCamera()} className="kg-pressable text-xs text-[#C4D1C8] hover:text-white underline flex items-center mt-4 min-h-[44px] p-2">
                     <RotateCcw className="mr-1.5" size={13} /> Thử lại Camera trực tiếp
                   </button>
                 </div>
               )}
 
               {/* Crisp Uncluttered Top HUD */}
-              <div className="absolute top-3.5 left-3.5 right-3.5 flex justify-between items-center gap-2 pointer-events-none z-20">
+              <div className="absolute top-3 left-3 right-3 sm:top-3.5 sm:left-3.5 sm:right-3.5 flex justify-between items-center gap-2 pointer-events-none z-20">
                 <div className="bg-[#101B15]/92 text-[#F4F6F0] text-[11px] font-bold px-3 py-1.5 rounded-full font-mono tabular-nums border border-white/15 shadow-sm inline-flex items-center gap-1.5">
                   <span
                     className={`w-2 h-2 rounded-full ${
@@ -2583,24 +2604,40 @@ export default function CheckIn() {
                 )}
               </div>
 
-              {/* Static Warm-Cream Oval Framing Guide */}
+              {/* Proportional Face-Framing Oval + Corner-Bracket Guides + Subtle Scan Beam */}
               {isWithinRadius && !cameraError && !capturedImage && cameraActive && (
-                <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-10 pb-8">
+                <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-10 pb-14 sm:pb-16">
                   <div
                     aria-hidden="true"
-                    className="w-[58%] max-w-[210px] aspect-[3/4] rounded-[9999px] border-2 border-dashed border-[#FFE1BA]/85 shadow-[0_0_0_9999px_rgba(12,22,17,0.28)]"
-                  />
+                    className="relative w-[66%] sm:w-[60%] max-w-[280px] sm:max-w-[310px] max-h-[72%] aspect-[3/4]"
+                  >
+                    {/* Sleek Corner-Bracket Lock Guides */}
+                    <span className="absolute -top-2 -left-2 w-6 h-6 border-t-[3px] border-l-[3px] border-[#7EDBA8] rounded-tl-xl" />
+                    <span className="absolute -top-2 -right-2 w-6 h-6 border-t-[3px] border-r-[3px] border-[#7EDBA8] rounded-tr-xl" />
+                    <span className="absolute -bottom-2 -left-2 w-6 h-6 border-b-[3px] border-l-[3px] border-[#7EDBA8] rounded-bl-xl" />
+                    <span className="absolute -bottom-2 -right-2 w-6 h-6 border-b-[3px] border-r-[3px] border-[#7EDBA8] rounded-br-xl" />
+
+                    {/* Warm-Cream Oval Cutout + GPU Scan Beam */}
+                    <div className="w-full h-full rounded-[9999px] border-2 border-dashed border-[#FFE1BA]/85 shadow-[0_0_0_9999px_rgba(12,22,17,0.26)] relative overflow-hidden">
+                      <div
+                        aria-hidden="true"
+                        className="kg-scan-beam"
+                        style={{ '--kg-scan-travel': 'min(270px, 36dvh)' } as React.CSSProperties}
+                      />
+                    </div>
+                  </div>
                 </div>
               )}
 
               {/* Controls inside camera viewport — always interactive so shutter is NEVER dead */}
               {!capturedImage && !cameraError && (
-                <div className="absolute bottom-5 left-0 right-0 flex justify-center items-center space-x-6 z-20">
+                <div className="absolute bottom-4 sm:bottom-5 left-0 right-0 flex justify-center items-center space-x-6 z-20">
                   <button
                     type="button"
                     onClick={() => { stopCamera(); setTimeout(() => void startCamera(), 250); }}
-                    className="w-12 h-12 bg-[#101B15]/90 hover:bg-[#1B2821] text-[#F4F6F0] rounded-full flex items-center justify-center shadow-lg border border-white/20 active:scale-90 transition-all touch-manipulation"
+                    className="kg-pressable w-12 h-12 min-w-[48px] min-h-[48px] bg-[#101B15]/90 hover:bg-[#1B2821] text-[#F4F6F0] rounded-full flex items-center justify-center shadow-lg border border-white/20 transition-colors touch-manipulation"
                     title="Khởi động lại camera"
+                    aria-label="Khởi động lại camera"
                   >
                     <RotateCcw size={18} />
                   </button>
@@ -2629,7 +2666,7 @@ export default function CheckIn() {
                           ? 'Chụp ảnh Ra ca'
                           : 'Chụp ảnh Vào ca'
                       }
-                      className="group relative w-16 h-16 rounded-full overflow-hidden flex items-center justify-center touch-manipulation transition-transform duration-150 active:scale-95"
+                      className="kg-pressable group relative w-16 h-16 min-w-[64px] min-h-[64px] rounded-full overflow-hidden flex items-center justify-center touch-manipulation transition-transform duration-150"
                     >
                       {!isWithinRadius ? (
                         <div className="w-16 h-16 bg-[#3A1412]/90 border-4 border-[#F87171] rounded-full flex items-center justify-center shadow-lg">
@@ -2638,7 +2675,7 @@ export default function CheckIn() {
                       ) : (
                         <div className="w-16 h-16 bg-transparent border-4 border-[#F4F6F0] rounded-full flex items-center justify-center shadow-lg">
                           <div
-                            className={`w-11 h-11 rounded-full transition-all flex items-center justify-center ${
+                            className={`w-11 h-11 rounded-full transition-transform duration-150 flex items-center justify-center ${
                               cameraActive ? 'bg-[#34D399]' : 'bg-[#F4F6F0]'
                             } group-hover:scale-105`}
                           >
@@ -2653,7 +2690,7 @@ export default function CheckIn() {
 
               {/* Captured image display with crisp solid action dock */}
               {capturedImage && (
-                <div className="absolute inset-0 bg-[#111E18] z-30 flex flex-col items-center justify-center animate-fade-in">
+                <div className="absolute inset-0 bg-[#111E18] z-30 flex flex-col items-center justify-center kg-animate-scale-in">
                   <img
                     src={capturedImage}
                     className="w-full h-full object-cover rounded-2xl"
@@ -2687,7 +2724,7 @@ export default function CheckIn() {
                             store.setPreviewImageUrl(capturedImage);
                             store.setPreviewOpen(true);
                           }}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 min-h-[40px] sm:min-h-[32px] bg-[#24322A] hover:bg-[#334539] active:scale-95 text-[#F4F6F0] rounded-lg border border-white/20 transition-all text-[11px] font-semibold whitespace-nowrap shrink-0 touch-manipulation"
+                          className="kg-pressable inline-flex items-center gap-1 px-2.5 py-1.5 min-h-[44px] sm:min-h-[34px] bg-[#24322A] hover:bg-[#334539] text-[#F4F6F0] rounded-lg border border-white/20 transition-all text-[11px] font-semibold whitespace-nowrap shrink-0 touch-manipulation"
                           title="Xem toàn màn hình"
                         >
                           <Maximize2 size={12} className="shrink-0" />
@@ -2703,7 +2740,7 @@ export default function CheckIn() {
                             setPhotoTimeLeftSeconds(PHOTO_EXPIRATION_SECONDS);
                             setUserResolvedDisambiguation(null);
                           }}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 min-h-[40px] sm:min-h-[32px] bg-[#B93F36] hover:bg-[#992F27] active:scale-95 text-white rounded-lg border border-white/20 shadow-md transition-all text-[11px] font-bold whitespace-nowrap shrink-0 touch-manipulation"
+                          className="kg-pressable inline-flex items-center gap-1 px-2.5 py-1.5 min-h-[44px] sm:min-h-[34px] bg-[#B93F36] hover:bg-[#992F27] text-white rounded-lg border border-white/20 shadow-md transition-all text-[11px] font-bold whitespace-nowrap shrink-0 touch-manipulation"
                           title="Chụp lại ảnh"
                         >
                           <RotateCcw size={12} className="shrink-0" />
@@ -2731,7 +2768,7 @@ export default function CheckIn() {
             </div>
 
             {/* Primary Action Button: Always interactive when !capturedImage so staff NEVER hit a dead button */}
-            <div className="w-full max-w-[360px] sm:max-w-[400px] lg:max-w-[440px] xl:max-w-[480px] mx-auto space-y-2">
+            <div className="w-full max-w-none sm:max-w-[580px] lg:max-w-[680px] xl:max-w-[780px] mx-auto space-y-1.5">
               <KgButton
                 data-testid="primary-capture-action-btn"
                 variant={(userResolvedDisambiguation || smartIntent.smartSuggestedAction) === 'Ra ca' && capturedImage ? 'danger' : 'primary'}
@@ -2767,7 +2804,7 @@ export default function CheckIn() {
                   setHasAcknowledgedEarlyOut(false);
                   setConfirmCheckInModalOpen(true);
                 }}
-                className={`w-full h-14 min-h-[52px] shadow-md rounded-2xl text-[15px] font-black tracking-wide border-none active:scale-[0.97] transition-all touch-manipulation flex items-center justify-center gap-2.5 ${
+                className={`kg-pressable w-full h-[52px] sm:h-14 min-h-[52px] shadow-md rounded-2xl text-[15px] font-black tracking-wide border-none transition-all touch-manipulation flex items-center justify-center gap-2.5 ${
                   isCooldownBlocked
                     ? 'bg-[#B45309] hover:bg-[#92400E] text-white'
                     : recommendation.isMaxPunchesReached
@@ -2810,7 +2847,7 @@ export default function CheckIn() {
               </KgButton>
 
               {!canSubmit && (
-                <p className="text-[11px] text-center text-[var(--kg-text-muted)] font-medium">
+                <p className="text-[11px] text-center text-[var(--kg-text-muted)] font-medium leading-snug">
                   {isCooldownBlocked
                     ? `Cần chờ thêm ${cooldown.remainingMinutesFormatted} theo quy định giãn cách 15 phút.`
                     : recommendation.isMaxPunchesReached
@@ -2829,9 +2866,32 @@ export default function CheckIn() {
             </div>
           </div>
 
-          {/* RIGHT 5 COLS (Desktop always open; Mobile expands details on demand + single Missed Check-In helper card) */}
-          <div className={`${statusStripExpanded ? 'order-1' : 'order-2'} lg:order-2 lg:col-span-5 space-y-3`}>
-            <div className={`${statusStripExpanded ? 'block' : 'hidden lg:block'} space-y-3 animate-fade-in`}>
+          {/* RIGHT 4-5 COLS (Desktop always open & compact; Mobile expands details on demand + Face Enroll / Missed Check-In helper) */}
+          <div className={`${statusStripExpanded ? 'order-1' : 'order-2'} lg:order-2 lg:col-span-5 xl:col-span-4 space-y-2.5`}>
+            {!selfFaceProfile && (
+              <div className="kg-card-interactive rounded-2xl bg-[var(--kg-surface)] border border-[var(--kg-primary)]/30 p-3 shadow-xs flex items-center justify-between gap-2.5">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-extrabold text-[var(--kg-text)] truncate">
+                    Chưa có hồ sơ Face ID 5 góc
+                  </p>
+                  <p className="text-[11px] font-medium text-[var(--kg-text-muted)] truncate mt-0.5">
+                    Đăng ký 1 lần để quét V2 siêu tốc
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  data-testid="open-face-enroll-btn"
+                  onClick={openFaceEnrollmentModal}
+                  className="kg-pressable min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] text-[11px] font-extrabold whitespace-nowrap inline-flex items-center gap-1 transition-colors shrink-0 touch-manipulation"
+                  title="Đăng ký Face ID 5 góc"
+                >
+                  <UserPlus size={13} />
+                  <span>ĐK Face 5 góc</span>
+                </button>
+              </div>
+            )}
+
+            <div className={`${statusStripExpanded ? 'block' : 'hidden lg:block'} space-y-2.5 kg-animate-fade-up`}>
               {/* Live Shift Details + Team Attendance */}
               <div className="rounded-2xl bg-[var(--kg-surface)] border border-[var(--kg-border)] p-3.5 shadow-xs space-y-2.5">
                 <div className="flex items-center justify-between gap-2">
@@ -3143,7 +3203,7 @@ export default function CheckIn() {
                 setSelectedMissingAlert(null);
                 setMissedModalOpen(true);
               }}
-              className="w-full p-3.5 min-h-[54px] rounded-2xl bg-[var(--kg-surface)] hover:bg-[var(--kg-surface-2)] text-[var(--kg-text)] border border-[var(--kg-border)] hover:border-[var(--kg-warning)]/45 text-left shadow-xs transition active:scale-[0.98] touch-manipulation flex items-center justify-between gap-3 group"
+              className="kg-card-interactive kg-pressable w-full p-3.5 min-h-[54px] rounded-2xl bg-[var(--kg-surface)] hover:bg-[var(--kg-surface-2)] text-[var(--kg-text)] border border-[var(--kg-border)] hover:border-[var(--kg-warning)]/45 text-left shadow-xs transition touch-manipulation flex items-center justify-between gap-3 group"
             >
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-10 h-10 rounded-xl bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition">
@@ -3185,9 +3245,9 @@ export default function CheckIn() {
             : 'Xác Nhận Vào Ca'
         }
       >
-        <div className="space-y-3.5 py-1">
+        <div className="space-y-3.5 py-1 kg-animate-fade-up">
           {/* Summary Proof Pill Card */}
-          <div className="p-3 bg-[var(--kg-surface-2)] rounded-2xl border border-[var(--kg-border)] flex items-center gap-3">
+          <div className="p-3 bg-[var(--kg-surface-2)] rounded-2xl border border-[var(--kg-border)] flex items-center gap-3 kg-animate-scale-in">
             {capturedImage && (
               <div className="w-14 h-16 rounded-xl overflow-hidden bg-[#111E18] border border-[var(--kg-border)] flex-shrink-0">
                 <img src={capturedImage} alt="Preview" className="w-full h-full object-cover" />
@@ -3587,7 +3647,7 @@ export default function CheckIn() {
                       onClick={() => {
                         void submitCheck(effectiveType);
                       }}
-                      className={`w-full h-13 min-h-[52px] px-5 py-2.5 shadow-md rounded-2xl text-[15px] font-black tracking-wide active:scale-[0.97] transition-all touch-manipulation flex items-center justify-center gap-2 disabled:opacity-55 disabled:pointer-events-none ${
+                      className={`kg-pressable w-full h-13 min-h-[52px] px-5 py-2.5 shadow-md rounded-2xl text-[15px] font-black tracking-wide transition-all touch-manipulation flex items-center justify-center gap-2 disabled:opacity-55 disabled:pointer-events-none ${
                         isOutSelection
                           ? 'bg-[#B93F36] hover:bg-[#992F27] text-white'
                           : 'bg-[#1E7550] hover:bg-[#175B3E] text-white'

@@ -42,8 +42,9 @@ function useLiveVietnamClock() {
     ? currentTime.split(' ').pop()
     : `${String(vnNow.hour).padStart(2, '0')}:${String(vnNow.minute).padStart(2, '0')}`;
   const dayNames = ['CN', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
-  const displayDate = `${dayNames[vnNow.dayOfWeek]}, ${String(vnNow.day).padStart(2, '0')}/${String(vnNow.month).padStart(2, '0')}`;
-  return { displayTime, displayDate, vnNow };
+  const displayDayName = dayNames[vnNow.dayOfWeek];
+  const displayDateNumeric = `${String(vnNow.day).padStart(2, '0')}/${String(vnNow.month).padStart(2, '0')}`;
+  return { displayTime, displayDayName, displayDateNumeric, vnNow };
 }
 
 export interface EmployeeDashboardViewProps {
@@ -87,9 +88,23 @@ export default function EmployeeDashboardView({
   onTabChange,
   onOpenMissedModal,
 }: EmployeeDashboardViewProps) {
-  const { displayTime, displayDate, vnNow } = useLiveVietnamClock();
+  const { displayTime, displayDayName, displayDateNumeric, vnNow } = useLiveVietnamClock();
 
-  const readOnboardingHidden = () => {
+  const [, setOnboardingSyncTick] = useState(0);
+
+  useEffect(() => {
+    const syncState = () => setOnboardingSyncTick((t) => t + 1);
+    window.addEventListener('storage', syncState);
+    window.addEventListener('focus', syncState);
+    window.addEventListener('kg:onboarding-completed', syncState);
+    return () => {
+      window.removeEventListener('storage', syncState);
+      window.removeEventListener('focus', syncState);
+      window.removeEventListener('kg:onboarding-completed', syncState);
+    };
+  }, []);
+
+  const hideNewbieGuide = (() => {
     if (!currentUser?.username) return false;
     try {
       return Boolean(
@@ -99,23 +114,7 @@ export default function EmployeeDashboardView({
     } catch {
       return false;
     }
-  };
-
-  const [hideNewbieGuide, setHideNewbieGuide] = useState<boolean>(readOnboardingHidden);
-
-  useEffect(() => {
-    setHideNewbieGuide(readOnboardingHidden());
-    const syncState = () => setHideNewbieGuide(readOnboardingHidden());
-    window.addEventListener('storage', syncState);
-    window.addEventListener('focus', syncState);
-    window.addEventListener('kg:onboarding-completed', syncState);
-    return () => {
-      window.removeEventListener('storage', syncState);
-      window.removeEventListener('focus', syncState);
-      window.removeEventListener('kg:onboarding-completed', syncState);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser?.username]);
+  })();
 
   const isOffToday = isOff && !userHasIn;
   const heroGuidance = isOffToday
@@ -129,7 +128,7 @@ export default function EmployeeDashboardView({
   return (
     <div className="space-y-4 sm:space-y-5">
       {/* Unified Toast Touch Service Board Hero (Clock + Shift + Primary Check-In CTA + Checklist CTA) */}
-      <section className="kg-service-board rounded-[22px] bg-[#24372C] text-[#FCFFF9] p-5 sm:p-6 shadow-hero border border-white/10 relative overflow-hidden">
+      <section className="kg-service-board kg-animate-fade-up rounded-[22px] bg-[#24372C] text-[#FCFFF9] p-5 sm:p-6 shadow-hero border border-white/10 relative overflow-hidden">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -right-24 -top-32 w-80 h-80 rounded-full border border-white/10"
@@ -139,7 +138,7 @@ export default function EmployeeDashboardView({
           className="pointer-events-none absolute -right-12 -top-20 w-52 h-52 rounded-full border border-white/10"
         />
 
-        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-[minmax(0,1.25fr)_minmax(240px,0.75fr)] gap-5 items-center">
+        <div className="relative z-10 col-span-full grid grid-cols-1 md:grid-cols-[minmax(0,1.25fr)_minmax(240px,0.75fr)] xl:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.65fr)] gap-4 sm:gap-5 items-center">
           {/* Left Hero Identity & Integrated Action Buttons */}
           <div className="space-y-3 min-w-0">
             <div className="flex items-center gap-2.5">
@@ -186,7 +185,7 @@ export default function EmployeeDashboardView({
                     <button
                       type="button"
                       onClick={() => onTabChange('schedule')}
-                      className="min-h-[46px] px-4 py-2.5 rounded-xl bg-[#F9A36C] hover:bg-[#FFAE7A] text-[#241C17] font-extrabold text-xs sm:text-sm inline-flex items-center justify-center gap-2 transition-colors active:scale-[0.98] touch-manipulation whitespace-nowrap"
+                      className="kg-pressable min-h-[46px] px-4 py-2.5 rounded-xl bg-[#F9A36C] hover:bg-[#FFAE7A] text-[#241C17] font-extrabold text-xs sm:text-sm inline-flex items-center justify-center gap-2 transition-colors touch-manipulation whitespace-nowrap"
                     >
                       <Calendar size={17} />
                       <span>Xem lịch ca tuần</span>
@@ -197,7 +196,7 @@ export default function EmployeeDashboardView({
                     <button
                       type="button"
                       onClick={() => onTabChange('checklist')}
-                      className="min-h-[46px] px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white font-bold text-xs sm:text-sm inline-flex items-center justify-center gap-2 transition-colors active:scale-[0.98] touch-manipulation whitespace-nowrap"
+                      className="kg-pressable min-h-[46px] px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white font-bold text-xs sm:text-sm inline-flex items-center justify-center gap-2 transition-colors touch-manipulation whitespace-nowrap"
                     >
                       <ClipboardCheck size={16} />
                       <span>Checklist ca</span>
@@ -209,7 +208,7 @@ export default function EmployeeDashboardView({
                   <button
                     type="button"
                     onClick={() => onTabChange('history')}
-                    className="min-h-[46px] px-4 py-2.5 rounded-xl bg-[#7EDBA8] hover:brightness-95 text-[#0F2419] font-extrabold text-xs sm:text-sm inline-flex items-center justify-center gap-2 transition-colors active:scale-[0.98] touch-manipulation whitespace-nowrap"
+                    className="kg-pressable min-h-[46px] px-4 py-2.5 rounded-xl bg-[#7EDBA8] hover:brightness-95 text-[#0F2419] font-extrabold text-xs sm:text-sm inline-flex items-center justify-center gap-2 transition-colors touch-manipulation whitespace-nowrap"
                   >
                     <CheckCircle2 size={17} />
                     <span>Đã xong ca • Xem lịch sử</span>
@@ -218,7 +217,7 @@ export default function EmployeeDashboardView({
                     <button
                       type="button"
                       onClick={() => onTabChange('checklist')}
-                      className="min-h-[46px] px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white font-bold text-xs sm:text-sm inline-flex items-center justify-center gap-2 transition-colors active:scale-[0.98] touch-manipulation whitespace-nowrap"
+                      className="kg-pressable min-h-[46px] px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white font-bold text-xs sm:text-sm inline-flex items-center justify-center gap-2 transition-colors touch-manipulation whitespace-nowrap"
                     >
                       <ClipboardCheck size={16} />
                       <span>Checklist ca</span>
@@ -230,7 +229,7 @@ export default function EmployeeDashboardView({
                   <button
                     type="button"
                     onClick={() => onTabChange('checkin')}
-                    className={`min-h-[48px] px-5 py-2.5 rounded-xl font-extrabold text-xs sm:text-sm inline-flex items-center justify-center gap-2 shadow-xs transition-colors active:scale-[0.98] touch-manipulation whitespace-nowrap ${
+                    className={`kg-pressable min-h-[48px] px-5 py-2.5 rounded-xl font-extrabold text-xs sm:text-sm inline-flex items-center justify-center gap-2 shadow-xs transition-colors touch-manipulation whitespace-nowrap ${
                       userHasIn
                         ? 'bg-[#B93F36] hover:bg-[#9F342C] text-white border border-rose-400/30'
                         : 'bg-[#F9A36C] hover:bg-[#FFAE7A] text-[#241C17]'
@@ -244,7 +243,7 @@ export default function EmployeeDashboardView({
                     <button
                       type="button"
                       onClick={() => onTabChange('checklist')}
-                      className="min-h-[48px] px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white font-bold text-xs sm:text-sm inline-flex items-center justify-center gap-2 transition-colors active:scale-[0.98] touch-manipulation whitespace-nowrap"
+                      className="kg-pressable min-h-[48px] px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white font-bold text-xs sm:text-sm inline-flex items-center justify-center gap-2 transition-colors touch-manipulation whitespace-nowrap"
                     >
                       <ClipboardCheck size={16} className="flex-shrink-0" />
                       <span>Checklist ca</span>
@@ -256,18 +255,19 @@ export default function EmployeeDashboardView({
           </div>
 
           {/* Right Hero Mini Cards (.kg-board-mini) */}
-          <div className="grid grid-cols-2 lg:grid-cols-1 gap-2.5">
-            <div className="kg-board-mini col-span-2 lg:col-span-1 rounded-xl bg-white/10 border border-white/15 px-3.5 py-2.5 flex items-center justify-between gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-1 gap-2.5">
+            <div className="kg-board-mini col-span-2 md:col-span-1 rounded-xl bg-white/10 border border-white/15 px-3.5 py-2.5 flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <span className="block text-[10px] font-bold uppercase tracking-wider text-[#C9D5C9]">
                   Giờ hệ thống (GMT+7)
                 </span>
-                <div className="flex items-center gap-2 mt-0.5">
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   <span className="text-lg sm:text-xl font-extrabold font-mono tabular-nums text-white leading-none">
                     {displayTime}
                   </span>
-                  <span className="text-[11px] font-mono tabular-nums text-[#C9D5C9]">
-                    • {displayDate}
+                  <span className="text-[11px] font-medium text-[#C9D5C9]">
+                    • {displayDayName},{' '}
+                    <span className="font-mono tabular-nums font-semibold">{displayDateNumeric}</span>
                   </span>
                 </div>
               </div>
@@ -287,7 +287,7 @@ export default function EmployeeDashboardView({
                     <span className="text-xs sm:text-sm font-bold text-white/95">Nghỉ ca (OFF)</span>
                   ) : (
                     <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-bold shadow-xs ${getPreviewShiftClass(todayShift)}`}
+                      className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-bold font-mono tabular-nums shadow-xs ${getPreviewShiftClass(todayShift)}`}
                     >
                       <ResponsiveShift shift={todayShift} />
                     </span>
@@ -312,12 +312,12 @@ export default function EmployeeDashboardView({
         </div>
       </section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 xl:gap-6 items-start">
         {/* Left Column: Alerts & Today's Tasks */}
-        <div className="lg:col-span-7 space-y-4">
+        <div className="lg:col-span-7 space-y-4 sm:space-y-5">
           {/* Quick Newbie Guide Banner (automatically hidden once completed/dismissed) */}
           {!hideNewbieGuide && (
-            <div className="p-3.5 rounded-2xl bg-[var(--kg-surface)] border border-[var(--kg-border)] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+            <div className="kg-animate-fade-up kg-stagger-1 p-3.5 sm:p-4 rounded-2xl bg-[var(--kg-surface)] border border-[var(--kg-border)] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-10 h-10 rounded-xl bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] border border-[var(--kg-primary)]/20 flex items-center justify-center flex-shrink-0">
                   <GraduationCap size={18} />
@@ -334,7 +334,7 @@ export default function EmployeeDashboardView({
               <button
                 type="button"
                 onClick={() => window.dispatchEvent(new CustomEvent('kg:open-newbie-guide'))}
-                className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] text-xs font-bold shadow-xs active:scale-95 transition-colors flex-shrink-0 flex items-center justify-center gap-1 min-h-[44px] sm:min-h-[38px] whitespace-nowrap touch-manipulation"
+                className="kg-pressable w-full sm:w-auto px-3.5 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] text-xs font-bold shadow-xs transition-colors flex-shrink-0 flex items-center justify-center gap-1 min-h-[44px] sm:min-h-[38px] whitespace-nowrap touch-manipulation"
               >
                 <span>Xem ngay</span> <ArrowRight size={13} />
               </button>
@@ -346,7 +346,7 @@ export default function EmployeeDashboardView({
             <button
               type="button"
               onClick={() => onOpenMissedModal(null)}
-              className="w-full text-left p-3.5 min-h-[44px] rounded-2xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/35 cursor-pointer hover:brightness-[0.98] transition-all flex items-center justify-between gap-3 shadow-xs animate-slide-up touch-manipulation"
+              className="kg-animate-fade-up kg-stagger-1 kg-card-interactive kg-pressable w-full text-left p-3.5 min-h-[44px] rounded-2xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/35 cursor-pointer hover:brightness-[0.98] transition-all flex items-center justify-between gap-3 shadow-xs touch-manipulation"
             >
               <div className="flex items-center gap-2.5 min-w-0 flex-1">
                 <div className="w-9 h-9 rounded-xl bg-[var(--kg-warning)]/15 text-[var(--kg-warning)] flex items-center justify-center flex-shrink-0">
@@ -372,7 +372,7 @@ export default function EmployeeDashboardView({
             <button
               type="button"
               onClick={() => onOpenMissedModal(missingAlerts[0])}
-              className="w-full text-left p-3.5 min-h-[44px] rounded-2xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/35 cursor-pointer hover:brightness-[0.98] transition-all flex items-center justify-between gap-3 shadow-xs animate-slide-up touch-manipulation"
+              className="kg-animate-fade-up kg-stagger-1 kg-card-interactive kg-pressable w-full text-left p-3.5 min-h-[44px] rounded-2xl bg-[var(--kg-warning-soft)] border border-[var(--kg-warning)]/35 cursor-pointer hover:brightness-[0.98] transition-all flex items-center justify-between gap-3 shadow-xs touch-manipulation"
             >
               <div className="flex items-center gap-2.5 min-w-0 flex-1">
                 <div className="w-9 h-9 rounded-xl bg-[var(--kg-warning)]/15 text-[var(--kg-warning)] flex items-center justify-center flex-shrink-0">
@@ -394,7 +394,7 @@ export default function EmployeeDashboardView({
           )}
 
           {/* Today's Tasks */}
-          <KgCard className="p-4 sm:p-5">
+          <KgCard className="kg-animate-fade-up kg-stagger-2 p-4 sm:p-5">
             <div className="flex items-center justify-between border-b border-[var(--kg-border)] pb-2.5 mb-3.5">
               <div>
                 <h3 className="text-sm font-extrabold text-[var(--kg-text)] tracking-tight">
@@ -419,7 +419,7 @@ export default function EmployeeDashboardView({
 
             <div className="space-y-2.5">
               {hasTabPermission('checklist', currentUser) && (
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-2xl bg-[var(--kg-surface-2)] border border-[var(--kg-border)] gap-2.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-2xl bg-[var(--kg-surface-2)] border border-[var(--kg-border)] hover:border-[var(--kg-border-strong)] transition-colors gap-2.5">
                   <div className="flex items-center space-x-3 min-w-0">
                     <div
                       className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 border ${
@@ -448,7 +448,7 @@ export default function EmployeeDashboardView({
                       <button
                         type="button"
                         onClick={() => onTabChange('checklist')}
-                        className="w-full sm:w-auto justify-center px-3.5 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] text-xs font-bold shadow-xs active:scale-95 transition-colors flex items-center gap-1 whitespace-nowrap flex-shrink-0 min-h-[44px] sm:min-h-[38px] touch-manipulation"
+                        className="kg-pressable w-full sm:w-auto justify-center px-3.5 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] text-xs font-bold shadow-xs transition-colors flex items-center gap-1 whitespace-nowrap flex-shrink-0 min-h-[44px] sm:min-h-[38px] touch-manipulation"
                       >
                         Làm Checklist ngay →
                       </button>
@@ -458,7 +458,7 @@ export default function EmployeeDashboardView({
               )}
 
               {hasTabPermission('handover', currentUser) && (
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-2xl bg-[var(--kg-surface-2)] border border-[var(--kg-border)] gap-2.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-2xl bg-[var(--kg-surface-2)] border border-[var(--kg-border)] hover:border-[var(--kg-border-strong)] transition-colors gap-2.5">
                   <div className="flex items-center space-x-3 min-w-0">
                     <div
                       className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 border ${
@@ -485,7 +485,7 @@ export default function EmployeeDashboardView({
                       <button
                         type="button"
                         onClick={() => onTabChange('handover')}
-                        className="w-full sm:w-auto justify-center px-3.5 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] text-xs font-bold shadow-xs active:scale-95 transition-colors flex items-center gap-1 whitespace-nowrap flex-shrink-0 min-h-[44px] sm:min-h-[38px] touch-manipulation"
+                        className="kg-pressable w-full sm:w-auto justify-center px-3.5 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] text-xs font-bold shadow-xs transition-colors flex items-center gap-1 whitespace-nowrap flex-shrink-0 min-h-[44px] sm:min-h-[38px] touch-manipulation"
                       >
                         Ghi sổ ngay →
                       </button>
@@ -495,7 +495,7 @@ export default function EmployeeDashboardView({
               )}
 
               {hasTabPermission('schedule', currentUser) && (
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-2xl bg-[var(--kg-surface-2)] border border-[var(--kg-border)] gap-2.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-2xl bg-[var(--kg-surface-2)] border border-[var(--kg-border)] hover:border-[var(--kg-border-strong)] transition-colors gap-2.5">
                   <div className="flex items-center space-x-3 min-w-0">
                     <div
                       className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 border ${
@@ -539,7 +539,7 @@ export default function EmployeeDashboardView({
                         <button
                           type="button"
                           onClick={() => onTabChange('schedule')}
-                          className="text-xs font-bold text-[var(--kg-primary-ink)] hover:underline whitespace-nowrap min-h-[44px] sm:min-h-[36px] px-2 inline-flex items-center touch-manipulation"
+                          className="kg-pressable text-xs font-bold text-[var(--kg-primary-ink)] hover:underline whitespace-nowrap min-h-[44px] sm:min-h-[36px] px-2 rounded-lg inline-flex items-center touch-manipulation"
                         >
                           Xem lịch →
                         </button>
@@ -550,7 +550,7 @@ export default function EmployeeDashboardView({
                         <button
                           type="button"
                           onClick={() => onTabChange('schedule')}
-                          className="text-xs font-bold text-[var(--kg-warning)] hover:underline whitespace-nowrap min-h-[44px] sm:min-h-[36px] px-2 inline-flex items-center touch-manipulation"
+                          className="kg-pressable text-xs font-bold text-[var(--kg-warning)] hover:underline whitespace-nowrap min-h-[44px] sm:min-h-[36px] px-2 rounded-lg inline-flex items-center touch-manipulation"
                         >
                           Xem / Sửa →
                         </button>
@@ -559,7 +559,7 @@ export default function EmployeeDashboardView({
                       <button
                         type="button"
                         onClick={() => onTabChange('schedule')}
-                        className="w-full sm:w-auto justify-center px-3.5 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] text-xs font-bold shadow-xs active:scale-95 transition-colors flex items-center gap-1 whitespace-nowrap flex-shrink-0 min-h-[44px] sm:min-h-[38px] touch-manipulation"
+                        className="kg-pressable w-full sm:w-auto justify-center px-3.5 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] text-xs font-bold shadow-xs transition-colors flex items-center gap-1 whitespace-nowrap flex-shrink-0 min-h-[44px] sm:min-h-[38px] touch-manipulation"
                       >
                         Đăng ký ngay →
                       </button>
@@ -572,8 +572,8 @@ export default function EmployeeDashboardView({
         </div>
 
         {/* Right Column: Quick Touch Tiles (.kg-touch-tile) & Recent Activity */}
-        <div className="lg:col-span-5 space-y-4">
-          <KgCard className="p-4 sm:p-5">
+        <div className="lg:col-span-5 space-y-4 sm:space-y-5">
+          <KgCard className="kg-animate-fade-up kg-stagger-3 p-4 sm:p-5">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <h3 className="text-sm font-extrabold text-[var(--kg-text)] tracking-tight">
@@ -584,7 +584,7 @@ export default function EmployeeDashboardView({
                 </p>
               </div>
             </div>
-            <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-2.5">
               {[
                 { icon: Newspaper, label: 'Bảng tin', sub: 'Cập nhật mới', tab: 'news' as TabId, color: 'text-[var(--kg-info)] bg-[var(--kg-info-soft)]' },
                 { icon: UtensilsCrossed, label: 'Món hết', sub: 'Báo quầy bếp', tab: 'soldout' as TabId, color: 'text-[var(--kg-warning)] bg-[var(--kg-warning-soft)]' },
@@ -599,13 +599,16 @@ export default function EmployeeDashboardView({
                     key={act.tab}
                     type="button"
                     onClick={() => onTabChange(act.tab)}
-                    className="kg-touch-tile min-w-0 rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface)] hover:border-[var(--kg-primary)] hover:bg-[var(--kg-primary-soft)] p-3 text-left flex flex-col justify-between gap-2.5 min-h-[92px] active:scale-[0.985] transition-colors touch-manipulation"
+                    className="kg-touch-tile kg-card-interactive kg-pressable group min-w-0 rounded-2xl border border-[var(--kg-border)] bg-[var(--kg-surface)] hover:border-[var(--kg-primary)] hover:bg-[var(--kg-primary-soft)] p-3 text-left flex flex-col justify-between gap-2.5 min-h-[92px] transition-colors touch-manipulation"
                   >
                     <div className="flex items-center justify-between w-full gap-1">
                       <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${act.color}`}>
                         <act.icon size={17} />
                       </div>
-                      <ArrowRight size={13} className="text-[var(--kg-text-soft)] shrink-0" />
+                      <ArrowRight
+                        size={13}
+                        className="text-[var(--kg-text-soft)] group-hover:text-[var(--kg-primary-ink)] group-hover:translate-x-0.5 transition-transform shrink-0"
+                      />
                     </div>
                     <div className="min-w-0 w-full">
                       <span className="block text-xs font-extrabold text-[var(--kg-text)] truncate">
@@ -621,7 +624,7 @@ export default function EmployeeDashboardView({
           </KgCard>
 
           {/* Personal Recent Activity Logs */}
-          <KgCard className="p-4 sm:p-5">
+          <KgCard className="kg-animate-fade-up kg-stagger-4 p-4 sm:p-5">
             <div className="flex items-center justify-between mb-3 border-b border-[var(--kg-border)] pb-2">
               <h3 className="text-sm font-extrabold text-[var(--kg-text)] tracking-tight">
                 Lịch sử chấm công
@@ -629,7 +632,7 @@ export default function EmployeeDashboardView({
               <button
                 type="button"
                 onClick={() => onTabChange('history')}
-                className="text-xs font-bold text-[var(--kg-primary-ink)] hover:underline min-h-[44px] sm:min-h-[36px] px-2 inline-flex items-center touch-manipulation"
+                className="kg-pressable text-xs font-bold text-[var(--kg-primary-ink)] hover:underline min-h-[44px] sm:min-h-[36px] px-2 rounded-lg inline-flex items-center touch-manipulation"
               >
                 Xem tất cả →
               </button>
@@ -641,7 +644,7 @@ export default function EmployeeDashboardView({
                   return (
                     <div
                       key={i}
-                      className="flex items-center justify-between p-2.5 rounded-xl bg-[var(--kg-surface-2)] border border-[var(--kg-border)]"
+                      className="flex items-center justify-between p-2.5 rounded-xl bg-[var(--kg-surface-2)] border border-[var(--kg-border)] hover:border-[var(--kg-border-strong)] transition-colors"
                     >
                       <div className="flex items-center space-x-2.5 min-w-0">
                         <div

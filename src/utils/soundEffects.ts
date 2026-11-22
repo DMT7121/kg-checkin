@@ -10,9 +10,85 @@ let isAudioUnlocked = false;
 // Preloaded Audio Elements Cache
 const audioCache: Map<string, HTMLAudioElement> = new Map();
 
+const ANTIGRAVITY_UA_RE = /\bAntigravity(?:\/|\b)|\bHeadlessChrome\b|\bElectron\//i;
+const ANTIGRAVITY_BRAND_RE = /\bAntigravity\b|HeadlessChrome|\bElectron\b/i;
+const ANTIGRAVITY_ORIGIN_RE = /^(?:vscode-webview|antigravity-webview):|\bantigravity\b/i;
+
+export interface AudioEnvironmentSnapshot {
+  userAgent?: string;
+  brands?: ReadonlyArray<{ brand?: string }>;
+  webdriver?: boolean;
+  referrer?: string;
+  ancestorOrigins?: ReadonlyArray<string>;
+}
+
+/**
+ * Detect whether the app is running inside Antigravity's built-in browser/webview
+ * or headless IDE preview (covering both localhost and production domains).
+ */
+export function isAntigravityBrowser(snapshot?: AudioEnvironmentSnapshot): boolean {
+  try {
+    const nav =
+      typeof navigator !== 'undefined'
+        ? (navigator as Navigator & {
+            userAgentData?: { brands?: ReadonlyArray<{ brand?: string }> };
+          })
+        : undefined;
+    const doc = typeof document !== 'undefined' ? document : undefined;
+    const win = typeof window !== 'undefined' ? window : undefined;
+
+    if (!snapshot && !nav && !doc && !win) {
+      return false;
+    }
+
+    const userAgent = snapshot?.userAgent ?? nav?.userAgent ?? '';
+    if (ANTIGRAVITY_UA_RE.test(userAgent)) {
+      return true;
+    }
+
+    const brands = snapshot?.brands ?? nav?.userAgentData?.brands;
+    if (
+      Array.isArray(brands) &&
+      brands.some((item) => ANTIGRAVITY_BRAND_RE.test(item?.brand || ''))
+    ) {
+      return true;
+    }
+
+    const webdriver = snapshot?.webdriver ?? Boolean(nav?.webdriver);
+    if (webdriver === true) {
+      return true;
+    }
+
+    const referrer = snapshot?.referrer ?? doc?.referrer ?? '';
+    if (ANTIGRAVITY_ORIGIN_RE.test(referrer)) {
+      return true;
+    }
+
+    const rawAncestors = snapshot?.ancestorOrigins ?? win?.location?.ancestorOrigins;
+    if (rawAncestors && typeof rawAncestors.length === 'number') {
+      for (let i = 0; i < rawAncestors.length; i += 1) {
+        const origin = rawAncestors[i];
+        if (typeof origin === 'string' && ANTIGRAVITY_ORIGIN_RE.test(origin)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/** Return true when sound/speech/haptic playback should be muted for the current environment. */
+export function isAudioMutedByEnvironment(snapshot?: AudioEnvironmentSnapshot): boolean {
+  return isAntigravityBrowser(snapshot);
+}
+
 /** Get or initialize AudioContext with iOS WebKit unlock */
 function getAudioContext(): AudioContext | null {
   try {
+    if (isAudioMutedByEnvironment()) return null;
     if (!audioCtx && typeof window !== 'undefined') {
       const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (AudioContextClass) {
@@ -30,7 +106,7 @@ function getAudioContext(): AudioContext | null {
 
 /** Preload audio clips into memory for instant (<10ms) playback */
 export function preloadAudioClips(keys: string[]) {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || isAudioMutedByEnvironment()) return;
   keys.forEach(key => {
     try {
       if (!audioCache.has(key)) {
@@ -46,7 +122,7 @@ let unlockListenersAttached = false;
 
 /** Auto unlock AudioContext on user gesture (touchend/click — crucial for iOS Safari & Home-Screen PWA) */
 export function setupAudioUnlock() {
-  if (typeof window === 'undefined' || isAudioUnlocked || unlockListenersAttached) return;
+  if (typeof window === 'undefined' || isAudioMutedByEnvironment() || isAudioUnlocked || unlockListenersAttached) return;
   unlockListenersAttached = true;
 
   const events = ['touchend', 'click', 'pointerup', 'keydown'] as const;
@@ -102,6 +178,7 @@ export function setupAudioUnlock() {
 /** Mobile Haptic Feedback helper */
 function triggerHaptic(pattern: number | number[]) {
   try {
+    if (isAudioMutedByEnvironment()) return;
     if (typeof window !== 'undefined' && 'navigator' in window && 'vibrate' in navigator) {
       navigator.vibrate(pattern);
     }
@@ -115,6 +192,7 @@ function triggerHaptic(pattern: number | number[]) {
 /** Play bright, pleasant POS double chime (587Hz -> 880Hz) */
 export function playPosSuccess() {
   try {
+    if (isAudioMutedByEnvironment()) return;
     triggerHaptic([50, 40, 50]);
     const ctx = getAudioContext();
     if (!ctx) return;
@@ -150,6 +228,7 @@ export function playPosSuccess() {
 /** Play gentle POS warning chime (440Hz -> 330Hz) */
 export function playPosWarning() {
   try {
+    if (isAudioMutedByEnvironment()) return;
     triggerHaptic(100);
     const ctx = getAudioContext();
     if (!ctx) return;
@@ -176,6 +255,7 @@ export function playPosWarning() {
 /** Play firm POS error double-pip (260Hz) */
 export function playPosError() {
   try {
+    if (isAudioMutedByEnvironment()) return;
     triggerHaptic([80, 50, 80]);
     const ctx = getAudioContext();
     if (!ctx) return;
@@ -212,7 +292,7 @@ export function playPosError() {
  * TẦNG 2A: Pre-recorded Studio Vietnamese Audio Player
  */
 export async function playPreRecordedAudio(clipKey: string): Promise<boolean> {
-  if (typeof window === 'undefined') return false;
+  if (typeof window === 'undefined' || isAudioMutedByEnvironment()) return false;
 
   try {
     let audio = audioCache.get(clipKey);
@@ -271,7 +351,7 @@ export function getVietnameseSpeechVoice(): SpeechSynthesisVoice | null {
  */
 export function speakWithVietnameseLock(text: string): boolean {
   try {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return false;
+    if (typeof window === 'undefined' || isAudioMutedByEnvironment() || !('speechSynthesis' in window)) return false;
     // Prevent iOS Safari background SpeechSynthesis queue freeze when screen is locked
     if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return false;
 

@@ -539,7 +539,7 @@ export default function KgCommandPalette({
   if (!isOpen || typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[10055] flex items-start sm:items-center justify-center px-3 sm:px-4 pt-[6vh] sm:pt-0 pb-4">
+    <div className="fixed inset-0 z-[10055] flex items-start sm:items-center justify-center px-2.5 sm:px-4 pt-[5vh] sm:pt-0 pb-4">
       <div
         onClick={onClose}
         className="kg-fade-in fixed inset-0 bg-black/60"
@@ -551,7 +551,7 @@ export default function KgCommandPalette({
         aria-modal="true"
         aria-label="Tìm kiếm nhanh phân hệ"
         onClick={(e) => e.stopPropagation()}
-        className="kg-scale-in relative z-10 w-full max-w-[560px] max-h-[82dvh] sm:max-h-[78vh] mx-auto bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl sm:rounded-[20px] shadow-2xl flex flex-col overflow-hidden focus:outline-none"
+        className="kg-animate-scale-in relative z-10 w-full max-w-[560px] max-h-[84dvh] sm:max-h-[78vh] mx-auto bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl sm:rounded-[20px] shadow-2xl flex flex-col overflow-hidden focus:outline-none"
       >
         {/* Search input header */}
         <div className="flex items-center gap-2.5 sm:gap-3 px-3.5 sm:px-4 py-3 sm:py-3.5 border-b border-[var(--kg-border)] bg-[var(--kg-surface-2)] flex-shrink-0">
@@ -582,7 +582,7 @@ export default function KgCommandPalette({
                 setSelectedIndex(0);
                 inputRef.current?.focus();
               }}
-              className="text-xs font-bold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] px-2.5 min-h-[44px] sm:min-h-[36px] py-1 rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-border)] active:scale-95 transition-all flex-shrink-0 whitespace-nowrap"
+              className="kg-pressable text-xs font-bold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:border-[var(--kg-border-strong)] px-2.5 min-h-[44px] sm:min-h-[36px] py-1 rounded-lg bg-[var(--kg-surface)] border border-[var(--kg-border)] flex-shrink-0 whitespace-nowrap"
             >
               Xóa
             </button>
@@ -591,7 +591,7 @@ export default function KgCommandPalette({
             type="button"
             onClick={onClose}
             aria-label="Đóng tìm kiếm"
-            className="w-11 h-11 sm:w-9 sm:h-9 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] active:scale-95 transition-all flex-shrink-0"
+            className="kg-pressable w-11 h-11 sm:w-9 sm:h-9 rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] hover:border-[var(--kg-border-strong)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] flex-shrink-0"
           >
             <X size={16} />
           </button>
@@ -629,14 +629,14 @@ export default function KgCommandPalette({
                   aria-selected={active}
                   onMouseEnter={() => setSelectedIndex(idx)}
                   onClick={() => handleSelectItem(item)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 sm:py-3 min-h-[44px] rounded-xl text-left transition-colors active:scale-[0.99] ${
+                  className={`kg-pressable w-full flex items-center gap-3 px-3 py-2.5 sm:py-3 min-h-[44px] rounded-xl text-left ${
                     active
                       ? 'bg-[var(--kg-primary-soft)] text-[var(--kg-text)] border border-[var(--kg-primary)]/30'
                       : 'hover:bg-[var(--kg-surface-soft)] text-[var(--kg-text)] border border-transparent'
                   }`}
                 >
                   <div
-                    className={`w-9 h-9 sm:w-10 sm:h-10 rounded-[11px] flex items-center justify-center flex-shrink-0 ${
+                    className={`w-9 h-9 sm:w-10 sm:h-10 rounded-[11px] flex items-center justify-center flex-shrink-0 transition-colors duration-150 ${
                       active
                         ? 'bg-[var(--kg-primary)] text-[var(--kg-primary-fg)] shadow-xs'
                         : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)]'

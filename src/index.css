@@ -88,9 +88,11 @@
     --shadow-soft: 0 1px 2px rgba(32, 44, 39, 0.05);
     --shadow-hero: 0 12px 28px -8px rgba(32, 44, 39, 0.22);
 
-    /* Motion (strictly <= 180ms) */
-    --motion-fast: 140ms;
+    /* Motion (crisp GPU-composited Toast Touch 120ms-240ms) */
+    --motion-press: 120ms;
+    --motion-fast: 160ms;
     --motion-base: 180ms;
+    --motion-sheet: 220ms;
     --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
   }
 
@@ -621,8 +623,10 @@ textarea:disabled {
 
 @media (prefers-reduced-motion: reduce) {
   :root {
+    --motion-press: 0ms;
     --motion-fast: 0ms;
     --motion-base: 0ms;
+    --motion-sheet: 0ms;
   }
   *,
   *::before,
@@ -630,7 +634,18 @@ textarea:disabled {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
+  }
+  .kg-scan-beam,
+  .kg-shutter-flash {
+    display: none !important;
+    animation: none !important;
+  }
+  .kg-card-interactive:hover,
+  .kg-card-interactive:active,
+  .kg-pressable:active {
+    transform: none !important;
   }
 }
 
@@ -782,7 +797,8 @@ th.calendar-day--holiday { color: #b91c1c !important; }
 }
 
 /* ==========================================================================
-   CRISP ZERO-FRAMER MOTION KEYFRAMES (<= 180ms)
+   CRISP GPU-COMPOSITED TOAST TOUCH MOTION ENGINE (120ms-240ms)
+   Transform & Opacity only — Solid surfaces — Reduced-Motion safe
    ========================================================================== */
 
 @keyframes kg-fade-in {
@@ -790,36 +806,182 @@ th.calendar-day--holiday { color: #b91c1c !important; }
   to { opacity: 1; }
 }
 
-@keyframes kg-scale-in {
+@keyframes kg-animate-fade-up {
   from {
     opacity: 0;
-    transform: translateY(8px) scale(0.97);
+    transform: translate3d(0, 8px, 0);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: none;
+  }
+}
+
+@keyframes kg-scale-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes kg-animate-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
   }
 }
 
 @keyframes kg-sheet-up {
   from {
     opacity: 0;
-    transform: translateY(16px);
+    transform: translate3d(0, 16px, 0);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
+  }
+}
+
+@keyframes kg-animate-sheet-up {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 24px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
   }
 }
 
 @keyframes kg-toast-in {
   from {
     opacity: 0;
-    transform: translateY(12px) scale(0.98);
+    transform: translate3d(0, 12px, 0) scale(0.98);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: none;
+  }
+}
+
+@keyframes kg-animate-toast-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -10px, 0) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes kg-scan-beam {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0);
+  }
+  12% {
+    opacity: 0.92;
+  }
+  50% {
+    opacity: 1;
+    transform: translate3d(0, var(--kg-scan-travel, 260px), 0);
+  }
+  88% {
+    opacity: 0.92;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes kg-shutter-flash {
+  0% {
+    opacity: 0.92;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@layer components {
+  /* Interactive Toast Touch Card — subtle hover lift + crisp border/shadow + tactile press */
+  .kg-card-interactive {
+    transition: transform var(--motion-fast) var(--ease-standard),
+                border-color var(--motion-fast) var(--ease-standard),
+                box-shadow var(--motion-fast) var(--ease-standard),
+                background-color var(--motion-fast) var(--ease-standard);
+  }
+
+  @media (hover: hover) {
+    .kg-card-interactive:hover:not(:disabled):not([aria-disabled="true"]) {
+      transform: translateY(-1px);
+      border-color: var(--kg-border-strong);
+      box-shadow: 0 6px 16px -4px rgba(32, 44, 39, 0.09), var(--shadow-card);
+    }
+
+    .dark .kg-card-interactive:hover:not(:disabled):not([aria-disabled="true"]) {
+      box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.36), var(--shadow-card);
+    }
+  }
+
+  .kg-card-interactive:active:not(:disabled):not([aria-disabled="true"]) {
+    transform: scale(0.99);
+  }
+
+  /* 120ms Tactile Pressable Control */
+  .kg-pressable {
+    touch-action: manipulation;
+    transition: transform var(--motion-press) var(--ease-standard),
+                background-color var(--motion-fast) var(--ease-standard),
+                border-color var(--motion-fast) var(--ease-standard),
+                color var(--motion-fast) var(--ease-standard),
+                box-shadow var(--motion-fast) var(--ease-standard);
+  }
+
+  .kg-pressable:active:not(:disabled):not([aria-disabled="true"]) {
+    transform: scale(0.975);
+  }
+
+  /* Camera Reticle GPU Transform Scan Beam (hidden under prefers-reduced-motion) */
+  .kg-scan-beam {
+    position: absolute;
+    left: 10%;
+    right: 10%;
+    top: 8%;
+    height: 2px;
+    border-radius: 9999px;
+    pointer-events: none;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(245, 155, 98, 0.85) 22%,
+      rgba(255, 255, 255, 0.95) 50%,
+      rgba(245, 155, 98, 0.85) 78%,
+      transparent 100%
+    );
+    box-shadow: 0 0 12px rgba(245, 155, 98, 0.55);
+    animation: kg-scan-beam 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    will-change: transform, opacity;
+  }
+
+  /* 180ms White Shutter Capture Flash Fade-out */
+  .kg-shutter-flash {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-color: #FFFFFF;
+    animation: kg-shutter-flash 180ms var(--ease-standard) forwards;
+    will-change: opacity;
   }
 }
 
@@ -870,6 +1032,42 @@ th.calendar-day--holiday { color: #b91c1c !important; }
 
   .kg-toast-in {
     animation: kg-toast-in var(--motion-fast) var(--ease-standard) both;
+  }
+
+  .kg-animate-fade-up {
+    animation: kg-animate-fade-up 180ms var(--ease-standard) both;
+  }
+
+  .kg-animate-scale-in {
+    animation: kg-animate-scale-in 160ms var(--ease-standard) both;
+  }
+
+  .kg-animate-sheet-up {
+    animation: kg-animate-sheet-up 220ms var(--ease-standard) both;
+  }
+
+  .kg-animate-toast-in {
+    animation: kg-animate-toast-in 180ms var(--ease-standard) both;
+  }
+
+  .kg-stagger-1 {
+    animation-delay: 35ms;
+    animation-fill-mode: both;
+  }
+
+  .kg-stagger-2 {
+    animation-delay: 70ms;
+    animation-fill-mode: both;
+  }
+
+  .kg-stagger-3 {
+    animation-delay: 105ms;
+    animation-fill-mode: both;
+  }
+
+  .kg-stagger-4 {
+    animation-delay: 140ms;
+    animation-fill-mode: both;
   }
 }
 

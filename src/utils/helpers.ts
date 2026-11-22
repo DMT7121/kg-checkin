@@ -3,6 +3,8 @@
 // ============================================
 import { callApi } from '../services/api';
 import {
+  isAntigravityBrowser,
+  isAudioMutedByEnvironment,
   playPosSuccess,
   playPosWarning,
   playPosError,
@@ -29,6 +31,8 @@ import {
 } from './attendanceSequence';
 
 export {
+  isAntigravityBrowser,
+  isAudioMutedByEnvironment,
   playPosSuccess,
   playPosWarning,
   playPosError,
@@ -155,6 +159,7 @@ function resolveAudioNotification(text: string, customKey?: string): { clipKey?:
  */
 export function speak(text: string, customAudioKey?: string) {
   try {
+    if (isAudioMutedByEnvironment()) return;
     const { clipKey, chimeType } = resolveAudioNotification(text, customAudioKey);
 
     // Tầng 1: Web Audio Chime (<10ms instantaneous feedback)

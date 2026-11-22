@@ -14,6 +14,8 @@ import {
   getVietnamDateParts,
   getRecommendedCheckInType,
   parseVietnamLogTimestampMs,
+  matchesUser,
+  parseLogDate,
 } from '../utils/helpers';
 import { getWorkdayCycleBounds } from '../utils/attendanceSequence';
 import { normalizeIncidentStatus } from '../utils/operationsReconciliation';
@@ -24,6 +26,7 @@ import AppErrorBoundary from '../components/AppErrorBoundary';
 import KgAppShell from '../components/KgAppShell';
 import EmployeeDashboardView from '../components/dashboard/EmployeeDashboardView';
 import AdminDashboardView from '../components/dashboard/AdminDashboardView';
+import type { OperationalAlertEmployee } from '../components/dashboard/AdminOperationsAlertCard';
 import { moduleLoaders } from '../config/moduleRegistry';
 import type { TabId } from '../types/navigation';
 
@@ -199,6 +202,7 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
     useShallow((s) => ({
       currentUser: s.currentUser,
       currentTab: s.currentTab,
+      users: s.users,
       logs: s.logs,
       approvedShifts: s.approvedShifts,
       currentWeekApprovedShifts: s.currentWeekApprovedShifts,
@@ -434,25 +438,58 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
     }
   });
 
-  const scheduledToday = dashboardSchedules
+  const directoryUsers = Array.isArray(store.users) ? store.users : [];
+  const scheduledToday: OperationalAlertEmployee[] = dashboardSchedules
     .map((emp) => {
       const shift = emp.shifts[dayIdx];
       if (shift && shift !== 'OFF' && shift !== 'OFF#') {
-        return { fullname: emp.fullname, shift };
+        const matchedProfile = directoryUsers.find((u) =>
+          matchesUser(u, { fullname: emp.fullname, username: emp.username })
+        );
+        return {
+          fullname: emp.fullname,
+          shift,
+          username: emp.username || matchedProfile?.username,
+          position: emp.position || matchedProfile?.position,
+          avatarUrl: emp.avatarUrl || matchedProfile?.avatarUrl,
+        };
       }
       return null;
     })
-    .filter(Boolean) as { fullname: string; shift: string }[];
+    .filter(Boolean) as OperationalAlertEmployee[];
 
   const notArrived = scheduledToday.filter((emp) => {
     const userLogs = checkinMap.get(emp.fullname) || [];
     return !userLogs.some((l: any) => isCheckInLabel(l.type));
   });
 
-  const lateArrived = scheduledToday.filter((emp) => {
-    const userLogs = checkinMap.get(emp.fullname) || [];
-    return userLogs.some((l: any) => l.type.includes('Trễ'));
-  });
+  const lateArrived: OperationalAlertEmployee[] = scheduledToday.reduce<OperationalAlertEmployee[]>(
+    (acc, emp) => {
+      const userLogs = checkinMap.get(emp.fullname) || [];
+      const lateLog = userLogs.find((l: any) => l.type.includes('Trễ'));
+      if (!lateLog) return acc;
+
+      const rawTime = String(lateLog.time || '').trim();
+      let checkinTime = '';
+      if (/[zZ]|[+-]\d{2}:?\d{2}$/.test(rawTime)) {
+        const parsed = parseLogDate(rawTime);
+        if (parsed) {
+          checkinTime = new Intl.DateTimeFormat('vi-VN', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+            timeZone: 'Asia/Ho_Chi_Minh',
+          }).format(parsed);
+        }
+      }
+      if (!checkinTime) {
+        checkinTime = rawTime.match(/\b(\d{1,2}:\d{2})\b/)?.[1] || '';
+      }
+      acc.push(checkinTime ? { ...emp, checkinTime } : emp);
+      return acc;
+    },
+    [],
+  );
 
   // Check user's check-in/out status for current 06:00-05:59 workday cycle
   const checkInRec = getRecommendedCheckInType(store.logs, currentUser);

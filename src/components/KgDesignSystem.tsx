@@ -131,6 +131,8 @@ export function KgCard({
       }
     : undefined;
 
+  const isInteractive = Boolean(onClick || hoverable);
+
   return (
     <div
       onClick={onClick}
@@ -140,14 +142,14 @@ export function KgCard({
       data-selected={selected ? 'true' : undefined}
       className={`kg-card bg-[var(--kg-surface)] border ${
         selected ? 'border-[var(--kg-primary)] ring-1 ring-[var(--kg-primary)]/25' : 'border-[var(--kg-border)]'
-      } rounded-[var(--radius-lg)] p-4 md:p-5 transition-colors duration-150 min-w-0 ${
+      } rounded-[var(--radius-lg)] p-4 md:p-5 min-w-0 ${
+        isInteractive ? 'kg-card-interactive' : 'transition-colors duration-150'
+      } ${
         stacked ? 'shadow-card' : ''
       } ${
         onClick
-          ? 'cursor-pointer select-none active:scale-[0.995] touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--kg-primary-ink)] focus-visible:ring-offset-1'
+          ? 'cursor-pointer select-none touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--kg-primary-ink)] focus-visible:ring-offset-1'
           : ''
-      } ${
-        hoverable || onClick ? 'hover:border-[var(--kg-border-strong)]' : ''
       } ${className}`}
     >
       {children}
@@ -182,7 +184,7 @@ export function KgButton({
   title?: string;
 } & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'type' | 'disabled' | 'onClick' | 'className' | 'title'>) {
   const baseStyles =
-    'inline-flex items-center justify-center font-bold transition-colors duration-150 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--kg-primary-ink)] focus-visible:ring-offset-1 disabled:bg-[var(--kg-surface-soft)] disabled:text-[var(--kg-text-soft)] disabled:border-[var(--kg-border)] disabled:shadow-none disabled:pointer-events-none touch-manipulation select-none whitespace-nowrap max-w-full';
+    'kg-pressable inline-flex items-center justify-center font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--kg-primary-ink)] focus-visible:ring-offset-1 disabled:bg-[var(--kg-surface-soft)] disabled:text-[var(--kg-text-soft)] disabled:border-[var(--kg-border)] disabled:shadow-none disabled:pointer-events-none select-none whitespace-nowrap max-w-full';
 
   const sizeStyles = {
     sm: 'px-3 py-1.5 text-xs rounded-[10px] gap-1.5 min-h-[44px] sm:min-h-[36px]',
@@ -260,7 +262,7 @@ export function KgIconButton({
       onClick={onClick}
       title={title}
       aria-label={ariaLabel || title || 'Thao tác'}
-      className={`w-11 h-11 sm:w-10 sm:h-10 min-w-[44px] min-h-[44px] sm:min-w-[40px] sm:min-h-[40px] rounded-[11px] flex items-center justify-center active:scale-[0.98] transition-colors duration-150 disabled:opacity-50 disabled:pointer-events-none touch-manipulation flex-shrink-0 ${variantStyles[variant]} ${className}`}
+      className={`kg-pressable w-11 h-11 sm:w-10 sm:h-10 min-w-[44px] min-h-[44px] sm:min-w-[40px] sm:min-h-[40px] rounded-[11px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--kg-primary-ink)] focus-visible:ring-offset-1 disabled:opacity-50 disabled:pointer-events-none flex-shrink-0 ${variantStyles[variant]} ${className}`}
     >
       <Icon size={18} strokeWidth={1.75} />
     </button>
@@ -476,19 +478,23 @@ export function KgMetricCard({
   return (
     <KgCard
       onClick={onClick}
-      className={`kg-metric-card flex flex-col justify-between gap-2.5 p-3.5 sm:p-[18px] min-h-[106px] sm:min-h-[118px] ${className}`}
+      className={`kg-metric-card ${onClick ? 'group' : ''} flex flex-col justify-between gap-2.5 p-3.5 sm:p-[18px] min-h-[106px] sm:min-h-[118px] ${className}`}
       hoverable={Boolean(onClick)}
     >
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[11.5px] sm:text-xs text-[var(--kg-text-muted)] font-bold leading-snug">
+      <div className="flex items-center justify-between gap-2 min-w-0">
+        <span className="text-[11.5px] sm:text-xs text-[var(--kg-text-muted)] font-bold leading-snug line-clamp-2 min-w-0">
           {title}
         </span>
-        <div className={`w-[34px] h-[34px] rounded-[11px] border flex items-center justify-center flex-shrink-0 ${iconStyles[variant]}`}>
+        <div
+          className={`w-[34px] h-[34px] rounded-[11px] border flex items-center justify-center flex-shrink-0 transition-transform duration-150 ${
+            onClick ? 'group-hover:scale-[1.04]' : ''
+          } ${iconStyles[variant]}`}
+        >
           <Icon size={16} strokeWidth={1.85} />
         </div>
       </div>
       <div className="min-w-0">
-        <p className="text-[23px] sm:text-[28px] font-black text-[var(--kg-text)] tracking-tight tabular-nums font-mono leading-none">
+        <p className="text-[22px] sm:text-[26px] xl:text-[28px] font-black text-[var(--kg-text)] tracking-tight tabular-nums font-mono leading-none truncate">
           {value}
         </p>
         {subtext && (
@@ -642,7 +648,7 @@ export function KgToast({
 
   return (
     <div
-      className={`kg-toast-in flex items-center gap-3 p-3.5 rounded-xl border shadow-lg max-w-sm pointer-events-auto ${typeStyles[message.type]}`}
+      className={`kg-animate-toast-in flex items-center gap-3 p-3.5 rounded-xl border shadow-lg max-w-sm pointer-events-auto ${typeStyles[message.type]}`}
     >
       <Icon size={18} strokeWidth={1.85} className={`flex-shrink-0 ${iconColors[message.type]}`} />
       <span className="text-xs font-semibold leading-normal flex-1">{message.title}</span>
@@ -650,7 +656,7 @@ export function KgToast({
         type="button"
         onClick={() => onClose(message.id)}
         aria-label="Đóng thông báo"
-        className="w-10 h-10 sm:w-8 sm:h-8 -mr-1.5 rounded-lg flex items-center justify-center text-[var(--kg-rail-muted)] hover:text-white hover:bg-white/10 transition-colors flex-shrink-0 touch-manipulation"
+        className="kg-pressable w-11 h-11 sm:w-8 sm:h-8 -mr-1.5 rounded-lg flex items-center justify-center text-[var(--kg-rail-muted)] hover:text-white hover:bg-white/10 flex-shrink-0"
       >
         <X size={15} />
       </button>
@@ -701,9 +707,12 @@ export function KgBottomSheet({
         aria-modal="true"
         aria-labelledby={titleId}
         onClick={(e) => e.stopPropagation()}
-        className="kg-sheet-up sm:kg-scale-in relative z-10 w-full max-w-lg max-h-[90dvh] sm:max-h-[86dvh] mx-auto bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-t-[22px] sm:rounded-[20px] border border-[var(--kg-border)] shadow-2xl flex flex-col pointer-events-auto overflow-hidden focus:outline-none"
+        className="kg-animate-sheet-up sm:kg-animate-scale-in relative z-10 w-full max-w-lg max-h-[90dvh] sm:max-h-[86dvh] mx-auto bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-t-[22px] sm:rounded-[20px] border border-[var(--kg-border)] shadow-2xl flex flex-col pointer-events-auto overflow-hidden focus:outline-none"
       >
-        <div className="px-4 sm:px-5 py-3.5 border-b border-[var(--kg-border)] bg-[var(--kg-surface-2)] flex items-center justify-between gap-3 flex-shrink-0">
+        <div className="sm:hidden flex justify-center pt-2 pb-0.5 bg-[var(--kg-surface-2)] flex-shrink-0" aria-hidden="true">
+          <span className="w-9 h-1 rounded-full bg-[var(--kg-border-strong)]" />
+        </div>
+        <div className="px-4 sm:px-5 py-3 sm:py-3.5 border-b border-[var(--kg-border)] bg-[var(--kg-surface-2)] flex items-center justify-between gap-3 flex-shrink-0">
           <div className="min-w-0 flex-1">
             <h3 id={titleId} className="text-sm font-extrabold tracking-tight text-[var(--kg-text)] truncate">
               {title}
@@ -718,7 +727,7 @@ export function KgBottomSheet({
             type="button"
             onClick={onClose}
             aria-label="Đóng hộp thoại"
-            className="w-11 h-11 sm:w-9 sm:h-9 rounded-[11px] bg-[var(--kg-surface)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:border-[var(--kg-border-strong)] active:scale-95 transition-colors flex-shrink-0 touch-manipulation"
+            className="kg-pressable w-11 h-11 sm:w-9 sm:h-9 rounded-[11px] bg-[var(--kg-surface)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:border-[var(--kg-border-strong)] flex-shrink-0"
           >
             <X size={16} />
           </button>
@@ -783,6 +792,215 @@ export function KgConfirmSheet({
         </div>
       </div>
     </KgBottomSheet>
+  );
+}
+
+export function KgModal({
+  isOpen,
+  open,
+  onClose,
+  title,
+  subtitle,
+  footer,
+  size = 'md',
+  closeOnBackdropClick = true,
+  className = '',
+  children
+}: {
+  isOpen?: boolean;
+  open?: boolean;
+  onClose: () => void;
+  title?: string;
+  subtitle?: string;
+  footer?: React.ReactNode;
+  size?: 'sm' | 'md' | 'lg' | 'xl';
+  closeOnBackdropClick?: boolean;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const resolvedOpen = Boolean(isOpen ?? open);
+  const dialogRef = React.useRef<HTMLDivElement | null>(null);
+  const titleId = React.useId();
+
+  useDialogA11y({
+    isOpen: resolvedOpen,
+    containerRef: dialogRef,
+    onClose,
+    closeOnEscape: true,
+  });
+
+  if (!resolvedOpen || typeof document === 'undefined') return null;
+
+  const sizeStyles = {
+    sm: 'max-w-sm',
+    md: 'max-w-lg',
+    lg: 'max-w-2xl',
+    xl: 'max-w-4xl',
+  };
+
+  return createPortal(
+    <div className="fixed inset-0 z-[10060] flex items-center justify-center p-3 sm:p-5 md:p-6">
+      <div
+        onClick={closeOnBackdropClick ? onClose : undefined}
+        className="kg-fade-in fixed inset-0 bg-black/60 pointer-events-auto"
+      />
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={title ? titleId : undefined}
+        onClick={(e) => e.stopPropagation()}
+        className={`kg-animate-scale-in relative z-10 w-full ${sizeStyles[size]} max-h-[88dvh] mx-auto bg-[var(--kg-surface)] text-[var(--kg-text)] rounded-[20px] border border-[var(--kg-border)] shadow-2xl flex flex-col pointer-events-auto overflow-hidden focus:outline-none ${className}`}
+      >
+        {title && (
+          <div className="px-4 sm:px-5 py-3.5 border-b border-[var(--kg-border)] bg-[var(--kg-surface-2)] flex items-center justify-between gap-3 flex-shrink-0">
+            <div className="min-w-0 flex-1">
+              <h3 id={titleId} className="text-sm font-extrabold tracking-tight text-[var(--kg-text)] truncate">
+                {title}
+              </h3>
+              {subtitle && (
+                <p className="text-xs text-[var(--kg-text-muted)] mt-0.5 leading-snug line-clamp-2">
+                  {subtitle}
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Đóng hộp thoại"
+              className="kg-pressable w-11 h-11 sm:w-9 sm:h-9 rounded-[11px] bg-[var(--kg-surface)] border border-[var(--kg-border)] flex items-center justify-center text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:border-[var(--kg-border-strong)] flex-shrink-0"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
+        <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 min-h-0">
+          {children}
+        </div>
+        {footer && (
+          <div className="px-4 sm:px-5 py-3 border-t border-[var(--kg-border)] bg-[var(--kg-surface-2)] flex-shrink-0">
+            {footer}
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+export interface KgTabItem<T extends string = string> {
+  id: T;
+  label: string;
+  shortLabel?: string;
+  icon?: React.ComponentType<any>;
+  badge?: number | string;
+  disabled?: boolean;
+}
+
+export function KgTabs<T extends string = string>({
+  items,
+  value,
+  onChange,
+  ariaLabel = 'Chuyển đổi mục',
+  variant = 'pill',
+  className = '',
+}: {
+  items: KgTabItem<T>[];
+  value: T;
+  onChange: (id: T) => void;
+  ariaLabel?: string;
+  variant?: 'pill' | 'segmented';
+  className?: string;
+}) {
+  const tabRefs = React.useRef<Array<HTMLButtonElement | null>>([]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>, idx: number) => {
+    const enabledIndexes = items
+      .map((item, i) => (item.disabled ? -1 : i))
+      .filter((i) => i >= 0);
+    if (enabledIndexes.length === 0) return;
+
+    const currentPos = enabledIndexes.indexOf(idx);
+    let nextIdx: number | null = null;
+    if (e.key === 'ArrowRight') {
+      nextIdx = enabledIndexes[(currentPos + 1) % enabledIndexes.length];
+    } else if (e.key === 'ArrowLeft') {
+      nextIdx = enabledIndexes[(currentPos - 1 + enabledIndexes.length) % enabledIndexes.length];
+    } else if (e.key === 'Home') {
+      nextIdx = enabledIndexes[0];
+    } else if (e.key === 'End') {
+      nextIdx = enabledIndexes[enabledIndexes.length - 1];
+    }
+
+    if (nextIdx !== null) {
+      e.preventDefault();
+      const target = items[nextIdx];
+      if (target) {
+        onChange(target.id);
+        tabRefs.current[nextIdx]?.focus();
+      }
+    }
+  };
+
+  return (
+    <div
+      role="tablist"
+      aria-label={ariaLabel}
+      className={
+        variant === 'segmented'
+          ? `inline-flex items-center gap-1 p-1 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] max-w-full overflow-x-auto hide-scrollbar ${className}`
+          : `flex items-center gap-1.5 overflow-x-auto hide-scrollbar pb-0.5 ${className}`
+      }
+    >
+      {items.map((item, idx) => {
+        const isActive = item.id === value;
+        const Icon = item.icon;
+        return (
+          <button
+            key={item.id}
+            ref={(el) => {
+              tabRefs.current[idx] = el;
+            }}
+            type="button"
+            role="tab"
+            aria-selected={isActive}
+            tabIndex={isActive ? 0 : -1}
+            disabled={item.disabled}
+            onClick={() => onChange(item.id)}
+            onKeyDown={(e) => handleKeyDown(e, idx)}
+            className={
+              variant === 'segmented'
+                ? `kg-pressable inline-flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-[38px] px-3 sm:px-3.5 py-1.5 rounded-[10px] text-xs font-bold whitespace-nowrap select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--kg-primary-ink)] disabled:opacity-50 disabled:pointer-events-none ${
+                    isActive
+                      ? 'bg-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)] shadow-xs'
+                      : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface)]/70'
+                  }`
+                : `kg-pressable kg-filter-pill ${isActive ? 'kg-filter-pill--active' : ''} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--kg-primary-ink)] disabled:opacity-50 disabled:pointer-events-none`
+            }
+          >
+            {Icon && <Icon size={15} strokeWidth={isActive ? 2 : 1.75} className="flex-shrink-0" />}
+            <span className="truncate">{item.shortLabel ? (
+              <>
+                <span className="sm:hidden">{item.shortLabel}</span>
+                <span className="hidden sm:inline">{item.label}</span>
+              </>
+            ) : item.label}</span>
+            {item.badge !== undefined && item.badge !== null && item.badge !== '' && (
+              <span
+                className={`px-1.5 py-0.5 rounded-full text-[10px] font-extrabold font-mono tabular-nums leading-none ${
+                  isActive
+                    ? 'bg-white/20 text-current dark:bg-black/15'
+                    : 'bg-[var(--kg-surface-soft)] text-[var(--kg-text-muted)] border border-[var(--kg-border)]'
+                }`}
+              >
+                {item.badge}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -916,8 +1134,17 @@ export function KgActionSheet({
   return (
     <KgBottomSheet isOpen={isOpen} onClose={onClose} title={title}>
       <div className="space-y-4 py-1">
-        {groupedActions.map((group) => (
-          <section key={group.label} className="kg-action-group">
+        {groupedActions.map((group, gIdx) => {
+          const staggerClass =
+            gIdx === 0
+              ? 'kg-stagger-1'
+              : gIdx === 1
+                ? 'kg-stagger-2'
+                : gIdx === 2
+                  ? 'kg-stagger-3'
+                  : 'kg-stagger-4';
+          return (
+          <section key={group.label} className={`kg-action-group kg-animate-fade-up ${staggerClass}`}>
             <div className="flex items-center gap-2 px-1 mb-2">
               <span className="w-1.5 h-1.5 rounded-full bg-[var(--kg-accent)]" />
               <h4 className="text-[11px] font-semibold uppercase tracking-wider text-[var(--kg-text-muted)]">
@@ -938,7 +1165,7 @@ export function KgActionSheet({
                   onFocus={act.onPrefetch}
                   onTouchStart={act.onPrefetch}
                   aria-current={act.active ? 'page' : undefined}
-                  className={`kg-action-tile flex flex-col items-center justify-center p-2.5 rounded-xl active:scale-95 transition-colors gap-2 min-h-[84px] ${
+                  className={`kg-action-tile kg-pressable flex flex-col items-center justify-center p-2.5 rounded-xl gap-2 min-h-[84px] ${
                     act.active
                       ? 'kg-action-tile--active text-[var(--kg-primary-fg)]'
                       : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)]'
@@ -960,7 +1187,8 @@ export function KgActionSheet({
               ))}
             </div>
           </section>
-        ))}
+          );
+        })}
       </div>
     </KgBottomSheet>
   );

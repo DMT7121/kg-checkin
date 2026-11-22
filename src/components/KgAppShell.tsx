@@ -437,7 +437,7 @@ export default function KgAppShell({
           <button
             type="button"
             onClick={() => handleTabChange('dashboard')}
-            className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-[12px] bg-[#F29055] text-[#241C17] flex items-center justify-center flex-shrink-0 shadow-xs active:scale-95 transition-transform touch-manipulation"
+            className="kg-pressable w-11 h-11 min-w-[44px] min-h-[44px] rounded-[12px] bg-[#F29055] text-[#241C17] flex items-center justify-center flex-shrink-0 shadow-xs"
             aria-label="Về trang Hôm nay"
           >
             <Flame size={20} strokeWidth={2.15} />
@@ -477,7 +477,7 @@ export default function KgAppShell({
           <button
             type="button"
             onClick={() => setIsCommandOpen(true)}
-            className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-[11px] border border-[var(--kg-border)] bg-[var(--kg-surface-2)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] flex items-center justify-center active:scale-95 transition-colors touch-manipulation"
+            className="kg-pressable w-11 h-11 min-w-[44px] min-h-[44px] rounded-[11px] border border-[var(--kg-border)] bg-[var(--kg-surface-2)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:border-[var(--kg-border-strong)] flex items-center justify-center"
             title="Tìm nhanh phân hệ"
             aria-label="Tìm nhanh phân hệ"
           >
@@ -489,7 +489,7 @@ export default function KgAppShell({
           <button
             type="button"
             onClick={() => setIsMobileAccountOpen(true)}
-            className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-[11px] border border-[var(--kg-border)] bg-[var(--kg-surface-2)] flex items-center justify-center active:scale-95 transition-colors touch-manipulation overflow-hidden"
+            className="kg-pressable w-11 h-11 min-w-[44px] min-h-[44px] rounded-[11px] border border-[var(--kg-border)] bg-[var(--kg-surface-2)] hover:border-[var(--kg-border-strong)] flex items-center justify-center overflow-hidden"
             title="Tài khoản & Tiện ích"
             aria-label="Tài khoản và cài đặt"
           >
@@ -509,7 +509,7 @@ export default function KgAppShell({
         aria-label="Thanh điều hướng chính"
         className={`hidden md:flex flex-col ${
           isRailExpanded ? 'w-[248px]' : 'w-[88px]'
-        } shrink-0 bg-[var(--kg-rail-bg)] text-[var(--kg-rail-text)] border-r border-[var(--kg-rail-border)] h-dvh sticky top-0 overflow-hidden transition-[width] duration-150 ease-out select-none`}
+        } shrink-0 bg-[var(--kg-rail-bg)] text-[var(--kg-rail-text)] border-r border-[var(--kg-rail-border)] h-dvh sticky top-0 overflow-hidden transition-[width] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] select-none`}
       >
         {/* Brand Crest + Expand Toggle */}
         <div
@@ -522,7 +522,7 @@ export default function KgAppShell({
               <button
                 type="button"
                 onClick={() => handleTabChange('dashboard')}
-                className="flex items-center gap-2.5 min-w-0 text-left min-h-[44px] rounded-xl px-1 -ml-1 hover:bg-white/5 transition-colors"
+                className="kg-pressable flex items-center gap-2.5 min-w-0 text-left min-h-[44px] rounded-xl px-1 -ml-1 hover:bg-white/5"
               >
                 <div className="w-10 h-10 rounded-[12px] bg-[#F29055] text-[#241C17] flex items-center justify-center flex-shrink-0">
                   <Flame size={20} strokeWidth={2.15} />
@@ -539,7 +539,7 @@ export default function KgAppShell({
               <button
                 type="button"
                 onClick={toggleRailExpanded}
-                className="w-11 h-11 lg:w-8 lg:h-8 rounded-lg bg-white/10 hover:bg-white/15 text-[var(--kg-rail-muted)] hover:text-white flex items-center justify-center transition-colors flex-shrink-0"
+                className="kg-pressable w-11 h-11 lg:w-8 lg:h-8 rounded-lg bg-white/10 hover:bg-white/15 text-[var(--kg-rail-muted)] hover:text-white flex items-center justify-center flex-shrink-0"
                 title="Thu gọn thành thanh Icon"
                 aria-label="Thu gọn thanh điều hướng"
               >
@@ -550,12 +550,12 @@ export default function KgAppShell({
             <button
               type="button"
               onClick={toggleRailExpanded}
-              className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-[12px] bg-[#F29055] hover:brightness-105 text-[#241C17] flex items-center justify-center transition-all relative group"
+              className="kg-pressable w-11 h-11 min-w-[44px] min-h-[44px] rounded-[12px] bg-[#F29055] hover:brightness-105 text-[#241C17] flex items-center justify-center relative group"
               title="Mở rộng danh mục điều hướng"
               aria-label="Mở rộng danh mục điều hướng"
             >
-              <Flame size={20} strokeWidth={2.15} className="group-hover:opacity-0 transition-opacity" />
-              <PanelLeftOpen size={17} className="text-[#241C17] absolute opacity-0 group-hover:opacity-100 transition-opacity" />
+              <Flame size={20} strokeWidth={2.15} className="group-hover:opacity-0 transition-opacity duration-150" />
+              <PanelLeftOpen size={17} className="text-[#241C17] absolute opacity-0 group-hover:opacity-100 transition-opacity duration-150" />
             </button>
           )}
         </div>
@@ -586,7 +586,7 @@ export default function KgAppShell({
                     title={!isRailExpanded ? `${item.label} (${group.label})` : undefined}
                     aria-label={item.label}
                     aria-current={isActive ? 'page' : undefined}
-                    className={`relative w-full rounded-[11px] transition-colors duration-150 flex items-center touch-manipulation ${
+                    className={`kg-pressable relative w-full rounded-[11px] flex items-center ${
                       isRailExpanded
                         ? 'px-3 py-2.5 gap-2.5 justify-start text-left min-h-[44px] lg:min-h-[42px]'
                         : 'flex-col justify-center gap-0.5 px-1 py-1.5 min-h-[44px]'
@@ -599,7 +599,7 @@ export default function KgAppShell({
                     <Icon
                       size={18}
                       strokeWidth={isActive ? 2 : 1.75}
-                      className={`flex-shrink-0 ${isActive ? 'text-[#FFB581]' : ''}`}
+                      className={`flex-shrink-0 transition-transform duration-150 ${isActive ? 'text-[#FFB581] scale-[1.05]' : ''}`}
                     />
                     {isRailExpanded ? (
                       <>
@@ -637,7 +637,7 @@ export default function KgAppShell({
                 <button
                   type="button"
                   onClick={() => handleTabChange('profile')}
-                  className="flex items-center gap-2.5 min-w-0 flex-1 text-left rounded-lg p-1 -m-1 hover:bg-white/[0.06] transition-colors"
+                  className="kg-pressable flex items-center gap-2.5 min-w-0 flex-1 text-left rounded-lg p-1 -m-1 hover:bg-white/[0.06]"
                   title="Mở hồ sơ cá nhân"
                 >
                   {currentUser?.avatarUrl ? (
@@ -660,7 +660,7 @@ export default function KgAppShell({
                 <button
                   type="button"
                   onClick={() => toggleDarkMode()}
-                  className="w-8 h-8 rounded-[9px] bg-white/[0.09] hover:bg-white/15 text-[var(--kg-rail-text)] flex items-center justify-center transition-colors flex-shrink-0"
+                  className="kg-pressable w-8 h-8 rounded-[9px] bg-white/[0.09] hover:bg-white/15 text-[var(--kg-rail-text)] flex items-center justify-center flex-shrink-0"
                   title={isDark ? 'Chuyển sang Giao diện Sáng' : 'Chuyển sang Giao diện Tối'}
                   aria-label={isDark ? 'Chuyển sang Giao diện Sáng' : 'Chuyển sang Giao diện Tối'}
                 >
@@ -672,7 +672,7 @@ export default function KgAppShell({
                 <button
                   type="button"
                   onClick={() => setIsGuideOpen(true)}
-                  className="flex-1 h-8 px-2 rounded-[9px] bg-white/[0.07] hover:bg-white/15 text-amber-200 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors truncate"
+                  className="kg-pressable flex-1 h-8 px-2 rounded-[9px] bg-white/[0.07] hover:bg-white/15 text-amber-200 text-[11px] font-semibold flex items-center justify-center gap-1.5 truncate"
                   title="Cẩm nang hướng dẫn người mới"
                 >
                   <GraduationCap size={14} className="flex-shrink-0" />
@@ -681,7 +681,7 @@ export default function KgAppShell({
                 <button
                   type="button"
                   onClick={() => openReleaseNotesModal('all')}
-                  className="h-8 px-2 rounded-[9px] bg-white/[0.07] hover:bg-white/15 text-[var(--kg-rail-muted)] hover:text-white text-[10.5px] font-mono font-bold flex items-center justify-center transition-colors flex-shrink-0"
+                  className="kg-pressable h-8 px-2 rounded-[9px] bg-white/[0.07] hover:bg-white/15 text-[var(--kg-rail-muted)] hover:text-white text-[10.5px] font-mono font-bold flex items-center justify-center flex-shrink-0"
                   title={`Xem điểm mới phiên bản ${APP_VERSION_TAG}`}
                 >
                   {APP_VERSION_TAG}
@@ -689,7 +689,7 @@ export default function KgAppShell({
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="w-8 h-8 rounded-[9px] bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-400/25 flex items-center justify-center transition-colors flex-shrink-0"
+                  className="kg-pressable w-8 h-8 rounded-[9px] bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-400/25 flex items-center justify-center flex-shrink-0"
                   title="Đăng xuất tài khoản"
                   aria-label="Đăng xuất tài khoản"
                 >
@@ -702,7 +702,7 @@ export default function KgAppShell({
               <button
                 type="button"
                 onClick={() => setIsGuideOpen(true)}
-                className="w-11 h-11 lg:w-9 lg:h-9 rounded-lg bg-[var(--kg-rail-surface)] hover:bg-white/15 text-amber-300 flex items-center justify-center transition-colors"
+                className="kg-pressable w-11 h-11 lg:w-9 lg:h-9 rounded-lg bg-[var(--kg-rail-surface)] hover:bg-white/15 text-amber-300 flex items-center justify-center"
                 title="Cẩm nang hướng dẫn người mới"
                 aria-label="Cẩm nang hướng dẫn người mới"
               >
@@ -712,7 +712,7 @@ export default function KgAppShell({
               <button
                 type="button"
                 onClick={() => toggleDarkMode()}
-                className="w-11 h-11 lg:w-9 lg:h-9 rounded-lg bg-[var(--kg-rail-surface)] hover:bg-white/15 text-[var(--kg-rail-text)] flex items-center justify-center transition-colors"
+                className="kg-pressable w-11 h-11 lg:w-9 lg:h-9 rounded-lg bg-[var(--kg-rail-surface)] hover:bg-white/15 text-[var(--kg-rail-text)] flex items-center justify-center"
                 title={isDark ? 'Chuyển sang Giao diện Sáng' : 'Chuyển sang Giao diện Tối'}
                 aria-label={isDark ? 'Chuyển sang Giao diện Sáng' : 'Chuyển sang Giao diện Tối'}
               >
@@ -722,7 +722,7 @@ export default function KgAppShell({
               <button
                 type="button"
                 onClick={handleLogout}
-                className="w-11 h-11 lg:w-9 lg:h-9 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-400/25 flex items-center justify-center transition-colors"
+                className="kg-pressable w-11 h-11 lg:w-9 lg:h-9 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-400/25 flex items-center justify-center"
                 title="Đăng xuất tài khoản"
                 aria-label="Đăng xuất tài khoản"
               >
@@ -742,7 +742,10 @@ export default function KgAppShell({
               KING&apos;S GRILL
             </span>
             <ChevronRight size={14} className="text-[var(--kg-text-soft)] flex-shrink-0" />
-            <h2 className="text-[15px] lg:text-[16px] font-extrabold tracking-tight text-[var(--kg-text)] truncate min-w-0">
+            <h2
+              key={activeTitle}
+              className="kg-animate-fade-up text-[15px] lg:text-[16px] font-extrabold tracking-tight text-[var(--kg-text)] truncate min-w-0"
+            >
               {activeTitle}
             </h2>
           </div>
@@ -751,7 +754,7 @@ export default function KgAppShell({
             <button
               type="button"
               onClick={() => setIsCommandOpen(true)}
-              className="w-11 h-11 lg:w-auto lg:min-h-[38px] lg:h-[38px] lg:px-3 rounded-[11px] bg-[var(--kg-surface-2)] border border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)] hover:border-[var(--kg-border-strong)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] text-xs font-semibold flex items-center justify-center gap-2 transition-colors whitespace-nowrap flex-shrink-0"
+              className="kg-pressable w-11 h-11 lg:w-auto lg:min-h-[38px] lg:h-[38px] lg:px-3 rounded-[11px] bg-[var(--kg-surface-2)] border border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)] hover:border-[var(--kg-border-strong)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] text-xs font-semibold flex items-center justify-center gap-2 whitespace-nowrap flex-shrink-0"
               title="Tìm nhanh phân hệ (Ctrl+K)"
               aria-label="Tìm nhanh phân hệ"
             >
@@ -770,7 +773,7 @@ export default function KgAppShell({
             <button
               type="button"
               onClick={() => setIsQuickActionsOpen(true)}
-              className="w-11 h-11 lg:w-10 lg:h-10 rounded-[11px] bg-[var(--kg-surface)] border border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)] hover:border-[var(--kg-border-strong)] text-[var(--kg-text)] flex items-center justify-center transition-colors flex-shrink-0 touch-manipulation"
+              className="kg-pressable w-11 h-11 lg:w-10 lg:h-10 rounded-[11px] bg-[var(--kg-surface)] border border-[var(--kg-border)] hover:bg-[var(--kg-surface-soft)] hover:border-[var(--kg-border-strong)] text-[var(--kg-text)] flex items-center justify-center flex-shrink-0"
               title="Tác vụ nhanh"
               aria-label="Mở tác vụ nhanh"
             >
@@ -784,7 +787,7 @@ export default function KgAppShell({
               onClick={() => handleTabChange('profile')}
               title={`${currentUser?.fullname || 'Nhân sự'} (${isAdmin ? 'Quản lý' : 'Nhân viên'})`}
               aria-label="Hồ sơ cá nhân"
-              className="h-11 lg:h-10 px-2 lg:pl-3 lg:pr-1.5 rounded-[12px] bg-[var(--kg-surface)] border border-[var(--kg-border)] hover:border-[var(--kg-border-strong)] flex items-center justify-center gap-2.5 transition-colors flex-shrink-0"
+              className="kg-pressable h-11 lg:h-10 px-2 lg:pl-3 lg:pr-1.5 rounded-[12px] bg-[var(--kg-surface)] border border-[var(--kg-border)] hover:border-[var(--kg-border-strong)] flex items-center justify-center gap-2.5 flex-shrink-0"
             >
               <span className="hidden xl:inline text-xs font-bold text-[var(--kg-text)] max-w-[128px] truncate">
                 {currentUser?.fullname || 'Nhân sự'}
@@ -806,7 +809,9 @@ export default function KgAppShell({
             isWideModule ? 'max-w-[1520px]' : 'max-w-[1260px]'
           } mx-auto px-3.5 sm:px-5 md:px-6 lg:px-7 py-3 sm:py-4 md:py-5 pb-[calc(6.75rem+env(safe-area-inset-bottom,0px))] md:pb-12 min-h-0`}
         >
-          {children}
+          <div key={currentTab} className="kg-animate-fade-up min-w-0">
+            {children}
+          </div>
         </div>
       </main>
 
@@ -828,13 +833,17 @@ export default function KgAppShell({
               onFocus={() => onPrefetch?.(tab.id)}
               onTouchStart={() => onPrefetch?.(tab.id)}
               aria-current={isActive ? 'page' : undefined}
-              className={`relative min-w-0 min-h-[52px] px-1 py-1.5 rounded-[13px] flex flex-col items-center justify-center gap-1 transition-colors touch-manipulation select-none active:scale-95 ${
+              className={`kg-pressable relative min-w-0 min-h-[52px] px-1 py-1.5 rounded-[13px] flex flex-col items-center justify-center gap-1 select-none ${
                 isActive
                   ? 'bg-[#F6A36B] text-[#241C17] font-extrabold shadow-xs'
                   : 'text-[#D1DBD0] hover:text-white font-bold'
               }`}
             >
-              <Icon size={19} strokeWidth={isActive ? 2.15 : 1.85} className="flex-shrink-0" />
+              <Icon
+                size={19}
+                strokeWidth={isActive ? 2.15 : 1.85}
+                className={`flex-shrink-0 transition-transform duration-150 ${isActive ? 'scale-[1.06]' : ''}`}
+              />
               <span className="text-[10px] tracking-tight leading-none whitespace-nowrap truncate w-full text-center px-0.5">
                 {tab.shortLabel || tab.label}
               </span>
@@ -856,13 +865,17 @@ export default function KgAppShell({
             <button
               type="button"
               onClick={() => setIsMoreOpen(true)}
-              className={`relative min-w-0 min-h-[52px] px-1 py-1.5 rounded-[13px] flex flex-col items-center justify-center gap-1 transition-colors touch-manipulation select-none active:scale-95 ${
+              className={`kg-pressable relative min-w-0 min-h-[52px] px-1 py-1.5 rounded-[13px] flex flex-col items-center justify-center gap-1 select-none ${
                 isMoreActionActive
                   ? 'bg-[#F6A36B] text-[#241C17] font-extrabold shadow-xs'
                   : 'text-[#D1DBD0] hover:text-white font-bold'
               }`}
             >
-              <Menu size={19} strokeWidth={isMoreActionActive ? 2.15 : 1.85} className="flex-shrink-0" />
+              <Menu
+                size={19}
+                strokeWidth={isMoreActionActive ? 2.15 : 1.85}
+                className={`flex-shrink-0 transition-transform duration-150 ${isMoreActionActive ? 'scale-[1.06]' : ''}`}
+              />
               <span className="text-[10px] tracking-tight leading-none whitespace-nowrap truncate w-full text-center px-0.5">
                 Tất cả
               </span>
@@ -879,14 +892,22 @@ export default function KgAppShell({
         subtitle="Chạm để mở nhanh các thao tác thường dùng trong ca"
       >
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 py-1">
-          {quickActionItems.map((act) => {
+          {quickActionItems.map((act, idx) => {
             const Icon = act.icon;
+            const staggerClass =
+              idx === 0
+                ? 'kg-stagger-1'
+                : idx === 1
+                  ? 'kg-stagger-2'
+                  : idx === 2
+                    ? 'kg-stagger-3'
+                    : 'kg-stagger-4';
             return (
               <button
                 key={act.id}
                 type="button"
                 onClick={() => handleQuickJump(act.hub, act.subTab)}
-                className="kg-touch-tile min-h-[96px]"
+                className={`kg-touch-tile kg-pressable kg-animate-fade-up ${staggerClass} min-h-[96px]`}
               >
                 <div className="flex items-center justify-between w-full">
                   <span className="w-9 h-9 rounded-[11px] bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] flex items-center justify-center flex-shrink-0">
@@ -1006,7 +1027,7 @@ export default function KgAppShell({
             <button
               type="button"
               onClick={handleLogout}
-              className="w-full min-h-[46px] px-4 py-2.5 rounded-2xl bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] border border-[var(--kg-danger)]/25 font-bold text-sm flex items-center justify-center gap-2 hover:brightness-95 transition-colors"
+              className="kg-pressable w-full min-h-[46px] px-4 py-2.5 rounded-2xl bg-[var(--kg-danger-soft)] text-[var(--kg-danger)] border border-[var(--kg-danger)]/25 font-bold text-sm flex items-center justify-center gap-2 hover:brightness-95"
             >
               <Power size={16} strokeWidth={1.85} />
               <span>Đăng xuất tài khoản</span>

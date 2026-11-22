@@ -9,7 +9,7 @@ import {
   isNextWeekScheduleRegistered,
   markScheduleRegisteredLocally,
 } from './utils/helpers';
-import { setupAudioUnlock, preloadAudioClips } from './utils/soundEffects';
+import { setupAudioUnlock, preloadAudioClips, isAudioMutedByEnvironment } from './utils/soundEffects';
 import { refreshAppData, restoreFromCache } from './utils/refreshData';
 import { initOfflineQueueSync } from './utils/offlineQueue';
 import { callApi, PRIMARY_EDGE_API_URL } from './services/api';
@@ -36,21 +36,24 @@ export default function App() {
     const store = useAppStore.getState();
 
     // Hybrid Smart Audio: Unlock Web Audio on first gesture; defer MP3 preloading past initial 4G paint
-    setupAudioUnlock();
-    const navConn = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
-    const isConstrainedNetwork = Boolean(navConn?.saveData || /^(slow-)?2g$/i.test(navConn?.effectiveType || ''));
-    if (!isConstrainedNetwork) {
-      window.setTimeout(() => {
-        preloadAudioClips([
-          'checkin_in',
-          'checkin_out',
-          'outside_range',
-          'gps_valid',
-          'gps_invalid',
-          'expired_photo',
-          'login_success',
-        ]);
-      }, 1500);
+    // Automatically muted inside Antigravity embedded/preview browsers so localhost & production tabs stay silent
+    if (!isAudioMutedByEnvironment()) {
+      setupAudioUnlock();
+      const navConn = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+      const isConstrainedNetwork = Boolean(navConn?.saveData || /^(slow-)?2g$/i.test(navConn?.effectiveType || ''));
+      if (!isConstrainedNetwork) {
+        window.setTimeout(() => {
+          preloadAudioClips([
+            'checkin_in',
+            'checkin_out',
+            'outside_range',
+            'gps_valid',
+            'gps_invalid',
+            'expired_photo',
+            'login_success',
+          ]);
+        }, 1500);
+      }
     }
 
     // Preload lightweight 5KB D1 face profiles in background without pulling WASM on Login / Desktop Admin boot

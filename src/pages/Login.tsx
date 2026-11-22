@@ -66,7 +66,6 @@ export default function Login() {
   } | null>(null);
 
   useEffect(() => {
-    setSyncedProfileCount(getCachedFaceProfiles().length);
     const unsub = subscribeCachedFaceProfiles((list) => {
       setSyncedProfileCount(list.length);
     });
@@ -283,7 +282,7 @@ export default function Login() {
   return (
     <div className="login-shell relative flex-1 flex flex-col justify-between p-3.5 sm:p-6 lg:p-8 min-h-dvh bg-[var(--kg-bg)] text-[var(--kg-text)] font-sans transition-colors duration-150 overflow-x-hidden">
       {/* Top Bar: Mobile/Tablet Compact Brand Header + Utility Controls */}
-      <header className="relative z-20 w-full max-w-5xl mx-auto h-14 flex items-center justify-between gap-2 pb-2 lg:pb-4">
+      <header className="relative z-20 w-full max-w-5xl xl:max-w-[1080px] mx-auto h-14 flex items-center justify-between gap-2 pb-2 lg:pb-4">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="lg:hidden w-9 h-9 rounded-xl bg-[#F29055] text-[#241C17] flex items-center justify-center shrink-0 shadow-xs">
             <Flame size={20} strokeWidth={2} />
@@ -310,7 +309,7 @@ export default function Login() {
             onClick={toggleDarkMode}
             aria-label={isDark ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'}
             title={isDark ? 'Giao diện sáng' : 'Giao diện tối'}
-            className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:border-[var(--kg-border-strong)] inline-flex items-center justify-center shadow-xs transition-colors flex-shrink-0 touch-manipulation"
+            className="kg-pressable w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl bg-[var(--kg-surface)] border border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] hover:border-[var(--kg-border-strong)] inline-flex items-center justify-center shadow-xs transition-colors flex-shrink-0 touch-manipulation"
           >
             {isDark ? <Sun size={18} className="text-[var(--kg-warning)]" /> : <Moon size={18} />}
           </button>
@@ -318,9 +317,9 @@ export default function Login() {
       </header>
 
       {/* Main Split: Mobile/Tablet Portrait centered single-column; Laptop/Desktop (>= 1024px) 2-col #202C27 Forest Showcase */}
-      <div className="relative z-10 my-auto w-full max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-[1.04fr_0.96fr] gap-5 lg:gap-8 items-stretch">
+      <div className="relative z-10 my-auto w-full max-w-5xl xl:max-w-[1080px] mx-auto grid grid-cols-1 lg:grid-cols-[1.04fr_0.96fr] gap-5 lg:gap-8 xl:gap-10 items-stretch">
         {/* LEFT SHOWCASE: Laptop & Desktop #202C27 Forest Operations Panel */}
-        <section className="hidden lg:flex min-w-0 rounded-3xl bg-[#202C27] border border-white/10 p-8 lg:p-9 text-[#F6F8F4] shadow-hero relative overflow-hidden flex-col justify-between gap-8">
+        <section className="kg-animate-fade-up kg-stagger-1 hidden lg:flex min-w-0 rounded-3xl bg-[#202C27] border border-white/10 p-8 lg:p-9 text-[#F6F8F4] shadow-hero relative overflow-hidden flex-col justify-between gap-8">
           <div
             aria-hidden="true"
             className="pointer-events-none absolute -right-24 -top-36 w-[380px] h-[380px] rounded-full border border-white/10"
@@ -340,7 +339,8 @@ export default function Login() {
                   KING&apos;S GRILL STAFF OS
                 </span>
                 <p className="text-xs text-[#B7C8BC] font-semibold mt-1 truncate">
-                  Toast Touch Operations • {APP_VERSION_TAG}
+                  Toast Touch Operations •{' '}
+                  <span className="font-mono tabular-nums">{APP_VERSION_TAG}</span>
                 </p>
               </div>
             </div>
@@ -363,8 +363,14 @@ export default function Login() {
                 <span className="block text-[10px] font-bold uppercase tracking-wider text-[#B7C8BC]">
                   Trạm Face ID Kiosk
                 </span>
-                <span className="block text-base font-extrabold font-mono tabular-nums text-white mt-1">
-                  {syncedProfileCount > 0 ? `${syncedProfileCount} hồ sơ` : 'V2 Sẵn sàng'}
+                <span className="block text-base font-extrabold text-white mt-1">
+                  {syncedProfileCount > 0 ? (
+                    <>
+                      <span className="font-mono tabular-nums">{syncedProfileCount}</span> hồ sơ
+                    </>
+                  ) : (
+                    'V2 Sẵn sàng'
+                  )}
                 </span>
               </div>
               <div className="rounded-2xl bg-white/10 border border-white/15 p-3.5">
@@ -382,7 +388,8 @@ export default function Login() {
                 <ScanFace size={14} className="text-[#F29055]" /> Face ID 5 góc
               </span>
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 border border-white/15 text-xs font-semibold text-[#F6F8F4]">
-                <MapPin size={14} className="text-[#7EDBA8]" /> Chu kỳ 06:00–05:59
+                <MapPin size={14} className="text-[#7EDBA8]" /> Chu kỳ{' '}
+                <span className="font-mono tabular-nums">06:00–05:59</span>
               </span>
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 border border-white/15 text-xs font-semibold text-[#F6F8F4]">
                 <ShieldCheck size={14} className="text-[#7AC4FF]" /> Công lương minh bạch
@@ -392,14 +399,14 @@ export default function Login() {
         </section>
 
         {/* RIGHT FORM PANEL */}
-        <div className="w-full min-w-0 max-w-md md:max-w-[480px] mx-auto lg:max-w-none flex flex-col justify-center gap-3.5">
+        <div className="w-full min-w-0 max-w-md md:max-w-[500px] mx-auto lg:max-w-none flex flex-col justify-center gap-3.5">
           {/* Bold Terracotta Kiosk Face ID CTA (mode === 'login') */}
           {mode === 'login' && (
             <button
               type="button"
               onClick={() => setKioskScannerOpen(true)}
               data-testid="open-kiosk-face-v2"
-              className="w-full min-h-[64px] text-left rounded-2xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] border border-[var(--kg-primary)] p-3.5 sm:p-4 shadow-card transition-colors duration-150 flex items-center justify-between gap-3 group cursor-pointer active:scale-[0.99] touch-manipulation"
+              className="kg-animate-fade-up kg-stagger-1 kg-card-interactive kg-pressable w-full min-h-[64px] text-left rounded-2xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] border border-[var(--kg-primary)] p-3.5 sm:p-4 shadow-card transition-colors duration-150 flex items-center justify-between gap-3 group cursor-pointer touch-manipulation"
             >
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-11 h-11 rounded-xl bg-[#202C27] text-[#F29055] flex items-center justify-center flex-shrink-0">
@@ -411,7 +418,7 @@ export default function Login() {
                       Chấm công khuôn mặt nhanh (Kiosk)
                     </span>
                     <span
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono tabular-nums font-bold border ${
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
                         syncedProfileCount > 0
                           ? 'bg-[#202C27] border-emerald-400/40 text-[#7EDBA8]'
                           : 'bg-[#202C27] border-sky-400/40 text-[#7AC4FF]'
@@ -423,14 +430,19 @@ export default function Login() {
                         }`}
                       />
                       <span>
-                        {syncedProfileCount > 0
-                          ? `${syncedProfileCount} hồ sơ sẵn sàng`
-                          : 'V2 Tự động'}
+                        {syncedProfileCount > 0 ? (
+                          <>
+                            <span className="font-mono tabular-nums">{syncedProfileCount}</span> hồ sơ sẵn sàng
+                          </>
+                        ) : (
+                          'V2 Tự động'
+                        )}
                       </span>
                     </span>
                   </div>
                   <p className="text-[11px] opacity-90 mt-0.5 leading-snug font-medium">
-                    Mở trạm quét tự động • Bán kính ≤25m
+                    Mở trạm quét tự động • Bán kính{' '}
+                    <span className="font-mono tabular-nums">≤25m</span>
                   </p>
                 </div>
               </div>
@@ -442,13 +454,17 @@ export default function Login() {
 
           {/* Inline Auth Feedback Banner */}
           {authNotice && (
-            <KgAlertCard variant={authNotice.variant} title={authNotice.title}>
+            <KgAlertCard
+              variant={authNotice.variant}
+              title={authNotice.title}
+              className="kg-animate-scale-in"
+            >
               {authNotice.text}
             </KgAlertCard>
           )}
 
           {/* UNIFIED AUTH CARD WITH 3-TAB SEGMENTED CONTROL */}
-          <div className="login-card relative overflow-hidden bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-card">
+          <div className="login-card kg-animate-scale-in kg-stagger-2 relative overflow-hidden bg-[var(--kg-surface)] border border-[var(--kg-border)] rounded-2xl sm:rounded-3xl p-5 sm:p-7 shadow-card">
             <div className="mb-4 text-center sm:text-left">
               <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
                 <span className="inline-block text-[10.5px] font-extrabold uppercase tracking-wider text-[var(--kg-primary-ink)]">
@@ -482,7 +498,7 @@ export default function Login() {
                     role="tab"
                     aria-selected={isActive}
                     onClick={() => handleModeSwitch(tab.id)}
-                    className={`${tab.flexClass} min-w-0 min-h-[44px] sm:min-h-[40px] px-2 py-2 rounded-lg text-xs transition-colors touch-manipulation whitespace-nowrap flex items-center justify-center ${
+                    className={`kg-pressable ${tab.flexClass} min-w-0 min-h-[44px] sm:min-h-[40px] px-2 py-2 rounded-lg text-xs transition-all duration-150 touch-manipulation whitespace-nowrap flex items-center justify-center ${
                       isActive
                         ? 'bg-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)] font-extrabold shadow-xs'
                         : 'text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] font-bold'
@@ -496,7 +512,7 @@ export default function Login() {
 
             {/* LOGIN FORM */}
             {mode === 'login' && (
-              <form onSubmit={handleLogin} className="space-y-4">
+              <form key="login" onSubmit={handleLogin} className="kg-animate-fade-up space-y-4">
                 <div className="space-y-1.5">
                   <label htmlFor="username" className="block text-xs font-bold text-[var(--kg-text)]">
                     Tài khoản nhân viên
@@ -542,7 +558,7 @@ export default function Login() {
                       type="button"
                       onClick={() => setShowPass(!showPass)}
                       aria-label={showPass ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                      className="w-11 h-11 min-w-[44px] min-h-[44px] shrink-0 flex items-center justify-center text-[var(--kg-text-soft)] hover:text-[var(--kg-text)] rounded-r-xl transition-colors touch-manipulation"
+                      className="kg-pressable w-11 h-11 min-w-[44px] min-h-[44px] shrink-0 flex items-center justify-center text-[var(--kg-text-soft)] hover:text-[var(--kg-text)] rounded-r-xl transition-colors touch-manipulation"
                     >
                       {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
@@ -573,7 +589,7 @@ export default function Login() {
 
                 <button
                   type="submit"
-                  className="login-primary w-full bg-[var(--kg-primary)] border-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] font-extrabold py-3 rounded-xl transition-colors duration-150 flex items-center justify-center gap-2 text-sm shadow-xs active:scale-[0.99] min-h-[48px] touch-manipulation"
+                  className="login-primary kg-pressable w-full bg-[var(--kg-primary)] border-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] font-extrabold py-3 rounded-xl transition-colors duration-150 flex items-center justify-center gap-2 text-sm shadow-xs min-h-[48px] touch-manipulation"
                 >
                   <span>Đăng nhập vào Ca trực</span> <ArrowRight size={16} />
                 </button>
@@ -582,7 +598,7 @@ export default function Login() {
 
             {/* REGISTER FORM */}
             {mode === 'register' && (
-              <form onSubmit={handleRegister} className="space-y-4">
+              <form key="register" onSubmit={handleRegister} className="kg-animate-fade-up space-y-4">
                 <div className="p-3.5 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)] space-y-3">
                   <h3 className="text-[11px] font-bold text-[var(--kg-primary-ink)] uppercase tracking-wider flex items-center gap-1.5">
                     <Lock size={12} /> 1. Tài khoản bảo mật
@@ -703,7 +719,7 @@ export default function Login() {
 
                 <button
                   type="submit"
-                  className="login-primary w-full bg-[var(--kg-primary)] border-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] font-extrabold py-3 rounded-xl transition-colors duration-150 text-sm shadow-xs active:scale-[0.99] min-h-[48px] touch-manipulation"
+                  className="login-primary kg-pressable w-full bg-[var(--kg-primary)] border-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] font-extrabold py-3 rounded-xl transition-colors duration-150 text-sm shadow-xs min-h-[48px] touch-manipulation"
                 >
                   Hoàn tất đăng ký
                 </button>
@@ -712,7 +728,7 @@ export default function Login() {
 
             {/* FORGOT PASSWORD FORM */}
             {mode === 'forgot' && (
-              <form onSubmit={handleForgot} className="space-y-4">
+              <form key="forgot" onSubmit={handleForgot} className="kg-animate-fade-up space-y-4">
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--kg-surface-soft)] border border-[var(--kg-border)]">
                   <div className="w-10 h-10 rounded-xl bg-[var(--kg-primary-soft)] text-[var(--kg-primary-ink)] flex items-center justify-center shrink-0">
                     <KeyRound size={18} />
@@ -748,7 +764,7 @@ export default function Login() {
                     </div>
                     <button
                       type="submit"
-                      className="login-primary w-full bg-[var(--kg-primary)] border-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] font-extrabold py-3 rounded-xl transition-colors duration-150 text-sm shadow-xs active:scale-[0.99] min-h-[48px] touch-manipulation"
+                      className="login-primary kg-pressable w-full bg-[var(--kg-primary)] border-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] font-extrabold py-3 rounded-xl transition-colors duration-150 text-sm shadow-xs min-h-[48px] touch-manipulation"
                     >
                       Gửi mã OTP
                     </button>
@@ -790,7 +806,7 @@ export default function Login() {
                     </div>
                     <button
                       type="submit"
-                      className="w-full bg-[var(--kg-success)] hover:brightness-95 text-white dark:text-[#0F2419] font-extrabold py-3 rounded-xl transition-colors duration-150 text-sm shadow-xs active:scale-[0.99] min-h-[48px] touch-manipulation"
+                      className="kg-pressable w-full bg-[var(--kg-success)] hover:brightness-95 text-white dark:text-[#0F2419] font-extrabold py-3 rounded-xl transition-colors duration-150 text-sm shadow-xs min-h-[48px] touch-manipulation"
                     >
                       Đặt lại mật khẩu
                     </button>
@@ -800,7 +816,7 @@ export default function Login() {
                         setAuthNotice(null);
                         setForgotStep(1);
                       }}
-                      className="w-full text-center text-xs font-semibold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] flex items-center justify-center gap-1.5 transition-colors min-h-[44px] touch-manipulation"
+                      className="kg-pressable w-full text-center text-xs font-semibold text-[var(--kg-text-muted)] hover:text-[var(--kg-text)] flex items-center justify-center gap-1.5 transition-colors min-h-[44px] rounded-xl touch-manipulation"
                     >
                       <RotateCcw size={13} /> Đổi email / Gửi lại OTP
                     </button>
@@ -813,7 +829,7 @@ export default function Login() {
       </div>
 
       {/* Subtle Footer Version Stamp */}
-      <footer className="relative z-10 w-full max-w-5xl mx-auto pt-4 text-center text-[11px] font-medium text-[var(--kg-text-muted)]">
+      <footer className="relative z-10 w-full max-w-5xl xl:max-w-[1080px] mx-auto pt-4 text-center text-[11px] font-medium text-[var(--kg-text-muted)]">
         King&apos;s Grill Staff OS <span className="font-mono tabular-nums font-bold">{APP_VERSION_TAG}</span> • Chuẩn hóa giao diện đa thiết bị
       </footer>
 

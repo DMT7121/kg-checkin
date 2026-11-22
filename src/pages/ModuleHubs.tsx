@@ -69,7 +69,7 @@ function AdminSalaryRates() {
   const users = useAppStore((s) => s.users);
   if (!isAdminUser(currentUser) || !currentUser) return null;
   return (
-    <div className="p-0 sm:p-2 md:p-4 space-y-4 animate-fade-in max-w-6xl mx-auto">
+    <div className="p-0 sm:p-2 md:p-4 space-y-4 kg-animate-fade-up max-w-6xl mx-auto">
       <KgModuleHero
         moduleId="admin-payroll"
         title="Đơn Giá Lương & Hạn Mức Ứng"
@@ -115,7 +115,7 @@ function SubmoduleErrorFallback({ label, onRetry }: { label: string; onRetry: ()
         <button
           type="button"
           onClick={onRetry}
-          className="px-4 py-2 min-h-[44px] sm:min-h-[38px] text-xs sm:text-sm font-bold rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] active:scale-[0.985] transition inline-flex items-center justify-center gap-2 shadow-xs"
+          className="kg-pressable px-4 py-2 min-h-[44px] sm:min-h-[38px] text-xs sm:text-sm font-bold rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] transition inline-flex items-center justify-center gap-2 shadow-xs touch-manipulation"
         >
           <RefreshCw size={15} /> Thử lại
         </button>
@@ -234,8 +234,12 @@ function ModuleHub({
 
   return (
     <div className="kg-module-hub min-h-full">
-      <div className="kg-module-tabs-wrap relative md:sticky md:top-[64px] z-20 bg-[var(--kg-bg)] pb-3 pt-1 transition-colors">
-        <div className="kg-module-tabs mx-auto max-w-[1520px] flex overflow-x-auto hide-scrollbar no-scrollbar gap-2">
+      <div className="kg-module-tabs-wrap relative md:sticky md:top-[64px] z-20 bg-[var(--kg-bg)] border-b border-[var(--kg-border)]/60 pb-3 pt-1 mb-3 sm:mb-4 transition-colors">
+        <div
+          role="tablist"
+          aria-label="Phân hệ con"
+          className="kg-module-tabs mx-auto max-w-[1520px] flex overflow-x-auto md:flex-wrap md:overflow-visible hide-scrollbar no-scrollbar items-center gap-2"
+        >
           {allowedTabs.map((tab) => {
             const Icon = tab.icon;
             const selected = tab.id === active.id;
@@ -250,6 +254,7 @@ function ModuleHub({
             return (
               <button
                 type="button"
+                role="tab"
                 key={tab.id}
                 onClick={(e) => {
                   handleSelectTab(tab.id, true);
@@ -259,11 +264,12 @@ function ModuleHub({
                     inline: 'center',
                   });
                 }}
+                aria-selected={selected}
                 aria-current={selected ? 'page' : undefined}
-                className={`kg-module-tab relative inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3.5 sm:px-4 py-2 text-xs min-h-[44px] sm:min-h-[40px] rounded-[11px] border transition-colors duration-150 select-none touch-manipulation whitespace-nowrap flex-shrink-0 active:scale-[0.985] ${
+                className={`kg-module-tab kg-pressable relative inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3.5 sm:px-4 py-2 text-xs min-h-[44px] sm:min-h-[40px] rounded-[11px] border transition-all duration-150 select-none touch-manipulation whitespace-nowrap flex-shrink-0 ${
                   selected
                     ? 'bg-[var(--kg-nav-active)] border-[var(--kg-nav-active)] text-[var(--kg-nav-active-fg)] font-bold shadow-xs'
-                    : 'bg-[var(--kg-surface)] border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:border-[var(--kg-border-strong)] hover:text-[var(--kg-text)] font-bold'
+                    : 'bg-[var(--kg-surface)] border-[var(--kg-border)] text-[var(--kg-text-muted)] hover:border-[var(--kg-border-strong)] hover:text-[var(--kg-text)] hover:bg-[var(--kg-surface-2)] font-bold'
                 }`}
               >
                 <Icon
@@ -296,7 +302,8 @@ function ModuleHub({
           return (
             <div
               key={tab.id}
-              className={isSelected ? 'kg-hub-panel block' : 'hidden'}
+              data-subtab-panel={tab.id}
+              className={isSelected ? 'kg-hub-panel kg-animate-fade-up block' : 'hidden'}
               style={{ display: isSelected ? 'block' : 'none' }}
             >
               <AppErrorBoundary
@@ -433,7 +440,7 @@ export function CommunicationsHub() {
 export function KnowledgeHub() {
   return (
     <div className="kg-module-hub min-h-full">
-      <div className="kg-hub-panel block">
+      <div className="kg-hub-panel kg-animate-fade-up block">
         <AppErrorBoundary
           resetKey="knowledge-training"
           fallback={({ reset }) => (

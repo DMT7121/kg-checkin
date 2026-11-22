@@ -68,11 +68,11 @@ export default function CheckInReceiptSheet({
       }
     >
       {feedbackType === 'success' && lastSubmittedPunch ? (
-        <div className="space-y-4 py-2">
+        <div className="space-y-4 py-2 kg-animate-sheet-up">
           {/* Operational Receipt Header */}
-          <div className="text-center">
+          <div className="text-center kg-animate-fade-up">
             <div
-              className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-xs ${
+              className={`kg-animate-scale-in w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-xs ${
                 isCheckInLabel(lastSubmittedPunch.type)
                   ? 'bg-[#1E7550] dark:bg-[var(--kg-success)] text-white dark:text-[#0F2419]'
                   : 'bg-[var(--kg-primary)] text-[var(--kg-primary-fg)]'
@@ -112,7 +112,7 @@ export default function CheckInReceiptSheet({
           </div>
 
           {/* Synchronized Detail Metrics Card */}
-          <div className="bg-[var(--kg-surface-2)] rounded-2xl p-3.5 border border-[var(--kg-border)] space-y-2 text-xs">
+          <div className="kg-animate-fade-up kg-stagger-1 bg-[var(--kg-surface-2)] rounded-2xl p-3.5 border border-[var(--kg-border)] space-y-2 text-xs">
             {/* Honest Google Sheet / Cloud Ledger Confirmation Badge */}
             <div
               className={`flex flex-wrap items-center justify-between gap-1.5 pb-2 border-b -mx-3.5 -mt-3.5 p-3 rounded-t-2xl ${
@@ -228,7 +228,7 @@ export default function CheckInReceiptSheet({
           <button
             type="button"
             onClick={onCompleteSuccess}
-            className={`w-full py-3.5 rounded-xl font-bold text-sm shadow-xs active:scale-[0.98] transition-colors flex items-center justify-center gap-2 min-h-[44px] ${
+            className={`kg-pressable kg-animate-fade-up kg-stagger-2 w-full py-3.5 rounded-xl font-bold text-sm shadow-xs transition-colors flex items-center justify-center gap-2 min-h-[44px] touch-manipulation ${
               isCheckInLabel(lastSubmittedPunch.type)
                 ? 'bg-[#1E7550] hover:bg-[#186042] dark:bg-[var(--kg-success)] dark:hover:opacity-90 text-white dark:text-[#0F2419]'
                 : 'bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)]'
@@ -239,9 +239,9 @@ export default function CheckInReceiptSheet({
           </button>
         </div>
       ) : (
-        <div className="space-y-4 text-center py-2">
+        <div className="space-y-4 text-center py-2 kg-animate-sheet-up">
           <div
-            className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto ${
+            className={`kg-animate-scale-in w-12 h-12 rounded-2xl flex items-center justify-center mx-auto ${
               feedbackType === 'warning'
                 ? 'bg-[var(--kg-warning-soft)] text-[var(--kg-warning)]'
                 : 'bg-[var(--kg-primary-soft)] text-[var(--kg-primary)]'
@@ -254,14 +254,14 @@ export default function CheckInReceiptSheet({
             {feedbackMessage}
           </p>
           {feedbackType === 'warning' && !isWithinRadius && (
-            <div className="grid grid-cols-2 gap-2 pt-1">
+            <div className="grid grid-cols-2 gap-2 pt-1 kg-animate-fade-up kg-stagger-1">
               <button
                 type="button"
                 onClick={() => {
                   onClose();
                   onPrecisionRescan();
                 }}
-                className="min-h-[44px] px-3 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] text-xs font-black inline-flex items-center justify-center gap-1.5 active:scale-95 transition touch-manipulation"
+                className="kg-pressable min-h-[44px] px-3 py-2 rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] text-xs font-black inline-flex items-center justify-center gap-1.5 transition touch-manipulation"
               >
                 <Radio size={14} />
                 <span>Quét lại GPS</span>
@@ -272,14 +272,14 @@ export default function CheckInReceiptSheet({
                   onClose();
                   onOpenMissedModal();
                 }}
-                className="min-h-[44px] px-3 py-2 rounded-xl bg-[var(--kg-warning-soft)] hover:bg-[var(--kg-warning)]/20 border border-[var(--kg-warning)]/35 text-[var(--kg-warning)] text-xs font-black inline-flex items-center justify-center gap-1.5 active:scale-95 transition touch-manipulation"
+                className="kg-pressable min-h-[44px] px-3 py-2 rounded-xl bg-[var(--kg-warning-soft)] hover:bg-[var(--kg-warning)]/20 border border-[var(--kg-warning)]/35 text-[var(--kg-warning)] text-xs font-black inline-flex items-center justify-center gap-1.5 transition touch-manipulation"
               >
                 <Clock size={14} />
                 <span>Bổ sung công</span>
               </button>
             </div>
           )}
-          <KgButton variant="secondary" size="md" className="w-full" onClick={onClose}>
+          <KgButton variant="secondary" size="md" className="kg-pressable w-full" onClick={onClose}>
             Đóng
           </KgButton>
         </div>
