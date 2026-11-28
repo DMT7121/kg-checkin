@@ -74,7 +74,8 @@ import {
   ScanFace,
   UserPlus,
   Loader2,
-  Send
+  Send,
+  Wifi
 } from 'lucide-react';
 import { kgToast } from '../store/useFeedbackStore';
 import {
@@ -162,7 +163,23 @@ export default function CheckIn() {
     message: string;
   } | null>(null);
 
-  // Anti-Fraud & Radius validation (synchronized with indoor GPS multipath allowance)
+  // Dual Presence: Restaurant Wi-Fi IP verification from Cloudflare Edge (CF-Connecting-IP)
+  const [isRestaurantWifi, setIsRestaurantWifi] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    callApi('GET_CLIENT_NETWORK_INFO', {}, { background: true, cacheTtlMs: 30000 })
+      .then((res) => {
+        if (!cancelled && res?.ok && res.data) {
+          setIsRestaurantWifi(Boolean(res.data.isRestaurantWifi));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Anti-Fraud & Radius validation (synchronized with indoor GPS multipath allowance + Restaurant Wi-Fi indoor rescue)
   const latestGpsConfig = store.serverGpsConfig;
   const targetLat = latestGpsConfig?.lat ?? KG_LAT;
   const targetLng = latestGpsConfig?.lng ?? KG_LNG;
@@ -172,13 +189,16 @@ export default function CheckIn() {
     : (gps.distance ?? null);
   const liveIndoorAllowance = Math.min((gps.accuracy || 0) * 0.45, 15);
   const effectiveCurrentDist = currentDist !== null ? Math.max(0, currentDist - liveIndoorAllowance) : null;
+  const wifiIndoorRescue =
+    isRestaurantWifi &&
+    (currentDist === null || currentDist <= Math.max(targetRadius * 10, 350));
   const isAuthorizedTest = isAuthorizedTestUser(currentUser);
   const isWithinRadius = evaluateCheckInGeofence({
     isAuthorizedTest,
     hasCapturedPhoto: Boolean(capturedImage),
     capturedGps,
-    liveIsValid: Boolean(gps.isValid),
-    liveEffectiveDist: effectiveCurrentDist,
+    liveIsValid: Boolean(gps.isValid) || wifiIndoorRescue,
+    liveEffectiveDist: wifiIndoorRescue ? 0 : effectiveCurrentDist,
     targetRadius,
   });
 
@@ -2551,20 +2571,30 @@ export default function CheckIn() {
               </button>
             </div>
 
-            {/* Item 3: Geofence <= 25m + Mobile Details Toggle */}
+            {/* Item 3: Geofence <= 25m + Dual-Presence Wi-Fi Badge + Mobile Details Toggle */}
             <div className="col-span-2 sm:col-span-1 min-h-[44px] sm:min-h-[40px] rounded-xl bg-[var(--kg-surface-2)] border border-[var(--kg-border)] pl-2.5 pr-1 py-1 flex items-center justify-between gap-1.5 min-w-0 overflow-hidden">
               <div className="min-w-0 flex-1 overflow-hidden flex items-center justify-between gap-2 sm:block">
                 <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--kg-text-muted)] leading-none truncate">
-                  Geofence
+                  {wifiIndoorRescue && !gps.isValid ? 'Wi-Fi Quán' : 'Geofence'}
                 </span>
                 <span
                   className={`sm:mt-1 inline-flex items-center gap-1 text-[11px] sm:text-xs font-extrabold font-mono tabular-nums leading-tight truncate max-w-full ${
-                    gps.isValid ? 'text-[var(--kg-success)]' : 'text-[var(--kg-danger)]'
+                    gps.isValid || wifiIndoorRescue
+                      ? 'text-[var(--kg-success)]'
+                      : 'text-[var(--kg-danger)]'
                   }`}
                 >
-                  <MapPin size={11} className="shrink-0" />
+                  {wifiIndoorRescue ? (
+                    <Wifi size={11} className="shrink-0" />
+                  ) : (
+                    <MapPin size={11} className="shrink-0" />
+                  )}
                   <span className="truncate">
-                    {gps.isValid
+                    {gps.isValid && isRestaurantWifi
+                      ? `GPS + Wi-Fi ✓`
+                      : wifiIndoorRescue
+                      ? `Wi-Fi quán ✓`
+                      : gps.isValid
                       ? `≤${targetRadius}m ✓`
                       : currentDist !== null
                       ? `${currentDist}/${targetRadius}m`

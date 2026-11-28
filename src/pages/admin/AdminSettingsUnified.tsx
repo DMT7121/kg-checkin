@@ -32,6 +32,7 @@ import {
   Sparkles,
   Trash2,
   Wand2,
+  Wifi,
   Wrench,
   X,
 } from 'lucide-react';
@@ -173,10 +174,15 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
   const [draftName, setDraftName] = useState('');
   const [draftSecondary, setDraftSecondary] = useState('');
 
-  // === GPS / Shift Config State ===
+  // === GPS / Wi-Fi Presence / Shift Config State ===
   const [kgLat, setKgLat] = useState('10.9760826');
   const [kgLng, setKgLng] = useState('106.6646541');
   const [kgRadius, setKgRadius] = useState('25');
+  const [allowedWifiIps, setAllowedWifiIps] = useState<string[]>([]);
+  const [wifiFallbackEnabled, setWifiFallbackEnabled] = useState<boolean>(true);
+  const [newWifiIpInput, setNewWifiIpInput] = useState('');
+  const [detectedClientIp, setDetectedClientIp] = useState('');
+  const [detectingWifiIp, setDetectingWifiIp] = useState(false);
   const [shiftCodes, setShiftCodes] = useState<any[]>(DEFAULT_SHIFT_CODES);
   const [registrationCloseTime, setRegistrationCloseTime] = useState('17:00 Thứ Bảy');
   const [savingGps, setSavingGps] = useState(false);
@@ -219,12 +225,44 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
       setKgLat(serverGpsConfig.lat.toString());
       setKgLng(serverGpsConfig.lng.toString());
       setKgRadius(normalizeGpsRadius(serverGpsConfig.radius).toString());
+      if (Array.isArray(serverGpsConfig.allowedWifiIps)) {
+        setAllowedWifiIps(serverGpsConfig.allowedWifiIps);
+      }
+      if (serverGpsConfig.wifiFallbackEnabled !== undefined) {
+        setWifiFallbackEnabled(serverGpsConfig.wifiFallbackEnabled !== false);
+      }
       if ((serverGpsConfig as any).shiftCodes) setShiftCodes((serverGpsConfig as any).shiftCodes);
       if ((serverGpsConfig as any).registrationCloseTime) {
         setRegistrationCloseTime((serverGpsConfig as any).registrationCloseTime);
       }
     }
   }, [serverGpsConfig]);
+
+  const loadDetectedClientIp = async () => {
+    setDetectingWifiIp(true);
+    try {
+      const res = await callApi(
+        'GET_CLIENT_NETWORK_INFO',
+        { role: currentUser?.role },
+        { background: true, cacheTtlMs: 0 }
+      );
+      if (res?.ok && res.data) {
+        if (res.data.clientIp) setDetectedClientIp(String(res.data.clientIp));
+        if (Array.isArray(res.data.allowedWifiIps) && res.data.allowedWifiIps.length > 0 && allowedWifiIps.length === 0) {
+          setAllowedWifiIps(res.data.allowedWifiIps);
+        }
+      }
+    } catch {
+      // Ignore transient network check failure
+    } finally {
+      setDetectingWifiIp(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadDetectedClientIp();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [prevAiPrompts, setPrevAiPrompts] = useState(aiPrompts);
   if (aiPrompts !== prevAiPrompts) {
@@ -267,12 +305,23 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
         lat: serverGpsConfig ? serverGpsConfig.lat.toString() : '10.9760826',
         lng: serverGpsConfig ? serverGpsConfig.lng.toString() : '106.6646541',
         radius: serverGpsConfig ? normalizeGpsRadius(serverGpsConfig.radius).toString() : '25',
+        allowedWifiIps: Array.isArray(serverGpsConfig?.allowedWifiIps)
+          ? serverGpsConfig.allowedWifiIps
+          : [],
+        wifiFallbackEnabled: serverGpsConfig?.wifiFallbackEnabled !== false,
       }),
     [serverGpsConfig],
   );
   const isGpsDirty = useMemo(
-    () => JSON.stringify({ lat: kgLat, lng: kgLng, radius: kgRadius }) !== gpsBaseline,
-    [kgLat, kgLng, kgRadius, gpsBaseline],
+    () =>
+      JSON.stringify({
+        lat: kgLat,
+        lng: kgLng,
+        radius: kgRadius,
+        allowedWifiIps,
+        wifiFallbackEnabled,
+      }) !== gpsBaseline,
+    [kgLat, kgLng, kgRadius, allowedWifiIps, wifiFallbackEnabled, gpsBaseline],
   );
 
   const shiftRegBaseline = useMemo(
@@ -435,6 +484,8 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
         lat: kgLat,
         lng: kgLng,
         radius: kgRadius,
+        allowedWifiIps,
+        wifiFallbackEnabled,
         shiftCodes,
         registrationCloseTime,
       });
@@ -444,11 +495,13 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
           lat: Number(kgLat),
           lng: Number(kgLng),
           radius: Number(kgRadius),
+          allowedWifiIps,
+          wifiFallbackEnabled,
           shiftCodes,
           registrationCloseTime,
         } as any);
         setGpsBanner(null);
-        kgToast(`Đã cập nhật vị trí gốc (${kgRadius}m) & cấu hình ca làm!`, 'success', 'Đã lưu cấu hình');
+        kgToast(`Đã cập nhật vị trí gốc (${kgRadius}m) & Wi-Fi nhà hàng (${allowedWifiIps.length} IP)!`, 'success', 'Đã lưu cấu hình');
       } else {
         kgToast(data.message || 'Lỗi không xác định', 'error', 'Lỗi lưu cấu hình');
       }
@@ -965,6 +1018,108 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
               </span>
             </div>
 
+            {/* Dual Presence: Restaurant Wi-Fi IP Allowlist (CF-Connecting-IP) */}
+            <div className="pt-3 border-t border-[var(--kg-border)] space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Wifi size={16} className="text-[var(--kg-success)] shrink-0" />
+                  <div>
+                    <h4 className="font-extrabold text-xs sm:text-sm text-[var(--kg-text)]">
+                      Xác thực kép GPS + Wi-Fi nhà hàng (CF-Connecting-IP)
+                    </h4>
+                    <p className="text-[11px] text-[var(--kg-text-muted)]">
+                      Cứu lỗi nhảy GPS trong nhà bếp/mái tôn khi nhân viên kết nối đúng Wi-Fi của quán.
+                    </p>
+                  </div>
+                </div>
+                <label className="inline-flex items-center gap-2 text-xs font-bold text-[var(--kg-text)] cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={wifiFallbackEnabled}
+                    onChange={(e) => setWifiFallbackEnabled(e.target.checked)}
+                    className="w-4 h-4 accent-[var(--kg-primary)] rounded"
+                  />
+                  <span>Bật Wi-Fi quán</span>
+                </label>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex-1 min-w-[200px] flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={newWifiIpInput}
+                    onChange={(e) => setNewWifiIpInput(e.target.value)}
+                    placeholder="VD: 113.161.72.45 hoặc 113.161.72.*"
+                    className="flex-1 min-h-[40px] bg-[var(--kg-surface-2)] border border-[var(--kg-border)] rounded-xl px-3 py-2 text-xs font-mono font-bold text-[var(--kg-text)]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const clean = newWifiIpInput.trim();
+                      if (!clean) return;
+                      if (!allowedWifiIps.includes(clean)) {
+                        setAllowedWifiIps([...allowedWifiIps, clean]);
+                      }
+                      setNewWifiIpInput('');
+                    }}
+                    className="min-h-[40px] px-3 rounded-xl bg-[var(--kg-surface-2)] hover:bg-[var(--kg-surface)] border border-[var(--kg-border)] text-xs font-extrabold text-[var(--kg-text)] inline-flex items-center gap-1 whitespace-nowrap"
+                  >
+                    <Plus size={14} />
+                    <span>Thêm IP</span>
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={detectingWifiIp}
+                  onClick={() => {
+                    if (detectedClientIp) {
+                      if (!allowedWifiIps.includes(detectedClientIp)) {
+                        setAllowedWifiIps([...allowedWifiIps, detectedClientIp]);
+                        kgToast(`Đã thêm IP Wi-Fi hiện tại (${detectedClientIp}). Nhấn Lưu Cấu Hình để áp dụng.`, 'success');
+                      } else {
+                        kgToast(`IP ${detectedClientIp} đã có trong danh sách Wi-Fi nhà hàng.`, 'info');
+                      }
+                    } else {
+                      void loadDetectedClientIp();
+                    }
+                  }}
+                  className="min-h-[40px] px-3 rounded-xl bg-[var(--kg-success-soft)] hover:opacity-90 border border-[var(--kg-success)]/30 text-[var(--kg-success)] text-xs font-extrabold inline-flex items-center gap-1.5 whitespace-nowrap"
+                >
+                  {detectingWifiIp ? <Loader2 size={13} className="animate-spin" /> : <Wifi size={13} />}
+                  <span>
+                    {detectedClientIp ? `+ Dùng IP hiện tại (${detectedClientIp})` : 'Dò IP Wi-Fi hiện tại'}
+                  </span>
+                </button>
+              </div>
+
+              {allowedWifiIps.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {allowedWifiIps.map((ip) => (
+                    <span
+                      key={ip}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--kg-success-soft)]/70 border border-[var(--kg-success)]/30 text-[var(--kg-success)] font-mono text-xs font-bold"
+                    >
+                      <Wifi size={11} />
+                      <span>{ip}</span>
+                      <button
+                        type="button"
+                        aria-label={`Xóa IP ${ip}`}
+                        onClick={() => setAllowedWifiIps(allowedWifiIps.filter((x) => x !== ip))}
+                        className="ml-0.5 hover:text-[var(--kg-danger)]"
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[11px] text-[var(--kg-text-muted)] italic">
+                  Chưa cấu hình IP Wi-Fi nhà hàng — hiện chỉ xác thực bằng GPS ≤ {kgRadius}m. Khi ngồi tại quán, bấm &quot;+ Dùng IP hiện tại&quot; rồi Lưu để bật xác thực kép.
+                </p>
+              )}
+            </div>
+
             <div className="pt-2 border-t border-[var(--kg-border)] flex sm:justify-end">
               <button
                 type="button"
@@ -973,7 +1128,7 @@ function AdminSettingsUnifiedContent({ initialSection }: AdminSettingsUnifiedPro
                 className="w-full sm:w-auto sm:px-5 min-h-[44px] sm:min-h-[40px] rounded-xl bg-[var(--kg-primary)] hover:bg-[var(--kg-primary-hover)] text-[var(--kg-primary-fg)] text-xs sm:text-sm font-extrabold inline-flex items-center justify-center gap-2 shadow-xs disabled:opacity-50 whitespace-nowrap"
               >
                 {savingGps ? <Loader2 size={15} className="animate-spin shrink-0" /> : <Save size={15} className="shrink-0" />}
-                <span>{savingGps ? 'Đang lưu...' : `Lưu Cấu Hình GPS (${kgRadius}m)`}</span>
+                <span>{savingGps ? 'Đang lưu...' : `Lưu Cấu Hình GPS & Wi-Fi (${kgRadius}m)`}</span>
               </button>
             </div>
           </section>

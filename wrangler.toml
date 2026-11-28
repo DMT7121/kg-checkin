@@ -10,3 +10,7 @@ database_id = "626b8171-2834-4e7e-a733-284c7588acbd"
 [[kv_namespaces]]
 binding = "KG_EDGE_DB"
 id = "40d9043e7d8944cbbf43f027b4cdd3a2"
+
+[[r2_buckets]]
+binding = "ATTENDANCE_R2"
+bucket_name = "kgrill-attendance"

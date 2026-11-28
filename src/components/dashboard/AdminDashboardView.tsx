@@ -24,6 +24,7 @@ import type { TabId } from '../../types/navigation';
 import AdminOperationsAlertCard, {
   type OperationalAlertEmployee,
 } from './AdminOperationsAlertCard';
+import AdminSyncHealthCard from './AdminSyncHealthCard';
 
 export interface AdminDashboardViewProps {
   currentUser: User | null;
@@ -240,7 +241,7 @@ export default function AdminDashboardView({
 
       {/* Asymmetric Bento Grid: Approval Queue FIRST on Mobile/Tablet (< lg) right below KPIs */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 xl:gap-6 items-start">
-        {/* Left Column on Desktop (8 cols): Operational alerts, checklists, sold-out */}
+        {/* Left Column on Desktop (8 cols): Operational alerts, sync health, checklists, sold-out */}
         <div className="lg:col-span-8 space-y-4 sm:space-y-5">
           {(notArrived.length > 0 || lateArrived.length > 0) && (
             <AdminOperationsAlertCard
@@ -254,6 +255,9 @@ export default function AdminDashboardView({
               onOpenAdminMissedModal={onOpenAdminMissedModal}
             />
           )}
+
+          {/* Live Sync Health Monitor (D1 <-> Google Sheet + R2 + Auto Maintenance) */}
+          <AdminSyncHealthCard />
 
           {/* Checklist & Handover compliance today */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">

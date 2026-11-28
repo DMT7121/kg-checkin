@@ -1090,6 +1090,29 @@ function formatCheckInRowsBatch_(sheet, startRow, rowMetas) {
   }
 }
 
+function isEdgeWifiVerified_(payload) {
+  if (!payload || payload.edgeWifiVerified !== true) return false;
+  var expected = (typeof CONFIG !== 'undefined' && CONFIG.EDGE_WIFI_ATTESTATION_TOKEN)
+    ? String(CONFIG.EDGE_WIFI_ATTESTATION_TOKEN)
+    : 'kg-edge-wifi-verified-2026';
+  return String(payload.edgeWifiSecret || '').trim() === expected;
+}
+
+function resolveDirectImageUrl_(payload) {
+  if (!payload) return '';
+  var candidate = String(payload.imageUrl || '').trim();
+  if (!candidate && typeof payload.image === 'string') {
+    var rawImg = payload.image.trim();
+    if (rawImg.indexOf('http://') === 0 || rawImg.indexOf('https://') === 0) {
+      candidate = rawImg;
+    }
+  }
+  if (candidate && (candidate.indexOf('http://') === 0 || candidate.indexOf('https://') === 0)) {
+    return candidate;
+  }
+  return '';
+}
+
 function handleCheckInOut(payload) {
   if (payload.username && !canEmployeeWork(payload.username)) {
     var blockedProfile = getEmploymentProfileByUsername(payload.username);
@@ -1128,7 +1151,7 @@ function handleCheckInOut(payload) {
     distMeters = Math.round(Number(payload.distance));
   } else {
     // Không có tọa độ GPS hợp lệ
-    if (!isAuthorizedTest) {
+    if (!isAuthorizedTest && !isEdgeWifiVerified_(payload)) {
       return jsonResponse(false, {
         message: 'Từ chối chấm công: Không nhận được dữ liệu tọa độ GPS từ thiết bị.',
         code: 'GPS_REQUIRED'
@@ -1140,9 +1163,12 @@ function handleCheckInOut(payload) {
   var gpsAcc = Number(payload.gpsAccuracy) || 0;
   var indoorAllowance = Math.min(Math.max(0, gpsAcc) * 0.45, 15);
   var effectiveDist = Math.max(0, distMeters - indoorAllowance);
+  var isWifiVerified = isEdgeWifiVerified_(payload);
+  var wifiIndoorMaxDriftM = Math.max(allowedRadius * 10, 350);
+  var passesDualPresence = isAuthorizedTest || effectiveDist <= allowedRadius || (isWifiVerified && distMeters <= wifiIndoorMaxDriftM);
 
-  // Chặn tuyệt đối nếu vượt quá bán kính quy định (ngoại trừ tài khoản test được cấp quyền)
-  if (!isAuthorizedTest && effectiveDist > allowedRadius) {
+  // Chặn tuyệt đối nếu vượt quá bán kính quy định và không qua Wi-Fi quán (ngoại trừ tài khoản test được cấp quyền)
+  if (!passesDualPresence) {
     try {
       recordFraudAlert(ss, payload, distMeters, allowedRadius);
     } catch(fraudErr) {
@@ -1476,14 +1502,14 @@ function handleCheckInOut(payload) {
   }
   
   // === COL F: KHOẢNG CÁCH (meters) & COL E: XÁC MINH ===
-  var isValid = isAuthorizedTest || (effectiveDist <= allowedRadius);
+  var isValid = passesDualPresence;
   var xacMinh = isValid ? 'Hợp lệ' : 'Không hợp lệ';
   
   // === COL G: LINK HÌNH ẢNH & UNIQUE CHECKIN ID ===
   var checkinId = payload.checkinId || ('CHK_' + (payload.username ? payload.username.toString().replace(/[^a-zA-Z0-9]/g, '') : 'user') + '_' + time.getTime() + '_' + Math.floor(Math.random() * 1000));
-  var imageUrl = '';
+  var imageUrl = resolveDirectImageUrl_(payload);
   var isFastSync = (payload.fastSync === true || payload.image === 'PENDING' || !payload.image);
-  if (!isFastSync && payload.image && payload.image !== 'PENDING' && payload.image.length > 100) {
+  if (!imageUrl && !isFastSync && payload.image && payload.image !== 'PENDING' && payload.image.length > 100) {
     try {
       imageUrl = uploadImageBlobToDrive(payload.image, hoVaTen);
     } catch(imgErr) {
@@ -1492,8 +1518,8 @@ function handleCheckInOut(payload) {
   }
 
   // TUYỆT ĐỐI KHÔNG LẤY ẢNH CỦA LƯỢT CHẤM CÔNG KHÁC / NGƯỜI KHÁC:
-  // Nếu chưa có ảnh (hoặc client gửi PENDING), để trống để luồng UPLOAD_CHECKIN_IMAGE cập nhật đúng ảnh của lượt này
-  if (!imageUrl || imageUrl.indexOf('drive.google.com') < 0) {
+  // Chấp nhận cả Cloudflare R2 URL (https://...) lẫn Google Drive URL; nếu chưa có thì để trống chờ UPLOAD_CHECKIN_IMAGE
+  if (!imageUrl || (imageUrl.indexOf('http://') !== 0 && imageUrl.indexOf('https://') !== 0)) {
     imageUrl = '';
   }
   
@@ -1587,7 +1613,7 @@ function handleCheckInOut(payload) {
     ensureCheckInNoteHeader_(sheet);
     sheet.insertRowBefore(2);
     var colGVal = '';
-    if (imageUrl && imageUrl.indexOf('drive.google.com') >= 0) {
+    if (imageUrl && (imageUrl.indexOf('http://') === 0 || imageUrl.indexOf('https://') === 0)) {
       // Dùng dấu chấm phẩy ';' chuẩn theo Locale Việt Nam của Google Sheets
       colGVal = '=HYPERLINK("' + imageUrl + '"; "📷 Xem ảnh")';
     }
@@ -1829,6 +1855,8 @@ function handleBatchCheckInOut(payload) {
     var distMeters = 0;
     var hasCoords = (item.lat !== undefined && item.lat !== null && item.lat !== '' &&
                      item.lng !== undefined && item.lng !== null && item.lng !== '');
+    var isWifiVerified = isEdgeWifiVerified_(item);
+    var wifiIndoorMaxDriftM = Math.max(allowedRadius * 10, 350);
     if (hasCoords) {
       var latNum = Number(item.lat);
       var lngNum = Number(item.lng);
@@ -1841,7 +1869,7 @@ function handleBatchCheckInOut(payload) {
       distMeters = Math.round(R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))));
     } else if (item.distance !== undefined && item.distance !== null && item.distance !== '') {
       distMeters = Math.round(Number(item.distance));
-    } else if (!isAuthorizedTest) {
+    } else if (!isAuthorizedTest && !isWifiVerified) {
       results[idx] = {
         checkinId: itemCheckinId,
         ok: false,
@@ -1854,7 +1882,8 @@ function handleBatchCheckInOut(payload) {
     var gpsAcc = Number(item.gpsAccuracy) || 0;
     var indoorAllowance = Math.min(Math.max(0, gpsAcc) * 0.45, 15);
     var effectiveDist = Math.max(0, distMeters - indoorAllowance);
-    if (!isAuthorizedTest && effectiveDist > allowedRadius) {
+    var passesDualPresence = isAuthorizedTest || effectiveDist <= allowedRadius || (isWifiVerified && distMeters <= wifiIndoorMaxDriftM);
+    if (!passesDualPresence) {
       try { recordFraudAlert(ss, item, distMeters, allowedRadius); } catch (fErr) {}
       results[idx] = {
         checkinId: itemCheckinId,
@@ -1964,8 +1993,9 @@ function handleBatchCheckInOut(payload) {
     } else {
       viTri = "Nhà hàng King's Grill";
     }
-    var isValid = isAuthorizedTest || (effectiveDist <= allowedRadius);
+    var isValid = passesDualPresence;
     var xacMinh = isValid ? 'Hợp lệ' : 'Không hợp lệ';
+    var directImageUrl = resolveDirectImageUrl_(item);
 
     var monthNum = String(time.getMonth() + 1).padStart(2, '0');
     var monthSheetName = 'Tháng ' + monthNum + '/' + time.getFullYear();
@@ -1989,6 +2019,7 @@ function handleBatchCheckInOut(payload) {
       isValid: isValid,
       xacMinh: xacMinh,
       distMeters: distMeters,
+      directImageUrl: directImageUrl,
       serverShift: serverShift,
       scheduleWarning: scheduleWarning,
       scheduleWeekDisplay: scheduleWeekDisplay
@@ -2144,6 +2175,8 @@ function handleBatchCheckInOut(payload) {
         extraNote: cand.item.note || ''
       });
 
+      var batchImgUrl = cand.directImageUrl || '';
+      var batchColG = batchImgUrl ? ('=HYPERLINK("' + batchImgUrl + '"; "📷 Xem ảnh")') : '';
       var dataJsonObj = {
         checkinId: cand.checkinId,
         username: cand.item.username || '',
@@ -2154,12 +2187,13 @@ function handleBatchCheckInOut(payload) {
         viTri: cand.viTri,
         xacMinh: cand.xacMinh,
         khoangCach: cand.distMeters + 'm',
-        linkAnh: '',
+        linkAnh: batchImgUrl,
         toaDo: { lat: cand.item.lat, lng: cand.item.lng },
         caLam: cand.serverShift || cand.item.shift || '',
         diTre: serverLateMins || cand.item.lateMins || 0,
         ghiChu: ghiChuColI,
         checkinMode: cand.item.checkinMode || 'v1_manual',
+        presenceMethod: cand.item.edgePresenceMethod || 'GPS',
         suspectedMissedCheckIn: suspectedMissedCheckIn,
         scheduleWarning: cand.scheduleWarning,
         emailSent: false,
@@ -2174,7 +2208,7 @@ function handleBatchCheckInOut(payload) {
         cand.viTri,
         cand.xacMinh,
         cand.distMeters + 'm',
-        '',
+        batchColG,
         dataJsonStr,
         ghiChuColI
       ];
@@ -2183,7 +2217,7 @@ function handleBatchCheckInOut(payload) {
         type: cand.loaiChamCong,
         status: cand.xacMinh,
         isValid: cand.isValid,
-        imageUrl: '',
+        imageUrl: batchImgUrl,
         note: ghiChuColI
       });
 
@@ -2295,6 +2329,234 @@ function handleBatchCheckInOut(payload) {
     results: results,
     insertedCount: insertedCandidates.length
   });
+}
+
+/**
+ * Đối soát 2 chiều D1 <-> Google Sheet: kiểm tra danh sách checkinId có mặt trên ✔️CHẤM CÔNG chưa
+ */
+function handleVerifyCheckinIds(payload) {
+  var requestedIds = (payload && Array.isArray(payload.checkinIds)) ? payload.checkinIds : [];
+  if (requestedIds.length === 0) {
+    return jsonResponse(true, { presentIds: [], missingIds: [] });
+  }
+  var ss = getSS();
+  var sheet = ss.getSheetByName(CONFIG.SHEET_LOGS);
+  if (!sheet) {
+    return jsonResponse(false, 'Không tìm thấy sheet chấm công');
+  }
+
+  var lastRow = sheet.getLastRow();
+  var lookback = Math.min(Math.max(Number(payload.lookbackRows) || 1500, 100), 5000);
+  var presentMap = {};
+
+  if (lastRow > 1) {
+    var scanCount = Math.min(lastRow - 1, lookback);
+    var colH = sheet.getRange(2, 8, scanCount, 1).getValues();
+    for (var i = 0; i < colH.length; i++) {
+      var raw = colH[i][0] ? String(colH[i][0]) : '';
+      if (!raw) continue;
+      try {
+        var parsed = JSON.parse(raw);
+        if (parsed && parsed.checkinId) {
+          presentMap[String(parsed.checkinId).trim()] = true;
+        }
+      } catch (e) {}
+    }
+  }
+
+  var presentIds = [];
+  var missingIds = [];
+  for (var j = 0; j < requestedIds.length; j++) {
+    var cid = String(requestedIds[j] || '').trim();
+    if (!cid) continue;
+    if (presentMap[cid]) presentIds.push(cid);
+    else missingIds.push(cid);
+  }
+
+  return jsonResponse(true, {
+    presentIds: presentIds,
+    missingIds: missingIds,
+    scannedRows: lastRow > 1 ? Math.min(lastRow - 1, lookback) : 0
+  });
+}
+
+/**
+ * Lưu trữ cuốn chiếu Sheet ✔️CHẤM CÔNG theo tháng:
+ * Di chuyển các dòng cũ hơn keepDays (mặc định 45 ngày) sang sheet "✔️CHẤM CÔNG - THÁNG MM/YYYY"
+ * (luôn giữ lại các dòng Chờ duyệt và dữ liệu trong 45 ngày gần nhất để Sheet chính luôn ghi dưới 1 giây).
+ */
+function archiveOldCheckInRowsCore_(keepDays) {
+  var days = Math.max(Number(keepDays) || 45, 7);
+  var ss = getSS();
+  var sheet = ss.getSheetByName(CONFIG.SHEET_LOGS);
+  if (!sheet) {
+    return { ok: false, message: 'Không tìm thấy sheet ' + CONFIG.SHEET_LOGS };
+  }
+
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(25000);
+  } catch (lockErr) {
+    return { ok: false, code: 'LOCK_TIMEOUT', message: 'Hệ thống đang bận chấm công, vui lòng thử lại sau.' };
+  }
+
+  try {
+    var lastRow = sheet.getLastRow();
+    if (lastRow <= 1) {
+      return { ok: true, archivedCount: 0, remainingCount: 0, archiveSheets: [] };
+    }
+
+    var numCols = Math.max(9, Math.min(sheet.getLastColumn(), 9));
+    var rawValues = sheet.getRange(2, 1, lastRow - 1, numCols).getValues();
+    var rawFormulas = (typeof sheet.getRange(2, 7, lastRow - 1, 1).getFormulas === 'function')
+      ? sheet.getRange(2, 7, lastRow - 1, 1).getFormulas()
+      : null;
+
+    var cutoffMs = new Date().getTime() - (days * 24 * 60 * 60 * 1000);
+    var keptRows = [];
+    var bucketsByMonth = {}; // 'MM/YYYY' -> rows[]
+    var archivedCount = 0;
+
+    for (var i = 0; i < rawValues.length; i++) {
+      var r = rawValues[i];
+      var row9 = [
+        r[0] !== undefined ? r[0] : '',
+        r[1] !== undefined ? r[1] : '',
+        r[2] !== undefined ? r[2] : '',
+        r[3] !== undefined ? r[3] : '',
+        r[4] !== undefined ? r[4] : '',
+        r[5] !== undefined ? r[5] : '',
+        (rawFormulas && rawFormulas[i] && rawFormulas[i][0]) ? rawFormulas[i][0] : (r[6] !== undefined ? r[6] : ''),
+        r[7] !== undefined ? r[7] : '',
+        r[8] !== undefined ? r[8] : ''
+      ];
+      // Ensure Col C string keeps leading apostrophe if it's a DD/MM/YYYY string
+      if (typeof row9[2] === 'string' && row9[2] && row9[2].charAt(0) !== "'") {
+        row9[2] = "'" + row9[2];
+      }
+
+      var typeStr = String(row9[1] || '').trim();
+      var isPendingClaim = /^\s*chờ\s*duyệt\s*:/i.test(typeStr);
+      var rowTs = getLogTimestampSafe(row9[2], row9[7]);
+
+      if (isPendingClaim || !rowTs || rowTs >= cutoffMs) {
+        keptRows.push(row9);
+        continue;
+      }
+
+      var vnDate = new Date(rowTs + 7 * 3600 * 1000);
+      var mm = String(vnDate.getUTCMonth() + 1).padStart(2, '0');
+      var yyyy = String(vnDate.getUTCFullYear());
+      var monthKey = mm + '/' + yyyy;
+      if (!bucketsByMonth[monthKey]) bucketsByMonth[monthKey] = [];
+      bucketsByMonth[monthKey].push(row9);
+      archivedCount++;
+    }
+
+    if (archivedCount === 0) {
+      return {
+        ok: true,
+        archivedCount: 0,
+        remainingCount: keptRows.length,
+        archiveSheets: [],
+        message: 'Chưa có dòng chấm công nào cũ hơn ' + days + ' ngày cần lưu trữ.'
+      };
+    }
+
+    var archiveSheetNames = [];
+    for (var mKey in bucketsByMonth) {
+      if (!Object.prototype.hasOwnProperty.call(bucketsByMonth, mKey)) continue;
+      var archiveName = CONFIG.SHEET_LOGS + ' - THÁNG ' + mKey;
+      archiveSheetNames.push(archiveName);
+      var archSheet = ss.getSheetByName(archiveName);
+      if (!archSheet) {
+        archSheet = ss.insertSheet(archiveName);
+        ensureCheckInNoteHeader_(archSheet);
+        archSheet.getRange(1, 1, 1, 9).setValues([[
+          '👤 HỌ VÀ TÊN', '🔄 LOẠI', '⏰ THỜI GIAN', '📍 ĐỊA ĐIỂM',
+          '✅ XÁC MINH', '📏 KHOẢNG CÁCH', '📸 HÌNH ẢNH', 'DATA_JSON', '📝 GHI CHÚ'
+        ]]);
+        try { archSheet.hideColumns(8); } catch (hErr) {}
+      }
+
+      // Deduplicate against existing archive rows
+      var existingKeys = {};
+      var archLast = archSheet.getLastRow();
+      if (archLast > 1) {
+        var existingArch = archSheet.getRange(2, 1, archLast - 1, Math.min(9, Math.max(8, archSheet.getLastColumn()))).getValues();
+        for (var ai = 0; ai < existingArch.length; ai++) {
+          var aJsonStr = existingArch[ai][7] ? String(existingArch[ai][7]) : '';
+          try {
+            var aObj = aJsonStr ? JSON.parse(aJsonStr) : null;
+            if (aObj && aObj.checkinId) existingKeys['ID:' + aObj.checkinId] = true;
+          } catch (pe) {}
+          var aComp = String(existingArch[ai][0] || '').trim().toLowerCase() + '|' +
+                      String(existingArch[ai][2] || '').replace(/^'/, '').trim() + '|' +
+                      String(existingArch[ai][1] || '').trim().toLowerCase();
+          existingKeys['K:' + aComp] = true;
+        }
+      }
+
+      var toAppend = [];
+      var monthRows = bucketsByMonth[mKey];
+      for (var mi = 0; mi < monthRows.length; mi++) {
+        var mr = monthRows[mi];
+        var mId = '';
+        try {
+          var mObj = mr[7] ? JSON.parse(String(mr[7])) : null;
+          if (mObj && mObj.checkinId) mId = String(mObj.checkinId).trim();
+        } catch (mpe) {}
+        var mComp = String(mr[0] || '').trim().toLowerCase() + '|' +
+                    String(mr[2] || '').replace(/^'/, '').trim() + '|' +
+                    String(mr[1] || '').trim().toLowerCase();
+        if ((mId && existingKeys['ID:' + mId]) || existingKeys['K:' + mComp]) {
+          continue;
+        }
+        if (mId) existingKeys['ID:' + mId] = true;
+        existingKeys['K:' + mComp] = true;
+        toAppend.push(mr);
+      }
+
+      if (toAppend.length > 0) {
+        var startRow = archSheet.getLastRow() + 1;
+        archSheet.getRange(startRow, 1, toAppend.length, 9).setValues(toAppend);
+      }
+    }
+
+    // Rewrite trimmed active sheet cleanly
+    ensureCheckInNoteHeader_(sheet);
+    if (keptRows.length > 0) {
+      sheet.getRange(2, 1, keptRows.length, 9).setValues(keptRows);
+    }
+    var rowsToRemove = (lastRow - 1) - keptRows.length;
+    if (rowsToRemove > 0) {
+      var delStart = 2 + keptRows.length;
+      if (typeof sheet.deleteRows === 'function') {
+        sheet.deleteRows(delStart, rowsToRemove);
+      } else {
+        sheet.getRange(delStart, 1, rowsToRemove, 9).clearContent();
+      }
+    }
+
+    try { invalidateGetDataCache(); } catch (invErr) {}
+    return {
+      ok: true,
+      archivedCount: archivedCount,
+      remainingCount: keptRows.length,
+      archiveSheets: archiveSheetNames,
+      message: 'Đã lưu trữ cuốn chiếu ' + archivedCount + ' dòng (> ' + days + ' ngày) sang ' + archiveSheetNames.join(', ') + '. Sheet chính còn ' + keptRows.length + ' dòng.'
+    };
+  } finally {
+    try { lock.releaseLock(); } catch (relErr) {}
+  }
+}
+
+function handleArchiveOldCheckInRows(payload) {
+  var adminErr = requireAdminActor(payload);
+  if (adminErr) return jsonResponse(false, adminErr);
+  var keepDays = Number(payload && payload.keepDays) || 45;
+  var res = archiveOldCheckInRowsCore_(keepDays);
+  return jsonResponse(Boolean(res && res.ok), res);
 }
 
 function handleSendEmailNotification(payload) {
@@ -3139,14 +3401,23 @@ function handleUpdateGpsConfig(payload) {
     return jsonResponse(false, 'Thiếu thông tin cấu hình GPS');
   }
   try {
+    var existingGps = getGpsConfig() || {};
+    var nextWifiIps = Array.isArray(payload.allowedWifiIps)
+      ? payload.allowedWifiIps.map(function(x) { return String(x || '').trim(); }).filter(Boolean)
+      : (Array.isArray(existingGps.allowedWifiIps) ? existingGps.allowedWifiIps : []);
+    var nextWifiFallback = payload.wifiFallbackEnabled !== undefined
+      ? Boolean(payload.wifiFallbackEnabled)
+      : (existingGps.wifiFallbackEnabled !== false);
     saveConfigToSheet("GPS_CONFIG", {
       lat: Number(payload.lat),
       lng: Number(payload.lng),
       radius: Number(payload.radius),
+      allowedWifiIps: nextWifiIps,
+      wifiFallbackEnabled: nextWifiFallback,
       shiftCodes: payload.shiftCodes || [],
       registrationCloseTime: payload.registrationCloseTime || '17:00 Thứ Bảy'
     });
-    return jsonResponse(true, 'Cập nhật cấu hình GPS thành công');
+    return jsonResponse(true, 'Cập nhật cấu hình GPS & Wi-Fi nhà hàng thành công');
   } catch (e) {
     return jsonResponse(false, 'Lỗi hệ thống: ' + e.message);
   }
@@ -5191,12 +5462,16 @@ function handleSaveChecklistConfig(payload) {
 // =====================================================================================
 
 function handleUploadCheckinImage(payload) {
-  if (!payload || !payload.image) {
+  var directUrl = resolveDirectImageUrl_(payload);
+  if (!payload || (!payload.image && !directUrl)) {
     return jsonResponse(false, 'Thiếu dữ liệu upload ảnh');
   }
 
-  // 1. Upload image to Google Drive OUTSIDE ScriptLock so concurrent check-ins & uploads never block each other!
-  var imageUrl = uploadImageBlobToDrive(payload.image, payload.fullname || payload.username || 'checkin');
+  // 1. If Edge already stored photo in Cloudflare R2 (https://...), skip Google Drive upload completely (0 Drive quota!)
+  var imageUrl = directUrl;
+  if (!imageUrl) {
+    imageUrl = uploadImageBlobToDrive(payload.image, payload.fullname || payload.username || 'checkin');
+  }
   if (!imageUrl) {
     return jsonResponse(false, 'Không thể tạo file ảnh trên Google Drive');
   }
@@ -5273,7 +5548,7 @@ function handleUploadCheckinImage(payload) {
     for (var i4 = 0; i4 < scanLimit; i4++) {
       if (isSamePerson(rows[i4][0], rows[i4][7])) {
         var colG = rows[i4][6] ? rows[i4][6].toString().trim() : '';
-        if (colG.indexOf('drive.google.com') === -1) {
+        if (colG.indexOf('drive.google.com') === -1 && colG.indexOf('http://') === -1 && colG.indexOf('https://') === -1 && colG.indexOf('Xem ảnh') === -1) {
           return { rowIdx: startRow1Based + i4, dataRow: rows[i4] };
         }
       }

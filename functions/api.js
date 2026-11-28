@@ -46,6 +46,10 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'REVIEW_HANDOVER',
   'UPDATE_INCIDENT',
   'RESET_FACE_PROFILE',
+  'GET_SYNC_HEALTH',
+  'FORCE_DRAIN_SYNC_QUEUE',
+  'ARCHIVE_OLD_CHECKIN_SHEETS',
+  'SETUP_ATTENDANCE_TRIGGERS',
 ]);
 
 let d1SchemaInitialized = false;
@@ -236,6 +240,68 @@ function buildCanonicalEdgeCacheInput(action, payload) {
   return JSON.stringify(clean);
 }
 
+function normalizeAllowedWifiIps(raw) {
+  const list = Array.isArray(raw)
+    ? raw
+    : typeof raw === 'string'
+    ? raw.split(/[\n,;]+/)
+    : [];
+  const seen = new Set();
+  const out = [];
+  for (const item of list) {
+    const clean = String(item || '').trim();
+    if (!clean || clean.length > 64) continue;
+    if (!seen.has(clean)) {
+      seen.add(clean);
+      out.push(clean);
+    }
+  }
+  return out;
+}
+
+function extractTrustedClientIp(request) {
+  if (!request?.headers) return '';
+  const cfIp = String(
+    request.headers.get('CF-Connecting-IP') || request.headers.get('cf-connecting-ip') || ''
+  ).trim();
+  if (cfIp) return cfIp;
+  const xff = String(request.headers.get('X-Forwarded-For') || request.headers.get('x-forwarded-for') || '').trim();
+  if (xff) return xff.split(',')[0].trim();
+  return '';
+}
+
+function isClientIpInWifiAllowlist(clientIp, allowedIps) {
+  const ip = String(clientIp || '').trim();
+  if (!ip) return false;
+  const list = normalizeAllowedWifiIps(allowedIps);
+  if (list.length === 0) return false;
+  for (const rule of list) {
+    if (rule === ip) return true;
+    // Wildcard prefix e.g. 113.161.72.*
+    if (rule.endsWith('.*')) {
+      const prefix = rule.slice(0, -1);
+      if (ip.startsWith(prefix)) return true;
+    }
+    // IPv4 /24 CIDR shorthand e.g. 113.161.72.0/24
+    if (rule.endsWith('/24')) {
+      const parts = rule.slice(0, -3).split('.');
+      if (parts.length === 4) {
+        const prefix24 = `${parts[0]}.${parts[1]}.${parts[2]}.`;
+        if (ip.startsWith(prefix24)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function getEdgeSyncSweeperSecret(env) {
+  return String(env?.SYNC_SWEEPER_SECRET || 'kg-sync-sweeper-2026').trim();
+}
+
+function getEdgeWifiAttestationToken(env) {
+  return String(env?.EDGE_WIFI_ATTESTATION_TOKEN || 'kg-edge-wifi-verified-2026').trim();
+}
+
 function normalizeGpsConfigSnapshot(gps) {
   if (!gps || typeof gps !== 'object') return null;
   const latNum = Number(gps.lat);
@@ -244,7 +310,79 @@ function normalizeGpsConfigSnapshot(gps) {
     return null;
   }
   const radNum = Number(gps.radius) || 25;
-  return { lat: latNum, lng: lngNum, radius: radNum };
+  return {
+    lat: latNum,
+    lng: lngNum,
+    radius: radNum,
+    allowedWifiIps: normalizeAllowedWifiIps(gps.allowedWifiIps),
+    wifiFallbackEnabled: gps.wifiFallbackEnabled !== false,
+  };
+}
+
+function decodeBase64ImageToBytesEdge(rawImage) {
+  const str = String(rawImage || '').trim();
+  if (!str || str === 'PENDING' || str.startsWith('http://') || str.startsWith('https://')) {
+    return null;
+  }
+  let contentType = 'image/jpeg';
+  let b64 = str;
+  const dataUriMatch = str.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/s);
+  if (dataUriMatch) {
+    contentType = dataUriMatch[1].toLowerCase();
+    b64 = dataUriMatch[2];
+  } else if (str.length < 64) {
+    return null;
+  }
+  try {
+    const cleanB64 = b64.replace(/\s+/g, '');
+    const binary = atob(cleanB64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    const ext = contentType.includes('webp')
+      ? 'webp'
+      : contentType.includes('png')
+      ? 'png'
+      : 'jpg';
+    return { bytes, contentType, ext };
+  } catch {
+    return null;
+  }
+}
+
+async function uploadCheckinPhotoToR2(env, requestUrl, checkinId, rawBase64Image) {
+  if (!env?.ATTENDANCE_R2 || typeof env.ATTENDANCE_R2.put !== 'function') return null;
+  const decoded = decodeBase64ImageToBytesEdge(rawBase64Image);
+  if (!decoded || decoded.bytes.byteLength < 16) return null;
+
+  const vnNow = new Date(Date.now() + 7 * 3600 * 1000);
+  const ym = `${vnNow.getUTCFullYear()}-${String(vnNow.getUTCMonth() + 1).padStart(2, '0')}`;
+  const safeId = String(checkinId || `chk_${Date.now()}`)
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .slice(0, 96);
+  const key = `checkin/${ym}/${safeId}.${decoded.ext}`;
+
+  await env.ATTENDANCE_R2.put(key, decoded.bytes, {
+    httpMetadata: {
+      contentType: decoded.contentType,
+      cacheControl: 'public, max-age=31536000, immutable',
+    },
+  });
+
+  let origin = 'https://kg-checkin.pages.dev';
+  try {
+    if (requestUrl) {
+      const parsed = new URL(requestUrl);
+      if (parsed.origin && parsed.origin.startsWith('http')) {
+        origin = parsed.origin;
+      }
+    }
+  } catch {}
+  return {
+    key,
+    url: `${origin}/api?photo=${encodeURIComponent(key)}`,
+  };
 }
 
 function shouldPersistFailoverSnapshot(edgeCacheKey, dataObj, now = Date.now()) {
@@ -270,6 +408,39 @@ export async function onRequest(context) {
   }
 
   if (request.method === 'GET') {
+    try {
+      const reqUrl = new URL(request.url);
+      const photoKey = reqUrl.searchParams.get('photo');
+      if (photoKey) {
+        const cleanKey = String(photoKey).trim();
+        if (!/^checkin\/[a-zA-Z0-9._\/-]+$/.test(cleanKey) || cleanKey.includes('..')) {
+          return new Response('Invalid photo key', { status: 400, headers: CORS_HEADERS });
+        }
+        if (!env?.ATTENDANCE_R2 || typeof env.ATTENDANCE_R2.get !== 'function') {
+          return new Response('Photo storage unavailable', { status: 503, headers: CORS_HEADERS });
+        }
+        const obj = await env.ATTENDANCE_R2.get(cleanKey);
+        if (!obj) {
+          return new Response('Photo not found', { status: 404, headers: CORS_HEADERS });
+        }
+        const ct =
+          obj.httpMetadata?.contentType ||
+          (cleanKey.endsWith('.webp')
+            ? 'image/webp'
+            : cleanKey.endsWith('.png')
+            ? 'image/png'
+            : 'image/jpeg');
+        return new Response(obj.body, {
+          status: 200,
+          headers: {
+            ...CORS_HEADERS,
+            'Content-Type': ct,
+            'Cache-Control': 'public, max-age=31536000, immutable',
+            'X-Edge-Storage': 'R2-ATTENDANCE',
+          },
+        });
+      }
+    } catch {}
     const statusReport = await getEdgeDbStatus(env);
     return jsonResponse(statusReport, 200, { 'X-Edge-DB': 'STATUS' });
   }
@@ -362,7 +533,16 @@ export async function onRequest(context) {
     // Opportunistically drain any pending Google Sheets sync tasks & prune >24h cache entries in background.
     // For legacy synchronous UPLOAD_CHECKIN_IMAGE, await drain first so any D1-buffered CHECK_IN_OUT row lands in Google Sheets
     // right before Drive photo attachment & post-upload email notification run!
-    if (env?.DB && action !== 'GET_EDGE_DB_STATUS' && action !== 'LOGIN') {
+    if (
+      env?.DB &&
+      action !== 'GET_EDGE_DB_STATUS' &&
+      action !== 'LOGIN' &&
+      action !== 'GET_SYNC_HEALTH' &&
+      action !== 'SWEEP_SYNC_QUEUE' &&
+      action !== 'FORCE_DRAIN_SYNC_QUEUE' &&
+      action !== 'RUN_D1_SHEET_RECONCILIATION' &&
+      action !== 'GET_CLIENT_NETWORK_INFO'
+    ) {
       if (action === 'UPLOAD_CHECKIN_IMAGE' && payload.instantEdge !== true) {
         await drainEdgeSyncQueue(env, TARGET_GAS_URL);
       } else if (
@@ -387,6 +567,105 @@ export async function onRequest(context) {
     if (action === 'GET_EDGE_DB_STATUS') {
       const statusReport = await getEdgeDbStatus(env);
       return jsonResponse(statusReport, 200, { 'X-Edge-DB': 'STATUS' });
+    }
+
+    // 1-ext-a. Admin Sync Health Monitor
+    if (action === 'GET_SYNC_HEALTH') {
+      const health = await getEdgeSyncHealthSnapshot(env);
+      return jsonResponse({ ok: true, data: health }, 200, {
+        'X-Edge-Sync': 'HEALTH',
+        'Cache-Control': 'no-store',
+      });
+    }
+
+    // 1-ext-b. Scheduled Auto Sync Sweeper (GAS 5-min trigger) & Admin 1-Click Force Drain
+    if (action === 'SWEEP_SYNC_QUEUE' || action === 'FORCE_DRAIN_SYNC_QUEUE') {
+      if (action === 'SWEEP_SYNC_QUEUE') {
+        const isAdminCaller =
+          (verifiedSession && verifiedSession.r === 'admin') ||
+          (!rawToken && String(payload.role || '').trim().toLowerCase() === 'admin');
+        const secretValid =
+          String(payload.secret || '').trim() !== '' &&
+          String(payload.secret || '').trim() === getEdgeSyncSweeperSecret(env);
+        if (!isAdminCaller && !secretValid) {
+          return jsonResponse(
+            { ok: false, message: 'Unauthorized sweeper request.' },
+            403,
+            { 'X-Edge-RBAC': 'DENIED-SWEEPER' }
+          );
+        }
+      }
+      const beforeHealth = await getEdgeSyncHealthSnapshot(env);
+      if (env?.DB) {
+        await drainEdgeSyncQueue(env, TARGET_GAS_URL, { coalesceMs: 0, forceRetryAll: true });
+      }
+      const afterHealth = await getEdgeSyncHealthSnapshot(env);
+      return jsonResponse(
+        {
+          ok: true,
+          message:
+            afterHealth.unsyncedCheckins === 0 && afterHealth.pendingQueueTotal === 0
+              ? 'Đã đồng bộ sạch 100% dữ liệu chấm công lên Google Sheet.'
+              : `Đã quét xả hàng đợi (còn ${afterHealth.unsyncedCheckins} lượt chấm công & ${afterHealth.pendingImages} ảnh đang chờ).`,
+          data: {
+            beforePending: beforeHealth.pendingQueueTotal,
+            afterPending: afterHealth.pendingQueueTotal,
+            drainedCount: Math.max(0, beforeHealth.pendingQueueTotal - afterHealth.pendingQueueTotal),
+            health: afterHealth,
+          },
+        },
+        200,
+        { 'X-Edge-Sync': 'SWEPT', 'Cache-Control': 'no-store' }
+      );
+    }
+
+    // 1-ext-c. Daily Bidirectional D1 <-> Google Sheet 48h Reconciliation (Admin or 05:00 VN GAS trigger)
+    if (action === 'RUN_D1_SHEET_RECONCILIATION') {
+      const isAdminCaller =
+        (verifiedSession && verifiedSession.r === 'admin') ||
+        (!rawToken && String(payload.role || '').trim().toLowerCase() === 'admin');
+      const secretValid =
+        String(payload.secret || '').trim() !== '' &&
+        String(payload.secret || '').trim() === getEdgeSyncSweeperSecret(env);
+      if (!isAdminCaller && !secretValid) {
+        return jsonResponse(
+          { ok: false, message: 'Chỉ Quản trị viên hoặc hệ thống đối soát mới có quyền thực thi.' },
+          403,
+          { 'X-Edge-RBAC': 'DENIED-RECONCILE' }
+        );
+      }
+      const reconResult = await handleRunD1SheetReconciliationEdge(env, payload);
+      return jsonResponse(reconResult, 200, {
+        'X-Edge-Sync': 'RECONCILED',
+        'Cache-Control': 'no-store',
+      });
+    }
+
+    // 1-ext-d. Trusted Client Network / Restaurant Wi-Fi Verification Info (CF-Connecting-IP)
+    if (action === 'GET_CLIENT_NETWORK_INFO') {
+      const clientIp = extractTrustedClientIp(request);
+      const gpsCfg = await readActiveEdgeGpsConfig(env);
+      const allowedWifiIps = normalizeAllowedWifiIps(gpsCfg?.allowedWifiIps);
+      const wifiFallbackEnabled = gpsCfg?.wifiFallbackEnabled !== false;
+      const isRestaurantWifi =
+        wifiFallbackEnabled && isClientIpInWifiAllowlist(clientIp, allowedWifiIps);
+      const isAdminCaller =
+        (verifiedSession && verifiedSession.r === 'admin') ||
+        (!rawToken && String(payload.role || '').trim().toLowerCase() === 'admin');
+      return jsonResponse(
+        {
+          ok: true,
+          data: {
+            clientIp,
+            isRestaurantWifi,
+            wifiFallbackEnabled,
+            allowedWifiCount: allowedWifiIps.length,
+            ...(isAdminCaller ? { allowedWifiIps } : {}),
+          },
+        },
+        200,
+        { 'X-Edge-Network': isRestaurantWifi ? 'WIFI-VERIFIED' : 'EXTERNAL', 'Cache-Control': 'no-store' }
+      );
     }
 
     // 1a. Ultra-Fast Cloudflare D1 Salted-SHA256 Login Verifier (<35ms vs 1.5-4.5s GAS cold start)
@@ -420,7 +699,7 @@ export async function onRequest(context) {
       payload.isKiosk === true &&
       !isPublicProfilePreload
     ) {
-      const gpsGateErr = await verifyEdgeKioskGpsGate(env, payload);
+      const gpsGateErr = await verifyEdgeKioskGpsGate(env, payload, request);
       if (gpsGateErr) {
         return jsonResponse(gpsGateErr, 200, { 'X-Edge-GPS': 'REJECTED' });
       }
@@ -2284,7 +2563,13 @@ async function handleMutationSideEffects(
       const lngNum = Number(payload.lng);
       const radNum = Number(payload.radius) || 25;
       if (Number.isFinite(latNum) && Number.isFinite(lngNum)) {
-        const nextGps = { lat: latNum, lng: lngNum, radius: radNum };
+        const nextGps = {
+          lat: latNum,
+          lng: lngNum,
+          radius: radNum,
+          allowedWifiIps: normalizeAllowedWifiIps(payload.allowedWifiIps),
+          wifiFallbackEnabled: payload.wifiFallbackEnabled !== false,
+        };
         lastSavedGpsConfigJson = JSON.stringify(nextGps);
         lastSavedGpsConfigAtMs = now;
         await writeEdgeCache(
@@ -3101,11 +3386,12 @@ async function runDrainEdgeSyncQueue_(env, targetGasUrl, options = {}) {
     while (Date.now() - startedAt < 22000) {
       drainRerunRequested = false;
 
-      // Reclaim any stalled 'processing' leases older than 35s from terminated isolates
+      // Reclaim any stalled 'processing' leases (10s when forceRetryAll, else 35s from terminated isolates)
+      const reclaimMs = options?.forceRetryAll ? 10000 : 35000;
       await env.DB.prepare(
         `UPDATE edge_sync_queue SET status = 'pending', updated_at = ?1 WHERE status = 'processing' AND updated_at < ?2`
       )
-        .bind(Date.now(), Date.now() - 35000)
+        .bind(Date.now(), Date.now() - reclaimMs)
         .run()
         .catch(() => {});
 
@@ -3115,7 +3401,7 @@ async function runDrainEdgeSyncQueue_(env, targetGasUrl, options = {}) {
         await reconcileOrphanedUnsyncedCheckIns(env);
       }
 
-      const retryBackoffCutoff = Date.now() - 15000;
+      const retryBackoffCutoff = options?.forceRetryAll ? Date.now() + 60000 : Date.now() - 15000;
       const pending = await env.DB.prepare(
         `SELECT id, dedupe_key, action, payload_json, attempts
          FROM edge_sync_queue
@@ -3437,9 +3723,9 @@ async function handleInstantCheckInEdge(context, payload, _bodyText, verifiedSes
   const isOfflineRetry = payload.isOfflineRetry === true || payload.isOfflineRetry === 'true';
   const isFaceMode = String(payload.checkinMode || '').trim() === 'v2_face';
 
-  // 1. Deterministic Geofence, Clock Desync & Photo Expiration Guards
+  // 1. Deterministic Geofence (Dual Presence: GPS + Restaurant Wi-Fi IP), Clock Desync & Photo Expiration Guards
   if (!isAuthorizedTest) {
-    const gpsErr = await verifyEdgeKioskGpsGate(env, payload);
+    const gpsErr = await verifyEdgeKioskGpsGate(env, payload, context.request);
     if (gpsErr) {
       return jsonResponse(gpsErr, 200, { 'X-Edge-GPS': 'REJECTED' });
     }
@@ -3554,13 +3840,24 @@ async function handleInstantCheckInEdge(context, payload, _bodyText, verifiedSes
     }
   }
 
-  // 4. Instant D1 Write-Ahead Commit (<15ms) + Ordered Background Google Sheets Sync
+  // 4. Instant D1 Write-Ahead Commit (<15ms) + Optional Instant R2 Photo Storage + Ordered Background Google Sheets Sync
   const timeStr = String(
     payload.actualTime || payload.time || payload.clientTime || formatVietnamTimestampFromMs(now)
   ).trim();
   const unifiedPunchType = normalizeStrictEdgePunchType(rawPunchType);
   const rawImg = String(payload.image || '');
-  const cleanImgUrl = rawImg.startsWith('data:image') || !rawImg ? 'PENDING' : rawImg;
+  let r2InlineUrl = '';
+  if (rawImg && rawImg !== 'PENDING' && !rawImg.startsWith('http') && env?.ATTENDANCE_R2) {
+    try {
+      const r2Upload = await uploadCheckinPhotoToR2(env, context.request?.url, logId, rawImg);
+      if (r2Upload?.url) r2InlineUrl = r2Upload.url;
+    } catch {}
+  }
+  const cleanImgUrl = r2InlineUrl
+    ? r2InlineUrl
+    : rawImg.startsWith('http')
+    ? rawImg
+    : 'PENDING';
   const parsedPunchMs = parseEdgeVietnamTimestampMs(timeStr);
   const effectiveCreatedAt =
     isOfflineRetry && parsedPunchMs > 0 && parsedPunchMs <= now + 180000
@@ -3597,7 +3894,8 @@ async function handleInstantCheckInEdge(context, payload, _bodyText, verifiedSes
     type: unifiedPunchType,
     time: timeStr,
     actualTime: timeStr,
-    image: 'PENDING',
+    image: r2InlineUrl ? r2InlineUrl : 'PENDING',
+    ...(r2InlineUrl ? { imageUrl: r2InlineUrl } : {}),
     isOfflineRetry: true,
     fastSync: true,
     sendEmailInline: false,
@@ -3684,18 +3982,8 @@ async function syncInstantCheckInToGas(context, logId, _queuePayload) {
 }
 
 async function handleInstantUploadImageEdge(context, payload) {
-  const { env } = context;
+  const { env, request } = context;
   if (!env?.DB || !payload || typeof payload.image !== 'string' || payload.image.length < 50) {
-    return null;
-  }
-
-  const cleanPayload = { ...payload };
-  delete cleanPayload.action;
-  delete cleanPayload.instantEdge;
-
-  const serialized = JSON.stringify(cleanPayload);
-  // Safeguard against D1 1MB row limit: oversized images fall through to direct GAS upload
-  if (serialized.length > 900000) {
     return null;
   }
 
@@ -3703,7 +3991,80 @@ async function handleInstantUploadImageEdge(context, payload) {
   const checkinId = String(
     payload.checkinId || `IMG_${String(payload.username || 'staff').replace(/\W+/g, '')}_${now}`
   ).trim();
+
+  // Fast Path: Store proof photo directly in Cloudflare R2 (<50ms, 0 Google Drive quota!)
+  let r2Url = '';
+  if (env?.ATTENDANCE_R2 && typeof env.ATTENDANCE_R2.put === 'function') {
+    try {
+      const uploaded = await uploadCheckinPhotoToR2(env, request?.url, checkinId, payload.image);
+      if (uploaded?.url) {
+        r2Url = uploaded.url;
+        const targetUser = String(payload.username || '').trim().toLowerCase();
+        const targetTimeStr = String(payload.time || '').trim();
+        await updateEdgeCheckinLogImageUrl(env.DB, r2Url, checkinId, targetUser, targetTimeStr);
+
+        // If the parent CHECK_IN_OUT is STILL pending in edge_sync_queue, attach r2Url directly into it
+        // so GAS writes the photo link inside the SAME BATCH_CHECK_IN_OUT call (ZERO extra GAS RPCs!)
+        const pendingPunchRow = await env.DB.prepare(
+          `SELECT id, payload_json FROM edge_sync_queue WHERE dedupe_key = ?1 AND status = 'pending' LIMIT 1`
+        )
+          .bind(`CHECK_IN_OUT:${checkinId}`)
+          .first()
+          .catch(() => null);
+        if (pendingPunchRow?.id && pendingPunchRow?.payload_json) {
+          try {
+            const pObj = JSON.parse(pendingPunchRow.payload_json);
+            pObj.imageUrl = r2Url;
+            pObj.image = r2Url;
+            const patched = await env.DB.prepare(
+              `UPDATE edge_sync_queue SET payload_json = ?1, updated_at = ?2 WHERE id = ?3 AND status = 'pending'`
+            )
+              .bind(JSON.stringify(pObj), now, pendingPunchRow.id)
+              .run()
+              .catch(() => null);
+            if (!patched?.meta || Number(patched.meta.changes || 0) > 0) {
+              await invalidateEdgeReadCaches(env, ['GET_DATA', 'GET_CHECKIN_LOGS']);
+              return jsonResponse(
+                {
+                  ok: true,
+                  message: 'Đã lưu ảnh minh chứng tức thì trên Cloudflare R2 và gắn sẵn vào gói đồng bộ Sheet!',
+                  data: {
+                    url: r2Url,
+                    imageUrl: r2Url,
+                    storage: 'cloudflare_r2',
+                    mergedIntoBatch: true,
+                    checkinId,
+                  },
+                },
+                200,
+                {
+                  'X-Edge-DB': 'R2-IMAGE-MERGED',
+                  'Cache-Control': 'no-store, no-cache, must-revalidate',
+                }
+              );
+            }
+          } catch {}
+        }
+      }
+    } catch {}
+  }
+
+  const cleanPayload = { ...payload };
+  delete cleanPayload.action;
+  delete cleanPayload.instantEdge;
   cleanPayload.checkinId = checkinId;
+
+  // When R2 already persisted the photo, strip heavy base64 and send only the lightweight URL to GAS!
+  if (r2Url) {
+    cleanPayload.imageUrl = r2Url;
+    cleanPayload.image = r2Url;
+  } else {
+    const serializedCheck = JSON.stringify(cleanPayload);
+    // Safeguard against D1 1MB row limit: oversized images fall through to direct GAS upload
+    if (serializedCheck.length > 900000) {
+      return null;
+    }
+  }
 
   const dedupeKey = `UPLOAD_CHECKIN_IMAGE:${checkinId}`;
   await env.DB.prepare(
@@ -3722,16 +4083,19 @@ async function handleInstantUploadImageEdge(context, payload) {
   return jsonResponse(
     {
       ok: true,
-      message: 'Đã tiếp nhận ảnh minh chứng tại Edge và đang gắn link Google Drive vào Bảng chấm công...',
+      message: r2Url
+        ? 'Đã lưu ảnh minh chứng trên Cloudflare R2 và đang gắn link vào Bảng chấm công...'
+        : 'Đã tiếp nhận ảnh minh chứng tại Edge và đang gắn link Google Drive vào Bảng chấm công...',
       data: {
-        queuedForDrive: true,
+        ...(r2Url ? { url: r2Url, imageUrl: r2Url, storage: 'cloudflare_r2' } : {}),
+        queuedForDrive: !r2Url,
         edgeImageQueued: true,
         checkinId,
       },
     },
     200,
     {
-      'X-Edge-DB': 'D1-IMAGE-QUEUED',
+      'X-Edge-DB': r2Url ? 'R2-IMAGE-QUEUED' : 'D1-IMAGE-QUEUED',
       'Cache-Control': 'no-store, no-cache, must-revalidate',
     }
   );
@@ -4562,9 +4926,10 @@ async function ensureD1Schema(db) {
 async function getEdgeDbStatus(env) {
   const status = {
     ok: true,
-    engine: 'Cloudflare D1 (SQLite Edge) + Cloudflare KV + Google Sheets Master Sync',
+    engine: 'Cloudflare D1 (SQLite Edge) + Cloudflare R2 + Cloudflare KV + Google Sheets Master Sync',
     d1Bound: Boolean(env?.DB),
     kvBound: Boolean(env?.KG_EDGE_DB),
+    r2Bound: Boolean(env?.ATTENDANCE_R2),
     region: 'APAC (Singapore Edge)',
     tables: {},
     timestamp: new Date().toISOString(),
@@ -5870,28 +6235,14 @@ function computeFaceProfileScoreEdge(liveVec, storedVecs, storedCentroid = null)
   return 0.85 * maxCos + 0.15 * supportCos;
 }
 
-async function verifyEdgeKioskGpsGate(env, payload) {
-  const latNum = Number(payload?.lat);
-  const lngNum = Number(payload?.lng);
-  if (
-    payload?.lat === undefined ||
-    payload?.lng === undefined ||
-    payload?.lat === null ||
-    payload?.lng === null ||
-    !Number.isFinite(latNum) ||
-    !Number.isFinite(lngNum)
-  ) {
-    return {
-      ok: false,
-      code: 'GPS_REQUIRED',
-      data: { code: 'GPS_REQUIRED' },
-      message: 'Trạm Face ID yêu cầu định vị GPS tại nhà hàng (<= 25m).',
-    };
-  }
-
-  let refLat = DEFAULT_RESTAURANT_LAT;
-  let refLng = DEFAULT_RESTAURANT_LNG;
-  let allowedRadius = DEFAULT_KIOSK_RADIUS_M;
+async function readActiveEdgeGpsConfig(env) {
+  const cfg = {
+    lat: DEFAULT_RESTAURANT_LAT,
+    lng: DEFAULT_RESTAURANT_LNG,
+    radius: DEFAULT_KIOSK_RADIUS_M,
+    allowedWifiIps: [],
+    wifiFallbackEnabled: true,
+  };
   if (env?.DB) {
     try {
       const gpsEntry = await readEdgeCache(env, 'sys:gps_config', true);
@@ -5900,18 +6251,313 @@ async function verifyEdgeKioskGpsGate(env, payload) {
         const cLng = Number(gpsEntry.data.lng);
         const cRad = Number(gpsEntry.data.radius);
         if (Number.isFinite(cLat) && Number.isFinite(cLng) && cLat !== 0 && cLng !== 0) {
-          refLat = cLat;
-          refLng = cLng;
+          cfg.lat = cLat;
+          cfg.lng = cLng;
         }
         if (Number.isFinite(cRad) && cRad > 0) {
-          allowedRadius = cRad === 20 ? 25 : cRad;
+          cfg.radius = cRad === 20 ? 25 : cRad;
         }
+        cfg.allowedWifiIps = normalizeAllowedWifiIps(gpsEntry.data.allowedWifiIps);
+        cfg.wifiFallbackEnabled = gpsEntry.data.wifiFallbackEnabled !== false;
       }
-    } catch {
-      // Fallback to calibrated restaurant coordinates
+    } catch {}
+  }
+  return cfg;
+}
+
+async function getEdgeSyncHealthSnapshot(env) {
+  const now = Date.now();
+  const base = {
+    d1Bound: Boolean(env?.DB),
+    r2Bound: Boolean(env?.ATTENDANCE_R2),
+    unsyncedCheckins: 0,
+    pendingQueueTotal: 0,
+    pendingCheckins: 0,
+    pendingImages: 0,
+    pendingOther: 0,
+    oldestPendingAgeSec: 0,
+    isStaleAlert: false,
+    lastError: '',
+    recentUnsynced: [],
+    timestamp: new Date(now).toISOString(),
+  };
+  if (!env?.DB) return base;
+
+  try {
+    const cutoff7d = now - 7 * 86400 * 1000;
+    const [unsyncedRes, queueRes] = await Promise.all([
+      env.DB.prepare(
+        `SELECT id, username, fullname, check_type, time_str, sheet_synced, created_at
+         FROM edge_checkin_logs
+         WHERE sheet_synced = 0 AND created_at >= ?1
+         ORDER BY created_at ASC
+         LIMIT 25`
+      )
+        .bind(cutoff7d)
+        .all()
+        .catch(() => null),
+      env.DB.prepare(
+        `SELECT id, action, status, attempts, last_error, created_at, updated_at
+         FROM edge_sync_queue
+         WHERE status IN ('pending', 'processing') AND created_at >= ?1
+         ORDER BY created_at ASC
+         LIMIT 100`
+      )
+        .bind(cutoff7d)
+        .all()
+        .catch(() => null),
+    ]);
+
+    const unsyncedRows = (unsyncedRes?.results || []).filter(
+      (r) =>
+        (r?.sheet_synced === undefined || Number(r.sheet_synced) === 0) &&
+        !/^\s*(?:chờ\s*duyệt|từ\s*chối)\s*:/i.test(String(r?.check_type || ''))
+    );
+    const queueRows = queueRes?.results || [];
+
+    base.unsyncedCheckins = unsyncedRows.length;
+    base.pendingQueueTotal = queueRows.length;
+    let oldestTs = 0;
+    let lastErr = '';
+    for (const q of queueRows) {
+      const act = String(q?.action || '');
+      if (act === 'CHECK_IN_OUT' || act === 'CHECK_IN') base.pendingCheckins += 1;
+      else if (act === 'UPLOAD_CHECKIN_IMAGE') base.pendingImages += 1;
+      else base.pendingOther += 1;
+      const ts = Number(q?.created_at || q?.updated_at || 0);
+      if (ts > 0 && (oldestTs === 0 || ts < oldestTs)) oldestTs = ts;
+      if (q?.last_error && !lastErr) lastErr = String(q.last_error);
     }
+    for (const u of unsyncedRows) {
+      const ts = Number(u?.created_at || 0);
+      if (ts > 0 && (oldestTs === 0 || ts < oldestTs)) oldestTs = ts;
+    }
+
+    base.oldestPendingAgeSec = oldestTs > 0 ? Math.max(0, Math.round((now - oldestTs) / 1000)) : 0;
+    base.isStaleAlert =
+      (base.unsyncedCheckins > 0 || base.pendingCheckins > 0) && base.oldestPendingAgeSec >= 300;
+    base.lastError = lastErr;
+    base.recentUnsynced = unsyncedRows.slice(0, 10).map((r) => ({
+      id: r.id,
+      username: r.username,
+      fullname: r.fullname,
+      type: r.check_type,
+      time: r.time_str,
+      createdAt: r.created_at,
+    }));
+  } catch (e) {
+    base.lastError = String(e?.message || 'Health query error');
+  }
+  return base;
+}
+
+async function handleRunD1SheetReconciliationEdge(env, payload = {}) {
+  if (!env?.DB) {
+    return { ok: false, message: 'D1 database chưa được kết nối.' };
+  }
+  const now = Date.now();
+  const hours = Math.min(Math.max(Number(payload?.hours) || 48, 1), 168);
+  const cutoff = now - hours * 3600 * 1000;
+
+  try {
+    const d1Res = await env.DB.prepare(
+      `SELECT id, username, fullname, check_type, shift_name, time_str, status, distance, lat, lng, note, image_url, sheet_synced, created_at
+       FROM edge_checkin_logs
+       WHERE created_at >= ?1
+       ORDER BY created_at DESC
+       LIMIT 300`
+    )
+      .bind(cutoff)
+      .all()
+      .catch(() => null);
+
+    const candidateRows = (d1Res?.results || []).filter((r) => {
+      const id = String(r?.id || '').trim();
+      const t = String(r?.check_type || '').trim();
+      return Boolean(id) && !/^\s*(?:chờ\s*duyệt|từ\s*chối)\s*:/i.test(t);
+    });
+
+    if (candidateRows.length === 0) {
+      return {
+        ok: true,
+        message: `Không có lượt chấm công nào trong ${hours}h gần nhất cần đối soát.`,
+        data: { checkedCount: 0, missingBefore: 0, healedCount: 0, stillMissingCount: 0 },
+      };
+    }
+
+    const gasVerifyRes = await fetch(TARGET_GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'VERIFY_CHECKIN_IDS',
+        checkinIds: candidateRows.map((r) => r.id),
+        lookbackRows: 1500,
+      }),
+      signal:
+        typeof AbortSignal !== 'undefined' && AbortSignal.timeout
+          ? AbortSignal.timeout(25000)
+          : undefined,
+    });
+    const parsedVerify = await gasVerifyRes.json();
+    if (!parsedVerify || parsedVerify.ok !== true) {
+      return {
+        ok: false,
+        message: String(parsedVerify?.message || 'GAS chưa hỗ trợ VERIFY_CHECKIN_IDS hoặc tạm bận.'),
+      };
+    }
+
+    const missingIdSet = new Set(
+      Array.isArray(parsedVerify?.data?.missingIds)
+        ? parsedVerify.data.missingIds.map((x) => String(x || '').trim())
+        : []
+    );
+
+    const missingRows = candidateRows.filter((r) => missingIdSet.has(String(r.id).trim()));
+    if (missingRows.length > 0) {
+      for (const r of missingRows) {
+        const logId = String(r.id).trim();
+        await env.DB.prepare(`UPDATE edge_checkin_logs SET sheet_synced = 0 WHERE id = ?1`)
+          .bind(logId)
+          .run()
+          .catch(() => {});
+        const imgUrl = typeof r.image_url === 'string' && r.image_url.startsWith('http') ? r.image_url : 'PENDING';
+        const reconPayload = {
+          checkinId: logId,
+          username: String(r.username || '').trim().toLowerCase(),
+          fullname: String(r.fullname || '').trim(),
+          type: normalizeStrictEdgePunchType(r.check_type),
+          shift: String(r.shift_name || ''),
+          time: String(r.time_str || ''),
+          actualTime: String(r.time_str || ''),
+          distance: Number(r.distance || 0),
+          lat: r.lat ?? null,
+          lng: r.lng ?? null,
+          note: String(r.note || ''),
+          image: imgUrl,
+          ...(imgUrl.startsWith('http') ? { imageUrl: imgUrl } : {}),
+          isOfflineRetry: true,
+          fastSync: true,
+          sendEmailInline: false,
+        };
+        await env.DB.prepare(
+          `INSERT INTO edge_sync_queue (dedupe_key, action, payload_json, attempts, status, created_at, updated_at)
+           VALUES (?1, 'CHECK_IN_OUT', ?2, 0, 'pending', ?3, ?3)
+           ON CONFLICT(dedupe_key) DO UPDATE SET
+             payload_json = excluded.payload_json,
+             status = 'pending',
+             attempts = 0,
+             updated_at = excluded.updated_at`
+        )
+          .bind(`CHECK_IN_OUT:${logId}`, JSON.stringify(reconPayload), now)
+          .run()
+          .catch(() => {});
+      }
+
+      await drainEdgeSyncQueue(env, TARGET_GAS_URL, { coalesceMs: 0, forceRetryAll: true });
+    }
+
+    // Count how many of those missingRows are now synced
+    let healedCount = 0;
+    for (const r of missingRows) {
+      const checkRow = await env.DB.prepare(
+        `SELECT sheet_synced FROM edge_checkin_logs WHERE id = ?1 LIMIT 1`
+      )
+        .bind(String(r.id).trim())
+        .first()
+        .catch(() => null);
+      if (checkRow && Number(checkRow.sheet_synced) === 1) {
+        healedCount += 1;
+      }
+    }
+    const stillMissingCount = Math.max(0, missingRows.length - healedCount);
+
+    // Record audit entry in D1
+    try {
+      const auditId = `AUD_RECON_${now}`;
+      const summary = `Đối soát D1↔Sheet ${hours}h: kiểm tra ${candidateRows.length} lượt, phát hiện thiếu ${missingRows.length}, đã tự bù ${healedCount}, còn thiếu ${stillMissingCount}.`;
+      await env.DB.prepare(
+        `INSERT INTO edge_audit_logs (id, actor, action, target, summary, record_json, created_at)
+         VALUES (?1, ?2, 'D1_SHEET_RECONCILIATION', '✔️CHẤM CÔNG', ?3, ?4, ?5)`
+      )
+        .bind(
+          auditId,
+          String(payload?.actorUsername || payload?.username || 'SYSTEM_CRON'),
+          summary,
+          JSON.stringify({
+            hours,
+            checkedCount: candidateRows.length,
+            missingBefore: missingRows.length,
+            healedCount,
+            stillMissingCount,
+          }),
+          now
+        )
+        .run()
+        .catch(() => {});
+    } catch {}
+
+    return {
+      ok: true,
+      message:
+        missingRows.length === 0
+          ? `Đối soát ${hours}h hoàn tất: 100% khớp (${candidateRows.length}/${candidateRows.length} lượt đã có mặt trên Google Sheet).`
+          : `Đối soát ${hours}h: phát hiện thiếu ${missingRows.length} lượt, đã tự động chèn bù ${healedCount} lượt lên Google Sheet.`,
+      data: {
+        checkedCount: candidateRows.length,
+        missingBefore: missingRows.length,
+        healedCount,
+        stillMissingCount,
+      },
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      message: `Lỗi đối soát D1↔Sheet: ${String(e?.message || e)}`,
+    };
+  }
+}
+
+async function verifyEdgeKioskGpsGate(env, payload, request = null) {
+  const gpsCfg = await readActiveEdgeGpsConfig(env);
+  const refLat = gpsCfg.lat;
+  const refLng = gpsCfg.lng;
+  const allowedRadius = gpsCfg.radius;
+  const allowedWifiIps = normalizeAllowedWifiIps(gpsCfg.allowedWifiIps);
+  const wifiFallbackEnabled = gpsCfg.wifiFallbackEnabled !== false;
+  const clientIp = extractTrustedClientIp(request);
+  const isRestaurantWifi =
+    wifiFallbackEnabled && isClientIpInWifiAllowlist(clientIp, allowedWifiIps);
+
+  const hasCoords =
+    payload?.lat !== undefined &&
+    payload?.lng !== undefined &&
+    payload?.lat !== null &&
+    payload?.lng !== null &&
+    Number.isFinite(Number(payload?.lat)) &&
+    Number.isFinite(Number(payload?.lng));
+
+  if (!hasCoords) {
+    // Dual-Presence: If connected to verified Restaurant Wi-Fi IP indoors while GPS fails to acquire -> PASS!
+    if (isRestaurantWifi) {
+      payload.edgeWifiVerified = true;
+      payload.edgePresenceMethod = 'WIFI_INDOOR';
+      payload.edgeWifiSecret = getEdgeWifiAttestationToken(env);
+      payload.distance = 0;
+      return null;
+    }
+    return {
+      ok: false,
+      code: 'GPS_REQUIRED',
+      data: { code: 'GPS_REQUIRED', isRestaurantWifi: false },
+      message:
+        allowedWifiIps.length > 0
+          ? 'Yêu cầu bật GPS tại nhà hàng (<= 25m) hoặc kết nối Wi-Fi nội bộ của nhà hàng.'
+          : 'Trạm Face ID yêu cầu định vị GPS tại nhà hàng (<= 25m).',
+    };
   }
 
+  const latNum = Number(payload.lat);
+  const lngNum = Number(payload.lng);
   const R = 6371000;
   const dLat = ((refLat - latNum) * Math.PI) / 180;
   const dLon = ((refLng - lngNum) * Math.PI) / 180;
@@ -5926,19 +6572,38 @@ async function verifyEdgeKioskGpsGate(env, payload) {
   const indoorAllowance = Math.min(Math.max(0, gpsAcc) * 0.45, 15);
   const effectiveDist = Math.max(0, distMeters - indoorAllowance);
 
-  if (effectiveDist > allowedRadius) {
-    return {
-      ok: false,
-      code: 'OUT_OF_RADIUS',
-      data: {
-        code: 'OUT_OF_RADIUS',
-        distMeters,
-        allowedRadius,
-      },
-      message: `Thiết bị đang cách nhà hàng ${distMeters}m (vượt quá bán kính Trạm Face ID <= ${allowedRadius}m).`,
-    };
+  if (effectiveDist <= allowedRadius) {
+    payload.edgePresenceMethod = isRestaurantWifi ? 'GPS+WIFI' : 'GPS';
+    if (isRestaurantWifi) {
+      payload.edgeWifiVerified = true;
+      payload.edgeWifiSecret = getEdgeWifiAttestationToken(env);
+    }
+    return null;
   }
-  return null;
+
+  // Dual-Presence Indoor Rescue: Verified Restaurant Wi-Fi IP rescues indoor GPS drift up to 350m!
+  const wifiIndoorMaxDriftM = Math.max(allowedRadius * 10, 350);
+  if (isRestaurantWifi && distMeters <= wifiIndoorMaxDriftM) {
+    payload.edgeWifiVerified = true;
+    payload.edgePresenceMethod = 'WIFI_INDOOR';
+    payload.edgeWifiSecret = getEdgeWifiAttestationToken(env);
+    return null;
+  }
+
+  return {
+    ok: false,
+    code: 'OUT_OF_RADIUS',
+    data: {
+      code: 'OUT_OF_RADIUS',
+      distMeters,
+      allowedRadius,
+      isRestaurantWifi,
+    },
+    message:
+      allowedWifiIps.length > 0 && !isRestaurantWifi
+        ? `Thiết bị đang cách nhà hàng ${distMeters}m (vượt bán kính <= ${allowedRadius}m) và chưa kết nối Wi-Fi nội bộ của quán.`
+        : `Thiết bị đang cách nhà hàng ${distMeters}m (vượt quá bán kính Trạm Face ID <= ${allowedRadius}m).`,
+  };
 }
 
 async function preCheckEnrollFaceProfileEdge(env, payload, verifiedSession = null) {

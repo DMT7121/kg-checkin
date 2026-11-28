@@ -227,7 +227,13 @@ interface AppState {
     accuracy?: number | null;
     distance?: number | null;
   };
-  serverGpsConfig: { lat: number; lng: number; radius: number } | null;
+  serverGpsConfig: {
+    lat: number;
+    lng: number;
+    radius: number;
+    allowedWifiIps?: string[];
+    wifiFallbackEnabled?: boolean;
+  } | null;
   serverOrgConfig: { name: string; address: string; roles?: any[]; orgStructure?: any[] } | null;
   serverPayrollConfig: { baseFormula: string; maxAdvancePercent: number; mealAllowance: number; allowances?: any[]; deductions?: any[] } | null;
 

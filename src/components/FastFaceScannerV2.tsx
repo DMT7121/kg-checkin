@@ -21,6 +21,8 @@ import {
   SwitchCamera,
   LogIn,
   LogOut,
+  Zap,
+  Wifi,
 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { callApi } from '../services/api';
@@ -224,6 +226,22 @@ export default function FastFaceScannerV2({
   const [hasFaceInView, setHasFaceInView] = useState(false);
   const [trayNotice, setTrayNotice] = useState<ActiveTrayNotice | null>(null);
   const [recentPunches, setRecentPunches] = useState<RecentStationPunch[]>([]);
+  const [fastQueueMode, setFastQueueMode] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('kg_kiosk_fast_queue_mode');
+      if (saved === '0') return false;
+      if (saved === '1') return true;
+    } catch {
+      // Ignore storage unavailable in private mode
+    }
+    return Boolean(isKioskMode);
+  });
+  const fastQueueModeRef = useRef<boolean>(fastQueueMode);
+  fastQueueModeRef.current = fastQueueMode;
+  const [sessionPunchCount, setSessionPunchCount] = useState<number>(0);
+  const [isRestaurantWifi, setIsRestaurantWifi] = useState<boolean>(false);
+  const isRestaurantWifiRef = useRef<boolean>(false);
+  isRestaurantWifiRef.current = isRestaurantWifi;
   const [pendingDisambiguation, setPendingDisambiguation] =
     useState<PendingV2Disambiguation | null>(null);
   const pendingDisambiguationRef = useRef<PendingV2Disambiguation | null>(null);
@@ -288,6 +306,21 @@ export default function FastFaceScannerV2({
   useEffect(() => {
     hydratedProfilesRef.current = hydratedProfiles;
   }, [hydratedProfiles]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    callApi('GET_CLIENT_NETWORK_INFO', {}, { background: true, cacheTtlMs: 30000 })
+      .then((res) => {
+        if (!cancelled && res?.ok && res.data) {
+          setIsRestaurantWifi(Boolean(res.data.isRestaurantWifi));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
 
   // Subscribe to shared client profile store so prewarm or sibling modals update scanner in 0ms
   useEffect(() => {
@@ -528,7 +561,8 @@ export default function FastFaceScannerV2({
   const syncProfilesAndAttendanceState = useCallback(
     async (forceGasRefresh = false) => {
       const gpsSnap = localGpsRef.current;
-      const gpsReadyNow = !isKioskMode || canBypassGps || gpsSnap.isValid;
+      const gpsReadyNow =
+        !isKioskMode || canBypassGps || gpsSnap.isValid || isRestaurantWifiRef.current;
       const latToSend = gpsSnap.lat ?? targetLat;
       const lngToSend = gpsSnap.lng ?? targetLng;
       const accToSend = gpsSnap.acc ?? 8;
@@ -1125,6 +1159,8 @@ export default function FastFaceScannerV2({
               ? `Đã làm việc ${smartIntent.openShiftDurationFormatted} • Đã ghi Sheet ✔️CHẤM CÔNG`
               : `Đã ghi vào Sheet ✔️CHẤM CÔNG • Khoảng cách ${stampDist}m`;
 
+          const autoResetMs = fastQueueModeRef.current ? 1800 : 6500;
+          setSessionPunchCount((prev) => prev + 1);
           setTrayNotice({
             id: trayId,
             kind: 'SUCCESS',
@@ -1137,7 +1173,7 @@ export default function FastFaceScannerV2({
             syncState,
             scheduleWarningText: schedWarn,
             scorePercent: Math.round(matchScore * 100),
-            expiresAtMs: Date.now() + 6500,
+            expiresAtMs: Date.now() + autoResetMs,
           });
 
           setRecentPunches((prev) => [
@@ -1914,6 +1950,43 @@ export default function FastFaceScannerV2({
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
+            {isRestaurantWifi && (
+              <span
+                title="Đang kết nối Wi-Fi nội bộ nhà hàng (Xác thực kép GPS + Wi-Fi)"
+                className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-[#133526] border border-[#7EDBA8]/40 text-[11px] font-extrabold text-[#7EDBA8]"
+              >
+                <Wifi size={13} />
+                <span>Wi-Fi quán</span>
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setFastQueueMode((prev) => {
+                  const next = !prev;
+                  try {
+                    localStorage.setItem('kg_kiosk_fast_queue_mode', next ? '1' : '0');
+                  } catch {
+      // Ignore storage unavailable in private mode
+    }
+                  return next;
+                });
+              }}
+              title="Chế độ Băng chuyền nhanh: Tự động reset khung quét sau 1.8 giây cho giờ giao ca đông người"
+              className={`kg-pressable min-h-[44px] px-2.5 sm:px-3 rounded-xl border text-[11px] font-extrabold inline-flex items-center gap-1.5 transition-colors motion-reduce:transition-none ${
+                fastQueueMode
+                  ? 'bg-[#133526] border-[#7EDBA8]/50 text-[#7EDBA8]'
+                  : 'bg-[#1B2821] hover:bg-[#24322A] border-[#334539] text-[#B7C4B9]'
+              }`}
+            >
+              <Zap size={14} />
+              <span className="hidden sm:inline">Băng chuyền</span>
+              {sessionPunchCount > 0 && (
+                <span className="px-1.5 py-0.5 rounded-md bg-white/15 font-mono tabular-nums text-[10px] text-white">
+                  {sessionPunchCount}
+                </span>
+              )}
+            </button>
             <button
               type="button"
               onClick={() => setMutedAudio((m) => !m)}
@@ -2154,14 +2227,16 @@ export default function FastFaceScannerV2({
                     <button
                       type="button"
                       onClick={() => {
-                        turnTransitionUntilRef.current = Date.now() + 600;
+                        turnTransitionUntilRef.current = Date.now() + (fastQueueMode ? 350 : 600);
                         voterRef.current.reset();
                         setVoterStreak(0);
                         setTrayNotice(null);
                       }}
                       className="kg-pressable w-full min-h-[44px] py-2.5 px-4 rounded-xl bg-[#1B2821] hover:bg-[#24322A] border border-[#334539] text-xs font-extrabold text-[#F4F6F0] transition-colors"
                     >
-                      Đã rõ • Quét người tiếp theo
+                      {fastQueueMode
+                        ? '⚡ Băng chuyền: Tự quét người tiếp theo sau 1.8s...'
+                        : 'Đã rõ • Quét người tiếp theo'}
                     </button>
                   </div>
                 ) : trayNotice?.kind === 'SUBMITTING' ? (

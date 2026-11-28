@@ -27,6 +27,7 @@ import {
   isCheckInLabel,
   type MissingCheckInAlert,
 } from '../../utils/helpers';
+import { detectOverdueOpenShift } from '../../utils/missedCheckoutReminder';
 import { hasTabPermission } from '../../utils/permissions';
 import {
   KgCard,
@@ -117,6 +118,13 @@ export default function EmployeeDashboardView({
   })();
 
   const isOffToday = isOff && !userHasIn;
+  const overdueOpenShift =
+    userHasIn && !userHasOut
+      ? detectOverdueOpenShift({
+          todayShift,
+          todayLogs: recentLogs,
+        })
+      : null;
   const heroGuidance = isOffToday
     ? 'Hôm nay bạn không có ca làm việc nào được xếp. Chúc bạn có một ngày nghỉ vui vẻ!'
     : userHasOut
@@ -311,6 +319,51 @@ export default function EmployeeDashboardView({
           </div>
         </div>
       </section>
+
+      {/* Automatic Forgotten Checkout Reminder (#9) */}
+      {overdueOpenShift && (
+        <div
+          role="alert"
+          className="kg-animate-fade-up rounded-2xl border border-[var(--kg-warning)]/45 bg-[var(--kg-warning-soft)]/45 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs"
+        >
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-[var(--kg-warning)]/15 text-[var(--kg-warning)] border border-[var(--kg-warning)]/30 flex items-center justify-center flex-shrink-0">
+              <AlertTriangle size={19} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm font-extrabold text-[var(--kg-text)]">
+                Nhắc quên chấm Ra ca ({overdueOpenShift.shiftLabel})
+              </p>
+              <p className="text-[11px] sm:text-xs text-[var(--kg-text-muted)] mt-0.5 leading-snug">
+                Bạn đã <b>Vào ca lúc {overdueOpenShift.checkInTimeStr}</b> và đã qua giờ tan ca dự kiến (
+                <span className="font-mono tabular-nums font-bold">{overdueOpenShift.expectedEndStr}</span>) khoảng{' '}
+                <span className="font-mono tabular-nums font-bold text-[var(--kg-warning)]">
+                  {overdueOpenShift.overdueMinutes} phút
+                </span>{' '}
+                nhưng chưa có lượt Ra ca.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => onTabChange('checkin')}
+              className="kg-pressable min-h-[42px] px-3.5 py-2 rounded-xl bg-[#B93F36] hover:bg-[#9F342C] text-white font-extrabold text-xs inline-flex items-center gap-1.5 touch-manipulation whitespace-nowrap"
+            >
+              <Camera size={14} />
+              <span>Chấm Ra ca ngay</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onOpenMissedModal(null)}
+              className="kg-pressable min-h-[42px] px-3.5 py-2 rounded-xl bg-[var(--kg-surface)] hover:bg-[var(--kg-surface-2)] border border-[var(--kg-border)] text-[var(--kg-text)] font-bold text-xs inline-flex items-center gap-1.5 touch-manipulation whitespace-nowrap"
+            >
+              <Clock size={14} />
+              <span>Báo quên Ra ca</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 xl:gap-6 items-start">
         {/* Left Column: Alerts & Today's Tasks */}
@@ -641,10 +694,11 @@ export default function EmployeeDashboardView({
               <div className="space-y-2">
                 {recentLogs.map((log, i) => {
                   const isCheckin = isCheckInLabel(log.type);
+                  const isSyncingToSheet = Boolean(log.edgeBuffered || log.sheetSynced === false || log.localQueued);
                   return (
                     <div
-                      key={i}
-                      className="flex items-center justify-between p-2.5 rounded-xl bg-[var(--kg-surface-2)] border border-[var(--kg-border)] hover:border-[var(--kg-border-strong)] transition-colors"
+                      key={log.checkinId || i}
+                      className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-[var(--kg-surface-2)] border border-[var(--kg-border)] hover:border-[var(--kg-border-strong)] transition-colors"
                     >
                       <div className="flex items-center space-x-2.5 min-w-0">
                         <div
@@ -657,9 +711,32 @@ export default function EmployeeDashboardView({
                           {isCheckin ? '→' : '←'}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-xs font-bold text-[var(--kg-text)] truncate">
-                            {log.type}
-                          </p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="text-xs font-bold text-[var(--kg-text)] truncate">
+                              {log.type}
+                            </p>
+                            <span
+                              title={
+                                isSyncingToSheet
+                                  ? 'Đã lưu an toàn trên đám mây Edge D1, đang tự động ghi vào Google Sheet'
+                                  : 'Đã ghi nhận chính thức vào sổ Google Sheet ✔️CHẤM CÔNG'
+                              }
+                              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold border whitespace-nowrap ${
+                                isSyncingToSheet
+                                  ? 'bg-[var(--kg-warning-soft)] text-[var(--kg-warning)] border-[var(--kg-warning)]/30'
+                                  : 'bg-[var(--kg-success-soft)] text-[var(--kg-success)] border-[var(--kg-success)]/25'
+                              }`}
+                            >
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  isSyncingToSheet
+                                    ? 'bg-[var(--kg-warning)] animate-pulse'
+                                    : 'bg-[var(--kg-success)]'
+                                }`}
+                              />
+                              {isSyncingToSheet ? 'Đang lên Sheet' : 'Đã lên Sheet'}
+                            </span>
+                          </div>
                           <p className="text-[11px] font-mono tabular-nums text-[var(--kg-text-muted)] truncate">
                             {log.time}
                           </p>

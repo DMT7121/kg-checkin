@@ -42,6 +42,8 @@ var CONFIG = {
     "https://script.google.com/macros/s/AKfycbyvklGluH_7uQ2WN43CiY2k1WOIWtebLC9Q8E3rFNl5tb9xInDQpBcYglTb-X7XlNAxuw/exec"
   ],
   EMAIL_RELAY_SECRET: "kg-relay-2026",
+  SYNC_SWEEPER_SECRET: "kg-sync-sweeper-2026",
+  EDGE_WIFI_ATTESTATION_TOKEN: "kg-edge-wifi-verified-2026",
   ROSTER_SPREADSHEET_ID: "1VrmLjfdIjxmA62D5Ei33ppkw9ql1r0fvLrX1FJzGm6M"
 };
 
@@ -69,6 +71,9 @@ function doPost(e) {
       case 'REGISTER': return handleRegister(payload);
       case 'CHECK_IN_OUT': return handleCheckInOut(payload);
       case 'BATCH_CHECK_IN_OUT': return handleBatchCheckInOut(payload);
+      case 'VERIFY_CHECKIN_IDS': return handleVerifyCheckinIds(payload);
+      case 'ARCHIVE_OLD_CHECKIN_SHEETS': return handleArchiveOldCheckInRows(payload);
+      case 'SETUP_ATTENDANCE_TRIGGERS': return handleSetupAttendanceTriggers(payload);
       case 'UPDATE_CHECKIN_TYPE': return handleUpdateCheckinType(payload);
       case 'SEND_EMAIL_NOTIFICATION': return handleSendEmailNotification(payload);
       case 'UPLOAD_CHECKIN_IMAGE': return handleUploadCheckinImage(payload);
@@ -405,6 +410,8 @@ function buildAttendanceMenu_(ui) {
     .addItem("🔄 Nạp Dữ Liệu Chấm Công Cho Nhân Viên Mới Thêm", "menuPopulateAllNewEmployees")
     .addItem("🔧 Sửa Công Thức & Khoảng Cách Sheet Tổng Hợp", "menuRepairSummarySheetFormulas")
     .addItem("✨ Làm đẹp Format Sheet Chấm Công", "formatEntireCheckInSheet")
+    .addItem("📦 Lưu trữ cuốn chiếu Sheet (>45 ngày)", "autoMonthlyArchiveCheckInSheet")
+    .addItem("⚡ Kích hoạt Trigger Tự Đồng Bộ & Đối Soát", "setupAllAttendanceAutomationTriggers")
     .addItem("🔧 Sửa lỗi Link Ảnh & Công thức (#ERROR!)", "repairCheckinFormulasAndImages")
     .addItem("🔄 Cấu hình tiêu đề DATA 2 dòng", "migrateDataHeaders");
 }
@@ -476,6 +483,122 @@ function logAutomationStatus(statusText) {
 
 function setupAutomation() {
   openAttendanceControlCenter("automation");
+}
+
+/**
+ * Trigger 1 (Mỗi 5 phút): Tự động quét xả hàng đợi đồng bộ Edge D1 -> Google Sheet
+ */
+function autoSweepEdgeSyncQueue() {
+  try {
+    var apiUrl = String(CONFIG.WEB_APP_URL || "https://kg-checkin.pages.dev/").replace(/\/+$/, "") + "/api";
+    var res = UrlFetchApp.fetch(apiUrl, {
+      method: "post",
+      contentType: "application/json",
+      payload: JSON.stringify({
+        action: "SWEEP_SYNC_QUEUE",
+        secret: CONFIG.SYNC_SWEEPER_SECRET || "kg-sync-sweeper-2026"
+      }),
+      muteHttpExceptions: true
+    });
+    Logger.log("[autoSweepEdgeSyncQueue] HTTP " + res.getResponseCode() + ": " + res.getContentText().slice(0, 300));
+  } catch (e) {
+    Logger.log("[autoSweepEdgeSyncQueue] Error: " + e.message);
+  }
+}
+
+/**
+ * Trigger 2 (05:00 sáng VN hàng ngày): Đối soát tự động 2 chiều D1 <-> Google Sheet 48h gần nhất
+ */
+function autoDailyD1SheetReconciliation() {
+  try {
+    var apiUrl = String(CONFIG.WEB_APP_URL || "https://kg-checkin.pages.dev/").replace(/\/+$/, "") + "/api";
+    var res = UrlFetchApp.fetch(apiUrl, {
+      method: "post",
+      contentType: "application/json",
+      payload: JSON.stringify({
+        action: "RUN_D1_SHEET_RECONCILIATION",
+        secret: CONFIG.SYNC_SWEEPER_SECRET || "kg-sync-sweeper-2026",
+        hours: 48
+      }),
+      muteHttpExceptions: true
+    });
+    Logger.log("[autoDailyD1SheetReconciliation] HTTP " + res.getResponseCode() + ": " + res.getContentText().slice(0, 300));
+  } catch (e) {
+    Logger.log("[autoDailyD1SheetReconciliation] Error: " + e.message);
+  }
+}
+
+/**
+ * Trigger 3 (Ngày mùng 5 hàng tháng lúc 04:00 sáng VN): Lưu trữ cuốn chiếu Sheet ✔️CHẤM CÔNG (>45 ngày)
+ */
+function autoMonthlyArchiveCheckInSheet() {
+  try {
+    var result = archiveOldCheckInRowsCore_(45);
+    Logger.log("[autoMonthlyArchiveCheckInSheet] " + JSON.stringify(result));
+    return result;
+  } catch (e) {
+    Logger.log("[autoMonthlyArchiveCheckInSheet] Error: " + e.message);
+    return { ok: false, message: e.message };
+  }
+}
+
+/**
+ * Thiết lập đồng bộ 3 Trigger nền tự động (idempotent, không bao giờ tạo trùng)
+ */
+function setupAllAttendanceAutomationTriggers() {
+  var managedFns = {
+    "autoSweepEdgeSyncQueue": true,
+    "autoDailyD1SheetReconciliation": true,
+    "autoMonthlyArchiveCheckInSheet": true
+  };
+  var existing = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < existing.length; i++) {
+    var fn = existing[i].getHandlerFunction();
+    if (managedFns[fn]) {
+      ScriptApp.deleteTrigger(existing[i]);
+    }
+  }
+
+  ScriptApp.newTrigger("autoSweepEdgeSyncQueue")
+    .timeBased()
+    .everyMinutes(5)
+    .create();
+
+  ScriptApp.newTrigger("autoDailyD1SheetReconciliation")
+    .timeBased()
+    .everyDays(1)
+    .atHour(5)
+    .create();
+
+  ScriptApp.newTrigger("autoMonthlyArchiveCheckInSheet")
+    .timeBased()
+    .onMonthDay(5)
+    .atHour(4)
+    .create();
+
+  try {
+    var ss = getSS();
+    if (ss) ss.toast("✅ Đã bật 3 Trigger tự động: Quét đồng bộ 5p, Đối soát 05:00 & Lưu trữ tháng ngày mùng 5!", "Tự Động Hóa", 5);
+  } catch (e) {}
+  return {
+    ok: true,
+    triggers: [
+      "autoSweepEdgeSyncQueue (every 5m)",
+      "autoDailyD1SheetReconciliation (daily 05:00 VN)",
+      "autoMonthlyArchiveCheckInSheet (day 5 @ 04:00 VN)"
+    ]
+  };
+}
+
+function handleSetupAttendanceTriggers(payload) {
+  var adminErr = requireAdminActor(payload);
+  if (adminErr) return jsonResponse(false, adminErr);
+  try {
+    var res = setupAllAttendanceAutomationTriggers();
+    return jsonResponse(true, res);
+  } catch (e) {
+    return jsonResponse(false, "Không thể thiết lập Trigger GAS: " + e.message);
+  }
 }
 
 // =====================================================================================
