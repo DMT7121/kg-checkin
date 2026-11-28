@@ -952,6 +952,144 @@ function findLatestEmployeePhoto(fullname, username) {
 // Col A: HỌ VÀ TÊN | Col B: LOẠI CHẤM CÔNG | Col C: THỜI GIAN (DD/MM/YYYY HH:MM:SS)
 // Col D: VỊ TRÍ | Col E: XÁC MINH | Col F: KHOẢNG CÁCH | Col G: LINK HÌNH ẢNH | Col H: DATA JSON
 
+function normalizeCanonicalCheckInType_(rawType) {
+  var s = String(rawType || '').trim();
+  if (/^\s*(?:chờ\s*duyệt|từ\s*chối)\s*:/i.test(s)) return s;
+  if (isCheckInStatus_(s)) return 'Vào ca';
+  if (isCheckOutStatus_(s)) return 'Ra ca';
+  return s || 'Vào ca';
+}
+
+function extractLegacyTypeNote_(rawType) {
+  var s = String(rawType || '').trim();
+  if (!s || /^\s*(?:chờ\s*duyệt|từ\s*chối)\s*:/i.test(s)) return '';
+  var m = s.match(/\(([^)]+)\)\s*$/);
+  return m && m[1] ? String(m[1]).trim() : '';
+}
+
+function buildCheckInNoteText_(opts) {
+  var parts = [];
+  var lateMins = Number(opts && opts.lateMins) || 0;
+  var shiftStr = String((opts && opts.shift) || '').trim();
+  var shiftTag = (shiftStr && shiftStr !== 'OFF' && shiftStr !== 'RẢNH' && shiftStr !== 'Không có ca')
+    ? ' (Ca ' + shiftStr + ')'
+    : '';
+  if (opts && opts.suspectedMissedCheckIn) {
+    parts.push('Lệch ca >2h - Chờ đối soát' + shiftTag);
+  } else if (lateMins > 5) {
+    parts.push('Trễ ' + lateMins + 'p' + shiftTag);
+  } else if (opts && Number(opts.payloadLateMins) > 0) {
+    parts.push('Trễ ' + Number(opts.payloadLateMins) + 'p' + shiftTag);
+  }
+  if (opts && opts.scheduleWarning) {
+    parts.push('Chưa ĐK lịch tuần tới' + (opts.scheduleWeekDisplay ? ' (' + opts.scheduleWeekDisplay + ')' : ''));
+  }
+  var extra = String((opts && opts.extraNote) || '').trim();
+  if (extra) {
+    var dup = false;
+    for (var i = 0; i < parts.length; i++) {
+      if (parts[i].toLowerCase().indexOf(extra.toLowerCase()) >= 0) {
+        dup = true;
+        break;
+      }
+    }
+    if (!dup) parts.push(extra);
+  }
+  return parts.join(' • ');
+}
+
+function ensureCheckInNoteHeader_(sheet) {
+  try {
+    var hCell = sheet.getRange(1, 9);
+    var cur = String(hCell.getValue() || '').trim();
+    if (!cur) {
+      hCell
+        .setValue('📝 GHI CHÚ')
+        .setBackground('#1e293b')
+        .setFontColor('#f8fafc')
+        .setFontWeight('bold')
+        .setFontSize(11)
+        .setHorizontalAlignment('center')
+        .setVerticalAlignment('middle');
+      try { sheet.setColumnWidth(9, 240); } catch (cwErr) {}
+    }
+  } catch (hdrErr) {}
+}
+
+/**
+ * Ultra-fast batched formatter for 1..N newly written check-in rows (Cols A..I).
+ * Zero getValue() RPCs inside ScriptLock!
+ */
+function formatCheckInRowsBatch_(sheet, startRow, rowMetas) {
+  if (!rowMetas || rowMetas.length === 0) return;
+  try {
+    var count = rowMetas.length;
+    var rowRange = sheet.getRange(startRow, 1, count, 9);
+    var bgColors = [];
+    var fontColors = [];
+    var fontWeights = [];
+    var aligns = [];
+
+    for (var i = 0; i < count; i++) {
+      var meta = rowMetas[i] || {};
+      var rawColB = String(meta.type || '');
+      var rawColE = String(meta.status || '').toUpperCase();
+      var noteStr = String(meta.note || '');
+      var isPendingSupp = /^\s*chờ\s*duyệt\s*:/i.test(rawColB) || rawColE.indexOf('CHỜ') >= 0;
+      var isRejectedSupp = /^\s*từ\s*chối\s*:/i.test(rawColB) || rawColE.indexOf('TỪ CHỐI') >= 0;
+      var isVaoCa = isCheckInStatus_(rawColB);
+      var isWarnNote = noteStr.indexOf('Trễ') >= 0 || noteStr.indexOf('Lệch ca') >= 0 || noteStr.indexOf('Chờ') >= 0;
+
+      var colBBg = isPendingSupp ? '#fef3c7' : (isRejectedSupp ? '#f1f5f9' : (isVaoCa ? '#f0fdf4' : '#fef2f2'));
+      var colBFg = isPendingSupp ? '#b45309' : (isRejectedSupp ? '#64748b' : (isVaoCa ? '#15803d' : '#dc2626'));
+      var colEBg = isPendingSupp ? '#fffbeb' : (isRejectedSupp ? '#fef2f2' : '#ffffff');
+      var colEFg = isPendingSupp ? '#b45309' : (isRejectedSupp ? '#dc2626' : '#334155');
+      var colIBg = isWarnNote ? '#fffbeb' : '#ffffff';
+      var colIFg = isWarnNote ? '#b45309' : '#475569';
+      var colIFw = isWarnNote ? 'bold' : 'normal';
+
+      bgColors.push(['#ffffff', colBBg, '#ffffff', '#ffffff', colEBg, '#ffffff', '#ffffff', '#ffffff', colIBg]);
+      fontColors.push(['#0f172a', colBFg, '#334155', '#475569', colEFg, '#334155', '#2563eb', '#94a3b8', colIFg]);
+      fontWeights.push(['bold', 'bold', 'normal', 'normal', isPendingSupp ? 'bold' : 'normal', 'normal', 'bold', 'normal', colIFw]);
+      aligns.push(['left', 'center', 'center', 'left', 'center', 'center', 'center', 'left', 'left']);
+    }
+
+    rowRange
+      .setFontFamily('Questrial')
+      .setFontSize(10)
+      .setVerticalAlignment('middle')
+      .setBackgrounds(bgColors)
+      .setFontColors(fontColors)
+      .setFontWeights(fontWeights)
+      .setHorizontalAlignments(aligns)
+      .setBorder(true, true, true, true, true, true, '#cbd5e1', SpreadsheetApp.BorderStyle.SOLID);
+
+    sheet.getRange(startRow, 3, count, 1).setFontFamily('Roboto Mono');
+    sheet.getRange(startRow, 4, count, 1).setWrap(true).setFontSize(9);
+    sheet.getRange(startRow, 6, count, 1).setFontSize(9);
+    sheet.getRange(startRow, 8, count, 1).setFontSize(7);
+    sheet.getRange(startRow, 9, count, 1).setWrap(true).setFontSize(9);
+
+    for (var j = 0; j < count; j++) {
+      try { sheet.setRowHeight(startRow + j, 36); } catch (rhErr) {}
+      var imgUrl = rowMetas[j] ? rowMetas[j].imageUrl : '';
+      if (imgUrl && imgUrl !== 'Lỗi ảnh' && imgUrl !== 'Đang tải ảnh...' && imgUrl !== 'PENDING' && imgUrl.indexOf('drive.google.com') >= 0) {
+        var cellG = sheet.getRange(startRow + j, 7);
+        var linkColor = rowMetas[j].isValid ? '#10b981' : '#ef4444';
+        try {
+          cellG.setFormula('=HYPERLINK("' + imgUrl + '"; "📷 Xem ảnh")')
+               .setFontColor(linkColor)
+               .setFontSize(9);
+        } catch (fErr) {
+          try { cellG.setValue(imgUrl).setFontColor(linkColor).setFontSize(9); } catch (fErr2) {}
+        }
+      }
+    }
+  } catch (e) {
+    Logger.log('formatCheckInRowsBatch_ warning: ' + e.message);
+  }
+}
+
 function handleCheckInOut(payload) {
   if (payload.username && !canEmployeeWork(payload.username)) {
     var blockedProfile = getEmploymentProfileByUsername(payload.username);
@@ -1307,15 +1445,20 @@ function handleCheckInOut(payload) {
     } catch(clErr) {}
   }
   
-  // Apply late info to check-in type
+  // Keep Col B strictly "Vào ca" or "Ra ca"; move late / shift-mismatch / warnings to Col I (Ghi chú)
   if (serverLateMins > 120) {
     suspectedMissedCheckIn = true;
-    loaiChamCong += ' (Lệch ca >2h - Chờ đối soát)';
-  } else if (serverLateMins > 5) {
-    loaiChamCong += ' (Trễ ' + serverLateMins + 'p)';
-  } else if (payload.lateMins && payload.lateMins > 0) {
-    loaiChamCong += ' (Trễ ' + payload.lateMins + 'p)';
   }
+  loaiChamCong = normalizeCanonicalCheckInType_(loaiChamCong);
+  var ghiChuColI = buildCheckInNoteText_({
+    lateMins: serverLateMins,
+    payloadLateMins: payload.lateMins,
+    shift: serverShift || payload.shift || '',
+    suspectedMissedCheckIn: suspectedMissedCheckIn,
+    scheduleWarning: scheduleWarning,
+    scheduleWeekDisplay: scheduleWeekDisplay,
+    extraNote: payload.note || '',
+  });
   
   // === COL C: THỜI GIAN (DD/MM/YYYY HH:MM:SS) ===
   // Ưu tiên 100% thời gian thực tế ghi nhận trên watermark ảnh (actualTime) để chống trôi giờ khi xếp hàng
@@ -1369,6 +1512,7 @@ function handleCheckInOut(payload) {
     toaDo: { lat: payload.lat, lng: payload.lng },
     caLam: serverShift || payload.shift || '',
     diTre: serverLateMins || payload.lateMins || 0,
+    ghiChu: ghiChuColI,
     checkinMode: payload.checkinMode || 'v1_manual',
     suspectedMissedCheckIn: suspectedMissedCheckIn,
     scheduleWarning: scheduleWarning,
@@ -1383,13 +1527,12 @@ function handleCheckInOut(payload) {
     lock.waitLock(25000); // 25s timeout for high concurrency
 
     // Atomic re-check inside script lock so simultaneous continuous scans ONLY write the earliest scan!
-    var lockScanCount = Math.min(Math.max(0, sheet.getLastRow() - 1), 60);
+    var lockScanCount = Math.min(Math.max(0, sheet.getLastRow() - 1), 80);
     if (lockScanCount > 0) {
-      var lockRows = sheet.getRange(2, 1, lockScanCount, 8).getValues();
+      var lockRows = sheet.getRange(2, 1, lockScanCount, 9).getValues();
       var lockTargetName = hoVaTen ? hoVaTen.trim().toLowerCase() : '';
       var lockTargetUser = payload.username ? payload.username.trim().toLowerCase() : '';
       var lockNowMs = time ? time.getTime() : new Date().getTime();
-      var checkedUserInLock = false;
 
       for (var li = 0; li < lockRows.length; li++) {
         var lRow = lockRows[li];
@@ -1400,12 +1543,14 @@ function handleCheckInOut(payload) {
         }
         if (lJson && lJson.checkinId && String(lJson.checkinId) === String(checkinId)) {
           var existingFmt = lRow[2] ? lRow[2].toString().replace(/^'/, '') : thoiGian;
+          var existingNote = lRow[8] ? String(lRow[8]).trim() : (lJson && lJson.ghiChu ? String(lJson.ghiChu) : ghiChuColI);
           return jsonResponse(true, {
             message: 'Đã ghi nhận thành công vào Bảng chấm công 100%!',
             sheetSaved: true,
             alreadySaved: true,
             checkinId: checkinId,
-            type: String(lRow[1] || loaiChamCong),
+            type: normalizeCanonicalCheckInType_(String(lRow[1] || loaiChamCong)),
+            note: existingNote,
             fullname: String(lRow[0] || hoVaTen),
             thoiGian: existingFmt,
             timeISO: time.toISOString(),
@@ -1439,18 +1584,25 @@ function handleCheckInOut(payload) {
       }
     }
 
+    ensureCheckInNoteHeader_(sheet);
     sheet.insertRowBefore(2);
     var colGVal = '';
     if (imageUrl && imageUrl.indexOf('drive.google.com') >= 0) {
       // Dùng dấu chấm phẩy ';' chuẩn theo Locale Việt Nam của Google Sheets
       colGVal = '=HYPERLINK("' + imageUrl + '"; "📷 Xem ảnh")';
     }
-    var newRow = [hoVaTen, loaiChamCong, "'" + thoiGian, viTri, xacMinh, distMeters + 'm', colGVal, dataJson];
-    sheet.getRange(2, 1, 1, 8).setValues([newRow]);
+    var newRow = [hoVaTen, loaiChamCong, "'" + thoiGian, viTri, xacMinh, distMeters + 'm', colGVal, dataJson, ghiChuColI];
+    sheet.getRange(2, 1, 1, 9).setValues([newRow]);
     
-    // Auto-format the new row
+    // Auto-format the new row using fast batched formatter (no extra getValue RPCs)
     try {
-      formatCheckInRow(sheet, 2, isValid, imageUrl);
+      formatCheckInRowsBatch_(sheet, 2, [{
+        type: loaiChamCong,
+        status: xacMinh,
+        isValid: isValid,
+        imageUrl: imageUrl,
+        note: ghiChuColI
+      }]);
     } catch(fmtErr) {
       Logger.log('Format row non-critical warning: ' + fmtErr.message);
     }
@@ -1538,6 +1690,7 @@ function handleCheckInOut(payload) {
       sheetSaved: true,
       checkinId: checkinId,
       type: loaiChamCong,
+      note: ghiChuColI,
       fullname: hoVaTen,
       imageUrl: imageUrl,
       distMeters: distMeters,
@@ -1556,6 +1709,592 @@ function handleCheckInOut(payload) {
   }
 
   return jsonResponse(false, 'Không thể ghi nhận chấm công. Vui lòng thử lại.');
+}
+
+/**
+ * Atomic Batch Check-In/Out Handler (`BATCH_CHECK_IN_OUT`)
+ * Processes up to 30 concurrent employee punches in ONE HTTP request, ONE ScriptLock,
+ * ONE insertRowsBefore + setValues (Cols A..I), and ONE batched format call!
+ * Eliminates LockService contention storms during shift-change rush hours.
+ */
+function handleBatchCheckInOut(payload) {
+  var items = (payload && Array.isArray(payload.items)) ? payload.items : [];
+  if (items.length === 0) {
+    return jsonResponse(true, { results: [], insertedCount: 0 });
+  }
+  if (items.length > 30) {
+    items = items.slice(0, 30);
+  }
+
+  var ss = getSS();
+  var sheet = ss.getSheetByName(CONFIG.SHEET_LOGS);
+  if (!sheet) return jsonResponse(false, 'Không tìm thấy sheet chấm công');
+
+  // Shared read-once context OUTSIDE ScriptLock
+  var gpsConfig = getGpsConfig();
+  var targetLat = (gpsConfig && gpsConfig.lat) ? Number(gpsConfig.lat) : 10.9760327;
+  var targetLng = (gpsConfig && gpsConfig.lng) ? Number(gpsConfig.lng) : 106.6645922;
+  var rawRadius = (gpsConfig && gpsConfig.radius > 0) ? Number(gpsConfig.radius) : 25;
+  var allowedRadius = (rawRadius === 20) ? 25 : rawRadius;
+
+  var serverNowMs = new Date().getTime();
+  var schedMatrixCache = {};
+  var results = new Array(items.length);
+  var preparedCandidates = [];
+
+  function getCachedScheduleMatrix_(monthSheetName) {
+    if (!monthSheetName) return null;
+    if (Object.prototype.hasOwnProperty.call(schedMatrixCache, monthSheetName)) {
+      return schedMatrixCache[monthSheetName];
+    }
+    var rows = null;
+    try {
+      var sh = ss.getSheetByName(monthSheetName);
+      if (sh) {
+        try {
+          var sRes = Sheets.Spreadsheets.Values.get(ss.getId(), "'" + monthSheetName + "'!A:K");
+          rows = (sRes && sRes.values) ? sRes.values : sh.getDataRange().getDisplayValues();
+        } catch (sApiErr) {
+          rows = sh.getDataRange().getDisplayValues();
+        }
+      }
+    } catch (e) {}
+    schedMatrixCache[monthSheetName] = rows;
+    return rows;
+  }
+
+  function lookupEmployeeTodayShift_(schedData, todayDate, targetLookupName) {
+    if (!schedData || !schedData.length || !targetLookupName) return '';
+    var dayOfWeek = todayDate.getDay();
+    var dayIdx = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    var todayNum = todayDate.getDate();
+    var todayMon = todayDate.getMonth() + 1;
+    var inCorrectWeek = false;
+    var foundShift = '';
+    for (var si = 0; si < schedData.length; si++) {
+      var cellStr = schedData[si][0] ? schedData[si][0].toString() : '';
+      if (cellStr.indexOf('TUẦN ') >= 0) {
+        var dateMatch = cellStr.match(/(\d{2})\/(\d{2})\s*-\s*(\d{2})\/(\d{2})/);
+        if (dateMatch) {
+          var startNum = parseInt(dateMatch[1], 10);
+          var startMon = parseInt(dateMatch[2], 10);
+          var endNum = parseInt(dateMatch[3], 10);
+          var endMon = parseInt(dateMatch[4], 10);
+          if (startMon === endMon) {
+            inCorrectWeek = (todayMon === startMon && todayNum >= startNum && todayNum <= endNum);
+          } else {
+            inCorrectWeek = (todayMon === startMon && todayNum >= startNum) || (todayMon === endMon && todayNum <= endNum);
+          }
+        }
+        continue;
+      }
+      if (!inCorrectWeek) continue;
+      var isApproval = cellStr.indexOf('┗') >= 0;
+      var cleanName = isApproval ? cellStr.replace('┗ ', '').replace('┗', '').trim() : cellStr.trim();
+      var isMatch = cleanName && (
+        cleanName.toLowerCase() === targetLookupName.toLowerCase() ||
+        (typeof normalizeSchedulePersonName === 'function' && normalizeSchedulePersonName(cleanName) === normalizeSchedulePersonName(targetLookupName))
+      );
+      if (isMatch) {
+        var shiftVal = schedData[si][dayIdx + 1] ? schedData[si][dayIdx + 1].toString().trim() : 'OFF';
+        if (typeof safeShiftValue === 'function') shiftVal = safeShiftValue(shiftVal);
+        if (shiftVal === '' || shiftVal === '0:00' || shiftVal === '00:00') shiftVal = 'OFF';
+        if (isApproval) foundShift = shiftVal;
+        else if (!foundShift) foundShift = shiftVal;
+      }
+    }
+    return foundShift;
+  }
+
+  // Phase 1: Validate & prepare each item OUTSIDE ScriptLock
+  for (var idx = 0; idx < items.length; idx++) {
+    var item = items[idx] || {};
+    var cleanUser = String(item.username || '').trim().toLowerCase();
+    var itemCheckinId = String(
+      item.checkinId || ('CHK_BATCH_' + (cleanUser || 'user') + '_' + serverNowMs + '_' + idx)
+    ).trim();
+
+    if (item.username && !canEmployeeWork(item.username)) {
+      var blockedProfile = getEmploymentProfileByUsername(item.username);
+      results[idx] = {
+        checkinId: itemCheckinId,
+        ok: false,
+        code: 'ACCOUNT_INACTIVE',
+        message: 'Không thể chấm công khi trạng thái là ' + (blockedProfile ? blockedProfile.employmentStatus : 'không hoạt động')
+      };
+      continue;
+    }
+
+    var isAuthorizedTest = (cleanUser === 'admin' || cleanUser === 'testapp' || cleanUser === 'tester');
+    var distMeters = 0;
+    var hasCoords = (item.lat !== undefined && item.lat !== null && item.lat !== '' &&
+                     item.lng !== undefined && item.lng !== null && item.lng !== '');
+    if (hasCoords) {
+      var latNum = Number(item.lat);
+      var lngNum = Number(item.lng);
+      var R = 6371000;
+      var dLat = (targetLat - latNum) * Math.PI / 180;
+      var dLon = (targetLng - lngNum) * Math.PI / 180;
+      var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(latNum * Math.PI / 180) * Math.cos(targetLat * Math.PI / 180) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      distMeters = Math.round(R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))));
+    } else if (item.distance !== undefined && item.distance !== null && item.distance !== '') {
+      distMeters = Math.round(Number(item.distance));
+    } else if (!isAuthorizedTest) {
+      results[idx] = {
+        checkinId: itemCheckinId,
+        ok: false,
+        code: 'GPS_REQUIRED',
+        message: 'Từ chối chấm công: Không nhận được dữ liệu tọa độ GPS từ thiết bị.'
+      };
+      continue;
+    }
+
+    var gpsAcc = Number(item.gpsAccuracy) || 0;
+    var indoorAllowance = Math.min(Math.max(0, gpsAcc) * 0.45, 15);
+    var effectiveDist = Math.max(0, distMeters - indoorAllowance);
+    if (!isAuthorizedTest && effectiveDist > allowedRadius) {
+      try { recordFraudAlert(ss, item, distMeters, allowedRadius); } catch (fErr) {}
+      results[idx] = {
+        checkinId: itemCheckinId,
+        ok: false,
+        code: 'OUT_OF_RADIUS',
+        message: 'Từ chối chấm công: Bạn đang cách nhà hàng ' + distMeters + 'm (quy định ≤ ' + allowedRadius + 'm).'
+      };
+      continue;
+    }
+
+    var isOfflineRetry = (item.isOfflineRetry === true || item.isOfflineRetry === 'true');
+    var clientMs = item.clientNowMs ? Number(item.clientNowMs) : 0;
+    if (!isOfflineRetry && clientMs > 0 && !isAuthorizedTest && Math.abs(serverNowMs - clientMs) > 180000) {
+      results[idx] = {
+        checkinId: itemCheckinId,
+        ok: false,
+        code: 'CLOCK_DESYNC',
+        message: 'Đồng hồ thiết bị lệch quá 3 phút so với máy chủ.'
+      };
+      continue;
+    }
+    if (!isOfflineRetry && item.photoCapturedMs && !isAuthorizedTest) {
+      var photoMs = Number(item.photoCapturedMs);
+      if (!isNaN(photoMs) && photoMs > 0) {
+        var refNowMs = (clientMs > 0 && Math.abs(serverNowMs - clientMs) <= 180000) ? clientMs : serverNowMs;
+        var photoAgeSecs = Math.round((refNowMs - photoMs) / 1000);
+        if (photoAgeSecs > 90) {
+          results[idx] = {
+            checkinId: itemCheckinId,
+            ok: false,
+            code: 'PHOTO_EXPIRED',
+            message: 'Ảnh chụp minh chứng đã hết hạn (' + photoAgeSecs + 's).'
+          };
+          continue;
+        }
+      }
+    }
+
+    var time = parseDateTimeString(item.actualTime || item.time) || new Date();
+    if (!isOfflineRetry && Math.abs(serverNowMs - time.getTime()) > 90000 && !isAuthorizedTest) {
+      time = new Date();
+    }
+
+    var isFaceV2Mode = (item.checkinMode === 'v2_face');
+    if (isFaceV2Mode && !isAuthorizedTest) {
+      var faceErrResp = verifyEmployeeFaceVectorGas_(ss, cleanUser, item.liveVectorB64);
+      if (faceErrResp) {
+        var parsedFaceErr = null;
+        try { parsedFaceErr = JSON.parse(faceErrResp.getContent()); } catch (pfe) {}
+        results[idx] = {
+          checkinId: itemCheckinId,
+          ok: false,
+          code: (parsedFaceErr && (parsedFaceErr.code || (parsedFaceErr.data && parsedFaceErr.data.code))) || 'FACE_VERIFICATION_FAILED',
+          message: (parsedFaceErr && parsedFaceErr.message) || 'Xác thực khuôn mặt thất bại.'
+        };
+        continue;
+      }
+    }
+
+    var empProfile = item.username ? getEmploymentProfileByUsername(item.username) : null;
+    var hoVaTen = (empProfile && empProfile.fullname)
+      ? String(empProfile.fullname).trim()
+      : String(item.fullname || item.username || '').trim();
+    var isAdminActor = !!(empProfile && String(empProfile.role || '').toLowerCase() === 'admin');
+    var scheduleWarning = false;
+    var scheduleWeekDisplay = '';
+
+    if (!isAuthorizedTest && !isAdminActor) {
+      var winInfo = computeVietnamUpcomingWeekAndWindow(time);
+      if (winInfo.isMandatoryWindow) {
+        var nextSchedRows = getCachedScheduleMatrix_(winInfo.monthSheet) || [];
+        var isNextWeekReg = false;
+        if (nextSchedRows.length > 0 && typeof JsonCacheService !== 'undefined' && typeof JsonCacheService.extractUserWeekSchedule === 'function') {
+          var sCheck = JsonCacheService.extractUserWeekSchedule(nextSchedRows, cleanUser, hoVaTen, winInfo.weekLabel);
+          isNextWeekReg = !!(sCheck && sCheck.isScheduleRegistered);
+        }
+        if (!isNextWeekReg) {
+          if (isFaceV2Mode) {
+            scheduleWarning = true;
+            scheduleWeekDisplay = winInfo.weekDisplay;
+          } else {
+            results[idx] = {
+              checkinId: itemCheckinId,
+              ok: false,
+              code: 'SCHEDULE_REQUIRED',
+              weekDisplay: winInfo.weekDisplay,
+              monthSheet: winInfo.monthSheet,
+              weekLabel: winInfo.weekLabel,
+              message: 'Bắt buộc đăng ký ca làm tuần tới (' + winInfo.weekDisplay + ') trước khi chấm công!'
+            };
+            continue;
+          }
+        }
+      }
+    }
+
+    var rawIncomingType = String(item.type || '').trim();
+    var isExplicitShift2In = /^\s*(vào(\s+ca)?\s*[2-9]|in\s*[2-9])\b/i.test(rawIncomingType);
+    var loaiChamCong = normalizeCanonicalCheckInType_(rawIncomingType);
+    var thoiGian = item.actualTime || item.time || Utilities.formatDate(time, CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm:ss');
+    var viTri = '';
+    var isRawCoords = /^-?\d{1,2}\.\d+\s*,\s*-?\d{1,3}\.\d+$/.test(String(item.location || ''));
+    if (item.location && String(item.location).length > 5 && !isRawCoords && String(item.location).indexOf('Throttled') === -1) {
+      viTri = String(item.location);
+    } else if (item.lat && item.lng) {
+      viTri = reverseGeocodeGoogle(Number(item.lat), Number(item.lng));
+    } else {
+      viTri = "Nhà hàng King's Grill";
+    }
+    var isValid = isAuthorizedTest || (effectiveDist <= allowedRadius);
+    var xacMinh = isValid ? 'Hợp lệ' : 'Không hợp lệ';
+
+    var monthNum = String(time.getMonth() + 1).padStart(2, '0');
+    var monthSheetName = 'Tháng ' + monthNum + '/' + time.getFullYear();
+    var todaySchedData = isPrimaryCheckInStatus_(loaiChamCong) && !isExplicitShift2In
+      ? getCachedScheduleMatrix_(monthSheetName)
+      : null;
+    var serverShift = todaySchedData ? lookupEmployeeTodayShift_(todaySchedData, time, hoVaTen) : '';
+
+    preparedCandidates.push({
+      idx: idx,
+      item: item,
+      checkinId: itemCheckinId,
+      cleanUser: cleanUser,
+      hoVaTen: hoVaTen,
+      loaiChamCong: loaiChamCong,
+      isExplicitShift2In: isExplicitShift2In,
+      isOfflineRetry: isOfflineRetry,
+      time: time,
+      thoiGian: thoiGian,
+      viTri: viTri,
+      isValid: isValid,
+      xacMinh: xacMinh,
+      distMeters: distMeters,
+      serverShift: serverShift,
+      scheduleWarning: scheduleWarning,
+      scheduleWeekDisplay: scheduleWeekDisplay
+    });
+  }
+
+  if (preparedCandidates.length === 0) {
+    return jsonResponse(true, { results: results, insertedCount: 0 });
+  }
+
+  // Phase 2: Acquire ONE ScriptLock, dedupe atomically, insert ALL rows in ONE batch!
+  var rowsToInsert = [];
+  var rowMetasToFormat = [];
+  var insertedCandidates = [];
+  var lock = LockService.getScriptLock();
+  var hasLock = false;
+  try {
+    lock.waitLock(25000);
+    hasLock = true;
+
+    var lockScanCount = Math.min(Math.max(0, sheet.getLastRow() - 1), 120);
+    var existingRows = lockScanCount > 0 ? sheet.getRange(2, 1, lockScanCount, 9).getValues() : [];
+    var existingRecords = [];
+    var existingCheckinIds = {};
+
+    for (var er = 0; er < existingRows.length; er++) {
+      var rowArr = existingRows[er];
+      if (!rowArr[0]) continue;
+      var parsedJ = null;
+      if (rowArr[7]) {
+        try { parsedJ = typeof rowArr[7] === 'string' ? JSON.parse(rowArr[7]) : rowArr[7]; } catch (ej) {}
+      }
+      var recCid = parsedJ && parsedJ.checkinId ? String(parsedJ.checkinId) : '';
+      if (recCid) {
+        existingCheckinIds[recCid] = {
+          row: rowArr,
+          json: parsedJ
+        };
+      }
+      existingRecords.push({
+        colA: rowArr[0],
+        colB: rowArr[1],
+        colC: rowArr[2],
+        colD: rowArr[3],
+        colE: rowArr[4],
+        json: parsedJ,
+        ts: getLogTimestampSafe(rowArr[2], rowArr[7])
+      });
+    }
+
+    var vnShiftMs = 7 * 3600 * 1000;
+    for (var ci = 0; ci < preparedCandidates.length; ci++) {
+      var cand = preparedCandidates[ci];
+      // 1. Idempotent checkinId deduplication (sheet + earlier in same batch)
+      if (existingCheckinIds[cand.checkinId]) {
+        var dupEntry = existingCheckinIds[cand.checkinId];
+        var dupFmt = dupEntry.row[2] ? String(dupEntry.row[2]).replace(/^'/, '') : cand.thoiGian;
+        var dupNote = dupEntry.row[8] ? String(dupEntry.row[8]).trim() : (dupEntry.json && dupEntry.json.ghiChu ? String(dupEntry.json.ghiChu) : '');
+        results[cand.idx] = {
+          checkinId: cand.checkinId,
+          ok: true,
+          sheetSaved: true,
+          alreadySaved: true,
+          type: normalizeCanonicalCheckInType_(String(dupEntry.row[1] || cand.loaiChamCong)),
+          note: dupNote,
+          fullname: String(dupEntry.row[0] || cand.hoVaTen),
+          thoiGian: dupFmt,
+          timeISO: cand.time.toISOString(),
+          viTri: dupEntry.row[3] || cand.viTri,
+          isValid: cand.isValid
+        };
+        continue;
+      }
+
+      var candNowMs = cand.time.getTime();
+      var vnRef = new Date(candNowMs + vnShiftMs);
+      var cycleDayOffset = vnRef.getUTCHours() < 6 ? -1 : 0;
+      var workdayCycleStartMs = Date.UTC(
+        vnRef.getUTCFullYear(),
+        vnRef.getUTCMonth(),
+        vnRef.getUTCDate() + cycleDayOffset,
+        6, 0, 0, 0
+      ) - vnShiftMs;
+
+      var hasPriorInCycle = false;
+      var cooldownBlocked = null;
+      var targetNameLower = cand.hoVaTen.toLowerCase();
+
+      for (var ri = 0; ri < existingRecords.length; ri++) {
+        var rec = existingRecords[ri];
+        var isAppIn = isCheckInStatus_(rec.colB);
+        var isAppOut = isCheckOutStatus_(rec.colB);
+        if (!isAppIn && !isAppOut) continue;
+        if (!matchesAttendancePersonGas_(rec.colA, rec.json, cand.cleanUser, targetNameLower)) continue;
+
+        if (isAppIn && rec.ts >= workdayCycleStartMs && rec.ts <= candNowMs + 60000) {
+          hasPriorInCycle = true;
+        }
+        if (
+          !cooldownBlocked &&
+          !cand.item.bypassCooldown &&
+          !cand.isOfflineRetry &&
+          !isMissedSupplementRowGas_(rec.colD, rec.colE, rec.json) &&
+          rec.ts > 0 &&
+          (candNowMs - rec.ts) >= 0 &&
+          (candNowMs - rec.ts) < 15 * 60 * 1000
+        ) {
+          cooldownBlocked = {
+            lastType: String(rec.colB || ''),
+            lastTime: rec.colC ? String(rec.colC).replace(/^'/, '') : '',
+            remainingSeconds: Math.ceil((15 * 60 * 1000 - (candNowMs - rec.ts)) / 1000)
+          };
+        }
+      }
+
+      if (cooldownBlocked) {
+        results[cand.idx] = {
+          checkinId: cand.checkinId,
+          ok: false,
+          code: 'COOLDOWN_15M',
+          isSpamCooldown: true,
+          remainingSeconds: cooldownBlocked.remainingSeconds,
+          lastType: cooldownBlocked.lastType,
+          lastTime: cooldownBlocked.lastTime,
+          message: 'Hệ thống chống chấm lặp: Lượt chấm công sớm nhất lúc ' + cooldownBlocked.lastTime + ' đã được ghi nhận.'
+        };
+        continue;
+      }
+
+      // Late calculation only on 1st Vào ca of workday cycle
+      var serverLateMins = 0;
+      var suspectedMissedCheckIn = false;
+      if (isPrimaryCheckInStatus_(cand.loaiChamCong) && !cand.isExplicitShift2In && !hasPriorInCycle) {
+        if (cand.serverShift && cand.serverShift !== 'OFF' && cand.serverShift !== 'RẢNH' && cand.serverShift.indexOf('OFF') !== 0) {
+          var sParts = cand.serverShift.split(':');
+          if (sParts.length === 2) {
+            serverLateMins = (cand.time.getHours() * 60 + cand.time.getMinutes()) - (parseInt(sParts[0], 10) * 60 + parseInt(sParts[1], 10));
+            if (serverLateMins < 0) serverLateMins = 0;
+          }
+        }
+      }
+      if (serverLateMins > 120) {
+        suspectedMissedCheckIn = true;
+      }
+
+      var ghiChuColI = buildCheckInNoteText_({
+        lateMins: serverLateMins,
+        payloadLateMins: cand.item.lateMins,
+        shift: cand.serverShift || cand.item.shift || '',
+        suspectedMissedCheckIn: suspectedMissedCheckIn,
+        scheduleWarning: cand.scheduleWarning,
+        scheduleWeekDisplay: cand.scheduleWeekDisplay,
+        extraNote: cand.item.note || ''
+      });
+
+      var dataJsonObj = {
+        checkinId: cand.checkinId,
+        username: cand.item.username || '',
+        hoVaTen: cand.hoVaTen,
+        loaiChamCong: cand.loaiChamCong,
+        thoiGian: cand.thoiGian,
+        actualTime: cand.thoiGian,
+        viTri: cand.viTri,
+        xacMinh: cand.xacMinh,
+        khoangCach: cand.distMeters + 'm',
+        linkAnh: '',
+        toaDo: { lat: cand.item.lat, lng: cand.item.lng },
+        caLam: cand.serverShift || cand.item.shift || '',
+        diTre: serverLateMins || cand.item.lateMins || 0,
+        ghiChu: ghiChuColI,
+        checkinMode: cand.item.checkinMode || 'v1_manual',
+        suspectedMissedCheckIn: suspectedMissedCheckIn,
+        scheduleWarning: cand.scheduleWarning,
+        emailSent: false,
+        timestamp: cand.time.toISOString()
+      };
+      var dataJsonStr = JSON.stringify(dataJsonObj);
+
+      var newRow = [
+        cand.hoVaTen,
+        cand.loaiChamCong,
+        "'" + cand.thoiGian,
+        cand.viTri,
+        cand.xacMinh,
+        cand.distMeters + 'm',
+        '',
+        dataJsonStr,
+        ghiChuColI
+      ];
+      rowsToInsert.push(newRow);
+      rowMetasToFormat.push({
+        type: cand.loaiChamCong,
+        status: cand.xacMinh,
+        isValid: cand.isValid,
+        imageUrl: '',
+        note: ghiChuColI
+      });
+
+      // Register in-memory for subsequent items in the same batch
+      existingCheckinIds[cand.checkinId] = { row: newRow, json: dataJsonObj };
+      existingRecords.unshift({
+        colA: cand.hoVaTen,
+        colB: cand.loaiChamCong,
+        colC: "'" + cand.thoiGian,
+        colD: cand.viTri,
+        colE: cand.xacMinh,
+        json: dataJsonObj,
+        ts: candNowMs
+      });
+
+      cand.serverLateMins = serverLateMins;
+      cand.suspectedMissedCheckIn = suspectedMissedCheckIn;
+      cand.ghiChuColI = ghiChuColI;
+      insertedCandidates.push(cand);
+    }
+
+    if (rowsToInsert.length > 0) {
+      ensureCheckInNoteHeader_(sheet);
+      // Reverse order so newest row sits at Row 2 while preserving chronological insertion order
+      var orderedRows = rowsToInsert.slice().reverse();
+      var orderedMetas = rowMetasToFormat.slice().reverse();
+      if (typeof sheet.insertRowsBefore === 'function') {
+        sheet.insertRowsBefore(2, orderedRows.length);
+      } else {
+        for (var ins = 0; ins < orderedRows.length; ins++) {
+          sheet.insertRowBefore(2);
+        }
+      }
+      sheet.getRange(2, 1, orderedRows.length, 9).setValues(orderedRows);
+      formatCheckInRowsBatch_(sheet, 2, orderedMetas);
+      SpreadsheetApp.flush();
+    }
+  } catch (batchErr) {
+    Logger.log('handleBatchCheckInOut error: ' + batchErr.message);
+    var isLockTimeout = batchErr.message && (batchErr.message.indexOf('Lock') >= 0 || batchErr.message.indexOf('lock') >= 0);
+    return jsonResponse(false, {
+      code: isLockTimeout ? 'LOCK_TIMEOUT' : 'SAVE_ERROR',
+      message: 'Máy chủ đang bận đồng bộ lô chấm công: ' + batchErr.message
+    });
+  } finally {
+    if (hasLock) {
+      try { lock.releaseLock(); } catch (relErr) {}
+    }
+  }
+
+  // Phase 3: Post-lock side effects OUTSIDE ScriptLock (penalties, KingCoins, notifications, single cache invalidation)
+  for (var ic = 0; ic < insertedCandidates.length; ic++) {
+    var doneCand = insertedCandidates[ic];
+    if (doneCand.serverLateMins > 5 && doneCand.serverLateMins <= 120 && doneCand.isValid) {
+      try {
+        var penAmt = Math.floor(doneCand.serverLateMins / 15) * 10000;
+        if (penAmt < 10000) penAmt = 10000;
+        var penSheet = ss.getSheetByName('BonusPenalty');
+        if (!penSheet) {
+          penSheet = ss.insertSheet('BonusPenalty');
+          penSheet.appendRow(['ID', 'Date', 'TargetUsername', 'TargetFullname', 'Type', 'Amount', 'Reason', 'CreatedBy']);
+        }
+        penSheet.appendRow([
+          'AUTO_' + doneCand.time.getTime() + '_' + ic,
+          Utilities.formatDate(doneCand.time, CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm'),
+          doneCand.item.username,
+          doneCand.hoVaTen,
+          'PENALTY',
+          penAmt,
+          'Tự động: Đi trễ ' + doneCand.serverLateMins + ' phút (ca ' + doneCand.serverShift + ')',
+          'SYSTEM'
+        ]);
+      } catch (penErr) {}
+      try { recordKingCoins(doneCand.item.username, doneCand.hoVaTen, 'Đi trễ ' + doneCand.serverLateMins + 'p (ca ' + doneCand.serverShift + ')', -10, 'CheckIn'); } catch (kcErr) {}
+      try { createNotification('ALL', '⚠️ Nhân viên đi trễ', doneCand.hoVaTen + ' đi trễ ' + doneCand.serverLateMins + ' phút (ca ' + doneCand.serverShift + ')', 'warning', 'checkin'); } catch (nErr) {}
+    } else if (doneCand.suspectedMissedCheckIn && doneCand.isValid) {
+      try {
+        createNotification('ALL', '📋 Cần đối soát ca làm (>2h)', doneCand.hoVaTen + ' chấm ' + doneCand.loaiChamCong + ' (lệch ' + doneCand.serverLateMins + 'p so với ca ' + doneCand.serverShift + '). Đã tạm hoãn trừ phạt tự động để Quản lý kiểm tra.', 'warning', 'checkin');
+      } catch (nErr2) {}
+    } else if (doneCand.serverShift && doneCand.serverShift !== 'OFF' && doneCand.isValid && isPrimaryCheckInStatus_(doneCand.loaiChamCong)) {
+      try { recordKingCoins(doneCand.item.username, doneCand.hoVaTen, 'Vào ca đúng giờ (' + doneCand.serverShift + ')', 5, 'CheckIn'); } catch (kcErr2) {}
+    }
+
+    results[doneCand.idx] = {
+      checkinId: doneCand.checkinId,
+      ok: true,
+      sheetSaved: true,
+      type: doneCand.loaiChamCong,
+      note: doneCand.ghiChuColI,
+      fullname: doneCand.hoVaTen,
+      thoiGian: doneCand.thoiGian,
+      timeISO: doneCand.time.toISOString(),
+      viTri: doneCand.viTri,
+      distMeters: doneCand.distMeters,
+      isValid: doneCand.isValid,
+      shift: doneCand.serverShift || '',
+      lateMins: doneCand.serverLateMins,
+      scheduleWarning: doneCand.scheduleWarning,
+      scheduleWeekDisplay: doneCand.scheduleWeekDisplay,
+      suspectedMissedCheckIn: doneCand.suspectedMissedCheckIn
+    };
+  }
+
+  if (insertedCandidates.length > 0) {
+    try { invalidateGetDataCache(); } catch (invErr) {}
+  }
+
+  return jsonResponse(true, {
+    results: results,
+    insertedCount: insertedCandidates.length
+  });
 }
 
 function handleSendEmailNotification(payload) {
@@ -1634,13 +2373,15 @@ function recordFraudAlert(ss, payload, distMeters, allowedRadius, customReason) 
  */
 function formatCheckInHeader(sheet) {
   try {
-    var headerRange = sheet.getRange(1, 1, 1, 8);
+    var headerRange = sheet.getRange(1, 1, 1, 9);
     var headers = headerRange.getValues()[0];
     
     // Only format if header exists and isn't already styled
     if (!headers[0] || headers[0].toString().trim() === '') {
       // Set header values
-      headerRange.setValues([['👤 HỌ VÀ TÊN', '🔄 LOẠI CHẤM CÔNG', '🕒 THỜI GIAN', '📍 VỊ TRÍ', '🛡️ XÁC MINH', '📏 KHOẢNG CÁCH', '📷 LINK HÌNH ẢNH', 'JSON']]);
+      headerRange.setValues([['👤 HỌ VÀ TÊN', '🔄 LOẠI CHẤM CÔNG', '🕒 THỜI GIAN', '📍 VỊ TRÍ', '🛡️ XÁC MINH', '📏 KHOẢNG CÁCH', '📷 LINK HÌNH ẢNH', 'JSON', '📝 GHI CHÚ']]);
+    } else if (!headers[8] || headers[8].toString().trim() === '') {
+      sheet.getRange(1, 9).setValue('📝 GHI CHÚ');
     }
     
     // Tắt viền mặc định của Google Sheets và dọn rác Định dạng có điều kiện (CF Rules)
@@ -1671,13 +2412,14 @@ function formatCheckInHeader(sheet) {
     
     // Set column widths for professional layout
     sheet.setColumnWidth(1, 180);  // HỌ VÀ TÊN
-    sheet.setColumnWidth(2, 140);  // LOẠI CHẤM CÔNG
+    sheet.setColumnWidth(2, 130);  // LOẠI CHẤM CÔNG (luôn là Vào ca / Ra ca)
     sheet.setColumnWidth(3, 160);  // THỜI GIAN
     sheet.setColumnWidth(4, 200);  // VỊ TRÍ
     sheet.setColumnWidth(5, 120);  // XÁC MINH
     sheet.setColumnWidth(6, 130);  // KHOẢNG CÁCH
     sheet.setColumnWidth(7, 150);  // LINK HÌNH ẢNH
     sheet.setColumnWidth(8, 80);   // JSON
+    sheet.setColumnWidth(9, 240);  // GHI CHÚ (Trễ ca, lệch ca, bổ sung...)
     
     // Hide JSON column (H) - data backup, not for human reading
     sheet.hideColumns(8, 1);
@@ -1691,61 +2433,14 @@ function formatCheckInHeader(sheet) {
  */
 function formatCheckInRow(sheet, row, isValid, imgUrl) {
   try {
-    var rowRange = sheet.getRange(row, 1, 1, 8);
-    var rawColB = String(sheet.getRange(row, 2).getValue() || '');
-    var rawColE = String(sheet.getRange(row, 5).getValue() || '').toUpperCase();
-    var isPendingSupp = /^\s*chờ\s*duyệt\s*:/i.test(rawColB) || rawColE.indexOf('CHỜ') >= 0;
-    var isRejectedSupp = /^\s*từ\s*chối\s*:/i.test(rawColB) || rawColE.indexOf('TỪ CHỐI') >= 0;
-    var isVaoCa = isCheckInStatus_(rawColB);
-
-    var colBBg = isPendingSupp ? '#fef3c7' : (isRejectedSupp ? '#f1f5f9' : (isVaoCa ? '#f0fdf4' : '#fef2f2'));
-    var colBFg = isPendingSupp ? '#b45309' : (isRejectedSupp ? '#64748b' : (isVaoCa ? '#15803d' : '#dc2626'));
-    var colEBg = isPendingSupp ? '#fffbeb' : (isRejectedSupp ? '#fef2f2' : '#ffffff');
-    var colEFg = isPendingSupp ? '#b45309' : (isRejectedSupp ? '#dc2626' : '#334155');
-    
-    // Batch base styling
-    rowRange
-      .setFontFamily('Questrial')
-      .setFontSize(10)
-      .setVerticalAlignment('middle')
-      .setHorizontalAlignment('center')
-      .setFontColor('#334155');
-    sheet.setRowHeight(row, 36);
-
-    // Prepare arrays for batch formatting
-    var bgColors = [['#ffffff', colBBg, '#ffffff', '#ffffff', colEBg, '#ffffff', '#ffffff', '#ffffff']];
-    var fontColors = [['#0f172a', colBFg, '#334155', '#475569', colEFg, '#334155', '#2563eb', '#94a3b8']];
-    var fontWeights = [['bold', 'bold', 'normal', 'normal', isPendingSupp ? 'bold' : 'normal', 'normal', 'bold', 'normal']];
-    var aligns = [['left', 'center', 'center', 'left', 'center', 'center', 'center', 'left']];
-    
-    rowRange.setBackgrounds(bgColors);
-    rowRange.setFontColors(fontColors);
-    rowRange.setFontWeights(fontWeights);
-    rowRange.setHorizontalAlignments(aligns);
-    
-    // Specific cell adjustments
-    sheet.getRange(row, 3).setFontFamily('Roboto Mono');
-    sheet.getRange(row, 4).setWrap(true).setFontSize(9);
-    sheet.getRange(row, 6).setFontSize(9);
-    
-    if (imgUrl && imgUrl !== 'Lỗi ảnh' && imgUrl !== 'Đang tải ảnh...' && imgUrl !== 'PENDING' && imgUrl.indexOf('drive.google.com') >= 0) {
-      var cellG = sheet.getRange(row, 7);
-      var linkColor = isValid ? '#10b981' : '#ef4444';
-      try {
-        cellG.setFormula('=HYPERLINK("' + imgUrl + '"; "📷 Xem ảnh")')
-             .setFontColor(linkColor)
-             .setFontSize(9);
-      } catch (fErr) {
-        try {
-          cellG.setValue(imgUrl)
-               .setFontColor(linkColor)
-               .setFontSize(9);
-        } catch (fErr2) {}
-      }
-    }
-    
-    sheet.getRange(row, 8).setFontSize(7);
-    rowRange.setBorder(true, true, true, true, true, true, '#cbd5e1', SpreadsheetApp.BorderStyle.SOLID);
+    var rowVals = sheet.getRange(row, 1, 1, 9).getValues()[0];
+    formatCheckInRowsBatch_(sheet, row, [{
+      type: rowVals[1] ? String(rowVals[1]) : '',
+      status: rowVals[4] ? String(rowVals[4]) : '',
+      isValid: isValid,
+      imageUrl: imgUrl || '',
+      note: rowVals[8] ? String(rowVals[8]) : ''
+    }]);
   } catch(e) {
     Logger.log('formatCheckInRow error: ' + e.message);
   }
@@ -1787,7 +2482,7 @@ function formatEntireCheckInSheet() {
   }
   
   var rowsNum = lastRow - 1;
-  var rangeObj = sheet.getRange(2, 1, rowsNum, 8);
+  var rangeObj = sheet.getRange(2, 1, rowsNum, 9);
   var data = rangeObj.getValues();
   
   var backgrounds = [];
@@ -1808,31 +2503,40 @@ function formatEntireCheckInSheet() {
     var isEven = (i % 2 === 0);
     var bg = isEven ? '#f8fafc' : '#ffffff';
     
-    // Default cho row
-    var b = Array(8).fill(bg);
-    var a = Array(8).fill('center');
-    var fw = Array(8).fill('normal');
-    var fc = Array(8).fill('#334155');
-    var f = Array(8).fill('Questrial');
-    var fs = Array(8).fill(10);
-    var w = Array(8).fill(false);
-    var v = Array(8).fill('middle');
+    // Default cho row (9 cột A..I)
+    var b = Array(9).fill(bg);
+    var a = Array(9).fill('center');
+    var fw = Array(9).fill('normal');
+    var fc = Array(9).fill('#334155');
+    var f = Array(9).fill('Questrial');
+    var fs = Array(9).fill(10);
+    var w = Array(9).fill(false);
+    var v = Array(9).fill('middle');
     
-    var nv = rData.slice(); // Bản sao của dòng
+    var nv = rData.slice(0, 9); // Bản sao của dòng 9 cột
+    while (nv.length < 9) nv.push('');
     
     // --- CỘT A (Họ Tên)
     a[0] = 'left'; fw[0] = 'bold'; fc[0] = '#0f172a';
     
-    // --- CỘT B (Loại)
-    var rColBStr = rData[1] ? rData[1].toString() : '';
+    // --- CỘT B (Loại) — chuẩn hóa Vào ca / Ra ca, chuyển hậu tố Trễ/Lệch ca sang Cột I
+    var rColBStr = rData[1] ? rData[1].toString().trim() : '';
     var rColEStr = rData[4] ? rData[4].toString() : '';
     var rColEUpper = rColEStr.toUpperCase();
     var rIsPending = /^\s*chờ\s*duyệt\s*:/i.test(rColBStr) || rColEUpper.indexOf('CHỜ') >= 0;
     var rIsRejected = /^\s*từ\s*chối\s*:/i.test(rColBStr) || rColEUpper.indexOf('TỪ CHỐI') >= 0;
+    var legacyNoteFromColB = (!rIsPending && !rIsRejected) ? extractLegacyTypeNote_(rColBStr) : '';
+    if (!rIsPending && !rIsRejected && (isCheckInStatus_(rColBStr) || isCheckOutStatus_(rColBStr))) {
+      var cleanColB = normalizeCanonicalCheckInType_(rColBStr);
+      if (cleanColB !== rColBStr) {
+        nv[1] = cleanColB;
+        hasValuesUpdate = true;
+      }
+    }
     if (rIsPending) { b[1] = '#fef3c7'; fc[1] = '#b45309'; fw[1] = 'bold'; }
     else if (rIsRejected) { b[1] = '#f1f5f9'; fc[1] = '#64748b'; fw[1] = 'bold'; }
-    else if (isCheckInStatus_(rData[1])) { b[1] = '#f0fdf4'; fc[1] = '#15803d'; fw[1] = 'bold'; }
-    else if (isCheckOutStatus_(rData[1])) { b[1] = '#fef2f2'; fc[1] = '#dc2626'; fw[1] = 'bold'; }
+    else if (isCheckInStatus_(nv[1])) { b[1] = '#f0fdf4'; fc[1] = '#15803d'; fw[1] = 'bold'; }
+    else if (isCheckOutStatus_(nv[1])) { b[1] = '#fef2f2'; fc[1] = '#dc2626'; fw[1] = 'bold'; }
     
     // --- CỘT C (Thời gian format DD/MM/YYYY HH:MM:SS)
     // Cực kỳ quan trọng: Nếu hàm getValues() trả về đối tượng Date, ta phải format lại chuẩn DD/MM
@@ -1917,6 +2621,31 @@ function formatEntireCheckInSheet() {
     
     // --- CỘT H (JSON)
     fs[7] = 7; fc[7] = '#94a3b8'; a[7] = 'left';
+
+    // --- CỘT I (Ghi chú — Trễ ca, Lệch ca, Bổ sung...)
+    var existingColI = nv[8] ? String(nv[8]).trim() : '';
+    var jsonGhiChu = '';
+    if (rowJsonStr) {
+      try {
+        var parsedMeta = JSON.parse(rowJsonStr);
+        if (parsedMeta && parsedMeta.ghiChu) jsonGhiChu = String(parsedMeta.ghiChu).trim();
+        else if (parsedMeta && parsedMeta.suspectedMissedCheckIn) jsonGhiChu = 'Lệch ca >2h - Chờ đối soát';
+        else if (parsedMeta && Number(parsedMeta.diTre) > 5) jsonGhiChu = 'Trễ ' + parsedMeta.diTre + 'p';
+      } catch (eMetaColI) {}
+    }
+    var mergedColI = existingColI || legacyNoteFromColB || jsonGhiChu;
+    if (existingColI && legacyNoteFromColB && existingColI.toLowerCase().indexOf(legacyNoteFromColB.toLowerCase()) < 0) {
+      mergedColI = legacyNoteFromColB + ' • ' + existingColI;
+    }
+    if (mergedColI !== existingColI) {
+      nv[8] = mergedColI;
+      hasValuesUpdate = true;
+    }
+    var isWarnColI = mergedColI.indexOf('Trễ') >= 0 || mergedColI.indexOf('Lệch ca') >= 0 || mergedColI.indexOf('Chờ') >= 0;
+    a[8] = 'left'; fs[8] = 9; w[8] = true;
+    b[8] = isWarnColI ? '#fffbeb' : bg;
+    fc[8] = isWarnColI ? '#b45309' : '#475569';
+    fw[8] = isWarnColI ? 'bold' : 'normal';
     
     backgrounds.push(b);
     aligns.push(a);
@@ -1929,13 +2658,13 @@ function formatEntireCheckInSheet() {
     newValues.push(nv);
   }
   
-  // 1. Áp dụng giá trị mới (Thời gian + Formulas) qua API siêu tốc
+  // 1. Áp dụng giá trị mới (Thời gian + Formulas + Cột B/I) qua API siêu tốc
   if (hasValuesUpdate) {
     try {
       Sheets.Spreadsheets.Values.update(
         { values: newValues },
         CONFIG.SPREADSHEET_ID,
-        CONFIG.SHEET_LOGS + '!A2:H' + lastRow,
+        CONFIG.SHEET_LOGS + '!A2:I' + lastRow,
         { valueInputOption: 'USER_ENTERED' }
       );
     } catch(errApi) {
@@ -1951,7 +2680,7 @@ function formatEntireCheckInSheet() {
     
     for (var r = 0; r < rowsNum; r++) {
       var rowValues = [];
-      for (var c = 0; c < 8; c++) {
+      for (var c = 0; c < 9; c++) {
         var bgHex = backgrounds[r][c];
         var fontColorHex = fontColors[r][c];
         
@@ -1980,7 +2709,7 @@ function formatEntireCheckInSheet() {
           startRowIndex: 1, // Dòng 2 (0-indexed)
           endRowIndex: lastRow,
           startColumnIndex: 0,
-          endColumnIndex: 8
+          endColumnIndex: 9
         },
         rows: rows,
         fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,wrapStrategy)'
@@ -2735,7 +3464,7 @@ function handleGetCheckinLogs(payload) {
     // Batch fetch all target sheets in a single Sheets API v4 round-trip
     var sheetMatrixMap = {};
     try {
-      var ranges = sheetsToFetch.map(function(n) { return "'" + n + "'!A1:H"; });
+      var ranges = sheetsToFetch.map(function(n) { return "'" + n + "'!A1:I"; });
       var batchRes = Sheets.Spreadsheets.Values.batchGet(ss.getId(), { ranges: ranges });
       var vRanges = (batchRes && batchRes.valueRanges) ? batchRes.valueRanges : [];
       for (var rIdx = 0; rIdx < sheetsToFetch.length; rIdx++) {
@@ -5213,14 +5942,16 @@ function handleSubmitMissedCheckin(payload) {
         'Chờ Admin duyệt',
         'Đơn #' + id,
         imageUrl || '',
-        pendingJson
+        pendingJson,
+        pendingNote
       ];
       var lock = LockService.getScriptLock();
       try {
         lock.waitLock(15000);
+        ensureCheckInNoteHeader_(logSheet);
         if (logSheet.getLastRow() >= 2) {
           logSheet.insertRowBefore(2);
-          logSheet.getRange(2, 1, 1, 8).setValues([pendingLogRow]);
+          logSheet.getRange(2, 1, 1, 9).setValues([pendingLogRow]);
           formatCheckInRow(logSheet, 2, false, imageUrl || '');
         } else {
           logSheet.appendRow(pendingLogRow);
@@ -5369,20 +6100,22 @@ function handleApproveMissedCheckin(payload) {
         "Hợp lệ",
         "Giải trình",
         claim.proofImage || '',
-        dataJson
+        dataJson,
+        noteText
       ];
 
       var lock = LockService.getScriptLock();
       try {
         lock.waitLock(15000);
+        ensureCheckInNoteHeader_(logSheet);
         var existingRowIdx = findCheckInRowByClaimId_(logSheet, claim.id);
         if (existingRowIdx >= 2) {
-          logSheet.getRange(existingRowIdx, 1, 1, 8).setValues([newLog]);
+          logSheet.getRange(existingRowIdx, 1, 1, 9).setValues([newLog]);
           formatCheckInRow(logSheet, existingRowIdx, true, claim.proofImage || '');
           updatedInPlace = true;
         } else if (logSheet.getLastRow() >= 2) {
           logSheet.insertRowBefore(2);
-          logSheet.getRange(2, 1, 1, 8).setValues([newLog]);
+          logSheet.getRange(2, 1, 1, 9).setValues([newLog]);
           formatCheckInRow(logSheet, 2, true, claim.proofImage || '');
         } else {
           logSheet.appendRow(newLog);
@@ -5391,7 +6124,7 @@ function handleApproveMissedCheckin(payload) {
       } catch (lockErr) {
         var fallbackRowIdx = findCheckInRowByClaimId_(logSheet, claim.id);
         if (fallbackRowIdx >= 2) {
-          logSheet.getRange(fallbackRowIdx, 1, 1, 8).setValues([newLog]);
+          logSheet.getRange(fallbackRowIdx, 1, 1, 9).setValues([newLog]);
           updatedInPlace = true;
         } else {
           logSheet.appendRow(newLog);
@@ -5611,9 +6344,9 @@ function handleUpdateCheckinType(payload) {
       return jsonResponse(false, 'Không tìm thấy dòng chấm công tương ứng hoặc bạn không có quyền sửa.');
     }
 
-    var currentRowData = sheet.getRange(targetRowIndex, 1, 1, 8).getValues()[0];
+    var currentRowData = sheet.getRange(targetRowIndex, 1, 1, 9).getValues()[0];
     var originalType = currentRowData[1] ? currentRowData[1].toString() : '';
-    var newType = payload.newType.toString().trim();
+    var newType = normalizeCanonicalCheckInType_(payload.newType.toString().trim());
 
     // Parse JSON
     var dataJson = {};
@@ -5629,14 +6362,16 @@ function handleUpdateCheckinType(payload) {
     dataJson.correctedBy = payload.username;
     dataJson.correctionReason = payload.reason || 'Nhân viên cập nhật lại loại chấm công';
 
-    var noteText = (dataJson.ghiChu ? dataJson.ghiChu + ' • ' : '') + 'Đã sửa từ ' + originalType + ' (' + (payload.reason || 'chọn nhầm') + ')';
+    var existingColINote = currentRowData[8] ? String(currentRowData[8]).trim() : (dataJson.ghiChu ? String(dataJson.ghiChu).trim() : '');
+    var noteText = (existingColINote ? existingColINote + ' • ' : '') + 'Đã sửa từ ' + originalType + ' (' + (payload.reason || 'chọn nhầm') + ')';
     dataJson.ghiChu = noteText;
 
     var lock = LockService.getScriptLock();
     try {
       lock.waitLock(10000);
+      ensureCheckInNoteHeader_(sheet);
       sheet.getRange(targetRowIndex, 2).setValue(newType);
-      sheet.getRange(targetRowIndex, 8).setValue(JSON.stringify(dataJson));
+      sheet.getRange(targetRowIndex, 8, 1, 2).setValues([[JSON.stringify(dataJson), noteText]]);
 
       // Cập nhật lại format dòng
       var isValid = currentRowData[4] ? currentRowData[4].toString().indexOf('Hợp lệ') >= 0 : true;
@@ -5646,7 +6381,7 @@ function handleUpdateCheckinType(payload) {
       lock.releaseLock();
     } catch (lErr) {
       sheet.getRange(targetRowIndex, 2).setValue(newType);
-      sheet.getRange(targetRowIndex, 8).setValue(JSON.stringify(dataJson));
+      sheet.getRange(targetRowIndex, 8, 1, 2).setValues([[JSON.stringify(dataJson), noteText]]);
     }
 
     // Xóa cache của cả nhân viên được sửa lẫn Admin để cập nhật ngay lập tức

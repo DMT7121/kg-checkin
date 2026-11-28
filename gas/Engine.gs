@@ -5171,7 +5171,15 @@ function handleGetAnalytics(payload) {
         else result.checkinStats.invalid++;
 
         var typeStr = logData[i][1] ? logData[i][1].toString() : '';
-        if (typeStr.indexOf('Trễ') >= 0) {
+        var noteColIStr = logData[i][8] ? logData[i][8].toString() : '';
+        var isLatePunch = typeStr.indexOf('Trễ') >= 0 || noteColIStr.indexOf('Trễ') >= 0;
+        if (!isLatePunch && logData[i][7]) {
+          try {
+            var metaJson = JSON.parse(logData[i][7].toString());
+            if (metaJson && Number(metaJson.diTre) > 5 && !metaJson.suspectedMissedCheckIn) isLatePunch = true;
+          } catch (eMeta) {}
+        }
+        if (isLatePunch) {
           result.checkinStats.late++;
           var empName = logData[i][0] ? logData[i][0].toString() : '';
           lateMap[empName] = (lateMap[empName] || 0) + 1;
@@ -5180,7 +5188,7 @@ function handleGetAnalytics(payload) {
         // Daily aggregation
         if (!dailyMap[datePart]) dailyMap[datePart] = { date: datePart, checkins: 0, late: 0 };
         dailyMap[datePart].checkins++;
-        if (typeStr.indexOf('Trễ') >= 0) dailyMap[datePart].late++;
+        if (isLatePunch) dailyMap[datePart].late++;
       }
 
       // Convert to arrays

@@ -466,7 +466,10 @@ const DashboardOverview = ({ onTabChange }: { onTabChange: (tab: TabId) => void 
   const lateArrived: OperationalAlertEmployee[] = scheduledToday.reduce<OperationalAlertEmployee[]>(
     (acc, emp) => {
       const userLogs = checkinMap.get(emp.fullname) || [];
-      const lateLog = userLogs.find((l: any) => l.type.includes('Trễ'));
+      const lateLog = userLogs.find(
+        (l: any) =>
+          String(l.type || '').includes('Trễ') || String(l.note || '').includes('Trễ')
+      );
       if (!lateLog) return acc;
 
       const rawTime = String(lateLog.time || '').trim();

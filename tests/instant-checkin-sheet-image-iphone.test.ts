@@ -1410,3 +1410,337 @@ describe('Suite 4 — iPhone / iOS Safari & Home-Screen PWA Optimizations', () =
     }
   });
 });
+
+describe('Suite 5 — Concurrent Multi-Staff Rush Completeness & Strict Col B / Col I Sheet Schema', () => {
+  test('5.1 12 employees checking in simultaneously coalesce into BATCH_CHECK_IN_OUT with 0 lost rows, 0 lock storms, Col B strictly Vào ca/Ra ca & late/mismatch notes in Col I', async () => {
+    const edgeMod = await vite.ssrLoadModule('/functions/api.js');
+    edgeMod.resetEdgeMemoryStateForTests();
+
+    const realNow = Date.now();
+    // Pick a deterministic Vietnam timestamp at 15:20:00 (20m late for 15:00 shift) and 18:10:00 (>2h mismatch)
+    const vnDateParts = new Date(realNow + 7 * 3600 * 1000);
+    const yyyy = vnDateParts.getUTCFullYear();
+    const mm = String(vnDateParts.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(vnDateParts.getUTCDate()).padStart(2, '0');
+    const baseTimeStr = `${dd}/${mm}/${yyyy} 15:20:00`;
+    const mismatchTimeStr = `${dd}/${mm}/${yyyy} 18:10:00`;
+    const currentNowIso = `${yyyy}-${mm}-${dd}T15:20:00+07:00`;
+    const monthSheetName = `Tháng ${mm}/${yyyy}`;
+
+    const db = createRealSqliteD1();
+    const dataRows: any[][] = [
+      ['Bảng người dùng'],
+      ['Username', 'Password', 'Fullname', 'DOB', 'Email', 'Role', 'Position', 'Avatar', 'EmploymentStatus'],
+    ];
+
+    const staffList = Array.from({ length: 12 }, (_, idx) => ({
+      username: `rush${String(idx + 1).padStart(2, '0')}`,
+      fullname: `Nhân Viên Rush ${String(idx + 1).padStart(2, '0')}`,
+      shift: idx === 0 ? '15:00' : idx === 1 ? '15:00' : '16:00',
+      punchTime: idx === 1 ? mismatchTimeStr : baseTimeStr,
+      punchType: idx % 3 === 2 ? 'Ra ca' : 'Vào ca',
+    }));
+
+    const { win, shifts } = await seedRegisteredScheduleForTest(
+      edgeMod,
+      db,
+      staffList[0].username,
+      staffList[0].fullname,
+      realNow
+    );
+
+    const monthRows: any[][] = [
+      ['Lịch tháng'],
+      [`TUẦN (${dd}/${mm} - ${dd}/${mm})`],
+    ];
+
+    for (const st of staffList) {
+      dataRows.push([st.username, 'hash', st.fullname, '', `${st.username}@kg.vn`, 'user', 'Phục vụ', '', 'active']);
+      const empShifts = Array(7).fill(st.shift);
+      monthRows.push([st.fullname, ...empShifts]);
+      monthRows.push([`┗ ${st.fullname}`, ...empShifts]);
+      // Seed next-week schedule in D1 so Thu-Sat mandatory gate passes instantaneously
+      await db
+        .prepare(
+          `INSERT OR REPLACE INTO edge_schedules (id, username, fullname, month_sheet, week_label, shifts_json, off_reason, status, sheet_synced, updated_at)
+           VALUES (?1, ?2, ?3, ?4, ?5, ?6, '', 'Đã đăng ký', 1, ?7)`
+        )
+        .bind(
+          `${st.username}:${win.monthSheet}:${win.weekLabel}`,
+          st.username,
+          st.fullname,
+          win.monthSheet,
+          win.weekLabel,
+          JSON.stringify(shifts),
+          realNow
+        )
+        .run();
+    }
+
+    const nextWeekSheetRows: any[][] = [
+      ['Lịch tuần tới'],
+      [`TUẦN (${win.weekLabel})`],
+      ...staffList.flatMap((st) => [
+        [st.fullname, ...shifts],
+        [`┗ ${st.fullname}`, ...shifts],
+      ]),
+    ];
+
+    const initialSheets: Record<string, any[][]> = {
+      DATA: dataRows,
+      '⚙️ CẤU HÌNH': [
+        ['Key', 'Value'],
+        ['GPS_CONFIG', JSON.stringify({ lat: 10.976083, lng: 106.664654, radius: 25 })],
+      ],
+      [monthSheetName]: monthRows,
+      '✔️CHẤM CÔNG': [['👤 HỌ VÀ TÊN', '🔄 LOẠI CHẤM CÔNG', '🕒 THỜI GIAN', '📍 VỊ TRÍ', '🛡️ XÁC MINH', '📏 KHOẢNG CÁCH', '📷 LINK HÌNH ẢNH', 'JSON']],
+    };
+    if (win.monthSheet !== monthSheetName) {
+      initialSheets[win.monthSheet] = nextWeekSheetRows;
+    } else {
+      initialSheets[monthSheetName] = [...monthRows, ...nextWeekSheetRows.slice(1)];
+    }
+
+    const gas = createGasSandbox(initialSheets, currentNowIso);
+
+    let inFlightGasCalls = 0;
+    let maxConcurrentGasCalls = 0;
+    let batchGasCallCount = 0;
+    let totalGasCheckInCalls = 0;
+    const waitUntilPromises: Promise<any>[] = [];
+    const origFetch = globalThis.fetch;
+
+    try {
+      globalThis.fetch = (async (_url: any, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body || '{}'));
+        if (body.action === 'BATCH_CHECK_IN_OUT' || body.action === 'CHECK_IN_OUT') {
+          inFlightGasCalls += 1;
+          if (inFlightGasCalls > maxConcurrentGasCalls) maxConcurrentGasCalls = inFlightGasCalls;
+          totalGasCheckInCalls += 1;
+          if (body.action === 'BATCH_CHECK_IN_OUT') batchGasCallCount += 1;
+        }
+        try {
+          await new Promise((r) => setTimeout(r, 80)); // Simulate GAS execution latency
+          const res = gas.callDoPost(body);
+          return new Response(JSON.stringify(res), { status: 200 });
+        } finally {
+          if (body.action === 'BATCH_CHECK_IN_OUT' || body.action === 'CHECK_IN_OUT') {
+            inFlightGasCalls -= 1;
+          }
+        }
+      }) as typeof fetch;
+
+      // Fire ALL 12 staff check-ins concurrently!
+      const responses = await Promise.all(
+        staffList.map((st, idx) =>
+          edgeMod.onRequest({
+            request: new Request('https://kg-checkin.pages.dev/api', {
+              method: 'POST',
+              body: JSON.stringify({
+                action: 'CHECK_IN_OUT',
+                instantEdge: true,
+                checkinId: `CHK_RUSH_${idx + 1}`,
+                username: st.username,
+                fullname: st.fullname,
+                type: st.punchType,
+                time: st.punchTime,
+                actualTime: st.punchTime,
+                lat: 10.976083,
+                lng: 106.664654,
+                distance: 3,
+                gpsAccuracy: 6,
+                clientNowMs: realNow,
+                photoCapturedMs: realNow - 1500,
+                image: 'PENDING',
+                fastSync: true,
+              }),
+            }),
+            env: { DB: db },
+            waitUntil: (p: Promise<any>) => {
+              waitUntilPromises.push(p);
+            },
+          })
+        )
+      );
+
+      for (const r of responses) {
+        const j = await r.json();
+        assert.equal(j.ok, true, `All 12 concurrent instant check-ins must succeed: ${JSON.stringify(j)}`);
+      }
+
+      await Promise.all(waitUntilPromises);
+
+      const sheetRows = gas.sheetsData['✔️CHẤM CÔNG'];
+      assert.equal(sheetRows[0][8], '📝 GHI CHÚ', 'Col I header must auto-initialize to 📝 GHI CHÚ');
+      assert.equal(
+        sheetRows.length,
+        13,
+        `ALL 12 concurrent staff punches MUST land in ✔️CHẤM CÔNG (1 header + 12 rows), got ${sheetRows.length - 1} rows`
+      );
+      assert.equal(
+        maxConcurrentGasCalls,
+        1,
+        `D1 distributed lease must serialize GAS check-in calls (maxConcurrent=1), observed ${maxConcurrentGasCalls}`
+      );
+      assert.ok(
+        batchGasCallCount >= 1 && totalGasCheckInCalls < 12,
+        `12 concurrent punches must coalesce into BATCH_CHECK_IN_OUT (batchCalls=${batchGasCallCount}, totalCalls=${totalGasCheckInCalls})`
+      );
+
+      const recordedIds = new Set<string>();
+      for (let r = 1; r < sheetRows.length; r++) {
+        const colB = String(sheetRows[r][1] || '');
+        const colH = JSON.parse(String(sheetRows[r][7] || '{}'));
+        const colI = String(sheetRows[r][8] || '');
+        recordedIds.add(String(colH.checkinId || ''));
+        assert.ok(
+          colB === 'Vào ca' || colB === 'Ra ca',
+          `Row ${r + 1} Col B MUST strictly be "Vào ca" or "Ra ca", got "${colB}"`
+        );
+        if (colH.checkinId === 'CHK_RUSH_1') {
+          assert.match(colI, /Trễ 20p/i, '20m late punch must place "Trễ 20p" in Col I');
+        }
+        if (colH.checkinId === 'CHK_RUSH_2') {
+          assert.match(colI, /Lệch ca >2h/i, '>2h shift mismatch punch must place "Lệch ca >2h" in Col I');
+        }
+      }
+      assert.equal(recordedIds.size, 12, 'All 12 distinct checkinIds must be persisted with 0 duplicates');
+
+      const unsyncedLeft = await db
+        .prepare(`SELECT COUNT(*) as c FROM edge_checkin_logs WHERE sheet_synced = 0`)
+        .first();
+      assert.equal(Number(unsyncedLeft?.c || 0), 0, 'Every D1 check-in log must flip to sheet_synced=1');
+    } finally {
+      globalThis.fetch = origFetch;
+    }
+  });
+
+  test('5.2 Legacy GAS without BATCH_CHECK_IN_OUT falls back cleanly, and high-attempt / orphaned sheet_synced=0 check-ins are NEVER silently abandoned', async () => {
+    const edgeMod = await vite.ssrLoadModule('/functions/api.js');
+    edgeMod.resetEdgeMemoryStateForTests();
+
+    const realNow = Date.now();
+    const db = createRealSqliteD1();
+    const gas = createGasSandbox(
+      {
+        DATA: [
+          ['Bảng người dùng'],
+          ['Username', 'Password', 'Fullname', 'DOB', 'Email', 'Role', 'Position', 'Avatar', 'EmploymentStatus'],
+          ['nv_a', 'h', 'Nhân Viên A', '', 'a@kg.vn', 'user', 'Bếp', '', 'active'],
+          ['nv_b', 'h', 'Nhân Viên B', '', 'b@kg.vn', 'user', 'Bếp', '', 'active'],
+          ['nv_orphan', 'h', 'Nhân Viên Orphan', '', 'o@kg.vn', 'user', 'Phục vụ', '', 'active'],
+        ],
+        '⚙️ CẤU HÌNH': [
+          ['Key', 'Value'],
+          ['GPS_CONFIG', JSON.stringify({ lat: 10.976083, lng: 106.664654, radius: 25 })],
+        ],
+        '✔️CHẤM CÔNG': [['👤 HỌ VÀ TÊN', '🔄 LOẠI CHẤM CÔNG', '🕒 THỜI GIAN', '📍 VỊ TRÍ', '🛡️ XÁC MINH', '📏 KHOẢNG CÁCH', '📷 LINK HÌNH ẢNH', 'JSON', '📝 GHI CHÚ']],
+      },
+      new Date(realNow).toISOString()
+    );
+
+    // Seed:
+    // 1) Two high-attempt CHECK_IN_OUT rows (attempts=35, past old 30-attempt abandonment cap!)
+    // 2) One orphaned edge_checkin_logs row (sheet_synced=0, missing from edge_sync_queue)
+    const oldTs = realNow - 60000;
+    await db.prepare(
+      `CREATE TABLE IF NOT EXISTS edge_checkin_logs (id TEXT PRIMARY KEY, username TEXT, fullname TEXT, check_type TEXT, shift_name TEXT, time_str TEXT, status TEXT, distance REAL, lat REAL, lng REAL, note TEXT, image_url TEXT, sheet_synced INTEGER DEFAULT 0, created_at INTEGER)`
+    ).run();
+    await db.prepare(
+      `CREATE TABLE IF NOT EXISTS edge_sync_queue (id INTEGER PRIMARY KEY AUTOINCREMENT, dedupe_key TEXT UNIQUE, action TEXT, payload_json TEXT, attempts INTEGER DEFAULT 0, status TEXT DEFAULT 'pending', last_error TEXT, created_at INTEGER, updated_at INTEGER)`
+    ).run();
+    await db.prepare(
+      `CREATE TABLE IF NOT EXISTS edge_kv_cache (cache_key TEXT PRIMARY KEY, action TEXT, payload_json TEXT, updated_at INTEGER, expires_at INTEGER)`
+    ).run();
+
+    for (const [id, u, fn] of [
+      ['CHK_HIGH_1', 'nv_a', 'Nhân Viên A'],
+      ['CHK_HIGH_2', 'nv_b', 'Nhân Viên B'],
+    ]) {
+      await db
+        .prepare(
+          `INSERT INTO edge_checkin_logs (id, username, fullname, check_type, shift_name, time_str, status, distance, lat, lng, note, image_url, sheet_synced, created_at)
+           VALUES (?1, ?2, ?3, 'Vào ca', '15:00', '28/11/2026 18:00:00', 'Hợp lệ', 2, 10.976083, 106.664654, '', 'PENDING', 0, ?4)`
+        )
+        .bind(id, u, fn, oldTs)
+        .run();
+      await db
+        .prepare(
+          `INSERT INTO edge_sync_queue (dedupe_key, action, payload_json, attempts, status, created_at, updated_at)
+           VALUES (?1, 'CHECK_IN_OUT', ?2, 35, 'pending', ?3, ?3)`
+        )
+        .bind(
+          `CHECK_IN_OUT:${id}`,
+          JSON.stringify({
+            checkinId: id,
+            username: u,
+            fullname: fn,
+            type: 'Vào ca',
+            time: '28/11/2026 18:00:00',
+            actualTime: '28/11/2026 18:00:00',
+            lat: 10.976083,
+            lng: 106.664654,
+            distance: 2,
+            isOfflineRetry: true,
+            fastSync: true,
+            image: 'PENDING',
+          }),
+          oldTs
+        )
+        .run();
+    }
+
+    // Orphaned log (sheet_synced=0, NOT in edge_sync_queue!)
+    await db
+      .prepare(
+        `INSERT INTO edge_checkin_logs (id, username, fullname, check_type, shift_name, time_str, status, distance, lat, lng, note, image_url, sheet_synced, created_at)
+         VALUES ('CHK_ORPHAN_1', 'nv_orphan', 'Nhân Viên Orphan', 'Ra ca', '15:00', '28/11/2026 22:30:00', 'Hợp lệ', 1, 10.976083, 106.664654, 'Ghi chú test', 'PENDING', 0, ?1)`
+      )
+      .bind(oldTs)
+      .run();
+
+    const waitUntilPromises: Promise<any>[] = [];
+    const origFetch = globalThis.fetch;
+
+    try {
+      // Simulate an older GAS backend that rejects BATCH_CHECK_IN_OUT with "Action không hợp lệ"
+      globalThis.fetch = (async (_url: any, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body || '{}'));
+        if (body.action === 'BATCH_CHECK_IN_OUT') {
+          return new Response(
+            JSON.stringify({ ok: false, message: 'Action không hợp lệ: BATCH_CHECK_IN_OUT' }),
+            { status: 200 }
+          );
+        }
+        const res = gas.callDoPost(body);
+        return new Response(JSON.stringify(res), { status: 200 });
+      }) as typeof fetch;
+
+      // Any normal read triggers opportunistic drain
+      await edgeMod.onRequest({
+        request: new Request('https://kg-checkin.pages.dev/api', {
+          method: 'POST',
+          body: JSON.stringify({ action: 'GET_GPS_CONFIG' }),
+        }),
+        env: { DB: db },
+        waitUntil: (p: Promise<any>) => {
+          waitUntilPromises.push(p);
+        },
+      });
+      await Promise.all(waitUntilPromises);
+
+      const sheetRows = gas.sheetsData['✔️CHẤM CÔNG'];
+      assert.equal(
+        sheetRows.length,
+        4,
+        `All 3 punches (2 high-attempt + 1 orphaned) must recover and land in ✔️CHẤM CÔNG via serialized fallback, got ${sheetRows.length - 1}`
+      );
+      const orphanRow = sheetRows.find((r: any[]) => r[0] === 'Nhân Viên Orphan');
+      assert.ok(orphanRow, 'Orphaned sheet_synced=0 row must be self-healed into Google Sheets');
+      assert.equal(orphanRow[1], 'Ra ca', 'Col B must be strictly "Ra ca"');
+      assert.equal(orphanRow[8], 'Ghi chú test', 'Extra note must land in Col I');
+    } finally {
+      globalThis.fetch = origFetch;
+    }
+  });
+});

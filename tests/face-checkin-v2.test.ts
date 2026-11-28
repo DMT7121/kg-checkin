@@ -1016,7 +1016,8 @@ describe('Task 2: GAS Backend — Engine Vào 1..Ra 2 Aggregation, 30m Cooldown,
     });
     assert.equal(ci1.ok, true, `Valid v2_face check-in must succeed: ${JSON.stringify(ci1)}`);
     assert.equal(ci1.data.scheduleWarning, true, 'v2_face during Thu-Sat without schedule must return scheduleWarning=true');
-    assert.equal(gas.sheetsData['✔️CHẤM CÔNG'][1][1], 'Vào ca (Trễ 20p)');
+    assert.equal(gas.sheetsData['✔️CHẤM CÔNG'][1][1], 'Vào ca', 'Col B must ALWAYS stay strictly "Vào ca"');
+    assert.match(String(gas.sheetsData['✔️CHẤM CÔNG'][1][8] || ''), /Trễ 20p/i, 'Late minutes note must be written to Col I');
     assert.equal((gas.sheetsData['BonusPenalty'] || []).length, 2, '20m late on 1st Vào ca must create 1 BonusPenalty row');
 
     // C. 10 minutes later (15:30): nv1 tries again -> BLOCKED by 15-minute cooldown!
@@ -1056,7 +1057,8 @@ describe('Task 2: GAS Backend — Engine Vào 1..Ra 2 Aggregation, 30m Cooldown,
       image: 'PENDING',
     });
     assert.equal(ci2Late190.ok, true);
-    assert.match(String(gas.sheetsData['✔️CHẤM CÔNG'][1][1]), /^Vào ca.*Lệch ca >2h/i);
+    assert.equal(String(gas.sheetsData['✔️CHẤM CÔNG'][1][1]), 'Vào ca', 'Col B must ALWAYS stay strictly "Vào ca" even on >2h shift mismatch');
+    assert.match(String(gas.sheetsData['✔️CHẤM CÔNG'][1][8] || ''), /Lệch ca >2h/i, 'Shift mismatch note must be written to Col I');
     assert.equal(
       (gas.sheetsData['BonusPenalty'] || []).length,
       2,
@@ -1215,9 +1217,9 @@ describe('Task 2: GAS Backend — Engine Vào 1..Ra 2 Aggregation, 30m Cooldown,
     assert.equal(scanEarliest.ok, true);
     assert.equal(gas.sheetsData['✔️CHẤM CÔNG'].length, 2);
     const writtenRow = gas.sheetsData['✔️CHẤM CÔNG'][1];
-    assert.equal(writtenRow.length, 8, 'Must write full 8-column v1 row');
+    assert.equal(writtenRow.length, 9, 'Must write full 9-column row (A:I with Col I 📝 GHI CHÚ)');
     assert.equal(writtenRow[0], 'Nguyễn Thị Phương Thảo', 'Col A must be canonical DATA fullname');
-    assert.equal(writtenRow[1], 'Vào ca', 'Col B must be unified Vào ca');
+    assert.equal(writtenRow[1], 'Vào ca', 'Col B must be strictly Vào ca');
     assert.equal(writtenRow[2], "'03/11/2026 15:02:00", 'Col C must preserve apostrophe-prefixed Vietnam timestamp');
     assert.ok(String(writtenRow[3]).includes("King's Grill"), 'Col D must record location');
     assert.equal(writtenRow[4], 'Hợp lệ', 'Col E must record Hợp lệ');
@@ -1225,6 +1227,7 @@ describe('Task 2: GAS Backend — Engine Vào 1..Ra 2 Aggregation, 30m Cooldown,
     const parsedJson = JSON.parse(writtenRow[7]);
     assert.equal(parsedJson.hoVaTen, 'Nguyễn Thị Phương Thảo');
     assert.equal(parsedJson.caLam, '15:00', 'Phase 2 schedule lookup must match canonical fullname');
+    assert.equal(writtenRow[8], '', 'Col I must be empty string for on-time check-in');
 
     // 4. Network retry with the EXACT SAME checkinId -> returns idempotent ok=true WITHOUT inserting duplicate row!
     const retrySameId = gas.callDoPost({

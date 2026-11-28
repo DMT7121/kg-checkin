@@ -185,6 +185,7 @@ const lastFaceHealMap = new Map();
 const inFlightRevalidations = new Set();
 const checklistMergeLocks = new Map();
 let drainInFlightPromise = null;
+let drainRerunRequested = false;
 let lastSavedGpsConfigJson = '';
 let lastSavedGpsConfigAtMs = 0;
 let lastCachePruneAtMs = 0;
@@ -196,6 +197,7 @@ export function resetEdgeMemoryStateForTests() {
   inFlightRevalidations.clear();
   checklistMergeLocks.clear();
   drainInFlightPromise = null;
+  drainRerunRequested = false;
   lastSavedGpsConfigJson = '';
   lastSavedGpsConfigAtMs = 0;
   lastCachePruneAtMs = 0;
@@ -2102,9 +2104,8 @@ async function handleMutationSideEffects(
       const rawImg = String(gasResult?.data?.imageUrl || payload.image || '');
       const cleanImgUrl = rawImg.startsWith('data:image') ? 'PENDING' : rawImg;
       const rawPunchType = String(gasResult?.data?.type || payload.type || 'Vào ca').trim();
-      const unifiedPunchType = rawPunchType
-        .replace(/^(?:vào(?:\s+ca)?(?:\s*[1-9])?|in(?:\s*[1-9])?)(?=\s*$|\s*\(|\s+-)/i, 'Vào ca')
-        .replace(/^(?:ra(?:\s+ca)?(?:\s*[1-9])?|out(?:\s*[1-9])?)(?=\s*$|\s*\(|\s+-)/i, 'Ra ca');
+      const unifiedPunchType = normalizeStrictEdgePunchType(rawPunchType);
+      const syncedNote = String(gasResult?.data?.note || payload.note || '').trim();
       const isOfflineRetryWrite =
         payload.isOfflineRetry === true || payload.isOfflineRetry === 'true';
       const parsedPunchMs = parseEdgeVietnamTimestampMs(timeStr);
@@ -2128,14 +2129,14 @@ async function handleMutationSideEffects(
           Number(payload.distance || 0),
           payload.lat ?? null,
           payload.lng ?? null,
-          String(payload.note || ''),
+          syncedNote,
           cleanImgUrl,
           effectiveCreatedAt
         )
         .run();
 
-      // Prune logs older than 7 days in D1 to keep DB ultra-compact
-      await env.DB.prepare(`DELETE FROM edge_checkin_logs WHERE created_at < ?1`)
+      // Prune ONLY already-synced logs older than 7 days in D1 — NEVER delete sheet_synced=0 rows!
+      await env.DB.prepare(`DELETE FROM edge_checkin_logs WHERE sheet_synced = 1 AND created_at < ?1`)
         .bind(now - 7 * 86400 * 1000)
         .run();
     }
@@ -2660,6 +2661,17 @@ async function revalidateLiveBiometricFromGas(context, action, payload, bodyText
 // ============================================================================
 // 5. Background Sync Queue Drain (`edge_sync_queue` -> Google Sheets & Drive)
 // ============================================================================
+const EDGE_SYNC_LEASE_KEY = 'sys:sync_drain_lease';
+const EDGE_SYNC_LEASE_TTL_MS = 28000;
+
+function normalizeStrictEdgePunchType(rawType) {
+  const s = String(rawType || '').trim();
+  if (/^\s*(?:chờ\s*duyệt|từ\s*chối)\s*:/i.test(s)) return s;
+  if (/^\s*(?:vào(?:\s+ca)?(?:\s*[1-9])?|in(?:\s*[1-9])?)\b/i.test(s)) return 'Vào ca';
+  if (/^\s*(?:ra(?:\s+ca)?(?:\s*[1-9])?|out(?:\s*[1-9])?)\b/i.test(s)) return 'Ra ca';
+  return s || 'Vào ca';
+}
+
 function getEdgeSyncPriority(action) {
   if (action === 'REGISTER_SHIFT') return 0;
   if (action === 'CHECK_IN_OUT' || action === 'CHECK_IN') return 1;
@@ -2668,195 +2680,656 @@ function getEdgeSyncPriority(action) {
   return 4;
 }
 
-async function drainEdgeSyncQueue(env, targetGasUrl) {
-  if (!env?.DB) return;
-  if (drainInFlightPromise) {
-    return drainInFlightPromise;
-  }
-  drainInFlightPromise = runDrainEdgeSyncQueue_(env, targetGasUrl).finally(() => {
-    drainInFlightPromise = null;
-  });
-  return drainInFlightPromise;
-}
-
-async function runDrainEdgeSyncQueue_(env, targetGasUrl) {
-  if (!env?.DB) return;
+async function acquireEdgeSyncLease(db, ownerId, ttlMs = EDGE_SYNC_LEASE_TTL_MS) {
+  if (!db) return true;
+  const now = Date.now();
+  const expiresAt = now + ttlMs;
   try {
-    // Reclaim any stalled 'processing' leases older than 45s from terminated isolates
-    await env.DB.prepare(
-      `UPDATE edge_sync_queue SET status = 'pending', updated_at = ?1 WHERE status = 'processing' AND updated_at < ?2`
-    )
-      .bind(Date.now(), Date.now() - 45000)
+    await db
+      .prepare(
+        `INSERT OR IGNORE INTO edge_kv_cache (cache_key, action, payload_json, updated_at, expires_at)
+         VALUES (?1, 'SYS_LEASE', ?2, ?3, 0)`
+      )
+      .bind(EDGE_SYNC_LEASE_KEY, ownerId, now)
       .run()
       .catch(() => {});
 
-    const pending = await env.DB.prepare(
-      `SELECT id, dedupe_key, action, payload_json, attempts
-       FROM edge_sync_queue
-       WHERE status = 'pending' AND attempts < 30
-       ORDER BY CASE
-         WHEN action = 'REGISTER_SHIFT' THEN 0
-         WHEN action = 'CHECK_IN_OUT' OR action = 'CHECK_IN' THEN 1
-         WHEN action = 'ENROLL_FACE_PROFILE' THEN 2
-         WHEN action = 'UPLOAD_CHECKIN_IMAGE' THEN 3
-         ELSE 4
-       END, updated_at ASC
-       LIMIT 8`
-    ).all();
+    const upd = await db
+      .prepare(
+        `UPDATE edge_kv_cache
+         SET payload_json = ?1, updated_at = ?2, expires_at = ?3
+         WHERE cache_key = ?4 AND (expires_at <= ?2 OR payload_json = ?1)`
+      )
+      .bind(ownerId, now, expiresAt, EDGE_SYNC_LEASE_KEY)
+      .run()
+      .catch(() => null);
 
-    if (!pending?.results?.length) return;
+    if (upd?.meta && typeof upd.meta.changes === 'number') {
+      return upd.meta.changes > 0;
+    }
+    const row = await db
+      .prepare(`SELECT payload_json FROM edge_kv_cache WHERE cache_key = ?1 LIMIT 1`)
+      .bind(EDGE_SYNC_LEASE_KEY)
+      .first()
+      .catch(() => null);
+    return !row || String(row.payload_json || '') === ownerId;
+  } catch {
+    return true;
+  }
+}
 
-    const sortedItems = [...pending.results].sort(
-      (a, b) => getEdgeSyncPriority(a.action) - getEdgeSyncPriority(b.action)
-    );
+async function releaseEdgeSyncLease(db, ownerId) {
+  if (!db) return;
+  try {
+    await db
+      .prepare(
+        `UPDATE edge_kv_cache
+         SET expires_at = 0, updated_at = ?1
+         WHERE cache_key = ?2 AND payload_json = ?3`
+      )
+      .bind(Date.now(), EDGE_SYNC_LEASE_KEY, ownerId)
+      .run()
+      .catch(() => {});
+  } catch {}
+}
 
-    const syncedCheckinIdsForImages = [];
+async function reconcileOrphanedUnsyncedCheckIns(env) {
+  if (!env?.DB) return;
+  try {
+    const cutoff = Date.now() - 7 * 86400 * 1000;
+    const unsyncedRes = await env.DB.prepare(
+      `SELECT id, username, fullname, check_type, shift_name, time_str, status, distance, lat, lng, note, created_at
+       FROM edge_checkin_logs
+       WHERE sheet_synced = 0 AND created_at >= ?1
+       ORDER BY created_at ASC
+       LIMIT 25`
+    )
+      .bind(cutoff)
+      .all()
+      .catch(() => null);
 
-    for (const item of sortedItems) {
-      try {
-        const payloadObj = JSON.parse(item.payload_json);
+    for (const row of unsyncedRes?.results || []) {
+      if (row?.sheet_synced !== undefined && Number(row.sheet_synced) !== 0) continue;
+      const logId = String(row?.id || '').trim();
+      const rawType = String(row?.check_type || '').trim();
+      if (!logId || /^\s*(?:chờ\s*duyệt|từ\s*chối)\s*:/i.test(rawType)) continue;
 
-        // Strict ordering invariant: NEVER push UPLOAD_CHECKIN_IMAGE to GAS before its CHECK_IN_OUT row is synced to Google Sheets!
-        if (item.action === 'UPLOAD_CHECKIN_IMAGE') {
-          const targetCheckinId = String(
-            payloadObj?.checkinId ||
-              String(item.dedupe_key || '').replace(/^UPLOAD_CHECKIN_IMAGE:/, '')
-          ).trim();
-          if (targetCheckinId) {
-            const logState = await env.DB.prepare(
-              `SELECT sheet_synced, fullname FROM edge_checkin_logs WHERE id = ?1 LIMIT 1`
-            )
-              .bind(targetCheckinId)
-              .first()
-              .catch(() => null);
-            if (logState && Number(logState.sheet_synced) === 0) {
-              continue;
-            }
-            if (logState?.fullname) {
-              payloadObj.fullname = String(logState.fullname).trim();
-            }
-          }
+      const dedupeKey = `CHECK_IN_OUT:${logId}`;
+      const existingQ = await env.DB.prepare(
+        `SELECT id FROM edge_sync_queue WHERE dedupe_key = ?1 LIMIT 1`
+      )
+        .bind(dedupeKey)
+        .first()
+        .catch(() => null);
+      if (existingQ) continue;
+
+      const recoveredPayload = {
+        checkinId: logId,
+        username: String(row.username || '').trim().toLowerCase(),
+        fullname: String(row.fullname || '').trim(),
+        type: normalizeStrictEdgePunchType(rawType),
+        shift: String(row.shift_name || ''),
+        time: String(row.time_str || ''),
+        actualTime: String(row.time_str || ''),
+        distance: Number(row.distance || 0),
+        lat: row.lat ?? null,
+        lng: row.lng ?? null,
+        note: String(row.note || ''),
+        image: 'PENDING',
+        isOfflineRetry: true,
+        fastSync: true,
+        sendEmailInline: false,
+      };
+      const now = Date.now();
+      await env.DB.prepare(
+        `INSERT OR IGNORE INTO edge_sync_queue (dedupe_key, action, payload_json, attempts, status, created_at, updated_at)
+         VALUES (?1, 'CHECK_IN_OUT', ?2, 0, 'pending', ?3, ?3)`
+      )
+        .bind(dedupeKey, JSON.stringify(recoveredPayload), now)
+        .run()
+        .catch(() => {});
+    }
+  } catch {}
+}
+
+async function applyCheckInGasOutcome_(env, item, payloadObj, parsed, syncedCheckinIdsForImages) {
+  const finalCode = String(parsed?.code || parsed?.data?.code || '').trim();
+  const isSuccessOrIdempotent =
+    Boolean(parsed && parsed.ok === true) ||
+    finalCode === 'ALREADY_CHECKED_IN' ||
+    Boolean(parsed?.alreadySaved || parsed?.data?.alreadySaved);
+
+  const checkinId = String(
+    payloadObj?.checkinId || String(item.dedupe_key || '').replace(/^CHECK_IN_OUT:/, '')
+  ).trim();
+
+  if (isSuccessOrIdempotent) {
+    await env.DB.prepare(`DELETE FROM edge_sync_queue WHERE id = ?1`).bind(item.id).run();
+    if (checkinId) {
+      const canonicalFullname = String(
+        parsed?.fullname || parsed?.data?.fullname || parsed?.data?.hoVaTen || ''
+      ).trim();
+      const canonicalType = normalizeStrictEdgePunchType(
+        String(parsed?.type || parsed?.data?.type || payloadObj?.type || 'Vào ca')
+      );
+      const syncedNote = String(parsed?.note || parsed?.data?.note || '').trim();
+
+      await env.DB.prepare(
+        `UPDATE edge_checkin_logs
+         SET sheet_synced = 1,
+             fullname = CASE WHEN ?2 != '' THEN ?2 ELSE fullname END,
+             check_type = CASE WHEN ?3 != '' THEN ?3 ELSE check_type END,
+             note = CASE WHEN ?4 != '' THEN ?4 ELSE note END
+         WHERE id = ?1`
+      )
+        .bind(checkinId, canonicalFullname, canonicalType, syncedNote)
+        .run()
+        .catch(() => {});
+      syncedCheckinIdsForImages.push(checkinId);
+    }
+    await invalidateEdgeReadCaches(env, [
+      'GET_DATA',
+      'GET_CHECKIN_LOGS',
+      'GET_KIOSK_ATTENDANCE_STATE',
+    ]);
+    return 'synced';
+  }
+
+  const isPermanentRejection =
+    finalCode === 'OUT_OF_RADIUS' ||
+    finalCode === 'PHOTO_EXPIRED' ||
+    finalCode === 'ACCOUNT_INACTIVE' ||
+    finalCode === 'MAX_4_PUNCHES';
+
+  if (isPermanentRejection) {
+    if (checkinId) {
+      await env.DB.prepare(`DELETE FROM edge_checkin_logs WHERE id = ?1`)
+        .bind(checkinId)
+        .run()
+        .catch(() => {});
+      await env.DB.prepare(`DELETE FROM edge_sync_queue WHERE dedupe_key = ?1`)
+        .bind(`UPLOAD_CHECKIN_IMAGE:${checkinId}`)
+        .run()
+        .catch(() => {});
+    }
+    await env.DB.prepare(`DELETE FROM edge_sync_queue WHERE id = ?1`)
+      .bind(item.id)
+      .run()
+      .catch(() => {});
+    await invalidateEdgeReadCaches(env, [
+      'GET_DATA',
+      'GET_CHECKIN_LOGS',
+      'GET_KIOSK_ATTENDANCE_STATE',
+    ]);
+    return 'rejected';
+  }
+
+  // Transient error (LOCK_TIMEOUT / SAVE_ERROR / 5xx / network): keep pending for retry (NEVER drop!)
+  await env.DB.prepare(
+    `UPDATE edge_sync_queue SET attempts = attempts + 1, status = 'pending', last_error = ?1, updated_at = ?2 WHERE id = ?3`
+  )
+    .bind(String(parsed?.message || finalCode || 'GAS sync retry'), Date.now(), item.id)
+    .run();
+  return 'retry';
+}
+
+async function processSingleCheckInQueueItem_(
+  env,
+  targetGasUrl,
+  item,
+  payloadObj,
+  syncedCheckinIdsForImages
+) {
+  const bodyStr = JSON.stringify({ action: 'CHECK_IN_OUT', ...payloadObj });
+  try {
+    const res = await fetch(targetGasUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: bodyStr,
+      signal:
+        typeof AbortSignal !== 'undefined' && AbortSignal.timeout
+          ? AbortSignal.timeout(26000)
+          : undefined,
+    });
+    let parsed = await res.json();
+
+    // Self-heal v2_face profile on GAS if CONFIG_FACE_ID was missing/corrupted
+    const firstErrCode = String(parsed?.code || parsed?.data?.code || '').trim();
+    if (
+      (!parsed || parsed.ok !== true) &&
+      String(payloadObj?.checkinMode || '').trim() === 'v2_face' &&
+      (firstErrCode === 'FACE_VERIFICATION_FAILED' || firstErrCode === 'FACE_PROFILE_NOT_FOUND')
+    ) {
+      const targetUser = String(payloadObj?.username || '').trim().toLowerCase();
+      const d1FaceRow = targetUser
+        ? await env.DB.prepare(
+            `SELECT username, fullname, role, position, avatar_url, employment_status, model_version, angle_count, vectors_b64, centroid_b64, quality_score, enrolled_by
+             FROM edge_face_profiles WHERE username = ?1 LIMIT 1`
+          )
+            .bind(targetUser)
+            .first()
+            .catch(() => null)
+        : null;
+      if (d1FaceRow?.vectors_b64) {
+        const healedFace = await healFaceProfileToGas(env, d1FaceRow);
+        if (healedFace) {
+          const retryFaceRes = await fetch(targetGasUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: bodyStr,
+            signal:
+              typeof AbortSignal !== 'undefined' && AbortSignal.timeout
+                ? AbortSignal.timeout(26000)
+                : undefined,
+          });
+          parsed = await retryFaceRes.json();
         }
+      }
+    }
 
-        const claimRes = await env.DB.prepare(
-          `UPDATE edge_sync_queue SET status = 'processing', updated_at = ?1 WHERE id = ?2 AND status = 'pending'`
-        )
-          .bind(Date.now(), item.id)
-          .run()
-          .catch(() => null);
-        if (claimRes?.meta && typeof claimRes.meta.changes === 'number' && claimRes.meta.changes === 0) {
-          continue;
-        }
-
-        const bodyStr = JSON.stringify({ action: item.action, ...payloadObj });
-        const res = await fetch(targetGasUrl, {
+    // Self-heal unsynced D1 schedule on GAS if SCHEDULE_REQUIRED returned
+    const secondErrCode = String(parsed?.code || parsed?.data?.code || '').trim();
+    if ((!parsed || parsed.ok !== true) && secondErrCode === 'SCHEDULE_REQUIRED') {
+      const healed = await trySelfHealScheduleForCheckIn(env, payloadObj, parsed);
+      if (healed) {
+        const retryRes = await fetch(targetGasUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: bodyStr,
           signal:
             typeof AbortSignal !== 'undefined' && AbortSignal.timeout
-              ? AbortSignal.timeout(25000)
+              ? AbortSignal.timeout(26000)
               : undefined,
         });
-        let parsed = await res.json();
-
-        if (
-          (!parsed || parsed.ok !== true) &&
-          (item.action === 'CHECK_IN_OUT' || item.action === 'CHECK_IN') &&
-          String(parsed?.code || parsed?.data?.code || '').trim() === 'SCHEDULE_REQUIRED'
-        ) {
-          const healed = await trySelfHealScheduleForCheckIn(env, payloadObj, parsed);
-          if (healed) {
-            const retryRes = await fetch(targetGasUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-              body: bodyStr,
-              signal:
-                typeof AbortSignal !== 'undefined' && AbortSignal.timeout
-                  ? AbortSignal.timeout(25000)
-                  : undefined,
-            });
-            parsed = await retryRes.json();
-          }
-        }
-
-        const isIdempotentSaved =
-          (item.action === 'CHECK_IN_OUT' || item.action === 'CHECK_IN') &&
-          String(parsed?.code || parsed?.data?.code || '').trim() === 'ALREADY_CHECKED_IN';
-
-        if ((parsed && parsed.ok === true) || isIdempotentSaved) {
-          await env.DB.prepare(`DELETE FROM edge_sync_queue WHERE id = ?1`).bind(item.id).run();
-          if (item.action === 'REGISTER_SHIFT' && String(item.dedupe_key || '').startsWith('REGISTER_SHIFT:')) {
-            const schedId = item.dedupe_key.replace(/^REGISTER_SHIFT:/, '');
-            await env.DB.prepare(
-              `UPDATE edge_schedules SET sheet_synced = 1, updated_at = ?1 WHERE id = ?2`
-            )
-              .bind(Date.now(), schedId)
-              .run();
-            await invalidateEdgeReadCaches(env, ['GET_DATA', 'GET_ALL_SCHEDULES', 'GET_MONTH_SCHEDULES']);
-          } else if (item.action === 'CHECK_IN_OUT' || item.action === 'CHECK_IN') {
-            const checkinId = String(
-              payloadObj?.checkinId || String(item.dedupe_key || '').replace(/^CHECK_IN_OUT:/, '')
-            ).trim();
-            if (checkinId) {
-              await env.DB.prepare(`UPDATE edge_checkin_logs SET sheet_synced = 1 WHERE id = ?1`)
-                .bind(checkinId)
-                .run();
-              const canonicalFullname = String(
-                parsed?.data?.fullname || parsed?.data?.hoVaTen || ''
-              ).trim();
-              if (canonicalFullname) {
-                await env.DB.prepare(`UPDATE edge_checkin_logs SET fullname = ?1 WHERE id = ?2`)
-                  .bind(canonicalFullname, checkinId)
-                  .run()
-                  .catch(() => {});
-              }
-              syncedCheckinIdsForImages.push(checkinId);
-            }
-            await invalidateEdgeReadCaches(env, [
-              'GET_DATA',
-              'GET_CHECKIN_LOGS',
-              'GET_KIOSK_ATTENDANCE_STATE',
-            ]);
-          } else if (item.action === 'UPLOAD_CHECKIN_IMAGE') {
-            const uploadedUrl = String(parsed?.data?.url || parsed?.data?.imageUrl || '').trim();
-            const targetId = String(
-              payloadObj?.checkinId ||
-                String(item.dedupe_key || '').replace(/^UPLOAD_CHECKIN_IMAGE:/, '')
-            ).trim();
-            const targetUser = String(payloadObj?.username || '').trim().toLowerCase();
-            const targetTimeStr = String(payloadObj?.time || '').trim();
-            if (uploadedUrl && (targetId || targetUser)) {
-              await updateEdgeCheckinLogImageUrl(env.DB, uploadedUrl, targetId, targetUser, targetTimeStr);
-            }
-            await invalidateEdgeReadCaches(env, ['GET_DATA', 'GET_CHECKIN_LOGS']);
-          } else {
-            const invActions = getEdgeInvalidationActionsForMutation(item.action);
-            if (Array.isArray(invActions) && invActions.length > 0) {
-              await invalidateEdgeReadCaches(env, invActions);
-            }
-          }
-        } else {
-          await env.DB.prepare(
-            `UPDATE edge_sync_queue SET attempts = attempts + 1, status = 'pending', last_error = ?1, updated_at = ?2 WHERE id = ?3`
-          )
-            .bind(String(parsed?.message || 'GAS returned ok=false'), Date.now(), item.id)
-            .run();
-        }
-      } catch (err) {
-        await env.DB.prepare(
-          `UPDATE edge_sync_queue SET attempts = attempts + 1, status = 'pending', last_error = ?1, updated_at = ?2 WHERE id = ?3`
-        )
-          .bind(String(err?.message || 'Fetch error'), Date.now(), item.id)
-          .run();
+        parsed = await retryRes.json();
       }
     }
 
-    // Immediately chain any staged proof photos waiting on check-ins that just landed in Google Sheets
-    for (const cid of syncedCheckinIdsForImages) {
-      await flushPendingImageForCheckin(env, cid, targetGasUrl).catch(() => {});
+    await applyCheckInGasOutcome_(env, item, payloadObj, parsed, syncedCheckinIdsForImages);
+  } catch (err) {
+    await env.DB.prepare(
+      `UPDATE edge_sync_queue SET attempts = attempts + 1, status = 'pending', last_error = ?1, updated_at = ?2 WHERE id = ?3`
+    )
+      .bind(String(err?.message || 'Fetch error'), Date.now(), item.id)
+      .run()
+      .catch(() => {});
+  }
+}
+
+async function processBatchCheckInQueueItems_(
+  env,
+  targetGasUrl,
+  claimedEntries,
+  syncedCheckinIdsForImages
+) {
+  if (!claimedEntries.length) return;
+  if (claimedEntries.length === 1) {
+    await processSingleCheckInQueueItem_(
+      env,
+      targetGasUrl,
+      claimedEntries[0].item,
+      claimedEntries[0].payloadObj,
+      syncedCheckinIdsForImages
+    );
+    return;
+  }
+
+  const batchBody = JSON.stringify({
+    action: 'BATCH_CHECK_IN_OUT',
+    items: claimedEntries.map((e) => e.payloadObj),
+  });
+
+  let batchParsed = null;
+  let batchTransportErr = null;
+  try {
+    const res = await fetch(targetGasUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: batchBody,
+      signal:
+        typeof AbortSignal !== 'undefined' && AbortSignal.timeout
+          ? AbortSignal.timeout(26000)
+          : undefined,
+    });
+    batchParsed = await res.json();
+  } catch (err) {
+    batchTransportErr = err;
+  }
+
+  const batchResults = Array.isArray(batchParsed?.data?.results)
+    ? batchParsed.data.results
+    : null;
+
+  // Graceful fallback for older GAS deployments that don't yet route BATCH_CHECK_IN_OUT:
+  // execute each punch serially under our distributed D1 lease (zero ScriptLock storm!)
+  const batchErrMsg = String(batchParsed?.message || '');
+  const isUnsupportedBatchAction =
+    !batchTransportErr &&
+    (!batchParsed || batchParsed.ok !== true || !batchResults) &&
+    (/không hợp lệ|unknown action|invalid action|unsupported/i.test(batchErrMsg) ||
+      (!batchResults && batchParsed?.ok === false && !batchParsed?.code && !batchParsed?.data?.code));
+
+  if (isUnsupportedBatchAction) {
+    for (const entry of claimedEntries) {
+      await processSingleCheckInQueueItem_(
+        env,
+        targetGasUrl,
+        entry.item,
+        entry.payloadObj,
+        syncedCheckinIdsForImages
+      );
     }
-  } catch {}
+    return;
+  }
+
+  if (batchTransportErr || !batchParsed || batchParsed.ok !== true || !batchResults) {
+    const errText = String(
+      batchTransportErr?.message || batchParsed?.message || batchParsed?.code || 'Batch GAS sync retry'
+    );
+    const now = Date.now();
+    for (const entry of claimedEntries) {
+      await env.DB.prepare(
+        `UPDATE edge_sync_queue SET attempts = attempts + 1, status = 'pending', last_error = ?1, updated_at = ?2 WHERE id = ?3`
+      )
+        .bind(errText, now, entry.item.id)
+        .run()
+        .catch(() => {});
+    }
+    return;
+  }
+
+  // Apply per-item outcome; run targeted single self-heal if an individual item needs face/schedule heal
+  for (let i = 0; i < claimedEntries.length; i++) {
+    const entry = claimedEntries[i];
+    const itemRes = batchResults[i] || { ok: false, message: 'Missing batch result item' };
+    const itemCode = String(itemRes?.code || itemRes?.data?.code || '').trim();
+
+    if (
+      !itemRes.ok &&
+      (itemCode === 'SCHEDULE_REQUIRED' ||
+        ((itemCode === 'FACE_VERIFICATION_FAILED' || itemCode === 'FACE_PROFILE_NOT_FOUND') &&
+          String(entry.payloadObj?.checkinMode || '').trim() === 'v2_face'))
+    ) {
+      await processSingleCheckInQueueItem_(
+        env,
+        targetGasUrl,
+        entry.item,
+        entry.payloadObj,
+        syncedCheckinIdsForImages
+      );
+      continue;
+    }
+
+    await applyCheckInGasOutcome_(
+      env,
+      entry.item,
+      entry.payloadObj,
+      itemRes,
+      syncedCheckinIdsForImages
+    );
+  }
+}
+
+async function drainEdgeSyncQueue(env, targetGasUrl, options = {}) {
+  if (!env?.DB) return;
+  if (drainInFlightPromise) {
+    drainRerunRequested = true;
+    return drainInFlightPromise;
+  }
+  drainInFlightPromise = runDrainEdgeSyncQueue_(env, targetGasUrl, options).finally(() => {
+    drainInFlightPromise = null;
+  });
+  return drainInFlightPromise;
+}
+
+async function runDrainEdgeSyncQueue_(env, targetGasUrl, options = {}) {
+  if (!env?.DB) return;
+  const startedAt = Date.now();
+  const coalesceMs = Number(options?.coalesceMs || 0);
+  if (coalesceMs > 0) {
+    await new Promise((r) => setTimeout(r, Math.min(coalesceMs, 250)));
+  }
+
+  const leaseOwner = `drain_${startedAt}_${Math.random().toString(36).slice(2, 8)}`;
+  const acquired = await acquireEdgeSyncLease(env.DB, leaseOwner, EDGE_SYNC_LEASE_TTL_MS);
+  if (!acquired) {
+    return;
+  }
+
+  let reconciledOrphans = false;
+  try {
+    while (Date.now() - startedAt < 22000) {
+      drainRerunRequested = false;
+
+      // Reclaim any stalled 'processing' leases older than 35s from terminated isolates
+      await env.DB.prepare(
+        `UPDATE edge_sync_queue SET status = 'pending', updated_at = ?1 WHERE status = 'processing' AND updated_at < ?2`
+      )
+        .bind(Date.now(), Date.now() - 35000)
+        .run()
+        .catch(() => {});
+
+      // Once per drain pass, self-heal any edge_checkin_logs (sheet_synced = 0) missing from edge_sync_queue
+      if (!reconciledOrphans) {
+        reconciledOrphans = true;
+        await reconcileOrphanedUnsyncedCheckIns(env);
+      }
+
+      const retryBackoffCutoff = Date.now() - 15000;
+      const pending = await env.DB.prepare(
+        `SELECT id, dedupe_key, action, payload_json, attempts
+         FROM edge_sync_queue
+         WHERE status = 'pending'
+           AND (
+             (action IN ('CHECK_IN_OUT', 'CHECK_IN') AND (attempts < 8 OR updated_at <= ?1))
+             OR (action NOT IN ('CHECK_IN_OUT', 'CHECK_IN') AND attempts < 30)
+           )
+         ORDER BY CASE
+           WHEN action = 'REGISTER_SHIFT' THEN 0
+           WHEN action = 'CHECK_IN_OUT' OR action = 'CHECK_IN' THEN 1
+           WHEN action = 'ENROLL_FACE_PROFILE' THEN 2
+           WHEN action = 'UPLOAD_CHECKIN_IMAGE' THEN 3
+           ELSE 4
+         END, updated_at ASC
+         LIMIT 25`
+      )
+        .bind(retryBackoffCutoff)
+        .all();
+
+      if (!pending?.results?.length) break;
+
+      const sortedItems = [...pending.results].sort(
+        (a, b) => getEdgeSyncPriority(a.action) - getEdgeSyncPriority(b.action)
+      );
+
+      const syncedCheckinIdsForImages = [];
+      const registerShiftItems = [];
+      const checkInItems = [];
+      const otherItems = [];
+
+      for (const item of sortedItems) {
+        if (item.action === 'REGISTER_SHIFT') registerShiftItems.push(item);
+        else if (item.action === 'CHECK_IN_OUT' || item.action === 'CHECK_IN') checkInItems.push(item);
+        else otherItems.push(item);
+      }
+
+      const processNonCheckInItem = async (item) => {
+        try {
+          const payloadObj = JSON.parse(item.payload_json);
+
+          // Strict ordering invariant: NEVER push UPLOAD_CHECKIN_IMAGE to GAS before its CHECK_IN_OUT row is synced to Google Sheets!
+          if (item.action === 'UPLOAD_CHECKIN_IMAGE') {
+            const targetCheckinId = String(
+              payloadObj?.checkinId ||
+                String(item.dedupe_key || '').replace(/^UPLOAD_CHECKIN_IMAGE:/, '')
+            ).trim();
+            if (targetCheckinId) {
+              const logState = await env.DB.prepare(
+                `SELECT sheet_synced, fullname FROM edge_checkin_logs WHERE id = ?1 LIMIT 1`
+              )
+                .bind(targetCheckinId)
+                .first()
+                .catch(() => null);
+              if (logState && Number(logState.sheet_synced) === 0) {
+                return;
+              }
+              if (logState?.fullname) {
+                payloadObj.fullname = String(logState.fullname).trim();
+              }
+            }
+          }
+
+          const claimRes = await env.DB.prepare(
+            `UPDATE edge_sync_queue SET status = 'processing', updated_at = ?1 WHERE id = ?2 AND status = 'pending'`
+          )
+            .bind(Date.now(), item.id)
+            .run()
+            .catch(() => null);
+          if (claimRes?.meta && typeof claimRes.meta.changes === 'number' && claimRes.meta.changes === 0) {
+            return;
+          }
+
+          const bodyStr = JSON.stringify({ action: item.action, ...payloadObj });
+          const res = await fetch(targetGasUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: bodyStr,
+            signal:
+              typeof AbortSignal !== 'undefined' && AbortSignal.timeout
+                ? AbortSignal.timeout(25000)
+                : undefined,
+          });
+          const parsed = await res.json();
+
+          if (parsed && parsed.ok === true) {
+            await env.DB.prepare(`DELETE FROM edge_sync_queue WHERE id = ?1`).bind(item.id).run();
+            if (item.action === 'REGISTER_SHIFT' && String(item.dedupe_key || '').startsWith('REGISTER_SHIFT:')) {
+              const schedId = item.dedupe_key.replace(/^REGISTER_SHIFT:/, '');
+              await env.DB.prepare(
+                `UPDATE edge_schedules SET sheet_synced = 1, updated_at = ?1 WHERE id = ?2`
+              )
+                .bind(Date.now(), schedId)
+                .run();
+              await invalidateEdgeReadCaches(env, ['GET_DATA', 'GET_ALL_SCHEDULES', 'GET_MONTH_SCHEDULES']);
+            } else if (item.action === 'UPLOAD_CHECKIN_IMAGE') {
+              const uploadedUrl = String(parsed?.data?.url || parsed?.data?.imageUrl || '').trim();
+              const targetId = String(
+                payloadObj?.checkinId ||
+                  String(item.dedupe_key || '').replace(/^UPLOAD_CHECKIN_IMAGE:/, '')
+              ).trim();
+              const targetUser = String(payloadObj?.username || '').trim().toLowerCase();
+              const targetTimeStr = String(payloadObj?.time || '').trim();
+              if (uploadedUrl && (targetId || targetUser)) {
+                await updateEdgeCheckinLogImageUrl(env.DB, uploadedUrl, targetId, targetUser, targetTimeStr);
+              }
+              await invalidateEdgeReadCaches(env, ['GET_DATA', 'GET_CHECKIN_LOGS']);
+            } else {
+              const invActions = getEdgeInvalidationActionsForMutation(item.action);
+              if (Array.isArray(invActions) && invActions.length > 0) {
+                await invalidateEdgeReadCaches(env, invActions);
+              }
+            }
+          } else {
+            await env.DB.prepare(
+              `UPDATE edge_sync_queue SET attempts = attempts + 1, status = 'pending', last_error = ?1, updated_at = ?2 WHERE id = ?3`
+            )
+              .bind(String(parsed?.message || 'GAS returned ok=false'), Date.now(), item.id)
+              .run();
+          }
+        } catch (err) {
+          await env.DB.prepare(
+            `UPDATE edge_sync_queue SET attempts = attempts + 1, status = 'pending', last_error = ?1, updated_at = ?2 WHERE id = ?3`
+          )
+            .bind(String(err?.message || 'Fetch error'), Date.now(), item.id)
+            .run();
+        }
+      };
+
+      // 1. Drain REGISTER_SHIFT first so schedule checks succeed
+      for (const item of registerShiftItems) {
+        await processNonCheckInItem(item);
+      }
+
+      // 2. Drain CHECK_IN_OUT / CHECK_IN in ONE atomic batch (zero ScriptLock storm!)
+      const syncedBeforeBatch = syncedCheckinIdsForImages.length;
+      if (checkInItems.length > 0) {
+        const claimedCheckins = [];
+        for (const item of checkInItems) {
+          try {
+            const payloadObj = JSON.parse(item.payload_json);
+            const claimRes = await env.DB.prepare(
+              `UPDATE edge_sync_queue SET status = 'processing', updated_at = ?1 WHERE id = ?2 AND status = 'pending'`
+            )
+              .bind(Date.now(), item.id)
+              .run()
+              .catch(() => null);
+            if (claimRes?.meta && typeof claimRes.meta.changes === 'number' && claimRes.meta.changes === 0) {
+              continue;
+            }
+            claimedCheckins.push({ item, payloadObj });
+          } catch {}
+        }
+        if (claimedCheckins.length > 0) {
+          await processBatchCheckInQueueItems_(
+            env,
+            targetGasUrl,
+            claimedCheckins,
+            syncedCheckinIdsForImages
+          );
+        }
+      }
+
+      // 3. Immediately chain any staged proof photos waiting on check-ins that just landed in Google Sheets
+      for (const cid of syncedCheckinIdsForImages) {
+        await flushPendingImageForCheckin(env, cid, targetGasUrl).catch(() => {});
+      }
+
+      // 4. Drain remaining queued actions (e.g. ENROLL_FACE_PROFILE, earlier UPLOAD_CHECKIN_IMAGE, etc.)
+      for (const item of otherItems) {
+        if (Date.now() - startedAt >= 22000) break;
+        await processNonCheckInItem(item);
+      }
+
+      // Only loop immediately if this pass actually synced at least one check-in (never tight-spin during a GAS outage!)
+      const checkInProgressMade = syncedCheckinIdsForImages.length > syncedBeforeBatch;
+      if (!checkInProgressMade) {
+        break;
+      }
+
+      // Check if more fresh CHECK_IN_OUT rows arrived while this batch was in flight
+      const morePending = await env.DB.prepare(
+        `SELECT COUNT(*) as c FROM edge_sync_queue
+         WHERE status = 'pending' AND action IN ('CHECK_IN_OUT', 'CHECK_IN') AND attempts = ?1`
+      )
+        .bind(0)
+        .first()
+        .catch(() => null);
+      if (Number(morePending?.c || 0) === 0 && !drainRerunRequested) {
+        break;
+      }
+      // Refresh lease before next loop iteration
+      await acquireEdgeSyncLease(env.DB, leaseOwner, EDGE_SYNC_LEASE_TTL_MS);
+    }
+  } catch {
+  } finally {
+    await releaseEdgeSyncLease(env.DB, leaseOwner);
+  }
+
+  // Tail-race double-check (at most once): if a brand-new check-in (attempts=0) landed in the millisecond right before lease release, drain it!
+  if (!options?._isTailRetry && Date.now() - startedAt < 22000) {
+    try {
+      const tailRow = await env.DB.prepare(
+        `SELECT COUNT(*) as c FROM edge_sync_queue
+         WHERE status = 'pending' AND action IN ('CHECK_IN_OUT', 'CHECK_IN') AND attempts = ?1`
+      )
+        .bind(0)
+        .first()
+        .catch(() => null);
+      if (Number(tailRow?.c || 0) > 0) {
+        await runDrainEdgeSyncQueue_(env, targetGasUrl, { coalesceMs: 0, _isTailRetry: true });
+      }
+    } catch {}
+  }
 }
 
 export function computeEdgeVietnamUpcomingWeekAndWindow(nowMs = Date.now()) {
@@ -3085,9 +3558,7 @@ async function handleInstantCheckInEdge(context, payload, _bodyText, verifiedSes
   const timeStr = String(
     payload.actualTime || payload.time || payload.clientTime || formatVietnamTimestampFromMs(now)
   ).trim();
-  const unifiedPunchType = rawPunchType
-    .replace(/^(?:vào(?:\s+ca)?(?:\s*[1-9])?|in(?:\s*[1-9])?)(?=\s*$|\s*\(|\s+-)/i, 'Vào ca')
-    .replace(/^(?:ra(?:\s+ca)?(?:\s*[1-9])?|out(?:\s*[1-9])?)(?=\s*$|\s*\(|\s+-)/i, 'Ra ca');
+  const unifiedPunchType = normalizeStrictEdgePunchType(rawPunchType);
   const rawImg = String(payload.image || '');
   const cleanImgUrl = rawImg.startsWith('data:image') || !rawImg ? 'PENDING' : rawImg;
   const parsedPunchMs = parseEdgeVietnamTimestampMs(timeStr);
@@ -3137,10 +3608,10 @@ async function handleInstantCheckInEdge(context, payload, _bodyText, verifiedSes
   const dedupeKey = `CHECK_IN_OUT:${logId}`;
   await env.DB.prepare(
     `INSERT INTO edge_sync_queue (dedupe_key, action, payload_json, attempts, status, created_at, updated_at)
-     VALUES (?1, 'CHECK_IN_OUT', ?2, 0, 'processing', ?3, ?3)
+     VALUES (?1, 'CHECK_IN_OUT', ?2, 0, 'pending', ?3, ?3)
      ON CONFLICT(dedupe_key) DO UPDATE SET
        payload_json = excluded.payload_json,
-       status = 'processing',
+       status = 'pending',
        updated_at = excluded.updated_at`
   )
     .bind(dedupeKey, JSON.stringify(queuePayload), now)
@@ -3184,141 +3655,31 @@ async function handleInstantCheckInEdge(context, payload, _bodyText, verifiedSes
   );
 }
 
-async function syncInstantCheckInToGas(context, logId, queuePayload) {
+async function syncInstantCheckInToGas(context, logId, _queuePayload) {
   const { env } = context;
   if (!env?.DB || !logId) return;
   const dedupeKey = `CHECK_IN_OUT:${logId}`;
-  const bodyStr = JSON.stringify({ action: 'CHECK_IN_OUT', ...queuePayload });
 
-  try {
-    const res = await fetch(TARGET_GAS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: bodyStr,
-      signal:
-        typeof AbortSignal !== 'undefined' && AbortSignal.timeout
-          ? AbortSignal.timeout(26000)
-          : undefined,
-    });
-    let parsed = await res.json();
+  // Route through the D1-lease-serialized, coalescing batch drain engine so 10-20 simultaneous staff punches
+  // coalesce into 1-2 atomic BATCH_CHECK_IN_OUT calls instead of causing GAS ScriptLock contention storms!
+  await drainEdgeSyncQueue(env, TARGET_GAS_URL, { coalesceMs: 60 });
 
-    // Self-heal v2_face profile on GAS if CONFIG_FACE_ID was missing/corrupted
-    const firstErrCode = String(parsed?.code || parsed?.data?.code || '').trim();
-    if (
-      (!parsed || parsed.ok !== true) &&
-      String(queuePayload.checkinMode || '').trim() === 'v2_face' &&
-      (firstErrCode === 'FACE_VERIFICATION_FAILED' || firstErrCode === 'FACE_PROFILE_NOT_FOUND')
-    ) {
-      const targetUser = String(queuePayload.username || '').trim().toLowerCase();
-      const d1FaceRow = targetUser
-        ? await env.DB.prepare(
-            `SELECT username, fullname, role, position, avatar_url, employment_status, model_version, angle_count, vectors_b64, centroid_b64, quality_score, enrolled_by
-             FROM edge_face_profiles WHERE username = ?1 LIMIT 1`
-          )
-            .bind(targetUser)
-            .first()
-            .catch(() => null)
-        : null;
-      if (d1FaceRow?.vectors_b64) {
-        const healedFace = await healFaceProfileToGas(env, d1FaceRow);
-        if (healedFace) {
-          const retryFaceRes = await fetch(TARGET_GAS_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: bodyStr,
-            signal:
-              typeof AbortSignal !== 'undefined' && AbortSignal.timeout
-                ? AbortSignal.timeout(26000)
-                : undefined,
-          });
-          parsed = await retryFaceRes.json();
-        }
-      }
-    }
-
-    // Self-heal unsynced D1 schedule on GAS if SCHEDULE_REQUIRED returned
-    const secondErrCode = String(parsed?.code || parsed?.data?.code || '').trim();
-    if ((!parsed || parsed.ok !== true) && secondErrCode === 'SCHEDULE_REQUIRED') {
-      const healedSched = await trySelfHealScheduleForCheckIn(env, queuePayload, parsed);
-      if (healedSched) {
-        const retrySchedRes = await fetch(TARGET_GAS_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: bodyStr,
-          signal:
-            typeof AbortSignal !== 'undefined' && AbortSignal.timeout
-              ? AbortSignal.timeout(26000)
-              : undefined,
-        });
-        parsed = await retrySchedRes.json();
-      }
-    }
-
-    const finalCode = String(parsed?.code || parsed?.data?.code || '').trim();
-    const isSuccessOrIdempotent =
-      Boolean(parsed && parsed.ok === true) || finalCode === 'ALREADY_CHECKED_IN';
-
-    if (isSuccessOrIdempotent) {
-      const canonicalName = String(
-        parsed?.data?.fullname || parsed?.data?.hoVaTen || queuePayload.fullname || ''
-      ).trim();
-      const canonicalType = String(parsed?.data?.type || queuePayload.type || '').trim();
-
-      await env.DB.prepare(
-        `UPDATE edge_checkin_logs
-         SET sheet_synced = 1,
-             fullname = CASE WHEN ?2 != '' THEN ?2 ELSE fullname END,
-             check_type = CASE WHEN ?3 != '' THEN ?3 ELSE check_type END
-         WHERE id = ?1`
-      )
-        .bind(logId, canonicalName, canonicalType)
-        .run();
-
-      await env.DB.prepare(`DELETE FROM edge_sync_queue WHERE dedupe_key = ?1`)
-        .bind(dedupeKey)
-        .run();
-
-      await invalidateEdgeReadCaches(env, [
-        'GET_DATA',
-        'GET_CHECKIN_LOGS',
-        'GET_KIOSK_ATTENDANCE_STATE',
-      ]);
-
-      // Immediately flush any staged check-in photo waiting on this row!
-      await flushPendingImageForCheckin(env, logId, TARGET_GAS_URL);
-      return;
-    }
-
-    const isPermanentRejection =
-      finalCode === 'OUT_OF_RADIUS' ||
-      finalCode === 'PHOTO_EXPIRED' ||
-      finalCode === 'ACCOUNT_INACTIVE' ||
-      finalCode === 'MAX_4_PUNCHES';
-
-    if (isPermanentRejection) {
-      await env.DB.prepare(`DELETE FROM edge_checkin_logs WHERE id = ?1`).bind(logId).run().catch(() => {});
-      await env.DB.prepare(`DELETE FROM edge_sync_queue WHERE dedupe_key = ?1`).bind(dedupeKey).run().catch(() => {});
-      await env.DB.prepare(`DELETE FROM edge_sync_queue WHERE dedupe_key = ?1`)
-        .bind(`UPLOAD_CHECKIN_IMAGE:${logId}`)
-        .run()
-        .catch(() => {});
-      await invalidateEdgeReadCaches(env, ['GET_DATA', 'GET_CHECKIN_LOGS', 'GET_KIOSK_ATTENDANCE_STATE']);
-      return;
-    }
-
-    // Transient GAS contention (LOCK_TIMEOUT / SAVE_ERROR / 5xx): return to 'pending' for automatic retry
-    await env.DB.prepare(
-      `UPDATE edge_sync_queue SET status = 'pending', attempts = attempts + 1, last_error = ?1, updated_at = ?2 WHERE dedupe_key = ?3`
+  // If another isolate held the lease when we arrived, wait briefly and drain ONLY if still untried (attempts === 0)
+  for (let checkAttempt = 0; checkAttempt < 3; checkAttempt++) {
+    const stillPending = await env.DB.prepare(
+      `SELECT status, attempts FROM edge_sync_queue WHERE dedupe_key = ?1 LIMIT 1`
     )
-      .bind(String(parsed?.message || finalCode || 'GAS sync retry'), Date.now(), dedupeKey)
-      .run();
-  } catch (err) {
-    await env.DB.prepare(
-      `UPDATE edge_sync_queue SET status = 'pending', attempts = attempts + 1, last_error = ?1, updated_at = ?2 WHERE dedupe_key = ?3`
-    )
-      .bind(String(err?.message || 'GAS fetch error'), Date.now(), dedupeKey)
-      .run()
-      .catch(() => {});
+      .bind(dedupeKey)
+      .first()
+      .catch(() => null);
+    if (!stillPending) return;
+    if (Number(stillPending.attempts || 0) > 0) return;
+    if (stillPending.status === 'pending') {
+      await new Promise((r) => setTimeout(r, 200));
+      await drainEdgeSyncQueue(env, TARGET_GAS_URL, { coalesceMs: 0 });
+    } else {
+      await new Promise((r) => setTimeout(r, 250));
+    }
   }
 }
 

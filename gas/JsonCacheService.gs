@@ -277,8 +277,8 @@ var JsonCacheService = (function() {
     }
 
     addRange(CONFIG.SHEET_USERS, "A1:L");
-    addRange(CONFIG.SHEET_LOGS, "A1:H");
-    addRange("👨‍🍳 CHẤM CÔNG BẾP - TẠP VỤ", "A1:H");
+    addRange(CONFIG.SHEET_LOGS, "A1:I");
+    addRange("👨‍🍳 CHẤM CÔNG BẾP - TẠP VỤ", "A1:I");
     addRange(CONFIG.SHEET_API_KEYS, "A1:C");
     addRange(CONFIG.SHEET_CHAT_LOGS, "A1:E");
     addRange(CONFIG.SHEET_CONFIG, "A1:B");
@@ -574,10 +574,15 @@ var JsonCacheService = (function() {
     var statusVal = row[4] ? row[4].toString() : '';
     var upperStatus = statusVal.toUpperCase();
     var isHopLe = upperStatus.indexOf('HỢP LỆ') >= 0 && upperStatus.indexOf('KHÔNG') < 0;
-    var note = rowJson && rowJson.ghiChu
-      ? rowJson.ghiChu
-      : (rowJson && rowJson.diTre ? 'Trễ ' + rowJson.diTre + 'p' : '');
-    if (rowJson && rowJson.isCorrected) {
+    var colINote = row[8] ? row[8].toString().trim() : '';
+    var note = colINote
+      ? colINote
+      : (rowJson && rowJson.ghiChu
+        ? String(rowJson.ghiChu).trim()
+        : (rowJson && rowJson.suspectedMissedCheckIn
+          ? 'Lệch ca >2h - Chờ đối soát' + (rowJson.caLam ? ' (Ca ' + rowJson.caLam + ')' : '')
+          : (rowJson && Number(rowJson.diTre) > 5 ? 'Trễ ' + rowJson.diTre + 'p' + (rowJson.caLam ? ' (Ca ' + rowJson.caLam + ')' : '') : '')));
+    if (rowJson && rowJson.isCorrected && note.indexOf('Đã sửa từ') < 0) {
       note = (note ? note + ' • ' : '') + 'Đã sửa từ ' + (rowJson.originalType || 'loại cũ');
     }
 
